@@ -93,6 +93,12 @@ fn given_browser_session_roles_when_work_is_requested_then_scope_revocation_and_
             let mut input = snapshot(location);
             input.documents.get_mut("triggers").expect("triggers")["health_orders"]["when"] =
                 json!({"kind":"custom", "function":"orders_ready", "code_hash":"orders_v1"});
+            input.documents.get_mut("jobs").expect("jobs")["orders"]["concurrency_groups"] =
+                json!(["warehouse_heavy"]);
+            input.documents.insert(
+                "groups".into(),
+                json!({"nightly": {"description": "Nightly orders", "selection": ["orders"], "jobs": {"orders": []}}}),
+            );
             let sql_input: Value = serde_json::from_str(
                 &std::fs::read_to_string(
                     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -178,6 +184,10 @@ fn given_browser_session_roles_when_work_is_requested_then_scope_revocation_and_
             let mut expected_work = 1;
             let mut expected_runs = 1;
             let mut last_request = Value::Null;
+            let mut listed_person_runs = 0;
+            let mut launched_person_runs = 0;
+            let mut prioritised_runs: Vec<Value> = Vec::new();
+            let mut listed_seed_runs = 0;
             for role_case in roles {
                 for role in role_case.role.iter().copied() {
                     assign_builtin_role(
@@ -234,7 +244,241 @@ fn given_browser_session_roles_when_work_is_requested_then_scope_revocation_and_
                         page.is_array(),
                         role_case.expected_metadata == StatusCode::OK.as_u16()
                     );
+                    let rows = page.as_array().into_iter().flatten();
+                    let mut listed_here = 0;
+                    for launched in rows
+                        .clone()
+                        .filter(|row| row["requested_by"] == json!(format!("principal:{person}")))
+                    {
+                        listed_person_runs += 1;
+                        listed_here += 1;
+                        for (key, expected) in [
+                            ("kind", json!("job")),
+                            ("origin", json!("manual")),
+                            ("job_key", json!("orders")),
+                            ("requester_name", json!("orders-person")),
+                            ("root_run_id", launched["run_id"].clone()),
+                            ("parent_run_id", Value::Null),
+                            ("trigger_name", Value::Null),
+                            ("rerun_of_run_id", Value::Null),
+                            (
+                                "priority",
+                                json!(i64::from(prioritised_runs.contains(&launched["run_id"]))),
+                            ),
+                            ("rewrite_history", json!(false)),
+                            ("cancel_requested_at", Value::Null),
+                        ] {
+                            assert_eq!(launched[key], expected, "person-requested run {key}");
+                        }
+                    }
+                    assert_eq!(
+                        listed_here,
+                        launched_person_runs * usize::from(page.is_array()),
+                        "every earlier person launch is listed"
+                    );
+                    for seeded in rows.filter(|row| row["run_id"] == json!(seed_run.run_id)) {
+                        listed_seed_runs += 1;
+                        for (key, expected) in [
+                            ("kind", json!("adhoc")),
+                            ("requested_by", json!("test-operator")),
+                            ("requester_name", Value::Null),
+                        ] {
+                            assert_eq!(seeded[key], expected, "system-requested run {key}");
+                        }
+                    }
                     assert!(!page.to_string().contains("select 1 as id"));
+                    let known_reads = [
+                        format!("{metadata}/{}/nodes", seed_run.run_id),
+                        format!("/api/control/locations/{location}/targets/development/nodes"),
+                        format!(
+                            "/api/control/locations/{location}/targets/development/nodes/orders/runs"
+                        ),
+                        format!("/api/control/locations/{location}/targets/development/jobs"),
+                        format!("/api/control/locations/{location}/targets/development/triggers"),
+                        format!("/api/control/locations/{location}/targets/development/snapshots"),
+                        format!("/api/control/locations/{location}/targets/development/health"),
+                        format!(
+                            "/api/control/locations/{location}/targets/development/triggers/{}/ticks",
+                            trigger.trigger_id
+                        ),
+                    ];
+                    let unknown_reads = [
+                        format!("{metadata}/{}/nodes", Uuid::now_v7()),
+                        format!(
+                            "/api/control/locations/{location}/targets/development/triggers/{}/ticks",
+                            Uuid::now_v7()
+                        ),
+                    ];
+                    for read_path in &known_reads {
+                        let detail = request(
+                            &provider.client,
+                            session,
+                            (Method::GET, read_path),
+                            (&Value::Null, &session.csrf),
+                        )
+                        .await;
+                        assert_eq!(
+                            detail.status().as_u16(),
+                            role_case.expected_metadata,
+                            "{read_path}"
+                        );
+                        let detail: Value = detail.json().await.expect("detail response");
+                        assert_eq!(
+                            detail.is_array(),
+                            role_case.expected_metadata == StatusCode::OK.as_u16(),
+                            "{read_path}"
+                        );
+                    }
+                    let granted = usize::from(role_case.expected_admin == StatusCode::OK.as_u16());
+                    let mut admin_reads = Vec::new();
+                    for admin_read in [
+                        "/api/admin/people".to_owned(),
+                        "/api/admin/roles".to_owned(),
+                        format!("/api/admin/locations/{location}/targets/development/roles"),
+                    ] {
+                        let listed = request(
+                            &provider.client,
+                            session,
+                            (Method::GET, &admin_read),
+                            (&Value::Null, &session.csrf),
+                        )
+                        .await;
+                        assert_eq!(
+                            listed.status().as_u16(),
+                            role_case.expected_admin,
+                            "{admin_read}"
+                        );
+                        admin_reads.push(listed.json::<Value>().await.expect("admin read"));
+                    }
+                    let own: Vec<&Value> = admin_reads[0]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter(|entry| entry["principal_id"] == json!(person))
+                        .collect();
+                    assert_eq!(own.len(), granted, "an administrator lists the person");
+                    for entry in own {
+                        let mut keys: Vec<&str> = entry
+                            .as_object()
+                            .expect("person")
+                            .keys()
+                            .map(String::as_str)
+                            .collect();
+                        keys.sort_unstable();
+                        assert_eq!(
+                            keys,
+                            [
+                                "active_sessions",
+                                "created_at",
+                                "disabled_at",
+                                "groups",
+                                "has_password",
+                                "last_signed_in_at",
+                                "name",
+                                "principal_id"
+                            ],
+                            "sign-in facts only, never secrets"
+                        );
+                        assert!(entry["active_sessions"].as_i64() >= Some(1));
+                    }
+                    assert_eq!(
+                        admin_reads[1]["assignments"]
+                            .as_array()
+                            .into_iter()
+                            .flatten()
+                            .filter(|entry| entry["principal_id"] == json!(person)
+                                && entry["role_key"] == "admin")
+                            .count(),
+                        granted,
+                        "an administrator sees the person's admin assignment"
+                    );
+                    let jobs: Value = request(
+                        &provider.client,
+                        session,
+                        (
+                            Method::GET,
+                            &format!("/api/control/locations/{location}/targets/development/jobs"),
+                        ),
+                        (&Value::Null, &session.csrf),
+                    )
+                    .await
+                    .json()
+                    .await
+                    .expect("jobs response");
+                    let listed_jobs: Vec<Value> =
+                        jobs.as_array().into_iter().flatten().cloned().collect();
+                    let expected_jobs = [
+                        json!({"job_key": "nightly", "kind": "group", "description": "Nightly orders",
+                            "selection": ["orders"], "concurrency_groups": [], "snapshot_id": published.snapshot_id}),
+                        json!({"job_key": "orders", "kind": "job", "description": "Refresh orders",
+                            "selection": ["orders"], "concurrency_groups": ["warehouse_heavy"], "snapshot_id": published.snapshot_id}),
+                    ];
+                    assert_eq!(
+                        listed_jobs,
+                        expected_jobs[..expected_jobs.len() * usize::from(jobs.is_array())],
+                        "jobs list declared metadata and never settings"
+                    );
+                    let node_runs: Value = request(
+                        &provider.client,
+                        session,
+                        (
+                            Method::GET,
+                            &format!("/api/control/locations/{location}/targets/development/nodes/orders/runs"),
+                        ),
+                        (&Value::Null, &session.csrf),
+                    )
+                    .await
+                    .json()
+                    .await
+                    .expect("node runs response");
+                    let seeded_node_runs: Vec<&Value> = node_runs
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter(|row| row["run_id"] == json!(seed_run.run_id))
+                        .collect();
+                    assert_eq!(
+                        seeded_node_runs.len(),
+                        usize::from(node_runs.is_array()),
+                        "the seed run built orders once"
+                    );
+                    for seeded in seeded_node_runs {
+                        for (key, expected) in [
+                            ("job_key", Value::Null),
+                            ("status", json!("pending")),
+                            ("error_code", Value::Null),
+                        ] {
+                            assert_eq!(seeded[key], expected, "node run {key}");
+                        }
+                    }
+                    assert_eq!(
+                        node_runs
+                            .as_array()
+                            .into_iter()
+                            .flatten()
+                            .filter(|row| row["job_key"] == json!("orders"))
+                            .count(),
+                        launched_person_runs * usize::from(node_runs.is_array()),
+                        "every person launch of the orders job built orders"
+                    );
+                    for read_path in &unknown_reads {
+                        let missing = request(
+                            &provider.client,
+                            session,
+                            (Method::GET, read_path),
+                            (&Value::Null, &session.csrf),
+                        )
+                        .await;
+                        assert_eq!(
+                            missing.status().as_u16(),
+                            if role_case.expected_metadata == StatusCode::OK.as_u16() {
+                                StatusCode::NOT_FOUND.as_u16()
+                            } else {
+                                role_case.expected_metadata
+                            },
+                            "{read_path}"
+                        );
+                    }
                     let sql = request(
                         &provider.client,
                         session,
@@ -290,6 +534,25 @@ fn given_browser_session_roles_when_work_is_requested_then_scope_revocation_and_
                         .as_u16(),
                         role_case.expected_job
                     );
+                    launched_person_runs += usize::from(role_case.expected_job == 200);
+                    let urgent = json!({"run_id":Uuid::now_v7(), "location_id":location, "target":"development", "job_key":"orders", "reason":"Refresh orders first", "priority":1});
+                    assert_eq!(
+                        request(
+                            &provider.client,
+                            session,
+                            (Method::POST, "/api/control/runs"),
+                            (&urgent, &session.csrf)
+                        )
+                        .await
+                        .status()
+                        .as_u16(),
+                        role_case.expected_prioritised,
+                        "a priority above 0 needs run.prioritise"
+                    );
+                    let accepted = usize::from(role_case.expected_prioritised == 200);
+                    launched_person_runs += accepted;
+                    prioritised_runs
+                        .extend(std::iter::repeat_n(urgent["run_id"].clone(), accepted));
                     for (endpoint, request_body) in
                         [(&path[..], &body), ("/api/control/runs", &job)]
                     {
@@ -335,6 +598,8 @@ fn given_browser_session_roles_when_work_is_requested_then_scope_revocation_and_
                 }
                 expected_work += usize::from(role_case.expected_connection == 200) * sessions.len();
                 expected_runs += usize::from(role_case.expected_job == 200) * sessions.len();
+                expected_runs +=
+                    usize::from(role_case.expected_prioritised == 200) * sessions.len();
                 assert_eq!(
                     queue_counts(store).await,
                     json!({"work":expected_work,"runs":expected_runs,"claims":0})
@@ -411,6 +676,14 @@ fn given_browser_session_roles_when_work_is_requested_then_scope_revocation_and_
                     json!({"work":expected_work,"runs":expected_runs,"claims":0})
                 );
             }
+            assert!(
+                listed_person_runs > 0,
+                "a person-launched run was listed and checked"
+            );
+            assert!(
+                listed_seed_runs > 0,
+                "the system-requested run was listed and checked"
+            );
             assign_builtin_role(
                 &replica,
                 (&context, admin_session.identity.principal_id),

@@ -1,11 +1,10 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.types.collections import StringCollection
 
 
-@dataclass
 class VivaResourceLink(ClientValue):
     Audiences: StringCollection = field(default_factory=StringCollection)
     Icon: Optional[str] = None

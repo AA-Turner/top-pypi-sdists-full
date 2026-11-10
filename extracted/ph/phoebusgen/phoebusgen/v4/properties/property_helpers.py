@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, is_dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, TypeVar, Union, cast
 from xml.etree.ElementTree import Element
 
 from phoebusgen.v4.utils import PhoebusElement
@@ -14,52 +14,189 @@ from phoebusgen.v4.utils import PhoebusElement
 try:
     from typing import get_args, get_origin  # novermin
 except ImportError:
-    def get_origin(tp):
-        return getattr(tp, '__origin__', None)
+    def get_origin(tp: Any) -> Any:
+        origin = getattr(tp, '__origin__', None)
+        # On 3.6, subscripting a generic alias (e.g. Union[T, str][X]) sets __origin__ to the alias, not the root
+        while getattr(origin, '__origin__', None) is not None:
+            origin = origin.__origin__  # type: ignore
+        if origin == List:
+            return list
+        elif origin == Dict:
+            return dict
+        elif origin == Tuple:
+            return tuple
+        return origin
 
-    def get_args(tp):
+    def get_args(tp: Any) -> Tuple[Any, ...]:
         return getattr(tp, '__args__', ())
 
 from .types import (
     Action,
     Color,
+    EmbeddedScript,
+    EmbeddedScriptType,
     Font,
     ObservableDataclass,
     ObservableDict,
     ObservableList,
     Rule,
     RuleExpression,
+    PropertyType,
+    Script,
     ValidListTypeT,
 )
 
 Primitive = Union[int, float, str, bool]
-PropertyType = Union[
-    int, float, str, bool,
-    Tuple,
-    Enum,
-    Color,
-    Font,
-    ObservableDict,
-    ObservableList,
-    ObservableDataclass,
-    Rule,
-    RuleExpression,
-]
+PrimitiveT = TypeVar('PrimitiveT', bound=Primitive)
 PropertyTypeT = TypeVar('PropertyTypeT', bound=PropertyType)
+ObservableDataclassT = TypeVar('ObservableDataclassT', bound=ObservableDataclass)
+
+NoneType = type(None)  # Used for checking if a type is NoneType (e.g. for Optional[X] which is Union[X, NoneType])
+
+# Concrete runtime classes behind the PropertyType union, for isinstance checks.
+# PropertyType itself can't be used with isinstance because it contains subscripted
+# generics (e.g. Tuple, Dict, List), which raise TypeError on Python 3.8/3.9.
+_PROPERTY_TYPE_CLASSES = (int, float, str, bool, tuple, Enum, Color, dict, list, Path, ObservableDataclass)
 
 @dataclass
 class PropertyInfo:
-    type: Type[PropertyTypeT]
-    default_value: PropertyTypeT
+    type: Type[PropertyType]
+    default_value: PropertyType
+
 
 def _create_element(prop_name: str, value: Optional[str] = None) -> Element:
+    """Create an XML element with the given property name and optional value.
+
+    :param prop_name: The name of the property
+    :param value: The optional value of the property
+    :return: An XML element with the given property name and value
+    """
+
     element = Element(prop_name)
     if value is not None:
         element.text = str(value)
     return element
 
+
+def _unpack_union_type(union_type: Type[PropertyType]) -> Type[PropertyType]:
+    """Given a Union type, return the first non-None type in the union.
+
+    For example, given Union[int, None], this function will return int.
+    If there are multiple non-None types, the first one is returned.
+    If there are no non-None types, None is returned.
+
+    :param union_type: The Union type to unpack
+    :return: The first non-None type in the union, or None if there are no non-None types
+    """
+
+    if get_origin(union_type) is not Union:
+        raise ValueError(f"Type {union_type} is not a Union type!")
+
+    args = get_args(union_type)
+    non_none_args = [arg for arg in args if arg is not NoneType]
+    if len(non_none_args) == 0:
+        raise ValueError(f"Union type {union_type} has no non-None types!")
+    return non_none_args[0]
+
+
+def _normalize_property_type(property_type: Type[PropertyType]) -> Type[PropertyType]:
+    """Given a property type, normalize it to a single type for use in the _all_properties dictionary.
+
+    :param property_type: The property type to normalize
+    :return: The normalized property type
+    """
+
+    if get_origin(property_type) is Union:
+        return _normalize_property_type(_unpack_union_type(property_type))
+    args = get_args(property_type)
+    if args:
+        origin = get_origin(property_type)
+        # On Python < 3.9, builtin types (list, dict, tuple) don't support
+        # subscripting directly; use their typing module equivalents instead.
+        _builtin_to_typing = {list: List, dict: Dict, tuple: Tuple}
+        subscriptable = _builtin_to_typing.get(origin, origin)
+        normalized_args = tuple(_normalize_property_type(arg) for arg in args)
+        if len(normalized_args) == 1:
+            return subscriptable[normalized_args[0]]
+        return subscriptable[normalized_args]
+    return property_type
+
+
+def _make_default_prop_val(property_type: Type[PropertyType]) -> PropertyType:
+    """Given a property type, return a default value for it.
+
+    For example, for int return 0, for str return '', for ObservableList return an empty list, etc.
+
+    :param property_type: The type of the property to create a default value for
+    :return: A default value for the property type
+    """
+
+    if get_origin(property_type) is list:
+        return ObservableList()
+    elif get_origin(property_type) is dict:
+        return ObservableDict()
+    elif isinstance(property_type, type) and issubclass(property_type, Enum):
+        return list(property_type)[0]
+    else:
+        return property_type()  # Call the type to get a default value (e.g. int() -> 0, str() -> '', etc.)
+
+
+def _str_to_primitive(value: str, property_type: Type[PrimitiveT]) -> PrimitiveT:
+    """Convert a string value to a primitive type (int, float, str, bool) based on the given property type."""
+
+    if property_type is bool:
+        if value not in ('true', 'false'):
+            raise ValueError(f"XML element for bool property has invalid text value '{value}'!")
+        return cast(PrimitiveT, value.lower() == 'true')
+    try:
+        if property_type is int:
+            if float(value).is_integer():
+                return cast(PrimitiveT, int(float(value)))
+            raise ValueError(f"XML element for int property has non-integer text value '{value}'!")
+        return property_type(value)
+    except ValueError as e:
+        raise ValueError(f"could not convert '{value}' to {property_type.__name__}") from e
+
+
+def _coerce_enum_value(value: Any, enum_type: Type[Enum]) -> Enum:
+    """Resolve an enum member, the name of a member, or the value of a member into a member of the given Enum type.
+
+    Name lookups are case-insensitive, as are value lookups for enums with string values.
+
+    :param value: The Enum member, member name, or member value to resolve
+    :param enum_type: The Enum type to resolve the value against
+    :return: The matching Enum member
+    """
+
+    if isinstance(value, enum_type):
+        return value
+
+    if isinstance(value, str):
+        member = enum_type.__members__.get(value, enum_type.__members__.get(value.upper()))
+        if member is not None:
+            return member
+
+    try:
+        return enum_type(value)
+    except ValueError:
+        pass
+
+    if isinstance(value, str):
+        for member in enum_type:
+            if isinstance(member.value, str) and member.value.lower() == value.lower():
+                return member
+
+    raise ValueError(f"'{value}' is not a valid member name or value for enum '{enum_type.__name__}'!")
+
+
+def _is_enum_type(property_type: Any) -> bool:
+    """Return True if the given property type is an Enum subclass."""
+
+    return isinstance(property_type, type) and issubclass(property_type, Enum)
+
+
 class PropertyMetaclass(type):
-    def __new__(mcs, name, bases, attrs):
+    def __new__(mcs, name: str, bases: Tuple[Type['PropertyBase'], ...], attrs: Dict[str, object]) -> Type:
 
         # Keep a running dictionary of all properties defined by all property mixin classes,
         # so that we can look up property types and default values by name at runtime for any
@@ -72,13 +209,12 @@ class PropertyMetaclass(type):
         def getter(self: 'PropertyBase', prop_name: str, property_type: Type[PropertyType]) -> PropertyType:
             tag_name = self._get_property_tag_name(prop_name)
             element = self.root.find(tag_name) if tag_name is not None else self.root
-
             if element is not None:
                 # Get the appropriate getter function for the property type
                 typed_getter = self._find_getter_by_type(property_type)
 
                 # For lists, we pass the item type instead
-                if get_origin(property_type) is ObservableList:
+                if get_origin(property_type) is list:
                     property_type = get_args(property_type)[0]
 
                 # Based on the function signature, dynamically create a list of arguments
@@ -91,7 +227,7 @@ class PropertyMetaclass(type):
             else:
                 # If element for property was not found, use the default value. Make it a
                 # deep copy so that mutable types don't share references.
-                new_val = copy.deepcopy(self._all_properties[cls][prop_name].default_value)
+                new_val = copy.deepcopy(self._all_properties[cls][prop_name].default_value)  # type: ignore
 
             # For compound types, set up a change callback to update the XML when compoents are modified
             # i.e. a list element is added/removed, a dict item is changed, or a dataclass field is updated
@@ -110,10 +246,15 @@ class PropertyMetaclass(type):
             if not self._is_set_value_valid(value, property_type):
                 raise TypeError(f"Value {value} is of invalid type for property '{prop_name}': must be of type {property_type}")
 
+            # Enum properties may be set using the member itself, its name, or its value
+            if _is_enum_type(property_type):
+                value = _coerce_enum_value(value, cast(Type[Enum], property_type))
+
+            tag = self.root.find(tag_name) if tag_name is not None else None
             # Remove existing property element if found
-            if tag_name is not None and self.root.find(tag_name) is not None:
-                self.root.remove(self.root.find(tag_name))
-            elif tag_name is None and get_origin(property_type) is ObservableList:
+            if tag is not None:
+                self.root.remove(tag)
+            elif tag_name is None and get_origin(property_type) is list:
                 # For list properties stored as direct children (tag_name=None),
                 # remove all existing child elements with the item tag name
                 item_tag = self._get_list_item_tag_name(prop_name)
@@ -133,38 +274,30 @@ class PropertyMetaclass(type):
         if name not in ['PropertyBase', 'Widget', 'Screen'] and not any(base.__name__ in ['Widget', 'Screen'] for base in bases):
             all_properties[cls] = {}
             for prop_name, annotation in cls.__annotations__.items():
-                base_prop_type = annotation
 
                 # Unwrap Optional[X] (Union[X, None]) to X for property type resolution
-                unwrapped = annotation
-                if get_origin(annotation) is Union:
-                    args = get_args(annotation)
-                    non_none_args = [a for a in args if a is not type(None)]
-                    unwrapped = non_none_args[0]
+                property_type = _normalize_property_type(annotation)
+                default_value: PropertyType = cast(PropertyType, attrs.get(prop_name, _make_default_prop_val(property_type)))
 
-                if hasattr(unwrapped, '__origin__'):
-                    property_type = unwrapped.__origin__
-                else:
-                    property_type = unwrapped
-                default_value = attrs.get(prop_name, property_type() if not issubclass(property_type, Enum) else list(property_type)[0])
-
-                def prop_getter(self, prop_name=prop_name, prop_type=annotation):
+                def prop_getter(self, prop_name=prop_name, prop_type=property_type):
                     return getter(self, prop_name, prop_type)
-                def prop_setter(self, value, prop_name=prop_name, prop_type=annotation):
+                def prop_setter(self, value, prop_name=prop_name, prop_type=property_type):
                     return setter(self, prop_name, prop_type, value)
 
                 setattr(cls, prop_name, property(prop_getter, prop_setter))
-                all_properties[cls][prop_name] = PropertyInfo(type=base_prop_type, default_value=default_value)
+                all_properties[cls][prop_name] = PropertyInfo(type=property_type, default_value=default_value)
 
 
         # Collect property names and types from base classes to keep a running dictionary
         # of all property classes and the individual properties they define
         for base in bases:
-            if hasattr(base, '_all_properties'):
-                all_properties.update(base._all_properties)
+            base_all_properties = getattr(base, '_all_properties', None)
+            if base_all_properties is None:
+                continue
+            all_properties.update(base_all_properties)
 
         if '_all_properties' in attrs:
-            all_properties.update(attrs['_all_properties'])
+            all_properties.update(attrs['_all_properties'])  # type: ignore
 
         # Allow subclasses (e.g. Screen, Widget) to override default values for inherited
         # properties by declaring class-level annotations with a value. For example:
@@ -175,14 +308,14 @@ class PropertyMetaclass(type):
         is_property_mixin = name not in ['PropertyBase', 'Widget', 'Screen'] and not any(base.__name__ in ['Widget', 'Screen'] for base in bases)
         if not is_property_mixin:
             for prop_name, default_val in attrs.items():
-                if prop_name.startswith('_') or callable(default_val) or isinstance(default_val, (classmethod, staticmethod, property)):
+                if prop_name.startswith('_') or callable(default_val) or not isinstance(default_val, _PROPERTY_TYPE_CLASSES):
                     continue
                 # Check if this attribute matches a property defined in a parent mixin
                 for prop_cls, props in all_properties.items():
                     if prop_name in props:
                         # Make a per-class copy of the mixin's property dict so we don't mutate the shared one
                         all_properties[prop_cls] = copy.deepcopy(all_properties[prop_cls])
-                        all_properties[prop_cls][prop_name].default_value = default_val
+                        all_properties[prop_cls][prop_name].default_value = cast(PropertyType, default_val)
                         # Remove the class attribute so the property descriptor from the mixin is used
                         if prop_name in cls.__dict__:
                             delattr(cls, prop_name)
@@ -230,7 +363,7 @@ class PropertyBase(metaclass=PropertyMetaclass):
         """
 
         property_type = cls.get_property_type_by_name(property_name)
-        if tag_name is None and get_origin(property_type) not in (ObservableList, ObservableDict):
+        if tag_name is None and get_origin(property_type) not in (list, dict):
             raise ValueError(f"Only list or dict properties can have tag_name set to None, but property '{property_name}' is of type '{property_type}'!")
 
         # Ensure we have a per-class dict rather than mutating a parent class's dict
@@ -316,7 +449,7 @@ class PropertyBase(metaclass=PropertyMetaclass):
 
 
     @classmethod
-    def _get_property_type_from_prop_id(cls, prop_id: str) -> Type:
+    def _get_property_type_from_prop_id(cls, prop_id: str) -> Type[PropertyType]:
         """Given a property ID string, get the type of the innermost property.
 
         For example, given the prop_id 'y_axes[0].title_font.style', this function will return FontStyle,
@@ -338,19 +471,23 @@ class PropertyBase(metaclass=PropertyMetaclass):
         if base_prop_type is None:
             raise ValueError(f"Property type for prop_id '{prop_id}' not found in all_properties dictionary!")
 
-        def get_nested_property_type(prop_id: str, base_type: type):
-            if get_origin(base_type) is ObservableList:
+        base_prop_type = _normalize_property_type(base_prop_type)
+
+        def get_nested_property_type(prop_id: str, base_type: Type[PropertyType]) -> Type[PropertyType]:
+            if get_origin(base_type) is list:
                 return get_nested_property_type(prop_id.split(']', 1)[1], get_args(base_type)[0])
-            elif get_origin(base_type) is ObservableDict:
+            elif get_origin(base_type) is dict:
                 return get_nested_property_type(prop_id.split('.', 1)[1], get_args(base_type)[1])
-            elif issubclass(base_type, ObservableDataclass):
+            elif is_dataclass(base_type) and issubclass(base_type, ObservableDataclass):
                 dataclass_field_name = prop_id.split('.')[1]
                 if '[' in dataclass_field_name:
                     dataclass_field_name = dataclass_field_name.split('[')[0]
                 dataclass_fields = base_type.fields()
                 if dataclass_field_name in dataclass_fields:
-                    field_type = dataclass_fields[dataclass_field_name].type
+                    field_type = _normalize_property_type(dataclass_fields[dataclass_field_name].type)  # type: ignore
                     return get_nested_property_type(prop_id.split('.', 1)[1], field_type)
+                else:
+                    raise ValueError(f"Dataclass '{base_type.__name__}' has no field '{dataclass_field_name}' for prop_id '{prop_id}'!")
             else:
                 return base_type
 
@@ -358,7 +495,7 @@ class PropertyBase(metaclass=PropertyMetaclass):
 
 
     @classmethod
-    def _find_getter_by_type(cls, property_type: Type[PropertyType]) -> Callable:
+    def _find_getter_by_type(cls, property_type: Type[PropertyTypeT]) -> Callable[..., PropertyTypeT]:
         """Given a property type, find the appropriate low-level getter function for it.
 
         For example, if the property type is Color, this function will return the _get_color_property function,
@@ -371,7 +508,7 @@ class PropertyBase(metaclass=PropertyMetaclass):
 
 
     @classmethod
-    def _find_setter_by_type(cls, property_type: Type[PropertyType]) -> Callable:
+    def _find_setter_by_type(cls, property_type: Type[PropertyTypeT]) -> Callable[..., Element]:
         """Given a property type, find the appropriate low-level setter function for it.
 
         For example, if the property type is Color, this function will return the _set_color_property function,
@@ -391,41 +528,26 @@ class PropertyBase(metaclass=PropertyMetaclass):
         :param prefix: 'get' to find a getter, 'set' to find a setter
         :return: The getter or setter function for the property type
         """
-        # Unwrap Optional[X] (Union[X, None]) to X
-        if get_origin(property_type) is Union:
-            args = get_args(property_type)
-            non_none_args = [a for a in args if a is not type(None)]
-            if len(non_none_args) == 1:
-                property_type = non_none_args[0]
 
-        if hasattr(property_type, '__origin__'):
-            property_type = property_type.__origin__
+        base_property_type = get_origin(property_type) or property_type
 
-        property_type_str = property_type.__name__.lower()
+        property_type_str = ''.join(['_' + c.lower() if c.isupper() and i != 0 else c.lower() for i, c in enumerate(base_property_type.__name__)]).lstrip('_')
 
         method_name = f'_{prefix}_{property_type_str}_property'
         if hasattr(cls, method_name):
             return getattr(cls, method_name)
-        elif issubclass(property_type, PhoebusElement):
-            return getattr(cls, f'_{prefix}_element_property')
-        elif property_type is tuple:
-            return getattr(cls, f'_{prefix}_color_property')
         elif issubclass(property_type, Action):
             return getattr(cls, f'_{prefix}_action_property')
-        elif property_type is Rule:
-            return getattr(cls, f'_{prefix}_rule_property')
+        elif issubclass(property_type, Script):
+            return getattr(cls, f'_{prefix}_script_property')
         elif property_type is RuleExpression:
             return getattr(cls, f'_{prefix}_rule_expression_property')
-        elif property_type is ObservableList:
-            return getattr(cls, f'_{prefix}_list_property')
-        elif property_type is ObservableDict:
-            return getattr(cls, f'_{prefix}_dict_property')
-        elif issubclass(property_type, Enum):
+        elif issubclass(property_type, PhoebusElement):
+            return getattr(cls, f'_{prefix}_element_property')
+        elif isinstance(property_type, type) and issubclass(property_type, Enum):
             return getattr(cls, f'_{prefix}_enum_property')
         elif is_dataclass(property_type):
             return getattr(cls, f'_{prefix}_dataclass_property')
-        elif property_type is Path:
-            return getattr(cls, f'_{prefix}_path_property')
         elif property_type in (int, float, str, bool):
             return getattr(cls, f'_{prefix}_primitive_property')
 
@@ -441,28 +563,20 @@ class PropertyBase(metaclass=PropertyMetaclass):
         :return: The parsed primitive value
         """
 
-        if element.text is None and property_type is not str:
-            raise ValueError(f"XML element for primitive property '{element.tag}' has no text value!")
-
-        if property_type is bool:
-            return element.text.lower() == 'true'
-        elif property_type is str and element.text is None:
-            return ''
-        else:
-            return property_type(element.text)
+        return _str_to_primitive(element.text or '', property_type)
 
 
     @classmethod
-    def _set_primitive_property(cls, prop_name: str, value: Primitive) -> Element:
+    def _set_primitive_property(cls, tag_name: str, value: Primitive) -> Element:
         """Given a primitive value (int, float, str, bool), create an XML element with the value as text.
 
-        :param prop_name: The name of the property
+        :param tag_name: The XML tag name to use for the element
         :param value: The primitive value to set
         :return: The XML element representing the primitive property
         """
         if isinstance(value, bool):
-            return _create_element(prop_name, str(value).lower())
-        return _create_element(prop_name, str(value))
+            return _create_element(tag_name, str(value).lower())
+        return _create_element(tag_name, str(value))
 
 
     @classmethod
@@ -473,7 +587,7 @@ class PropertyBase(metaclass=PropertyMetaclass):
         :return: A Path object representing the file path
         """
 
-        return Path(cls._get_primitive_property(element, str))
+        return Path(str(cls._get_primitive_property(element, str)))
 
     @classmethod
     def _set_path_property(cls, prop_name: str, value: Union[Path, str, None]) -> Element:
@@ -525,11 +639,13 @@ class PropertyBase(metaclass=PropertyMetaclass):
     def _set_enum_property(cls, prop_name: str, value: Enum) -> Element:
         """Given an Enum member, create an XML element with the enum value as text.
 
+        Member names and values are resolved to a member by the caller, which knows the expected Enum type.
+
         :param prop_name: The name of the property
         :param value: The Enum member to set
         :return: The XML element representing the enum property
         """
-        return _create_element(prop_name, value.value)
+        return _create_element(prop_name, str(value.value))
 
 
     @classmethod
@@ -614,7 +730,7 @@ class PropertyBase(metaclass=PropertyMetaclass):
 
 
     @classmethod
-    def _get_dataclass_property(cls, element: Element, property_type: Type[ObservableDataclass]) -> ObservableDataclass:
+    def _get_dataclass_property(cls, element: Element, property_type: Type[ObservableDataclassT]) -> ObservableDataclassT:
         """Given an XML element representing a dataclass property, parse the value and return an instance of the dataclass.
 
         :param element: The XML element to parse the dataclass value from
@@ -623,26 +739,23 @@ class PropertyBase(metaclass=PropertyMetaclass):
         """
 
         field_values = {}
-        for field in property_type.fields():
-            field_elem = element.find(field)
-            field_type = property_type.fields()[field].type
+        for field_name, field in property_type.fields().items():
+            field_elem = element.find(field_name)
+            field_type = _normalize_property_type(field.type)  # type: ignore
 
-            # Unwrap Optional[X] to get the inner type for parsing
-            inner_type = field_type
-            if get_origin(field_type) is Union:
-                args = get_args(field_type)
-                non_none_args = [a for a in args if a is not type(None)]
-                if len(non_none_args) == 1:
-                    inner_type = non_none_args[0]
-
-            if field_elem is None and field in element.attrib:
-                field_values[field] = inner_type(element.attrib[field])
-            elif field_elem is not None and (field_elem.text is not None or inner_type not in (int, float, str, bool, Path)):
-                typed_getter = cls._find_getter_by_type(inner_type)
-                getter_args = [field_elem]
+            if field_elem is None and field_name in element.attrib:
+                if not (field_type in get_args(Primitive) or issubclass(field_type, Enum)):
+                    raise TypeError(f"Only primitive types and enums are supported as element attributes, got {field_type} for field '{property_type.__name__}.{field_name}'")
+                field_values[field_name] = _str_to_primitive(element.attrib[field_name] or '', cast(Type[Primitive], field_type))
+            elif field_elem is not None and (field_elem.text is not None or field_type not in (int, float, str, bool, Path)):
+                if get_origin(field_type) is list:
+                    field_values[field_name] = cls._get_list_property(field_name, field_elem, get_args(field_type)[0])
+                    continue
+                typed_getter = cls._find_getter_by_type(field_type)
+                getter_args: List[Any] = [field_elem]
                 if len(inspect.signature(typed_getter).parameters) > 1:
-                    getter_args.append(inner_type)
-                field_values[field] = typed_getter(*getter_args)
+                    getter_args.append(field_type)
+                field_values[field_name] = typed_getter(*getter_args)
 
         return property_type(**field_values)
 
@@ -660,30 +773,31 @@ class PropertyBase(metaclass=PropertyMetaclass):
 
         property_cls = type(value)
 
-        for field in value.fields():
-            field_value = getattr(value, field)
-            field_type = property_cls.fields()[field].type
+        for field_name, field in value.fields().items():
+            field_value = getattr(value, field_name)
+            field_type = _normalize_property_type(field.type)  # type: ignore
+            valid = cls._is_set_value_valid(field_value, field_type)
 
-            # Determine if this is an Optional[Path] field that should be written even when None
-            is_optional_path = False
-            if get_origin(field_type) is Union:
-                args = get_args(field_type)
-                non_none_args = [a for a in args if a is not type(None)]
-                if len(non_none_args) == 1 and non_none_args[0] is Path:
-                    is_optional_path = True
-
-            if field_value is not None or is_optional_path:
-                if field in value._attrib_fields:
-                    if field_type in (int, float, str, bool):
-                        element.attrib[field] = str(field_value)
+            if valid:
+                if _is_enum_type(field_type):
+                    field_value = _coerce_enum_value(field_value, cast(Type[Enum], field_type))
+                if field_name in value._attrib_fields:
+                    if field_type in get_args(Primitive):
+                        element.attrib[field_name] = str(field_value)
                     elif isinstance(field_value, Enum):
-                        element.attrib[field] = field_value.value
+                        element.attrib[field_name] = str(field_value.value)
                     else:
-                        raise TypeError('Only primitive types or enums can be set as attributes!')
+                        raise TypeError(f'Only primitive types or enums can be set as attributes, got {field_type}')
                 else:
                     typed_setter = cls._find_setter_by_type(field_type)
-                    sub_elem = typed_setter(field, field_value)
+                    # List setters also take the tag name of the element wrapping the list items
+                    if get_origin(field_type) is list:
+                        sub_elem = typed_setter(field_name, field_name, field_value)
+                    else:
+                        sub_elem = typed_setter(field_name, field_value)
                     element.append(sub_elem)
+            else:
+                raise TypeError(f"Value {field_value} is of invalid type for field '{field_name}' of dataclass '{property_cls.__name__}': must be of type {field_type}")
         return element
 
 
@@ -723,7 +837,73 @@ class PropertyBase(metaclass=PropertyMetaclass):
 
 
     @classmethod
-    def _get_rule_expression_property(cls, element: Element, property_type: ValidListTypeT) -> RuleExpression:
+    def _get_script_property(cls, element: Element) -> Script:
+        """Given an XML element representing a script property, parse the value and return a Script or EmbeddedScript.
+
+        Phoebus stores the script location in the 'file' attribute, reserving the EmbeddedScriptType
+        values for scripts whose source is embedded in the display instead of being stored separately.
+
+        :param element: The XML element to parse the script from
+        :return: An EmbeddedScript if the file attribute names an embedded script type, otherwise a Script
+        """
+
+        file_attrib = element.attrib.get('file', None)
+        if file_attrib is None:
+            raise ValueError("Script element is missing required 'file' attribute!")
+
+        check_connections = element.attrib.get('check_connections', 'true') == 'true'
+
+        pv_names: ObservableDict[str, bool] = ObservableDict()
+        for pv_elem in element.findall('pv_name'):
+            if pv_elem.text is None:
+                raise ValueError('Script pv_name element is missing text value!')
+            pv_names[pv_elem.text] = pv_elem.attrib.get('trigger', 'true') == 'true'
+
+        try:
+            script_type = EmbeddedScriptType(file_attrib)
+        except ValueError:
+            return Script(file=Path(file_attrib), pv_names=pv_names, check_connections=check_connections)
+
+        text_elem = element.find('text')
+        text = text_elem.text or '' if text_elem is not None else ''
+        return EmbeddedScript(file=script_type, pv_names=pv_names, check_connections=check_connections, text=text)
+
+
+    @classmethod
+    def _set_script_property(cls, prop_name: str, value: Script) -> Element:
+        """Given a Script or EmbeddedScript, create an XML element representing the script property.
+
+        :param prop_name: The name of the property
+        :param value: The Script to set
+        :return: The XML element representing the script property
+        """
+
+        element = _create_element(prop_name)
+
+        if isinstance(value, EmbeddedScript):
+            element.attrib['file'] = str(_coerce_enum_value(value.file, EmbeddedScriptType).value)
+        elif value.file is None:
+            raise ValueError(f"Script set for property '{prop_name}' is missing a file!")
+        else:
+            element.attrib['file'] = str(value.file)
+
+        # Phoebus treats a missing check_connections attribute as true
+        if not value.check_connections:
+            element.attrib['check_connections'] = 'false'
+
+        if isinstance(value, EmbeddedScript):
+            element.append(_create_element('text', value.text))
+
+        for pv_name, trigger in value.pv_names.items():
+            pv_elem = _create_element('pv_name', pv_name)
+            pv_elem.attrib['trigger'] = str(trigger).lower()
+            element.append(pv_elem)
+
+        return element
+
+
+    @classmethod
+    def _get_rule_expression_property(cls, element: Element, property_type: Type[PropertyType]) -> RuleExpression:
         """Given an XML element representing a rule expression property, parse the value and return an instance of RuleExpression.
 
         :param element: The XML element to parse the rule expression value from
@@ -752,7 +932,7 @@ class PropertyBase(metaclass=PropertyMetaclass):
             value = value_get_func(*getter_args) if element.find('value') is not None else None
 
         expression = RuleExpression(bool_exp=bool_exp, value=value, value_as_expression=value_as_expression)
-        expression._on_change_callback = lambda new_value: cls._set_rule_expression_property(element.tag, new_value)
+        expression._on_change_callback = lambda new_value: cls._set_rule_expression_property(element.tag, new_value)  # type: ignore
         return expression
 
 
@@ -771,15 +951,16 @@ class PropertyBase(metaclass=PropertyMetaclass):
             expression_elem = _create_element('expression', str(value.value))
             element.append(expression_elem)
         else:
-            value_set_func = cls._find_setter_by_type(type(value.value))
-            value_elem = value_set_func('value', value.value)
-            element.append(value_elem)
+            if value.value is not None:
+                value_set_func = cls._find_setter_by_type(type(value.value))
+                value_elem = value_set_func('value', value.value)
+                element.append(value_elem)
 
         return element
 
 
     @classmethod
-    def _get_rule_property(cls, element: Element, property_type: ValidListTypeT) -> Rule:
+    def _get_rule_property(cls, element: Element, property_type: Type[PropertyType]) -> Rule:
         """Given an XML element representing a rule property, parse the value and return an instance of Rule.
 
         :param prop_name: The name of the property
@@ -788,9 +969,11 @@ class PropertyBase(metaclass=PropertyMetaclass):
         :return: An instance of Rule with fields populated from the XML
         """
 
-        name = element.attrib.get('name', 'None')
+        name = element.attrib.get('name', '')
         out_exp = element.attrib.get('out_exp', 'false') == 'true'
         prop_id = element.attrib.get('prop_id', None)
+        if prop_id is None:
+            raise ValueError("Rule element is missing required 'prop_id' attribute!")
 
         expressions: ObservableList[RuleExpression] = ObservableList()
         pv_names: ObservableDict[str, bool] = ObservableDict()
@@ -798,11 +981,13 @@ class PropertyBase(metaclass=PropertyMetaclass):
         for expr_elem in element.findall('exp'):
             expressions.append(cls._get_rule_expression_property(expr_elem, property_type))
         for pv_elem in element.findall('pv_name'):
+            if pv_elem.text is None:
+                raise ValueError('Rule pv_name element is missing text value!')
             pv_names[pv_elem.text] = pv_elem.attrib.get('trigger', 'true') == 'true'
 
         # Add on change callbacks to children to update the XML when they are modified.
-        expressions._on_change_callback = lambda _: cls._set_rule_property(element.tag, Rule(name=name, expressions=expressions, pv_names=pv_names, out_exp=out_exp, prop_id=prop_id))
-        pv_names._on_change_callback = lambda _: cls._set_rule_property(element.tag, Rule(name=name, expressions=expressions, pv_names=pv_names, out_exp=out_exp, prop_id=prop_id))
+        expressions._on_change_callback = lambda _: cls._set_rule_property(element.tag, Rule(name=name, expressions=expressions, pv_names=pv_names, out_exp=out_exp, prop_id=prop_id))  # type: ignore
+        pv_names._on_change_callback = lambda _: cls._set_rule_property(element.tag, Rule(name=name, expressions=expressions, pv_names=pv_names, out_exp=out_exp, prop_id=prop_id))  # type: ignore
 
         return Rule(name=name, expressions=expressions, pv_names=pv_names, out_exp=out_exp, prop_id=prop_id)
 
@@ -825,6 +1010,10 @@ class PropertyBase(metaclass=PropertyMetaclass):
                 continue
             if not cls._is_set_value_valid(exp.value, property_type):
                 raise TypeError(f"Rule {value.name} has expression with value {exp.value} that is of invalid type for property '{value.prop_id}'. Is {type(exp.value)} must be of type {property_type}")
+            if _is_enum_type(property_type):
+                coerced = _coerce_enum_value(exp.value, cast(Type[Enum], property_type))
+                if coerced is not exp.value:
+                    exp.value = coerced
 
         # Disallow mix-and-match of value_as_expression True and False within the same rule
         if set(exp.value_as_expression for exp in value.expressions) == {False, True}:
@@ -866,7 +1055,7 @@ class PropertyBase(metaclass=PropertyMetaclass):
 
 
     @classmethod
-    def _set_dict_property(cls, tag_name: str, value: Mapping) -> Union[Element, Sequence[Element]]:
+    def _set_dict_property(cls, tag_name: Optional[str], value: Mapping) -> Union[Element, Sequence[Element]]:
         """Given a dictionary, create an XML element representing the dictionary property, with child elements for each key-value pair.
 
         :param tag_name: The XML tag name to use for the dictionary property
@@ -914,7 +1103,7 @@ class PropertyBase(metaclass=PropertyMetaclass):
         if element is not None:
             for item_elem in element.findall(cls._get_list_item_tag_name(prop_name)):
                 typed_getter = cls._find_getter_by_type(property_type)
-                getter_args = [item_elem]  # type: List[Any]
+                getter_args: List[Any] = [item_elem]  # type: List[Any]
                 if len(inspect.signature(typed_getter).parameters) > 1:
                     if property_type is Rule:
                         rule_prop_id = item_elem.attrib.get('prop_id', None)
@@ -954,7 +1143,7 @@ class PropertyBase(metaclass=PropertyMetaclass):
 
 
     @classmethod
-    def _is_set_value_valid(cls, value: PropertyType, expected_type: Type[PropertyType]) -> bool:
+    def _is_set_value_valid(cls, value: Optional[PropertyType], expected_type: Type[PropertyType]) -> bool:
         """Given a value being set for a property and the expected type of that property, validate that the value is of the correct type.
 
         :param value: The value being set for the property
@@ -962,35 +1151,35 @@ class PropertyBase(metaclass=PropertyMetaclass):
         :return: True if the value is valid for the expected type, False otherwise
         """
 
-        # Unwrap Optional[X] and allow None
-        is_optional = False
-        if get_origin(expected_type) is Union:
-            args = get_args(expected_type)
-            non_none_args = [a for a in args if a is not type(None)]
-            if len(non_none_args) < len(args):
-                is_optional = True
-            expected_type = non_none_args[0]
-
-        if is_optional and value is None:
-            return True
-
-        def _validate_element(value: PropertyType, expected_type: Type[PropertyType]) -> bool:
+        def _validate_element(value: Any, expected_type: Type[PropertyType]) -> bool:
             if expected_type is Color:
                 return Color.is_color(value)
-            elif expected_type is ObservableDict:
-                return isinstance(value, Mapping)
             elif expected_type is float:
                 return isinstance(value, (float, int))
             elif expected_type is Path:
-                return isinstance(value, (Path, str))
+                return isinstance(value, (Path, str, type(None)))
+            elif _is_enum_type(expected_type):
+                # Enums may be set using the member itself, its name, or its value
+                try:
+                    _coerce_enum_value(value, cast(Type[Enum], expected_type))
+                    return True
+                except (TypeError, ValueError):
+                    return False
             else:
                 return isinstance(value, expected_type)
 
-        if get_origin(expected_type) is ObservableList:
+        if get_origin(expected_type) is list:
             expected_type = get_args(expected_type)[0]
             if not isinstance(value, Sequence):
                 return False
             else:
                 return all(_validate_element(v, expected_type) for v in value)
+
+        if get_origin(expected_type) is dict:
+            key_type, val_type = get_args(expected_type)
+            if not isinstance(value, Mapping):
+                return False
+            else:
+                return all(isinstance(k, key_type) and _validate_element(v, val_type) for k, v in value.items())
 
         return _validate_element(value, expected_type)

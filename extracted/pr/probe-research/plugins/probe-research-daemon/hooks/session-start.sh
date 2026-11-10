@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Probe Research SessionStart hook: nudge when the installed CLI/plugin is out
+# Probe SessionStart hook: nudge when the installed CLI/plugin is out
 # of date. SYNCHRONOUS and FAIL-OPEN by contract — the version check must finish
 # before this returns its JSON (a SessionStart systemMessage can't come from a
 # detached process), and ANY failure degrades to `{"continue": true}` so a
@@ -8,6 +8,43 @@
 # of blindness across a burst of releases), so most session starts do zero
 # network yet the nudge still renders every session from the cached manifest.
 set -u
+
+# Keep only the absolute entries of PATH and PYTHONPATH: an empty or relative one names the folder
+# this runs in, the session's, which the agent can write (a planted `python3`, or a `json.py` Python
+# imports at start-up). Builtins only on Linux and macOS (hooks/session-folder.sh's rule, the tap's).
+windows=""
+is_windows() {  # real Windows: OSTYPE (which can be inherited) only says when to ask `uname`
+    if [ -z "$windows" ]; then
+        windows=no
+        case "${OSTYPE:-}" in
+            msys* | cygwin*) case "$(/usr/bin/uname -s 2>/dev/null)" in MINGW* | MSYS* | CYGWIN*) windows=yes ;; esac ;;
+        esac
+    fi
+    [ "$windows" = yes ]
+}
+drop_relative_entries() {
+    local separator=":" rest entry kept=""
+    rest="${!1-}"
+    if [ "$1" = PYTHONPATH ] && [ -n "$rest" ] && is_windows; then separator=";"; fi
+    [ -z "$rest" ] || rest="$rest$separator"
+    while [ -n "$rest" ]; do
+        entry="${rest%%"$separator"*}"
+        rest="${rest#*"$separator"}"
+        case "$entry" in
+            /*) kept="${kept:+$kept$separator}$entry" ;;
+            [A-Za-z]:[\\/]* | \\\\*) ! is_windows || kept="${kept:+$kept$separator}$entry" ;;
+        esac
+    done
+    if [ -n "$kept" ]; then
+        export "$1=$kept"
+    elif [ "$1" = PATH ]; then
+        export PATH=/usr/bin:/bin  # never empty or unset: bash then searches the current folder
+    else
+        unset "$1"
+    fi
+}
+drop_relative_entries PATH
+drop_relative_entries PYTHONPATH
 
 # Claude Code sends {session_id, transcript_path, cwd, source} on stdin. The
 # telemetry observer wants session_id and source; capture it (draining the pipe
@@ -40,7 +77,12 @@ PROBE_SESSION_SOURCE=""
 PROBE_SESSION_ID=""
 PROBE_SESSION_CWD=""
 if [ "${PROBE_HOOK_EVENT:-}" != "precompact" ]; then
-  exec 3< <(printf '%s' "$HOOK_INPUT" | "$PY" -c 'import json,sys
+  # This runs in the session's folder, outside the agent's sandbox, and its child scripts keep that
+  # folder. `-c` puts it first on Python's path (as an empty entry), where the agent can plant a
+  # `json.py`: dropped before any import but the builtin sys (dispatch.sh's rule).
+  exec 3< <(printf '%s' "$HOOK_INPUT" | "$PY" -c 'import sys
+sys.path[:] = [p for p in sys.path if p]
+import json
 try:
     d = json.load(sys.stdin)
 except Exception:
@@ -69,6 +111,32 @@ do
 done
 
 export PROBE_BIN="${PROBE_BIN:-probe}"
+# The agent's own shell needs `probe` too: a Claude Code started from a terminal opened before
+# the install has no ~/.local/bin on PATH, so its `probe session state on` failed "command not
+# found" (live auto-mode test, 2026-11-09). Claude Code sources $CLAUDE_ENV_FILE before each Bash
+# call: add a folder holding `probe` there, once, only when PATH lacks it. Codex runs a login shell.
+# Only a CLI found above (absolute): the bare `probe` fallback names the session's folder, which
+# the agent can write. Not the CLI's own folder either: uv's tool folder holds Probe's python and
+# uvicorn, which would fill in for an agent that has none. A folder in Probe's state holding only a
+# `probe` link goes on PATH, last.
+case "$PROBE_BIN" in /*) _probe_found=1 ;; *) _probe_found="" ;; esac
+_probe_link_dir="${XDG_STATE_HOME:-$HOME/.local/state}/probe/agent-bin"
+# A relative folder would follow cwd; a `:` would split it into PATH entries, the part after it relative.
+case "$_probe_link_dir" in *:* | [!/]*) _probe_found="" ;; esac
+_probe_link="$_probe_link_dir/probe"
+if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ -n "$_probe_found" ] && [ -x "$PROBE_BIN" ] \
+  && ! command -v probe >/dev/null 2>&1; then
+  # Relinked only when it names another CLI: BSD `ln -sf` unlinks first, so a rewrite on every start
+  # would leave other chats without `probe` for a moment, and two starts at once could fail it.
+  # Read back after `ln` whatever it said: a start racing this one writes the same link.
+  [ "$(readlink "$_probe_link" 2>/dev/null)" = "$PROBE_BIN" ] \
+    || { mkdir -p "$_probe_link_dir" && ln -sfn "$PROBE_BIN" "$_probe_link"; } 2>/dev/null
+  if [ "$(readlink "$_probe_link" 2>/dev/null)" = "$PROBE_BIN" ]; then
+    _probe_path_line="$(printf 'export PATH="${PATH:+$PATH:}"%q' "$_probe_link_dir")"
+    grep -qxF "$_probe_path_line" "$CLAUDE_ENV_FILE" 2>/dev/null \
+      || printf '%s\n' "$_probe_path_line" >> "$CLAUDE_ENV_FILE" 2>/dev/null || true
+  fi
+fi
 # The running harness's own manifest (.claude-plugin, .codex-plugin, .kimi-plugin),
 # from the harness registry beside this script.
 MANIFEST_DIR="$("$PY" "$PLUGIN_ROOT/hooks/_hook_harness.py" manifest-dir 2>/dev/null || true)"

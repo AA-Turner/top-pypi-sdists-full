@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -18,12 +18,15 @@ class PatchedMaintenanceAnnouncementOfferingRequest:
         offering (Union[Unset, str]):
         impact_level (Union[Unset, ImpactLevelEnum]):
         impact_description (Union[Unset, str]): Specific description of how this offering will be affected
+        affected_partitions (Union[Unset, list[str]]): Partitions the maintenance takes down; empty means all. A site
+            agent with maintenance sync reserves only these for a partial outage.
     """
 
     maintenance: Union[Unset, str] = UNSET
     offering: Union[Unset, str] = UNSET
     impact_level: Union[Unset, ImpactLevelEnum] = UNSET
     impact_description: Union[Unset, str] = UNSET
+    affected_partitions: Union[Unset, list[str]] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -37,6 +40,10 @@ class PatchedMaintenanceAnnouncementOfferingRequest:
 
         impact_description = self.impact_description
 
+        affected_partitions: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.affected_partitions, Unset):
+            affected_partitions = self.affected_partitions
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -48,6 +55,8 @@ class PatchedMaintenanceAnnouncementOfferingRequest:
             field_dict["impact_level"] = impact_level
         if impact_description is not UNSET:
             field_dict["impact_description"] = impact_description
+        if affected_partitions is not UNSET:
+            field_dict["affected_partitions"] = affected_partitions
 
         return field_dict
 
@@ -67,11 +76,14 @@ class PatchedMaintenanceAnnouncementOfferingRequest:
 
         impact_description = d.pop("impact_description", UNSET)
 
+        affected_partitions = cast(list[str], d.pop("affected_partitions", UNSET))
+
         patched_maintenance_announcement_offering_request = cls(
             maintenance=maintenance,
             offering=offering,
             impact_level=impact_level,
             impact_description=impact_description,
+            affected_partitions=affected_partitions,
         )
 
         patched_maintenance_announcement_offering_request.additional_properties = d

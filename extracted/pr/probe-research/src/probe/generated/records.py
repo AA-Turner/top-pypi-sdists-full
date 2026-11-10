@@ -16,17 +16,39 @@ __all__ = [
     "AnchorLevel",
     "Artifact",
     "ArtifactStatus",
+    "Command",
+    "CommandAnswer",
+    "CommandAsk",
+    "CommandClaim",
+    "CommandData",
+    "CommandKind",
+    "CommandState",
+    "EditActorKind",
+    "EditCounts",
+    "EditOp",
+    "EditPhase",
+    "EditState",
+    "EditTarget",
     "Experiment",
     "LineageEntityType",
     "LineageRelation",
     "MetricPoint",
+    "MoveSeriesArgs",
     "ParentRelation",
     "Project",
     "ProjectKind",
+    "RenameArgs",
+    "RevertArgs",
     "Run",
     "RunCounts",
+    "RunEdit",
     "RunStatus",
+    "ScaleArgs",
+    "SetConfigArgs",
+    "ShiftStepArgs",
+    "ShiftTimeArgs",
     "Span",
+    "WatchArgs",
 ]
 
 
@@ -133,12 +155,197 @@ class LineageRelation(StrEnum):
     PART_OF = "part_of"
 
 
+class EditOp(StrEnum):
+    """What an edit does. One list for the server, SDK, CLI, MCP and dashboard (review A4)."""
+
+    HIDE = "hide"
+    SHIFT_STEP = "shift_step"
+    SHIFT_TIME = "shift_time"
+    SCALE = "scale"
+    RENAME = "rename"
+    MOVE_SERIES = "move_series"
+    SET_CONFIG = "set_config"
+    REVERT = "revert"
+
+
+class EditState(StrEnum):
+    """Where an edit is. Reads of its series carry an `edit_applying` advisory until it is applied or failed."""
+
+    APPLYING = "applying"
+    APPLIED = "applied"
+    ROLLING_BACK = "rolling_back"
+    FAILED = "failed"
+
+
+class EditPhase(StrEnum):
+    """The last durable step of an apply or an undo, so a retry resumes there instead of guessing."""
+
+    CREATED = "created"
+    SHELVED = "shelved"
+    WRITTEN = "written"
+    ORIGINALS_REMOVED = "originals_removed"
+    EDITED_REMOVED = "edited_removed"
+    RESTORED = "restored"
+
+
+class EditActorKind(StrEnum):
+    """Who made an edit: a person in the dashboard or CLI, a coding agent, the SDK (config, rewind), an import."""
+
+    PERSON = "person"
+    AGENT = "agent"
+    SDK = "sdk"
+    IMPORT = "import"
+
+
+class CommandKind(StrEnum):
+    """What was asked. A producer declares the kinds it can do (a sample producer in `Plan.capabilities`, a run's
+    script on its writer beat, `RunCapabilities`); any other is refused at once. Sample kinds name an attempt
+    (`attempt_key`); run kinds (agentic W&B C.1) name none.
+    """
+
+    CANCEL = "cancel"
+    RETRY = "retry"
+    WATCH = "watch"
+    CHECKPOINT = "checkpoint"
+    CONFIG = "config"
+    STOP = "stop"
+    CUSTOM = "custom"
+
+
+class CommandState(StrEnum):
+    """Where a command is. `expired` and `lost` are decided when read (no sweep job); the first read records them."""
+
+    OPEN = "open"
+    TAKEN = "taken"
+    DONE = "done"
+    REFUSED = "refused"
+    EXPIRED = "expired"
+    LOST = "lost"
+
+
 class RunCounts(BaseModel):
     """Child-row tallies nested under RunOut.counts (dashboard contract)."""
 
     spans: int
     metrics: int
     artifacts: int
+
+
+class EditTarget(BaseModel):
+    """Which recorded data an edit touches. Steps are the half-open range [from_step, to_step), clocks
+    [from_time, to_time). No `keys` means every key; no `kinds` means every kind but `hardware`.
+    """
+
+    keys: list[str] = Field(default_factory=list)
+    kinds: list[str] = Field(default_factory=list)
+    dimensions: dict | None = None
+    from_step: int | None = None
+    to_step: int | None = None
+    from_time: datetime | None = None
+    to_time: datetime | None = None
+    step_spans: bool = False
+    file_ids: list[UUID] = Field(default_factory=list)
+
+
+class EditCounts(BaseModel):
+    """What an edit changed, for its receipt and History."""
+
+    points: int = 0
+    written: int = 0
+    spans: int = 0
+    files: int = 0
+    findings: int = 0
+    collisions: int = 0
+    config_keys: int = 0
+
+
+class ShiftStepArgs(BaseModel):
+    """Add `by` to every step."""
+
+    by: int
+
+
+class ShiftTimeArgs(BaseModel):
+    """Add `seconds` to every wall clock."""
+
+    seconds: float
+
+
+class ScaleArgs(BaseModel):
+    """value -> multiply * value + add."""
+
+    multiply: float = 1.0
+    add: float = 0.0
+
+
+class RenameArgs(BaseModel):
+    """The target's one key becomes `to_key`."""
+
+    to_key: str
+
+
+class MoveSeriesArgs(BaseModel):
+    """Bring the target's series from `from_run` into this run, optionally shifted. Needs write on both runs."""
+
+    from_run: UUID
+    shift_steps: int = 0
+    shift_seconds: float = 0.0
+
+
+class SetConfigArgs(BaseModel):
+    """Set these config values; the old ones are kept on the edit (`config_before`)."""
+
+    values: dict
+
+
+class RevertArgs(BaseModel):
+    """Undo an earlier edit of this run."""
+
+    edit_id: UUID
+
+
+class WatchArgs(BaseModel):
+    """How long the producer sends the sample's live turns."""
+
+    seconds: int = 600
+
+
+class CommandAsk(BaseModel):
+    """What the asker adds to an ask (`POST .../samples/live/{attempt}/cancel|retry|watch`)."""
+
+    note: str | None = None
+
+
+class CommandClaim(BaseModel):
+    """A producer takes a command: only a live writer session of the command's epoch can, and only one does."""
+
+    session_id: UUID
+
+
+class CommandAnswer(BaseModel):
+    """The claiming producer's answer; the same answer twice changes nothing."""
+
+    session_id: UUID
+    state: CommandState
+    reason: str | None = None
+    result: dict = Field(default_factory=dict)
+
+
+class CommandData(BaseModel):
+    """The `samples.command` live notice: a command was asked, claimed, answered, expired or lost. A producer reads
+    `attempt_key` and `write_epoch` to know whether it holds the sample; the rest it reads from the commands route.
+    """
+
+    command_id: UUID
+    seq: int
+    kind: CommandKind
+    state: CommandState
+    write_epoch: int
+    attempt_id: UUID | None = None
+    attempt_key: str | None = None
+    requested_by: str | None = None
+    claimed_by: UUID | None = None
+    reason: str | None = None
 
 
 class Run(BaseModel):
@@ -296,3 +503,54 @@ class Span(BaseModel):
     dimensions: dict = Field(default_factory=dict)
     dims_hash: str | None = None
     created_at: datetime
+
+
+class RunEdit(BaseModel):
+    """An edit as every surface reads it: what, to which data, who, why, and where it is."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: UUID
+    customer_id: str
+    run_id: UUID
+    seq: int
+    op: EditOp
+    target: EditTarget
+    args: dict = Field(default_factory=dict)
+    reason: str
+    actor_kind: EditActorKind
+    actor: str
+    session_id: UUID | None = None
+    state: EditState
+    phase: EditPhase
+    revert_of: UUID | None = None
+    reverted_by: UUID | None = None
+    counts: EditCounts
+    config_before: dict | None = None
+    error: str | None = None
+    created_at: datetime
+    applied_at: datetime | None = None
+
+
+class Command(BaseModel):
+    """One ask, bound to the run's write epoch when it was asked."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: UUID
+    run_id: UUID
+    write_epoch: int
+    seq: int
+    kind: CommandKind
+    args: dict = Field(default_factory=dict)
+    attempt_id: UUID | None = None
+    attempt_key: str | None = None
+    state: CommandState = CommandState.OPEN
+    requested_by: str | None = None
+    note: str | None = None
+    claimed_by: UUID | None = None
+    reason: str | None = None
+    result: dict = Field(default_factory=dict)
+    created_at: datetime
+    claimed_at: datetime | None = None
+    ended_at: datetime | None = None

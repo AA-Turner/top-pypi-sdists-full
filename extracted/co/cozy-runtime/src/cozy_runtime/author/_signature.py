@@ -45,9 +45,9 @@ from cozy_runtime.author._markers import (
 )
 from cozy_runtime.author._media import KIND_MEDIA, slot_kind
 from cozy_runtime.author._memo import Memoize
-from cozy_runtime.author._model import Model, component_use
-from cozy_runtime.author._node import Node
+from cozy_runtime.author._model import Model, component_use, undeclared_methods
 from cozy_runtime.author._services import SERVICES, Secrets, Settings
+from cozy_runtime.author._tool import Tool
 from cozy_runtime.author._walker import is_struct, strip, unwrap_optional, walk
 from cozy_runtime.author._weights import WeightsOutput, weights_class
 
@@ -274,7 +274,7 @@ class ModelBinding:
 
     @property
     def encoded_leaves(self) -> str:
-        return str(getattr(self.model_class, "__encoded_leaves__", "refuse"))
+        return str(getattr(self.model_class, "__encoded_leaves__", "accept"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -282,7 +282,7 @@ class ModelSpec:
     """A Model class's facts, read by import (`of`) or from source alone."""
 
     name: str
-    encoded_leaves: str = "refuse"
+    encoded_leaves: str = "accept"
     min_bits: int = 8
     phase: str = "compute"
     sequence_parallel: tuple[int, ...] = ()
@@ -292,6 +292,16 @@ class ModelSpec:
     """It defines `load(loader)`."""
     arguments: tuple[str, ...] = ()
     """What its constructor requires."""
+    undeclared: tuple[str, ...] = ()
+    """Its public methods with no `@uses_components` hint."""
+
+    @property
+    def selects(self) -> tuple[str, ...]:
+        """The components a slot of this class fetches: those its hints name, when every public
+        method has one; empty means all of them."""
+        if self.undeclared:
+            return ()
+        return tuple(sorted({c for names in self.components.values() for c in names}))
 
     @classmethod
     def of(cls, model: type[Model[Any]]) -> ModelSpec:
@@ -310,6 +320,7 @@ class ModelSpec:
                 for p in parameters
                 if p.default is p.empty and p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
             ),
+            undeclared_methods(model),
         )
 
 
@@ -357,12 +368,11 @@ class Declaration:
     """Run by its own package's calls only (`app.child_task`), never a root request."""
     accelerator: bool = True
     """False: CPU only, never opens CUDA. True: the machine's GPU when it has one."""
-    node: Node | None = None
-    """What its box says that its types can't."""
+    tool: Tool | None = None
+    """`app.tool`'s own options: this function is a box."""
     model_defaults: Mapping[str, str] = field(default_factory=dict)
     model_components: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     """Model argument -> the components this callable runs; an absent argument runs all."""
-    model_prepared_use: Mapping[str, str] = field(default_factory=dict)
     model_on_demand: tuple[str, ...] = ()
     """Model arguments built, and their weights fetched, on first use (`on_demand=`)."""
     parameters: tuple[str, ...] | None = None
@@ -536,13 +546,12 @@ def analyze(
     hidden: bool = False,
     child_task: bool = False,
     accelerator: bool = True,
-    node: Node | None = None,
+    tool: Tool | None = None,
     invocable: bool = False,
     memoize: Memoize | None = None,
     model_defaults: Mapping[str, str] | None = None,
     model_components: Mapping[str, tuple[str, ...]] | None = None,
     model_on_demand: tuple[str, ...] = (),
-    model_prepared_use: Mapping[str, str] | None = None,
     model_classes: Mapping[str, type[Model[Any]]] | None = None,
 ) -> Surface:
     """Derive the whole surface from the signature. Every refusal here is a BUILD refusal.
@@ -723,13 +732,12 @@ def analyze(
         hidden=hidden,
         child_task=child_task,
         accelerator=accelerator,
-        node=node,
+        tool=tool,
         invocable=invocable,
         memoize=memoize,
         model_defaults=model_defaults or {},
         model_components=model_components or {},
         model_on_demand=model_on_demand,
-        model_prepared_use=model_prepared_use or {},
         parameters=tuple(callers) if invocable else None,
         parameter_defaults={
             name: signature.parameters[name].default

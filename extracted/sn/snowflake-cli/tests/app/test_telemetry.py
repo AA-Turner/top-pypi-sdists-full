@@ -297,7 +297,28 @@ def test_detect_agent_environment_returns_unknown_when_no_agent():
         ("CLAUDECODE", "1", "CLAUDE_CODE"),
         ("CODEX_API_KEY", "key123", "CODEX"),
         ("OPENCODE", "1", "OPENCODE"),
+        ("OPENCODE_CLIENT", "web", "OPENCODE"),
         ("COPILOT_CLI", "1", "COPILOT_CLI"),
+        ("CURSOR_EXTENSION_HOST_ROLE", "agent-exec", "CURSOR"),
+        ("CLAUDE_CODE", "1", "CLAUDE_CODE"),
+        ("CODEX_SANDBOX", "seatbelt", "CODEX"),
+        ("CODEX_CI", "1", "CODEX"),
+        ("CODEX_THREAD_ID", "thread-1", "CODEX"),
+        ("CODEX_SANDBOX_NETWORK_DISABLED", "1", "CODEX"),
+        ("COPILOT_MODEL", "gpt-5", "COPILOT_CLI"),
+        ("COPILOT_ALLOW_ALL", "1", "COPILOT_CLI"),
+        ("KIMI_PLUGIN_ROOT", "/plugins/kimi", "KIMI"),
+        ("GROK_PLUGIN_ROOT", "/plugins/grok", "GROK"),
+        ("GROK_PLUGIN_DATA", "/data/grok", "GROK"),
+        ("CLINE_ACTIVE", "true", "CLINE"),
+        ("ANTIGRAVITY_AGENT", "1", "ANTIGRAVITY"),
+        ("ANTIGRAVITY_CLI_ALIAS", "agy", "ANTIGRAVITY"),
+        ("AUGMENT_AGENT", "1", "AUGMENT_CLI"),
+        ("GOOSE_PROVIDER", "openai", "GOOSE"),
+        ("JUNIE_DATA", "/home/junie", "JUNIE"),
+        ("JUNIE_SHIM_PATH", "/usr/bin/junie", "JUNIE"),
+        ("REPL_ID", "repl-123", "REPLIT"),
+        ("OPENCLAW_SHELL", "1", "OPENCLAW"),
     ],
 )
 def test_detect_agent_environment_returns_correct_agent(
@@ -310,11 +331,181 @@ def test_detect_agent_environment_returns_correct_agent(
         assert _detect_agent_environment() == expected_agent
 
 
+def test_detect_agent_environment_ignores_empty_marker_values():
+    """Test that presence-based markers need a non-empty value."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {"CLINE_ACTIVE": "  "}, clear=True):
+        assert _detect_agent_environment() == "UNKNOWN"
+
+
+def test_detect_agent_environment_cursor_extension_role_must_be_agent_exec():
+    """Test that other CURSOR_EXTENSION_HOST_ROLE values are not treated as agents."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {"CURSOR_EXTENSION_HOST_ROLE": "ui"}, clear=True):
+        assert _detect_agent_environment() == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    "env, expected_agent",
+    [
+        ({"CLAUDECODE": "1", "CODEX_API_KEY": "key"}, "CLAUDE_CODE"),
+        ({"CLAUDECODE": "1", "GEMINI_CLI": "1"}, "CLAUDE_CODE"),
+        (
+            {"CLAUDECODE": "1", "CURSOR_EXTENSION_HOST_ROLE": "agent-exec"},
+            "CURSOR",
+        ),
+        ({"OPENCODE": "1", "CODEX_API_KEY": "key"}, "OPENCODE"),
+        ({"OPENCODE": "1", "CODEX_SANDBOX": "seatbelt"}, "OPENCODE"),
+        ({"CODEX_API_KEY": "key", "COPILOT_CLI": "1"}, "CODEX"),
+        ({"CODEX_SANDBOX": "seatbelt", "COPILOT_CLI": "1"}, "CODEX"),
+        ({"CLAUDE_CODE": "1", "GEMINI_CLI": "1"}, "CLAUDE_CODE"),
+        ({"CLAUDE_CODE": "1", "CODEX_API_KEY": "key"}, "CLAUDE_CODE"),
+        ({"KIMI_PLUGIN_ROOT": "/k", "GEMINI_CLI": "1"}, "GEMINI_CLI"),
+    ],
+)
+def test_detect_agent_environment_table_order_wins(env, expected_agent):
+    """Test that the first matching agent in _AGENT_RULES is reported."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, env, clear=True):
+        assert _detect_agent_environment() == expected_agent
+
+
+def test_detect_agent_environment_cowork_wins_over_claude_code():
+    """Test that Claude Cowork is reported instead of Claude Code."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(
+        os.environ,
+        {"CLAUDECODE": "1", "CLAUDE_CODE_IS_COWORK": "1"},
+        clear=True,
+    ):
+        assert _detect_agent_environment() == "COWORK"
+
+
+def test_detect_agent_environment_cowork_requires_claude_code_marker():
+    """Test that CLAUDE_CODE_IS_COWORK alone does not identify Cowork."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {"CLAUDE_CODE_IS_COWORK": "1"}, clear=True):
+        assert _detect_agent_environment() == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    "tty_interactive, expected_agent",
+    [(False, "KIRO"), (True, "UNKNOWN")],
+)
+def test_detect_agent_environment_kiro_requires_no_tty(tty_interactive, expected_agent):
+    """Test that Kiro is only detected without an interactive terminal."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {"TERM_PROGRAM": "kiro"}, clear=True):
+        with mock.patch(
+            "snowflake.cli._app.telemetry.is_tty_interactive",
+            return_value=tty_interactive,
+        ):
+            assert _detect_agent_environment() == expected_agent
+
+
+def test_detect_agent_environment_detects_pi_from_path():
+    """Test that Pi is detected from a .pi/agent segment in PATH."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(
+        os.environ, {"PATH": "/usr/bin:/home/user/.pi/agent/bin"}, clear=True
+    ):
+        assert _detect_agent_environment() == "PI"
+
+
+def test_detect_agent_environment_detects_devin_from_marker_file():
+    """Test that Devin is detected from its marker file."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch(
+            "snowflake.cli._app.telemetry.os.path.exists", return_value=True
+        ):
+            assert _detect_agent_environment() == "DEVIN"
+
+
+@pytest.mark.parametrize(
+    "ai_agent_value",
+    ["my-tool", "my-tool@2.0", "custom agent with spaces"],
+)
+def test_detect_agent_environment_reports_other_for_ai_agent_variable(
+    ai_agent_value,
+):
+    """Test that a custom agent setting AI_AGENT is reported as OTHER.
+
+    The raw value is free text, so it is never returned as the agent name.
+    """
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {"AI_AGENT": ai_agent_value}, clear=True):
+        assert _detect_agent_environment() == "OTHER"
+
+
+def test_detect_agent_environment_specific_agent_wins_over_ai_agent():
+    """Test that a specific agent marker is reported instead of AI_AGENT."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(
+        os.environ, {"AI_AGENT": "my-tool", "CLAUDECODE": "1"}, clear=True
+    ):
+        assert _detect_agent_environment() == "CLAUDE_CODE"
+
+
+def test_detect_agent_environment_ignores_empty_ai_agent():
+    """Test that an empty AI_AGENT does not count as an agent."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {"AI_AGENT": ""}, clear=True):
+        assert _detect_agent_environment() == "UNKNOWN"
+
+
+def test_is_coding_agent_true_for_ai_agent_variable():
+    """Test that AI_AGENT makes is_coding_agent true, and unset makes it false."""
+    from snowflake.cli._app.telemetry import is_coding_agent
+
+    with mock.patch.dict(os.environ, {"AI_AGENT": "my-tool"}, clear=True):
+        assert is_coding_agent() is True
+    with mock.patch.dict(os.environ, {}, clear=True):
+        assert is_coding_agent() is False
+
+
+@pytest.mark.parametrize(
+    "env_var",
+    [
+        # Set by the Cursor IDE, not only by its agent, so it would also flag
+        # people working in a Cursor terminal.
+        "CURSOR_TRACE_ID",
+        # Set for ordinary GitHub authentication, not only by Copilot CLI.
+        "COPILOT_GITHUB_TOKEN",
+    ],
+)
+def test_detect_agent_environment_skips_markers_shared_with_humans(env_var):
+    """Test that markers a human setup can also set are not used for detection."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {env_var: "1"}, clear=True):
+        assert _detect_agent_environment() == "UNKNOWN"
+
+
 @pytest.mark.parametrize(
     "env, expected",
     [
         ({"CORTEX_SESSION_ID": "abc123"}, "abc123"),
         ({"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "claude-sess"}, "claude-sess"),
+        (
+            {
+                "CLAUDECODE": "1",
+                "CLAUDE_CODE_IS_COWORK": "1",
+                "CLAUDE_CODE_SESSION_ID": "cowork-sess",
+            },
+            "cowork-sess",
+        ),
         ({}, ""),
         ({"CLAUDECODE": "1"}, ""),
         ({"CLAUDE_CODE_SESSION_ID": "orphan"}, ""),
@@ -1463,3 +1654,76 @@ def test_failed_auth_login_does_not_report_local_oauth(
     assert result.exit_code != 0, result.output
     assert recorded
     assert set(recorded) == {""}
+
+
+class TestAppYmlRuntimeTelemetry:
+    """``snow app`` result events carry the app.yml runtime fields."""
+
+    @mock.patch("snowflake.connector.connect")
+    def test_streamlit_app_yml_v2(self, mock_conn, project_directory, runner):
+        with project_directory("snowflake_app_yml_streamlit"):
+            runner.invoke(["app", "bundle"], catch_exceptions=False)
+
+        events = _get_telemetry_events(mock_conn)
+        _assert_executing_event_has_no_app_flow(events)
+        results = [
+            e["message"]
+            for e in events
+            if e["message"]["type"] == "result_executing_command"
+        ]
+        assert results
+        for message in results:
+            assert message["app_flow"] == "snowflake_app"
+            assert message["app_runtime"] == "python"
+            assert message["app_streamlit"] is True
+            for dropped in (
+                "app_runtime_source",
+                "app_template_type",
+                "app_template_version",
+                "app_created_by",
+                "app_template",
+            ):
+                assert dropped not in message
+        for event in events:
+            if event["message"]["type"] == "executing_command":
+                assert "app_runtime" not in event["message"]
+
+    @mock.patch("snowflake.connector.connect")
+    def test_nextjs_versionless_app_yml_with_snowflake_yml(
+        self, mock_conn, project_directory, runner
+    ):
+        with project_directory("snowflake_app_nextjs_versionless"):
+            runner.invoke(["app", "bundle"], catch_exceptions=False)
+
+        events = _get_telemetry_events(mock_conn)
+        results = [
+            e["message"]
+            for e in events
+            if e["message"]["type"] == "result_executing_command"
+        ]
+        assert results
+        for message in results:
+            assert message["app_flow"] == "snowflake_app"
+            assert message["app_runtime"] == "node"
+            assert message["app_streamlit"] is False
+            assert "app_template" not in message
+
+    @mock.patch("snowflake.connector.connect")
+    def test_absent_without_app_yml(self, mock_conn, project_directory, runner):
+        with project_directory("snowflake_app_v2"):
+            runner.invoke(["app", "bundle"], catch_exceptions=False)
+
+        for event in _get_telemetry_events(mock_conn):
+            assert not [
+                k for k in event["message"] if k.startswith("app_") and k != "app_flow"
+            ]
+
+    @mock.patch("snowflake.connector.connect")
+    def test_absent_for_native_app(self, mock_conn, project_directory, runner):
+        with project_directory("napp_post_deploy_missing_file"):
+            runner.invoke(["app", "bundle"], catch_exceptions=False)
+
+        for event in _get_telemetry_events(mock_conn):
+            assert not [
+                k for k in event["message"] if k.startswith("app_") and k != "app_flow"
+            ]

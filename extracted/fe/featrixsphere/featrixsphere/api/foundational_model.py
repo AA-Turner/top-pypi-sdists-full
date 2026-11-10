@@ -1535,14 +1535,17 @@ class FoundationalModel:
 
                 # Queued: job is in the dispatch queue, no compute node yet.
                 # Don't open a tqdm bar; just print queue status and keep polling.
+                # Every live queued read is the router saying the session waits, so
+                # it never counts against the stall budget (_wait_simple: why).
                 if status == 'queued':
                     queue_position = session_data.get('queue_position')
                     queue_msg = session_data.get('message', 'Waiting for a compute node to become available...')
                     elapsed = int(time.time() - start_time)
                     pos_str = f" (position {queue_position})" if queue_position else ""
+                    if not is_replayed_answer(response_data):
+                        last_progress_time = time.time()
                     if queue_position != last_queue_position or last_job_status != 'queued':
                         print(f"[{elapsed}s] 📥 Queued{pos_str} — {queue_msg}")
-                        last_progress_time = time.time()
                         last_queue_position = queue_position
                         last_job_status = 'queued'
                     self.status = 'queued'
@@ -1861,12 +1864,18 @@ class FoundationalModel:
             status = session_data.get('status', 'unknown')
 
             # Queued: job is sitting in the dispatch queue. Print queue status
-            # and keep polling until a compute node picks it up.
+            # and keep polling until a compute node picks it up. Every live
+            # queued read resets the stall timer, as job_awaiting_start does
+            # for a job: 2026-11-05 Housing_Prices_in_London sat at one queue
+            # position for over an hour behind multi-hour jobs filling the
+            # org's queue, was failed as "stalled" at 7614s, and its ES then
+            # started at 4h47m and finished. A replay is not a live read.
             if status == 'queued':
                 queue_position = session_data.get('queue_position')
                 queue_msg = session_data.get('message', 'Waiting for a compute node to become available...')
-                if queue_position != last_queue_position or last_status != 'queued':
+                if not is_replayed_answer(response_data):
                     last_progress_time = time.time()
+                if queue_position != last_queue_position or last_status != 'queued':
                     last_queue_position = queue_position
                     last_status = 'queued'
                     if show_progress:

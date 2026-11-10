@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class OutlookGeoCoordinates(ClientValue):
     """The geographic coordinates, elevation, and their degree of accuracy for a physical location.
 

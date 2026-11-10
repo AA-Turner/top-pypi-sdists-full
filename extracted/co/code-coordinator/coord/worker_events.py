@@ -28,6 +28,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
+from coord.upstream_gaps import UPSTREAM_GAP_MARKER
+
 
 # ── Data classes ────────────────────────────────────────────────────────────
 
@@ -480,7 +482,15 @@ def format_api_error_reason(
 #   work — nothing about the issue's CONTENT is wrong.
 # * PREMISE (#3164) — the worker investigated and found the issue's stated
 #   premise false, or its stated prerequisite unmet. No prohibition is
-#   involved; there is simply nothing correct to build yet.
+#   involved; there is simply nothing correct to build yet. #3923 folds in
+#   the sibling shape where the premise refuted is the issue's own IMPLICIT
+#   one ("this needs building") — the worker greps and finds the requested
+#   behaviour already shipped, so there is nothing left TO build, not merely
+#   nothing CORRECT to build. Both read the same way downstream: parked
+#   without spending a fix-round attempt (#2972's budget is for driving the
+#   issue to a state change, not for re-confirming an unchanged finding),
+#   needing an operator's `coord drive-queue clear-refusal` before another
+#   leg re-investigates.
 #
 # Both kinds of message routinely cite CLAUDE.md or a numbered repo rule — a
 # PREMISE report often quotes the exact rule it is showing does NOT apply, or
@@ -529,6 +539,23 @@ _PREMISE_REFUSAL_MARKERS = (
     "prerequisite is unmet",
     "wrong on count",
     "wrong on scope",
+    # #3923: "the deliverable already exists, there is nothing to build" is
+    # the SAME premise-false shape as the markers above, not a weaker
+    # cousin of it — a worker that greps for the requested symbol/behaviour
+    # and finds it already shipped has refuted the issue's implicit premise
+    # ("this needs building") exactly as the quadraui#812 worker refuted an
+    # explicit one. Each marker here requires "merged"/"shipped"/"landed"
+    # alongside "already" so this never fires on the standing worker
+    # instructions template itself (CLAUDE.md's own "verify ... isn't
+    # already implemented" / "if it already exists, report back" — neither
+    # contains any of those words), only on a worker's own affirmative
+    # finding that the work is done.
+    "already fully implemented and merged",
+    "already implemented and merged",
+    "fully implemented and already merged",
+    "already merged into",
+    "already shipped in",
+    "already landed on",
 )
 
 
@@ -552,7 +579,10 @@ def looks_like_policy_refusal(text: str | None) -> bool:
 def looks_like_premise_refusal(text: str | None) -> bool:
     """#3164: does *text* read as a worker reporting an investigated,
     refuted issue premise (a false or unmet prerequisite), rather than a
-    standing-rule refusal or a stuck session?
+    standing-rule refusal or a stuck session? #3923: also true for the
+    "already implemented" shape — the worker's own finding that the
+    requested behaviour already exists (and is already merged/shipped),
+    so there is nothing left to build.
     """
     if not text:
         return False
@@ -573,6 +603,141 @@ def classify_zero_commit_refusal(text: str | None) -> str | None:
         return "premise"
     if looks_like_policy_refusal(text):
         return "policy"
+    return None
+
+
+# ── Structured zero-commit outcome marker (#3931) ───────────────────────────
+#
+# #3926 (the predecessor to this section) only ever recognised "already
+# implemented" through the `_PREMISE_REFUSAL_MARKERS` prose list above — six
+# exact phrases, each requiring "already" alongside "merged"/"shipped"/
+# "landed". A worker reporting the same finding in different words (e.g.
+# "already exists in the codebase", "this is already done — nothing to
+# build") matches none of them and falls through to the bare #448 ADVISORY
+# default, spending a full fix-round attempt re-confirming a finding that
+# cannot change. #3922's sibling incident is the same gap for a SECOND
+# zero-commit shape: a worker concluding the issue needs epic decomposition
+# has no marker at all, prose or otherwise, so three independent legs each
+# separately proposed the same split and burned the entire #2972 fix-round
+# budget before the row blocked.
+#
+# `WORK_OUTCOME:` is the fix for both: a line-anchored, machine-readable
+# marker (mirrors `coord.models._ISSUE_RESOLUTION_RE`'s own shape — anchored
+# to the start of a line, tolerant of markdown decoration, last occurrence
+# wins) that the worker prompt documents directly, rather than asking the
+# classifier to keep inferring intent from prose. It is AUTHORITATIVE: once
+# present, it wins outright over every prose heuristic above, even one that
+# would otherwise match a DIFFERENT outcome in the same message (e.g. a
+# worker that writes "already implemented" prose in passing while also
+# emitting `WORK_OUTCOME: needs-decomposition` must classify as the latter,
+# not the former) — see `classify_zero_commit_outcome`, which checks the
+# marker FIRST and only falls back to the #2234/#3164/#3923 prose heuristics
+# when no marker is present. The old prose heuristics remain exactly as they
+# were, as the fallback for every worker log that predates this marker or
+# whose final message simply never used it.
+WORK_OUTCOME_ALREADY_DONE = "already-done"
+WORK_OUTCOME_NEEDS_DECOMPOSITION = "needs-decomposition"
+
+
+@dataclass(frozen=True)
+class WorkOutcome:
+    """One self-reported ``WORK_OUTCOME:`` marker (#3931).
+
+    ``value`` is one of :data:`WORK_OUTCOME_ALREADY_DONE`/
+    :data:`WORK_OUTCOME_NEEDS_DECOMPOSITION`, or ``None`` when no marker was
+    present (or it carried an unrecognised value — the regex simply never
+    matches, same "absent and malformed read alike" contract as
+    `coord.models.parse_issue_resolution`). ``reason`` is the free-text
+    remainder after the value on the same line, empty when none was given.
+    """
+
+    value: str | None = None
+    reason: str = ""
+
+
+# Mirrors `coord.models._ISSUE_RESOLUTION_RE` exactly: anchored to the start
+# of a line (`re.MULTILINE`'s `^`), tolerant of leading whitespace and
+# markdown emphasis/blockquote/backtick decoration before the marker and
+# between the colon and the value, so a mid-sentence mention ("...the
+# WORK_OUTCOME: already-done marker lets a worker...") never counts as a
+# real claim — only a marker that actually starts its own line does.
+_WORK_OUTCOME_RE = re.compile(
+    r"^[ \t>*_`]*WORK_OUTCOME:[ \t*_`]*(already-done|needs-decomposition)\b[ \t]*(.*)$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_WORK_OUTCOME_REASON_SEP_RE = re.compile(r"^[\s*_`:—–-]+")
+_WORK_OUTCOME_REASON_EMPTY_RE = re.compile(r"^[\s*_`.,:;!?—–-]*$")
+
+
+def parse_work_outcome(text: str | None) -> WorkOutcome:
+    """Extract the LAST ``WORK_OUTCOME:`` marker from *text* (#3931).
+
+    Picks the last occurrence, same precedent as `coord.models.
+    parse_issue_resolution` and `coord.progress`'s `### Summary` block — a
+    worker that restates its final outcome after further investigation
+    should have that restatement win over an earlier guess.
+    """
+    if not text:
+        return WorkOutcome()
+    matches = list(_WORK_OUTCOME_RE.finditer(text))
+    if not matches:
+        return WorkOutcome()
+    value = matches[-1].group(1).lower()
+    reason = _WORK_OUTCOME_REASON_SEP_RE.sub(
+        "", matches[-1].group(2).strip()
+    ).strip()
+    if not reason or _WORK_OUTCOME_REASON_EMPTY_RE.match(reason):
+        reason = ""
+    return WorkOutcome(value=value, reason=reason)
+
+
+def classify_zero_commit_outcome(
+    text: str | None, *, issue_resolution: str | None = None
+) -> str | None:
+    """Classify a worker's own final message on a clean, 0-commit exit (#3931).
+
+    Returns one of ``"already_done"``, ``"needs_decomposition"``,
+    ``"premise"``, ``"policy"``, or ``None`` (the #448 ADVISORY default).
+
+    Resolution order:
+
+    1. An explicit ``WORK_OUTCOME:`` marker (:func:`parse_work_outcome`) is
+       AUTHORITATIVE — it wins outright, even over prose in the SAME message
+       that would otherwise match a different outcome via the heuristics
+       below.
+    2. Absent a marker, falls back to :func:`classify_zero_commit_refusal`'s
+       existing premise/policy prose heuristics unchanged — every log that
+       predates this marker, or simply never used it, classifies exactly as
+       it always has.
+    3. *issue_resolution* — the caller's already-parsed `ISSUE_RESOLUTION:`
+       value (`coord.models.parse_issue_resolution(text).value`; parsed by
+       the caller rather than here, since that marker's home is
+       `coord.models`, not this module) — ``"investigation"`` with neither a
+       `WORK_OUTCOME:` marker nor a premise/policy prose match also counts as
+       ``"needs_decomposition"`` (#3931 item 3's "unless another marker says
+       otherwise": steps 1 and 2 above already took priority, so this is
+       only ever consulted once both came back empty) — UNLESS *text* also
+       carries a `BLOCKED_ON_UPSTREAM:` marker (`coord.upstream_gaps.
+       UPSTREAM_GAP_MARKER`): a leg that found the root cause in another
+       repo and reported it that way is a distinct, common fleet shape (the
+       dependency gap is already named and actionable — file the upstream
+       issue, `coord.notify.file_pending_upstream_gaps` already does this)
+       and must not read as "needs epic decomposition", which would hand
+       the operator the wrong remedy for it.
+    """
+    outcome = parse_work_outcome(text)
+    if outcome.value == WORK_OUTCOME_ALREADY_DONE:
+        return "already_done"
+    if outcome.value == WORK_OUTCOME_NEEDS_DECOMPOSITION:
+        return "needs_decomposition"
+    prose = classify_zero_commit_refusal(text)
+    if prose is not None:
+        return prose
+    if (
+        issue_resolution == "investigation"
+        and not (text and UPSTREAM_GAP_MARKER in text)
+    ):
+        return "needs_decomposition"
     return None
 
 

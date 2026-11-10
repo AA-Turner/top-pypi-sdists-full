@@ -3,8 +3,10 @@ from enum import Enum
 
 class MessageBlocksItemKey(str, Enum):
     ASK_USER_FORM = "ask_user_form"
+    CHART = "chart"
     CODE = "code"
     HOMEPORT_NAV = "homeport_nav"
+    HPC_JOB = "hpc_job"
     MARKDOWN = "markdown"
     MERMAID = "mermaid"
     RESOURCE_LIST = "resource_list"

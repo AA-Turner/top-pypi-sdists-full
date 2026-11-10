@@ -18,7 +18,8 @@
  *   §13 dp_resamp_dc_gain is the bank's own gain, computed, on both paths
  *   §14 dp_resamp_destroy(NULL) is a no-op; create_custom rejects;
  *       every rate entry point refuses a non-finite or non-positive rate
- *   §14b a num_phases that is not a power of two is refused
+ *   §14b a num_phases that is not a power of two, or above 2^32, is
+ *       refused, and so is a bank whose size wraps
  *   §14c a set_rate that crosses 1 equals a fresh create at the new rate
  *   §15 set_rate preserves the accumulator and the delay line
  *   §16 reset zeroes every accumulator and every delay buffer
@@ -49,7 +50,9 @@
 #include "dp_chunk_inv.h"
 #include "dp_rng_test.h"
 #include "dp_test.h"
+#include <float.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -437,9 +440,30 @@ ctrl_near_unity_consumes_input (void)
   return ok;
 }
 
+/* Two forms of the same interpolation agree to a few float ULPs, not to the
+ * bit.  Each call site inlines its own copy of the polyphase dot product,
+ * and under -ffast-math a compiler is free to sum each copy in a different
+ * order: GCC 15 on aarch64 does, and the forms then differ by 1-2 ULPs at
+ * unit amplitude (doppler#2697).  A last-bit difference is not a defect
+ * (owner ruling, #1561); what these checks exist to catch is a TIMING
+ * defect -- a load one sample early or late, a lost or doubled tick --
+ * and that moves a unit-amplitude tone at 0.023 cycles/sample by ~0.14,
+ * five orders above this bound. */
+#define RESAMP_FORMS_ULPS 8.0f
+
+static int
+cf32_forms_agree (float _Complex a, float _Complex b)
+{
+  float tol = RESAMP_FORMS_ULPS * FLT_EPSILON
+              * fmaxf (1.0f, fmaxf (cabsf (a), cabsf (b)));
+  return fabsf (crealf (a) - crealf (b)) <= tol
+         && fabsf (cimagf (a) - cimagf (b)) <= tol;
+}
+
 /* dp_resamp_execute_ctrl_push (one input at a time) must reproduce the block
- * dp_resamp_execute_ctrl on the same (in, ctrl[]) bit-for-bit — the property a
- * closed timing loop relies on to steer the strobe per output. Returns 1 ok.
+ * dp_resamp_execute_ctrl on the same (in, ctrl[]): the same outputs at the
+ * same ticks, each within RESAMP_FORMS_ULPS -- the property a closed timing
+ * loop relies on to steer the strobe per output. Returns 1 ok.
  */
 static int
 eq_ctrl_push (double rate)
@@ -472,8 +496,7 @@ eq_ctrl_push (double rate)
 
   int ok = (np == nref);
   for (size_t i = 0; i < nref && i < np; i++)
-    if (crealf (out_ref[i]) != crealf (out_push[i])
-        || cimagf (out_ref[i]) != cimagf (out_push[i]))
+    if (!cf32_forms_agree (out_ref[i], out_push[i]))
       ok = 0;
   return ok;
 }
@@ -1170,7 +1193,7 @@ image_floor_db (double rate, double f0)
  * unity. So the sentence has an observable consequence in both directions,
  * and asserting only one of them proves nothing:
  *
- *   rate >= 1  both are the interpolator -> bit-for-bit identical
+ *   rate >= 1  both are the interpolator -> identical to a few ULPs
  *   rate <  1  different structures      -> must DIFFER
  *
  * The inequality alone would be satisfied by any corruption, so it is
@@ -1207,7 +1230,7 @@ ctrl_rides_interpolator (double rate)
 
   int same = (na == nb);
   for (size_t i = 0; i < na && i < nb && same; i++)
-    if (a[i] != b[i])
+    if (!cf32_forms_agree (a[i], b[i]))
       same = 0;
 
   if (rate >= 1.0)
@@ -1944,6 +1967,54 @@ main (void)
 
   /* ── §14 — destroy(NULL) is a no-op; create_custom rejects ──────────── */
   DP_CHECK (lifecycle_rejects ());
+
+  /* ── §14b — num_phases above 2^32 is refused before any allocation ────
+   * get_branch() shifts the 32-bit phase word right by 32 - log2(num_phases),
+   * defined only while log2(num_phases) <= 32. 2^33 is the first power of
+   * two past the cap (2^32 + 1 is refused as a non-power of two, so it would
+   * not reach the cap at all). One tap keeps the bank product far from
+   * wrapping, so only the cap can refuse it. The positive control is a
+   * small count over the same bank. Sabotage, red: drop the cap -- the
+   * guard then copies 2^33 floats (32 GiB) from this 4-float bank, which
+   * under ASan is reported (an OOM abort or the over-read); a plain build
+   * whose malloc refuses 32 GiB returns NULL for that other reason. */
+#if SIZE_MAX > UINT32_MAX
+  {
+    const float  bank4[4] = { 1.0f, 0.0f, 1.0f, 0.0f };
+    const size_t over     = (size_t)1 << 33;
+    DP_REQUIRE ((over & (over - 1u)) == 0u);
+    DP_REQUIRE (over <= SIZE_MAX / sizeof (float)); /* no wrap: cap only */
+    resamp_state_t *sane = dp_resamp_create_custom (4, 1, bank4, 1.0);
+    DP_REQUIRE (sane != NULL);
+    dp_resamp_destroy (sane);
+    DP_CHECK (dp_resamp_create_custom (over, 1, bank4, 1.0) == NULL);
+  }
+
+  /* ── §14b — a bank whose size num_phases * num_taps wraps is refused ───
+   * Still reachable under the cap: 2^32 phases (the cap itself) of 2^32
+   * taps is 2^64 coefficients, which wraps to 0 -- a 0-byte copy that
+   * create_custom() would accept, after which every execute reads arms
+   * past it. The preconditions put the count past the other guards: a
+   * power of two at the cap, and a product that really wraps. The positive
+   * control is the same bank and rate at 2 x 2. Sabotage, red under ASan:
+   * a plain `num_phases * num_taps` (the create then asks for a 64 GiB
+   * delay line, which ASan either grants -- a live state for the wrapped
+   * bank -- or aborts on). A plain build whose calloc refuses 64 GiB returns
+   * NULL for that other reason, so only a machine that can grant it shows
+   * the wrong answer, and the sanitizer is that machine. */
+  {
+    const float  bank4[4] = { 1.0f, 0.0f, 1.0f, 0.0f };
+    const size_t phases   = (size_t)1 << 32;
+    const size_t taps     = (size_t)1 << 32;
+    DP_REQUIRE ((phases & (phases - 1u)) == 0u);
+    DP_REQUIRE ((uint64_t)phases <= (uint64_t)1 << 32);
+    DP_REQUIRE (phases * taps == 0u);
+    resamp_state_t *sane = dp_resamp_create_custom (2, 2, bank4, 1.0);
+    DP_REQUIRE (sane != NULL);
+    dp_resamp_destroy (sane);
+    DP_CHECK (dp_resamp_create_custom (phases, taps, bank4, 1.0) == NULL);
+  }
+#endif
   DP_CHECK (non_power_of_two_phases_refused ());
   DP_CHECK (crossing_set_rate_is_a_fresh_create ());
   DP_CHECK (builtin_bank_uses_public_kaiser ());

@@ -123,7 +123,7 @@ typedef struct {
     uint8_t html;       /* enum md_html */
     uint8_t flags;      /* MD_MARK_* */
     uint8_t emitted;    /* the open run was written, so the close run must be too */
-    uint8_t spanning;   /* HTML marker kept open across blocks */
+    uint8_t spanning;   /* HTML marker for deep nesting */
 } md_marker;
 
 /* The layout state one list threads through its items, including the items it
@@ -290,10 +290,10 @@ typedef struct {
     md_marker *inline_markers;
     Py_ssize_t marker_count;
     Py_ssize_t marker_cap;
-    Py_ssize_t marker_base;   /* markers below it belong to the output a cell or converter set aside */
-    Py_ssize_t open_markdown; /* emitted markers that still need closing at a block */
-    md_marker *pending;       /* the innermost marker above marker_base, NULL when there is none */
-    md_reference *refs;       /* collected reference-link targets */
+    Py_ssize_t marker_base;  /* markers below it belong to the output a cell or converter set aside */
+    Py_ssize_t open_markers; /* emitted markers that still need closing at a block */
+    md_marker *pending;      /* the innermost marker above marker_base, NULL when there is none */
+    md_reference *refs;      /* collected reference-link targets */
     Py_ssize_t ref_count;
     Py_ssize_t ref_cap;
     int started;          /* has any block content been emitted yet */
@@ -692,9 +692,7 @@ static TH_NOINLINE void md_emit_pending(md_ctx *ctx) {
             md_puts8(&ctx->out, marker->open);
         }
         marker->emitted = 1;
-        if (!marker->spanning) {
-            ctx->open_markdown++;
-        }
+        ctx->open_markers++;
         ctx->line_has_content = 1;
     }
 }
@@ -1504,9 +1502,9 @@ static void md_settle_run(md_ctx *ctx, Py_ssize_t index, th_node *node) {
 
 /* Close the marker a frame opened, returning its closing run when the open run was
    written (so the close run must be too), NULL otherwise. */
-/* A delimiter run pairs only within one block's inline content (CommonMark 6.2), so
-   a block that starts inside an emphasis element closes every run written so far;
-   md_before_visible reopens them at the next visible character, in the new block. */
+/* A delimiter run pairs only within one block's inline content (CommonMark 6.2).
+   Deep raw HTML markers also need closing here, or the HTML reader may drop
+   formatting when it reconstructs later blocks. */
 static void md_suspend_markers(md_ctx *ctx) {
     if (ctx->out.failed) { /* GCOVR_EXCL_BR_LINE: allocation failure */
         return;            /* GCOVR_EXCL_LINE: allocation failure */
@@ -1514,22 +1512,25 @@ static void md_suspend_markers(md_ctx *ctx) {
     if (ctx->marker_count - ctx->marker_base > 8) {
         ctx->deep_block_span = 1;
     }
-    if (ctx->open_markdown == 0) {
+    if (ctx->open_markers == 0) {
         return;
     }
     for (Py_ssize_t index = ctx->marker_count; index > ctx->marker_base; index--) {
         md_marker *marker = &ctx->markers[index - 1];
-        if (marker->emitted && !marker->spanning) {
+        if (!marker->emitted) {
+            continue;
+        }
+        if (!marker->spanning) {
             md_settle_run(ctx, index - 1, NULL);
             if (ctx->out.failed) { /* GCOVR_EXCL_BR_LINE: allocation failure */
                 return;            /* GCOVR_EXCL_LINE: allocation failure */
             }
-            marker->emitted = 0;
-            ctx->open_markdown--;
-            md_put_close(ctx, marker->close);
-            if (ctx->out.failed) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-                return;            /* GCOVR_EXCL_LINE: allocation failure */
-            }
+        }
+        marker->emitted = 0;
+        ctx->open_markers--;
+        md_put_close(ctx, marker->close);
+        if (ctx->out.failed) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return;            /* GCOVR_EXCL_LINE: allocation failure */
         }
     }
 }
@@ -1539,8 +1540,8 @@ static const char *md_pop_marker(md_ctx *ctx, Py_ssize_t marker) {
         return NULL;
     }
     for (Py_ssize_t index = marker; index < ctx->marker_count; index++) {
-        if (ctx->markers[index].emitted && !ctx->markers[index].spanning) {
-            ctx->open_markdown--;
+        if (ctx->markers[index].emitted) {
+            ctx->open_markers--;
         }
     }
     ctx->marker_count = marker;
@@ -1712,20 +1713,18 @@ static Py_ssize_t md_max_backtick_run(const Py_UCS4 *text, Py_ssize_t len) {
 enum { MD_CODE_INLINE, MD_CODE_LINE, MD_CODE_BREAK, MD_CODE_SKIPPED };
 
 /* How code text treats an element: a block, or a table row or cell that the table
-   model sets apart from its neighbors, lays out on lines of its own; a script or style
-   holds no text, and a template's content is never drawn (is_md_skipped; a <head>
-   cannot sit in code); anything else runs inline. One switch answers all three. */
+   model sets apart from its neighbors, lays out on lines of its own; hidden subtrees
+   contribute no text, and anything else runs inline. */
 static int md_code_kind(const th_node *node) {
+    if (is_md_skipped(node)) {
+        return MD_CODE_SKIPPED;
+    }
     if (node->ns != TH_NS_HTML) {
         return MD_CODE_INLINE;
     }
     switch (node->atom) {
     case TH_TAG_BR:
         return MD_CODE_BREAK;
-    case TH_TAG_SCRIPT:
-    case TH_TAG_STYLE:
-    case TH_TAG_TEMPLATE:
-        return MD_CODE_SKIPPED;
     case TH_TAG_TR:
     case TH_TAG_TD:
     case TH_TAG_TH:
@@ -2119,26 +2118,54 @@ static void md_leave_link(md_ctx *ctx, md_frame *frame) {
     }
 }
 
-/* Pass a node's outer HTML through on one line (the image/table/list escape
-   hatch). A blank line, even one that is blank only after its continuation
-   prefix, ends a GFM raw-HTML block and leaves the rest to be read as Markdown,
-   so each line break goes out as its numeric reference. */
+/* Pipe cells collapse LF but preserve CR, while raw HTML blocks must encode both. */
+static void md_put_html_run(md_ctx *ctx, const Py_UCS4 *text, Py_ssize_t len, int encode_lf) {
+    Py_ssize_t run = 0;
+    for (Py_ssize_t index = 0; index < len; index++) {
+        if (text[index] == '\r' || (encode_lf && text[index] == '\n')) {
+            md_put_run(ctx, text + run, index - run);
+            sbuf_puts(&ctx->out, text[index] == '\n' ? "&#10;" : "&#13;");
+            run = index + 1;
+        }
+    }
+    md_put_run(ctx, text + run, len - run);
+}
+
+/* Pass a node's outer HTML through on one line (the image/table/list escape hatch). */
 static void md_emit_raw_html(md_ctx *ctx, th_node *node) {
+    sbuf cell_open = {0};
+    sbuf cell_close = {0};
+    if (node->atom == TH_TAG_TABLE) {
+        for (Py_ssize_t index = ctx->marker_base; index < ctx->marker_count; index++) {
+            uint8_t marker_html = ctx->markers[index].html;
+            if (marker_html != MD_HTML_NONE) {
+                sbuf_puts(&cell_open, MD_HTML_TAGS[marker_html - 1][0]);
+            }
+        }
+        for (Py_ssize_t index = ctx->marker_count; index > ctx->marker_base; index--) {
+            uint8_t marker_html = ctx->markers[index - 1].html;
+            if (marker_html != MD_HTML_NONE) {
+                sbuf_puts(&cell_close, MD_HTML_TAGS[marker_html - 1][1]);
+            }
+        }
+    }
+    if (cell_open.failed || cell_close.failed) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        ctx->out.failed = 1;                     /* GCOVR_EXCL_LINE: allocation failure */
+        PyMem_Free(cell_open.data);              /* GCOVR_EXCL_LINE: allocation failure */
+        PyMem_Free(cell_close.data);             /* GCOVR_EXCL_LINE: allocation failure */
+        return;                                  /* GCOVR_EXCL_LINE: allocation failure */
+    }
+    const th_cell_wrap wrap = {cell_open.data, cell_open.len, cell_close.data, cell_close.len};
     Py_ssize_t len;
-    Py_UCS4 *html = th_node_markdown_html(ctx->tree, node, TH_MARKDOWN_HTML_BLOCK, &len);
+    Py_UCS4 *html = cell_open.len > 0 ? th_node_markdown_table_html(ctx->tree, node, &wrap, &len)
+                                      : th_node_markdown_html(ctx->tree, node, TH_MARKDOWN_HTML_BLOCK, &len);
+    PyMem_Free(cell_open.data);
+    PyMem_Free(cell_close.data);
     if (html == NULL) {      /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         ctx->out.failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
         return;              /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    Py_ssize_t run = 0;
-    for (Py_ssize_t index = 0; index < len; index++) {
-        if (html[index] == '\n' || html[index] == '\r') {
-            md_put_run(ctx, html + run, index - run);
-            sbuf_puts(&ctx->out, html[index] == '\n' ? "&#10;" : "&#13;");
-            run = index + 1;
-        }
-    }
-    md_put_run(ctx, html + run, len - run);
+    md_put_html_run(ctx, html, len, 1);
     ctx->line_has_content = 1;
     PyMem_Free(html);
 }
@@ -2199,19 +2226,24 @@ static void md_emit_cell_html(md_ctx *ctx, th_node *node) {
         if (ch == '<') {
             Py_ssize_t tag = md_tbody_tag(&html[index], len - index);
             if (tag > 0) {
-                md_put_run(ctx, &html[start], index - start);
+                md_put_html_run(ctx, &html[start], index - start, 0);
                 index += tag - 1;
                 start = index + 1;
             } else {
-                index += md_markup_length(&html[index], len - index) - 1;
+                Py_ssize_t markup = md_markup_length(&html[index], len - index);
+                md_put_html_run(ctx, &html[start], index - start, 0);
+                /* Cell whitespace collapse must not change an attribute value. */
+                md_put_html_run(ctx, &html[index], markup, html[index + 1] != '!');
+                index += markup - 1;
+                start = index + 1;
             }
         } else if (ch < 0x80 && (MD_ASCII[ch] & ctx->escape_mask)) {
-            md_put_run(ctx, &html[start], index - start);
+            md_put_html_run(ctx, &html[start], index - start, 0);
             sbuf_putc(&ctx->out, '\\');
             start = index;
         }
     }
-    md_put_run(ctx, &html[start], len - start);
+    md_put_html_run(ctx, &html[start], len - start, 0);
     ctx->line_has_content = 1;
     PyMem_Free(html);
 }
@@ -2219,6 +2251,17 @@ static void md_emit_cell_html(md_ctx *ctx, th_node *node) {
 /* GFM pipe cells cannot hold nested block markup. */
 static int md_is_cell_block(uint16_t atom) {
     return atom == TH_TAG_TABLE || atom == TH_TAG_UL || atom == TH_TAG_OL || atom == TH_TAG_MENU;
+}
+
+static int md_in_cell_quote(const th_node *node) {
+    /* Called only while rendering a td/th descendant. */
+    for (const th_node *ancestor = node; ancestor->atom != TH_TAG_TD && ancestor->atom != TH_TAG_TH;
+         ancestor = ancestor->parent) {
+        if (ancestor->atom == TH_TAG_BLOCKQUOTE) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 /* Collapsed block boundaries need spaces to keep adjacent words apart. */
@@ -2337,7 +2380,7 @@ static void md_emit_alt(md_ctx *ctx, const Py_UCS4 *alt, Py_ssize_t alt_len, int
     ctx->line_has_content = 1;
 }
 
-static void md_emit_html_attribute(sbuf *out, const Py_UCS4 *value, Py_ssize_t len) {
+static void md_emit_html_attribute(sbuf *out, const Py_UCS4 *value, Py_ssize_t len, int in_cell) {
     for (Py_ssize_t index = 0; index < len; index++) {
         switch (value[index]) {
         case '&':
@@ -2361,11 +2404,27 @@ static void md_emit_html_attribute(sbuf *out, const Py_UCS4 *value, Py_ssize_t l
         case '\f':
             sbuf_puts(out, "&#12;");
             break;
+        case ' ':
+            if (in_cell) {
+                sbuf_puts(out, "&#32;");
+            } else {
+                sbuf_putc(out, ' ');
+            }
+            break;
         default:
             sbuf_putc(out, value[index]);
             break;
         }
     }
+}
+
+static int md_attr_has_space_run(const Py_UCS4 *value, Py_ssize_t len) {
+    for (Py_ssize_t index = 1; index < len; index++) {
+        if (value[index - 1] == ' ' && value[index] == ' ') {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 static void md_emit_image(md_ctx *ctx, th_node *node) {
@@ -2386,26 +2445,34 @@ static void md_emit_image(md_ctx *ctx, th_node *node) {
     }
     Py_ssize_t src_len;
     const Py_UCS4 *src = md_attr(ctx->tree, node, "src", &src_len);
+    Py_ssize_t title_len;
+    const Py_UCS4 *title = md_attr(ctx->tree, node, "title", &title_len);
+    int use_html = ctx->in_cell && (md_attr_has_space_run(alt, alt_len) || md_attr_has_space_run(src, src_len) ||
+                                    md_attr_has_space_run(title, title_len));
     if (src != NULL) {
         for (Py_ssize_t index = 0; index < src_len; index++) {
             if (src[index] == '\n' || src[index] == '\r' || src[index] == '\t' || src[index] == '\f') {
-                sbuf_puts(&ctx->out, "<img src=\"");
-                md_emit_html_attribute(&ctx->out, src, src_len);
-                sbuf_puts(&ctx->out, "\" alt=\"");
-                if (alt != NULL) {
-                    md_emit_html_attribute(&ctx->out, alt, alt_len);
-                }
-                Py_ssize_t raw_title_len;
-                const Py_UCS4 *raw_title = md_attr(ctx->tree, node, "title", &raw_title_len);
-                if (raw_title != NULL) {
-                    sbuf_puts(&ctx->out, "\" title=\"");
-                    md_emit_html_attribute(&ctx->out, raw_title, raw_title_len);
-                }
-                sbuf_puts(&ctx->out, "\">");
-                ctx->line_has_content = 1;
-                return;
+                use_html = 1;
+                break;
             }
         }
+    }
+    if (use_html) {
+        sbuf_puts(&ctx->out, "<img src=\"");
+        if (src != NULL) {
+            md_emit_html_attribute(&ctx->out, src, src_len, ctx->in_cell);
+        }
+        sbuf_puts(&ctx->out, "\" alt=\"");
+        if (alt != NULL) {
+            md_emit_html_attribute(&ctx->out, alt, alt_len, ctx->in_cell);
+        }
+        if (title != NULL) {
+            sbuf_puts(&ctx->out, "\" title=\"");
+            md_emit_html_attribute(&ctx->out, title, title_len, ctx->in_cell);
+        }
+        sbuf_puts(&ctx->out, "\">");
+        ctx->line_has_content = 1;
+        return;
     }
     sbuf_puts(&ctx->out, "![");
     md_emit_alt(ctx, alt, alt_len, 1);
@@ -2416,8 +2483,6 @@ static void md_emit_image(md_ctx *ctx, th_node *node) {
     } else {
         sbuf_puts(&ctx->out, "<>"); /* a missing src is an empty destination */
     }
-    Py_ssize_t title_len;
-    const Py_UCS4 *title = md_attr(ctx->tree, node, "title", &title_len);
     if (title != NULL) {
         sbuf_puts(&ctx->out, " \"");
         md_emit_title(ctx, title, title_len);
@@ -2653,6 +2718,10 @@ static void md_render_inline_tag(md_ctx *ctx, th_node *node) {
            blank line would split the CommonMark link, a heading is one line, and a GFM
            cell holds inline content, 4.10), so it flattens to inline; its boundary still
            reads as a space so adjacent words never fuse */
+        if (ctx->in_cell && !ctx->inline_only && md_in_cell_quote(node)) {
+            /* A quote has its own flow of inline runs inside a flattened cell. */
+            md_suspend_markers(ctx);
+        }
         ctx->space_pending = 1;
         if (atom == TH_TAG_PRE) {
             md_emit_code_span(ctx, node, 1); /* a code span is the inline form of a code block (CommonMark 6.1) */

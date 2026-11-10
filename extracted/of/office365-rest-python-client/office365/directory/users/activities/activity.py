@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
+from office365.directory.status import Status
+from office365.directory.visual_info import VisualInfo
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.json import Json
 from office365.runtime.types.odata_property import odata
-
-if TYPE_CHECKING:
-    from office365.directory.status import Status
-    from office365.directory.visual_info import VisualInfo
 
 
 class UserActivity(Entity):
@@ -22,6 +20,7 @@ class UserActivity(Entity):
     multiple history items are recorded for a single user activity.
     """
 
+    @odata(name="activationUrl")
     @property
     def activation_url(self) -> Optional[str]:
         """URL used to launch the activity in the best native experience represented by the appId.
@@ -29,6 +28,7 @@ class UserActivity(Entity):
         """
         return self.properties.get("activationUrl", None)
 
+    @odata(name="activitySourceHost")
     @property
     def activity_source_host(self) -> Optional[str]:
         """Required. URL for the domain representing the cross-platform identity mapping for the app.
@@ -41,6 +41,7 @@ class UserActivity(Entity):
         """
         return self.properties.get("activitySourceHost", None)
 
+    @odata(name="appActivityId")
     @property
     def app_activity_id(self) -> Optional[str]:
         """
@@ -48,6 +49,7 @@ class UserActivity(Entity):
         """
         return self.properties.get("appActivityId", None)
 
+    @odata(name="appDisplayName")
     @property
     def app_display_name(self) -> Optional[str]:
         """
@@ -68,7 +70,7 @@ class UserActivity(Entity):
         """Set by the server. DateTime in UTC when the object was created on the server."""
         return self.properties.get("expirationDateTime", datetime.min)
 
-    @odata(name="historyItems")
+    @odata(name="historyItems", navigation=True)
     @property
     def history_items(self):
         """NavigationProperty/Containment; navigation property to the associated activity."""
@@ -81,36 +83,43 @@ class UserActivity(Entity):
             EntityCollection(self.context, ActivityHistoryItem, ResourcePath("historyItems", self.resource_path)),
         )
 
+    @odata(name="contentInfo")
     @property
     def content_info(self) -> Json:
         """Gets the contentInfo property"""
         return self.properties.get("contentInfo", Json())
 
+    @odata(name="contentUrl")
     @property
     def content_url(self) -> Optional[str]:
         """Gets the contentUrl property"""
         return self.properties.get("contentUrl", None)
 
+    @odata(name="createdDateTime")
     @property
     def created_date_time(self) -> Optional[datetime]:
         """Gets the createdDateTime property"""
         return self.properties.get("createdDateTime", datetime.min)
 
+    @odata(name="expirationDateTime")
     @property
     def expiration_date_time(self) -> Optional[datetime]:
         """Gets the expirationDateTime property"""
         return self.properties.get("expirationDateTime", datetime.min)
 
+    @odata(name="fallbackUrl")
     @property
     def fallback_url(self) -> Optional[str]:
         """Gets the fallbackUrl property"""
         return self.properties.get("fallbackUrl", None)
 
+    @odata(name="lastModifiedDateTime")
     @property
     def last_modified_date_time(self) -> Optional[datetime]:
         """Gets the lastModifiedDateTime property"""
         return self.properties.get("lastModifiedDateTime", datetime.min)
 
+    @odata(name="userTimezone")
     @property
     def user_timezone(self) -> Optional[str]:
         """Gets the userTimezone property"""
@@ -120,16 +129,14 @@ class UserActivity(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.UserActivity"
 
+    @odata(name="status")
     @property
     def status(self) -> Status:
         """Gets the status property"""
-        from office365.directory.status import Status
-
         return self.properties.get("status", Status.active)
 
+    @odata(name="visualElements")
     @property
     def visual_elements(self) -> VisualInfo:
         """Gets the visualElements property"""
-        from office365.directory.visual_info import VisualInfo
-
         return self.properties.get("visualElements", VisualInfo())

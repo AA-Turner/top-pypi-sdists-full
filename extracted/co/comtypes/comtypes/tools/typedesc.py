@@ -3,14 +3,27 @@
 
 import ctypes
 from collections.abc import Sequence
-from typing import Any, Optional
+from typing import Any, Generic, Optional, TypeVar, final
 from typing import Union as _UnionT
 
 from comtypes import typeinfo
-from comtypes.tools.typedesc_base import *
+from comtypes.tools.typedesc_base import ArrayType as ArrayType
+from comtypes.tools.typedesc_base import Enumeration as Enumeration
+from comtypes.tools.typedesc_base import EnumValue as EnumValue
+from comtypes.tools.typedesc_base import Field as Field
+from comtypes.tools.typedesc_base import FundamentalType as FundamentalType
+from comtypes.tools.typedesc_base import PointerType as PointerType
+from comtypes.tools.typedesc_base import Structure as Structure
+from comtypes.tools.typedesc_base import StructureBody as StructureBody
+from comtypes.tools.typedesc_base import StructureHead as StructureHead
+from comtypes.tools.typedesc_base import Typedef as Typedef
+from comtypes.tools.typedesc_base import Union as Union
 from comtypes.typeinfo import TLIBATTR, ITypeLib
 
+_TD = TypeVar("_TD")
 
+
+@final
 class TypeLib:
     def __init__(
         self, name: str, guid: str, major: int, minor: int, doc: Optional[str] = None
@@ -25,6 +38,7 @@ class TypeLib:
         return f"<TypeLib({self.name}: {self.guid}, {self.major}, {self.minor})>"
 
 
+@final
 class Constant:
     def __init__(
         self,
@@ -39,6 +53,7 @@ class Constant:
         self.doc = doc
 
 
+@final
 class External:
     def __init__(
         self,
@@ -62,12 +77,14 @@ class External:
         return self
 
 
-class SAFEARRAYType:
-    def __init__(self, typ: Any) -> None:
+@final
+class SAFEARRAYType(Generic[_TD]):
+    def __init__(self, typ: _TD) -> None:
         self.typ = typ
         self.align = self.size = ctypes.sizeof(ctypes.c_void_p) * 8
 
 
+@final
 class ComMethod:
     # custom COM method, parsed from typelib
     def __init__(
@@ -93,6 +110,7 @@ class ComMethod:
         self.arguments.append((typ, name, idlflags, default))
 
 
+@final
 class DispMethod:
     # dispatchable COM method, parsed from typelib
     def __init__(
@@ -118,10 +136,11 @@ class DispMethod:
         self.arguments.append((typ, name, idlflags, default))
 
 
+@final
 class DispProperty:
     # dispatchable COM property, parsed from typelib
     def __init__(
-        self, dispid: int, name: str, typ: Any, idlflags: list[str], doc: Optional[Any]
+        self, dispid: int, name: str, typ: Any, idlflags: list[str], doc: Optional[str]
     ) -> None:
         self.dispid = dispid
         self.name = name
@@ -130,21 +149,24 @@ class DispProperty:
         self.doc = doc
 
 
+@final
 class DispInterfaceHead:
     def __init__(self, itf: "DispInterface") -> None:
         self.itf = itf
 
 
+@final
 class DispInterfaceBody:
     def __init__(self, itf: "DispInterface") -> None:
         self.itf = itf
 
 
+@final
 class DispInterface:
     def __init__(
         self,
         name: str,
-        base: Any,
+        base: "_UnionT[ComInterface, DispInterface, External]",
         iid: str,
         idlflags: list[str],
         doc: Optional[str],
@@ -168,21 +190,24 @@ class DispInterface:
         return self.itf_head
 
 
+@final
 class ComInterfaceHead:
     def __init__(self, itf: "ComInterface") -> None:
         self.itf = itf
 
 
+@final
 class ComInterfaceBody:
     def __init__(self, itf: "ComInterface") -> None:
         self.itf = itf
 
 
+@final
 class ComInterface:
     def __init__(
         self,
         name: str,
-        base: "Optional[ComInterface]",
+        base: "_UnionT[None, ComInterface, External]",
         iid: str,
         idlflags: list[str],
         doc: Optional[str],
@@ -210,6 +235,7 @@ _ImplTypeFlags = int
 _Interface = _UnionT[ComInterface, DispInterface]
 
 
+@final
 class CoClass:
     def __init__(
         self,

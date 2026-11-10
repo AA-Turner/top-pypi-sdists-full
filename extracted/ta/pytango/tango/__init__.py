@@ -446,7 +446,7 @@ __doc__ = Release.long_description
 
 import tango.telemetry as telemetry
 
-from ._warnings import PyTangoUserWarning
+from ._internal.warn import PyTangoUserWarning
 from .attr_data import AttrData
 from .attribute_proxy import AttributeProxy, get_attribute_proxy
 from .device_class import DeviceClass

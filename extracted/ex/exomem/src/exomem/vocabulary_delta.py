@@ -2,9 +2,8 @@
 
 A session that did not make a promotion learns of it from the bootstrap `new`
 marker, which many sessions never read. This block tells such a session once,
-where it works: in the activation packet and in the response of a committed
-mutating call. It lists at most `MAX_ENTRIES` entries inside `MAX_CHARS`, each
-as registry, key, label, a one-line description and the parent where one exists.
+where it works: in the activation packet. It lists at most `MAX_ENTRIES` entries inside
+`MAX_CHARS`, each as registry, key, label, a one-line description and the parent where one exists.
 
 Disclosure comes first. The producer takes the registries and instances the
 caller is admitted to through the bootstrap's own admission path
@@ -40,8 +39,6 @@ MAX_ENTRIES = 5
 MAX_CHARS = 700
 _LABEL_CHARS = 48
 _DESCRIPTION_CHARS = 100
-#: The terminal key that carries a produced block until the projection delivers it.
-PENDING_KEY = "_vocabulary_delta"
 
 
 @dataclass(frozen=True)
@@ -240,52 +237,10 @@ def for_packet(vault_root: Path, packet: dict[str, Any], *, session: str | None 
         owed = pending(vault_root, session=session, limit=room)
         block = deliver(owed, vault_root, session=session) if owed is not None else None
         if block is not None:
-            packet["vocabulary_delta"] = block
-            held = packet.setdefault("budget", {})
-            held["used_chars"] = used + size(block)
-            if "serialized_chars" in held:
-                # The packet grew after its length was measured; the field names what is sent.
-                from . import context_views
+            from . import context_views
 
-                held.pop("serialized_chars")
-                held["serialized_chars"] = context_views.serialized_chars(packet)
+            packet["vocabulary_delta"] = block
+            context_views.count_attached(packet, size(block))
     except Exception:  # noqa: BLE001 - optional guidance never breaks an activation
         log.debug("vocabulary delta unavailable (non-fatal)", exc_info=True)
         packet.pop("vocabulary_delta", None)
-
-
-def with_pending(vault_root: Path, terminal: Any) -> Any:
-    """Carry the owed block on a committed terminal until the projection delivers it. Never raises."""
-    from . import mutation_terminal
-
-    if (
-        not isinstance(terminal, Mapping)
-        or terminal.get("_terminal") != mutation_terminal._TERMINAL_MARKER
-        or terminal.get("version") != mutation_terminal._TERMINAL_VERSION
-        or terminal.get("state") != "committed"
-        or terminal.get("ok") is not True
-    ):
-        return terminal
-    try:
-        if _suggestions_off():
-            return terminal
-        owed = pending(vault_root)
-    except Exception:  # noqa: BLE001 - optional guidance cannot change a committed outcome
-        log.debug("vocabulary delta unavailable (non-fatal)", exc_info=True)
-        return terminal
-    if owed is None:
-        return terminal
-    return {**terminal, PENDING_KEY: {"block": owed.block, "claim": owed.claim, "vault": str(vault_root)}}
-
-
-def delivered_by(terminal: Mapping[str, Any]) -> dict[str, Any] | None:
-    """The block a projected response carries, recorded as delivered; None when it carries none."""
-    carried = terminal.get(PENDING_KEY)
-    if not isinstance(carried, Mapping):
-        return None
-    try:
-        owed = Pending(dict(carried["block"]), str(carried["claim"]))
-        return deliver(owed, Path(str(carried["vault"])))
-    except Exception:  # noqa: BLE001 - an ungovernable advisory is not delivered
-        log.debug("vocabulary delta delivery unavailable (non-fatal)", exc_info=True)
-        return None

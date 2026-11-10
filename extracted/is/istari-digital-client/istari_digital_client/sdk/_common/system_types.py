@@ -193,6 +193,23 @@ class System(_GenSystem, ClientHaving, Archivable, Shareable, Classifiable):
             include_extracted=include_extracted,
         )
 
+    def search_content(self, query: str, *, size: int = 10) -> "dict":
+        """Find which of this system's tracked files match ``query`` by their text.
+
+        Server-side search over the registry's content index (body text plus name,
+        path and description) on the baseline branch's current snapshot, returning
+        the matching files with snippets instead of downloading anything. The
+        endpoint selects the baseline itself, so no branch listing precedes the
+        search. Use it FIRST
+        to locate a fact, then read only the hits; use :meth:`contents` only to read
+        or summarize the whole system. See :meth:`Branch.search_content` for the
+        result shape.
+
+        Aliases: search find locate where-is which-file contains full-text content
+        grep scan lookup discover source body text
+        """
+        return self._mgr.branches._search_content(self.id, None, query, size)
+
     def create_branch(
         self,
         name: str,
@@ -502,6 +519,38 @@ class Branch(_GenSnapshotTag, ClientHaving, Archivable):
             max_chars_per_file=max_chars_per_file,
             include_extracted=include_extracted,
         )
+
+    def search_content(self, query: str, *, size: int = 10) -> "dict":
+        """Find which of this branch's tracked files match ``query`` by their text.
+
+        Server-side search over the registry's content index — the words of
+        ``query`` matched against each tracked file's body text and its name, path
+        and description, scoped to this branch's current snapshot. Nothing is
+        downloaded: the registry returns the matching files with a snippet around
+        the match, so the right source is found without reading files one by one.
+        Use this FIRST to locate a fact (an equipment id, a requirement, a term),
+        then read only the hits; use :meth:`contents` only to read or summarize the
+        whole branch.
+
+        Returns ``{query, snapshot_id, hits: [{resource_id, name, rank, snippet}],
+        unsearched_count, index_refreshed_at}``, hits best-first, at most ``size``
+        (1..50), gathered over up to five result pages. ``snippet`` wraps each
+        matched word in ``**`` and is ``None`` for a
+        name-only match. ``unsearched_count`` tracked files have no searchable text
+        (binary, too large, pinned to an older revision, or not indexed yet) and can
+        only match by name; ``None`` means content search is off on this registry. A
+        file uploaded moments ago may not be indexed yet — read it directly.
+
+        Example::
+
+            found = branch.search_content("AUR-D02-AUX2Z-DP-02 distribution panel")
+            if found["hits"]:
+                text = client.resources.get(found["hits"][0]["resource_id"]).read_text()
+
+        Aliases: search find locate where-is which-file contains full-text content
+        grep scan lookup discover source body text
+        """
+        return self._mgr.search_content(self, query, size=size)
 
     def search(
         self,

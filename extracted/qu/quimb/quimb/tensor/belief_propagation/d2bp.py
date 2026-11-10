@@ -1,10 +1,33 @@
 """Dense 2-norm belief propagation for standard PEPS like tensor networks, with
 one tensor per site and no hyper indices. This is the basic 'quantum' BP.
 
-TODO:
-- [ ] cache gauges computed from messages until out-of-date
-- [ ] fix fermionic compress and gate (non-hermitian messages currently?)
-- [ ] store conditioned messages separately?
+A fermionic message has two representations, differing by a single
+``phase_flip(0)``, which negates the odd-parity sectors of the bra axis and is
+its own inverse. The flip is intrinsic to the doubled contraction.
+
+- ``C`` is the raw contraction of the bra with the ket over everything except
+  one bond, leaving that bond's bra and ket legs open, in ``(bra, ket)`` order.
+  A BP update expression returns ``C``.
+- ``M = C.phase_flip(0)`` is the stored message, and the representation in
+  which symmray's fermionic ``eigh()`` reports a nonnegative spectrum.
+
+Storing ``M`` lets conditioning, gauge insertion and hermitization treat a
+message as an operator. To use it as an environment, insert ``M`` directly
+between the bra and ket, using the usual fermionic contraction rules. Message
+updates and direct environment contractions do not require square-root
+factors. Gauge insertion still computes them. autoray's default ``gram``
+composes conjugation and contraction, and symmray overrides it to build ``M``
+directly and cancel paired conjugate dummy modes.
+
+Convert between the representations with ``phase_flip(0)``:
+
+- after a BP update, convert the result ``C`` to ``M`` before storing it
+- before calling ``squared_op_to_reduced_factor``, convert ``M`` to ``C``.
+  That routine also applies a separate flip based on the bond orientation
+- when contracting the two messages on a bond to a scalar, convert only one
+  of them to ``C``
+
+TODO: cache gauges computed from messages until out of date.
 """
 
 import contextlib
@@ -15,12 +38,19 @@ import operator
 import autoray as ar
 
 import quimb.tensor as qtn
-from quimb.utils import check_opt, ensure_dict, oset
+from quimb.tensor.array_ops import isfermionic
+from quimb.tensor.networking import NetworkPatch, SweepScheduler
+from quimb.tensor.tnag.core import (
+    contract_reduced_density_matrix,
+    get_bra_inds,
+)
+from quimb.utils import check_opt, ensure_dict
 
 from .bp_common import (
     BeliefPropagationCommon,
     combine_local_contractions,
     normalize_message_pair,
+    parse_gloops_edge_induced,
     process_loop_series_expansion_weights,
 )
 from .regions import gen_region_counts
@@ -41,6 +71,13 @@ def _parse_global_gloops(tn, gloops=None):
     return gloops
 
 
+def _message_to_reduced_factor(m, *args, **kwargs):
+    if isfermionic(m):
+        # reduced-factor extraction expects C rather than the stored M
+        m = m.phase_flip(0)
+    return qtn.decomp.squared_op_to_reduced_factor(m, *args, **kwargs)
+
+
 @functools.lru_cache(maxsize=128)
 def _get_message_conditioner(power=1.0, smudge=0.0, backend=None):
     """Get a function that conditions squared BP messages spectrally. Return
@@ -56,16 +93,18 @@ def _get_message_conditioner(power=1.0, smudge=0.0, backend=None):
                 _eigh = ar.DoFunc("linalg.eigh")
                 _clip = ar.DoFunc("clip")
                 _sqrt = ar.DoFunc("sqrt")
+                _max = ar.DoFunc("max")
             else:
                 _eigh = ar.get_lib_fn(backend, "linalg.eigh")
                 _clip = ar.get_lib_fn(backend, "clip")
                 _sqrt = ar.get_lib_fn(backend, "sqrt")
+                _max = ar.get_lib_fn(backend, "max")
 
             def conditioner(m):
                 el, ev = _eigh(m)
                 el = _clip(el, 0.0, None)
                 el = _sqrt(el)
-                el = el + smudge * el[-1]
+                el = el + smudge * _max(el)
                 el = el**2
                 return ev @ qtn.decomp.ldmul(el, ar.dag(ev))
 
@@ -89,16 +128,18 @@ def _get_message_conditioner(power=1.0, smudge=0.0, backend=None):
                 _eigh = ar.DoFunc("linalg.eigh")
                 _clip = ar.DoFunc("clip")
                 _sqrt = ar.DoFunc("sqrt")
+                _max = ar.DoFunc("max")
             else:
                 _eigh = ar.get_lib_fn(backend, "linalg.eigh")
                 _clip = ar.get_lib_fn(backend, "clip")
                 _sqrt = ar.get_lib_fn(backend, "sqrt")
+                _max = ar.get_lib_fn(backend, "max")
 
             def conditioner(m):
                 el, ev = _eigh(m)
                 el = _clip(el, 0.0, None)
                 el = _sqrt(el)
-                el = el + smudge * el[-1]
+                el = el + smudge * _max(el)
                 el = el ** (2 * power)
                 return ev @ qtn.decomp.ldmul(el, ar.dag(ev))
 
@@ -131,16 +172,22 @@ class D2BP(BeliefPropagationCommon):
     optimize : str or PathOptimizer, optional
         The path optimizer to use when contracting the messages.
     damping : float or callable, optional
-        The damping factor to apply to messages. This simply mixes some part
-        of the old message into the new one, with the final message being
-        ``damping * old + (1 - damping) * new``. This makes convergence more
-        reliable but slower.
+        Mix old and new messages as ``damping * old + (1 - damping) * new``.
+        This can make convergence more reliable but slower.
+    diis : bool or dict, optional
+        Use direct inversion in the iterative subspace (DIIS) to estimate
+        messages with lower error. A dict can contain DIIS options:
+        ``max_history``, ``beta``, ``rcond``.
     update : {'sequential', 'parallel'}, optional
-        Whether to update messages sequentially (newly computed messages are
-        immediately used for other updates in the same iteration round) or in
-        parallel (all messages are comptued using messages from the previous
-        round only). Sequential generally helps convergence but parallel can
-        possibly converge to differnt solutions.
+        With 'sequential', use new messages in later updates of the same
+        sweep. With 'parallel', use only messages from the previous sweep.
+        Sequential updates usually help convergence. Parallel updates can
+        converge to different solutions.
+    sweep_order : {'auto', 'alternate', 'fixed', None}, optional
+        Sequential update order. Use 'alternate' to reverse each sweep,
+        starting reversed, or 'fixed' to keep the same order. With 'auto',
+        alternate on graphs with no loops, else use a fixed order. With None,
+        use reverse insertion order. See :class:`.SweepScheduler`.
     power : float, optional
         Condition each message with this power when D2BP inserts it as an
         environment. D2BP transforms each square-root message eigenvalue
@@ -152,23 +199,21 @@ class D2BP(BeliefPropagationCommon):
         applies ``power`` and squares the spectrum. It is relative to the
         largest square-root message eigenvalue.
     normalize : {'L1', 'L2', 'L2phased', 'Linf', callable}, optional
-        How to normalize messages after each update. If None choose
-        automatically. If a callable, it should take a message and return the
-        normalized message. If a string, it should be one of 'L1', 'L2',
-        'L2phased', 'Linf' for the corresponding norms. 'L2phased' is like 'L2'
-        but also normalizes the phase of the message, by default used for
-        complex dtypes.
+        Norm to use after each update. With None, choose automatically.
+        Callables should take a message and return its normalized form.
+        'L2phased' also normalizes the phase, and is the default for complex
+        dtypes.
+        Fermionic messages default to Frobenius norm normalization without
+        changing their global phase.
     distance : {'L1', 'L2', 'L2phased', 'Linf', 'cosine', callable}, optional
-        How to compute the distance between messages to check for convergence.
-        If None choose automatically. If a callable, it should take two
-        messages and return the distance. If a string, it should be one of
-        'L1', 'L2', 'L2phased', 'Linf', or 'cosine' for the corresponding
-        norms. 'L2phased' is like 'L2' but also normalizes the phases of the
-        messages, by default used for complex dtypes if phased normalization is
-        not already being used.
+        Distance between messages to check convergence. With None, choose
+        automatically. Callables should take two messages and return their
+        distance. 'L2phased' normalizes their phases before computing the L2
+        distance. It is the default for complex dtypes when normalization
+        does not already fix the phase.
+        Fermionic messages default to the Frobenius norm of their difference.
     local_convergence : bool, optional
-        Whether to allow messages to locally converge - i.e. if all their
-        input messages have converged then stop updating them.
+        Stop updating messages whose input messages have converged.
     contract_every : int, optional
         If not None, 'contract' (via BP) the tensor network every
         ``contract_every`` iterations. The resulting values are stored in
@@ -187,7 +232,9 @@ class D2BP(BeliefPropagationCommon):
         output_inds=None,
         optimize="auto-hq",
         damping=0.0,
+        diis=False,
         update="sequential",
+        sweep_order="auto",
         power=1.0,
         smudge=0.0,
         normalize=None,
@@ -197,9 +244,17 @@ class D2BP(BeliefPropagationCommon):
         inplace=False,
         **contract_opts,
     ):
+        self._fermionic = tn.isfermionic()
+        if self._fermionic:
+            # phase normalization can negate positive fermionic operators
+            if normalize is None:
+                normalize = "L2"
+            if distance is None:
+                distance = "L2"
         super().__init__(
             tn=tn,
             damping=damping,
+            diis=diis,
             update=update,
             normalize=normalize,
             distance=distance,
@@ -219,6 +274,22 @@ class D2BP(BeliefPropagationCommon):
         else:
             self.output_inds = set(output_inds)
 
+        def _key_to_nodes(key):
+            # rank messages by their source tensor
+            ix, tid = key
+            return [t for t in self.tn.ind_map[ix] if t != tid]
+
+        self.sweeper = SweepScheduler(
+            nodes=self.tn.tensor_map,
+            edges=[
+                tuple(tids)
+                for ix, tids in self.tn.ind_map.items()
+                if len(tids) == 2 and ix not in self.output_inds
+            ],
+            key_to_nodes=_key_to_nodes,
+            sweep_order=sweep_order,
+        )
+
         if messages is None:
             self.messages = {}
         else:
@@ -227,9 +298,9 @@ class D2BP(BeliefPropagationCommon):
         self._initialize_contract_expressions()
 
     def _initialize_contract_expressions(self):
-        # record which messages touch each others, for efficient updates
+        # track which messages depend on each other
         self.touch_map = {}
-        self.touched = oset()
+        self.sweeper.touched.clear()
         self.exprs = {}
         self.index_dual_map = {}
         self.tensor_dual_map = {}
@@ -244,9 +315,9 @@ class D2BP(BeliefPropagationCommon):
         )
         # the conditioned copies are out of date
         self._messages_conditioned.clear()
-        if hasattr(self, "touched"):
-            # all messages potentially need to be recomputed
-            self.touched.update(self.exprs)
+        if hasattr(self, "sweeper"):
+            # recompute all messages with the new conditioning
+            self.sweeper.touch(self.exprs)
 
     @property
     def power(self):
@@ -282,6 +353,12 @@ class D2BP(BeliefPropagationCommon):
         ``tid`` along index ``ix``. If you change these directly, note that
         D2BP keeps the conditioned copies separately. See
         ``_get_message_conditioned`` and ``_messages_conditioned``.
+
+        Fermionic messages are positive fermionic operators in ``(bra, ket)``
+        order, with conjugate dummy modes removed. They connect the bra and
+        ket copies and can be contracted into either side first.
+        Their spectra from ``eigh()`` are positive, although their dense block
+        matrices can have negative odd-sector eigenvalues.
         """
         return self._messages
 
@@ -349,14 +426,11 @@ class D2BP(BeliefPropagationCommon):
 
         t = self.tn.tensor_map[tid]
         ix_neighbors = {}
-        axs_output = []
 
         # first build initial messages from ix->tid
-        for ax, ix in enumerate(t.inds):
+        for ix in t.inds:
             if ix in self.output_inds:
                 # output index -> directly contract without message
-                # if fermionic we may need to phase flip -> record
-                axs_output.append(ax)
                 continue
 
             # bond index -> mangle for bra
@@ -371,26 +445,17 @@ class D2BP(BeliefPropagationCommon):
             ix_neighbors[ix] = tidn
 
             if (ix, tid) not in self.messages:
-                # only create missing messages
-                # fermions: use select here to generate initial cluster phases
-                k = self.tn._select_tids([tidn], virtual=False)
-                b = k.conj().reindex({ix: ixc})
-                m = (b | k).to_dense((ixc,), (ix,))
+                kt = self.tn.tensor_map[tidn]
+                m = ar.do("gram", kt.data, axes=kt.inds.index(ix))
                 m = self._normalize_fn(m)
                 self.messages[ix, tid] = m
 
             # make sure touch_map entry exists
             self.touch_map.setdefault((ix, tid), {})
 
-        t_dag = t.conj().reindex_(self.index_dual_map)
-        if t_dag.isfermionic():
-            # need to phase dual output indices only
-            data = t_dag.data
-            axs_phase = tuple(
-                ax for ax in axs_output if not data.indices[ax].dual
-            )
-            if axs_phase:
-                t_dag.modify(data=data.phase_flip(*axs_phase))
+        # include the norm-conjugation phases on every leg of this local bra
+        t_dag = t.conj(output_inds=t.inds)
+        t_dag.reindex_(self.index_dual_map)
 
         self.tensor_dual_map[tid] = t_dag
         kix = t.inds
@@ -426,54 +491,53 @@ class D2BP(BeliefPropagationCommon):
             self.exprs[ix_next, tid_next] = expr, data
 
     def update_touched_from_tids(self, *tids):
-        """Specify that the messages for the given ``tids`` have changed."""
+        """Mark messages from tensors in ``tids`` for update."""
         for tid in tids:
             t = self.tn.tensor_map[tid]
             for ix in t.inds:
                 if ix in self.output_inds:
                     continue
                 (ntid,) = (n for n in self.tn.ind_map[ix] if n != tid)
-                self.touched.add((ix, ntid))
+                self.sweeper.touch(((ix, ntid),))
 
     def update_touched_from_tags(self, tags, which="any"):
-        """Specify that the messages for the messages touching ``tags`` have
-        changed.
-        """
+        """Mark messages from tensors selected by ``tags`` for update."""
         tids = self.tn._get_tids_from_tags(tags, which)
         self.update_touched_from_tids(*tids)
 
     def update_touched_from_inds(self, inds, which="any"):
-        """Specify that the messages for the messages touching ``inds`` have
-        changed.
-        """
+        """Mark messages from tensors selected by ``inds`` for update."""
         tids = self.tn._get_tids_from_inds(inds, which)
         self.update_touched_from_tids(*tids)
 
     def iterate(self, tol=5e-6):
         """Perform a single iteration of dense 2-norm belief propagation."""
 
-        if (not self.local_convergence) or (not self.touched):
-            # assume if asked to iterate that we want to check all messages
-            self.touched.update(self.exprs.keys())
+        if (not self.local_convergence) or (not self.sweeper.touched):
+            # check all messages when none are marked for update
+            self.sweeper.touch(self.exprs)
 
-        ncheck = len(self.touched)
+        ncheck = 0
         nconv = 0
-        max_mdiff = -1.0
-        new_touched = oset()
+        # nan prevents convergence based on skipped distance checks
+        max_mdiff = float("nan") if tol == 0.0 else -1.0
 
         def _compute_m(key):
+            nonlocal ncheck
+            ncheck += 1
             expr, data = self.exprs[key]
             x, xc, *mkeys = data
             # insert the conditioned (e.g. powered) input messages
             ms = [self._get_message_conditioned(mkey) for mkey in mkeys]
 
-            # contract update!
             m = expr(x, xc, *ms)
+            if self._fermionic:
+                # the expression returns C, while messages store M
+                m = m.phase_flip(0)
 
             # for stability enforce hermiticity
             m = m + ar.dag(m)
 
-            # finally normalize the message
             return self._normalize_fn(m)
 
         def _update_m(key, new_m):
@@ -481,47 +545,45 @@ class D2BP(BeliefPropagationCommon):
 
             old_m = self.messages[key]
 
-            # pre-damp distance
-            mdiff = self._distance_fn(old_m, new_m)
+            if tol == 0.0:
+                # skip redundant distance (e.g. for traced arrays)
+                self.sweeper.touch(self.touch_map[key])
+            else:
+                # measure change before damping
+                mdiff = self._distance_fn(old_m, new_m)
+
+                if mdiff > tol:
+                    # mark touching messages for update
+                    self.sweeper.touch(self.touch_map[key])
+                else:
+                    nconv += 1
+                max_mdiff = max(max_mdiff, mdiff)
 
             if self.damping:
                 new_m = self._damping_fn(old_m, new_m)
 
-            # # post-damp distance
-            # mdiff = self._distance_fn(old_m, new_m)
-
-            if mdiff > tol:
-                # mark touching messages for update
-                new_touched.update(self.touch_map[key])
-            else:
-                nconv += 1
-            max_mdiff = max(max_mdiff, mdiff)
             self.messages[key] = new_m
             # the conditioned copy is out of date
             self._messages_conditioned.pop(key, None)
 
         if self.update == "parallel":
             new_messages = {}
-            # compute all new messages
-            while self.touched:
-                key = self.touched.pop()
+            # compute all messages before updating any
+            for key in self.sweeper.sweep():
                 new_messages[key] = _compute_m(key)
-            # insert all new messages
             for key, new_m in new_messages.items():
                 _update_m(key, new_m)
 
         elif self.update == "sequential":
-            # compute each new message and immediately re-insert it
-            while self.touched:
-                key = self.touched.pop()
+            # use each new message in subsequent updates
+            for key in self.sweeper.sweep():
                 new_m = _compute_m(key)
                 _update_m(key, new_m)
-
-        self.touched = new_touched
 
         return {
             "nconv": nconv,
             "ncheck": ncheck,
+            "npending": len(self.sweeper.touched),
             "max_mdiff": max_mdiff,
         }
 
@@ -620,8 +682,8 @@ class D2BP(BeliefPropagationCommon):
             tlog = ar.do("log10", tabs)
             nfact = (tsgn * tabs) ** 0.5
             t /= nfact
-            # keep cached dual tensor in sync
-            self.tensor_dual_map[tid] /= ar.do("conj", nfact)
+            # refresh both the dual tensor and captured expression inputs
+            self._init_tid(tid)
             if strip_exponent:
                 self.sign = tsgn * self.sign
                 self.exponent = tlog + self.exponent
@@ -659,6 +721,9 @@ class D2BP(BeliefPropagationCommon):
             tida, tidb = tids
             ml = self.messages[ix, tidb]
             mr = self.messages[ix, tida]
+            if self._fermionic:
+                # the scalar overlap takes C against the opposing stored M
+                ml = ml.phase_flip(0)
             mval = qtn.array_contract(
                 (ml, mr), ((1, 2), (1, 2)), (), **self.contract_opts
             )
@@ -681,25 +746,36 @@ class D2BP(BeliefPropagationCommon):
         partial_trace_map=(),
         exclude=(),
     ):
-        """Get the local norm tensor network for ``tids`` with BP messages
-        inserted on the boundary and excitation projectors inserted on the
-        inner bonds. See arxiv.org/abs/2409.03108 for more details.
+        """Build the local loop excitation norm tensor network for ``tids``.
+
+        Insert BP messages on boundary bonds and excitation projectors on
+        all or selected inner bonds. See https://arxiv.org/abs/2409.03108.
 
         Parameters
         ----------
-        tids : iterable of hashable
-            The tensor ids to include in the cluster.
+        tids : iterable of hashable or NetworkPatch
+            The region ``tids``. A
+            :class:`~quimb.tensor.networking.NetworkPatch` also selects the
+            subset of inner excited bonds. Non-excited inner bonds are treated
+            like boundary bonds. See
+            :func:`~quimb.tensor.networking.gen_gloops_edge_induced`.
         partial_trace_map : dict[str, str], optional
-            A remapping of ket indices to bra indices to perform an effective
-            partial trace.
+            Map ket indices to bra indices for an effective partial trace.
         exclude : iterable of str, optional
-            A set of bond indices to exclude from inserting excitation
-            projectors on, e.g. when forming a reduced density matrix.
+            Bond indices that do not receive excitation projectors, e.g. when
+            forming a reduced density matrix.
 
         Returns
         -------
         TensorNetwork
         """
+        if isinstance(tids, NetworkPatch):
+            excited = tids.inds
+            tids = tids.tids
+        else:
+            # excite every inner bond
+            excited = None
+
         stn = self.tn._select_tids(tids)
 
         kixmaps = {tid: {} for tid in stn.tensor_map}
@@ -730,7 +806,13 @@ class D2BP(BeliefPropagationCommon):
                     bixmaps[tid][ix] = bix
                     # store labels for excitation projector, (bra, ket)
                     exc_ixs.setdefault(ix, {})[tid] = (bix, kix)
-                ems.append((ix, ix_tids))
+
+                if (excited is None) or (ix in excited):
+                    ems.append((ix, ix_tids))
+                else:
+                    # messages cut this bond like a boundary bond
+                    for tid in ix_tids:
+                        bms.append((ix, tid))
 
             else:
                 # boundary index
@@ -756,7 +838,7 @@ class D2BP(BeliefPropagationCommon):
             inds = (bixmaps[tid][ix], kixmaps[tid][ix])
             tn |= qtn.Tensor(data, inds)
 
-        # add inner exitation projector message tensors
+        # add inner excitation projectors
         with ar.backend_like(self.backend):
             for ix, ix_tids in ems:
                 tidl, tidr = ix_tids
@@ -794,10 +876,10 @@ class D2BP(BeliefPropagationCommon):
 
         Parameters
         ----------
-        gloops : None, int, "min" or iterable of tuples, optional
-            The generalized loops to use, an integer to generate all loops up
-            to that size, or ``None``/``"min"`` for the automatic size, see
-            :func:`~quimb.tensor.networking.gen_gloops`.
+        gloops : None, int, "min" or iterable, optional
+            Loops or regions to use. An integer generates all loops up to that
+            size. ``None`` and ``"min"`` use an automatic size. An iterable
+            can contain regions of ``tids`` or ``NetworkPatch`` objects.
         multi_excitation_correct : bool, optional
             Whether to use the multi-excitation correction. If ``True``, then
             the free energy is refined iteratively until self consistent.
@@ -818,20 +900,19 @@ class D2BP(BeliefPropagationCommon):
         # accrues BP estimate into self.sign and self.exponent
         self.normalize_tensors()
 
-        gloops = _parse_global_gloops(self.tn, gloops)
+        gloops = parse_gloops_edge_induced(self.tn, gloops)
 
         weights = {}
         for gloop in gloops:
-            # get local tensor network with boundary
-            # messages and excitation projectors inserted
             etn = self.get_cluster_excited(gloop)
-            # contract it to get local weight!
-            weights[tuple(gloop)] = etn.contract(
-                optimize=optimize, **contract_opts
-            )
+            w = etn.contract(optimize=optimize, **contract_opts)
+            # loops with the same tensor support use one suppression factor
+            key = tuple(sorted(gloop.tids))
+            weights[key] = weights.get(key, 0.0) + w
 
         return process_loop_series_expansion_weights(
             weights,
+            num_tensors=self.tn.num_tensors,
             mantissa=self.sign,
             exponent=self.exponent,
             multi_excitation_correct=multi_excitation_correct,
@@ -845,10 +926,11 @@ class D2BP(BeliefPropagationCommon):
         where,
         gloops=None,
         normalized=True,
-        grow_from="alldangle",
+        grow_from="all",
         strict_size=False,
         multi_excitation_correct=True,
         optimize="auto-hq",
+        allow_dangling=True,
         **contract_opts,
     ):
         """Compute the reduced density matrix for the sites specified by
@@ -866,17 +948,16 @@ class D2BP(BeliefPropagationCommon):
             :func:`~quimb.tensor.networking.gen_gloops`.
         normalized : bool, optional
             Whether to normalize the final density matrix.
-        grow_from : {'alldangle', 'all', 'any'}, optional
+        grow_from : {'all', 'any'}, optional
             How to grow the generalized loops from the specified ``where``:
 
-            - 'alldangle': clusters up to max size, where target sites are
-              allowed to dangle.
-            - 'all': clusters where loop, up to max size, has to include *all*
-              target sites.
-            - 'any': clusters where loop, up to max size, can include *any* of
-              the target sites. Remaining target sites are added as extras.
+            - 'all': the loop, up to max size, must include *all* target sites.
+            - 'any': the loop, up to max size, can include *any* of the target
+              sites. The other target sites are added as extras.
 
-            By default 'alldangle'.
+        allow_dangling : bool, optional
+            Whether target sites can have fewer than two internal bonds in
+            yielded regions.
         strict_size : bool, optional
             Whether to enforce the maximum size of the generalized loops, only
             relevant for `grow_from="any"`.
@@ -896,7 +977,7 @@ class D2BP(BeliefPropagationCommon):
 
         # get a mapping of ket indices to bra indices on target sites
         kix = [self.tn.site_ind(coo) for coo in where]
-        bix = [qtn.rand_uuid() for _ in where]
+        bix = get_bra_inds(self.tn, where)
         partial_trace_map = dict(zip(kix, bix))
         output_inds = (*kix, *bix)
 
@@ -906,6 +987,7 @@ class D2BP(BeliefPropagationCommon):
             gloops=gloops,
             grow_from=grow_from,
             strict_size=strict_size,
+            allow_dangling=allow_dangling,
         )
         # the base (BP) region, including target sites only
         r0 = frozenset(tids)
@@ -940,7 +1022,9 @@ class D2BP(BeliefPropagationCommon):
             weights.pop(r0)
             # compute exponential suppresion factors
             corrections = process_loop_series_expansion_weights(
-                weights, return_all=True
+                weights,
+                num_tensors=self.tn.num_tensors,
+                return_all=True,
             )
             # add back in the BP contribution
             corrections[r0] = 1.0
@@ -1087,15 +1171,16 @@ class D2BP(BeliefPropagationCommon):
             dim_left = ta.size // dim_bond
             ml_raw = self.messages[ix, tidb]
             ml = ml_raw if conditioner is None else conditioner(ml_raw)
-            Ra = qtn.decomp.squared_op_to_reduced_factor(
+            Ra = _message_to_reduced_factor(
                 ml, dim_left, dim_bond, right=True, **reduce_opts
             )
 
             tb = tn.tensor_map[tidb]
             dim_right = tb.size // dim_bond
-            mr_raw = self.messages[ix, tida].T
+            mr_raw = self.messages[ix, tida]
+            mr_raw = ar.do("transpose", mr_raw)
             mr = mr_raw if conditioner is None else conditioner(mr_raw)
-            Rb = qtn.decomp.squared_op_to_reduced_factor(
+            Rb = _message_to_reduced_factor(
                 mr, dim_bond, dim_right, right=False, **reduce_opts
             )
 
@@ -1112,16 +1197,18 @@ class D2BP(BeliefPropagationCommon):
             if inplace:
                 if conditioner is not None:
                     # messages are stored raw, so project the raw factors
-                    Ra = qtn.decomp.squared_op_to_reduced_factor(
+                    Ra = _message_to_reduced_factor(
                         ml_raw, dim_left, dim_bond, right=True, **reduce_opts
                     )
-                    Rb = qtn.decomp.squared_op_to_reduced_factor(
+                    Rb = _message_to_reduced_factor(
                         mr_raw, dim_bond, dim_right, right=False, **reduce_opts
                     )
                 new_Ra = Ra @ Pa
+                self.messages[ix, tidb] = ar.do("gram", new_Ra, axes=1)
+
                 new_Rb = Pb @ Rb
-                self.messages[ix, tidb] = ar.dag(new_Ra) @ new_Ra
-                self.messages[ix, tida] = new_Rb @ ar.dag(new_Rb)
+                self.messages[ix, tida] = ar.do("gram", new_Rb, axes=0)
+
                 self._messages_conditioned.pop((ix, tidb), None)
                 self._messages_conditioned.pop((ix, tida), None)
 
@@ -1201,6 +1288,7 @@ class D2BP(BeliefPropagationCommon):
         _eigh = ar.get_lib_fn(self.backend, "linalg.eigh")
         _clip = ar.get_lib_fn(self.backend, "clip")
         _sqrt = ar.get_lib_fn(self.backend, "sqrt")
+        _max = ar.get_lib_fn(self.backend, "max")
 
         outer = [] if return_gauges is not None else None
 
@@ -1218,7 +1306,7 @@ class D2BP(BeliefPropagationCommon):
             s2, W = _eigh(m)
             s = _sqrt(_clip(s2, 0.0, None))
             if smudge != 0.0:
-                s = s + smudge * s[-1]
+                s = s + smudge * _max(s)
             if power != 1.0:
                 s = s**power
             msqrt = qtn.decomp.ldmul(s, ar.dag(W))
@@ -1245,10 +1333,12 @@ class D2BP(BeliefPropagationCommon):
             Whether to un-gauge the outer indices of the tensor network.
         """
         outer = self.gauge_insert(tn)
-        yield outer
-        if ungauge_outer:
-            for t, ix, msqrt_inv in outer:
-                t.gate_(msqrt_inv, ix)
+        try:
+            yield outer
+        finally:
+            if ungauge_outer:
+                for t, ix, msqrt_inv in outer:
+                    t.gate_(msqrt_inv, ix)
 
     def gate_(
         self,
@@ -1262,19 +1352,29 @@ class D2BP(BeliefPropagationCommon):
         **gate_opts,
     ):
         """Apply a gate to the tensor network at the specified sites, using
-        the current messages to gauge the tensors.
+        the current messages to gauge the tensors. A distinct tensor network
+        is not supported because the messages and contraction expressions are
+        tied to this instance's managed network.
         """
-        if len(where) == 1:
-            # single site gate
-            self.tn.gate_(G, where, contract=True)
-            return
-
-        gate_opts.setdefault("contract", "reduce-split")
-
         if tn is None:
             tn = self.tn
+        elif tn is not self.tn:
+            raise ValueError(
+                "D2BP.gate_ can only update its managed tensor network."
+            )
+
+        if len(where) == 1:
+            # single site gate
+            tn.gate_(G, where, contract=True)
+            tids = tn._get_tids_from_tags(tn.site_tag(where[0]))
+            self.update_touched_from_tids(*tids)
+            for tid in tids:
+                self._init_tid(tid)
+            return
+
         site_tags = tuple(map(tn.site_tag, where))
         tn_where = tn.select_any(site_tags)
+        gate_opts.setdefault("contract", "reduce-split")
 
         with self.gauge_temp(tn_where):
             # contract and split the gate
@@ -1294,13 +1394,11 @@ class D2BP(BeliefPropagationCommon):
             (tidb,) = tn._get_tids_from_tags(tagb)
             ta = tn.tensor_map[tida]
             tb = tn.tensor_map[tidb]
-            lix, (ix,), rix = qtn.group_inds(ta, tb)
+            _, (ix,), _ = qtn.group_inds(ta, tb)
 
             # make use of the fact that we already have gauged tensors
-            A = ta.to_dense(lix, (ix,))
-            B = tb.to_dense((ix,), rix)
-            ma = ar.dag(A) @ A
-            mb = B @ ar.dag(B)
+            ma = ar.do("gram", ta.data, axes=ta.inds.index(ix))
+            mb = ar.do("gram", tb.data, axes=tb.inds.index(ix))
 
             self.messages[ix, tidb] = ma
             self.messages[ix, tida] = mb
@@ -1335,7 +1433,9 @@ class D2BP(BeliefPropagationCommon):
         TensorNetwork
         """
         k = self.tn._select_tids(tids, virtual=False)
-        b = qtn.TensorNetwork(self.tensor_dual_map[tid] for tid in tids)
+
+        # conjugate the cluster jointly, phasing only its outer legs
+        b = k.conj().reindex(self.index_dual_map)
 
         if partial_trace_map:
             # open up the bra indices
@@ -1369,16 +1469,30 @@ class D2BP(BeliefPropagationCommon):
         Parameters
         ----------
         where : sequence[hashable]
-            The sites to from the reduced density matrix of.
-        get : {'tn', 'tensor', 'array', 'matrix'}, optional
-            The type of object to return. If 'tn', return the uncontracted
-            tensor network object. If 'tensor', return the labelled density
-            operator as a `Tensor`. If 'array', return the unfused raw array
-            with 2 * len(where) dimensions. If 'matrix', fuse the ket and bra
-            indices and return this 2D matrix.
+            The sites to keep in the reduced density matrix.
+        normalized : bool or "return", optional
+            Whether to normalize the result to unit trace. If "return", return
+            the trace separately, without dividing by it.
+            Ignored if ``get="tn"``, which returns the unnormalized network
+            without a separate trace.
+        tids_region : sequence[int], optional
+            Tensor tids to contract exactly, with messages on the boundary. By
+            default use only the tensors at ``where``.
+        get : {'matrix', 'array', 'tensor', 'tn'}, optional
+            How to return the reduced density matrix:
+
+            - 'matrix': a dense matrix, with the ket sites fused into rows
+              and the bra sites fused into columns.
+            - 'array': the raw array, with one axis per ket site then one
+              axis per bra site.
+            - 'tensor': a :class:`~quimb.tensor.tensor_core.Tensor` with the
+              ket and bra indices.
+            - 'tn': the uncontracted tensor network.
+
         bra_ind_id : str, optional
-            If ``get="tn"``, how to label the bra indices. If None, use the
-            default based on the current site_ind_id.
+            Format string for bra indices. By default replace a leading ``k``
+            with ``b``, or prepend ``b``. See
+            :func:`~quimb.tensor.tnag.core.get_bra_inds`.
         optimize : str or PathOptimizer, optional
             The path optimizer to use when contracting the tensor network.
         contract_opts
@@ -1386,18 +1500,16 @@ class D2BP(BeliefPropagationCommon):
 
         Returns
         -------
-        TensorNetwork or Tensor or array
+        array or Tensor or TensorNetwork or (array, float) or (Tensor, float)
         """
         # get a mapping of ket indices to bra indices on target sites
-        if bra_ind_id is None:
-            bra_ind_id = "b" + self.tn.site_ind_id[1:]
-        bra_ind_starmap = bra_ind_id.count("{}") > 1
         kix = [self.tn.site_ind(coo) for coo in where]
-        if bra_ind_starmap:
+        if bra_ind_id is None:
+            bix = get_bra_inds(self.tn, where, warn=get in ("tn", "tensor"))
+        elif bra_ind_id.count("{}") > 1:
             bix = [bra_ind_id.format(*coo) for coo in where]
         else:
             bix = [bra_ind_id.format(coo) for coo in where]
-        output_inds = (*kix, *bix)
         partial_trace_map = dict(zip(kix, bix))
 
         # get target region
@@ -1409,24 +1521,15 @@ class D2BP(BeliefPropagationCommon):
             tids_region, partial_trace_map=partial_trace_map
         )
 
-        if get == "tn":
-            return tn
-
-        t = tn.contract(
-            output_inds=output_inds, optimize=optimize, **contract_opts
+        return contract_reduced_density_matrix(
+            tn,
+            kix,
+            bix,
+            normalized=normalized,
+            get=get,
+            optimize=optimize,
+            **contract_opts,
         )
-
-        if normalized:
-            t /= t.trace(kix, bix)
-
-        if get == "tensor":
-            return t
-        elif get == "array":
-            return t.data
-        elif get == "matrix":
-            return t.to_dense(kix, bix)
-        else:
-            raise ValueError(f"Unknown get option: {get}")
 
     def partial_trace_gloop_expand(
         self,
@@ -1434,9 +1537,10 @@ class D2BP(BeliefPropagationCommon):
         gloops=None,
         combine="sum",
         normalized=True,
-        grow_from="alldangle",
+        grow_from="all",
         strict_size=False,
         optimize="auto-hq",
+        allow_dangling=True,
         **contract_opts,
     ):
         """Compute a reduced density matrix for the sites specified by
@@ -1459,17 +1563,16 @@ class D2BP(BeliefPropagationCommon):
             normalize each cluster density matrix by its trace. If "separate",
             normalize the final density matrix by its trace (usually less
             accurate). If False, do not normalize.
-        grow_from : {'alldangle', 'all', 'any'}, optional
+        grow_from : {'all', 'any'}, optional
             How to grow the generalized loops from the specified ``where``:
 
-            - 'alldangle': clusters up to max size, where target sites are
-              allowed to dangle.
-            - 'all': clusters where loop, up to max size, has to include *all*
-              target sites.
-            - 'any': clusters where loop, up to max size, can include *any* of
-              the target sites. Remaining target sites are added as extras.
+            - 'all': the loop, up to max size, must include *all* target sites.
+            - 'any': the loop, up to max size, can include *any* of the target
+              sites. The other target sites are added as extras.
 
-            By default 'alldangle'.
+        allow_dangling : bool, optional
+            Whether target sites can have fewer than two internal bonds in
+            yielded regions.
         strict_size : bool, optional
             Whether to enforce the maximum size of the generalized loops, only
             relevant for `grow_from="any"`.
@@ -1489,6 +1592,7 @@ class D2BP(BeliefPropagationCommon):
             gloops=gloops,
             grow_from=grow_from,
             strict_size=strict_size,
+            allow_dangling=allow_dangling,
         )
 
         rhos = []
@@ -1686,20 +1790,16 @@ def contract_d2bp(
     update : {'sequential', 'parallel'}, optional
         Whether to update messages sequentially or in parallel.
     normalize : {'L1', 'L2', 'L2phased', 'Linf', callable}, optional
-        How to normalize messages after each update. If None choose
-        automatically. If a callable, it should take a message and return the
-        normalized message. If a string, it should be one of 'L1', 'L2',
-        'L2phased', 'Linf' for the corresponding norms. 'L2phased' is like 'L2'
-        but also normalizes the phase of the message, by default used for
-        complex dtypes.
+        Norm to use after each update. With None, choose automatically.
+        Callables should take a message and return its normalized form.
+        'L2phased' also normalizes the phase, and is the default for complex
+        dtypes.
     distance : {'L1', 'L2', 'L2phased', 'Linf', 'cosine', callable}, optional
-        How to compute the distance between messages to check for convergence.
-        If None choose automatically. If a callable, it should take two
-        messages and return the distance. If a string, it should be one of
-        'L1', 'L2', 'L2phased', 'Linf', or 'cosine' for the corresponding
-        norms. 'L2phased' is like 'L2' but also normalizes the phases of the
-        messages, by default used for complex dtypes if phased normalization is
-        not already being used.
+        Distance between messages to check convergence. With None, choose
+        automatically. Callables should take two messages and return their
+        distance. 'L2phased' normalizes their phases before computing the L2
+        distance. It is the default for complex dtypes when normalization
+        does not already fix the phase.
     tol_abs : float, optional
         The absolute convergence tolerance for maximum message update
         distance, if not given then taken as ``tol``.
@@ -1709,8 +1809,7 @@ def contract_d2bp(
         running when the messages are just bouncing around the same level,
         without any overall upward or downward trends, roughly speaking.
     local_convergence : bool, optional
-        Whether to allow messages to locally converge - i.e. if all their
-        input messages have converged then stop updating them.
+        Stop updating messages whose input messages have converged.
     optimize : str or PathOptimizer, optional
         The path optimizer to use when contracting the messages.
     strip_exponent : bool, optional
@@ -1835,20 +1934,16 @@ def compress_d2bp(
     update : {'sequential', 'parallel'}, optional
         Whether to update messages sequentially or in parallel.
     normalize : {'L1', 'L2', 'L2phased', 'Linf', callable}, optional
-        How to normalize messages after each update. If None choose
-        automatically. If a callable, it should take a message and return the
-        normalized message. If a string, it should be one of 'L1', 'L2',
-        'L2phased', 'Linf' for the corresponding norms. 'L2phased' is like 'L2'
-        but also normalizes the phase of the message, by default used for
-        complex dtypes.
+        Norm to use after each update. With None, choose automatically.
+        Callables should take a message and return its normalized form.
+        'L2phased' also normalizes the phase, and is the default for complex
+        dtypes.
     distance : {'L1', 'L2', 'L2phased', 'Linf', 'cosine', callable}, optional
-        How to compute the distance between messages to check for convergence.
-        If None choose automatically. If a callable, it should take two
-        messages and return the distance. If a string, it should be one of
-        'L1', 'L2', 'L2phased', 'Linf', or 'cosine' for the corresponding
-        norms. 'L2phased' is like 'L2' but also normalizes the phases of the
-        messages, by default used for complex dtypes if phased normalization is
-        not already being used.
+        Distance between messages to check convergence. With None, choose
+        automatically. Callables should take two messages and return their
+        distance. 'L2phased' normalizes their phases before computing the L2
+        distance. It is the default for complex dtypes when normalization
+        does not already fix the phase.
     tol_abs : float, optional
         The absolute convergence tolerance for maximum message update
         distance, if not given then taken as ``tol``.
@@ -1858,8 +1953,7 @@ def compress_d2bp(
         running when the messages are just bouncing around the same level,
         without any overall upward or downward trends, roughly speaking.
     local_convergence : bool, optional
-        Whether to allow messages to locally converge - i.e. if all their
-        input messages have converged then stop updating them.
+        Stop updating messages whose input messages have converged.
     optimize : str or PathOptimizer, optional
         The path optimizer to use when contracting the messages.
     inplace : bool, optional
@@ -2088,20 +2182,16 @@ def sample_d2bp(
     update : {'sequential', 'parallel'}, optional
         Whether to update messages sequentially or in parallel.
     normalize : {'L1', 'L2', 'L2phased', 'Linf', callable}, optional
-        How to normalize messages after each update. If None choose
-        automatically. If a callable, it should take a message and return the
-        normalized message. If a string, it should be one of 'L1', 'L2',
-        'L2phased', 'Linf' for the corresponding norms. 'L2phased' is like 'L2'
-        but also normalizes the phase of the message, by default used for
-        complex dtypes.
+        Norm to use after each update. With None, choose automatically.
+        Callables should take a message and return its normalized form.
+        'L2phased' also normalizes the phase, and is the default for complex
+        dtypes.
     distance : {'L1', 'L2', 'L2phased', 'Linf', 'cosine', callable}, optional
-        How to compute the distance between messages to check for convergence.
-        If None choose automatically. If a callable, it should take two
-        messages and return the distance. If a string, it should be one of
-        'L1', 'L2', 'L2phased', 'Linf', or 'cosine' for the corresponding
-        norms. 'L2phased' is like 'L2' but also normalizes the phases of the
-        messages, by default used for complex dtypes if phased normalization is
-        not already being used.
+        Distance between messages to check convergence. With None, choose
+        automatically. Callables should take two messages and return their
+        distance. 'L2phased' normalizes their phases before computing the L2
+        distance. It is the default for complex dtypes when normalization
+        does not already fix the phase.
     tol_abs : float, optional
         The absolute convergence tolerance for maximum message update
         distance, if not given then taken as ``tol``.
@@ -2111,8 +2201,7 @@ def sample_d2bp(
         running when the messages are just bouncing around the same level,
         without any overall upward or downward trends, roughly speaking.
     local_convergence : bool, optional
-        Whether to allow messages to locally converge - i.e. if all their
-        input messages have converged then stop updating them.
+        Stop updating messages whose input messages have converged.
     progbar : bool, optional
         Whether to show a progress bar.
     contract_opts

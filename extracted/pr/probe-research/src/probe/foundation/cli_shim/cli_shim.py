@@ -1,7 +1,9 @@
 """The `probe` command, as its console script runs it: plumbing to the Probe service (service-only T7).
 
     package     argv, cwd, the whole environment, and fds 0-2 (the terminal, or pipes)
-    ensure      a service that answers, started when none does (`start.ensure`)
+    ensure      a service that answers, started when none does (`start.ensure`); a call waits for one
+                still starting while its process runs (`start.SPAWN_SETTLE_S`), an agent's call until
+                its deadline (`PROBE_AGENT_DEADLINE`)
     cli.run     the service answers a door; the shim connects and waits for its turn (told
                 what for: `waiting`, printed after a second), then passes its fds when asked
                 (`ready`), forwards its signals (`signals.SignalForwarder`), and waits
@@ -35,11 +37,22 @@ import time
 
 from probe.foundation.service_api import paths, start
 from probe.foundation.service_api.service_api import Connection, ServiceError
-from probe.foundation.service_api.vocabularies import Client, CommandStdio, RefusedReason, ShimExit
+from probe.foundation.service_api.vocabularies import Client, CommandStdio, RefusedReason, ShimExit, ShimReason
 from probe.foundation.service_api.wire import API_VERSION, ErrorCode, Method, encode, request
 
-#: How long the shim waits for a service it started (a cold start is ~0.3 s; P3 budgets 1 s).
+#: How long the shim waits for a service it started before it says it is still starting (a warm start is
+#: ~0.3 s; P3 budgets 1 s); past it, it waits while that service's process runs (`_can_wait`).
 START_WAIT_S = 10.0
+#: The deadline (epoch s) the npm launcher gives an agent's call (`agent_install.budget.DEADLINE_ENV`):
+#: such a call waits for a service still starting until AGENT_START_RESERVE_S before it, not START_WAIT_S
+#: (a first start on a Mac outlasted 10 s, and `sign-in --wait` answered no_service: PR22, F5).
+AGENT_DEADLINE_ENV = "PROBE_AGENT_DEADLINE"
+#: Left of that deadline for the command itself to start and answer.
+AGENT_START_RESERVE_S = 5.0
+#: The longest deadline taken from the environment (an agent's whole command is 110 s).
+AGENT_DEADLINE_MAX_S = 120.0
+#: How often an agent's call asks again for a service that is starting.
+START_RETRY_S = 1.0
 #: `service.hello` and `cli.run`'s answer (the door, at once): past it the service is stuck.
 ANSWER_TIMEOUT_S = 10.0
 #: How long a stopping service gets to let go of its socket once its process is gone.
@@ -66,13 +79,14 @@ NO_HOST = "no_host"
 #: A sandbox that may not write the drop folder: what fixes it, never a reinstall link.
 SANDBOX_CLOSED = (
     "this sandbox cannot reach the Probe service (it may not write {folder}).\n"
-    "  Run `probe wizard` once from your own terminal: it lets your coding agent's sandbox reach Probe.\n"
-    "  Or run this command outside the sandbox."
+    "  Run `npx -y probe-research install --yes --json` once outside your sandbox (your harness asks the\n"
+    "  person to allow it): it lets your coding agent's sandbox reach Probe. Or run this command outside it."
 )
 #: No service took a sandboxed request (none running, none the OS starts): a sandbox never starts one.
 SANDBOX_NO_SERVICE = (
     "the Probe service is not running, and a sandboxed command cannot start it.\n"
-    "  Run any `probe` command from your own terminal (it starts the service), then try again."
+    "  Run any `probe` command once outside your sandbox (your harness asks the person to allow it;\n"
+    "  it starts the service), then try again."
 )
 
 
@@ -82,6 +96,10 @@ class ShimError(Exception):
     def __init__(self, message: str, status: int = ShimExit.UNAVAILABLE) -> None:
         super().__init__(message)
         self.status = int(status)
+
+
+class SandboxedError(ShimError):
+    """The service's fence refused a sandboxed agent's command (D30, `RefusedReason.SANDBOXED`)."""
 
 
 class RetryError(Exception):
@@ -102,11 +120,13 @@ def run_command(argv: list[str], version: str) -> int:
             return _run_fenced(argv, version)
     except ShimError as exc:
         print(f"probe: {exc}", file=sys.stderr)
-        return exc.status
+        if isinstance(exc, SandboxedError):
+            return _say_sandboxed(str(exc))
+        return _say_own_exit(argv, exc.status, str(exc))
     except OSError as exc:
         # A folder it could not make (a read-only home), a socket it could not open: never a traceback.
         print(f"probe: could not reach the Probe service ({exc}).\n{_get_hints()}", file=sys.stderr)
-        return ShimExit.UNAVAILABLE
+        return _say_own_exit(argv, ShimExit.UNAVAILABLE, f"could not reach the Probe service ({exc})")
     except KeyboardInterrupt:
         # Ctrl-C before its signals went to the command (starting the service, handing it over).
         return 128 + signal.SIGINT
@@ -128,7 +148,7 @@ def _run_handed_over_twice(argv: list[str], version: str) -> int:
         if (end or {}).get("reason") == NOT_STARTED and attempt == 0:
             _wait_for_restart(service_pid)
             continue
-        return _finish(end)
+        return _finish(end, argv)
     raise ShimError("the Probe service restarted twice before this command started")
 
 
@@ -148,12 +168,14 @@ def _run_fenced(argv: list[str], version: str) -> int:
             answer = channel.call(Method.CLI_RUN, parameters)
     except ServiceError as exc:
         print(f"probe: {exc.message if hasattr(exc, 'message') else exc}", file=sys.stderr)
-        return 2 if (getattr(exc, "data", None) or {}).get("reason") == RefusedReason.SANDBOXED else ShimExit.UNAVAILABLE
+        if (getattr(exc, "data", None) or {}).get("reason") == RefusedReason.SANDBOXED:
+            return _say_sandboxed(str(getattr(exc, "message", exc)))
+        return _say_own_exit(argv, ShimExit.UNAVAILABLE, str(exc))
     finally:
         channel.close()
     sys.stdout.write(answer.get("stdout") or "")
     sys.stderr.write(answer.get("stderr") or "")
-    return _finish(answer)
+    return _finish(answer, argv)
 
 
 @contextlib.contextmanager
@@ -228,8 +250,8 @@ def _hand_over(argv: list[str], version: str) -> tuple[socket.socket, Connection
                 raise RetryError(exc.message, getattr(exc, "service_pid", None)) from None
             if reason == RefusedReason.UNINSTALLING:
                 raise ShimError(exc.message) from None
-            if reason == RefusedReason.SANDBOXED:  # D30: the same exit as through the drop folder
-                raise ShimError(exc.message, status=2) from None
+            if reason == RefusedReason.SANDBOXED:  # D30: the same exit and line as through the drop folder
+                raise SandboxedError(exc.message, status=SANDBOXED_EXIT) from None
             raise ShimError(f"the Probe service refused this command: {exc.message}") from None
         except TimeoutError:
             connection.close()
@@ -268,31 +290,83 @@ def _connect(version: str, *, is_finishing_uninstall: bool = False) -> Connectio
     uninstall` / `probe repair` after an uninstall stopped halfway too: they finish it).
     FencedShim when a sandbox refuses the socket: never a spawn from inside a fence (D19)."""
     try:
-        return Connection.open(2.0)
+        connection = Connection.open(2.0)
     except PermissionError as exc:
         if exc.errno in (errno.EPERM, errno.EACCES):
             raise FencedShim from None
     except OSError:
         pass
+    else:
+        with contextlib.suppress(OSError):  # before its hello: what answers may be a delivery service
+            _record_install(version)
+        return connection
     outcome = _ensure(version, is_finishing_uninstall=is_finishing_uninstall)
+    until = _get_agent_start_until()
+    is_told = False
+    while True:
+        try:
+            return Connection.open(2.0)
+        except OSError as exc:
+            # A socket folder that is not this user's alone never heals by waiting (`require_private`).
+            if outcome not in _STARTING or isinstance(exc, PermissionError) or not _can_wait(until):
+                raise ShimError(f"the Probe service is not running and did not start ({outcome}: "
+                                f"{_explain(outcome, exc)}).\n{_get_hints()}") from None
+        if until is None and not is_told:
+            print(f"probe: {STILL_STARTING}", file=sys.stderr)
+            is_told = True
+        time.sleep(START_RETRY_S)
+        if until is not None:  # an agent's call asks again (another start once one died), to its deadline
+            outcome = _ensure(version, is_finishing_uninstall=is_finishing_uninstall,
+                              wait=min(START_WAIT_S, max(0.0, until - time.time())))
+
+
+#: Said once when a `probe` waits past START_WAIT_S for a service still starting (not to an agent's call).
+STILL_STARTING = "the Probe service is still starting (a first start on this computer can take a minute)..."
+
+
+def _can_wait(until: float | None) -> bool:
+    """May a call that reached no service wait on? An agent's: until its deadline (`until`). Any other: while
+    the service spawned is still starting (its process runs, up to `start.SPAWN_SETTLE_S`): a fresh Mac's
+    first start outlasted START_WAIT_S, and the terminal's and the Mac app's install said no_service."""
+    if until is not None:
+        return time.time() + START_RETRY_S < until
+    return start.is_spawn_starting(start.get_last_spawn(), time.time())
+
+
+#: What `ensure` said when a later try may still reach a service: one is starting, or the start
+#: back-off's minute will pass (an agent's call waits for those within its deadline).
+_STARTING = (start.Ensured.SPAWNED, start.Ensured.STARTING, start.Ensured.BACKOFF, start.Ensured.RUNNING)
+
+
+def _get_agent_start_until() -> float | None:
+    """When an agent's call stops waiting for a starting service (epoch s), or None: not an agent's call."""
     try:
-        return Connection.open(2.0)
-    except OSError as exc:
-        raise ShimError(
-            f"the Probe service is not running and did not start ({outcome}: {_explain(outcome, exc)}).\n{_get_hints()}"
-        ) from None
+        deadline = float(os.environ.get(AGENT_DEADLINE_ENV, ""))
+    except ValueError:
+        return None
+    now = time.time()
+    if not now < deadline <= now + AGENT_DEADLINE_MAX_S:
+        return None
+    return deadline - AGENT_START_RESERVE_S
 
 
-def _ensure(version: str, *, is_finishing_uninstall: bool = False, replacing: dict | None = None) -> str:
-    """`ensure` with this shim's version as the floor (D15), waiting for the service to answer: a
+def _ensure(version: str, *, is_finishing_uninstall: bool = False, replacing: dict | None = None,
+            wait: float = START_WAIT_S) -> str:
+    """`ensure` with this shim's version as the floor (D15), waiting `wait` for the service to answer: a
     service older than this shim is stopped and a current one started, else `Ensured.OLDER`.
     `replacing`: the hello of a running service that refused this shim (-32601): replaced while it
     is still that one, whatever its version or runtime.json's says; a successor is used as it is."""
-    if start.runtime_python() is None and start.uninstall_barrier() is None:
-        # No install recorded (a pip install, a checkout): this interpreter is the CLI's.
-        start.write_runtime(sys.executable, version)
-    return start.ensure(wait=START_WAIT_S, min_version=version, is_finishing_uninstall=is_finishing_uninstall,
+    _record_install(version)
+    return start.ensure(wait=wait, min_version=version, is_finishing_uninstall=is_finishing_uninstall,
                         replacing=replacing)
+
+
+def _record_install(version: str) -> None:
+    """No install recorded (a pip install, a checkout): this interpreter is the CLI's. Recorded before
+    the first request, not only before a start: a delivery service the SDK started steps aside for a
+    CLI only where an install is recorded, and refuses `cli.run` otherwise (H-3)."""
+    if start.runtime_python() is None and start.uninstall_barrier() is None:
+        start.write_runtime(sys.executable, version)
 
 
 def _explain(outcome: str, exc: OSError) -> str:
@@ -303,7 +377,15 @@ def _explain(outcome: str, exc: OSError) -> str:
         start.Ensured.BACKOFF: "it failed to start 3 times in the last minute",
         start.Ensured.UNAVAILABLE: "no Python to start it with",
     }
-    return reasons.get(outcome, f"no answer: {exc}")
+    if outcome in reasons:
+        return reasons[outcome]
+    spawn = start.get_last_spawn() if outcome in (start.Ensured.SPAWNED, start.Ensured.STARTING) else None
+    age = time.time() - float(spawn["at"]) if spawn is not None else 0.0
+    if spawn is not None and start.is_spawn_running(spawn):
+        return f"it started {age:.0f} s ago and has not answered"
+    if spawn is not None and age < start.SPAWN_SETTLE_S:  # an older record is not this call's start
+        return "it exited before it answered: its log says why"
+    return f"no answer: {exc}"
 
 
 def _get_hints() -> str:
@@ -517,15 +599,15 @@ def _parse(line: bytes) -> dict:
     return message if isinstance(message, dict) else {}
 
 
-def _finish(end: dict | None) -> int:
+def _finish(end: dict | None, argv: list[str] | None = None) -> int:
     if end is None or end.get("exit") is None:
         why = (end or {}).get("message") or "the Probe service stopped while running this command"
         print(f"probe: {why}", file=sys.stderr)
-        return ShimExit.SERVICE_LOST
+        return _say_own_exit(argv, ShimExit.SERVICE_LOST, why)
     if end.get("reason") == NO_HOST:
-        print(f"probe: {end.get('message') or 'the Probe service could not start this command'}\n{_get_hints()}",
-              file=sys.stderr)
-        return ShimExit.UNAVAILABLE
+        why = end.get("message") or "the Probe service could not start this command"
+        print(f"probe: {why}\n{_get_hints()}", file=sys.stderr)
+        return _say_own_exit(argv, ShimExit.UNAVAILABLE, why)
     if end.get("message"):
         print(f"probe: {end['message']}", file=sys.stderr)
     number = end.get("signal")
@@ -536,6 +618,33 @@ def _finish(end: dict | None) -> int:
             signal.signal(number, signal.SIG_DFL)
             os.kill(os.getpid(), number)
     return int(end["exit"])
+
+
+#: A sandboxed agent's refused command exits 2, as it always did (`AGENT_EXIT_CODES[SANDBOXED]`).
+SANDBOXED_EXIT = 2
+
+
+def _say_sandboxed(message: str) -> int:
+    """The fence's refusal of a sandboxed agent's command (D30), also as one line on stdout, `--json` or
+    not (an agent branches on `reason`; fixes-1107b): `sandboxed` (`AgentInstallReason`'s word too), run
+    it again outside the sandbox."""
+    sys.stdout.write(json.dumps({"ok": False, "reason": RefusedReason.SANDBOXED, "message": message[:500],
+                                 "next": None, "retry": "after_fix", "side_effects": "none", "attempt": None}) + "\n")
+    sys.stdout.flush()
+    return SANDBOXED_EXIT
+
+
+def _say_own_exit(argv: list[str] | None, status: int, message: str) -> int:
+    """The shim's own exit (`ShimExit`): under `--json` (the command's own, before any `--`) also
+    one line on stdout, `{"ok": false, "reason", "message"}`, for a program that reads no stderr
+    (plan D71: install.md branches on `reason`). Returns `status`."""
+    own = list(argv or ())
+    own = own[: own.index("--")] if "--" in own else own
+    reason = ShimReason.BY_EXIT.get(status)
+    if "--json" in own and reason is not None:
+        sys.stdout.write(json.dumps({"ok": False, "reason": reason, "message": message[:500]}) + "\n")
+        sys.stdout.flush()
+    return status
 
 
 def _get_open_files_limit() -> int | None:

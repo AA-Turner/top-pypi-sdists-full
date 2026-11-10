@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from uuid import UUID
 
@@ -10,7 +10,6 @@ from office365.subscriptions.lifecycleeventtype import LifecycleEventType
 from office365.subscriptions.resource_data import ResourceData
 
 
-@dataclass
 class ChangeNotification(ClientValue):
     """Represents the notification sent to the subscriber.
 

@@ -1,12 +1,14 @@
 import json
 from collections import OrderedDict
 from collections.abc import Callable, Coroutine, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Set, cast
+from typing import TYPE_CHECKING, Any, cast
 from weakref import WeakKeyDictionary
 
 from andi.typeutils import is_typing_annotated, strip_annotated
 from scrapy import Request
 from scrapy.crawler import Crawler
+from scrapy.http import TextResponse
+from scrapy.http.request import NO_CALLBACK
 from scrapy_poet import PageObjectInputProvider
 from web_poet import (
     AnyResponse,
@@ -14,6 +16,7 @@ from web_poet import (
     BrowserResponse,
     HttpResponse,
     HttpResponseHeaders,
+    preextract_selectors,
 )
 from web_poet.annotated import AnnotatedInstance
 from web_poet.fields import get_fields_dict
@@ -124,13 +127,6 @@ if TYPE_CHECKING:
 
     from scrapy_zyte_api.responses import ZyteAPITextResponse
 
-try:
-    # requires Scrapy >= 2.8
-    from scrapy.http.request import NO_CALLBACK
-except ImportError:
-    NO_CALLBACK = None  # type: ignore[assignment]
-
-
 _ITEM_KEYWORDS: dict[type, str] = {
     Product: "product",
     ProductList: "productList",
@@ -176,7 +172,7 @@ def _get_zyte_api_provider_params(request: Request, crawler: Crawler) -> dict[st
 
 
 def _build_zyte_api_provider_meta(
-    to_provide: Set[Callable],
+    to_provide: set[Callable],
     request: Request,
     crawler: Crawler,
     *,
@@ -280,6 +276,7 @@ def _build_zyte_api_provider_meta(
             (item_requested and extract_from != "httpResponseBody")
             or extract_from == "browserHtml"
             or zyte_api_meta.get("browserHtml", False) is True
+            or screenshot_requested
         ):
             html_requested = True
         elif extract_from == "httpResponseBody" or http_response_needed:
@@ -352,7 +349,7 @@ class ZyteApiProvider(PageObjectInputProvider):
         crawler.stats.set_value(f"scrapy-zyte-api/auto_fields/{cls_fqn}", field_list)
 
     async def __call__(
-        self, to_provide: Set[Callable], request: Request, crawler: Crawler
+        self, to_provide: set[Callable], request: Request, crawler: Crawler
     ) -> Sequence[Any]:
         """Makes a Zyte API request to provide BrowserResponse and/or item dependencies."""
         results: list[Any] = []
@@ -361,13 +358,8 @@ class ZyteApiProvider(PageObjectInputProvider):
         screenshot_requested = Screenshot in to_provide
         for cls in list(to_provide):
             self._track_auto_fields(crawler, request, cast("type", cls))
-            item = self.injector.weak_cache.get(request, {}).get(cls)
-            if item:
-                results.append(item)
-                to_provide.remove(cls)
-
             # BrowserResponse takes precedence over HttpResponse
-            elif (
+            if (
                 cls == AnyResponse
                 and BrowserResponse not in to_provide
                 and not screenshot_requested
@@ -442,8 +434,6 @@ class ZyteApiProvider(PageObjectInputProvider):
             results.append(screenshot)
 
         if AnyResponse in to_provide:
-            any_response = None  # type: ignore[assignment]
-
             if "browserHtml" in api_response.raw_api_response:
                 any_response = AnyResponse(
                     response=browser_response
@@ -453,23 +443,25 @@ class ZyteApiProvider(PageObjectInputProvider):
                         html=html,
                     )
                 )
-            elif (
-                "httpResponseBody" in api_response.raw_api_response
-                and "httpResponseHeaders" in api_response.raw_api_response
-            ):
-                any_response = AnyResponse(
-                    response=HttpResponse(
-                        url=api_response.url,
-                        body=api_response.body,
-                        status=api_response.status,
-                        headers=HttpResponseHeaders.from_bytes_dict(
-                            api_response.headers
-                        ),
-                    )
+            else:
+                assert "httpResponseBody" in api_response.raw_api_response
+                assert "httpResponseHeaders" in api_response.raw_api_response
+                kwargs: dict[str, Any] = {}
+                if isinstance(api_response, TextResponse):
+                    kwargs["encoding"] = api_response.encoding
+                http_response = HttpResponse(
+                    url=api_response.url,
+                    body=api_response.body,
+                    status=api_response.status,
+                    headers=HttpResponseHeaders.from_bytes_dict(api_response.headers),
+                    **kwargs,
                 )
-
-            if any_response:
-                results.append(any_response)
+                preextract_selectors(
+                    http_response,
+                    (cls for cls, _ in self.injector.build_plan(request)),
+                )
+                any_response = AnyResponse(response=http_response)
+            results.append(any_response)
 
         for cls in to_provide:
             cls_stripped = strip_annotated(cls)

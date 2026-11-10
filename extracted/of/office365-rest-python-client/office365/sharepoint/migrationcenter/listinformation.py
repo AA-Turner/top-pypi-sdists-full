@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 from uuid import UUID
 
@@ -7,7 +7,6 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.sharepoint.migrationcenter.folderinformation import SPFolderInformation
 
 
-@dataclass
 class SPListInformation(ClientValue):
     AbsoluteUrl: Optional[str] = None
     BaseTemplate: Optional[int] = None
