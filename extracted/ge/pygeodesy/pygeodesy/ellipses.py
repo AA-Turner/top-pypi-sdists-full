@@ -29,7 +29,7 @@ from math import degrees, fabs, radians, sqrt
 # import operator as _operator  # from .fmath
 
 __all__ = _ALL_LAZY.ellipses
-__version__ = '26.03.27'
+__version__ = '26.10.27'
 
 _TOL53    =  sqrt(EPS_2)     # sqrt(pow(_0_5, _DIG53))
 _TOL53_53 = _TOL53 / _DIG53  # "flat" b/a tolerance, 1.9e-10
@@ -41,7 +41,7 @@ class Ellipse(_NamedBase):
     '''
 #   _ab3   = (a, b, a * b)  # unordered
     _flat  =  False
-    _maxit = _DIG53
+    _MAXIT = _DIG53
 #   _Pab4  = (r, P, a, b)  # a >= b, ordered
     _4_PI_ = _4_0 / PI - (14 / 11)
     _tEPS  =  None
@@ -390,7 +390,7 @@ class Ellipse(_NamedBase):
             c  = a + b
             ds = [c**2]
             _d = ds.append
-            for _ in range(self._maxit):  # 4..5 trips
+            for _ in range(self._MAXIT):  # 4..5 trips
                 b  = sqrt(a * b)
                 a  = c * _0_5
                 c  = a + b
@@ -400,7 +400,7 @@ class Ellipse(_NamedBase):
                 if d <= (b * t):
                     break
             else:  # PYCHOK no cover
-                raise _ConvergenceError(self._maxit, _over(d, b), t)
+                raise _ConvergenceError(self._MAXIT, _over(d, b), t)
             P = _over(_fsum(ds) * PI, c)  # nonfinites=True
         return Meter(perimeterAGM=P)
 
@@ -474,7 +474,7 @@ class Ellipse(_NamedBase):
         '''
         P, h = self._Ph2
         if h:
-            hs =  self._HGKs(h, self._maxit)
+            hs =  self._HGKs(h, self._MAXIT)
             P *= _fsum(hs) * PI  # nonfinites=True
         return Meter(perimeterHGK=P)
 
@@ -877,7 +877,7 @@ def _2RC(h, r):  # in Ellipse.perimeter2R and .perimeter2RC
 
 # **) MIT License
 #
-# Copyright (C) 2026-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2026-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

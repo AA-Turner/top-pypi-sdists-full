@@ -2,7 +2,6 @@
 
 import logging
 from contextlib import suppress
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from huawei_solar import register_names as rn
@@ -17,8 +16,8 @@ from huawei_solar.files import (
     OptimizerSystemInformation,
     OptimizerSystemInformationDataFile,
 )
-from huawei_solar.register_definitions import Result, TimestampRegister
-from huawei_solar.registers import METER_REGISTERS, REGISTERS
+from huawei_solar.register_definitions import Result
+from huawei_solar.registers import METER_REGISTERS
 
 from .base import HuaweiSolarDeviceWithLogin
 from .emma import EMMADevice
@@ -42,14 +41,26 @@ class SUN2000Device(HuaweiSolarDeviceWithLogin):
 
     battery_1_type: rv.StorageProductModel = rv.StorageProductModel.NONE
     battery_2_type: rv.StorageProductModel = rv.StorageProductModel.NONE
-    supports_capacity_control = False
+    supports_capacity_control: bool = False
+    supports_ess_low_power: bool = False
+    supports_off_grid_switch: bool = False
+    supports_backup_voltage: bool = False
+    supports_active_power_fail_safe: bool = False
+    supports_active_power_limitation_mode: bool = False
+    supports_dongle_charge_power_limit: bool = False
+    supports_discharge_power_adjustment: bool = False
+    supports_recharge: bool = False
+    """Whether the inverter supports the maintenance storage recharge feature.
+
+    In FusionSolar app: Maintenance > Battery maintenance > Forced charge and discharge.
+    Working mode = Recharge (or Maintenance charge).
+    Combine registers: set STORAGE_RECHARGE_TARGET_SOC (47783) between 40% - 60%,
+    then write 1 to STORAGE_RECHARGE_SIGNAL (47780) to start charging.
+    """
     power_meter_online = False
     power_meter_type: rv.MeterType | None = None
 
     _pv_registers: list[str]
-
-    _time_zone: int | None = None
-    _dst: bool | None = None
 
     _previous_device_status: str | None = None
 
@@ -106,15 +117,7 @@ class SUN2000Device(HuaweiSolarDeviceWithLogin):
                 "Detected two batteries of a different type. This can lead to unexpected behavior",
             )
 
-        if self.battery_type != rv.StorageProductModel.NONE and (
-            self.primary_device is None or not isinstance(self.primary_device, (EMMADevice, SmartLoggerDevice))
-        ):
-            try:
-                await self.get(rn.STORAGE_CAPACITY_CONTROL_MODE)
-                self.supports_capacity_control = True
-            except ReadException:
-                _LOGGER.debug("Storage capacity control as it is not supported by device %d", self.client.unit_id)
-                self.supports_capacity_control = False
+        await self._populate_feature_support()
 
         with suppress(ReadException):
             self.power_meter_online = (await self.get(rn.METER_STATUS)).value == rv.MeterStatus.NORMAL
@@ -124,11 +127,69 @@ class SUN2000Device(HuaweiSolarDeviceWithLogin):
         if self.power_meter_online:
             self.power_meter_type = (await self.get(rn.METER_TYPE)).value
 
-        # reading these registers fails on some firmware versions (cfr. https://github.com/wlcrs/huawei_solar/issues/1264)
+    async def _populate_feature_support(self) -> None:
+        """Check feature masks to determine supported hardware and firmware capabilities."""
+        try:
+            feature_mask_3 = (await self.get(rn.FEATURE_MASK_3)).value
+            self.supports_active_power_fail_safe = bool(
+                feature_mask_3 & rv.FeatureMask3.COMMUNICATION_FAIL_ACTIVE_POWER_DERATING
+            )
+            self.supports_active_power_limitation_mode = self.supports_active_power_fail_safe
+        except ReadException:
+            _LOGGER.debug("Feature mask 3 not supported by device %d", self.client.unit_id)
+            feature_mask_3 = rv.FeatureMask3(0)
+            self.supports_active_power_fail_safe = False
+            self.supports_active_power_limitation_mode = False
+
+        try:
+            feature_mask_30308 = (await self.get(rn.FEATURE_MASK_30308)).value
+            self.supports_off_grid_switch = bool(feature_mask_30308 & rv.FeatureMask30308.BACKUP_OFF_GRID_SWITCHING)
+        except ReadException:
+            _LOGGER.debug("Feature mask 30308 not supported by device %d", self.client.unit_id)
+            self.supports_off_grid_switch = False
+
+        try:
+            feature_mask_30320 = (await self.get(rn.FEATURE_MASK_30320)).value
+            self.supports_backup_voltage = self.supports_off_grid_switch and bool(
+                feature_mask_30320 & rv.FeatureMask30320.VOLTAGE_IN_INDEPENDENT_OPERATION
+            )
+        except ReadException:
+            _LOGGER.debug("Feature mask 30320 not supported by device %d", self.client.unit_id)
+            self.supports_backup_voltage = False
+
+        if self.battery_type != rv.StorageProductModel.NONE and (
+            self.primary_device is None or not isinstance(self.primary_device, (EMMADevice, SmartLoggerDevice))
+        ):
+            self.supports_capacity_control = bool(feature_mask_3 & rv.FeatureMask3.CAPACITY_CONTROL)
+            self.supports_dongle_charge_power_limit = bool(
+                feature_mask_3 & rv.FeatureMask3.SECONDARY_GRID_TIED_CHARGE_POWER_LIMIT
+            )
+
+            try:
+                feature_mask_2 = (await self.get(rn.FEATURE_MASK_2)).value
+                self.supports_discharge_power_adjustment = bool(
+                    feature_mask_2 & rv.FeatureMask2.BATTERY_CHARGE_DISCHARGE_LIMITS
+                )
+                self.supports_recharge = self.supports_discharge_power_adjustment
+            except ReadException:
+                _LOGGER.debug("Feature mask 2 not supported by device %d", self.client.unit_id)
+                self.supports_discharge_power_adjustment = False
+                self.supports_recharge = False
+
+            try:
+                feature_mask = (await self.get(rn.FEATURE_MASK_30342)).value
+                self.supports_ess_low_power = bool(feature_mask & rv.FeatureMask30342.ESS_LOW_POWER)
+            except ReadException:
+                _LOGGER.debug("ESS low power as it is not supported by device %d", self.client.unit_id)
+                self.supports_ess_low_power = False
+
         with suppress(ReadException):
-            self._dst = (await self.get(rn.DAYLIGHT_SAVING_TIME)).value
-        with suppress(ReadException):
-            self._time_zone = (await self.get(rn.TIME_ZONE)).value
+            self.power_meter_online = (await self.get(rn.METER_STATUS)).value == rv.MeterStatus.NORMAL
+
+        # Caveat: if the inverter is in offline mode, and the power meter is thus offline,
+        # we will incorrectly detect that no power meter is present.
+        if self.power_meter_online:
+            self.power_meter_type = (await self.get(rn.METER_TYPE)).value
 
     def _handle_batch_read_error(
         self,
@@ -174,12 +235,12 @@ class SUN2000Device(HuaweiSolarDeviceWithLogin):
         result = register_names
 
         # Filter out power meter registers if the power meter is offline
-        power_meter_register_names = {rn for rn in register_names if rn in METER_REGISTERS}
+        power_meter_register_names = {regname for regname in register_names if regname in METER_REGISTERS}
         if power_meter_register_names:
             # Do a check of the METER_STATUS register only if the power meter is marked offline
             if not self.power_meter_online:
-                power_meter_online_register = await self.get(rn.METER_STATUS)
-                self.power_meter_online = power_meter_online_register.value
+                power_meter_online_register = await self._raw_get(rn.METER_STATUS)
+                self.power_meter_online = power_meter_online_register.value == rv.MeterStatus.NORMAL
 
                 _LOGGER.debug("Power meter online: %s", self.power_meter_online)
 
@@ -190,24 +251,10 @@ class SUN2000Device(HuaweiSolarDeviceWithLogin):
                 )
                 result = list(
                     filter(
-                        lambda regname: regname == rn.METER_STATUS or rn not in power_meter_register_names,
+                        lambda regname: regname == rn.METER_STATUS or regname not in power_meter_register_names,
                         register_names,
                     ),
                 )
-
-        return result
-
-    def _transform_register_values(self, register_name: rn.RegisterName, result: Result[Any]) -> Result[Any]:
-        if isinstance(REGISTERS[register_name], TimestampRegister) and result.value is not None:
-            assert isinstance(result.value, datetime)
-            value = result.value
-            if self._time_zone:
-                value -= timedelta(minutes=self._time_zone)
-            # if DST is in effect, we need to shift another hour.
-            if self._dst:
-                value -= timedelta(hours=1)
-
-            return Result(value.astimezone(tz=UTC), result.unit)
 
         return result
 
@@ -224,7 +271,10 @@ class SUN2000Device(HuaweiSolarDeviceWithLogin):
     async def get_latest_optimizer_history_data(
         self,
     ) -> dict[int, OptimizerRealTimeData]:
-        """Read the latest Optimizer History Data File from the inverter."""
+        """Read the latest Optimizer History Data File from the inverter.
+
+        Targets: SUN2000 inverters with connected Huawei optimizers.
+        """
         # emulates behavior from FusionSolar app when current status of optimizers is queried
         end_time = await self._get_system_time()
         if end_time is None:
@@ -250,7 +300,10 @@ class SUN2000Device(HuaweiSolarDeviceWithLogin):
     async def get_optimizer_system_information_data(
         self,
     ) -> dict[int, OptimizerSystemInformation]:
-        """Read the Optimizer System Information Data File from the inverter."""
+        """Read the Optimizer System Information Data File from the inverter.
+
+        Targets: SUN2000 inverters with connected Huawei optimizers.
+        """
         file_data = await self.read_file(OptimizerSystemInformationDataFile.FILE_TYPE)
         system_information_data = OptimizerSystemInformationDataFile(file_data)
 

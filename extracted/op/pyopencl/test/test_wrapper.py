@@ -207,7 +207,7 @@ def test_get_info(ctx_factory: cl.CtxFactory):
     if profiling:
         evt.wait()
         do_test(evt, cl.profiling_info,
-                lambda info: evt.get_profiling_info(info),
+                evt.get_profiling_info,
                 try_attr_form=False)
 
     # crashes on intel...
@@ -230,7 +230,46 @@ def test_get_info(ctx_factory: cl.CtxFactory):
         img.depth  # ruff:ignore[useless-expression]
         img.image.depth  # ruff:ignore[useless-expression]
         do_test(img, cl.image_info,
-                lambda info: img.get_image_info(info))
+                img.get_image_info)
+
+# }}}
+
+
+# {{{ test_buffer_device_address_ext
+
+def test_buffer_device_address_ext(ctx_factory: cl.CtxFactory):
+    if cl.get_cl_header_version() < (3, 0):
+        pytest.skip("buffer properties require PyOpenCL built for OpenCL 3.0")
+
+    if not hasattr(cl.mem_info, "DEVICE_ADDRESS_EXT"):
+        pytest.skip("PyOpenCL was built without cl_ext_buffer_device_address")
+
+    ctx = ctx_factory()
+    device, = ctx.devices
+    if "cl_ext_buffer_device_address" not in device.extensions.split():
+        pytest.skip("device does not support cl_ext_buffer_device_address")
+
+    buf = cl.Buffer(ctx, cl.mem_flags.READ_WRITE, 4,
+            properties=[cl.mem_properties.DEVICE_PRIVATE_ADDRESS_EXT, 1])
+    ptr = buf.get_info(cl.mem_info.DEVICE_ADDRESS_EXT)
+    assert isinstance(ptr, cl.DevicePointerEXT)
+
+    knl = cl.Program(ctx, """
+        __kernel void write_device_pointer(__global int *ptr)
+        { ptr[0] = 42; }
+        """).build().write_device_pointer
+    assert isinstance(ptr.address, int)
+
+    queue = cl.CommandQueue(ctx)
+    knl.set_arg(0, ptr)
+    cl.enqueue_nd_range_kernel(queue, knl, (1,), None).wait()
+    knl.set_args(ptr)
+    cl.enqueue_nd_range_kernel(queue, knl, (1,), None).wait()
+    knl(queue, (1,), None, ptr).wait()
+
+    result = np.empty(1, dtype=np.int32)
+    cl.enqueue_copy(queue, result, buf).wait()
+    assert result[0] == 42
 
 # }}}
 

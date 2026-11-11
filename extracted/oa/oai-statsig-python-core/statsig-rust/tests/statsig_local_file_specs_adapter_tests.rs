@@ -17,6 +17,24 @@ const SDK_KEY: &str = "server-local-specs-test";
 const SPECS_FILE_NAME: &str = "3099846163_specs.json"; // djb2(SDK_KEY)_specs.json
 const DOWNLOAD_PATH_PREFIX: &str = "/v1/dynamic_config_value/";
 
+#[tokio::test]
+async fn explicit_fetch_reports_destination_is_not_a_directory() {
+    let (server, dir) = setup("explicit_fetch_fails_to_write").await;
+    let destination = format!("{dir}/ordinary-file");
+    fs::write(&destination, "original contents").unwrap();
+    let adapter = StatsigLocalFileSpecsAdapter::new(
+        SDK_KEY,
+        &destination,
+        Some(server.url_for_endpoint(Endpoint::DownloadConfigSpecs)),
+        false,
+        false,
+    );
+    assert!(matches!(
+        adapter.fetch_and_write_to_file().await,
+        Err(StatsigErr::FileError(_))
+    ));
+}
+
 async fn setup(test_name: &str) -> (MockScrapi, String) {
     let test_path = create_test_path(test_name);
 
@@ -242,6 +260,13 @@ fn sync_from_file_rejects_remote_metadata_without_decoding_raw_numbers() {
         Err(StatsigErr::InvalidOperation(message))
             if message.contains("resync_from_file_with_hydration")
     ));
+    let forbidden = payload.replace(
+        r#""feature_gates": {}"#,
+        r#""feature_gates": {"bad":{"remoteConfigMetadata":{}}}"#,
+    );
+    fs::write(&file_path, forbidden).unwrap();
+    let error = adapter.resync_from_file().unwrap_err();
+    assert!(error.to_string().contains("unsupported_entity"), "{error}");
 }
 
 #[tokio::test]
@@ -298,7 +323,16 @@ async fn start_hydrates_and_rewrites_legacy_remote_value_file() {
 
 #[tokio::test]
 async fn fetch_repairs_legacy_file_before_no_update_response() {
-    let test_path = create_test_path("fetch_repairs_legacy_file_before_no_update_response");
+    check_legacy_repair(false).await;
+}
+
+#[tokio::test]
+async fn fetch_reports_failed_legacy_repair_after_no_update_response() {
+    check_legacy_repair(true).await;
+}
+
+async fn check_legacy_repair(block_write: bool) {
+    let test_path = create_test_path(&format!("legacy_repair_{block_write}"));
     let server = MockServer::start().await;
     let remote_value = br#"{"large":"from-legacy-file"}"#;
     let sha = lowercase_hex(&Sha256::digest(remote_value));
@@ -306,7 +340,22 @@ async fn fetch_repairs_legacy_file_before_no_update_response() {
     let legacy = legacy_remote_dcs(&server, &download_path, &sha, remote_value.len());
     let file_path = format!("{test_path}/{SPECS_FILE_NAME}");
     fs::write(&file_path, legacy.to_string()).unwrap();
-    mount_remote_value(&server, &download_path, remote_value).await;
+    let target = file_path.clone();
+    Mock::given(wiremock_method("GET"))
+        .and(path(download_path))
+        .respond_with(move |_: &wiremock::Request| {
+            if block_write {
+                // The adapter has read the file. Prevent its next write even when testing as root.
+                fs::remove_file(&target).unwrap();
+                fs::create_dir(&target).unwrap();
+            }
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "application/json")
+                .set_body_bytes(remote_value)
+        })
+        .expect(1)
+        .mount(&server)
+        .await;
     Mock::given(wiremock_method("GET"))
         .and(path("/v2/download_config_specs"))
         .and(query_param("sinceTime", "123"))
@@ -323,7 +372,13 @@ async fn fetch_repairs_legacy_file_before_no_update_response() {
         false,
         false,
     );
-    adapter.fetch_and_write_to_file().await.unwrap();
+    let result = adapter.fetch_and_write_to_file().await;
+    if block_write {
+        assert!(matches!(result, Err(StatsigErr::FileError(_))));
+        server.verify().await;
+        return;
+    }
+    result.unwrap();
 
     let rewritten: Value = serde_json::from_str(&fs::read_to_string(file_path).unwrap()).unwrap();
     assert_eq!(

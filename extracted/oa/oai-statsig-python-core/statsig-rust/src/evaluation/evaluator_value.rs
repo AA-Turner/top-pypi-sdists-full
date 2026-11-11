@@ -20,7 +20,7 @@ use crate::{
         mmap_data_v2::{ArchivedMmapEvaluatorValue, ArchivedMmapEvaluatorValueType},
     },
     log_e,
-    value_parsing::try_parse_timestamp,
+    value_parsing::parse_string_values,
 };
 
 use super::dynamic_string::DynamicString;
@@ -841,10 +841,10 @@ impl MemoizedEvaluatorValue {
 // - ua_parser
 impl From<String> for MemoizedEvaluatorValue {
     fn from(value: String) -> Self {
-        let int_value = value.parse::<i64>().ok();
+        let (_, float_value, timestamp_value) = parse_string_values(&value);
         MemoizedEvaluatorValue {
-            timestamp_value: try_parse_timestamp(&value, int_value),
-            float_value: value.parse::<f64>().ok(),
+            timestamp_value,
+            float_value,
             string_value: Some(DynamicString::from(value)),
             ..MemoizedEvaluatorValue::new(EvaluatorValueType::String)
         }

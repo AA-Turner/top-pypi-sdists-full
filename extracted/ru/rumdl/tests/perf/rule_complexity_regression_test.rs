@@ -378,7 +378,9 @@ fn test_workspace_link_extraction_linear_complexity() {
                     count + usize::from(name == "tail-angle")
                 );
                 if name == "tail-angle" {
-                    assert!(links.relative.iter().all(|link| link.target_path == "last.md"));
+                    let (last, rest) = links.relative.split_last().unwrap();
+                    assert_eq!(last.target_path, "last.md");
+                    assert!(rest.iter().all(|link| link.target_path == "target.md"));
                 }
                 let mut times: Vec<_> = (0..5)
                     .map(|_| {
@@ -1466,6 +1468,77 @@ fn test_md095_source_positions_linear_complexity() {
     }
 }
 
+#[test]
+fn test_md088_space_fix_guard_linear_complexity() {
+    let mut config = rumdl_lib::config::Config::default();
+    config
+        .rules
+        .entry("MD088".to_string())
+        .or_default()
+        .values
+        .insert("normalize-spaces".to_string(), true.into());
+    let rule = MD088QuotesDashes::from_config(&config);
+    // Every space is one an ASCII space would change the parse around: each in its
+    // own block, in its own item of one list, or inside a single block quote that
+    // cannot be split.
+    for (name, unit) in [
+        ("separate blocks", "# title\u{a0}###\n\n"),
+        ("one list block", "- [x]\u{a0}done\n"),
+        ("one block quote", "> - [x]\u{a0}done\n"),
+    ] {
+        let durations: Vec<_> = [250, 500, 1000]
+            .into_iter()
+            .map(|count| {
+                let content = unit.repeat(count);
+                let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+                let warnings = rule.check(&ctx).unwrap();
+                assert_eq!(warnings.len(), count, "{name}");
+                assert!(
+                    warnings.iter().all(|w| w.fix.is_none()),
+                    "{name}: an unsafe space was offered a fix"
+                );
+                measure_rule_time_with_context(&*rule, &ctx, 3)
+            })
+            .collect();
+        assert_linear_complexity(&format!("MD088 space guard {name}"), &durations, 3.0);
+    }
+}
+
+/// A single line holding many spaces is read once, whether the spaces form one long
+/// run or sit between tokens that are all block markers.
+#[test]
+fn test_md088_spaces_on_one_line_linear_complexity() {
+    let mut config = rumdl_lib::config::Config::default();
+    config
+        .rules
+        .entry("MD088".to_string())
+        .or_default()
+        .values
+        .insert("normalize-spaces".to_string(), true.into());
+    let rule = MD088QuotesDashes::from_config(&config);
+    // (name, text before the spaces, repeated unit, text after them, fix offered)
+    for (name, head, unit, tail, fixable) in [
+        ("one long run", "a", "\u{a0}", "b\n", true),
+        ("marker tokens", "", "-\u{a0}", "x\n", false),
+    ] {
+        let durations: Vec<_> = [4000, 8000, 16000]
+            .into_iter()
+            .map(|count| {
+                let content = format!("{head}{}{tail}", unit.repeat(count));
+                let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+                let warnings = rule.check(&ctx).unwrap();
+                assert_eq!(warnings.len(), count, "{name}");
+                assert!(
+                    warnings.iter().all(|w| w.fix.is_some() == fixable),
+                    "{name}: expected every space to be fixable = {fixable}"
+                );
+                measure_rule_time_with_context(&*rule, &ctx, 3)
+            })
+            .collect();
+        assert_linear_complexity(&format!("MD088 spaces on one line, {name}"), &durations, 3.0);
+    }
+}
+
 /// Assert linear complexity by checking growth ratios
 fn assert_linear_complexity(name: &str, durations: &[Duration], threshold: f64) {
     assert!(durations.len() >= 3, "Need at least 3 measurements for ratio check");
@@ -2358,6 +2431,46 @@ fn test_md022_linear_complexity() {
         .collect();
 
     assert_linear_complexity("MD022", &durations, 6.0);
+}
+
+/// Finding the heading directly before or after each heading must not search
+/// the whole heading list, whether or not `nested-heading-lines-above` is set.
+#[test]
+fn test_md022_nested_heading_lines_above_linear_complexity() {
+    // A parent directly followed by its child, then a parent with a body.
+    let unit = "# Parent\n\n## Child\n\nBody\n\n\n# Section\n\nBody\n\n\n";
+    for nested in [None, Some(1)] {
+        let mut config = rumdl_lib::config::Config::default();
+        let md022 = config.rules.entry("MD022".to_string()).or_default();
+        md022.values.insert("lines-above".to_string(), 2.into());
+        if let Some(nested) = nested {
+            md022
+                .values
+                .insert("nested-heading-lines-above".to_string(), nested.into());
+        }
+        let rule = MD022BlanksAroundHeadings::from_config(&config);
+        let mut check_times = Vec::new();
+        let mut fix_times = Vec::new();
+        for count in [1024, 2048, 4096] {
+            let content = unit.repeat(count);
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            // Without the option every child lacks a second blank line above it.
+            let expected = if nested.is_some() { 0 } else { count };
+            assert_eq!(rule.check(&ctx).unwrap().len(), expected);
+            check_times.push(measure_rule_time_with_context(rule.as_ref(), &ctx, 5));
+            let mut samples: Vec<_> = (0..5)
+                .map(|_| {
+                    let start = MeasurementClock::now();
+                    std::hint::black_box(rule.fix(std::hint::black_box(&ctx)).unwrap());
+                    start.elapsed()
+                })
+                .collect();
+            samples.sort();
+            fix_times.push(samples[2]);
+        }
+        assert_linear_complexity(&format!("MD022 check nested={nested:?}"), &check_times, 3.0);
+        assert_linear_complexity(&format!("MD022 fix nested={nested:?}"), &fix_times, 3.0);
+    }
 }
 
 #[test]

@@ -4,6 +4,22 @@ from typing import Optional
 
 from box_sdk_gen.internal.base_object import BaseObject
 
+from box_sdk_gen.schemas.sign_request_signer_verification_method_login import (
+    SignRequestSignerVerificationMethodLogin,
+)
+
+from box_sdk_gen.schemas.sign_request_signer_verification_method_phone_sms import (
+    SignRequestSignerVerificationMethodPhoneSms,
+)
+
+from box_sdk_gen.schemas.sign_request_signer_verification_method_cac_piv import (
+    SignRequestSignerVerificationMethodCacPiv,
+)
+
+from box_sdk_gen.schemas.sign_request_signer_verification_method import (
+    SignRequestSignerVerificationMethod,
+)
+
 from box_sdk_gen.box.errors import BoxSDKError
 
 
@@ -30,6 +46,7 @@ class SignRequestCreateSigner(BaseObject):
         signer_group_id: Optional[str] = None,
         suppress_notifications: Optional[bool] = None,
         language: Optional[str] = None,
+        verification_method: Optional[SignRequestSignerVerificationMethod] = None,
         **kwargs
     ):
         """
@@ -81,11 +98,15 @@ class SignRequestCreateSigner(BaseObject):
         determine which signers belongs to same group. A successful response will provide a generated UUID value
         instead for signers in the same signer group., defaults to None
                 :type signer_group_id: Optional[str], optional
-                :param suppress_notifications: If true, no emails about the sign request will be sent., defaults to None
+                :param suppress_notifications: If true, no emails about the sign request are sent.
+        The `embed_url_external_user_id` parameter is required when using
+        `suppress_notifications` for a signer., defaults to None
                 :type suppress_notifications: Optional[bool], optional
                 :param language: The language of the user, formatted in modified version of the
         [ISO 639-1](https://developer.box.com/guides/api-calls/language-codes) format., defaults to None
                 :type language: Optional[str], optional
+                :param verification_method: The verification method for the signer., defaults to None
+                :type verification_method: Optional[SignRequestSignerVerificationMethod], optional
         """
         super().__init__(**kwargs)
         self.email = email
@@ -101,3 +122,4 @@ class SignRequestCreateSigner(BaseObject):
         self.signer_group_id = signer_group_id
         self.suppress_notifications = suppress_notifications
         self.language = language
+        self.verification_method = verification_method

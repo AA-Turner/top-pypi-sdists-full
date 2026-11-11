@@ -28,11 +28,6 @@ SCHEMA = {
 }
 
 
-@pytest.fixture
-def cassette_path(tmp_path):
-    return tmp_path / "output.yaml"
-
-
 @pytest.mark.parametrize(
     ["args", "expected"],
     (
@@ -51,10 +46,6 @@ def cassette_path(tmp_path):
         (
             {"include-method": "GET"},
             ["GET /b", "GET /c", "GET /d"],
-        ),
-        (
-            {"exclude-tag": "Example"},
-            ["GET /c"],
         ),
         (
             {"exclude-tag": "Example"},

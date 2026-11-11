@@ -162,6 +162,7 @@ def _inline(parts: list[dict[str, Any]], body_html: str) -> list[dict[str, Any]]
                 "cid": cid,
                 "mime": part["mimeType"],
                 "attachment_id": body.get("attachmentId", ""),
+                "part": part.get("partId", ""),
                 "size": body.get("size", 0),
                 # Small ones come with the message; the others are fetched (attachments.get).
                 "data": body.get("data", ""),
@@ -185,6 +186,37 @@ def embed_inline(body_html: str, inline: list[dict[str, Any]]) -> str:
     return re.sub(r"cid:([^\"'\s)>]+)", swap, body_html, flags=re.I) if images else body_html
 
 
+PICTURE_TAGS = re.compile(r"<(/?)(a|img)\b[^>]*>", re.I)
+PICTURE_SOURCE = re.compile(r"\bsrc\s*=\s*([\"'])(.*?)\1", re.I | re.S)
+PICTURE_SIZE = re.compile(r"\b(?:width|height)\s*=\s*[\"']?(\d+)", re.I)
+
+
+def link_pictures(body_html: str, links: dict[str, str], remote: bool) -> str:
+    """Each picture of the email that is not a link's opens whole in a new tab when tapped, to
+    be zoomed: one sent inside it by its address in myOrb (links, by its cid: address), one
+    from the web, when shown, by its own. Not icons or spacers (32px or less). A link it is,
+    as the frame runs no scripts."""
+    out = []
+    at = 0
+    depth = 0
+    for tag in PICTURE_TAGS.finditer(body_html):
+        if tag[2].lower() == "a":
+            depth = max(0, depth + (-1 if tag[1] else 1))
+            continue
+        source = PICTURE_SOURCE.search(tag[0])
+        if depth or not source:
+            continue
+        address = html.unescape(source[2]).strip()
+        href = links.get(address.lower()) or (
+            address if remote and re.match(r"https?://", address, re.I) else ""
+        )
+        if not href or any(int(size) <= 32 for size in PICTURE_SIZE.findall(tag[0])):
+            continue
+        out += [body_html[at : tag.start()], f'<a href="{html.escape(href)}">', tag[0], "</a>"]
+        at = tag.end()
+    return "".join(out) + body_html[at:]
+
+
 def _people(value: str) -> str:
     return ", ".join(name or address for name, address in getaddresses([value]) if name or address)
 
@@ -194,6 +226,7 @@ def frame_document(body_html: str, images: bool) -> str:
     Its images are asked for without a referrer: it would tell the sender where the email was
     read, and senders that guard their images from other sites (Tatra banka) turn it down."""
     policy = IMAGES_ALLOWED if images else IMAGES_BLOCKED
+    body_html = link_pictures(body_html, {}, remote=images)
     # A refresh would take the frame to another page; scripts cannot run in it anyway.
     body_html = re.sub(r"<meta[^>]*http-equiv\s*=\s*[\"']?refresh[^>]*>", "", body_html, flags=re.I)
     # The frame is white, as in Gmail. An email's own dark styles would follow a dark system

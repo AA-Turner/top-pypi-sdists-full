@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-neptune-alpha
-Version: 2.275.0a0
+Version: 2.276.0a0
 Summary: The CDK Construct Library for AWS::Neptune
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -24,7 +24,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.275.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.276.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
 Requires-Dist: jsii<2.0.0,>=1.142.0
 Requires-Dist: publication>=0.0.3
@@ -130,7 +130,7 @@ cluster = neptune.DatabaseCluster(self, "Database",
 )
 ```
 
-Note: To use the Neptune engine versions `1.2.0.0` or later, including the newly added `1.4` series, it's necessary to specify the appropriate `engineVersion` prop in `neptune.DatabaseCluster`. Additionally, for both 1.2,  1.3 and 1.4 series, the corresponding `family` prop must be set to `ParameterGroupFamily.NEPTUNE_1_2`, `ParameterGroupFamily.NEPTUNE_1_3` or `ParameterGroupFamily.NEPTUNE_1_4` respectively in `neptune.ClusterParameterGroup` and `neptune.ParameterGroup`.
+Note: To use the Neptune engine versions `1.2.0.0` or later, including the newly added `1.5` series, it's necessary to specify the appropriate `engineVersion` prop in `neptune.DatabaseCluster`. Additionally, for 1.2, 1.3, 1.4 and 1.5 series, the corresponding `family` prop must be set to `ParameterGroupFamily.NEPTUNE_1_2`, `ParameterGroupFamily.NEPTUNE_1_3`, `ParameterGroupFamily.NEPTUNE_1_4` or `ParameterGroupFamily.NEPTUNE_1_5` respectively in `neptune.ClusterParameterGroup` and `neptune.ParameterGroup`.
 
 ## Adding replicas
 

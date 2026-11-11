@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from anta._advisory.base import _PREVIEW_WARNING, _AntaAdvisoryTest
 from anta._advisory.eos_versions import VersionRule
 from anta._advisory.facts.eos import EosVersionFact
-from anta._advisory.facts.management import GnmiAccountingFact, GnmiTransportFact, RiskyOpenConfigTraceFact
-from anta._advisory.facts.models import ConfigurationState, ConfigurationValue, Fact, FactDefinition, FeatureState, FeatureValue, UnavailableFact
+from anta._advisory.facts.management import GnmiTransportFact
+from anta._advisory.facts.models import Fact, FactsBase, FeatureState, UnavailableFact, fact_field, facts_dataclass
 from anta._advisory.findings.assessment import assess_eos_scope
 from anta._advisory.findings.models import (
     EosReleaseAssessment,
@@ -73,13 +73,7 @@ ADVISORY = _AdvisoryMetadata(
 )
 
 
-# pylint: disable-next=too-many-return-statements
-def _assess_sa117(  # noqa: PLR0911
-    version: Fact[EOSVersion],
-    gnmi: Fact[FeatureValue],
-    accounting: Fact[FeatureValue],
-    trace: Fact[ConfigurationValue],
-) -> VulnerabilityResult:
+def _assess_sa117(version: Fact[EosVersionFact], gnmi: Fact[GnmiTransportFact]) -> VulnerabilityResult:
     """Assess CVE-2025-0936 from normalized facts."""
     vulnerability_id = ADVISORY.vulnerabilities[0].id
     release = assess_eos_scope(vulnerability_id, version, AFFECTED_VERSION_MATRIX)
@@ -91,53 +85,40 @@ def _assess_sa117(  # noqa: PLR0911
     if gnmi.value.state is not FeatureState.ENABLED:
         return NotAffectedResult(vulnerability_id=vulnerability_id, decisive=(gnmi,))
 
-    remediation = software_version_plan(FIXED_RELEASES, current_version=release.fact.value)
-    if not isinstance(accounting, UnavailableFact) and accounting.value.state is FeatureState.ENABLED:
-        # We are not able to resolve the gNOI File and effective gNSI Authz controls
-        # for possible mitigation so we say inconclusive.
-        return InconclusiveResult(
-            vulnerability_id=vulnerability_id,
-            indications=(release, gnmi, accounting),
-            unresolved=(
-                Unobservable(UnobservableKind.DEVICE_STATE_NOT_EXPOSED, "gNOI File service state"),
-                Unobservable(UnobservableKind.DEVICE_STATE_NOT_EXPOSED, "effective gNSI Authz control"),
-            ),
-            remediation=remediation,
-        )
-    if not isinstance(trace, UnavailableFact) and trace.value.state is ConfigurationState.CONFIGURED:
-        # We are not able to resolve the gNOI File and effective gNSI Authz controls
-        # for possible mitigation so we say inconclusive.
-        return InconclusiveResult(
-            vulnerability_id=vulnerability_id,
-            indications=(release, gnmi, trace),
-            unresolved=(
-                Unobservable(UnobservableKind.DEVICE_STATE_NOT_EXPOSED, "gNOI File service state"),
-                Unobservable(UnobservableKind.DEVICE_STATE_NOT_EXPOSED, "effective gNSI Authz control"),
-            ),
-            remediation=remediation,
-        )
-    if isinstance(accounting, UnavailableFact):
-        return ErrorResult(vulnerability_id=vulnerability_id, problems=(accounting,))
-    if isinstance(trace, UnavailableFact):
-        return ErrorResult(vulnerability_id=vulnerability_id, problems=(trace,))
-    return NotAffectedResult(vulnerability_id=vulnerability_id, decisive=(accounting, trace))
+    # We are not able to resolve the gNOI File and effective gNSI Authz controls
+    # for possible mitigation so we say inconclusive.
+    return InconclusiveResult(
+        vulnerability_id=vulnerability_id,
+        indications=(release, gnmi),
+        unresolved=(
+            Unobservable(UnobservableKind.DEVICE_STATE_NOT_EXPOSED, "gNOI File service state"),
+            Unobservable(UnobservableKind.DEVICE_STATE_NOT_EXPOSED, "effective gNSI Authz control"),
+        ),
+        remediation=software_version_plan(FIXED_RELEASES, current_version=release.fact.value),
+    )
 
 
 @preview_test_class(warning_message=_PREVIEW_WARNING)
 class SA117(OptionalCommandsMixin, _AntaAdvisoryTest):
     """Verify whether the device is impacted by Security Advisory 0117.
 
+    Expected Results
+    ----------------
+    * Not Affected: EOS is outside scope or no gNMI transport is enabled.
+    * Inconclusive: An affected EOS release has gNMI enabled, but the gNOI File service and effective gNSI Authz controls cannot be
+      evaluated.
+    * Error: Required EOS or gNMI state cannot be determined.
+
     Notes
     -----
-    Exposure signals remain inconclusive because disabling the gNOI File service and an
+    Exposure remains inconclusive because disabling the gNOI File service and an
     effective gNSI Authz policy that blocks TransferToRemote cannot currently be evaluated
     with trusted narrow EOS evidence.
 
-    Expected Results
-    ----------------
-    * Success: The test will pass if the EOS version or configuration is not affected.
-    * Inconclusive: The test is inconclusive if exposure signals exist but required control evidence is unavailable.
-    * Error: The test will error if required EOS version or configuration evidence is invalid.
+    The advisory requires gNMI accounting or an advisory-identified OpenConfig trace selector. This test does not
+    use OpenConfig trace state: an operator can enable the trace at any time with `start trace`, which leaves no
+    running-config record and disappears from `show trace OpenConfig` once the timer expires, so trace state cannot
+    rule out exposure. Because the trace branch cannot be excluded, accounting state cannot change the result either.
 
     Examples
     --------
@@ -147,25 +128,22 @@ class SA117(OptionalCommandsMixin, _AntaAdvisoryTest):
     ```
     """
 
+    @facts_dataclass
+    class Facts(FactsBase):
+        """Collected facts required to assess the advisory."""
+
+        version: Fact[EosVersionFact] = fact_field(EosVersionFact)
+        gnmi: Fact[GnmiTransportFact] = fact_field(GnmiTransportFact)
+
     advisory: ClassVar[_AdvisoryMetadata] = ADVISORY
-    required_facts: ClassVar[tuple[type[FactDefinition[Any]], ...]] = (
-        EosVersionFact,
-        GnmiTransportFact,
-        GnmiAccountingFact,
-        RiskyOpenConfigTraceFact,
-    )
     description = "Verify whether the device is impacted by Security Advisory 0117."
     _atomic_support = True
 
     @_AntaAdvisoryTest.anta_test
     def test(self) -> None:
         """Assess and project the advisory vulnerability."""
-        finding = _assess_sa117(
-            self.fact(EosVersionFact),
-            self.fact(GnmiTransportFact),
-            self.fact(GnmiAccountingFact),
-            self.fact(RiskyOpenConfigTraceFact),
-        )
+        facts = self.Facts.collect(self)
+        finding = _assess_sa117(facts.version, facts.gnmi)
         vulnerability = ADVISORY.vulnerabilities[0]
         atomic_result = self.result.add(
             f"Verify {vulnerability.id}.",

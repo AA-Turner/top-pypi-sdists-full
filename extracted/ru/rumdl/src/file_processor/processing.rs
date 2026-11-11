@@ -107,7 +107,10 @@ pub struct FileProcessResult {
     /// In fix mode, contains only remaining (unfixed) warnings.
     /// In check mode, contains all warnings.
     pub warnings: Vec<rumdl_lib::rule::LintWarning>,
+    /// Empty when `file_index_reused` is set.
     pub file_index: rumdl_lib::workspace_index::FileIndex,
+    /// The run's workspace index snapshot already holds this file's current
+    /// index, so none was built or copied.
     pub file_index_reused: bool,
     /// Part of this file's run did not happen: it could not be read, or a
     /// code-block tool could not run under a `fail` setting. A tool error
@@ -1177,7 +1180,10 @@ pub struct ProcessFileResult {
     pub total_warnings: usize,
     pub fixable_warnings: usize,
     pub line_ending_map: rumdl_lib::utils::NormalizedLineEndingMap,
+    /// Empty when `file_index_reused` is set.
     pub file_index: rumdl_lib::workspace_index::FileIndex,
+    /// The run's workspace index snapshot already holds this file's current
+    /// index, so none was built or copied.
     pub file_index_reused: bool,
     /// The file could not be read (missing, unreadable, or not valid UTF-8).
     /// A tool-level error, not a lint finding: it must surface as exit code 2.
@@ -1637,7 +1643,12 @@ pub fn process_file_with_index(
             )
         ) {
             Ok(cached_warnings) => {
-                if let Some(state) = &config.code_block_tools.run_state {
+                // Building a processor resolves project paths, so it is only
+                // built for a hit that has tool verdicts to replay.
+                if let Some(state) = &config.code_block_tools.run_state
+                    && config.code_block_tools.enabled
+                    && rule_sets.auxiliary.lint
+                {
                     let processor =
                         rumdl_lib::code_block_tools::CodeBlockToolProcessor::new(&config.code_block_tools, flavor)
                             .with_document_config(config)
@@ -1645,11 +1656,9 @@ pub fn process_file_with_index(
                             .with_builtin_checks(
                                 !rule_sets.for_file(&ignored_rules_for_file).embedded_markdown.is_empty(),
                             );
-                    if config.code_block_tools.enabled && rule_sets.auxiliary.lint {
-                        processor.replay_cached_warnings(strip_bom(content));
-                        if processor.has_lint_work(strip_bom(content)) {
-                            state.record_cached_check();
-                        }
+                    processor.replay_cached_warnings(strip_bom(content));
+                    if processor.has_lint_work(strip_bom(content)) {
+                        state.record_cached_check();
                     }
                 }
                 if verbose && !quiet {
@@ -1670,8 +1679,8 @@ pub fn process_file_with_index(
                 );
 
                 // Build FileIndex for cross-file analysis on cache hit (lightweight, no rule checking)
-                let (file_index, file_index_reused) = if let Some(file_index) = cached_file_index {
-                    (file_index.clone(), true)
+                let (file_index, file_index_reused) = if cached_file_index.is_some() {
+                    (rumdl_lib::workspace_index::FileIndex::default(), true)
                 } else {
                     (
                         rumdl_lib::time_function!(

@@ -18,7 +18,8 @@ from .sampler import Sampler, _initialize_live_points
 from .bounding import BOUND_LIST
 from . import bounding
 from .dynamicsampler import DynamicSampler
-from .utils import (LogLikelihood, get_random_generator, get_nonbounded,
+from .utils import (LogLikelihood, get_random_generator, check_periodic,
+                    warn_reflective,
                     _parse_pool_queue)
 
 __all__ = ["NestedSampler", "DynamicNestedSampler", "_function_wrapper"]
@@ -50,7 +51,7 @@ def _get_citations(nested_type, bound, sampler):
     # Main references for the code
     default_refs = [
         ("Speagle (2020)", "ui.adsabs.harvard.edu/abs/2020MNRAS.493.3132S"),
-        ("Koposov et al. (2024)", "doi.org/10.5281/zenodo.3348367")
+        ("Koposov et al. (2026)", "doi.org/10.5281/zenodo.3348367")
     ]
 
     # Basics of nested sampling algorithm
@@ -123,23 +124,21 @@ Sampling Method:\n===============
     return citations
 
 
-def _get_internal_sampler(sampling, ndim, ncdim, periodic, reflective, walks,
+def _get_internal_sampler(sampling, ndim, ncdim, periodic, walks,
                           slices, facc):
     default_steps = {'rwalk': ndim + 20, 'slice': 3, 'rslice': 3 + ndim}
     if sampling == 'auto':
         if ndim < 10:
-            sampling = UniformBoundSampler(ndim=ndim)
+            sampling = 'unif'
         elif 10 <= ndim <= 20:
-            sampling = RWalkSampler(ndim=ndim, walks=default_steps['rwalk'])
+            sampling = 'rwalk'
         else:
-            sampling = RSliceSampler(ndim=ndim, slices=default_steps['rslice'])
+            sampling = 'rslice'
 
-    nonbounded = get_nonbounded(ndim, periodic, reflective)
+    periodic = check_periodic(ndim, periodic)
     sampler_kw = dict(ncdim=ncdim,
                       ndim=ndim,
-                      nonbounded=nonbounded,
                       periodic=periodic,
-                      reflective=reflective,
                       facc=facc)
     if sampling == 'rslice':
         sampler_kw['slices'] = slices or default_steps['rslice']
@@ -153,7 +152,10 @@ def _get_internal_sampler(sampling, ndim, ncdim, periodic, reflective, walks,
     elif sampling == 'unif':
         internal_sampler = UniformBoundSampler(**sampler_kw)
     elif isinstance(sampling, InternalSampler):
-        # todo check what to do with the options
+        if walks is not None or slices is not None:
+            warnings.warn('The walks/slices options are ignored when a '
+                          'sampler instance is used. Specify them when '
+                          'creating the sampler instance instead')
         internal_sampler = sampling._new_from_template(sampler_kw)
     else:
         raise ValueError(f'Unsupported Sampler {sampling}')
@@ -175,7 +177,7 @@ def _get_enlarge_bootstrap(sample, enlarge, bootstrap):
     DEFAULT_UNIF_BOOTSTRAP = 5
     if enlarge is not None and bootstrap is None:
         # If enlarge is specified and bootstrap is not we just use enlarge
-        # with no nootstrapping
+        # with no bootstrapping
         assert enlarge >= 1
         return enlarge, 0
     elif enlarge is None and bootstrap is not None:
@@ -275,10 +277,11 @@ optional
             bounding ellipsoid (`'single'`), multiple bounding ellipsoids
             (`'multi'`), balls centered on each live point (`'balls'`), and
             cubes centered on each live point (`'cubes'`). Default is
-            `'multi'`.
+            `'multi'`. An instance of a :class:`~dynesty.bounding.Bound`
+            subclass can also be provided.
 
-        sample : {`'auto'`, `'unif'`, `'rwalk'`, `'slice'`, `'rslice'`},
-            optional
+        sample : {`'auto'`, `'unif'`, `'rwalk'`, `'slice'`, `'rslice'`}, \
+optional
             Method used to sample uniformly within the likelihood constraint,
             conditioned on the provided bounds. Unique methods available are:
             uniform sampling within the bounds(`'unif'`),
@@ -292,47 +295,48 @@ optional
             When `10 <= ndim <= 20`, this defaults to `'rwalk'`.
             When `ndim > 20`, this defaults to`'rslice'`. `'slice'`
             is provided as alternative for`'rslice'`.
-            Default is `'auto'`.
+            Default is `'auto'`. An instance of an
+            :class:`~dynesty.internal_samplers.InternalSampler` subclass
+            (e.g. `RWalkSampler(walks=50)`) can also be provided, in which
+            case the `walks` and `slices` arguments are ignored.
 
         periodic : iterable, optional
             A list of indices for parameters with periodic boundary conditions.
-            These parameters *will not* have their positions constrained to be
-            within the unit cube, enabling smooth behavior for parameters
-            that may wrap around the edge. Default is `None` (i.e. no periodic
-            boundary conditions).
+            Proposals for these parameters wrap around the edges of the unit
+            cube, and the bounding distributions are constructed in a frame
+            where the edge is placed in the largest gap between the live
+            points, so that a mode straddling the edge is treated as a single
+            cluster. Default is `None` (i.e. no periodic boundary
+            conditions).
 
         reflective : iterable, optional
-            A list of indices for parameters with reflective boundary
-            conditions.
-            These parameters *will not* have their positions constrained to be
-            within the unit cube, enabling smooth behavior for parameters
-            that may reflect at the edge. Default is `None` (i.e. no reflective
-            boundary conditions).
+            Deprecated and ignored (emits a warning), as reflective boundary
+            conditions do not preserve detailed balance.
 
         update_interval : int or float, optional
-            If an integer is passed, only update the proposal distribution
+            If an integer is passed, only update the bounding distribution
             every `update_interval`-th likelihood call. If a float is passed,
-            update the proposal after every
+            update the bound after every
             `round(update_interval * nlive)`-th likelihood
-            call. Larger update intervals larger can be more efficient
+            call. Larger update intervals can be more efficient
             when the likelihood function is quick to evaluate. Default behavior
             is to target a roughly constant change in prior volume, with
-            `1.5` for `'unif'`, `0.15 * walks` for `'rwalk'`.
-            `0.9 * ndim * slices` for `'slice'`, `2.0 * slices` for `'rslice'`.
+            `1` for `'unif'`, `walks` for `'rwalk'`,
+            `ndim * slices` for `'slice'`, `slices` for `'rslice'`.
 
         first_update : dict, optional
             A dictionary containing parameters governing when the sampler
             should
             first update the bounding distribution from the unit cube
             (`'none'`)
-            to the one specified by `sample`. Options are the minimum number of
+            to the one specified by `bound`. Options are the minimum number of
             likelihood calls (`'min_ncall'`) and the minimum allowed overall
             efficiency in percent (`'min_eff'`). Defaults are `2 * nlive` and
             `10.`, respectively.
 
         rstate : `~numpy.random.Generator`, optional
-            `~numpy.random.Generator` instance. If not given, the
-             global random state of the `~numpy.random` module will be used.
+            `~numpy.random.Generator` instance. If not given, a new
+            unseeded generator will be created.
 
         queue_size : int, optional
             Carry out likelihood evaluations in parallel by queueing up new
@@ -355,22 +359,12 @@ optional
             `loglikelihood` is executed in parallel during initialization
             (`'loglikelihood'`), live points are proposed in parallel during
             a run
-            (`'propose_point'`), and bounding distributions are updated in
-            parallel during a run (`'update_bound'`). Default is `True` for all
+            (`'propose_point'`), bounding distributions are updated in
+            parallel during a run (`'update_bound'`), and (for the dynamic
+            sampler) the stopping function is evaluated in parallel
+            (`'stop_function'`). Default is `True` for all
             options.
-
-        live_points : list of 3 `~numpy.ndarray` each with shape (nlive, ndim)
-            A set of live points used to initialize the nested sampling run.
-            Contains `live_u`, the coordinates on the unit cube, `live_v`, the
-            transformed variables, and `live_logl`, the associated
-            loglikelihoods.
-            By default, if these are not provided the initial set of live
-            points will be drawn uniformly from the unit `ndim`-cube.
-            **WARNING: It is crucial that the initial set of live points have
-            been sampled from the prior. Failure to provide a set of valid
-            live points
-            will result in incorrect results.**
-
+{live_points}
         logl_args : iterable, optional
             Additional arguments that can be passed to `loglikelihood`.
 
@@ -386,22 +380,26 @@ optional
 
         enlarge : float, optional
             Enlarge the volumes of the specified bounding object(s) by this
-            fraction. The preferred method is to determine this organically
-            using bootstrapping. If `bootstrap > 0`, this defaults to `1.0`.
-            If `bootstrap = 0`, this instead defaults to `1.25`.
+            factor (at least `1`). If neither `enlarge` nor `bootstrap` is
+            given, this defaults to `1.25`, except for uniform sampling
+            (`'unif'`), which uses bootstrapping instead (`enlarge=1`,
+            `bootstrap=5`). If only `bootstrap` is given, this is `1`.
 
         bootstrap : int, optional
             Compute this many bootstrapped realizations of the bounding
             objects. Use the maximum distance found to the set of points left
             out during each iteration to enlarge the resulting volumes. Can
-            lead to unstable bounding ellipsoids. Default is `None` (no
-            bootstrap
-            unless the sampler is uniform). If bootstrap is set to zero,
-            bootstrap is disabled.
+            lead to unstable bounding ellipsoids. Must be `0` (no
+            bootstrapping) or larger than `1`. Default is `None`, i.e. `5`
+            for uniform sampling and `0` otherwise (see `enlarge`).
+            `enlarge` and `bootstrap` can only be combined if
+            `bootstrap=0` or `enlarge=1`, otherwise a `ValueError` is
+            raised.
 
         walks : int, optional
-            For the `'rwalk'` sampling option, the minimum number of steps
-            (minimum 2) before proposing a new live point. Default is `25`.
+            For the `'rwalk'` sampling option, the number of steps
+            (minimum 2) before proposing a new live point. Default is
+            `ndim + 20`.
 
         facc : float, optional
             The target acceptance fraction for the `'rwalk'` sampling option.
@@ -415,40 +413,73 @@ optional
             Note that `'slice'` cycles through **all dimensions**
             when executing a "slice update".
 
-        ncdim: int, optional
+        ncdim : int, optional
             The number of clustering dimensions. The first ncdim dimensions
             will be sampled using the sampling method, the remaining
             dimensions will
             just sample uniformly from the prior distribution.
             If this is `None` (default), this will default to ndim.
+            Deprecated (emits a DeprecationWarning) and will be removed in
+            a future release.
 
-        blob: bool, optional
+        blob : bool, optional
             The default value is False. If it is true, then the log-likelihood
             should return the tuple of logl and a numpy-array "blob" that will
             stored as part of the chain. That blob can contain auxiliary
             information computed inside the likelihood function.
 
+        save_evaluation_history : bool, optional
+            Whether to save all the likelihood evaluations (the positions in
+            the unit cube and in the parameter space, and the
+            ln(likelihood) values) to the HDF5 file `history_filename`.
+            Requires `h5py`. Default is `False`.
+            The evaluations are appended to the file in the order they are
+            made. They are written in chunks and before each checkpoint, so
+            the evaluations since the last write are lost if the run is
+            interrupted. The rows already in the file are never modified.
+            A run restored from a checkpoint continues appending to the same
+            file (with the name interpreted relative to the current directory
+            at the time of restoring). The rows written by the interrupted
+            run after its last checkpoint stay in the file, so the file can
+            have more rows than the number of likelihood calls of the run.
+            If the file is missing when restoring, or it was overwritten
+            by another run, the restored run warns and does not save the
+            history.
+
+        history_filename : str, optional
+            The name of the HDF5 file used by `save_evaluation_history`.
+            Default is `'dynesty_logl_history.h5'`.
+
     """
+    live_points = """
+        live_points : list of 3 `~numpy.ndarray` each with shape (nlive, ndim)
+            A set of live points used to initialize the nested sampling run.
+            Contains `live_u`, the coordinates on the unit cube, `live_v`, the
+            transformed variables, and `live_logl`, the associated
+            loglikelihoods.
+            By default, if these are not provided the initial set of live
+            points will be drawn uniformly from the unit `ndim`-cube.
+            **WARNING: It is crucial that the initial set of live points have
+            been sampled from the prior. Failure to provide a set of valid
+            live points
+            will result in incorrect results.**
+"""
+    common_static = common.replace('{live_points}', live_points)
+    common_dynamic = common.replace('{live_points}', '')
 
     static_docstring = f"""
         Initializes and returns a sampler object for Static Nested Sampling.
-{common}
+{common_static}
         Returns
         -------
-        sampler : sampler from :mod:`~dynesty.nestedsamplers`
-            An initialized instance of the chosen sampler specified via
-            `bound`.
+        sampler : a :class:`dynesty.sampler.Sampler` instance
+            An initialized instance of the static nested sampler.
         """
 
     dynamic_docstring = f"""
         Initializes a sampler object for Dynamic Nested Sampling.
 
-{common}
-        Returns
-        -------
-        sampler : a :class:`dynesty.DynamicSampler` instance
-            An initialized instance of the dynamic nested sampler.
-
+{common_dynamic}
         """
     if dynamic:
         return dynamic_docstring
@@ -487,6 +518,10 @@ def _common_sampler_init(*,
                          dynamic=False):
     ret = {}
 
+    if ncdim is not None:
+        warnings.warn(
+            'The ncdim option is deprecated and will be removed '
+            'in a future release', DeprecationWarning, stacklevel=3)
     ncdim = ncdim or ndim
     ret['ncdim'] = ncdim
     # Dimensional warning check.
@@ -497,8 +532,9 @@ def _common_sampler_init(*,
     if bound not in BOUND_LIST and not isinstance(bound, bounding.Bound):
         raise ValueError(f"Unknown bounding method: {bound}")
     # Sampling method.
-    sample = _get_internal_sampler(sample, ndim, ncdim, periodic, reflective,
-                                   walks, slices, facc)
+    warn_reflective(reflective)
+    sample = _get_internal_sampler(sample, ndim, ncdim, periodic, walks,
+                                   slices, facc)
 
     # Custom sampler
     if sample not in INTERNAL_SAMPLER_LIST and not isinstance(
@@ -686,7 +722,6 @@ class NestedSampler(Sampler):
 
 
 NestedSampler.__new__.__doc__ = _assemble_sampler_docstring(False)
-NestedSampler.__init__.__doc__ = _assemble_sampler_docstring(False)
 
 
 class DynamicNestedSampler(DynamicSampler):

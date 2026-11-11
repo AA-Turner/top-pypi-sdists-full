@@ -43,9 +43,15 @@ from typing import (
 from urllib.parse import quote
 
 from agent_runtimes.agentcore.a2a import RUNTIME_URL_VARIABLE
-from agent_runtimes.agentcore.exchange import RUNTIME_ARN_VARIABLE
+from agent_runtimes.agentcore.exchange import IAM_URL_VARIABLE, RUNTIME_ARN_VARIABLE
 from agent_runtimes.agentcore.session_ids import session_uid_to_agentcore
-from agent_runtimes.agentcore.settings import SPEC_VARIABLE, TARGET, TARGET_VARIABLE
+from agent_runtimes.agentcore.settings import (
+    PROTOCOL_VARIABLE,
+    SEAT_PROTOCOL,
+    SPEC_VARIABLE,
+    TARGET,
+    TARGET_VARIABLE,
+)
 from agent_runtimes.plugins.points import Deployment, TargetCapabilities
 
 #: The target's id, as ``runtime.target`` knows it (``serve --target``'s name).
@@ -63,10 +69,26 @@ DEFAULT_ENDPOINT = "DEFAULT"
 RUNTIME_NAME = re.compile(r"[a-zA-Z][a-zA-Z0-9_]{0,47}")
 
 #: Where an OIDC issuer's discovery document is; AgentCore asks for it.
+#: The header AgentCore names an invocation's session in.
+SESSION_HEADER = "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id"
+
 DISCOVERY_SUFFIX = "/.well-known/openid-configuration"
+
+#: Where Datalayer IAM publishes its discovery document, under its base URL.
+IAM_DISCOVERY_PATH = "/api/iam/v1/oauth" + DISCOVERY_SUFFIX
+
+
+def iam_url_of(discovery_url: str) -> str:
+    """Return IAM's base URL when ``discovery_url`` is Datalayer IAM's discovery document, else ``""``."""
+    url = discovery_url.strip()
+    return url[: -len(IAM_DISCOVERY_PATH)] if url.endswith(IAM_DISCOVERY_PATH) else ""
+
 
 #: The variables a deployment sets itself once AgentCore names the runtime.
 RUNTIME_ENV = (RUNTIME_ARN_VARIABLE, RUNTIME_URL_VARIABLE)
+
+#: The protocols a runtime is created in: AG-UI (its sessions) or A2A (a team seat).
+SERVER_PROTOCOLS = ("AGUI", SEAT_PROTOCOL)
 
 #: How long a created runtime is waited for before it is told its ARN.
 READY_TIMEOUT_SECONDS = 600.0
@@ -166,6 +188,9 @@ class AgentCoreDeploySettings:
     endpoint: str = DEFAULT_ENDPOINT
     #: Makes a retried create idempotent, when given.
     client_token: str = ""
+    #: The protocol AgentCore calls it in: ``AGUI`` (its sessions, at
+    #: ``/invocations``), or ``A2A`` (a team seat, JSON-RPC at ``/`` of port 9000).
+    protocol: str = "AGUI"
 
 
 def spec_id_of(spec: Any) -> str:
@@ -246,8 +271,14 @@ class AgentCoreTarget:
                 f"{name!r} is not an agent runtime name: a letter, then up to 47 "
                 "letters, digits or underscores."
             )
+        if settings.protocol not in SERVER_PROTOCOLS:
+            raise ValueError(
+                f"An agent runtime of Datalayer's speaks {' or '.join(SERVER_PROTOCOLS)}, "
+                f"not {settings.protocol!r}."
+            )
         overridden = sorted(
-            {SPEC_ENV, TARGET_ENV, *RUNTIME_ENV} & set(settings.environment)
+            {SPEC_ENV, TARGET_ENV, PROTOCOL_VARIABLE, *RUNTIME_ENV}
+            & set(settings.environment)
         )
         if overridden:
             raise ValueError(
@@ -260,17 +291,33 @@ class AgentCoreTarget:
             },
             "roleArn": settings.role_arn,
             "networkConfiguration": {"networkMode": settings.network_mode},
-            "protocolConfiguration": {"serverProtocol": "AGUI"},
+            "protocolConfiguration": {"serverProtocol": settings.protocol},
             "environmentVariables": {
                 **dict(settings.environment),
                 SPEC_ENV: spec_id,
                 TARGET_ENV: AGENTCORE_TARGET_ID,
             },
         }
+        if settings.protocol == SEAT_PROTOCOL:
+            # A team seat: the runtime serves its agent over A2A on port 9000
+            # and AgentCore calls nothing else of it.
+            request["environmentVariables"][PROTOCOL_VARIABLE] = SEAT_PROTOCOL
         if settings.description:
             request["description"] = settings.description
         if settings.authorizer is not None:
             request["authorizerConfiguration"] = settings.authorizer.configuration()
+            # Each invocation's bearer is exchanged at IAM inside the runtime
+            # once it knows its own ARN: it must also know where IAM is, or it
+            # refuses to start (10 November 2026: a deploy from `loop` failed so).
+            # AgentCore passes no header through unless it is allowlisted: the
+            # bearer it validated is what the runtime exchanges at IAM
+            # (10 November 2026: without it every invocation answered 401).
+            request["requestHeaderConfiguration"] = {
+                "requestHeaderAllowlist": ["Authorization"]
+            }
+            iam = iam_url_of(settings.authorizer.discovery_url)
+            if iam and IAM_URL_VARIABLE not in request["environmentVariables"]:
+                request["environmentVariables"][IAM_URL_VARIABLE] = iam
         if settings.client_token:
             request["clientToken"] = settings.client_token
         return request
@@ -292,14 +339,18 @@ class AgentCoreTarget:
             if key not in ("agentRuntimeName", "clientToken")
         }
         update["agentRuntimeId"] = runtime_id
-        update["environmentVariables"] = {
-            **dict(request["environmentVariables"]),
-            RUNTIME_ARN_VARIABLE: arn,
-            RUNTIME_URL_VARIABLE: runtime_url_of(arn, region),
-        }
         authorizer = (request.get("authorizerConfiguration") or {}).get(
             "customJWTAuthorizer"
         )
+        update["environmentVariables"] = {
+            **dict(request["environmentVariables"]),
+            RUNTIME_URL_VARIABLE: runtime_url_of(arn, region),
+        }
+        if authorizer is not None:
+            # Its ARN turns on the exchange of each invocation's bearer at IAM:
+            # only a runtime behind Datalayer's JWT authorizer has one. A SigV4
+            # runtime has no Datalayer token to exchange, and starts without.
+            update["environmentVariables"][RUNTIME_ARN_VARIABLE] = arn
         if authorizer is not None:
             audience = list(authorizer.get("allowedAudience") or [])
             if arn not in audience:
@@ -391,24 +442,51 @@ class AgentCoreTarget:
         }
 
     async def invoke(
-        self, deployment: Deployment, session_uid: str, run_input: Mapping[str, Any]
+        self,
+        deployment: Deployment,
+        session_uid: str,
+        run_input: Mapping[str, Any],
+        bearer: str = "",
     ) -> AsyncIterator[Dict[str, Any]]:
-        """``invoke_agent_runtime``: one turn of a session; its AG-UI events."""
+        """One turn of a session; its AG-UI events.
+
+        With ``bearer``, over HTTPS with that token, as a runtime behind a JWT
+        authorizer takes it (Datalayer's: a token IAM signed for this runtime);
+        otherwise ``invoke_agent_runtime``, signed with the caller's AWS
+        credentials (SigV4), which such a runtime refuses.
+        """
         if not deployment.arn:
             raise ValueError(
                 f"The deployment {deployment.id!r} has no agent runtime ARN: it is invoked by it."
             )
         runtime_session_id = session_uid_to_agentcore(session_uid)
+        if bearer:
+            async for event in self._invoke_with_bearer(
+                deployment, runtime_session_id, run_input, bearer
+            ):
+                yield event
+            return
         client = self._data(deployment.region)
-        answer = await asyncio.to_thread(
-            client.invoke_agent_runtime,
-            agentRuntimeArn=deployment.arn,
-            qualifier=deployment.endpoint or DEFAULT_ENDPOINT,
-            runtimeSessionId=runtime_session_id,
-            payload=json.dumps(dict(run_input)).encode("utf-8"),
-            contentType="application/json",
-            accept="text/event-stream",
-        )
+        try:
+            answer = await asyncio.to_thread(
+                client.invoke_agent_runtime,
+                agentRuntimeArn=deployment.arn,
+                qualifier=deployment.endpoint or DEFAULT_ENDPOINT,
+                runtimeSessionId=runtime_session_id,
+                payload=json.dumps(dict(run_input)).encode("utf-8"),
+                contentType="application/json",
+                accept="text/event-stream",
+            )
+        except Exception as error:  # botocore's ClientError, without importing it here
+            message = str(
+                getattr(error, "response", {}).get("Error", {}).get("Message") or error
+            )
+            if "authorization method mismatch" in message.lower():
+                raise AgentCoreError(
+                    f"The agent runtime {deployment.id} takes a bearer token, not AWS "
+                    "credentials: invoke it with one its JWT authorizer accepts (--bearer)."
+                ) from error
+            raise
         content_type = str(answer.get("contentType") or "")
         body = answer["response"]
         if content_type.startswith("application/json"):
@@ -436,6 +514,55 @@ class AgentCoreTarget:
         if data:
             yield _event("\n".join(data))
 
+    async def _invoke_with_bearer(
+        self,
+        deployment: Deployment,
+        runtime_session_id: str,
+        run_input: Mapping[str, Any],
+        bearer: str,
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """The turn over HTTPS with a bearer token: AgentCore's invocations route, its SSE read."""
+        import httpx  # noqa: PLC0415
+
+        url = (
+            f"https://bedrock-agentcore.{deployment.region}.amazonaws.com/runtimes/"
+            f"{quote(deployment.arn or '', safe='')}/invocations"
+        )
+        headers = {
+            "Authorization": f"Bearer {bearer}",
+            SESSION_HEADER: runtime_session_id,
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+        }
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(900.0, connect=30.0)
+        ) as client:
+            async with client.stream(
+                "POST",
+                url,
+                params={"qualifier": deployment.endpoint or DEFAULT_ENDPOINT},
+                headers=headers,
+                json=dict(run_input),
+            ) as response:
+                if response.status_code != 200:
+                    said = (await response.aread()).decode("utf-8", errors="replace")[
+                        :300
+                    ]
+                    raise AgentCoreError(
+                        f"AgentCore refused the invocation ({response.status_code}): {said}"
+                    )
+                data: list[str] = []
+                async for text in response.aiter_lines():
+                    if not text:
+                        if data:
+                            yield _event("\n".join(data))
+                            data = []
+                        continue
+                    if text.startswith("data:"):
+                        data.append(text[5:].lstrip(" "))
+                if data:
+                    yield _event("\n".join(data))
+
     async def stop(self, deployment: Deployment, session_uid: str) -> None:
         """``stop_runtime_session``: one session's microVM stopped."""
         runtime_session_id = session_uid_to_agentcore(session_uid)
@@ -454,6 +581,132 @@ class AgentCoreTarget:
             client.delete_agent_runtime, agentRuntimeId=deployment.id
         )
         deployment.status = answer["status"]
+
+    # --- online evaluation (AgentCore Evaluations) ---------------------------------
+
+    @staticmethod
+    def runtime_name_of(deployment: Deployment) -> str:
+        """The agent runtime's name: its id without AgentCore's ten-character suffix."""
+        return deployment.id.rsplit("-", 1)[0]
+
+    @classmethod
+    def online_evaluation_name(cls, deployment: Deployment) -> str:
+        """The online evaluation configuration of an agent runtime, one per runtime
+        (AgentCore allows 48 characters)."""
+        return f"{cls.runtime_name_of(deployment)[:37]}_evaluation"
+
+    async def evaluate_online(
+        self,
+        deployment: Deployment,
+        *,
+        evaluators: Sequence[str],
+        sampling_percentage: float,
+        role_arn: str,
+    ) -> Dict[str, Any]:
+        """Judge a sample of the agent runtime's sessions as they end (online evaluation).
+
+        Creates the runtime's online evaluation configuration, or updates it:
+        its spans selected by its service name (``<agent runtime name>.DEFAULT``)
+        in ``aws/spans``, the chosen evaluators, the share of sessions judged,
+        run by the organization's evaluation role; enabled at once. Results
+        land in CloudWatch (``/aws/bedrock-agentcore/evaluations/…``).
+
+        Raises
+        ------
+        AgentCoreError
+            With no evaluator, a share outside (0, 100], or no role, in a sentence.
+        """
+        chosen = [str(e).strip() for e in evaluators if str(e).strip()]
+        if not chosen:
+            raise AgentCoreError("Choose the evaluators an online evaluation runs.")
+        if not 0 < float(sampling_percentage) <= 100:
+            raise AgentCoreError(
+                "The share of sessions judged is a percentage above 0, at most 100."
+            )
+        if not role_arn:
+            raise AgentCoreError(
+                "An online evaluation runs with the organization's evaluation role "
+                "(EvaluationRoleArn of its stack), and none is given."
+            )
+        client = self._control(deployment.region)
+        name = self.online_evaluation_name(deployment)
+        service = f"{self.runtime_name_of(deployment)}.{deployment.endpoint or DEFAULT_ENDPOINT}"
+        rule = {
+            "samplingConfig": {"samplingPercentage": float(sampling_percentage)},
+            "sessionConfig": {"sessionTimeoutMinutes": 15},
+        }
+        source = {
+            "cloudWatchLogs": {
+                "logGroupNames": ["aws/spans"],
+                "serviceNames": [service],
+            }
+        }
+        found = await self.online_evaluation(deployment)
+        if found is None:
+            answer = await asyncio.to_thread(
+                client.create_online_evaluation_config,
+                onlineEvaluationConfigName=name,
+                description=f"Datalayer: sessions of {deployment.id}",
+                rule=rule,
+                dataSourceConfig=source,
+                evaluators=[{"evaluatorId": e} for e in chosen],
+                evaluationExecutionRoleArn=role_arn,
+                enableOnCreate=True,
+            )
+        else:
+            answer = await asyncio.to_thread(
+                client.update_online_evaluation_config,
+                onlineEvaluationConfigId=found["onlineEvaluationConfigId"],
+                rule=rule,
+                dataSourceConfig=source,
+                evaluators=[{"evaluatorId": e} for e in chosen],
+                evaluationExecutionRoleArn=role_arn,
+                executionStatus="ENABLED",
+            )
+        return {
+            key: answer.get(key)
+            for key in (
+                "onlineEvaluationConfigId",
+                "onlineEvaluationConfigArn",
+                "status",
+                "executionStatus",
+                "outputConfig",
+            )
+            if key in answer
+        }
+
+    async def online_evaluation(
+        self, deployment: Deployment
+    ) -> Optional[Dict[str, Any]]:
+        """The agent runtime's online evaluation configuration, or ``None``."""
+        client = self._control(deployment.region)
+        name = self.online_evaluation_name(deployment)
+        token: Optional[str] = None
+        while True:
+            page = await asyncio.to_thread(
+                client.list_online_evaluation_configs,
+                **({"nextToken": token} if token else {}),
+            )
+            for summary in page.get("onlineEvaluationConfigs") or []:
+                if summary.get("onlineEvaluationConfigName") == name:
+                    return await asyncio.to_thread(
+                        client.get_online_evaluation_config,
+                        onlineEvaluationConfigId=summary["onlineEvaluationConfigId"],
+                    )
+            token = page.get("nextToken")
+            if not token:
+                return None
+
+    async def stop_online_evaluation(self, deployment: Deployment) -> bool:
+        """Delete the agent runtime's online evaluation; ``False`` when it had none."""
+        found = await self.online_evaluation(deployment)
+        if found is None:
+            return False
+        await asyncio.to_thread(
+            self._control(deployment.region).delete_online_evaluation_config,
+            onlineEvaluationConfigId=found["onlineEvaluationConfigId"],
+        )
+        return True
 
 
 def _event(data: str) -> Dict[str, Any]:

@@ -17,275 +17,221 @@
  * under the License.
  */
 
-use crate::any::{Any, AnyView};
-use crate::error::Error;
-use crate::function::Function;
-use crate::object::{self, ObjectCore, ObjectRefCore};
-use crate::reflection::FieldGetter;
-use crate::tvm_ffi_sys::{
-    TVMFFIAny, TVMFFIByteArray, TVMFFIGetTypeInfo, TVMFFITypeIndex, TVMFFITypeKeyToIndex,
+use super::structural_visit::DefRegionKind;
+use crate::any::Any;
+use crate::error::{Error, RUNTIME_ERROR, Result, TYPE_ERROR};
+use crate::tvm_ffi_sys::TVMFFIFieldFlagBitMask::{
+    kTVMFFIFieldFlagBitMaskSEqHashDefPattern, kTVMFFIFieldFlagBitMaskSEqHashDefSimple,
+    kTVMFFIFieldFlagBitMaskSEqHashIgnore, kTVMFFIFieldFlagBitSetterIsFunctionObj,
 };
+use crate::tvm_ffi_sys::{
+    TVMFFIAny, TVMFFIByteArray, TVMFFIFieldInfo, TVMFFISEqHashKind, TVMFFITypeIndex,
+    TVMFFITypeInfo, TVMFFITypeKeyToIndex,
+};
+use std::ops::ControlFlow;
 
-/// Add one structural traversal frame to an error's backtrace.
-pub(crate) fn with_structural_error_context(error: Error, operation: &str, frame: &str) -> Error {
-    Error::with_appended_backtrace(error, &format!("[native structural {operation}] {frame}\n"))
+// -----------------------------------------------------------------------------
+// Shared outlined errors
+// -----------------------------------------------------------------------------
+// Perf note: Keep construction, formatting and checked-conversion scratch inside
+// these cold outline boundaries, not in successful traversal callers' frames.
+
+#[cold]
+#[inline(never)]
+pub(super) fn runtime_error(message: &str) -> Error {
+    Error::new(RUNTIME_ERROR, message)
 }
 
 #[cold]
-pub(crate) fn with_visit_error_context(error: Error, raw: TVMFFIAny) -> Error {
-    if raw.type_index < TVMFFITypeIndex::kTVMFFIStaticObjectBegin as i32 {
-        return error;
-    }
-    let context = (|| {
-        let mut context_type = 0;
-        unsafe {
-            crate::check_safe_call!(TVMFFITypeKeyToIndex(
-                &TVMFFIByteArray::from_str("ffi.VisitErrorContext"),
-                &mut context_type,
-            ))
-            .ok()?;
-        }
-        let node = StructuralView::from_raw(raw).cast::<object::ObjectRef>()?;
-        let mut previous = error.extra_context();
-        let mut nodes = Vec::new();
-        if let Some(prior) = previous.as_ref() {
-            if AnyView::from(prior).type_index() == context_type {
-                let object = &**object::ObjectRef::data(prior);
-                let records = FieldGetter::new(context_type, "reverse_visit_pattern")
-                    .ok()?
-                    .get_any(object)
-                    .ok()?;
-                let size = Function::get_global("ffi.ListSize")
-                    .ok()?
-                    .call_tuple((records.clone(),))
-                    .ok()?
-                    .try_as::<i64>()?;
-                let get_item = Function::get_global("ffi.ListGetItem").ok()?;
-                if size > 0 {
-                    let last = get_item
-                        .call_tuple((records.clone(), size - 1))
-                        .ok()?
-                        .try_as::<object::ObjectRef>();
-                    // Callback, policy and default descent can report the same frame.
-                    if last.is_some_and(|last| last.same_as(&node)) {
-                        return None;
-                    }
-                }
-                for i in 0..size {
-                    nodes.push(get_item.call_tuple((records.clone(), i)).ok()?);
-                }
-                previous = FieldGetter::new(context_type, "prev_error_context")
-                    .ok()?
-                    .get::<_, Option<object::ObjectRef>>(object)
-                    .ok()?;
-            }
-        }
-        nodes.push(Any::from(node));
-        let records = Function::get_global("ffi.List")
-            .ok()?
-            .call_packed(&nodes.iter().map(AnyView::from).collect::<Vec<_>>())
-            .ok()?;
-        Function::get_global("ffi.MakeObjectFromPackedArgs")
-            .ok()?
-            .call_tuple((
-                context_type,
-                crate::String::from("reverse_visit_pattern"),
-                records,
-                crate::String::from("prev_error_context"),
-                previous,
-            ))
-            .ok()?
-            .try_as::<object::ObjectRef>()
-    })();
-    // Diagnostic enrichment must not replace the original error on failure.
-    match context {
-        Some(context) => Error::new_with_cause_and_extra_context(
-            error.kind(),
-            error.message(),
-            error.backtrace(),
-            error.cause_chain().as_ref(),
-            Some(&context),
-        ),
-        None => error,
-    }
+#[inline(never)]
+pub(super) fn wrong_dispatcher() -> ! {
+    panic!("structural traversal view used with a different dispatcher instance")
 }
 
-// Generate the tuple arities supported by the standard library (1 through 12).
-macro_rules! impl_callback_chain_tuple_arities {
-    ($impl_chain:ident) => {
-        impl_callback_chain_tuple_arities!(
-            @prefixes $impl_chain;
-            [];
-            (F0, M0, 0),
-            (F1, M1, 1),
-            (F2, M2, 2),
-            (F3, M3, 3),
-            (F4, M4, 4),
-            (F5, M5, 5),
-            (F6, M6, 6),
-            (F7, M7, 7),
-            (F8, M8, 8),
-            (F9, M9, 9),
-            (F10, M10, 10),
-            (F11, M11, 11)
-        );
-    };
-    (@prefixes $impl_chain:ident; [$($prefix:tt)*];) => {};
-    (
-        @prefixes $impl_chain:ident;
-        [$($prefix:tt)*];
-        $next:tt $(, $rest:tt)*
-    ) => {
-        $impl_chain!($($prefix)* $next);
-        impl_callback_chain_tuple_arities!(
-            @prefixes $impl_chain;
-            [$($prefix)* $next,];
-            $($rest),*
-        );
-    };
+#[cold]
+#[inline(never)]
+pub(super) fn missing_field_getter_error(operation: &str, name: &str) -> Error {
+    runtime_error(&format!(
+        "native {operation}: reflected field `{name}` has no getter"
+    ))
 }
 
-pub(crate) use impl_callback_chain_tuple_arities;
-
-/// A borrowed value shared by structural visit, walk, map, and mutate callbacks.
+/// Consume an owning error carrier while keeping checked-conversion scratch
+/// inside the cold path instead of successful recursive traversal frames.
 ///
-/// Use `&StructuralView` for an erased callback argument. [`Self::as_node`]
-/// borrows an object node, while [`Self::cast`] returns a typed value (acquiring
-/// ownership for object handles). This view does not grant in-place permission;
-/// consuming mutation callbacks use [`crate::MutateValue`] instead.
-#[repr(transparent)]
-pub struct StructuralView(TVMFFIAny);
-
-impl<'a> From<&'a StructuralView> for AnyView<'a> {
-    #[inline]
-    fn from(value: &'a StructuralView) -> Self {
-        // SAFETY: the view cannot outlive the borrowed structural value.
-        unsafe { AnyView::from_raw_ffi_any(value.raw()) }
+/// # Safety
+/// `raw` is one owning TVMFFIAny that has not been consumed.
+// Perf note: Construct the addressable Any and perform checked Error conversion
+// inside this outline boundary, not in the successful recursive caller's frame.
+#[cold]
+#[inline(never)]
+pub(super) unsafe fn structural_error_from_raw(raw: TVMFFIAny) -> Error {
+    let value = unsafe { Any::from_raw_ffi_any(raw) };
+    match Error::try_from(value) {
+        Ok(error) | Err(error) => error,
     }
 }
 
-impl StructuralView {
-    #[inline]
-    pub(crate) fn from_raw(raw: TVMFFIAny) -> Self {
-        Self(raw)
-    }
+// -----------------------------------------------------------------------------
+// Raw carrier utilities
+// -----------------------------------------------------------------------------
 
-    #[inline]
-    pub(crate) fn from_any(value: &Any) -> &Self {
-        // SAFETY: StructuralView is transparent over TVMFFIAny. The owning
-        // Any keeps its contents live for the lifetime of this shared borrow.
-        unsafe { &*std::ptr::from_ref(value.as_raw_ffi_any()).cast::<Self>() }
-    }
-
-    #[inline]
-    pub(crate) fn raw(&self) -> TVMFFIAny {
-        self.0
-    }
-
-    /// Copy this borrowed value into an owning [`Any`].
-    #[inline]
-    pub fn to_owned(&self) -> Any {
-        if let Some(owned) = try_to_owned_without_normalization(self.0) {
-            return owned;
-        }
-        Any::from(unsafe { AnyView::from_raw_ffi_any(self.0) })
-    }
-
-    /// Convert the value into an owned typed handle.
-    #[inline]
-    pub fn cast<R: crate::type_traits::AnyCompatible>(&self) -> Option<R> {
-        unsafe {
-            if R::check_any_strict(&self.0) {
-                Some(R::copy_from_any_view_after_check(&self.0))
-            } else {
-                None
-            }
-        }
-    }
-
-    /// Runtime type index stored in this value.
-    #[inline]
-    pub fn type_index(&self) -> i32 {
-        self.0.type_index
-    }
-
-    /// Borrow the value as node type `N` if it is an instance of that type.
-    #[inline]
-    pub fn as_node<N: ObjectCore>(&self) -> Option<&N> {
-        if self.0.type_index < TVMFFITypeIndex::kTVMFFIStaticObjectBegin as i32 {
-            return None;
-        }
-        let base_type_index = N::type_index();
-        if self.0.type_index != base_type_index {
-            // A final type has no registered subtype, so a differing index can
-            // never match: reject with the integer compare alone, mirroring the
-            // `_type_final` fast path of C++ `IsObjectInstance`.
-            if N::TYPE_FINAL {
-                return None;
-            }
-            if !is_instance_at_depth(self.0.type_index, base_type_index, N::TYPE_DEPTH) {
-                return None;
-            }
-        }
-        Some(unsafe { &*(self.0.data_union.v_obj as *const N) })
-    }
-}
-
-/// Copy a borrowed FFI value when its owning representation is unchanged.
+/// Compare tags, inline metadata and payload bits without deep equality.
 ///
-/// Raw string/byte views and `ObjectRValueRef` return `None` because they need
-/// the runtime's normalization or move logic. A null object pointer also
-/// returns `None` instead of constructing an invalid owning value.
-#[inline]
-pub(crate) fn try_to_owned_without_normalization(raw: TVMFFIAny) -> Option<Any> {
-    if is_plain_inline(raw.type_index) {
-        return Some(unsafe { Any::from_raw_ffi_any(raw) });
-    }
-    if raw.type_index >= TVMFFITypeIndex::kTVMFFIStaticObjectBegin as i32 {
-        let object = unsafe { raw.data_union.v_obj };
-        if object.is_null() {
-            return None;
-        }
-        unsafe { object::unsafe_::inc_ref(object) };
-        return Some(unsafe { Any::from_raw_ffi_any(raw) });
-    }
-    None
-}
-
-pub(crate) use crate::any::is_plain_inline;
-
-#[inline]
-pub(crate) fn same_shallow(lhs: TVMFFIAny, rhs: TVMFFIAny) -> bool {
+/// Object-backed values compare pointer identity. Both carriers must contain
+/// initialized payload bits; no pointee is accessed or ownership transferred.
+#[inline(always)]
+pub(crate) fn raw_ffi_any_same_as(lhs: TVMFFIAny, rhs: TVMFFIAny) -> bool {
     lhs.type_index == rhs.type_index
         && lhs.small_str_len == rhs.small_str_len
         && unsafe { lhs.data_union.v_uint64 == rhs.data_union.v_uint64 }
 }
 
-/// Subtype check with the base's inheritance depth supplied by the caller
-/// (`ObjectCore::TYPE_DEPTH`), so only the object's type info is fetched.
-#[inline]
-fn is_instance_at_depth(object_type_index: i32, base_type_index: i32, base_depth: i32) -> bool {
-    if object_type_index == base_type_index {
-        return true;
+/// Transfer an owning success or Error into exactly one raw result token.
+///
+/// This is the structural hook protocol: an Error tag represents failure, so
+/// decoding `Ok(Any::from(error))` also yields `Err(error)`. Callers that carry
+/// Error objects as ordinary values must keep a separate result channel.
+/// No payload is cloned, normalized, or released by this transfer.
+#[inline(always)]
+pub(crate) fn result_into_raw_ffi_any(result: Result<Any>) -> TVMFFIAny {
+    match result {
+        Ok(value) => Any::into_raw_ffi_any(value),
+        Err(error) => Any::into_raw_ffi_any(Any::from(error)),
     }
-    // Parent type indices are registered before their descendants. An object
-    // whose index precedes the target therefore cannot be its subtype.
-    if object_type_index < base_type_index {
-        return false;
+}
+
+/// Reject a handler's successful result that is an Error object, which the
+/// hook protocol would read as a failure; C++ rejects it at compile time.
+#[inline(always)]
+pub(crate) fn reject_error_value(value: Any) -> Result<Any> {
+    if value.as_raw_ffi_any().type_index != TVMFFITypeIndex::kTVMFFIError as i32 {
+        return Ok(value);
     }
-    unsafe {
-        let info = TVMFFIGetTypeInfo(object_type_index);
-        if info.is_null() {
-            return false;
-        }
-        if (*info).type_depth <= base_depth {
-            return false;
-        }
-        let ancestors = (*info).type_acenstors;
-        if ancestors.is_null() {
-            return false;
-        }
-        let ancestor = *ancestors.offset(base_depth as isize);
-        !ancestor.is_null() && (*ancestor).type_index == base_type_index
+    core::hint::cold_path();
+    Err(Error::new(
+        TYPE_ERROR,
+        "a structural handler returned an Error as a value; return it as Err to fail",
+    ))
+}
+
+/// Take ownership of one value returned by a structural traversal ABI hook.
+///
+/// # Safety
+///
+/// `raw` must contain one owning TVMFFIAny result that has not already been
+/// consumed. An Error object is converted into the Rust error channel, even
+/// if it was encoded from `Ok`; all other tags become an owning success.
+/// Borrowed views and rvalue slots must be normalized before this transfer.
+#[inline(always)]
+pub(crate) unsafe fn raw_ffi_any_into_result(raw: TVMFFIAny) -> Result<Any> {
+    if raw.type_index != TVMFFITypeIndex::kTVMFFIError as i32 {
+        return Ok(unsafe { Any::from_raw_ffi_any(raw) });
     }
+    core::hint::cold_path();
+    Err(unsafe { structural_error_from_raw(raw) })
+}
+
+pub(super) const FLAG_SEQ_HASH_IGNORE: i64 = kTVMFFIFieldFlagBitMaskSEqHashIgnore as i64;
+pub(super) const FLAG_SEQ_HASH_DEF_PATTERN: i64 = kTVMFFIFieldFlagBitMaskSEqHashDefPattern as i64;
+pub(super) const FLAG_SEQ_HASH_DEF_SIMPLE: i64 = kTVMFFIFieldFlagBitMaskSEqHashDefSimple as i64;
+pub(super) const FLAG_SETTER_IS_FUNCTION: i64 = kTVMFFIFieldFlagBitSetterIsFunctionObj as i64;
+
+/// The runtime type index of the native type `key`; panics when it is unregistered.
+#[cold]
+pub(super) fn registered_type_index(key: &str) -> i32 {
+    let mut type_index = 0;
+    // SAFETY: `key` outlives the lookup.
+    if unsafe { TVMFFITypeKeyToIndex(&TVMFFIByteArray::from_str(key), &mut type_index) } != 0 {
+        panic!("{key} is not registered: {}", Error::from_raised());
+    }
+    type_index
+}
+
+/// The registered `structural_eq_hash_kind` of `info`, `Unsupported` without metadata.
+///
+/// # Safety
+///
+/// `info` is a registered type-info record.
+#[inline(always)]
+pub(super) unsafe fn seq_hash_kind(info: *const TVMFFITypeInfo) -> i32 {
+    let metadata = unsafe { (*info).metadata };
+    if metadata.is_null() {
+        TVMFFISEqHashKind::kTVMFFISEqHashKindUnsupported as i32
+    } else {
+        unsafe { (*metadata).structural_eq_hash_kind }
+    }
+}
+
+#[inline(always)]
+pub(super) fn field_def_region(field: &TVMFFIFieldInfo, inherited: DefRegionKind) -> DefRegionKind {
+    // Precedence: a pattern region propagates; entering any kind inside it has no effect.
+    if inherited == DefRegionKind::Pattern {
+        DefRegionKind::Pattern
+    } else if field.flags & FLAG_SEQ_HASH_DEF_SIMPLE != 0 {
+        DefRegionKind::Simple
+    } else if field.flags & FLAG_SEQ_HASH_DEF_PATTERN != 0 {
+        DefRegionKind::Pattern
+    } else {
+        inherited
+    }
+}
+
+/// A simple definition applies to a FreeVar value itself, but not to
+/// the FreeVar's own reflected children: nested free vars there must resolve
+/// against an outer binding instead of rebinding.
+// Mirrors C++ `VisitReflectedFieldsExpected`.
+#[inline(always)]
+pub(super) fn free_var_child_region(
+    inherited: DefRegionKind,
+    structural_eq_hash_kind: i32,
+) -> DefRegionKind {
+    if inherited == DefRegionKind::Simple
+        && structural_eq_hash_kind == TVMFFISEqHashKind::kTVMFFISEqHashKindFreeVar as i32
+    {
+        DefRegionKind::None
+    } else {
+        inherited
+    }
+}
+
+/// Visit every reflected field described by `info` and its ancestors, from
+/// the outermost parent's fields to the type's own.
+///
+/// # Safety
+///
+/// `info` must point to an immortal registered type-info record.
+pub(super) unsafe fn for_each_field_info<B>(
+    info: *const TVMFFITypeInfo,
+    callback: &mut impl FnMut(&'static TVMFFIFieldInfo) -> ControlFlow<B>,
+) -> Option<B> {
+    // Ancestor slot 0 is the root Object. C++ starts at slot 1, walks toward
+    // the immediate parent, then visits the concrete type's own fields.
+    for depth in unsafe { 1..(*info).type_depth } {
+        let ancestor = unsafe { *(*info).type_acenstors.offset(depth as isize) };
+        if let Some(value) = unsafe { visit_field_level(ancestor, callback) } {
+            return Some(value);
+        }
+    }
+    unsafe { visit_field_level(info, callback) }
+}
+
+unsafe fn visit_field_level<B>(
+    info: *const TVMFFITypeInfo,
+    callback: &mut impl FnMut(&'static TVMFFIFieldInfo) -> ControlFlow<B>,
+) -> Option<B> {
+    if info.is_null() {
+        return None;
+    }
+    let fields = unsafe {
+        crate::util::slice_from_nullable_raw_parts((*info).fields, (*info).num_fields as usize)
+    };
+    for field in fields {
+        // C reflection tables are immortal once registered.
+        let field: &'static TVMFFIFieldInfo = unsafe { &*(field as *const TVMFFIFieldInfo) };
+        if let ControlFlow::Break(value) = callback(field) {
+            return Some(value);
+        }
+    }
+    None
 }

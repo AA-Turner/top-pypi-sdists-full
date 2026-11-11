@@ -38,7 +38,7 @@ def test_sync_client_forwards_auth_only_on_open() -> None:
     assert calls == [(
         'doc.open',
         {'doc': 'fixture.docx'},
-        {'timeout_ms': None, 'stdin_bytes': None, 'collaboration_auth': TOKEN},
+        {'timeout_ms': None, 'stdin_bytes': None, 'collaboration_auth': TOKEN, 'identity_claim': None},
     )]
 
 
@@ -116,7 +116,7 @@ async def test_async_client_forwards_auth_only_on_open() -> None:
     assert calls == [(
         'doc.open',
         {'doc': 'fixture.docx'},
-        {'timeout_ms': None, 'stdin_bytes': None, 'collaboration_auth': TOKEN},
+        {'timeout_ms': None, 'stdin_bytes': None, 'collaboration_auth': TOKEN, 'identity_claim': None},
     )]
 
 

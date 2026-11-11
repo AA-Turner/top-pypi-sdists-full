@@ -142,15 +142,9 @@ class Worker:
         disable_safe_workflow_eviction: bool = False,
         deployment_config: WorkerDeploymentConfig | None = None,
         patch_activation_callback: Callable[[PatchActivationInput], bool] | None = None,
-        workflow_task_poller_behavior: PollerBehavior = PollerBehaviorSimpleMaximum(
-            maximum=5
-        ),
-        activity_task_poller_behavior: PollerBehavior = PollerBehaviorSimpleMaximum(
-            maximum=5
-        ),
-        nexus_task_poller_behavior: PollerBehavior = PollerBehaviorSimpleMaximum(
-            maximum=5
-        ),
+        workflow_task_poller_behavior: PollerBehavior | None = None,
+        activity_task_poller_behavior: PollerBehavior | None = None,
+        nexus_task_poller_behavior: PollerBehavior | None = None,
         disable_payload_error_limit: bool = False,
         max_workflow_task_external_storage_concurrency: int = _DEFAULT_WORKFLOW_TASK_EXTERNAL_STORAGE_CONCURRENCY,
     ) -> None:
@@ -641,7 +635,9 @@ class Worker:
                 maximum=max_activity_polls
             )
 
-        deduped_plugin_names = list({plugin.name() for plugin in self._plugins})
+        deduped_plugins = list(
+            {(plugin.name(), plugin.version()) for plugin in self._plugins}
+        )
         deduped_storage_driver_types = {
             driver.type() for driver in self._storage_drivers
         }
@@ -706,12 +702,16 @@ class Worker:
                     else set()
                 ),
                 versioning_strategy=versioning_strategy,
-                workflow_task_poller_behavior=workflow_task_poller_behavior._to_bridge(),
-                activity_task_poller_behavior=activity_task_poller_behavior._to_bridge(),
-                nexus_task_poller_behavior=config[
-                    "nexus_task_poller_behavior"
-                ]._to_bridge(),  # type: ignore[reportTypedDictNotRequiredAccess,reportOptionalMemberAccess]
-                plugins=deduped_plugin_names,
+                workflow_task_poller_behavior=_poller_behavior_to_bridge(
+                    workflow_task_poller_behavior
+                ),
+                activity_task_poller_behavior=_poller_behavior_to_bridge(
+                    activity_task_poller_behavior
+                ),
+                nexus_task_poller_behavior=_poller_behavior_to_bridge(
+                    config["nexus_task_poller_behavior"]  # type: ignore[reportTypedDictNotRequiredAccess]
+                ),
+                plugins=deduped_plugins,
                 storage_drivers=deduped_storage_driver_types,
                 disable_payload_error_limit=config.get(
                     "disable_payload_error_limit", False
@@ -828,19 +828,19 @@ class Worker:
         await next_function(self)
 
     async def _run(self):
+        # Check before the first await: a bridge worker can only be validated once
+        if self._started:
+            raise RuntimeError("Already started")
+        self._started = True
+
         # Eagerly validate which will do a namespace check in Core.
         try:
             await self._bridge_worker.validate()
         except BaseException:
             # Nothing was started, so there is nothing to shut down. Mark
             # shutdown complete or shutdown() and async with would wait forever.
-            if not self._started:
-                self._shutdown_complete_event.set()
+            self._shutdown_complete_event.set()
             raise
-
-        if self._started:
-            raise RuntimeError("Already started")
-        self._started = True
 
         # Create a task that raises when a shutdown is requested
         async def raise_on_shutdown():
@@ -1057,11 +1057,17 @@ class WorkerConfig(TypedDict, total=False):
     disable_safe_workflow_eviction: bool
     deployment_config: WorkerDeploymentConfig | None
     patch_activation_callback: Callable[[PatchActivationInput], bool] | None
-    workflow_task_poller_behavior: PollerBehavior
-    activity_task_poller_behavior: PollerBehavior
-    nexus_task_poller_behavior: PollerBehavior
+    workflow_task_poller_behavior: PollerBehavior | None
+    activity_task_poller_behavior: PollerBehavior | None
+    nexus_task_poller_behavior: PollerBehavior | None
     disable_payload_error_limit: bool
     max_workflow_task_external_storage_concurrency: int
+
+
+def _poller_behavior_to_bridge(
+    behavior: PollerBehavior | None,
+) -> temporalio.bridge.worker.PollerBehavior | None:
+    return None if behavior is None else behavior._to_bridge()
 
 
 def _warn_if_activity_executor_max_workers_is_inconsistent(

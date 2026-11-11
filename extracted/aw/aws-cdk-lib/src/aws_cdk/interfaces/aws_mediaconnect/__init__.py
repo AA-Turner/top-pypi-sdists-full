@@ -218,6 +218,55 @@ class BridgeSourceReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.DestinationEndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={"destination_endpoint_arn": "destinationEndpointArn"},
+)
+class DestinationEndpointReference:
+    def __init__(self, *, destination_endpoint_arn: builtins.str) -> None:
+        '''A reference to a DestinationEndpoint resource.
+
+        :param destination_endpoint_arn: The Arn of the DestinationEndpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_mediaconnect as interfaces_mediaconnect
+            
+            destination_endpoint_reference = interfaces_mediaconnect.DestinationEndpointReference(
+                destination_endpoint_arn="destinationEndpointArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b9e8bdde3df482e68a1a696970936b32cff5de532bd6c2228b41991d7f9fbda8)
+            check_type(argname="argument destination_endpoint_arn", value=destination_endpoint_arn, expected_type=type_hints["destination_endpoint_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination_endpoint_arn": destination_endpoint_arn,
+        }
+
+    @builtins.property
+    def destination_endpoint_arn(self) -> builtins.str:
+        '''The Arn of the DestinationEndpoint resource.'''
+        result = self._values.get("destination_endpoint_arn")
+        assert result is not None, "Required property 'destination_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DestinationEndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.FlowEntitlementReference",
     jsii_struct_bases=[],
     name_mapping={"entitlement_arn": "entitlementArn"},
@@ -715,6 +764,53 @@ typing.cast(typing.Any, IBridgeSourceRef).__jsii_proxy_class__ = lambda : _IBrid
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IDestinationEndpointRef"
+)
+class IDestinationEndpointRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DestinationEndpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="destinationEndpointRef")
+    def destination_endpoint_ref(self) -> "DestinationEndpointReference":
+        '''(experimental) A reference to a DestinationEndpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDestinationEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DestinationEndpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_mediaconnect.IDestinationEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="destinationEndpointRef")
+    def destination_endpoint_ref(self) -> "DestinationEndpointReference":
+        '''(experimental) A reference to a DestinationEndpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DestinationEndpointReference", jsii.get(self, "destinationEndpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDestinationEndpointRef).__jsii_proxy_class__ = lambda : _IDestinationEndpointRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IFlowEntitlementRef"
 )
 class IFlowEntitlementRef(
@@ -1172,6 +1268,51 @@ class _IRouterOutputRefProxy(
 typing.cast(typing.Any, IRouterOutputRef).__jsii_proxy_class__ = lambda : _IRouterOutputRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.ISourceEndpointRef")
+class ISourceEndpointRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SourceEndpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceEndpointRef")
+    def source_endpoint_ref(self) -> "SourceEndpointReference":
+        '''(experimental) A reference to a SourceEndpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISourceEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SourceEndpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_mediaconnect.ISourceEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceEndpointRef")
+    def source_endpoint_ref(self) -> "SourceEndpointReference":
+        '''(experimental) A reference to a SourceEndpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SourceEndpointReference", jsii.get(self, "sourceEndpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISourceEndpointRef).__jsii_proxy_class__ = lambda : _ISourceEndpointRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.RouterInputReference",
     jsii_struct_bases=[],
@@ -1319,10 +1460,60 @@ class RouterOutputReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.SourceEndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={"source_endpoint_arn": "sourceEndpointArn"},
+)
+class SourceEndpointReference:
+    def __init__(self, *, source_endpoint_arn: builtins.str) -> None:
+        '''A reference to a SourceEndpoint resource.
+
+        :param source_endpoint_arn: The Arn of the SourceEndpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_mediaconnect as interfaces_mediaconnect
+            
+            source_endpoint_reference = interfaces_mediaconnect.SourceEndpointReference(
+                source_endpoint_arn="sourceEndpointArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5bf0015917caa732eee5335228644319bee1fb85ae46ee26632f74ff1dc32729)
+            check_type(argname="argument source_endpoint_arn", value=source_endpoint_arn, expected_type=type_hints["source_endpoint_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "source_endpoint_arn": source_endpoint_arn,
+        }
+
+    @builtins.property
+    def source_endpoint_arn(self) -> builtins.str:
+        '''The Arn of the SourceEndpoint resource.'''
+        result = self._values.get("source_endpoint_arn")
+        assert result is not None, "Required property 'source_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SourceEndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "BridgeOutputReference",
     "BridgeReference",
     "BridgeSourceReference",
+    "DestinationEndpointReference",
     "FlowEntitlementReference",
     "FlowMediaStreamReference",
     "FlowOutputReference",
@@ -1333,6 +1524,7 @@ __all__ = [
     "IBridgeOutputRef",
     "IBridgeRef",
     "IBridgeSourceRef",
+    "IDestinationEndpointRef",
     "IFlowEntitlementRef",
     "IFlowMediaStreamRef",
     "IFlowOutputRef",
@@ -1343,9 +1535,11 @@ __all__ = [
     "IRouterInputRef",
     "IRouterNetworkInterfaceRef",
     "IRouterOutputRef",
+    "ISourceEndpointRef",
     "RouterInputReference",
     "RouterNetworkInterfaceReference",
     "RouterOutputReference",
+    "SourceEndpointReference",
 ]
 
 publication.publish()
@@ -1369,6 +1563,13 @@ def _typecheckingstub__6a57ab8b2799544f17aecf266ba0a305c9946b460679a831f68a8cc26
     *,
     bridge_arn: builtins.str,
     bridge_source_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9e8bdde3df482e68a1a696970936b32cff5de532bd6c2228b41991d7f9fbda8(
+    *,
+    destination_endpoint_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1444,5 +1645,12 @@ def _typecheckingstub__eb1ab08a2a2f206b84e407515955ae1d24f39785cfe1e4e1df154f9ce
     """Type checking stubs"""
     pass
 
-for cls in [IBridgeOutputRef, IBridgeRef, IBridgeSourceRef, IFlowEntitlementRef, IFlowMediaStreamRef, IFlowOutputRef, IFlowRef, IFlowSourceRef, IFlowVpcInterfaceRef, IGatewayRef, IRouterInputRef, IRouterNetworkInterfaceRef, IRouterOutputRef]:
+def _typecheckingstub__5bf0015917caa732eee5335228644319bee1fb85ae46ee26632f74ff1dc32729(
+    *,
+    source_endpoint_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IBridgeOutputRef, IBridgeRef, IBridgeSourceRef, IDestinationEndpointRef, IFlowEntitlementRef, IFlowMediaStreamRef, IFlowOutputRef, IFlowRef, IFlowSourceRef, IFlowVpcInterfaceRef, IGatewayRef, IRouterInputRef, IRouterNetworkInterfaceRef, IRouterOutputRef, ISourceEndpointRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

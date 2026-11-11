@@ -47,7 +47,6 @@ from datamodel_code_generator._target_contract import (
     fact,
     is_required,
     label,
-    members_by_consumer,
     operation_schemes,
     parameter_location,
     parameter_place,
@@ -55,18 +54,10 @@ from datamodel_code_generator._target_contract import (
     request_media,
     scheme_catalogues,
     security_requirements,
-    symbols_by_id,
     type_uses,
     uses_by_id,
 )
-from datamodel_code_generator._target_types import (
-    kept_values,
-    lexical_kind,
-    member_kind,
-    takes_null,
-    untyped,
-    unwrapped,
-)
+from datamodel_code_generator._target_types import TypeTables
 from datamodel_code_generator.enums import OpenAPIVersion
 from datamodel_code_generator.python_literal import stable_repr
 
@@ -78,9 +69,8 @@ if TYPE_CHECKING:
     from datamodel_code_generator._target_contract import (
         FieldSlot,
         FieldUseBinding,
-        FinalModelSymbol,
         MemberShape,
-        SymbolId,
+        SourceDocumentId,
         TypeUseBinding,
         TypeView,
     )
@@ -151,6 +141,7 @@ class _WirePlanner:
         self.versions = batch.versions
         self.uses = uses_by_id(batch)
         self.order = {use: index for index, use in enumerate(self.uses)}
+        self.schemes = scheme_catalogues(batch)
 
 
 def declared_media(name: str) -> tuple[str, str | None]:
@@ -378,7 +369,7 @@ def form_members(kinds: LexicalKinds, use: TypeUseBinding) -> Iterator[FormMembe
     }
     for name, schema, member in property_members(use.members):
         if (facts := member.model_facts) is not None:
-            yield FormMember(name, facts.type, *kinds.member(facts.type), shaped.get(name, schema), member)
+            yield FormMember(name, facts.type, *kinds.tables.member_kind(facts.type), shaped.get(name, schema), member)
 
 
 def form_extras(kinds: LexicalKinds, use: TypeUseBinding) -> FormMember | None:
@@ -392,11 +383,11 @@ def form_extras(kinds: LexicalKinds, use: TypeUseBinding) -> FormMember | None:
     extras = None if (encoding := use.encoding) is None else encoding.extras
     if (kept := kinds.kept(use)) is not None:
         value, declared = kept
-        return FormMember("", value, *kinds.member(value), declared if extras is None else extras[0])
+        return FormMember("", value, *kinds.tables.member_kind(value), declared if extras is None else extras[0])
     if extras is None:
         return None
     source, value = extras
-    return FormMember("", value, *kinds.member(value), source)
+    return FormMember("", value, *kinds.tables.member_kind(value), source)
 
 
 def _additional(planner: _WirePlanner, use: TypeUseBinding) -> FieldPlan | None:
@@ -455,11 +446,11 @@ def part_json(
     A type without one kind is JSON, and so is one that takes any value unless the member's encoding gives it a style
     the document's version applies, which writes it as text, or a media type, which writes it in that media type.
     """
-    kind, leaf, _ = kinds.member(value)
+    kind, leaf, _ = kinds.tables.member_kind(value)
     if kind is None:
         return True
     given = encoding is not None and (form_styled(encoding, versions, multipart=True) or bool(content_types(encoding)))
-    return kinds.untyped(leaf) and not given
+    return kinds.tables.untyped(leaf) and not given
 
 
 def _refused(planner: _WirePlanner, error: _PlanError, owner: object, uses: tuple[TypeUseId, ...]) -> None:
@@ -566,7 +557,7 @@ def _encoding(  # noqa: PLR0914
             kind=kind,
             fields=fields,
             additional=additional,
-            reserved_names=tuple(sorted(other for other in members if other != name)),
+            reserved_names=tuple(sorted(other for other in members if other != name)) if additional is not None else (),
             single=single,
             brackets=bracketed,
         )
@@ -635,14 +626,17 @@ def _header(
 
 
 def auth_names(
-    batch: GeneratedTypeContractBatch, operation: OperationContract, *, authorization: bool = False
+    catalogues: Mapping[SourceDocumentId, Mapping[str, WireDeclaration]],
+    operation: OperationContract,
+    *,
+    authorization: bool = False,
 ) -> list[tuple[object, str]]:
     """Return the locations and names of the apiKey credentials the operation's security requirements send.
 
     With `authorization`, the Authorization header that an http basic or bearer, an oauth2 or an openIdConnect
-    credential goes in is one of them (`credential_place`).
+    credential goes in is one of them (`credential_place`). `catalogues` are the batch's (``scheme_catalogues``).
     """
-    schemes = operation_schemes(scheme_catalogues(batch), operation)
+    schemes = operation_schemes(catalogues, operation)
     place_of = credential_place if authorization else api_key_place
     return list(
         dict.fromkeys(
@@ -674,14 +668,16 @@ def _reserving(plan: ParameterPlan, plans: list[ParameterPlan]) -> ParameterPlan
         if other is not plan and other.location == plan.location and _spread(other)
         for field in other.fields
     } - set(_claimed([plan], plan.location))
-    return replace(plan, reserved_names=tuple(sorted({*plan.reserved_names, *owned}))) if owned else plan
+    if not owned or plan.additional is None:
+        return plan
+    return replace(plan, reserved_names=tuple(sorted({*plan.reserved_names, *owned})))
 
 
 def _parameters(
     planner: _WirePlanner, operation: OperationContract
 ) -> tuple[tuple[tuple[ParameterLocation, str], ParameterPlan], ...]:
     declarations = operation.parameters
-    auth = auth_names(planner.batch, operation)
+    auth = auth_names(planner.schemes, operation)
     names = [*(parameter_place(item) for item in declarations), *auth]
     planned = [
         (parameter_place(declaration), plan)
@@ -689,7 +685,7 @@ def _parameters(
         if (plan := _planned(planner, operation.id, declaration, names, written=planner.writes)) is not None
     ]
     if planner.writes:
-        filled = auth_names(planner.batch, operation, authorization=True)
+        filled = auth_names(planner.schemes, operation, authorization=True)
         planned = [
             (place, replace(plan, required=False, credential=True) if _credentialed(plan, filled) else plan)
             for place, plan in planned
@@ -798,7 +794,9 @@ def _parameter(
             kind=kind,
             fields=fields,
             additional=additional,
-            reserved_names=tuple(sorted(other for kind_, other in names if kind_ == location and other != name)),
+            reserved_names=tuple(sorted(other for kind_, other in names if kind_ == location and other != name))
+            if additional is not None
+            else (),
             single=single,
             brackets=bracketed,
         )
@@ -964,19 +962,16 @@ def _field(member: MemberShape) -> FieldPlan:
 
 
 class LexicalKinds:
-    """Read the lexical kind of a form member (`_target_types.member_kind`) and the other properties its model keeps."""
+    """Read the lexical kind of a form member (``TypeTables.member_kind``) and the other properties its model keeps."""
 
     def __init__(self, batch: GeneratedTypeContractBatch) -> None:
-        """Keep the batch whose symbols and root values the first lookups index."""
+        """Keep the batch whose tables and root values the first lookups index."""
         self._batch = batch
 
     @cached_property
-    def _symbols(self) -> dict[SymbolId, FinalModelSymbol]:
-        return symbols_by_id(self._batch)
-
-    @cached_property
-    def _members(self) -> dict[SymbolId, list[FieldUseBinding]]:
-        return members_by_consumer(self._batch)
+    def tables(self) -> TypeTables:
+        """Return the batch's symbols and field bindings, indexed once (``TypeTables.of``)."""
+        return TypeTables.of(self._batch)
 
     @cached_property
     def _extras(self) -> dict[FieldSlot | None, SourceLocation]:
@@ -997,7 +992,7 @@ class LexicalKinds:
         return next(
             (
                 (value, self._extras.get(member.slot, schema))
-                for member, value in kept_values(use.members, self._symbols, self._members)
+                for member, value in self.tables.kept_values(use.members)
                 if (schema := member.schema) is not None
             ),
             None,
@@ -1009,23 +1004,10 @@ class LexicalKinds:
         The type stands for the model through aliases, root models and a union with None alone, and the model takes
         its own setting over the one it inherits.
         """
-        return isinstance(
-            value := unwrapped(use.type, self._symbols, self._members), GeneratedSymbolType
-        ) and keeps_extras(self._symbols, value.symbol)
-
-    def member(self, value: TypeView) -> tuple[LexicalKind | None, TypeView, bool]:
-        """Return how a form member of a type is written (``_target_types.member_kind``)."""
-        return member_kind(value, self._symbols, self._members)
+        return isinstance(value := self.tables.unwrapped(use.type), GeneratedSymbolType) and keeps_extras(
+            self.tables.symbols, value.symbol
+        )
 
     def text(self, use: TypeUseBinding) -> bool:
         """Return whether a use's type takes strings read as they come and rejects null, as a text content's must."""
-        return lexical_kind(use.type, self._symbols, self._members) == "string" and not takes_null(
-            use.type, self._symbols, self._members
-        )
-
-    def untyped(self, value: TypeView) -> bool:
-        """Return whether a type takes any value, as the type of an untyped schema does (``_target_types.untyped``).
-
-        A form-data part carries such a value as JSON, as it does one without one kind, while its kind is a string's.
-        """
-        return untyped(value, self._symbols, self._members)
+        return self.tables.lexical_kind(use.type) == "string" and not self.tables.takes_null(use.type)

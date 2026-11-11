@@ -10,7 +10,7 @@ u'''Package of lazily imported C{rhumb} modules L{rhumb.aux_}, L{rhumb.ekx} and 
 from pygeodesy.lazily import _ALL_LAZY, _ALL_OTHER, _lazy_import_as, _unLazy0
 
 __all__ = _ALL_LAZY.rhumb
-__version__ = '25.12.06'
+__version__ = '26.11.08'
 
 if _unLazy0:  # or _isfrozen
     from pygeodesy.rhumb.aux_ import RhumbAux, RhumbLineAux
@@ -27,7 +27,7 @@ else:  # lazily import modules and exported attrs
 
 # **) MIT License
 #
-# Copyright (C) 2018-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2018-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

@@ -12,6 +12,7 @@ from huawei_solar.register_definitions import (
     I32AbsoluteValueRegister,
     I32Register,
     I64Register,
+    IPv4Register,
     LG_RESU_TimeOfUseRegisters,
     PeakSettingPeriodRegisters,
     RegisterDefinition,
@@ -46,7 +47,8 @@ REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
         | TargetDevice.EMMA
         | TargetDevice.SCHARGER
         | TargetDevice.SDONGLE
-        | TargetDevice.SMARTLOGGER,
+        | TargetDevice.SMARTLOGGER
+        | TargetDevice.SMART_AC_GUN,
     ),
     rn.SERIAL_NUMBER: StringRegister(
         30015,
@@ -78,12 +80,17 @@ REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.UNIQUE_ID_OF_THE_SOFTWARE: U16Register(None, 1, 30110),
     rn.NUMBER_OF_PACKAGES_TO_BE_UPGRADED: U16Register(None, 1, 30111),
     rn.HARDWARE_FUNCTIONAL_UNIT_CONF_ID: U16Register(None, 1, 30206),
-    rn.SUBDEVICE_SUPPORT_FLAG: U32Register(None, 1, 30207),
-    rn.SUBDEVICE_IN_POSITION_FLAG: U32Register(None, 1, 30209),
-    rn.FEATURE_MASK_1: U32Register(None, 1, 30211),
-    rn.FEATURE_MASK_2: U32Register(None, 1, 30213),
-    rn.FEATURE_MASK_3: U32Register(None, 1, 30215),
-    rn.FEATURE_MASK_4: U32Register(None, 1, 30217),
+    rn.SUBDEVICE_SUPPORT_FLAG: U32Register(rv.SubdeviceSupportFlag, 1, 30207),
+    rn.SUBDEVICE_IN_POSITION_FLAG: U32Register(rv.SubdeviceInPositionFlag, 1, 30209),
+    rn.FEATURE_MASK_1: U32Register(rv.FeatureMask1, 1, 30211),
+    rn.FEATURE_MASK_2: U32Register(rv.FeatureMask2, 1, 30213),
+    rn.FEATURE_MASK_3: U32Register(rv.FeatureMask3, 1, 30215),
+    rn.FEATURE_MASK_4: U32Register(rv.FeatureMask4, 1, 30217),
+    rn.FEATURE_MASK_30308: U16Register(rv.FeatureMask30308, 1, 30308, target_device=TargetDevice.SUN2000),
+    rn.FEATURE_MASK_30315: U16Register(rv.FeatureMask30315, 1, 30315, target_device=TargetDevice.SUN2000),
+    rn.FEATURE_MASK_30320: U16Register(rv.FeatureMask30320, 1, 30320, target_device=TargetDevice.SUN2000),
+    rn.FEATURE_MASK_30342: U16Register(rv.FeatureMask30342, 1, 30342, target_device=TargetDevice.SUN2000),
+    rn.FEATURE_MASK_30350: U16Register(rv.FeatureMask30350, 1, 30350, target_device=TargetDevice.SUN2000),
     rn.REALTIME_MAX_ACTIVE_CAPABILITY: I32Register(None, 1, 30366),
     rn.REALTIME_MAX_INDUCTIVE_REACTIVE_CAPACITY: I32Register(None, 1, 30368),
     rn.OFFERING_NAME_OF_SOUTHBOUND_DEVICE_1: StringRegister(30561, 15),
@@ -269,6 +276,14 @@ REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.Q_U_SCHEDULING_EXIT_POWER_PERCENTAGE: I16Register("%", 1, 40198, writeable=True),
     rn.STARTUP: U16Register(None, 1, 40200, writeable=True, readable=False),
     rn.SHUTDOWN: U16Register(None, 1, 40201, writeable=True, readable=False),
+    rn.HISTORICAL_GENERATION_CLEARANCE: U16Register(None, 1, 40239, writeable=True, readable=False),
+    rn.ALARM_CLEARANCE: U16Register(None, 1, 42726, writeable=True, readable=False),
+    rn.AFCI_SELF_CHECK: U16Register(None, 1, 42731, writeable=True, readable=False),
+    rn.CLEAR_PERFORMANCE_DATA: U16Register(None, 1, 43677, writeable=True, readable=False),
+    rn.RESTORE_DEFAULT_SETTINGS: U16Register(None, 1, 43676, writeable=True, readable=False),
+    rn.AFCI_SC_REGISTER_V3: U16Register(None, 1, 45007, writeable=True),
+    rn.INVERTER_ACTIVATION_STATUS: U16Register(None, 1, 32377),
+    rn.DONGLE_SCENARIO_STATUS: U16Register(rv.DongleScenarioStatus, 1, 35312),
     rn.GRID_CODE: U16Register(rv.GRID_CODES, 1, 42000),
     rn.MPPT_MULTIMODAL_SCANNING: U16Register(bool, 1, 42054, writeable=True),
     rn.MPPT_SCANNING_INTERVAL: U16Register("minutes", 1, 42055, writeable=True),
@@ -290,6 +305,16 @@ REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     ),
     rn.WLAN_WAKEUP: I16Register(rv.WlanWakeup, 1, 45052, writeable=True),
     rn.SUN2000_EMMA: U16Register(bool, 1, 48020, writeable=True),
+    rn.INNER_PID_COMPENSATION_DIRECTION: U16Register(rv.InnerPidCompensationDirection, 1, 32192),
+    rn.GRID_OUTPUT_MODE: U16Register(rv.GridOutputMode, 1, 42001, writeable=True),
+    rn.ISLANDING_PROTECTION: U16Register(bool, 1, 42002, writeable=True),
+    rn.INSULATION_RESISTANCE_PROTECTION_THRESHOLD: U16Register("MOhm", 100, 42003, writeable=True),
+    rn.COMMUNICATION_INTERRUPT_SHUTDOWN: U16Register(bool, 1, 42114, writeable=True),
+    rn.COMMUNICATION_RESUME_STARTUP: U16Register(bool, 1, 42115, writeable=True),
+    rn.INNER_PID_RUNNING_MODE: U16Register(rv.InnerPidRunningMode, 1, 42181, writeable=True),
+    rn.POWER_METER_POWER_DIRECTION: U16Register(rv.MeterPowerDirection, 1, 42213, writeable=True),
+    rn.AFCI_MODE: U16Register(rv.AfciMode, 1, 42730, writeable=True),
+    rn.AUTO_START_RECOVERY: U16Register(bool, 1, 42733, writeable=True),
 }
 
 
@@ -390,13 +415,14 @@ BATTERY_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.STORAGE_CURRENT_DAY_DISCHARGE_CAPACITY: U32Register("kWh", 100, 37786),
     rn.STORAGE_UNIT_2_SOFTWARE_VERSION: StringRegister(37799, 15),
     rn.STORAGE_UNIT_1_SOFTWARE_VERSION: StringRegister(37814, 15),
-    rn.STORAGE_UNIT_1_BATTERY_PACK_1_SOH_CALIBRATION_STATUS: U16Register(None, 1, 37920),
-    rn.STORAGE_UNIT_1_BATTERY_PACK_2_SOH_CALIBRATION_STATUS: U16Register(None, 1, 37921),
-    rn.STORAGE_UNIT_1_BATTERY_PACK_3_SOH_CALIBRATION_STATUS: U16Register(None, 1, 37922),
-    rn.STORAGE_UNIT_2_BATTERY_PACK_1_SOH_CALIBRATION_STATUS: U16Register(None, 1, 37923),
-    rn.STORAGE_UNIT_2_BATTERY_PACK_2_SOH_CALIBRATION_STATUS: U16Register(None, 1, 37924),
-    rn.STORAGE_UNIT_2_BATTERY_PACK_3_SOH_CALIBRATION_STATUS: U16Register(None, 1, 37925),
-    rn.STORAGE_UNIT_SOH_CALIBRATION_STATUS: U16Register(None, 1, 37926),
+    rn.STORAGE_HEATING_STATUS: U16Register(rv.StorageHeatingStatus, 1, 39354),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_1_SOH_CALIBRATION_STATUS: U16Register(rv.BatterySohCalibrationStatus, 1, 37920),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_2_SOH_CALIBRATION_STATUS: U16Register(rv.BatterySohCalibrationStatus, 1, 37921),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_3_SOH_CALIBRATION_STATUS: U16Register(rv.BatterySohCalibrationStatus, 1, 37922),
+    rn.STORAGE_UNIT_2_BATTERY_PACK_1_SOH_CALIBRATION_STATUS: U16Register(rv.BatterySohCalibrationStatus, 1, 37923),
+    rn.STORAGE_UNIT_2_BATTERY_PACK_2_SOH_CALIBRATION_STATUS: U16Register(rv.BatterySohCalibrationStatus, 1, 37924),
+    rn.STORAGE_UNIT_2_BATTERY_PACK_3_SOH_CALIBRATION_STATUS: U16Register(rv.BatterySohCalibrationStatus, 1, 37925),
+    rn.STORAGE_UNIT_SOH_CALIBRATION_STATUS: U16Register(rv.BatterySohCalibrationStatus, 1, 37926),
     rn.STORAGE_UNIT_SOH_CALIBRATION_RELEASE_LOWER_LIMIT_OF_SOC: U16Register(None, 1, 37927),
     rn.STORAGE_UNIT_1_BATTERY_PACK_1_SERIAL_NUMBER: StringRegister(38200, 10),
     rn.STORAGE_UNIT_1_BATTERY_PACK_1_FIRMWARE_VERSION: StringRegister(38210, 15),
@@ -464,6 +490,29 @@ BATTERY_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.STORAGE_UNIT_2_BATTERY_PACK_2_MINIMUM_TEMPERATURE: I16Register("°C", 10, 38461),
     rn.STORAGE_UNIT_2_BATTERY_PACK_3_MAXIMUM_TEMPERATURE: I16Register("°C", 10, 38462),
     rn.STORAGE_UNIT_2_BATTERY_PACK_3_MINIMUM_TEMPERATURE: I16Register("°C", 10, 38463),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_4_SERIAL_NUMBER: StringRegister(39300, 10),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_4_FIRMWARE_VERSION: StringRegister(39310, 15),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_4_WORKING_STATUS: U16Register(None, 1, 39325),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_4_STATE_OF_CAPACITY: U16Register("%", 10, 39326),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_4_SOH_CALIBRATION_STATUS: U16Register(rv.BatterySohCalibrationStatus, 1, 39327),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_4_CHARGE_DISCHARGE_POWER: I32Register("W", 1, 39328),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_4_VOLTAGE: U16Register("V", 10, 39330),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_4_TOTAL_DISCHARGE: U32Register("kWh", 100, 39334),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_4_MAXIMUM_TEMPERATURE: I16Register("°C", 10, 39336),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_4_MINIMUM_TEMPERATURE: I16Register("°C", 10, 39337),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_4_MODEL_NAME: StringRegister(39338, 15),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_1_MODEL_NAME: StringRegister(39003, 15),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_2_MODEL_NAME: StringRegister(39018, 15),
+    rn.STORAGE_UNIT_1_BATTERY_PACK_3_MODEL_NAME: StringRegister(39033, 15),
+    rn.STORAGE_UNIT_2_BATTERY_PACK_1_MODEL_NAME: StringRegister(39048, 15),
+    rn.STORAGE_UNIT_2_BATTERY_PACK_2_MODEL_NAME: StringRegister(39063, 15),
+    rn.STORAGE_UNIT_2_BATTERY_PACK_3_MODEL_NAME: StringRegister(39078, 15),
+    rn.STORAGE_UNIT_1_CONNECT_STATUS: U16Register(rv.StorageUnitConnectStatus, 1, 37994),
+    rn.STORAGE_UNIT_2_CONNECT_STATUS: U16Register(rv.StorageUnitConnectStatus, 1, 37995),
+    rn.STORAGE_UNIT_1_REGISTER_CODE: StringRegister(37954, 10),
+    rn.STORAGE_UNIT_2_REGISTER_CODE: StringRegister(37964, 10),
+    rn.STORAGE_ESS_LOW_POWER: U16Register(bool, 1, 47842, writeable=True),
+    rn.STORAGE_UNIT_1_PACK_4_NO: U16Register(None, 1, 47844),
     rn.STORAGE_UNIT_1_PRODUCT_MODEL: U16Register(rv.StorageProductModel, 1, 47000),
     rn.STORAGE_WORKING_MODE_A: I16Register(rv.StorageWorkingModesA, 1, 47004),
     rn.STORAGE_TIME_OF_USE_PRICE: I16Register(bool, 1, 47027),
@@ -552,6 +601,30 @@ BATTERY_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     ),
     rn.MAXIMUM_FEED_GRID_POWER_WATT: I32Register("W", 1, 47416, writeable=True),
     rn.MAXIMUM_FEED_GRID_POWER_PERCENT: I16Register("%", 10, 47418, writeable=True),
+    rn.ACTIVE_POWER_LIMITATION_MODE: U16Register(
+        rv.ActivePowerLimitationMode,
+        1,
+        47419,
+        writeable=True,
+    ),
+    rn.ACTIVE_POWER_ADJUSTMENT_PERIOD: U16Register("s", 10, 47420, writeable=True),
+    rn.ACTIVE_POWER_MAX_PROTECTION_TIME: U16Register("s", 10, 47421, writeable=True),
+    rn.ACTIVE_POWER_CONTROL_HYSTERESIS: U32Register("kW", 1000, 47422, writeable=True),
+    rn.ACTIVE_POWER_FAIL_SAFE_THRESHOLD: U16Register("%", 10, 47424, writeable=True),
+    rn.REACTIVE_POWER_CONTROL_MODE: U16Register(
+        rv.ReactivePowerControlMode,
+        1,
+        47425,
+        writeable=True,
+    ),
+    rn.REACTIVE_POWER_TARGET_POWER_FACTOR: I16Register(None, 1000, 47428, writeable=True),
+    rn.REACTIVE_POWER_ADJUSTMENT_PERIOD: U16Register("s", 10, 47429, writeable=True),
+    rn.REACTIVE_POWER_FAIL_SAFE_THRESHOLD: I16Register(None, 1000, 47432, writeable=True),
+    rn.PV_PLANT_AC_CAPACITY: U32Register("kW", 1000, 47433, writeable=True),
+    rn.PV_PLANT_DC_CAPACITY: U32Register("kW", 1000, 47435, writeable=True),
+    rn.PV_PLANT_ID: StringRegister(47438, 13, writeable=True),
+    rn.PV_PLANT_REMOTE_OUTPUT_CONTROL_SERVER: StringRegister(47451, 30, writeable=True),
+    rn.PV_PLANT_OUTPUT_CONTROL_DURATION: U16Register("min", 1, 47481, writeable=True),
     rn.REMOTE_CHARGE_DISCHARGE_CONTROL_MODE: I16Register(
         rv.RemoteChargeDischargeControlMode,
         1,
@@ -562,6 +635,18 @@ BATTERY_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
         "W",
         1,
         47590,
+        writeable=True,
+    ),
+    rn.STORAGE_MAXIMUM_GRID_POWER_DURING_DISCHARGE: U16Register(
+        "W",
+        1,
+        47592,
+        writeable=True,
+    ),
+    rn.STORAGE_ADJUSTMENT_DEADBAND: U16Register(
+        "W",
+        1,
+        47593,
         writeable=True,
     ),
     rn.BACKUP_SWITCH_TO_OFF_GRID: U16Register(None, 1, 47604, writeable=True),
@@ -579,6 +664,12 @@ BATTERY_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.STORAGE_UNIT_2_PACK_1_NO: U16Register(None, 1, 47753),
     rn.STORAGE_UNIT_2_PACK_2_NO: U16Register(None, 1, 47754),
     rn.STORAGE_UNIT_2_PACK_3_NO: U16Register(None, 1, 47755),
+    # Maintenance storage recharge:
+    # In FusionSolar: Maintenance > Battery maintenance > Forced charge and discharge -> Working mode = Recharge
+    # Combine registers: set STORAGE_RECHARGE_TARGET_SOC (47783) between 40%-60%,
+    # then write 1 to STORAGE_RECHARGE_SIGNAL (47780).
+    rn.STORAGE_RECHARGE_SIGNAL: U16Register(None, 1, 47780, writeable=True),
+    rn.STORAGE_RECHARGE_TARGET_SOC: U16Register("%", 10, 47783, writeable=True),
 }
 REGISTERS.update(BATTERY_REGISTERS)
 
@@ -841,18 +932,156 @@ EMMA_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
 REGISTERS.update(EMMA_REGISTERS)
 
 SCHARGER_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
-    rn.CHARGER_SOFTWARE_VERSION: StringRegister(30031, 16, target_device=TargetDevice.SCHARGER),
+    # Charger Device Info (0xb209)
     rn.CHARGER_ESN: StringRegister(30015, 16, target_device=TargetDevice.SCHARGER),
-    rn.CHARGER_MODEL: StringRegister(30078, 14, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_SOFTWARE_VERSION: StringRegister(30031, 16, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_BSP_VERSION: StringRegister(30047, 10, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_SOFTWARE_ID: U16Register(None, 1, 30057, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_HARDWARE_VERSION: StringRegister(30058, 16, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_ELECTRONIC_LABEL: StringRegister(30074, 2, target_device=TargetDevice.SCHARGER),
     rn.CHARGER_RATED_POWER: U32Register("kW", 10, 30076, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_MODEL: StringRegister(30078, 14, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_CONNECTOR_COUNT: U32Register(None, 1, 30092, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_BLUETOOTH_NAME: StringRegister(30094, 16, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_AC_TYPE: U32Register(rv.ChargerAcType, 1, 30110, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_NETWORKING_RESULT: U32Register(
+        rv.ChargerNetworkingResult, 1, 30114, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_DISPATCH_SCENARIO: U32Register(
+        rv.ChargerDispatchScenario, 1, 30132, target_device=TargetDevice.SCHARGER
+    ),
+    # Charger Body Telemetry (0xb209)
     rn.CHARGER_PHASE_A_VOLTAGE: U32Register("V", 10, 30500, target_device=TargetDevice.SCHARGER),
     rn.CHARGER_PHASE_B_VOLTAGE: U32Register("V", 10, 30502, target_device=TargetDevice.SCHARGER),
     rn.CHARGER_PHASE_C_VOLTAGE: U32Register("V", 10, 30504, target_device=TargetDevice.SCHARGER),
     rn.CHARGER_TOTAL_ENERGY_CHARGED: U32Register("kWh", 1000, 30506, target_device=TargetDevice.SCHARGER),
     rn.CHARGER_TEMPERATURE: I32Register("°C", 10, 30508, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_MIN_CHARGING_POWER: U32Register("kW", 10, 30510, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_MAX_CHARGING_POWER: U32Register("kW", 10, 30512, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_WIFI_SIGNAL_STRENGTH: I32Register("dBm", 1, 30514, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_CHARGING_WAIT_REASON: U32Register(
+        rv.ChargerChargingWaitReason, 1, 30516, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_METER_CONNECT_STATUS: U32Register(
+        rv.ChargerMeterConnectStatus, 1, 30518, target_device=TargetDevice.SCHARGER
+    ),
+    # Charger Configuration & Settings (0xb209)
+    rn.CHARGER_DYNAMIC_POWER_THRESHOLD: U32Register(
+        "kW", 10, 40000, writeable=True, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_ORDERLY_CHARGING_POWER: U32Register(
+        "kW", 10, 40002, writeable=True, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_MAIN_BREAKER_CAPACITY: U32Register("A", 1, 40004, writeable=True, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_GROUNDING_SYSTEM: U32Register(
+        rv.ChargerGroundingSystem, 1, 40006, writeable=True, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_NETWORKING_MODE: U32Register(
+        rv.ChargerNetworkingMode, 1, 40008, writeable=True, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_DHCP_ENABLED: U32Register(
+        rv.ChargerDhcpStatus, 1, 40010, writeable=True, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_IP_ADDRESS: IPv4Register(40012, writeable=True, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_SUBNET_MASK: IPv4Register(40014, writeable=True, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_GATEWAY_ADDRESS: IPv4Register(40016, writeable=True, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_PRIMARY_DNS: IPv4Register(40018, writeable=True, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_SECONDARY_DNS: IPv4Register(40020, writeable=True, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_CONFIGURED_DEVICE_NAME: StringRegister(40022, 10, writeable=True, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_CONTACTOR_CONTROL_MODE: U32Register(
+        rv.ChargerContactorControlMode, 1, 40032, writeable=True, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_FACTORY_RESET: U32Register(
+        rv.ChargerFactoryReset, 1, 40034, writeable=True, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_AC_WIRING_MODE: U32Register(
+        rv.ChargerAcWiringMode, 1, 40036, writeable=True, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_INDICATOR_LIGHT_STATUS: U32Register(
+        rv.ChargerIndicatorLightStatus, 1, 40038, writeable=True, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_SYSTEM_CATEGORY: StringRegister(40040, 5, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_MAX_FIXED_POWER: U32Register("kW", 10, 40054, writeable=True, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_ALLOW_VERSION_ROLLBACK: U32Register(
+        rv.ChargerVersionRollback, 1, 40056, writeable=True, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_FEATURE_MASK_4: U32Register(None, 1, 40104, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_RANDOM_DELAY_CHARGING: U32Register(bool, 1, 40200, writeable=True, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_MAX_DELAY_TIME: U32Register("s", 1, 40202, writeable=True, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_INPUT_UNDERVOLTAGE_ALARM_THRESHOLD: U32Register(
+        "V", 10, 40204, writeable=True, target_device=TargetDevice.SCHARGER
+    ),
+    rn.CHARGER_INPUT_UNDERVOLTAGE_ALARM_FILTER_TIME: U32Register(
+        "s", 1, 40206, writeable=True, target_device=TargetDevice.SCHARGER
+    ),
+}
+
+SMART_AC_GUN_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
+    # SmartAcGun Telemetry (0xb20a)
+    rn.CHARGER_GUN_NUMBER: U32Register(None, 1, 31000, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_GUN_TYPE: U32Register(rv.ChargerGunType, 1, 31002, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_GUN_RATED_POWER: U32Register("kW", 10, 31004, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_GUN_WORK_STATUS: U32Register(rv.ChargerGunWorkStatus, 1, 31006, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_OUTPUT_RELAY_STATUS: U32Register(
+        rv.ChargerOutputRelayStatus, 1, 31008, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    rn.CHARGER_GUN_TEMPERATURE: I32Register("°C", 10, 31010, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_GUN_PHASE_A_VOLTAGE: U32Register("V", 10, 31012, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_GUN_PHASE_B_VOLTAGE: U32Register("V", 10, 31014, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_GUN_PHASE_C_VOLTAGE: U32Register("V", 10, 31016, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_GUN_PHASE_A_CURRENT: U32Register("A", 10, 31018, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_GUN_PHASE_B_CURRENT: U32Register("A", 10, 31020, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_GUN_PHASE_C_CURRENT: U32Register("A", 10, 31022, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_GUN_OUTPUT_POWER: U32Register("kW", 10, 31024, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_GUN_TOTAL_ENERGY_CHARGED: U32Register("kWh", 1000, 31026, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_PWM_DUTY_CYCLE: U32Register("%", 1, 31028, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_GUN_LOCK_STATUS: U32Register(rv.ChargerGunLockStatus, 1, 31030, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_CABLE_MAX_CURRENT: U32Register("A", 1, 31032, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_REPORTED_WORK_MODE: U32Register(
+        rv.ChargerReportedWorkMode, 1, 31034, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    rn.CHARGER_PLANNED_DEPARTURE_TIME: TimestampRegister(
+        31036, writeable=False, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    rn.CHARGER_TARGET_CHARGED_ENERGY: U32Register("kWh", 10, 31038, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_CHARGING_METHOD: U32Register(
+        rv.ChargerChargingMethod, 1, 31040, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    # SmartAcGun Settings (0xb20a)
+    rn.CHARGER_GUN_WORK_MODE: U32Register(
+        rv.ChargerGunWorkMode, 1, 41000, writeable=True, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    rn.CHARGER_GUN_MAX_CURRENT: U32Register("A", 10, 41002, writeable=True, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_SINGLE_THREE_PHASE_SWITCH: U32Register(
+        bool, 1, 41004, writeable=True, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    rn.CHARGER_GUN_LOCK_CONTROL_MODE: U32Register(
+        rv.ChargerGunLockControlMode, 1, 41006, writeable=True, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    rn.CHARGER_MAX_POWER_FROM_GRID: U32Register(
+        "kW", 10, 41008, writeable=True, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    rn.CHARGER_SURPLUS_POWER_START_THRESHOLD: U32Register(
+        "kW", 10, 41010, writeable=True, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    rn.CHARGER_GUN_LOCK_PRESENT: U32Register(
+        rv.ChargerGunLockPresence, 1, 41012, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    rn.CHARGER_METER_DERATING_CHARGE_CURRENT: U32Register(
+        "A", 1, 41014, writeable=True, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    rn.CHARGER_MIN_START_POWER: U32Register("kW", 10, 41016, target_device=TargetDevice.SMART_AC_GUN),
+    rn.CHARGER_ELECTRICITY_PRIORITY: U32Register(
+        None, 1, 41018, writeable=True, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    rn.CHARGER_DYNAMIC_POWER_CONTROL: U32Register(
+        bool, 1, 41020, writeable=True, target_device=TargetDevice.SMART_AC_GUN
+    ),
+    rn.CHARGER_ONLINE_STATUS: U16Register(None, 1, 65534, target_device=TargetDevice.SMART_AC_GUN),
 }
 
 REGISTERS.update(SCHARGER_REGISTERS)
+REGISTERS.update(SMART_AC_GUN_REGISTERS)
 
 METER_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.METER_STATUS: U16Register(rv.MeterStatus, 1, 37100),
@@ -978,6 +1207,50 @@ SDONGLE_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.SDONGLE_DEVICE_OPERATION_SN: StringRegister(47402, 10, target_device=TargetDevice.SDONGLE),
     rn.SDONGLE_DEVICE_OPERATION_COMMAND: StringRegister(47412, 1, target_device=TargetDevice.SDONGLE),
     rn.SDONGLE_START_DEVICE_SEARCH: U16Register(None, 1, 47413, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_PLC_BAUD_RATE: U16Register("bps", 1, 43113, writeable=True, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_4G_NETWORK_MODE: U16Register(
+        rv.Dongle4GNetworkMode,
+        1,
+        43997,
+        writeable=True,
+        target_device=TargetDevice.SDONGLE,
+    ),
+    rn.SDONGLE_4G_APN_MODE: U16Register(
+        rv.Dongle4GApnMode,
+        1,
+        43998,
+        writeable=True,
+        target_device=TargetDevice.SDONGLE,
+    ),
+    rn.SDONGLE_4G_AUTHENTICATION_TYPE: U16Register(
+        rv.Dongle4GAuthenticationType,
+        1,
+        43999,
+        writeable=True,
+        target_device=TargetDevice.SDONGLE,
+    ),
+    rn.SDONGLE_4G_MONTHLY_PACKAGE_TRAFFIC: U16Register(
+        "MB",
+        1,
+        44000,
+        writeable=True,
+        target_device=TargetDevice.SDONGLE,
+    ),
+    rn.SDONGLE_4G_APN: StringRegister(44002, 16, writeable=True, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_4G_DIAL_NUMBER: StringRegister(44018, 16, writeable=True, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_4G_USER_NAME: StringRegister(44034, 16, writeable=True, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_4G_SIGNAL_STRENGTH: U16Register(
+        rv.Dongle4GSignalStrength,
+        1,
+        44081,
+        target_device=TargetDevice.SDONGLE,
+    ),
+    rn.SDONGLE_4G_MODULE_STATUS: U16Register(
+        rv.Dongle4GModuleStatus,
+        1,
+        44099,
+        target_device=TargetDevice.SDONGLE,
+    ),
 }
 REGISTERS.update(SDONGLE_REGISTERS)
 
@@ -1495,6 +1768,14 @@ SMARTLOGGER_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.SMARTLOGGER_DEVICE_LIST_CHANGE: U16Register(None, 1, 65521, target_device=TargetDevice.SMARTLOGGER),
     rn.SMARTLOGGER_DEVICE_NAME: StringRegister(65524, 10, target_device=TargetDevice.SMARTLOGGER),
     rn.SMARTLOGGER_DEVICE_CONNECTION_STATUS: U16Register(None, 1, 65534, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_SOFTWARE_PACKAGE_NAME: StringRegister(20689, 30, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EMI_OPERATION_MODE: U16Register(
+        rv.SmartLoggerEmiOperationMode,
+        1,
+        41001,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
 }
 
 REGISTERS.update(SMARTLOGGER_REGISTERS)

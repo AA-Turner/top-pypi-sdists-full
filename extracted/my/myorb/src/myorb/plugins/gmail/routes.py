@@ -28,6 +28,7 @@ from myorb.plugins.gmail.message import (
     attachment_type,
     embed_inline,
     frame_document,
+    link_pictures,
     message_parts,
     read_message,
     size_label,
@@ -140,7 +141,16 @@ async def _fetch_inline(request: Request, account: GoogleAccount, messages: list
         )
     )
     for message in messages:
-        message["html"] = embed_inline(message["html"], message["inline"])
+        links = {
+            f"cid:{image['cid']}".lower(): (
+                f"/email/{account.id}/attachment/{message['id']}/{image['part']}"
+            )
+            for image in message["inline"]
+            if image["part"]
+        }
+        message["html"] = embed_inline(
+            link_pictures(message["html"], links, remote=False), message["inline"]
+        )
 
 
 async def _attachment(
@@ -157,7 +167,8 @@ async def _attachment(
             (
                 p
                 for p in message_parts(message.get("payload", {}))
-                if p.get("partId") == part_id and p.get("filename")
+                if p.get("partId") == part_id
+                and (p.get("filename") or p.get("mimeType", "").startswith("image/"))
             ),
             None,
         )
@@ -174,7 +185,7 @@ async def _attachment(
         content = base64.urlsafe_b64decode((data or "") + "=" * (-len(data or "") % 4))
     except (binascii.Error, ValueError) as error:
         raise HTTPException(status_code=502, detail="The attachment could not be read.") from error
-    return part["filename"], attachment_type(part), content
+    return part.get("filename") or "picture", attachment_type(part), content
 
 
 @router.get("/email/{account_id}/attachment/{message_id}/{part_id}")

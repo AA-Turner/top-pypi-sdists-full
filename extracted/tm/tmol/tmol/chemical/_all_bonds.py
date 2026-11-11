@@ -1,10 +1,10 @@
 import numpy
 
 from typing import Tuple
-from tmol.types import NDArray
+from tmol.types._array import NDArray
 
 
-def bonds_and_bond_ranges(
+def _bonds_and_bond_ranges(
     n_atoms: int,
     intra_res_bonds: NDArray[numpy.int32][:, 2],
     ordered_connection_atoms: NDArray[numpy.int32][:],
@@ -49,9 +49,8 @@ def bonds_and_bond_ranges(
     for i in range(n_atoms):
         i_n_bonds = count_intra_bonds[i] + count_inter_bonds[i]
         if i == 0:
-            if i_n_bonds > 0:
-                bond_ranges[i, 0] = 0
-                bond_ranges[i, 1] = i_n_bonds
+            bond_ranges[i, 0] = 0
+            bond_ranges[i, 1] = i_n_bonds
         else:
             bond_ranges[i, 0] = bond_ranges[i - 1, 1]
             bond_ranges[i, 1] = bond_ranges[i - 1, 1] + i_n_bonds

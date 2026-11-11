@@ -1,7 +1,7 @@
 import hashlib
 import time
 from contextlib import contextmanager
-from typing import Any, Dict, Generator, Optional, cast
+from typing import Any, Callable, Dict, Generator, List, Optional, cast
 
 import psycopg
 import sqlalchemy as sa
@@ -24,11 +24,26 @@ from ._sys_db import (
     _dbos_notifications_channel,
     _dbos_streams_channel,
     _dbos_workflow_events_channel,
+    advisory_lock_key,
+    lock_name,
 )
 from ._utils import quote_identifier
 
 # How long a background job's lock may sit idle before Postgres ends its holder's session.
 BACKGROUND_JOB_LOCK_IDLE_TIMEOUT_MS = 5000
+
+
+def unprepared_scalar(c: sa.Connection, statement: str) -> Any:
+    """Run a statement unbound and unprepared, returning its first value if any: a bound or
+    prepared statement's portal keeps its snapshot, and so an xmin, while the session idles.
+    """
+    raw = cast("psycopg.Connection[Any]", c.connection.dbapi_connection)
+    cursor = raw.execute(statement.encode(), prepare=False)
+    try:
+        row = cursor.fetchone() if cursor.description is not None else None
+    finally:
+        cursor.close()
+    return row[0] if row is not None else None
 
 
 def _sets_idle_transaction_timeout(url: sa.URL, engine_kwargs: Dict[str, Any]) -> bool:
@@ -166,35 +181,83 @@ class PostgresSystemDatabase(SystemDatabase):
                 self.notification_conn.invalidate()
 
     @contextmanager
-    def background_job_lock(self, job_name: str) -> Generator[bool, None, None]:
+    def background_job_lock(
+        self, job_name: str
+    ) -> Generator[Optional[Callable[[], None]], None, None]:
         # CockroachDB grants every advisory lock, so each process runs every job.
         if self._is_cockroach:
-            yield True
+            yield lambda: None
             return
-        # Leading 8 bytes of SHA-256, big-endian signed, as for the retention lock.
         name = f"dbos.background_job.{self.schema}.{self.app_name or ''}.{job_name}"
-        key = int.from_bytes(
-            hashlib.sha256(name.encode()).digest()[:8], "big", signed=True
-        )
-        with self.engine.connect() as c:
+        key = advisory_lock_key(name)
+        with self.engine.connect().execution_options(
+            isolation_level="READ COMMITTED"
+        ) as c:
+            # Begun here, as the lock statements bypass SQLAlchemy, so its rollback releases them.
+            c.begin()
             # The local idle timeout ends a frozen holder's session, releasing its lock.
             acquired = bool(
-                c.execute(
-                    sa.text(
-                        "SELECT pg_try_advisory_xact_lock(:key) FROM set_config("
-                        "'idle_in_transaction_session_timeout', :timeout, true)"
-                    ),
-                    {"key": key, "timeout": str(BACKGROUND_JOB_LOCK_IDLE_TIMEOUT_MS)},
-                ).scalar()
+                unprepared_scalar(
+                    c,
+                    f"SELECT pg_try_advisory_xact_lock({int(key)}) FROM set_config("
+                    "'idle_in_transaction_session_timeout', "
+                    f"'{int(BACKGROUND_JOB_LOCK_IDLE_TIMEOUT_MS)}', true)",
+                )
             )
+
+            def renew() -> None:
+                # Snapshot-free, so a concurrent index build never waits on it; fails if the session ended.
+                unprepared_scalar(
+                    c,
+                    "SET LOCAL idle_in_transaction_session_timeout = "
+                    f"'{int(BACKGROUND_JOB_LOCK_IDLE_TIMEOUT_MS)}'",
+                )
+
             try:
-                yield acquired
+                yield renew if acquired else None
             finally:
                 try:
                     c.rollback()
                 except Exception as e:
                     # A session the idle timeout ended has released the lock already.
                     dbos_logger.debug(f"Could not release the {job_name} lock: {e}")
+
+    def _uses_claim_locks(self) -> bool:
+        # CockroachDB grants every advisory lock, so it relies on SERIALIZABLE claims instead.
+        return self.sharded or not self._is_cockroach
+
+    def _claim_lock(
+        self, c: sa.Connection, queue_name: str, partition_key: Optional[str]
+    ) -> Optional[bool]:
+        name = lock_name("dbos.queue_claim", self.schema, queue_name, partition_key)
+        return bool(
+            c.execute(
+                sa.text("SELECT pg_try_advisory_xact_lock(CAST(:key AS bigint))"),
+                {"key": advisory_lock_key(name)},
+            ).scalar()
+        )
+
+    def _partition_locks(
+        self, c: sa.Connection, queue_name: str, partition_keys: List[str]
+    ) -> List[str]:
+        # Two-int keys: the queue, then the partition, hashed so every worker computes the same lock.
+        name = lock_name("dbos.partition_claim", self.schema, queue_name)
+        queue_id = int.from_bytes(
+            hashlib.sha256(name.encode()).digest()[4:8], "big", signed=True
+        )
+        lock_ids = [
+            int.from_bytes(hashlib.sha256(pk.encode()).digest()[:4], "big", signed=True)
+            for pk in partition_keys
+        ]
+        held = c.execute(
+            sa.text(
+                "SELECT coalesce(array_agg(p.pk), '{}') "
+                "FROM unnest(CAST(:pks AS text[]), CAST(:lock_ids AS int4[])) AS p(pk, lock_id) "
+                "WHERE pg_try_advisory_xact_lock(CAST(:queue_id AS int4), p.lock_id)"
+            ),
+            {"pks": partition_keys, "lock_ids": lock_ids, "queue_id": queue_id},
+        ).scalar()
+        return list(held or [])
 
     def _set_statement_timeout(self, conn: sa.Connection, timeout_ms: int) -> None:
         """SET LOCAL, so the cap covers exactly this transaction and is reverted on

@@ -186,6 +186,50 @@ def test_reweight(dyn, ndim):
                   res0['logz'][-1]) < 3 * res1['logzerr'][-1]
 
 
+def test_jitter_information():
+    # test that jitter_run recomputes the information
+    ndim = 2
+    rstate = get_rstate()
+    sampler = dynesty.NestedSampler(loglike,
+                                    prior_transform,
+                                    ndim,
+                                    nlive=nlive,
+                                    rstate=rstate)
+    sampler.run_nested(print_progress=printing)
+    res0 = sampler.results
+    res1 = dyutil.jitter_run(res0, rstate=rstate)
+    info = dyutil.compute_integrals(logl=res1['logl'],
+                                    logvol=res1['logvol'],
+                                    logvol_init=res1['logvol_init'])[3]
+    assert not np.allclose(res1['information'], res0['information'])
+    assert np.allclose(res1['information'], info)
+
+
+def test_reweight_information():
+    # test that reweight_run computes the information
+    # of the reweighted posterior
+    ndim = 2
+    rstate = get_rstate()
+    sampler = dynesty.NestedSampler(loglike,
+                                    prior_transform,
+                                    ndim,
+                                    nlive=500,
+                                    rstate=rstate)
+    sampler.run_nested(print_progress=printing)
+    res0 = sampler.results
+    # reweight the unit gaussian to a gaussian with sigma=s
+    s = 0.5
+    logl_new = -0.5 * np.sum((res0['samples'] / s)**2, axis=1)
+    res1 = dyutil.reweight_run(res0, logl_new)
+    # information of the gaussian with respect to the uniform prior
+    info_true = ndim * (np.log(2 * size / s / np.sqrt(2 * np.pi)) - 0.5)
+    assert np.abs(res1['information'][-1] - info_true) < 0.3
+    # reweighting with the same likelihood changes nothing
+    res2 = dyutil.reweight_run(res0, res0['logl'])
+    assert np.allclose(res2['information'], res0['information'])
+    assert np.allclose(res2['logzerr'], res0['logzerr'])
+
+
 def test_livepoints():
     # Test the providing of initial live-points to the sampler
     ndim = 2
@@ -385,6 +429,192 @@ def test_update_interval(dyn):
         bigres[i] = len(sampler.results.bound)
     assert (bigres[1] > bigres[0])
     assert (bigres[1] == bigres[2])
+
+
+@pytest.mark.parametrize('bound', ['multi', 'single', 'balls'])
+def test_saved_bounds_distinct(bound):
+    # the saved bounds must be snapshots of the bound at each update,
+    # not references to the one live bound object (which is mutated in
+    # place), otherwise every saved bound describes the final state
+    ndim = 2
+    rstate = get_rstate()
+    sampler = dynesty.NestedSampler(loglike,
+                                    prior_transform,
+                                    ndim,
+                                    nlive=nlive,
+                                    bound=bound,
+                                    rstate=rstate)
+    sampler.run_nested(print_progress=printing)
+    res = sampler.results
+    bounds = res['bound']
+    assert len(bounds) == sampler.nbound
+    assert len(bounds) > 3
+    assert len(set(map(id, sampler.bound_list))) == len(bounds)
+    logvols = np.array([b.logvol for b in bounds[1:]])
+    # each saved bound is a different snapshot and the bounds shrink
+    # over the run (not strictly monotonically because of bootstrapping)
+    assert len(np.unique(logvols)) == len(logvols)
+    assert logvols[-1] < logvols[0] - 1
+
+    # rewind the live points to a mid-run iteration (as boundplot does)
+    # and check they lie inside the bound recorded for that iteration
+    nlive_ = res['nlive']
+    niter = res['niter']
+    assert len(res['samples']) - niter == nlive_
+    samples = res['samples_u']
+    samples_id = res['samples_id']
+    live_u = np.empty((nlive_, ndim))
+    live_u[samples_id[-nlive_:]] = samples[-nlive_:]
+    # pick an iteration that used the first (largest) non-unit-cube bound
+    bound_iter = res['bound_iter']
+    it = int(np.nonzero(bound_iter == 1)[0].mean())
+    for i in range(1, niter - it + 1):
+        r = -(nlive_ + i)
+        live_u[samples_id[r]] = samples[r]
+    bnd = bounds[bound_iter[it]]
+    inside = np.array([bnd.contains(u) for u in live_u])
+    assert inside.mean() > 0.9
+
+
+@pytest.mark.parametrize('add_live', [True, False])
+def test_saved_bounds_samples_static(add_live):
+    # every sample of a static run must record the index of the bound
+    # it was proposed from (samples_bound), and that index must be valid
+    ndim = 2
+    rstate = get_rstate()
+    sampler = dynesty.NestedSampler(loglike,
+                                    prior_transform,
+                                    ndim,
+                                    nlive=nlive,
+                                    rstate=rstate)
+    sampler.run_nested(print_progress=printing, add_live=add_live)
+    res = sampler.results
+    nsamps = len(res['samples'])
+    samples_bound = res['samples_bound']
+    bound_iter = res['bound_iter']
+    assert len(samples_bound) == nsamps
+    assert len(bound_iter) == nsamps
+    assert np.all((samples_bound >= 0)
+                  & (samples_bound < len(res['bound'])))
+    # a point is proposed from a bound before it dies
+    assert np.all(samples_bound <= bound_iter)
+    # both the unit cube and the later bounds were used
+    assert np.any(samples_bound == 0)
+    assert np.any(samples_bound > 0)
+
+
+def test_saved_bounds_dynamic():
+    # bounds from the base run and from every batch must all be kept
+    # and the bound indices of the samples must point into that
+    # combined list
+    ndim = 2
+    rstate = get_rstate()
+    sampler = dynesty.DynamicNestedSampler(loglike,
+                                           prior_transform,
+                                           ndim,
+                                           nlive=nlive,
+                                           rstate=rstate)
+    sampler.run_nested(print_progress=printing, maxbatch=0)
+    base_logvols = [b.logvol for b in sampler.results['bound']]
+    nbase = len(base_logvols)
+    assert nbase > 3
+
+    # batch 1 starts above the likelihood at which the base run switched
+    # from the unit cube to a proper bound, so its points are drawn from
+    # a bound built from the base run; batch 2 starts from the prior
+    logl = sampler.results['logl']
+    logl_first = sampler.sampler.logl_first_update
+    lmin = max(np.percentile(logl, 60), np.nextafter(logl_first, np.inf))
+    offsets = []
+    for lb in [(lmin, np.percentile(logl, 95)), (-np.inf, np.median(logl))]:
+        offsets.append(len(sampler.bound_list))
+        sampler.add_batch(nlive=nlive,
+                          mode='manual',
+                          logl_bounds=lb,
+                          print_progress=printing)
+    offsets.append(len(sampler.bound_list))
+    res = sampler.results
+    bounds = res['bound']
+    bound_iter = res['bound_iter']
+    samples_bound = res['samples_bound']
+    batch = res['samples_batch']
+
+    # the base run bounds are untouched by the batches
+    assert offsets[0] == nbase
+    assert [b.logvol for b in bounds[:nbase]] == base_logvols
+    assert len(bounds) == offsets[-1]
+    assert len(bounds) > nbase + 2
+
+    # every index is valid and points into the bounds of its own batch
+    for arr in [bound_iter, samples_bound]:
+        assert np.all((arr >= 0) & (arr < len(bounds)))
+        assert np.all(arr[batch == 0] < nbase)
+        for i in range(2):
+            sel = batch == i + 1
+            assert sel.sum() > 0
+            assert np.all((arr[sel] >= offsets[i]) & (arr[sel] < offsets[i + 1]))
+    # batch 1 never sampled from the unit cube (its initial live points
+    # included), batch 2 started from it
+    assert np.all(samples_bound[batch == 1] > offsets[0])
+    assert np.all(bound_iter[batch == 1] > offsets[0])
+    assert np.any(samples_bound[batch == 2] == offsets[1])
+
+    # rewind the live points of batch 1 to one of its iterations
+    # (as boundplot does) and check they are inside the recorded bound
+    bsel = batch == 1
+    nbatch = res['batch_nlive'][1]
+    niter_eff = bsel.sum() - nbatch
+    samples = res['samples_u'][bsel]
+    samples_id = res['samples_id'][bsel]
+    samples_id = samples_id - samples_id.min()
+    live_u = np.empty((nbatch, ndim))
+    live_u[samples_id[-nbatch:]] = samples[-nbatch:]
+    it = int(np.nonzero(bsel)[0][niter_eff // 2])
+    it_eff = bsel[:it + 1].sum()
+    for i in range(1, niter_eff - it_eff + 1):
+        r = -(nbatch + i)
+        live_u[samples_id[r]] = samples[r]
+    bnd = bounds[bound_iter[it]]
+    inside = np.array([bnd.contains(u) for u in live_u])
+    assert inside.mean() > 0.9
+
+
+@pytest.mark.parametrize('where', ['static', 'run', 'batch'])
+def test_saved_bounds_disabled(where):
+    # if the bounds of any part of a run are not saved, the bound indices
+    # of the samples cannot be interpreted, so no bound information must
+    # be returned in the results. The proposal scales must still be there
+    ndim = 2
+    rstate = get_rstate()
+    if where == 'static':
+        sampler = dynesty.NestedSampler(loglike,
+                                        prior_transform,
+                                        ndim,
+                                        nlive=nlive,
+                                        rstate=rstate)
+        sampler.run_nested(print_progress=printing, save_bounds=False)
+    else:
+        sampler = dynesty.DynamicNestedSampler(loglike,
+                                               prior_transform,
+                                               ndim,
+                                               nlive=nlive,
+                                               rstate=rstate)
+    if where == 'run':
+        sampler.run_nested(print_progress=printing,
+                           maxbatch=2,
+                           save_bounds=False)
+    elif where == 'batch':
+        sampler.run_nested(print_progress=printing, maxbatch=1)
+        assert 'bound' in sampler.results.keys()
+        sampler.add_batch(nlive=nlive,
+                          save_bounds=False,
+                          print_progress=printing)
+    res = sampler.results
+    if where != 'static':
+        assert res['samples_batch'].max() > 0
+    for k in ['bound', 'bound_iter', 'samples_bound']:
+        assert k not in res.keys()
+    assert len(res['scale']) == len(res['samples'])
 
 
 def prior_transform_large_logl(u):
@@ -675,6 +905,52 @@ def test_quantile():
     dyutil.quantile(rstate.normal(size=10), 0.5, weights=whts)
     with pytest.raises(Exception):
         dyutil.quantile(rstate.normal(size=10), 0.5, weights=np.ones(9))
+    with pytest.raises(ValueError):
+        dyutil.quantile(rstate.normal(size=3), 0.5, weights=np.zeros(3))
+    with pytest.raises(ValueError):
+        dyutil.quantile(rstate.normal(size=3), 0.5, weights=[1., -1, 1])
+    with pytest.raises(ValueError):
+        dyutil.quantile(rstate.normal(size=3), 0.5, weights=[1., np.inf, 1])
+
+
+def test_quantile_weighted():
+    # weighted Hazen (Hyndman & Fan 1996 Type 5) quantiles
+    rstate = get_rstate()
+    qs = np.array([0, 0.025, 0.16, 0.35, 0.5, 0.84, 0.975, 1])
+    n = 17
+    x = rstate.normal(size=n)
+    # equal weights give the Hazen estimator, i.e.
+    # np.percentile(x, 100 * qs, method='hazen')
+    hazen = np.interp(qs, (np.arange(n) + 0.5) / n, np.sort(x))
+    assert np.allclose(dyutil.quantile(x, qs, weights=np.ones(n) * 3), hazen)
+    # no weights is the same as equal weights
+    assert np.allclose(dyutil.quantile(x, qs), hazen)
+    # integer weights are accepted
+    assert np.allclose(dyutil.quantile(x, qs, weights=np.ones(n, dtype=int)),
+                       hazen)
+    # sample positions in the weighted CDF are 1/6, 7/18, 1/2, 7/9
+    # (the zero-weight sample is dropped)
+    assert np.isclose(
+        dyutil.quantile([1, 2, 3, 4, 5], 0.5,
+                        weights=[0.3, 0.1, 0, 0.1, 0.4])[0], 4)
+    w = rstate.exponential(size=n)
+    res = dyutil.quantile(x, qs, weights=w)
+    # result does not depend on the weight normalization
+    assert np.allclose(dyutil.quantile(x, qs, weights=w * 1e-300), res)
+    # the estimator is symmetric under x -> -x, q -> 1-q
+    assert np.allclose(dyutil.quantile(-x, 1 - qs, weights=w), -np.array(res))
+    # zero-weight samples are ignored
+    x2 = np.concatenate((x, [-100, 100]))
+    w2 = np.concatenate((w, [0, 0]))
+    assert np.allclose(dyutil.quantile(x2, qs, weights=w2), res)
+    # weights of the extreme samples are taken into account
+    assert dyutil.quantile([0, 1], 0.5, weights=[1, 1000])[0] > 0.99
+    assert dyutil.quantile([0, 1], 0.5, weights=[1000, 1])[0] < 0.01
+    # the extreme quantiles are the extreme samples with non-zero weight
+    assert np.allclose(dyutil.quantile(x2, [0, 1], weights=w2),
+                       [x.min(), x.max()])
+    # single sample
+    assert np.allclose(dyutil.quantile([3.], qs, weights=[2.]), 3)
 
 
 class Like3:
@@ -869,3 +1145,29 @@ def test_dynamic_sampling_history_completeness():
             os.unlink(history_filename)
         except FileNotFoundError:
             pass
+
+
+def test_ncall_consistency():
+    # sampler.ncall, sum of per-sample ncall and the final progress ncall
+    # must all equal the actual number of likelihood calls
+    ncalls = [0]
+
+    def loglike_count(x):
+        ncalls[0] += 1
+        return loglike(x)
+
+    last = {}
+
+    def print_func(results, niter, ncall, **kwargs):
+        last['ncall'] = ncall
+
+    sampler = dynesty.NestedSampler(loglike_count,
+                                    prior_transform,
+                                    2,
+                                    nlive=nlive,
+                                    sample='rwalk',
+                                    rstate=get_rstate())
+    sampler.run_nested(print_func=print_func)
+    assert sampler.ncall == ncalls[0]
+    assert sampler.results.ncall.sum() == ncalls[0]
+    assert last['ncall'] == ncalls[0]

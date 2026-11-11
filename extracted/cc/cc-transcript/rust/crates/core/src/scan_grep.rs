@@ -536,12 +536,8 @@ impl<'store> GrepReducer<'store> {
         Ok(output)
     }
 
-    pub fn streams(&self) -> bool {
-        !self.options.errors && !self.options.with_result
-    }
-
-    pub fn prefilters(&self) -> bool {
-        self.prefilter.is_some()
+    pub fn caches(&self) -> bool {
+        self.prefilter.is_none() && !self.options.errors && !self.options.with_result
     }
 
     fn matches(
@@ -763,12 +759,6 @@ fn preflight_render<'store>(
                 .map_or(0, |name| name.len())
                 .saturating_mul(8),
         );
-    }
-    if bytes > budget.remaining().max_output_bytes {
-        return Err(SnapshotError::new(
-            Status::OutputLimit,
-            "event render exceeds remaining output budget",
-        ));
     }
     let staging = budget.reserve_staging(bytes, cancel)?;
     let projected = crate::snapshot_codec::encoded_size(
@@ -1137,7 +1127,7 @@ mod tests {
     }
 
     #[test]
-    fn context_render_rejects_output_before_producer_is_visited() {
+    fn context_render_leaves_the_output_cap_to_the_rendered_line() {
         let source = snapshot(&[user("hit"), user(&"x".repeat(32768))]);
         let owner = crate::snapshot::NativeStore::new(&json!({})).unwrap();
         let mut budget = budget(&owner);
@@ -1148,15 +1138,18 @@ mod tests {
             .scan_source(&source, &mut budget, &Cancellation::default())
             .unwrap();
         budget.limits.max_output_bytes = 1024;
-        let mut visited = false;
-        let admission = result
+        let output = budget.progress.output_bytes;
+        let _staging = result
             .preflight_render(&source, 1, &mut budget, &Cancellation::default())
-            .map(|_staging| {
-                visited = true;
-                haystack(source.entry(1), true, true, true)
-            });
-        assert_eq!(admission.err().unwrap().status, Status::OutputLimit);
-        assert!(!visited);
+            .unwrap();
+        assert_eq!(budget.progress.output_bytes, output);
+        assert_eq!(
+            budget
+                .charge_output(1025, &Cancellation::default())
+                .unwrap_err()
+                .status,
+            Status::OutputLimit
+        );
     }
 
     #[test]

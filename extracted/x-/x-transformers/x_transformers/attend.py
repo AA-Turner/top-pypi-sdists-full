@@ -28,6 +28,7 @@ class Intermediates:
     layer_type:         str | None = None
     hybrid_hidden:      Tensor | None = None
     log_probs:          Tensor | None = None
+    value_prefix_out:   Tensor | None = None
 
     def to_tuple(self):
         return (self.qk_similarities, self.pre_softmax_attn, self.post_softmax_attn)
@@ -501,6 +502,7 @@ class Attend(Module):
         sink_logits = None,
         flash_pack_seq_kwargs = None,
         causal = None,
+        num_unrotated_kv = 0,
     ):
         """
         einstein notation
@@ -544,7 +546,7 @@ class Attend(Module):
             if exists(attn_bias):
                 attn_bias = F.pad(attn_bias, (1, 0), value = 0.)
 
-        if self.flash and not exists(attn_delta):
+        if self.flash and not exists(attn_delta) and num_unrotated_kv == 0:
             assert not exists(prev_attn), 'residual attention not compatible with flash attention'
             return self.flash_attn(q, k, v, mask = mask, attn_bias = attn_bias, flash_pack_seq_kwargs = flash_pack_seq_kwargs)
 
@@ -660,15 +662,28 @@ class Attend(Module):
         if exists(self.pre_scale_post_talking_heads):
             attn = attn * pre_to_post_scale
 
-        out = einsum(f'b h i j, {kv_einsum_eq} -> b h i d', attn, v)
+        value_prefix_out = None
+
+        if num_unrotated_kv > 0:
+            prefix = num_unrotated_kv + int(self.add_zero_kv)
+            attn_prefix, attn_content = attn[..., :prefix], attn[..., prefix:]
+            v_prefix, v_content = v[..., :prefix, :], v[..., prefix:, :]
+            value_prefix_out = einsum(f'b h i j, {kv_einsum_eq} -> b h i d', attn_prefix, v_prefix)
+            out = einsum(f'b h i j, {kv_einsum_eq} -> b h i d', attn_content, v_content)
+        else:
+            out = einsum(f'b h i j, {kv_einsum_eq} -> b h i d', attn, v)
+
+        if exists(row_is_entirely_masked):
+            out = out.masked_fill(row_is_entirely_masked[..., None], 0.)
+
+            if exists(value_prefix_out):
+                value_prefix_out = value_prefix_out.masked_fill(row_is_entirely_masked[..., None], 0.)
 
         intermediates = Intermediates(
             qk_similarities = qk_similarities,
             pre_softmax_attn = pre_softmax_attn,
-            post_softmax_attn = post_softmax_attn
+            post_softmax_attn = post_softmax_attn,
+            value_prefix_out = value_prefix_out
         )
-
-        if exists(row_is_entirely_masked):
-            out = out.masked_fill(row_is_entirely_masked[..., None], 0.)
 
         return out, intermediates

@@ -2,12 +2,15 @@
   Get counts per provided states
     Input:
       KEYS[1]    'prefix'
-      ARGV[1...] types
+      ARGV[1]    optional delayed timestamp cutoff (milliseconds)
+      ARGV[...]  types (starts at 1 when no cutoff is provided)
 ]]
 local rcall = redis.call;
 local prefix = KEYS[1]
 local results = {}
-for i = 1, #ARGV do
+local delayedTimestamp = tonumber(ARGV[1])
+local firstType = delayedTimestamp and 2 or 1
+for i = firstType, #ARGV do
   local stateKey = prefix .. ARGV[i]
   if ARGV[i] == "wait" or ARGV[i] == "paused" then
     -- Markers in waitlist DEPRECATED in v5: Remove in v6.
@@ -25,6 +28,10 @@ for i = 1, #ARGV do
     end
   elseif ARGV[i] == "active" then
     results[#results+1] = rcall("LLEN", stateKey)
+  elseif ARGV[i] == "delayed" and delayedTimestamp then
+    -- The low 12 score bits order jobs within a millisecond. Subtracting one
+    -- excludes every job scheduled at the cutoff timestamp or later.
+    results[#results+1] = rcall("ZCOUNT", stateKey, "-inf", delayedTimestamp * 0x1000 - 1)
   else
     results[#results+1] = rcall("ZCARD", stateKey)
   end

@@ -19,11 +19,13 @@ from temporalio.bridge.proto.workflow_activation.workflow_activation_pb2 import 
 )
 from temporalio.bridge.proto.workflow_commands.workflow_commands_pb2 import (
     CompleteWorkflowExecution,
+    FailWorkflowExecution,
     ScheduleActivity,
     ScheduleLocalActivity,
     ScheduleNexusOperation,
     SignalExternalWorkflowExecution,
     StartChildWorkflowExecution,
+    UpdateResponse,
     WorkflowCommand,
 )
 
@@ -34,6 +36,7 @@ class CommandInfo:
 
     command_type: CommandType.ValueType
     command_seq: int
+    update_protocol_instance_id: str | None = None
 
 
 current_command_info: contextvars.ContextVar[CommandInfo | None] = (
@@ -78,6 +81,12 @@ class CommandAwarePayloadVisitor(PayloadVisitor):
                 fs, o
             )
 
+    async def _visit_coresdk_workflow_commands_FailWorkflowExecution(
+        self, fs: VisitorFunctions, o: FailWorkflowExecution
+    ) -> None:
+        with current_command(CommandType.COMMAND_TYPE_FAIL_WORKFLOW_EXECUTION, 0):
+            await super()._visit_coresdk_workflow_commands_FailWorkflowExecution(fs, o)
+
     async def _visit_coresdk_workflow_commands_ScheduleActivity(
         self, fs: VisitorFunctions, o: ScheduleActivity
     ) -> None:
@@ -115,6 +124,17 @@ class CommandAwarePayloadVisitor(PayloadVisitor):
     ) -> None:
         with current_command(CommandType.COMMAND_TYPE_SCHEDULE_NEXUS_OPERATION, o.seq):
             await super()._visit_coresdk_workflow_commands_ScheduleNexusOperation(fs, o)
+
+    async def _visit_coresdk_workflow_commands_UpdateResponse(
+        self, fs: VisitorFunctions, o: UpdateResponse
+    ) -> None:
+        # Updates have no sequence number, so they're identified by protocol instance ID
+        with current_command(
+            CommandType.COMMAND_TYPE_PROTOCOL_MESSAGE,
+            0,
+            update_protocol_instance_id=o.protocol_instance_id,
+        ):
+            await super()._visit_coresdk_workflow_commands_UpdateResponse(fs, o)
 
     async def _visit_coresdk_workflow_commands_WorkflowCommand(
         self, fs: VisitorFunctions, o: WorkflowCommand
@@ -194,11 +214,18 @@ class CommandAwarePayloadVisitor(PayloadVisitor):
 
 @contextmanager
 def current_command(
-    command_type: CommandType.ValueType, command_seq: int
+    command_type: CommandType.ValueType,
+    command_seq: int,
+    *,
+    update_protocol_instance_id: str | None = None,
 ) -> Iterator[None]:
     """Context manager for setting command info."""
     token = current_command_info.set(
-        CommandInfo(command_type=command_type, command_seq=command_seq)
+        CommandInfo(
+            command_type=command_type,
+            command_seq=command_seq,
+            update_protocol_instance_id=update_protocol_instance_id,
+        )
     )
     try:
         yield

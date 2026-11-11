@@ -451,6 +451,7 @@ def test_semantics_valid_target_class():
     """A class derivation matching a target schema class produces no errors."""
     spec = normalize_spec_dict(
         {
+            "mint_ids": True,
             "class_derivations": {"Person": {"populated_from": "Person"}},
         }
     )
@@ -491,6 +492,7 @@ def test_semantics_valid_slot_derivation():
     """A slot derivation matching a target class slot produces no errors."""
     spec = normalize_spec_dict(
         {
+            "mint_ids": True,
             "class_derivations": {
                 "Person": {
                     "populated_from": "Person",
@@ -1729,3 +1731,302 @@ def test_joined_class_attr_error_uses_class_named_when_aliased():
     msg = warnings[0].message
     assert "joined class 'Reading'" in msg
     assert "alias 'readings'" in msg
+
+
+# ---------------------------------------------------------------------------
+# Enum literals against the target enum (#360)
+# ---------------------------------------------------------------------------
+
+_ENUM_TARGET_SCHEMA = textwrap.dedent(
+    """
+    id: https://example.org/enum-target
+    name: enum-target
+    prefixes:
+      linkml: 'https://w3id.org/linkml/'
+      OMOP: 'https://athena.ohdsi.org/search-terms/terms/'
+    imports: [linkml:types]
+    default_range: string
+    enums:
+      SexEnum:
+        permissible_values:
+          "OMOP:8532": {title: FEMALE, meaning: "OMOP:8532"}
+          "OMOP:8507": {title: MALE, meaning: "OMOP:8507"}
+      Open:
+        reachable_from:
+          source_ontology: obo:mondo
+          source_nodes: ["MONDO:0000001"]
+    classes:
+      Participant:
+        attributes:
+          sex: {range: SexEnum}
+          disease: {range: Open}
+          note: {}
+    """
+)
+
+
+def _enum_literal_msgs(slot_derivation: dict, *, strict: bool = False) -> list[ValidationMessage]:
+    spec = normalize_spec_dict({"class_derivations": {"Participant": {"slot_derivations": slot_derivation}}})
+    msgs = validate_spec_semantics(spec, target_schemaview=SchemaView(_ENUM_TARGET_SCHEMA), strict=strict)
+    return [m for m in msgs if "permissible value" in m.message and m.category != "range-override"]
+
+
+@pytest.mark.parametrize(
+    "slot_derivation",
+    [
+        {"sex": {"value": "FEMALE"}},
+        {"sex": {"value": "OMOP:8507"}},
+        {"sex": {"value": "https://athena.ohdsi.org/search-terms/terms/8507"}},
+        {"sex": {"populated_from": "gender", "value_mappings": {"f": "FEMALE", "m": "OMOP:8507", "u": None}}},
+        {"disease": {"value": "anything"}},
+        {"note": {"value": "anything"}},
+        {"sex": {"value": "female", "range": "string"}},
+    ],
+    ids=["title", "key", "meaning-uri", "value-mappings", "open-enum", "non-enum", "spec-range-wins"],
+)
+def test_semantics_enum_literals_that_resolve(slot_derivation):
+    """Any spelling the runtime resolves passes; open enums and non-enum ranges are not checked."""
+    assert _enum_literal_msgs(slot_derivation) == []
+
+
+def test_semantics_unresolved_enum_literals_warn():
+    """A value or value_mappings target that names no permissible value is reported."""
+    msgs = _enum_literal_msgs(
+        {"sex": {"populated_from": "gender", "value_mappings": {"f": "FEMALE", "x": "OTHER"}}},
+    )
+    assert [(m.severity, m.message) for m in msgs] == [
+        ("warning", "value_mappings[x]: 'OTHER' is not a permissible value of enum SexEnum"),
+    ]
+
+
+def test_semantics_unresolved_enum_literal_strict_error():
+    """Under strict, an unresolved literal is an error."""
+    msgs = _enum_literal_msgs({"sex": {"value": "female"}}, strict=True)
+    assert [(m.severity, m.message) for m in msgs] == [
+        ("error", "value: 'female' is not a permissible value of enum SexEnum"),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Spec range overriding the target slot's range
+# ---------------------------------------------------------------------------
+
+_RANGE_TARGET_SCHEMA = textwrap.dedent(
+    """
+    id: https://example.org/range-target
+    name: range-target
+    prefixes: {linkml: 'https://w3id.org/linkml/'}
+    imports: [linkml:types]
+    default_range: string
+    types:
+      Score:
+        typeof: decimal
+    enums:
+      Relationship:
+        permissible_values:
+          ONESELF: {}
+    classes:
+      Site:
+        attributes:
+          id: {identifier: true}
+      Participant:
+        attributes:
+          relationship: {range: Relationship}
+          amount: {range: decimal}
+          score: {range: Score}
+          ratio: {range: float}
+          count: {range: integer}
+          flag: {range: boolean}
+          note: {range: string}
+          site: {range: Site}
+    """
+)
+
+
+def _range_override_msgs(slot_derivation: dict, *, strict: bool = False) -> list[ValidationMessage]:
+    spec = normalize_spec_dict({"class_derivations": {"Participant": {"slot_derivations": slot_derivation}}})
+    msgs = validate_spec_semantics(spec, target_schemaview=SchemaView(_RANGE_TARGET_SCHEMA), strict=strict)
+    return [m for m in msgs if m.category == "range-override"]
+
+
+@pytest.mark.parametrize(
+    ("slot_derivation", "message"),
+    [
+        (
+            {"relationship": {"value": "ONESELF", "range": "string"}},
+            "range 'string' overrides the target slot's range 'Relationship', so its values aren't resolved "
+            "to the target enum's permissible values. Remove the range to use the target schema's.",
+        ),
+        (
+            {"amount": {"value": "1.5", "range": "string"}},
+            "range 'string' overrides the target slot's range 'decimal', so its values aren't coerced to "
+            "decimal. Remove the range to use the target schema's.",
+        ),
+        (
+            {"note": {"value": "1", "range": "integer"}},
+            "range 'integer' overrides the target slot's range 'string', so its values aren't coerced to "
+            "string. Remove the range to use the target schema's.",
+        ),
+        (
+            {"count": {"value": "1.5", "range": "float"}},
+            "range 'float' overrides the target slot's range 'integer', so its values aren't coerced to "
+            "integer. Remove the range to use the target schema's.",
+        ),
+        (
+            {"flag": {"value": "true", "range": "string"}},
+            "range 'string' overrides the target slot's range 'boolean', so its values aren't coerced to "
+            "boolean. Remove the range to use the target schema's.",
+        ),
+    ],
+    ids=["enum", "decimal", "string", "float-into-integer", "boolean"],
+)
+def test_semantics_conflicting_range_warns(slot_derivation, message):
+    """A spec range that keeps values from matching the target slot's range is reported."""
+    assert [(m.severity, m.message) for m in _range_override_msgs(slot_derivation)] == [("warning", message)]
+
+
+@pytest.mark.parametrize(
+    "slot_derivation",
+    [
+        {"relationship": {"value": "ONESELF"}},
+        {"relationship": {"value": "ONESELF", "range": "Relationship"}},
+        {"score": {"value": "0.1", "range": "decimal"}},
+        {"note": {"value": "ONESELF", "range": "Relationship"}},
+        {"site": {"value": "S1", "range": "string"}},
+        {"amount": {"value": "1", "range": "integer"}},
+        {"amount": {"value": "1.5", "range": "float"}},
+        {"ratio": {"value": "1", "range": "integer"}},
+        {"note": {"value": "2020-01-01", "range": "date"}},
+        {"note": {"value": "X:1", "range": "uriorcurie"}},
+    ],
+    ids=[
+        "no-range",
+        "same-range",
+        "same-datatype",
+        "enum-into-string",
+        "class-range",
+        "integer-into-decimal",
+        "float-into-decimal",
+        "integer-into-float",
+        "date-into-string",
+        "uriorcurie-into-string",
+    ],
+)
+def test_semantics_compatible_range_not_reported(slot_derivation):
+    """A range whose values still validate against the target slot's is fine; class ranges aren't checked."""
+    assert _range_override_msgs(slot_derivation) == []
+
+
+def test_semantics_conflicting_range_strict_error():
+    """Under strict, a conflicting range is an error."""
+    msgs = _range_override_msgs({"amount": {"value": "1.5", "range": "string"}}, strict=True)
+    assert [m.severity for m in msgs] == ["error"]
+
+
+def _dotted_spec(slot_derivation: dict, joins: dict | None = None) -> dict:
+    cd = {"populated_from": "Measurement", "slot_derivations": {"value": slot_derivation}}
+    if joins is not None:
+        cd["joins"] = joins
+    return normalize_spec_dict({"class_derivations": {"Outer": cd}})
+
+
+@pytest.mark.parametrize(
+    ("slot_derivation", "joins"),
+    [
+        ({"populated_from": "Reading.score"}, {"Reading": {"join_on": "subject_id"}}),
+        ({"populated_from": "Reading.score"}, None),
+        ({"expr": "{Reading.score}"}, None),
+        ({"populated_from": "method.label"}, None),
+    ],
+    ids=["explicit-join", "implicit-join", "implicit-join-expr", "path-through-source-slot"],
+)
+def test_dotted_reference_to_joined_class_or_slot_passes(slot_derivation: dict, joins: dict | None):
+    """A dotted reference through a joined class, or a source slot, is not reported as missing."""
+    msgs = validate_spec_semantics(_dotted_spec(slot_derivation, joins), source_schemaview=SchemaView(JOINABLE_SCHEMA))
+    assert [m.message for m in msgs if m.severity in ("error", "warning")] == []
+
+
+@pytest.mark.parametrize(
+    "joins", [{"Reading": {"join_on": "subject_id"}}, None], ids=["explicit-join", "implicit-join"]
+)
+def test_dotted_populated_from_checks_joined_slot(joins: dict | None):
+    """``populated_from: Reading.bogus`` names the joined class the slot is missing from."""
+    spec = _dotted_spec({"populated_from": "Reading.bogus"}, joins)
+    msgs = validate_spec_semantics(spec, source_schemaview=SchemaView(JOINABLE_SCHEMA))
+    assert [m.message for m in _errors(msgs)] == [
+        "Source slot 'Reading.bogus' (populated_from): 'bogus' is not a slot on joined class 'Reading'"
+    ]
+
+
+def test_dotted_populated_from_unknown_base_still_errors():
+    """A dotted reference whose first segment is neither a source slot nor a class is still reported."""
+    msgs = validate_spec_semantics(
+        _dotted_spec({"populated_from": "Nowhere.score"}), source_schemaview=SchemaView(JOINABLE_SCHEMA)
+    )
+    assert [m.message for m in _errors(msgs)] == [
+        "Source slot 'Nowhere.score' (populated_from) not found on source class"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("join", "expected"),
+    [
+        ({"join_on": "subjet_id"}, [("join_on=subjet_id", "Measurement"), ("join_on=subjet_id", "Reading")]),
+        ({"source_key": "subjet_id", "lookup_key": "subject_id"}, [("source_key=subjet_id", "Measurement")]),
+        ({"source_key": "subject_id", "lookup_key": "subjet_id"}, [("lookup_key=subjet_id", "Reading")]),
+        ({"join_on": "subject_id"}, []),
+    ],
+    ids=["join_on-typo", "source_key-typo", "lookup_key-typo", "valid"],
+)
+def test_top_level_join_keys_checked(join: dict, expected: list[tuple[str, str]]):
+    """A derivation's own joins: entry has its keys checked, not only joins a nested derivation uses (#381)."""
+    spec = _dotted_spec({"populated_from": "Reading.score"}, joins={"Reading": join})
+    msgs = validate_spec_semantics(spec, source_schemaview=SchemaView(JOINABLE_SCHEMA))
+    found = [
+        (m.message.split("'")[3], m.message.split("source class '")[1].split("'")[0])
+        for m in _warnings(msgs)
+        if "is not a slot on source class" in m.message
+    ]
+    assert found == expected
+
+
+def test_top_level_join_keys_checked_against_class_named():
+    """With ``class_named``, lookup_key is checked against that class, not the alias."""
+    spec = _dotted_spec(
+        {"expr": "{r.score}"}, joins={"r": {"class_named": "Reading", "source_key": "subject_id", "lookup_key": "nope"}}
+    )
+    msgs = validate_spec_semantics(spec, source_schemaview=SchemaView(JOINABLE_SCHEMA))
+    assert [m.message for m in _warnings(msgs)] == [
+        "Join spec for 'r': 'lookup_key=nope' is not a slot on source class 'Reading'. "
+        "Runtime will silently resolve cross-table values to null."
+    ]
+
+
+def test_top_level_join_missing_keys_warns():
+    """A top-level joins: entry with no usable keys is reported, as nested ones are."""
+    spec = _dotted_spec({"populated_from": "Reading.score"}, joins={"Reading": {"source_key": "subject_id"}})
+    msgs = validate_spec_semantics(spec, source_schemaview=SchemaView(JOINABLE_SCHEMA))
+    assert len([m for m in _warnings(msgs) if "missing keys" in m.message]) == 1
+
+
+@pytest.mark.parametrize(
+    ("range_name", "expected"),
+    [
+        ("integr", ["range 'integr' is not a type, class or enum in the source or target schema"]),
+        ("integer", []),
+        ("Reading", []),
+        ("Outer", []),
+    ],
+    ids=["typo", "builtin-type", "source-class", "spec-derivation"],
+)
+def test_slot_range_must_name_something(range_name: str, expected: list[str]):
+    """A slot derivation's range must name a type, class or enum, or one of the spec's derivations."""
+    spec = _dotted_spec({"populated_from": "method", "range": range_name})
+    msgs = validate_spec_semantics(spec, source_schemaview=SchemaView(JOINABLE_SCHEMA))
+    assert [m.message for m in msgs if m.category == "unknown-range"] == expected
+
+
+def test_slot_range_unknown_is_error_when_strict():
+    spec = _dotted_spec({"populated_from": "method", "range": "integr"})
+    msgs = validate_spec_semantics(spec, source_schemaview=SchemaView(JOINABLE_SCHEMA), strict=True)
+    assert [m.severity for m in msgs if m.category == "unknown-range"] == ["error"]

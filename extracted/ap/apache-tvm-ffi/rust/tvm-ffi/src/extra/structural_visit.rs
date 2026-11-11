@@ -19,109 +19,131 @@
 
 //! Native Rust structural visiting.
 //!
-//! Two public layers mirror the C++ API split:
+//! Two public layers:
 //!
-//! * [`StructuralVisitor`] + [`structural_visit`] — the visitor drives
-//!   recursion itself, like a hand-written C++ `StructuralVisitorObj`:
-//!   [`StructuralVisitor::visit`] runs once per reached value and descends
-//!   only where it calls [`StructuralVisitor::default_visit_children`] or
-//!   [`StructuralVisitor::visit_child`]. `#[dispatch(visit)]` generates this
-//!   trait from typed `visit_*` methods.
-//! * [`WalkDispatch`] + [`structural_walk`] — observer callbacks, like C++
-//!   `StructuralWalk`: the walker recurses on its own and callbacks steer it
-//!   through the returned [`WalkResult`] (advance, skip, interrupt).
+//! * [`Dispatcher`](crate::Dispatcher) + [`structural_visit`] — handlers drive
+//!   recursion through an explicit [`StructuralVisitorView`] context. Pass state belongs on
+//!   the dispatcher; `visitor.visit(self, &child)` reborrows it for recursive calls.
+//!   Unmatched values use default child traversal.
+//! * [`structural_walk`](crate::structural_walk) — dispatcher or closure observers steer engine-owned
+//!   recursion through [`WalkResult`](crate::WalkResult) (advance, skip, interrupt).
 //!
-//! Both layers thread the definition-region state explicitly: walk handlers
-//! opt in with a trailing [`DefRegionKind`] argument, and a visitor receives
-//! and forwards it when descending.
+//! Both layers thread definition-region state explicitly. Walk handlers opt in
+//! with a trailing [`DefRegionKind`]; visit handlers read it from their context
+//! and may override it for a child through [`StructuralVisitorView::with_def_region_kind`].
 //!
-//! Underneath both, [`StructuralView`] provides borrowed matching for typed Rust
-//! dispatch. Rust supplies a temporary `ffi.StructuralVisitor` ABI object so
-//! every type's registered `__s_visit__` hook can enumerate its children and
-//! call back into the active Rust visitor. Types without a hook fall back to
-//! reflected structural fields, matching the C++ protocol.
+//! # Safety of the implementation
+//!
+//! The public interface is safe; its implementation deliberately uses raw pointers.
+//! Each private runtime has a matching dispatcher vtable and a fixed dispatcher
+//! identity. The dispatcher stays alive in the outer call, and the engine's dispatcher
+//! pointer publishes the actual exclusive reborrow before native recursion, then
+//! restores the enclosing borrow on return. Views and native runtime handles cannot
+//! escape their synchronous calls. No reference to the whole runtime spans recursion,
+//! and owning ABI results transfer exactly one reference at each boundary.
+//!
+//! Callbacks must return failures through [`Result`] and must not panic. A panic
+//! reaching the non-unwinding `extern "C"` callback boundary aborts the process;
+//! visitor callbacks do not catch or transport panic payloads across native frames.
 
-use std::cell::Cell;
+// `_raw` functions move one owned `TVMFFIAny`: forward it once, or import it into `Any` before
+// anything can unwind. Private `extern "C-unwind"` helpers return it in registers on AArch64.
+
+use std::cell::UnsafeCell;
 use std::marker::PhantomData;
+
+use super::dispatch::IntoDispatcher;
+use std::borrow::BorrowMut;
 use std::ops::ControlFlow;
 use std::os::raw::c_void;
-use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
-use std::ptr::NonNull;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::LazyLock;
+
+use super::cold_init_lazy_lock::ColdInitLazyLock;
 
 use crate::any::{Any, AnyView};
-use crate::error::{Error, Result, RUNTIME_ERROR, TYPE_ERROR};
+use crate::derive::{Object, ObjectRef};
+use crate::error::{Error, Result, TYPE_ERROR};
 use crate::function::Function;
-use crate::object::{Object, ObjectArc, ObjectCore};
+use crate::object::{Object, ObjectArc};
 use crate::reflection::TypeAttrColumn;
-use crate::tvm_ffi_sys::TVMFFIFieldFlagBitMask::{
-    kTVMFFIFieldFlagBitMaskSEqHashDefPattern, kTVMFFIFieldFlagBitMaskSEqHashDefSimple,
-    kTVMFFIFieldFlagBitMaskSEqHashIgnore,
-};
 use crate::tvm_ffi_sys::{
-    TVMFFIAny, TVMFFIByteArray, TVMFFIDefRegionKind, TVMFFIFieldInfo, TVMFFIGetTypeInfo,
-    TVMFFIObject, TVMFFISEqHashKind, TVMFFITypeAttrColumn, TVMFFITypeIndex, TVMFFITypeKeyToIndex,
+    TVMFFIAny, TVMFFIDefRegionKind, TVMFFIFieldInfo, TVMFFIGetTypeInfo, TVMFFIObject,
+    TVMFFITypeIndex,
 };
 
 use super::structural_common::{
-    impl_callback_chain_tuple_arities, with_structural_error_context, with_visit_error_context,
+    FLAG_SEQ_HASH_IGNORE, field_def_region, for_each_field_info, free_var_child_region,
+    missing_field_getter_error, registered_type_index, runtime_error, seq_hash_kind,
+    wrong_dispatcher,
 };
+use super::visit_error_context::{enrich_visit_error, update_visit_error_context};
 
 const STRUCTURAL_VISIT_ATTR: &str = "__s_visit__";
-const FLAG_SEQ_HASH_IGNORE: i64 = kTVMFFIFieldFlagBitMaskSEqHashIgnore as i64;
-const FLAG_SEQ_HASH_DEF_PATTERN: i64 = kTVMFFIFieldFlagBitMaskSEqHashDefPattern as i64;
-const FLAG_SEQ_HASH_DEF_SIMPLE: i64 = kTVMFFIFieldFlagBitMaskSEqHashDefSimple as i64;
 
-/// What a callback asks the Rust walker to do with the current value.
-pub enum WalkResult {
-    /// Continue and visit this value's children.
-    Advance,
-    /// Continue without visiting this value's children or firing its exit hook.
-    Skip,
-    /// Halt the entire traversal.
-    Interrupt,
-    /// Halt the entire traversal and return a payload to the caller.
-    InterruptWith(Any),
+// -----------------------------------------------------------------------------
+// Data structures and FFI layout
+// -----------------------------------------------------------------------------
+
+type StructuralVisitorHandle = *mut StructuralVisitorObj;
+
+type FStructuralVisit =
+    unsafe extern "C" fn(StructuralVisitorHandle, AnyView<'static>) -> TVMFFIAny;
+
+/// The visitor vtable, laid out as the C++ one.
+#[repr(C)]
+struct StructuralVisitorVTable {
+    visit: FStructuralVisit,
 }
 
-impl WalkResult {
-    /// Halt traversal with an FFI-compatible payload.
-    pub fn interrupt_with<T: Into<Any>>(payload: T) -> Self {
-        Self::InterruptWith(payload.into())
+/// The native visitor state, laid out as the prefix of the C++
+/// `StructuralVisitorObj`.
+#[repr(C)]
+pub struct StructuralVisitorObj {
+    base_: Object,
+    vtable: *const StructuralVisitorVTable,
+    def_region_mode: UnsafeCell<i32>,
+}
+
+// Scoped runtime prefixes are not independently allocatable ObjectCore values.
+impl StructuralVisitorObj {
+    const TYPE_KEY: &'static str = "ffi.StructuralVisitor";
+}
+
+impl Default for StructuralVisitorObj {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            base_: Object::new(),
+            vtable: std::ptr::null(),
+            def_region_mode: UnsafeCell::new(DefRegionKind::None as i32),
+        }
     }
 }
 
-/// Convert either an infallible or fallible typed handler result.
-///
-/// This keeps simple handlers terse while allowing a handler to return
-/// `tvm_ffi::Result<WalkResult>` and use `?`.
-pub trait IntoWalkResult {
-    fn into_walk_result(self) -> Result<WalkResult>;
+/// Native `ffi.VisitInterrupt` object containing the interruption payload.
+#[repr(C)]
+#[derive(Object)]
+#[object(
+    type_key = "ffi.VisitInterrupt",
+    unsafe type_index = TVMFFITypeIndex::kTVMFFIVisitInterrupt,
+    final
+)]
+pub struct VisitInterruptObj {
+    base_: Object,
+    /// Payload returned with the interrupt, or FFI `None` for no payload.
+    pub value: Any,
 }
 
-impl IntoWalkResult for WalkResult {
-    fn into_walk_result(self) -> Result<WalkResult> {
-        Ok(self)
-    }
-}
-
-impl IntoWalkResult for Result<WalkResult> {
-    fn into_walk_result(self) -> Result<WalkResult> {
-        self
-    }
-}
-
-/// Callback order for [`structural_walk`].
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum WalkOrder {
-    /// Run the typed handler before the current value's children.
-    #[default]
-    PreOrder,
-    /// Run the typed handler after the current value's children.
-    PostOrder,
-}
+const _: () = {
+    assert!(
+        std::mem::offset_of!(StructuralVisitorObj, vtable) == std::mem::size_of::<TVMFFIObject>()
+    );
+    assert!(
+        std::mem::offset_of!(StructuralVisitorObj, def_region_mode)
+            == std::mem::size_of::<TVMFFIObject>() + std::mem::size_of::<*const c_void>()
+    );
+    assert!(std::mem::offset_of!(VisitInterruptObj, value) == std::mem::size_of::<TVMFFIObject>());
+};
 
 /// Definition-region state active at the current value.
 ///
@@ -148,1998 +170,887 @@ const _: () = {
     assert!(DefRegionKind::Simple as i32 == TVMFFIDefRegionKind::kTVMFFIDefRegionKindSimple as i32);
 };
 
-/// Interrupt state of a traversal, mirroring C++ `ffi.VisitInterrupt`.
+/// Interrupt state of a traversal, an `ffi.VisitInterrupt` object.
 ///
 /// Entry points and visitor-layer calls return
 /// `Result<Option<VisitInterrupt>>`: `Ok(None)` means the (sub)graph was
 /// visited completely, `Ok(Some(..))` means a handler halted the traversal
 /// with this interrupt, and `Err` means it failed.
+///
+/// This is an owning object reference, like [`Error`]. Payload reads through
+/// `interrupt.value` borrow the shared [`VisitInterruptObj`]; use [`Self::new`]
+/// instead of a payload-only struct literal. Moving or replacing the payload
+/// through this reference is not supported; clone it to retain a separate owner.
+#[repr(C)]
+#[derive(Clone, ObjectRef)]
 pub struct VisitInterrupt {
-    /// Payload returned with the interrupt, or FFI `None` for no payload.
-    pub value: Any,
+    data: ObjectArc<VisitInterruptObj>,
 }
 
 impl VisitInterrupt {
-    /// Interrupt carrying an FFI-compatible payload.
-    pub fn with<T: Into<Any>>(payload: T) -> Self {
-        Self {
+    /// Create an interrupt carrying an FFI-compatible payload back to the caller of
+    /// the visit.
+    ///
+    /// # Arguments
+    ///
+    /// * `payload` - The payload, such as the value that was found.
+    ///
+    /// # Returns
+    ///
+    /// The interrupt.
+    #[inline(always)]
+    pub fn new<T: Into<Any>>(payload: T) -> Self {
+        Self::from_object(VisitInterruptObj {
+            base_: Object::new(),
             value: payload.into(),
+        })
+    }
+}
+
+/// Native state and default traversal for [`StructuralVisitEngine`].
+/// The engine owns allocation, scoped dispatch and results.
+///
+/// # Safety
+///
+/// `Self` must have a complete initialized C layout with [`StructuralVisitorObj`]
+/// at offset zero, matching its registered native type and every field hooks access.
+/// Native-mutated fields require interior mutability; shared references must not
+/// freeze them during recursion. Hooks must preserve the vtable and valid region state.
+///
+/// The base must not implement [`crate::ObjectCore`] or otherwise allow callers
+/// to retain the runtime. Hooks may access the runtime and borrowed traversal
+/// state only synchronously, on the calling thread.
+///
+/// `default_visit_raw` returns one owning ABI None/Error/VisitInterrupt and recurses only
+/// through the installed vtable, without a whole-base mutable reference spanning
+/// recursion. Failures use that result carrier; panics must not cross native callbacks.
+pub unsafe trait StructuralVisitorBase: Sized {
+    /// Initialize the complete base before the engine installs its runtime header.
+    fn new() -> Result<Self>;
+
+    /// Native type registered for this complete base layout.
+    fn type_index() -> i32;
+
+    /// Descend from a borrowed value without dispatching that value again.
+    /// Return one owning ABI None, Error, or VisitInterrupt value.
+    /// Children reenter the installed vtable. The ordinary implementation accesses
+    /// only the visitor prefix, so specialized bases may reuse it.
+    ///
+    /// # Safety
+    /// `runtime` is this live initialized base with a matching installed vtable.
+    /// The input and runtime remain borrowed for this synchronous call. The
+    /// caller has published the current exclusive dispatcher reborrow.
+    unsafe fn default_visit_raw(runtime: *mut Self, value: AnyView<'_>) -> TVMFFIAny;
+}
+
+// SAFETY: this prefix exactly matches the ordinary native visitor. Its mutable
+// region is interior mutable, and it exposes no safe ownership conversion.
+unsafe impl StructuralVisitorBase for StructuralVisitorObj {
+    #[inline(always)]
+    fn new() -> Result<Self> {
+        Ok(Self::default())
+    }
+
+    fn type_index() -> i32 {
+        static TYPE_INDEX: ColdInitLazyLock<i32> =
+            ColdInitLazyLock::new(|| registered_type_index(StructuralVisitorObj::TYPE_KEY));
+        *TYPE_INDEX
+    }
+
+    #[inline(always)]
+    unsafe fn default_visit_raw(runtime: *mut Self, value: AnyView<'_>) -> TVMFFIAny {
+        unsafe { Self::visit_children_raw(runtime, *value.as_raw_ffi_any()) }
+    }
+}
+
+/// Scoped Rust visitor runtime with a statically selected native base.
+///
+/// Enter through [`StructuralVisitEngine::visit_root`]. The engine owns the complete base
+/// and the dispatcher reborrow handle, while the dispatcher stays in the outer
+/// call. Engines and their owning handles are never exposed to callbacks.
+///
+/// Select a custom base with `StructuralVisitEngine::<Base>::visit_root(root, input)`.
+/// Handlers use `StructuralVisitorView<'_, Target, Base>` for recursion and
+/// base-state inspection; normalization preserves the actual target's identity.
+#[repr(C)]
+pub struct StructuralVisitEngine<Base = StructuralVisitorObj> {
+    base: Base,
+    dispatcher: *mut c_void,
+}
+
+/// The running structural visit, passed to each handler.
+///
+/// A handler that matches a node decides which children are visited: call
+/// [`default_visit`](Self::default_visit) to visit every child,
+/// [`visit`](Self::visit) to visit one value, or neither to skip the children.
+/// Pass the handler's own `self` as `dispatch` to every method. A handler
+/// returns `Ok(None)` to continue, or `Ok(Some(interrupt))` to stop the whole
+/// visit with a [`VisitInterrupt`].
+///
+/// See also [`structural_visit`].
+pub struct StructuralVisitorView<'a, D, Base = StructuralVisitorObj> {
+    runtime: StructuralVisitorHandle,
+    #[allow(clippy::type_complexity)]
+    _marker: PhantomData<(&'a mut (), fn(&mut D) -> Base, Rc<()>)>,
+}
+
+// -----------------------------------------------------------------------------
+// Public visitor API and entrypoint
+// -----------------------------------------------------------------------------
+
+impl<D, Base: StructuralVisitorBase> StructuralVisitorView<'_, D, Base> {
+    /// Inspect the base state; the borrow cannot outlive this view.
+    #[inline(always)]
+    pub fn base(&self) -> &Base {
+        // SAFETY: the unsafe base contract permits shared inspection, including
+        // native mutation through interior-mutable fields during recursion.
+        unsafe { &*self.runtime.cast::<Base>() }
+    }
+
+    /// Return the definition region the current value is in.
+    ///
+    /// Reflected fields marked as definitions set it while their values are
+    /// visited; it is [`DefRegionKind::None`] elsewhere.
+    ///
+    /// # Returns
+    ///
+    /// The current definition region.
+    #[inline(always)]
+    pub fn def_region_kind(&self) -> DefRegionKind {
+        // SAFETY: the view's runtime is live.
+        unsafe { std::mem::transmute(*(*self.runtime).def_region_mode.get()) }
+    }
+
+    /// Run `callback` under a scoped definition region.
+    ///
+    /// An enclosing [`DefRegionKind::Pattern`] region keeps precedence; the
+    /// previous region is restored on all exits.
+    ///
+    /// # Arguments
+    ///
+    /// * `kind` - The definition region to enter.
+    /// * `callback` - Runs inside the region, with this view.
+    ///
+    /// # Returns
+    ///
+    /// The result of `callback`.
+    #[inline(always)]
+    pub fn with_def_region_kind<R>(
+        &mut self,
+        kind: DefRegionKind,
+        callback: impl FnOnce(&mut Self) -> R,
+    ) -> R {
+        // SAFETY: the view's runtime outlives the callback.
+        StructuralVisitorObj::with_def_region_kind(self.runtime, kind, || callback(self))
+    }
+
+    /// Visit `value` through the dispatcher, as if the traversal had reached it.
+    ///
+    /// # Arguments
+    ///
+    /// * `dispatch` - The handler's own `self`.
+    /// * `value` - The value to visit.
+    ///
+    /// # Returns
+    ///
+    /// `None` to continue, or the interrupt that stopped the visit.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the handler that `value` reaches.
+    #[inline(always)]
+    pub fn visit<'input, T>(&mut self, dispatch: &mut D, value: T) -> Result<Option<VisitInterrupt>>
+    where
+        T: Into<AnyView<'input>>,
+    {
+        let value: AnyView<'input> = value.into();
+        // SAFETY: the view ties this runtime to D; the check establishes the
+        // instance, and publishing uses the caller's actual exclusive reborrow.
+        unsafe {
+            visit_result_from_any(Any::from_raw_ffi_any(
+                StructuralVisitEngine::<Base>::visit_raw(
+                    self.runtime,
+                    dispatch,
+                    *value.as_raw_ffi_any(),
+                ),
+            ))
+        }
+    }
+
+    /// Visit the children of `value` through the dispatcher, without dispatching
+    /// `value` itself again.
+    ///
+    /// Children are found by the type's registered visit hook or its reflected
+    /// fields. A hook uses the visitor only through its arguments, during the
+    /// call, and must not keep it or call it outside them. The visit stops at the first child that returns an interrupt.
+    ///
+    /// # Arguments
+    ///
+    /// * `dispatch` - The handler's own `self`.
+    /// * `value` - The value whose children to visit.
+    ///
+    /// # Returns
+    ///
+    /// `None` to continue, or the interrupt that stopped the visit.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first error of a child's handler.
+    #[inline(always)]
+    pub fn default_visit<'input, T>(
+        &self,
+        dispatch: &mut D,
+        value: T,
+    ) -> Result<Option<VisitInterrupt>>
+    where
+        T: Into<AnyView<'input>>,
+    {
+        // SAFETY: type/layout and scope come from the private view constructor;
+        // the supplied borrow must identify this runtime's dispatcher instance.
+        unsafe {
+            let context = StructuralVisitEngine::<Base>::checked_dispatcher(self.runtime, dispatch);
+            let value: AnyView<'input> = value.into();
+            visit_result_from_any(Any::from_raw_ffi_any(
+                StructuralVisitEngine::<Base>::default_visit_raw(
+                    self.runtime,
+                    context,
+                    *value.as_raw_ffi_any(),
+                ),
+            ))
         }
     }
 }
 
-/// Convert a callback result into structural-visit completion state.
-#[doc(hidden)]
-pub trait IntoVisitResult {
-    fn into_visit_result(self) -> Result<Option<VisitInterrupt>>;
+/// Visit `root` with an owned or borrowed [`Dispatcher`](crate::Dispatcher).
+///
+/// Handlers receive [`StructuralVisitorView`] for explicit recursion and keep state on the
+/// dispatcher. Unmatched values use default child traversal. Pass `&mut D` to
+/// keep the dispatcher and inspect its state after the visit. An owned dispatcher
+/// is held in the outer call and uses the same borrowed traversal engine.
+///
+/// Callbacks must report failures through [`Result`] and must not panic: a panic
+/// reaching the non-unwinding native callback boundary aborts the process.
+///
+/// A callback must not modify an `ffi.List` or `ffi.Dict` that holds the
+/// value it receives or one of that value's ancestors: the traversal borrows
+/// their cells while the callback runs.
+///
+/// # Arguments
+///
+/// * `root` - Value borrowed for traversal, convertible into an [`AnyView`].
+/// * `dispatcher` - Owned or mutably borrowed dispatcher implementing [`IntoDispatcher`].
+///   Matching handlers control recursion through [`StructuralVisitorView`];
+///   unmatched values use default child traversal.
+///
+/// # Examples
+///
+/// Sum integer leaves while default traversal descends into the array:
+///
+/// ```
+/// # fn main() -> tvm_ffi::Result<()> {
+/// use tvm_ffi::{dispatch, structural_visit, AnyView, Array, Result, VisitInterrupt};
+/// use tvm_ffi::StructuralVisitorView;
+///
+/// struct Sum(i64);
+/// #[dispatch(visit, (AnyView<'_>, &mut StructuralVisitorView<'_, Self>), Result<Option<VisitInterrupt>>)]
+/// impl Sum {
+///     fn visit_integer(
+///         &mut self,
+///         value: i64,
+///         _: &mut StructuralVisitorView<'_, Self>,
+///     ) -> Result<Option<VisitInterrupt>> {
+///         self.0 += value;
+///         Ok(None)
+///     }
+/// }
+///
+/// let root = Array::from_vec(vec![1_i64, 2, 3]);
+/// let mut sum = Sum(0);
+/// assert!(structural_visit(&root, &mut sum)?.is_none());
+/// assert_eq!(sum.0, 6);
+/// # Ok(())
+/// # }
+/// ```
+pub fn structural_visit<'input, R, H, M, D, O>(
+    root: R,
+    dispatcher: H,
+) -> Result<Option<VisitInterrupt>>
+where
+    R: Into<AnyView<'input>>,
+    O: BorrowMut<D>,
+    for<'v, 'c, 'r> H: IntoDispatcher<
+            (
+                AnyView<'v>,
+                &'c mut StructuralVisitorView<'r, D, StructuralVisitorObj>,
+            ),
+            Option<Result<Option<VisitInterrupt>>>,
+            M,
+            Target = D,
+            Output = O,
+        >,
+    for<'s, 'v, 'c, 'r> &'s mut D: crate::Dispatcher<
+            (
+                AnyView<'v>,
+                &'c mut StructuralVisitorView<'r, D, StructuralVisitorObj>,
+            ),
+            Option<Result<Option<VisitInterrupt>>>,
+        >,
+{
+    StructuralVisitEngine::visit_root(root, dispatcher)
 }
 
-impl IntoVisitResult for () {
-    #[inline]
-    fn into_visit_result(self) -> Result<Option<VisitInterrupt>> {
-        Ok(None)
-    }
-}
-
-impl IntoVisitResult for Result<()> {
-    #[inline]
-    fn into_visit_result(self) -> Result<Option<VisitInterrupt>> {
-        self.map(|()| None)
-    }
-}
-
-impl IntoVisitResult for Option<VisitInterrupt> {
-    #[inline]
-    fn into_visit_result(self) -> Result<Option<VisitInterrupt>> {
-        Ok(self)
-    }
-}
-
-impl IntoVisitResult for Result<Option<VisitInterrupt>> {
-    #[inline]
-    fn into_visit_result(self) -> Result<Option<VisitInterrupt>> {
+impl super::dispatch::CallbackResult<Result<Option<VisitInterrupt>>>
+    for Result<Option<VisitInterrupt>>
+{
+    #[inline(always)]
+    fn callback_result(self) -> Result<Option<VisitInterrupt>> {
         self
     }
 }
 
-pub use super::StructuralView;
-
-enum NativeHalt {
-    Interrupt(Any),
-    Error(Error),
-}
-
-impl From<Error> for NativeHalt {
-    fn from(error: Error) -> Self {
-        NativeHalt::Error(error)
-    }
-}
-
-type NativeResult = std::result::Result<(), NativeHalt>;
-
-mod policy;
-pub use policy::{ContextPolicy, DefaultContextPolicy, WalkWithContextPolicy};
-
-/// State and recursive operations available to a visit callback.
-///
-/// A matched callback owns traversal of its value. Recursive operations
-/// reborrow the visitor, so mutable state cannot remain borrowed across them.
-pub struct VisitContext<'a, State> {
-    driver: &'a mut dyn VisitContextDriver<State>,
-    current: StructuralView,
-    def_region_kind: DefRegionKind,
-    _not_send_sync: PhantomData<Rc<()>>,
-}
-
-trait VisitContextDriver<State> {
-    fn state(&self) -> &State;
-    fn state_mut(&mut self) -> &mut State;
-    fn visit_raw(
-        &mut self,
-        raw: TVMFFIAny,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>>;
-    fn visit_children_raw(
-        &mut self,
-        raw: TVMFFIAny,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>>;
-}
-
-impl<State> VisitContext<'_, State> {
-    /// User state shared by every callback in this traversal.
-    pub fn state(&self) -> &State {
-        self.driver.state()
-    }
-
-    /// Mutably borrow the user state.
-    pub fn state_mut(&mut self) -> &mut State {
-        self.driver.state_mut()
-    }
-
-    /// Complete borrowed value active at this callback.
-    pub fn current(&self) -> &StructuralView {
-        &self.current
-    }
-
-    /// Definition-region state active at the callback's current value.
-    pub fn def_region_kind(&self) -> DefRegionKind {
-        self.def_region_kind
-    }
-
-    /// Visit `child` using the current definition-region state.
-    pub fn visit<T>(&mut self, child: &T) -> Result<Option<VisitInterrupt>>
-    where
-        for<'x> AnyView<'x>: From<&'x T>,
-    {
-        self.visit_with(child, self.def_region_kind)
-    }
-
-    /// Visit `child` using an explicit definition-region state.
-    pub fn visit_with<T>(
-        &mut self,
-        child: &T,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>>
-    where
-        for<'x> AnyView<'x>: From<&'x T>,
-    {
-        let raw = raw_of(AnyView::from(child));
-        if raw.type_index == TVMFFITypeIndex::kTVMFFINone as i32 {
-            return Ok(None);
-        }
-        self.driver.visit_raw(raw, def_region_kind)
-    }
-
-    /// Apply default descent without dispatching the current value again.
-    /// A callback enters its configured policy; within a policy this continues
-    /// with the next policy, then registered hooks or reflected fields.
-    pub fn visit_children(&mut self) -> Result<Option<VisitInterrupt>> {
-        self.default_visit_children_raw(self.current.raw(), self.def_region_kind)
-    }
-
-    /// Apply default descent to `value` under an explicit definition region.
-    ///
-    /// Like [`Self::visit_children`], this continues with the next policy (or
-    /// enters the configured policy from a callback), then registered hooks or
-    /// reflected fields. It does not dispatch callbacks for `value` itself;
-    /// its children re-enter the full callback engine.
-    ///
-    /// An enclosing [`DefRegionKind::Pattern`] cannot be downgraded. The current
-    /// value and region of this context are unchanged after the call, including
-    /// when descent returns an error or interrupt.
-    pub fn default_visit_children<T>(
-        &mut self,
-        value: &T,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>>
-    where
-        for<'x> AnyView<'x>: From<&'x T>,
-    {
-        self.default_visit_children_raw(raw_of(AnyView::from(value)), def_region_kind)
-    }
-
-    fn default_visit_children_raw(
-        &mut self,
-        raw: TVMFFIAny,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>> {
-        if raw.type_index == TVMFFITypeIndex::kTVMFFINone as i32 {
-            return Ok(None);
-        }
-        let kind = if self.def_region_kind == DefRegionKind::Pattern {
-            DefRegionKind::Pattern
-        } else {
-            def_region_kind
-        };
-        let active = active_structural_visitor()?;
-        // Keep the ABI visitor in sync while policies run, not only inside
-        // hooks: a subsequent visit_with must also preserve a pattern region.
-        with_visitor_def_region(active, kind, || self.driver.visit_children_raw(raw, kind))
-    }
-}
-
-/// Conversion into the visitor argument accepted by [`structural_visit`].
-///
-/// Accepts a mutable [`StructuralVisitor`] or a first-match callback chain.
-/// Use [`VisitCallbacks`] when the chain needs mutable state.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a supported `structural_visit` visitor",
-    note = "accepted visitors: `&mut V` where `V: StructuralVisitor`; an `Fn` callback over an FFI value type `T`, `&N` of an object node type, or `&StructuralView`, followed by `&mut VisitContext<'_, ()>`; or a tuple of up to 12 such callbacks (tuples may nest)",
-    note = "callback arguments need explicit type annotations; use `VisitCallbacks::new(state, callbacks)` for ordinary mutable callback state"
-)]
-pub trait IntoVisitor<Marker> {
-    #[doc(hidden)]
-    fn visit_root(self, root: TVMFFIAny) -> Result<Option<VisitInterrupt>>;
-}
-
-impl<V: StructuralVisitor> IntoVisitor<V> for &mut V {
-    fn visit_root(self, root: TVMFFIAny) -> Result<Option<VisitInterrupt>> {
-        finish(run_structural_visitor(
-            root,
-            self,
-            user_runtime_vtable::<V>(),
-        ))
-    }
-}
-
-/// One link in a first-match visitor callback chain.
-pub trait VisitChainLink<State, Marker>: visit_sealed::SealedLink<State, Marker> {
-    #[doc(hidden)]
-    fn try_visit(
-        &self,
-        value: &StructuralView,
-        visitor: &mut VisitContext<'_, State>,
-    ) -> Option<Result<Option<VisitInterrupt>>>;
-}
-
-mod visit_sealed {
-    use super::{IntoVisitResult, ObjectCore, StructuralView, VisitContext};
-
-    pub trait SealedLink<State, Marker> {}
-
-    impl<F, State, T, O> SealedLink<State, super::ByVisitOwnedLink<T>> for F
-    where
-        F: for<'visitor, 'driver> Fn(T, &'visitor mut VisitContext<'driver, State>) -> O,
-        O: IntoVisitResult,
-    {
-    }
-
-    impl<F, State, N: ObjectCore, O> SealedLink<State, super::ByVisitNodeLink<N>> for F
-    where
-        F: for<'value, 'visitor, 'driver> Fn(
-            &'value N,
-            &'visitor mut VisitContext<'driver, State>,
-        ) -> O,
-        O: IntoVisitResult,
-    {
-    }
-
-    impl<F, State, O> SealedLink<State, super::ByVisitCatchAllLink> for F
-    where
-        F: for<'value, 'visitor, 'driver> Fn(
-            &'value StructuralView,
-            &'visitor mut VisitContext<'driver, State>,
-        ) -> O,
-        O: IntoVisitResult,
-    {
-    }
-}
-
-#[doc(hidden)]
-pub struct ByVisitOwnedLink<T>(PhantomData<T>);
-
-impl<F, State, T, O> VisitChainLink<State, ByVisitOwnedLink<T>> for F
-where
-    F: for<'visitor, 'driver> Fn(T, &'visitor mut VisitContext<'driver, State>) -> O,
-    T: crate::type_traits::AnyCompatible,
-    O: IntoVisitResult,
-{
-    fn try_visit(
-        &self,
-        value: &StructuralView,
-        visitor: &mut VisitContext<'_, State>,
-    ) -> Option<Result<Option<VisitInterrupt>>> {
-        value
-            .cast::<T>()
-            .map(|typed| self(typed, visitor).into_visit_result())
-    }
-}
-
-#[doc(hidden)]
-pub struct ByVisitNodeLink<N>(PhantomData<N>);
-
-impl<F, State, N, O> VisitChainLink<State, ByVisitNodeLink<N>> for F
-where
-    F: for<'value, 'visitor, 'driver> Fn(
-        &'value N,
-        &'visitor mut VisitContext<'driver, State>,
-    ) -> O,
-    N: ObjectCore,
-    O: IntoVisitResult,
-{
-    fn try_visit(
-        &self,
-        value: &StructuralView,
-        visitor: &mut VisitContext<'_, State>,
-    ) -> Option<Result<Option<VisitInterrupt>>> {
-        value
-            .as_node::<N>()
-            .map(|node| self(node, visitor).into_visit_result())
-    }
-}
-
-#[doc(hidden)]
-pub enum ByVisitCatchAllLink {}
-
-impl<F, State, O> VisitChainLink<State, ByVisitCatchAllLink> for F
-where
-    F: for<'value, 'visitor, 'driver> Fn(
-        &'value StructuralView,
-        &'visitor mut VisitContext<'driver, State>,
-    ) -> O,
-    O: IntoVisitResult,
-{
-    fn try_visit(
-        &self,
-        value: &StructuralView,
-        visitor: &mut VisitContext<'_, State>,
-    ) -> Option<Result<Option<VisitInterrupt>>> {
-        Some(self(value, visitor).into_visit_result())
-    }
-}
-
-#[doc(hidden)]
-pub struct ByVisitChainLink<Markers>(PhantomData<fn(Markers)>);
-
-macro_rules! impl_visit_chain_link {
-    ($(($F:ident, $M:ident, $idx:tt)),+) => {
-        impl<State, $($F, $M,)+>
-            visit_sealed::SealedLink<State, ByVisitChainLink<($($M,)+)>> for ($($F,)+)
-        where
-            $($F: VisitChainLink<State, $M>,)+
-        {
-        }
-
-        impl<State, $($F, $M,)+> VisitChainLink<State, ByVisitChainLink<($($M,)+)>>
-            for ($($F,)+)
-        where
-            $($F: VisitChainLink<State, $M>,)+
-        {
-            fn try_visit(
-                &self,
-                value: &StructuralView,
-                visitor: &mut VisitContext<'_, State>,
-            ) -> Option<Result<Option<VisitInterrupt>>> {
-                $(
-                    if let Some(result) = self.$idx.try_visit(value, visitor) {
-                        return Some(result);
-                    }
-                )+
-                None
-            }
-        }
-    };
-}
-
-impl_callback_chain_tuple_arities!(impl_visit_chain_link);
-
-/// A reusable callback visitor with shared user state.
-pub struct VisitCallbacks<State, Link, Marker, Policy = DefaultContextPolicy> {
-    policy: Option<Rc<Policy>>,
-    state: State,
-    callbacks: Rc<Link>,
-    _marker: PhantomData<fn(Marker)>,
-}
-
-impl<State, Link, Marker> VisitCallbacks<State, Link, Marker>
-where
-    Link: VisitChainLink<State, Marker>,
-{
-    /// Construct a stateful callback visitor.
-    pub fn new(state: State, callbacks: Link) -> Self {
-        Self {
-            state,
-            callbacks: Rc::new(callbacks),
-            policy: None,
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<State, Link, Marker, Policy> VisitCallbacks<State, Link, Marker, Policy> {
-    /// Set the default-recursion policy while retaining the callbacks and state.
-    /// A matched callback enters the policy only when it calls `visit_children()`.
-    pub fn with_policy<P: ContextPolicy<State>>(
-        self,
-        policy: P,
-    ) -> VisitCallbacks<State, Link, Marker, P> {
-        VisitCallbacks {
-            state: self.state,
-            callbacks: self.callbacks,
-            policy: Some(Rc::new(policy)),
-            _marker: PhantomData,
-        }
-    }
-
-    /// Shared access to the callback state.
-    pub fn state(&self) -> &State {
-        &self.state
-    }
-
-    /// Mutable access to the callback state outside an active recursive call.
-    pub fn state_mut(&mut self) -> &mut State {
-        &mut self.state
-    }
-
-    /// Consume the visitor and return its state.
-    pub fn into_state(self) -> State {
-        self.state
-    }
-}
-
-struct DirectVisitCallbacks<'a, Link, Marker> {
-    state: (),
-    callbacks: &'a Link,
-    _marker: PhantomData<fn(Marker)>,
-}
-
-#[doc(hidden)]
-pub trait VisitCallbackState<State> {
-    fn callback_state(&self) -> &State;
-    fn callback_state_mut(&mut self) -> &mut State;
-}
-
-impl<State, Link, Marker, Policy> VisitCallbackState<State>
-    for VisitCallbacks<State, Link, Marker, Policy>
-{
-    fn callback_state(&self) -> &State {
-        &self.state
-    }
-
-    fn callback_state_mut(&mut self) -> &mut State {
-        &mut self.state
-    }
-}
-
-impl<Link, Marker> VisitCallbackState<()> for DirectVisitCallbacks<'_, Link, Marker> {
-    fn callback_state(&self) -> &() {
-        &self.state
-    }
-
-    fn callback_state_mut(&mut self) -> &mut () {
-        &mut self.state
-    }
-}
-
-#[doc(hidden)]
-pub struct ByVisitCallbacks<Marker>(PhantomData<fn(Marker)>);
-
-impl<Link, Marker> IntoVisitor<ByVisitCallbacks<Marker>> for Link
-where
-    Link: VisitChainLink<(), Marker>,
-{
-    fn visit_root(self, root: TVMFFIAny) -> Result<Option<VisitInterrupt>> {
-        let callbacks = self;
-        let mut visitor = DirectVisitCallbacks::<Link, Marker> {
-            state: (),
-            callbacks: &callbacks,
-            _marker: PhantomData,
-        };
-        finish(run_structural_visitor(
-            root,
-            &mut visitor,
-            user_runtime_vtable::<DirectVisitCallbacks<Link, Marker>>(),
-        ))
-    }
-}
-
-// Keep the generated walk-dispatch paths stable.
-pub use super::dispatch::{ByWalkDispatch, DispatchWalker, WalkDispatch};
-
-/// Conversion into the walker argument of [`structural_walk`].
-///
-/// Accepts a mutable [`WalkDispatch`], a typed callback, a nested callback
-/// tuple, or an owned or borrowed [`WalkWithContextPolicy`].
-/// `Marker` distinguishes the supported callback shapes.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a supported `structural_walk` walker",
-    note = "accepted walkers: `&mut V` where `V: WalkDispatch`; a closure over `&StructuralView`, \
-            an FFI value type `T`, or `&N` of an object node type (`N: ObjectCore`, e.g. \
-            `&Object`), optionally with a trailing `DefRegionKind` argument; or a tuple of \
-            up to 12 such links (tuples nest, so `(a, (b, c))` chains more); \
-            or a `WalkWithContextPolicy` passed by value or mutable reference",
-    note = "closure arguments need explicit type annotations; ObjectRef wrappers like `String` \
-            or `Array<T>` are FFI value types — take them by value, not by reference"
-)]
-pub trait IntoWalker<Marker> {
-    #[doc(hidden)]
-    type Walker: NativeVisit;
-    #[doc(hidden)]
-    fn into_walker(self) -> Self::Walker;
-}
-
-impl<F, O> IntoWalker<ByCatchAllLink> for F
-where
-    F: for<'a> FnMut(&'a StructuralView) -> O,
-    O: IntoWalkResult,
-{
-    type Walker = ChainWalker<F, ByCatchAllLink>;
-    fn into_walker(self) -> Self::Walker {
-        ChainWalker::new(self)
-    }
-}
-
-impl<F, O> IntoWalker<ByCatchAllKindLink> for F
-where
-    F: for<'a> FnMut(&'a StructuralView, DefRegionKind) -> O,
-    O: IntoWalkResult,
-{
-    type Walker = ChainWalker<F, ByCatchAllKindLink>;
-    fn into_walker(self) -> Self::Walker {
-        ChainWalker::new(self)
-    }
-}
-
-/// One link in a first-match [`structural_walk`] callback chain.
-///
-/// Supported links are typed values, borrowed object nodes, `&StructuralView`,
-/// and mutable [`WalkDispatch`] implementations, optionally followed by
-/// [`DefRegionKind`]. Tuples hold up to 12 links and may be nested.
-pub trait WalkChainLink<Marker>: sealed::SealedLink<Marker> {
-    /// Run this link if `value` matches its argument type; `None` hands the
-    /// value to the next link.
-    #[doc(hidden)]
-    fn try_call(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Option<Result<WalkResult>>;
-}
-
-mod sealed {
-    use super::{DefRegionKind, IntoWalkResult, ObjectCore, StructuralView, WalkDispatch};
-
-    pub trait SealedLink<Marker> {}
-
-    impl<F, T, O> SealedLink<super::ByOwnedLink<T>> for F
-    where
-        F: FnMut(T) -> O,
-        O: IntoWalkResult,
-    {
-    }
-    impl<F, T, O> SealedLink<super::ByOwnedKindLink<T>> for F
-    where
-        F: FnMut(T, DefRegionKind) -> O,
-        O: IntoWalkResult,
-    {
-    }
-    impl<F, N: ObjectCore, O> SealedLink<super::ByNodeLink<N>> for F
-    where
-        F: for<'a> FnMut(&'a N) -> O,
-        O: IntoWalkResult,
-    {
-    }
-    impl<F, N: ObjectCore, O> SealedLink<super::ByNodeKindLink<N>> for F
-    where
-        F: for<'a> FnMut(&'a N, DefRegionKind) -> O,
-        O: IntoWalkResult,
-    {
-    }
-    impl<F, O> SealedLink<super::ByCatchAllLink> for F
-    where
-        F: for<'a> FnMut(&'a StructuralView) -> O,
-        O: IntoWalkResult,
-    {
-    }
-    impl<F, O> SealedLink<super::ByCatchAllKindLink> for F
-    where
-        F: for<'a> FnMut(&'a StructuralView, DefRegionKind) -> O,
-        O: IntoWalkResult,
-    {
-    }
-    impl<V: WalkDispatch> SealedLink<super::ByWalkDispatchLink> for &mut V {}
-}
-
-#[doc(hidden)]
-pub struct ByOwnedLink<T>(PhantomData<T>);
-
-impl<F, T, O> WalkChainLink<ByOwnedLink<T>> for F
-where
-    F: FnMut(T) -> O,
-    T: crate::type_traits::AnyCompatible,
-    O: IntoWalkResult,
-{
-    #[inline]
-    fn try_call(
-        &mut self,
-        value: &StructuralView,
-        _def_region_kind: DefRegionKind,
-    ) -> Option<Result<WalkResult>> {
-        value
-            .cast::<T>()
-            .map(|typed| self(typed).into_walk_result())
-    }
-}
-
-#[doc(hidden)]
-pub struct ByOwnedKindLink<T>(PhantomData<T>);
-
-impl<F, T, O> WalkChainLink<ByOwnedKindLink<T>> for F
-where
-    F: FnMut(T, DefRegionKind) -> O,
-    T: crate::type_traits::AnyCompatible,
-    O: IntoWalkResult,
-{
-    #[inline]
-    fn try_call(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Option<Result<WalkResult>> {
-        value
-            .cast::<T>()
-            .map(|typed| self(typed, def_region_kind).into_walk_result())
-    }
-}
-
-#[doc(hidden)]
-pub struct ByNodeLink<N>(PhantomData<N>);
-
-impl<F, N, O> WalkChainLink<ByNodeLink<N>> for F
-where
-    F: for<'a> FnMut(&'a N) -> O,
-    N: ObjectCore,
-    O: IntoWalkResult,
-{
-    #[inline]
-    fn try_call(
-        &mut self,
-        value: &StructuralView,
-        _def_region_kind: DefRegionKind,
-    ) -> Option<Result<WalkResult>> {
-        value
-            .as_node::<N>()
-            .map(|node| self(node).into_walk_result())
-    }
-}
-
-#[doc(hidden)]
-pub struct ByNodeKindLink<N>(PhantomData<N>);
-
-impl<F, N, O> WalkChainLink<ByNodeKindLink<N>> for F
-where
-    F: for<'a> FnMut(&'a N, DefRegionKind) -> O,
-    N: ObjectCore,
-    O: IntoWalkResult,
-{
-    #[inline]
-    fn try_call(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Option<Result<WalkResult>> {
-        value
-            .as_node::<N>()
-            .map(|node| self(node, def_region_kind).into_walk_result())
-    }
-}
-
-#[doc(hidden)]
-pub enum ByCatchAllLink {}
-
-impl<F, O> WalkChainLink<ByCatchAllLink> for F
-where
-    F: for<'a> FnMut(&'a StructuralView) -> O,
-    O: IntoWalkResult,
-{
-    #[inline]
-    fn try_call(
-        &mut self,
-        value: &StructuralView,
-        _def_region_kind: DefRegionKind,
-    ) -> Option<Result<WalkResult>> {
-        Some(self(value).into_walk_result())
-    }
-}
-
-#[doc(hidden)]
-pub enum ByCatchAllKindLink {}
-
-impl<F, O> WalkChainLink<ByCatchAllKindLink> for F
-where
-    F: for<'a> FnMut(&'a StructuralView, DefRegionKind) -> O,
-    O: IntoWalkResult,
-{
-    #[inline]
-    fn try_call(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Option<Result<WalkResult>> {
-        Some(self(value, def_region_kind).into_walk_result())
-    }
-}
-
-#[doc(hidden)]
-pub struct ByChainLink<Markers>(PhantomData<fn(Markers)>);
-
-#[doc(hidden)]
-pub enum ByWalkDispatchLink {}
-
-impl<V: WalkDispatch> WalkChainLink<ByWalkDispatchLink> for &mut V {
-    #[inline]
-    fn try_call(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Option<Result<WalkResult>> {
-        self.dispatch_walk(value, def_region_kind)
-    }
-}
-
-/// Adapter from a [`WalkChainLink`] to the native traversal callback.
-#[doc(hidden)]
-pub struct ChainWalker<Link, Marker> {
-    link: Link,
-    marker: PhantomData<fn(Marker)>,
-}
-
-impl<Link, Marker> ChainWalker<Link, Marker> {
-    #[inline]
-    fn new(link: Link) -> Self {
-        ChainWalker {
-            link,
-            marker: PhantomData,
-        }
-    }
-}
-
-impl<Link, Marker> NativeVisit for ChainWalker<Link, Marker>
-where
-    Link: WalkChainLink<Marker>,
-{
-    #[inline]
-    fn visit(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Result<WalkResult> {
-        self.link
-            .try_call(value, def_region_kind)
-            .unwrap_or_else(|| Ok(WalkResult::Advance))
-    }
-}
-
-macro_rules! impl_chain_link {
-    ($(($F:ident, $M:ident, $idx:tt)),+) => {
-        impl<$($F, $M,)+> sealed::SealedLink<ByChainLink<($($M,)+)>> for ($($F,)+)
-        where
-            $($F: WalkChainLink<$M>,)+
-        {
-        }
-
-        impl<$($F, $M,)+> WalkChainLink<ByChainLink<($($M,)+)>> for ($($F,)+)
-        where
-            $($F: WalkChainLink<$M>,)+
-        {
-            #[inline]
-            fn try_call(
-                &mut self,
-                value: &StructuralView,
-                def_region_kind: DefRegionKind,
-            ) -> Option<Result<WalkResult>> {
-                $(
-                    if let Some(result) = self.$idx.try_call(value, def_region_kind) {
-                        return Some(result);
-                    }
-                )+
-                None
-            }
-        }
-
-        impl<$($F, $M,)+> IntoWalker<($($M,)+)> for ($($F,)+)
-        where
-            $($F: WalkChainLink<$M>,)+
-        {
-            type Walker = ChainWalker<($($F,)+), ByChainLink<($($M,)+)>>;
-            fn into_walker(self) -> Self::Walker {
-                ChainWalker::new(self)
-            }
-        }
-    };
-}
-
-impl_callback_chain_tuple_arities!(impl_chain_link);
-
-macro_rules! impl_bare_link_walker {
-    ($(($marker:ident, $($fn_args:ty),+)),+ $(,)?) => {
-        $(
-            impl<F, T, O> IntoWalker<$marker<T>> for F
-            where
-                F: FnMut($($fn_args),+) -> O,
-                Self: WalkChainLink<$marker<T>>,
-                O: IntoWalkResult,
-            {
-                type Walker = ChainWalker<F, $marker<T>>;
-                fn into_walker(self) -> Self::Walker {
-                    ChainWalker::new(self)
-                }
-            }
-        )+
-    };
-}
-
-impl_bare_link_walker!(
-    (ByOwnedLink, T),
-    (ByOwnedKindLink, T, DefRegionKind),
-    (ByNodeLink, &T),
-    (ByNodeKindLink, &T, DefRegionKind),
-);
-
-/// A visitor that controls its own recursion.
-///
-/// Implementations descend with [`Self::visit_child`] or
-/// [`Self::default_visit_children`]. `#[dispatch(visit)]` generates this trait
-/// from typed `visit_*` methods.
-pub trait StructuralVisitor: Sized {
-    /// Visit one value under the definition-region state active at it.
-    fn visit(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>>;
-
-    /// Visit `child` under `def_region_kind`.
-    #[inline]
-    fn visit_child<T>(
-        &mut self,
-        child: &T,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>>
-    where
-        for<'x> AnyView<'x>: From<&'x T>,
-    {
-        let raw = raw_of(AnyView::from(child));
-        if raw.type_index == TVMFFITypeIndex::kTVMFFINone as i32 {
-            return Ok(None);
-        }
-        let active = active_structural_visitor()?;
-        let context = std::ptr::from_mut(self).cast::<c_void>();
-        finish(with_current_visitor_context(active, context, || {
-            call_visitor(active, raw, def_region_kind)
-        }))
-    }
-
-    /// Visit `value`'s children with the default structural rules.
-    #[inline]
-    fn default_visit_children(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>> {
-        default_user_visit_children(self, value, def_region_kind)
-    }
-}
-
-fn default_user_visit_children<V: StructuralVisitor>(
-    visitor: &mut V,
-    value: &StructuralView,
-    def_region_kind: DefRegionKind,
-) -> Result<Option<VisitInterrupt>> {
-    let raw = value.raw();
-    let context = std::ptr::from_mut(&mut *visitor).cast::<c_void>();
-    finish(
-        visit_children_raw(raw, &mut UserChildren { visitor }, context, def_region_kind)
-            .map_err(|halt| with_value_context(halt, raw)),
-    )
-}
-
-#[doc(hidden)]
-pub fn default_visit_with_policy<V: StructuralVisitor + VisitCallbackState<V>>(
-    visitor: &mut V,
-    policy: &impl ContextPolicy<V>,
-    value: &StructuralView,
-    kind: DefRegionKind,
-) -> Result<Option<VisitInterrupt>> {
-    policy::visit_with_policy(&mut policy::VisitDescent { visitor }, policy, value, kind)
-}
-
-fn try_visit_callbacks<State, Link, Marker>(
-    driver: &mut impl VisitContextDriver<State>,
-    callback_ptr: *const Link,
-    value: &StructuralView,
-    def_region_kind: DefRegionKind,
-) -> Result<Option<VisitInterrupt>>
-where
-    Link: VisitChainLink<State, Marker>,
-{
-    let mut visitor = VisitContext {
-        driver,
-        current: StructuralView::from_raw(value.raw()),
-        def_region_kind,
-        _not_send_sync: PhantomData,
-    };
-    // SAFETY: The owning `Rc` or the direct callback's stack slot remains live
-    // and is never modified through the driver during recursive reentry.
-    match unsafe { (&*callback_ptr).try_visit(value, &mut visitor) } {
-        Some(outcome) => outcome,
-        None => visitor.visit_children(),
-    }
-}
-
-impl<State, Link, Marker, Policy> StructuralVisitor for VisitCallbacks<State, Link, Marker, Policy>
-where
-    Link: VisitChainLink<State, Marker>,
-    Policy: ContextPolicy<State>,
-{
-    fn visit(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>> {
-        let callback_ptr = Rc::as_ptr(&self.callbacks);
-        try_visit_callbacks::<State, Link, Marker>(self, callback_ptr, value, def_region_kind)
-    }
-
-    fn default_visit_children(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>> {
-        let Some(policy) = self.policy.as_ref().map(Rc::clone) else {
-            return default_user_visit_children(self, value, def_region_kind);
-        };
-        policy::visit_with_policy(
-            &mut policy::VisitDescent { visitor: self },
-            &*policy,
-            value,
-            def_region_kind,
-        )
-    }
-}
-
-impl<Link, Marker> StructuralVisitor for DirectVisitCallbacks<'_, Link, Marker>
-where
-    Link: VisitChainLink<(), Marker>,
-{
-    fn visit(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>> {
-        let callback_ptr = std::ptr::from_ref(self.callbacks);
-        try_visit_callbacks::<(), Link, Marker>(self, callback_ptr, value, def_region_kind)
-    }
-}
-
-impl<State, Driver> VisitContextDriver<State> for Driver
-where
-    Driver: StructuralVisitor + VisitCallbackState<State>,
-{
-    fn state(&self) -> &State {
-        self.callback_state()
-    }
-
-    fn state_mut(&mut self) -> &mut State {
-        self.callback_state_mut()
-    }
-
-    fn visit_raw(
-        &mut self,
-        raw: TVMFFIAny,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>> {
-        if raw.type_index == TVMFFITypeIndex::kTVMFFINone as i32 {
-            return Ok(None);
-        }
-        let active = active_structural_visitor()?;
-        let context = std::ptr::from_mut(self).cast::<c_void>();
-        finish(with_current_visitor_context(active, context, || {
-            call_visitor(active, raw, def_region_kind)
-        }))
-    }
-
-    fn visit_children_raw(
-        &mut self,
-        raw: TVMFFIAny,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>> {
-        <Self as StructuralVisitor>::default_visit_children(
-            self,
-            &StructuralView::from_raw(raw),
-            def_region_kind,
-        )
-    }
-}
-
-/// Internal callback protocol used by [`IntoWalker`].
-#[doc(hidden)]
-pub trait NativeVisit: Sized {
-    const CUSTOM_DESCENT: bool = false;
-
-    fn walk_root(&mut self, root: AnyView<'_>, order: WalkOrder) -> Result<Option<VisitInterrupt>> {
-        let root = raw_of(root);
-        finish(match order {
-            WalkOrder::PreOrder => {
-                run_structural_visitor(root, self, walk_runtime_vtable::<Self, true>())
-            }
-            WalkOrder::PostOrder => {
-                run_structural_visitor(root, self, walk_runtime_vtable::<Self, false>())
-            }
-        })
-    }
-
-    fn visit(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Result<WalkResult>;
-
-    fn default_visit_children<const PRE_ORDER: bool>(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>> {
-        default_walk_children::<Self, PRE_ORDER>(self, value, def_region_kind)
-    }
-}
-
-impl<V: NativeVisit> NativeVisit for &mut V {
-    const CUSTOM_DESCENT: bool = V::CUSTOM_DESCENT;
-
-    fn walk_root(&mut self, root: AnyView<'_>, order: WalkOrder) -> Result<Option<VisitInterrupt>> {
-        // Register the actual visitor as the active context, not this reference's
-        // stack slot: policy continuations validate that identity when reentering.
-        (**self).walk_root(root, order)
-    }
-
-    fn visit(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Result<WalkResult> {
-        (**self).visit(value, def_region_kind)
-    }
-
-    fn default_visit_children<const PRE_ORDER: bool>(
-        &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> Result<Option<VisitInterrupt>> {
-        (**self).default_visit_children::<PRE_ORDER>(value, def_region_kind)
-    }
-}
-
-fn default_walk_children<V: NativeVisit, const PRE_ORDER: bool>(
-    visitor: &mut V,
-    value: &StructuralView,
-    def_region_kind: DefRegionKind,
-) -> Result<Option<VisitInterrupt>> {
-    let context = std::ptr::from_mut(&mut *visitor).cast::<c_void>();
-    finish(visit_children_raw(
-        value.raw(),
-        &mut WalkChildren::<V, PRE_ORDER> { visitor },
-        context,
-        def_region_kind,
-    ))
-}
-
-/// Action applied to each child found by the shared traversal.
-trait ChildVisit {
-    fn visit_child(
-        &mut self,
-        child: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> NativeResult;
-}
-
-struct WalkChildren<'a, V, const PRE_ORDER: bool> {
-    visitor: &'a mut V,
-}
-
-impl<V: NativeVisit, const PRE_ORDER: bool> ChildVisit for WalkChildren<'_, V, PRE_ORDER> {
+// -----------------------------------------------------------------------------
+// StructuralVisitEngine implementation
+// -----------------------------------------------------------------------------
+
+// Generic runtime: only this implementation projects the dispatcher after Base.
+impl<Base: StructuralVisitorBase> StructuralVisitEngine<Base> {
+    /// Visit `root` with `dispatcher` on the native base `Base`. See also [`structural_visit`].
     #[inline(always)]
-    fn visit_child(
-        &mut self,
-        child: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> NativeResult {
-        visit_raw::<V, PRE_ORDER>(child.raw(), self.visitor, def_region_kind)
-    }
-}
-
-struct UserChildren<'a, V> {
-    visitor: &'a mut V,
-}
-
-impl<V: StructuralVisitor> ChildVisit for UserChildren<'_, V> {
-    #[inline]
-    fn visit_child(
-        &mut self,
-        child: &StructuralView,
-        def_region_kind: DefRegionKind,
-    ) -> NativeResult {
-        if child.type_index() == TVMFFITypeIndex::kTVMFFINone as i32 {
-            return Ok(());
-        }
-        match with_visit_region(def_region_kind, |kind| self.visitor.visit(child, kind)) {
-            Ok(None) => Ok(()),
-            Ok(Some(interrupt)) => Err(NativeHalt::Interrupt(interrupt.value)),
-            Err(error) => Err(with_value_context(NativeHalt::Error(error), child.raw())),
-        }
-    }
-}
-
-// Every registered container child re-enters this hot path.
-#[inline(always)]
-fn visit_raw<V: NativeVisit, const PRE_ORDER: bool>(
-    value: TVMFFIAny,
-    visitor: &mut V,
-    def_region_kind: DefRegionKind,
-) -> NativeResult {
-    if value.type_index == TVMFFITypeIndex::kTVMFFINone as i32 {
-        return Ok(());
-    }
-    let visit_value = StructuralView::from_raw(value);
-    if PRE_ORDER {
-        let action = visitor
-            .visit(&visit_value, def_region_kind)
-            .map_err(|error| with_value_context(error.into(), value))?;
-        match action {
-            WalkResult::Advance => {}
-            WalkResult::Skip => return Ok(()),
-            WalkResult::Interrupt => return Err(NativeHalt::Interrupt(Any::new())),
-            WalkResult::InterruptWith(payload) => return Err(NativeHalt::Interrupt(payload)),
-        }
-    }
-
-    if V::CUSTOM_DESCENT {
-        match visitor.default_visit_children::<PRE_ORDER>(&visit_value, def_region_kind) {
-            Ok(None) => {}
-            Ok(Some(interrupt)) => return Err(NativeHalt::Interrupt(interrupt.value)),
-            Err(error) => return Err(with_value_context(error.into(), value)),
-        }
-    } else if value.type_index >= TVMFFITypeIndex::kTVMFFIStaticObjectBegin as i32
-        || has_registered_visit_hook(value.type_index)
+    pub fn visit_root<'input, R, H, M, D, O>(
+        root: R,
+        dispatcher: H,
+    ) -> Result<Option<VisitInterrupt>>
+    where
+        R: Into<AnyView<'input>>,
+        O: BorrowMut<D>,
+        for<'v, 'c, 'r> H: IntoDispatcher<
+                (AnyView<'v>, &'c mut StructuralVisitorView<'r, D, Base>),
+                Option<Result<Option<VisitInterrupt>>>,
+                M,
+                Target = D,
+                Output = O,
+            >,
+        for<'s, 'v, 'c, 'r> &'s mut D: crate::Dispatcher<
+                (AnyView<'v>, &'c mut StructuralVisitorView<'r, D, Base>),
+                Option<Result<Option<VisitInterrupt>>>,
+            >,
     {
-        // Preserve the raw-result path for ordinary walkers.
-        let context = std::ptr::from_mut(&mut *visitor).cast::<c_void>();
-        let children = &mut WalkChildren::<V, PRE_ORDER> { visitor };
-        if let Err(halt) = visit_children_raw(value, children, context, def_region_kind) {
-            return Err(with_value_context(halt, value));
-        }
+        // Normalize the input once. Named dispatchers keep their own recursive view
+        // type; callback and tuple targets are their aggregate adapters.
+        let mut storage = dispatcher.into_dispatcher();
+        let root = root.into();
+        Self::run_visitor::<D>(*root.as_raw_ffi_any(), storage.borrow_mut())
     }
 
-    if PRE_ORDER {
-        Ok(())
-    } else {
-        match visitor.visit(&visit_value, def_region_kind) {
-            Ok(WalkResult::Advance | WalkResult::Skip) => Ok(()),
-            Ok(WalkResult::Interrupt) => Err(NativeHalt::Interrupt(Any::new())),
-            Ok(WalkResult::InterruptWith(payload)) => Err(NativeHalt::Interrupt(payload)),
-            Err(error) => Err(with_value_context(error.into(), value)),
-        }
+    /// The engine whose first field is the native prefix `runtime`.
+    ///
+    /// # Safety
+    /// `runtime` must belong to the live, synchronous Rust traversal that created
+    /// this exact repr(C) engine. An arbitrary native visitor is not such an engine.
+    #[inline(always)]
+    unsafe fn from_handle(runtime: StructuralVisitorHandle) -> *mut Self {
+        runtime.cast()
     }
-}
 
-#[inline]
-fn visit_children_raw<C: ChildVisit>(
-    value: TVMFFIAny,
-    visitor: &mut C,
-    driver_context: *mut c_void,
-    def_region_kind: DefRegionKind,
-) -> NativeResult {
-    if let Some(attr) =
-        structural_visit_column().and_then(|column| column.get_raw(value.type_index))
+    /// Publish the current exclusive `dispatch` reborrow and visit borrowed `raw`.
+    /// Return one owning raw None/interrupt/Error token.
+    ///
+    /// # Safety
+    /// `runtime` must belong to this live `D` invocation and `raw` remain valid
+    /// through recursion; the caller cannot use competing dispatcher borrows.
+    #[inline(always)]
+    unsafe fn visit_raw<D>(
+        runtime: StructuralVisitorHandle,
+        dispatch: &mut D,
+        raw: TVMFFIAny,
+    ) -> TVMFFIAny {
+        let context = unsafe { Self::checked_dispatcher(runtime, dispatch) };
+        unsafe { (*Self::from_handle(runtime)).dispatcher = context };
+        StructuralVisitorObj::call_visitor_raw(runtime, raw)
+    }
+
+    /// Check runtime identity and return the current `dispatch` reborrow pointer.
+    ///
+    /// # Safety
+    /// `runtime` must be the live engine for `D`; address equality does not establish
+    /// type or lifetime validity. Mismatch panics before a pointer is published.
+    // The caller has already established matching runtime/D types and scope.
+    // Read only the stored raw address: do not create a competing mutable borrow.
+    #[inline(always)]
+    unsafe fn checked_dispatcher<D>(
+        runtime: StructuralVisitorHandle,
+        dispatch: &mut D,
+    ) -> *mut c_void {
+        let current = dispatcher_ptr(dispatch);
+        if current != unsafe { (*Self::from_handle(runtime)).dispatcher } {
+            core::hint::cold_path();
+            wrong_dispatcher();
+        }
+        current
+    }
+
+    /// Build the native visitor callback for concrete dispatcher `D`. Its higher-ranked
+    /// view arguments restrict all borrows to the synchronous handler invocation.
+    #[inline(always)]
+    fn vtable<D>() -> &'static StructuralVisitorVTable
+    where
+        for<'s, 'v, 'c, 'r> &'s mut D: crate::Dispatcher<
+                (AnyView<'v>, &'c mut StructuralVisitorView<'r, D, Base>),
+                Option<Result<Option<VisitInterrupt>>>,
+            >,
     {
-        if attr.type_index != TVMFFITypeIndex::kTVMFFINone as i32 {
-            let active = active_structural_visitor()?;
-            return with_current_visitor_context(active, driver_context, || {
-                call_structural_visit_hook(active, value, def_region_kind, attr)
-            });
+        &StructuralVisitorVTable {
+            visit: Self::rust_vtable_visit_raw::<D>,
         }
     }
 
-    if value.type_index < TVMFFITypeIndex::kTVMFFIStaticObjectBegin as i32 {
-        Ok(())
-    } else {
-        visit_reflected_fields(value, visitor, def_region_kind)
-    }
-}
-
-#[inline]
-fn visit_reflected_fields<C: ChildVisit>(
-    value: TVMFFIAny,
-    visitor: &mut C,
-    def_region_kind: DefRegionKind,
-) -> NativeResult {
-    let type_info = unsafe { TVMFFIGetTypeInfo(value.type_index) };
-    if type_info.is_null() {
-        return Err(runtime_error(&format!(
-            "native visitor: unregistered type index {}",
-            value.type_index
-        ))
-        .into());
-    }
-    let seq_hash_kind = unsafe {
-        let metadata = (*type_info).metadata;
-        if metadata.is_null() {
-            TVMFFISEqHashKind::kTVMFFISEqHashKindUnsupported as i32
+    /// Enter a native visitor callback with borrowed `value`; return one owning token.
+    /// Restore the incoming dispatcher provenance before returning to the caller.
+    ///
+    /// # Safety
+    /// `runtime` must have this `D` vtable and a live published reborrow. The erased
+    /// ABI lifetime on `value` is valid only for this call. Callback failures use
+    /// Result; Rust panics cannot cross this native C boundary.
+    unsafe extern "C" fn rust_vtable_visit_raw<D>(
+        runtime: StructuralVisitorHandle,
+        value: AnyView<'static>,
+    ) -> TVMFFIAny
+    where
+        for<'s, 'v, 'c, 'r> &'s mut D: crate::Dispatcher<
+                (AnyView<'v>, &'c mut StructuralVisitorView<'r, D, Base>),
+                Option<Result<Option<VisitInterrupt>>>,
+            >,
+    {
+        let context = unsafe { (*Self::from_handle(runtime)).dispatcher };
+        let raw = *value.as_raw_ffi_any();
+        let result = if raw.type_index == TVMFFITypeIndex::kTVMFFINone as i32 {
+            core::hint::cold_path();
+            TVMFFIAny::new()
         } else {
-            (*metadata).structural_eq_hash_kind
-        }
-    };
-    let def_region_kind = free_var_child_region(def_region_kind, seq_hash_kind);
-    let object = unsafe { value.data_union.v_obj } as *mut u8;
-    let halted = unsafe {
-        for_each_field_info(type_info, &mut |field| match visit_reflected_field(
-            object,
-            field,
-            visitor,
-            def_region_kind,
-        ) {
-            Ok(()) => ControlFlow::Continue(()),
-            Err(halt) => ControlFlow::Break(halt),
-        })
-    };
-    halted.map_or(Ok(()), Err)
-}
-
-unsafe fn visit_reflected_field<C: ChildVisit>(
-    object: *mut u8,
-    field: &TVMFFIFieldInfo,
-    visitor: &mut C,
-    inherited_region: DefRegionKind,
-) -> NativeResult {
-    if field.flags & FLAG_SEQ_HASH_IGNORE != 0 {
-        return Ok(());
-    }
-
-    let Some(getter) = field.getter else {
-        return Err(NativeHalt::Error(runtime_error(&format!(
-            "native visitor: reflected field `{}` has no getter",
-            field.name.as_str()
-        ))));
-    };
-    let address = object.offset(field.offset as isize) as *mut c_void;
-    // Own the getter result so partial writes and recursive borrows drop safely.
-    let mut child = Any::new();
-    if getter(address, Any::as_data_ptr(&mut child)) != 0 {
-        return Err(with_error_context(
-            NativeHalt::Error(Error::from_raised()),
-            &format!("field `{}`", field.name.as_str()),
-        ));
-    }
-
-    let borrowed = StructuralView::from_any(&child);
-    let child_region = field_def_region(field, inherited_region);
-    visitor
-        .visit_child(borrowed, child_region)
-        .map_err(|halt| with_error_context(halt, &format!("field `{}`", field.name.as_str())))
-}
-
-type StructuralVisitorHandle = *mut RuntimeStructuralVisitorObj;
-type FStructuralVisit =
-    unsafe extern "C" fn(StructuralVisitorHandle, AnyView<'static>) -> TVMFFIAny;
-
-/// Rust mirror of the C++ `StructuralVisitorVTable` ABI.
-#[repr(C)]
-struct StructuralVisitorVTable {
-    visit: FStructuralVisit,
-}
-
-/// Rust visitor object with the C++ `StructuralVisitorObj` prefix.
-#[repr(C)]
-struct RuntimeStructuralVisitorObj {
-    base: Object,
-    vtable: *const StructuralVisitorVTable,
-    def_region_mode: i32,
-    // The live context remains in traversal-local TLS.
-    context_identity: *mut c_void,
-    owner_thread: std::thread::ThreadId,
-    panic: Option<Box<dyn std::any::Any + Send>>,
-}
-
-/// Rust layout used to create and read the ABI `ffi.VisitInterrupt` object.
-#[repr(C)]
-struct RuntimeVisitInterruptObj {
-    base: Object,
-    value: Any,
-}
-
-const _: () = {
-    assert!(
-        std::mem::offset_of!(RuntimeStructuralVisitorObj, vtable)
-            == std::mem::size_of::<TVMFFIObject>()
-    );
-    assert!(
-        std::mem::offset_of!(RuntimeStructuralVisitorObj, def_region_mode)
-            == std::mem::size_of::<TVMFFIObject>() + std::mem::size_of::<*const c_void>()
-    );
-    assert!(
-        std::mem::offset_of!(RuntimeVisitInterruptObj, value)
-            == std::mem::size_of::<TVMFFIObject>()
-    );
-};
-
-// SAFETY: the `repr(C)` prefix and assertions above match
-// `StructuralVisitorObj`; the runtime type is registered by the C++ extra.
-unsafe impl ObjectCore for RuntimeStructuralVisitorObj {
-    const TYPE_KEY: &'static str = "ffi.StructuralVisitor";
-    const TYPE_DEPTH: i32 = Object::TYPE_DEPTH + 1;
-
-    fn type_index() -> i32 {
-        static TYPE_INDEX: LazyLock<i32> = LazyLock::new(|| unsafe {
-            let key = TVMFFIByteArray::from_str(RuntimeStructuralVisitorObj::TYPE_KEY);
-            let mut type_index = 0;
-            let return_code = TVMFFITypeKeyToIndex(&key, &mut type_index);
-            if return_code != 0 {
-                panic!(
-                    "ffi.StructuralVisitor is not registered: {}",
-                    Error::from_raised()
-                );
+            let dispatch = unsafe { &mut *context.cast::<D>() };
+            let mut visitor = unsafe { Self::visitor_context::<D>(runtime) };
+            // SAFETY: the native caller keeps the input alive for this synchronous
+            // dispatch, and the handler does not modify a list or dict cell
+            // holding it (the callback contract); the higher-ranked callback
+            // cannot retain its borrowed view.
+            match unsafe {
+                crate::Dispatcher::dispatch_tuple(
+                    &mut *dispatch,
+                    (AnyView::from_raw_ffi_any(raw), &mut visitor),
+                )
+            } {
+                Some(result) => visit_result_raw(result, raw),
+                None => unsafe { Self::default_visit_raw(runtime, dispatcher_ptr(dispatch), raw) },
             }
-            type_index
-        });
-        *TYPE_INDEX
-    }
-
-    unsafe fn object_header_mut(this: &mut Self) -> &mut TVMFFIObject {
-        Object::object_header_mut(&mut this.base)
-    }
-}
-
-// SAFETY: `VisitInterruptObj` is final and consists of `Object` followed by
-// one `Any`, exactly matching `RuntimeVisitInterruptObj`.
-unsafe impl ObjectCore for RuntimeVisitInterruptObj {
-    const TYPE_KEY: &'static str = "ffi.VisitInterrupt";
-    const TYPE_DEPTH: i32 = Object::TYPE_DEPTH + 1;
-    const TYPE_FINAL: bool = true;
-
-    fn type_index() -> i32 {
-        TVMFFITypeIndex::kTVMFFIVisitInterrupt as i32
-    }
-
-    unsafe fn object_header_mut(this: &mut Self) -> &mut TVMFFIObject {
-        Object::object_header_mut(&mut this.base)
-    }
-}
-
-// Use a direct ABI entry for each concrete visitor type.
-fn walk_runtime_vtable<V: NativeVisit, const PRE_ORDER: bool>() -> &'static StructuralVisitorVTable
-{
-    &StructuralVisitorVTable {
-        visit: rust_vtable_walk::<V, PRE_ORDER>,
-    }
-}
-
-fn user_runtime_vtable<V: StructuralVisitor>() -> &'static StructuralVisitorVTable {
-    &StructuralVisitorVTable {
-        visit: rust_vtable_user::<V>,
-    }
-}
-
-struct RuntimeContextGuard {
-    active: *mut ActiveStructuralVisitor,
-    context: *mut c_void,
-}
-
-impl Drop for RuntimeContextGuard {
-    fn drop(&mut self) {
-        // SAFETY: `active` points to the traversal-local state installed in
-        // TLS, which outlives every callback guard created during that run.
-        unsafe { (*self.active).context = self.context };
-    }
-}
-
-/// Traversal-local state exposed through TLS on the owner thread.
-struct ActiveStructuralVisitor {
-    visitor: StructuralVisitorHandle,
-    context: *mut c_void,
-    context_identity: *mut c_void,
-}
-
-/// Take the Rust callback context while one vtable call is active.
-///
-/// # Safety
-///
-/// `visitor` must be null or point to a live [`RuntimeStructuralVisitorObj`].
-#[inline(always)]
-unsafe fn take_runtime_context(visitor: StructuralVisitorHandle) -> Result<RuntimeContextGuard> {
-    let active = active_structural_visitor_state(visitor)
-        .ok_or_else(|| inactive_structural_visitor_error(visitor, "callback"))?;
-    let context = (*active).context;
-    if context.is_null() {
-        return Err(runtime_error(
-            "structural visitor may only be called by its active registered hook",
-        ));
-    }
-    (*active).context = std::ptr::null_mut();
-    Ok(RuntimeContextGuard { active, context })
-}
-
-unsafe extern "C" fn rust_vtable_walk<V: NativeVisit, const PRE_ORDER: bool>(
-    visitor: StructuralVisitorHandle,
-    value: AnyView<'static>,
-) -> TVMFFIAny {
-    rust_vtable_visit_impl(visitor, value, |context, raw, kind| {
-        runtime_walk::<V, PRE_ORDER>(context, raw, kind)
-    })
-}
-
-unsafe extern "C" fn rust_vtable_user<V: StructuralVisitor>(
-    visitor: StructuralVisitorHandle,
-    value: AnyView<'static>,
-) -> TVMFFIAny {
-    rust_vtable_visit_impl(visitor, value, |context, raw, kind| {
-        runtime_user_visit::<V>(context, raw, kind)
-    })
-}
-
-#[inline(always)]
-unsafe fn rust_vtable_visit_impl(
-    visitor: StructuralVisitorHandle,
-    value: AnyView<'static>,
-    callback: impl FnOnce(*mut c_void, TVMFFIAny, DefRegionKind) -> NativeResult,
-) -> TVMFFIAny {
-    let context_guard = match take_runtime_context(visitor) {
-        Ok(guard) => guard,
-        Err(error) => return native_result_into_raw(Err(NativeHalt::Error(error))),
-    };
-    let context = context_guard.context;
-    let raw = *value.as_raw_ffi_any();
-    let outcome = catch_unwind(AssertUnwindSafe(
-        #[inline(always)]
-        || {
-            let result = def_region_from_raw((*visitor).def_region_mode)
-                .map_err(NativeHalt::Error)
-                .and_then(|kind| callback(context, raw, kind));
-            native_result_into_raw(result)
-        },
-    ));
-    match outcome {
-        Ok(result) => result,
-        Err(payload) => visit_panic_result(visitor, payload),
-    }
-}
-
-#[cold]
-unsafe fn visit_panic_result(
-    visitor: StructuralVisitorHandle,
-    payload: Box<dyn std::any::Any + Send>,
-) -> TVMFFIAny {
-    (*visitor).panic = Some(payload);
-    native_result_into_raw(Err(NativeHalt::Error(runtime_error(
-        "panic in structural visitor callback",
-    ))))
-}
-
-thread_local! {
-    static ACTIVE_STRUCTURAL_VISITOR: Cell<*mut ActiveStructuralVisitor> = const {
-        Cell::new(std::ptr::null_mut())
-    };
-}
-
-fn with_active_structural_visitor<T>(
-    active_state: &mut ActiveStructuralVisitor,
-    callback: impl FnOnce() -> T,
-) -> T {
-    ACTIVE_STRUCTURAL_VISITOR.with(|active| {
-        let previous = active.replace(std::ptr::from_mut(active_state));
-        struct Restore<'a> {
-            active: &'a Cell<*mut ActiveStructuralVisitor>,
-            previous: *mut ActiveStructuralVisitor,
-        }
-        impl Drop for Restore<'_> {
-            fn drop(&mut self) {
-                self.active.set(self.previous);
-            }
-        }
-        let _restore = Restore { active, previous };
-        callback()
-    })
-}
-
-fn active_structural_visitor() -> Result<StructuralVisitorHandle> {
-    ACTIVE_STRUCTURAL_VISITOR.with(|active| {
-        let state = active.get();
-        if state.is_null() {
-            Err(runtime_error(
-                "structural visitor helper called outside structural_visit or structural_walk",
-            ))
-        } else {
-            Ok(unsafe { (*state).visitor })
-        }
-    })
-}
-
-#[inline(always)]
-fn active_structural_visitor_state(
-    handle: StructuralVisitorHandle,
-) -> Option<*mut ActiveStructuralVisitor> {
-    ACTIVE_STRUCTURAL_VISITOR.with(|active| {
-        let state = active.get();
-        if state.is_null() || unsafe { (*state).visitor != handle } {
-            None
-        } else {
-            Some(state)
-        }
-    })
-}
-
-#[cold]
-fn inactive_structural_visitor_error(visitor: StructuralVisitorHandle, operation: &str) -> Error {
-    if visitor.is_null() {
-        return runtime_error("null active structural visitor");
-    }
-    // This branch is outside the hot path. The immutable owner id lets us
-    // reject a foreign-thread call before reading context fields that the
-    // owner thread may be updating.
-    unsafe {
-        if (*visitor).owner_thread != std::thread::current().id() {
-            return runtime_error(&format!(
-                "structural visitor {operation} invoked from a different thread"
-            ));
-        }
-        if (*visitor).context_identity.is_null() {
-            runtime_error("structural visitor was retained after its active call")
-        } else {
-            runtime_error(&format!(
-                "structural visitor {operation} may only be used by its active registered hook"
-            ))
-        }
-    }
-}
-
-/// Expose the current Rust visitor only while a registered hook may call its
-/// vtable. The callback hides it again before returning to Rust user code.
-fn with_current_visitor_context(
-    visitor: StructuralVisitorHandle,
-    context: *mut c_void,
-    callback: impl FnOnce() -> NativeResult,
-) -> NativeResult {
-    let active = checked_visitor_context(visitor, context)?;
-    unsafe {
-        (*active).context = context;
-        struct HideContext {
-            active: *mut ActiveStructuralVisitor,
-        }
-        impl Drop for HideContext {
-            fn drop(&mut self) {
-                unsafe { (*self.active).context = std::ptr::null_mut() };
-            }
-        }
-        let _hide = HideContext { active };
-        callback()
-    }
-}
-
-fn checked_visitor_context(
-    visitor: StructuralVisitorHandle,
-    context: *mut c_void,
-) -> Result<*mut ActiveStructuralVisitor> {
-    let active = active_structural_visitor_state(visitor)
-        .ok_or_else(|| inactive_structural_visitor_error(visitor, "helper"))?;
-    unsafe {
-        if (*active).context_identity != context {
-            return Err(runtime_error(
-                "structural visitor helper called on a non-active visitor",
-            ));
-        }
-        if !(*active).context.is_null() {
-            return Err(runtime_error(
-                "structural visitor context is already exposed",
-            ));
-        }
-        Ok(active)
-    }
-}
-
-#[inline(always)]
-unsafe fn runtime_walk<V: NativeVisit, const PRE_ORDER: bool>(
-    context: *mut c_void,
-    raw: TVMFFIAny,
-    def_region_kind: DefRegionKind,
-) -> NativeResult {
-    visit_raw::<V, PRE_ORDER>(raw, &mut *context.cast::<V>(), def_region_kind)
-}
-
-#[inline(always)]
-unsafe fn runtime_user_visit<V: StructuralVisitor>(
-    context: *mut c_void,
-    raw: TVMFFIAny,
-    def_region_kind: DefRegionKind,
-) -> NativeResult {
-    if raw.type_index == TVMFFITypeIndex::kTVMFFINone as i32 {
-        return Ok(());
-    }
-    match (&mut *context.cast::<V>()).visit(&StructuralView::from_raw(raw), def_region_kind) {
-        Ok(None) => Ok(()),
-        Ok(Some(interrupt)) => Err(NativeHalt::Interrupt(interrupt.value)),
-        Err(error) => Err(with_value_context(NativeHalt::Error(error), raw)),
-    }
-}
-
-fn run_structural_visitor<D>(
-    root: TVMFFIAny,
-    driver: &mut D,
-    vtable: &'static StructuralVisitorVTable,
-) -> NativeResult {
-    let context = std::ptr::from_mut(driver).cast::<c_void>();
-    let mut active = ObjectArc::new(RuntimeStructuralVisitorObj {
-        base: Object::new(),
-        vtable,
-        def_region_mode: DefRegionKind::None as i32,
-        context_identity: context,
-        owner_thread: std::thread::current().id(),
-        panic: None,
-    });
-    let handle = unsafe { ObjectArc::as_raw_mut(&mut active) };
-    let mut active_state = ActiveStructuralVisitor {
-        visitor: handle,
-        context,
-        context_identity: context,
-    };
-    // Keep all borrow-sensitive Rust state in this traversal's stack frame.
-    // Nested callbacks validate and temporarily take it through TLS without
-    // repeatedly touching the heap-allocated FFI object.
-    let result = with_active_structural_visitor(&mut active_state, || {
-        call_visitor(handle, root, DefRegionKind::None)
-    });
-    unsafe {
-        (*handle).context_identity = std::ptr::null_mut();
-    }
-    let panic = unsafe { (*handle).panic.take() };
-    if let Some(payload) = panic {
-        drop(result);
-        resume_unwind(payload);
-    }
-    result
-}
-
-fn call_visitor(
-    visitor: StructuralVisitorHandle,
-    raw: TVMFFIAny,
-    def_region_kind: DefRegionKind,
-) -> NativeResult {
-    if raw.type_index == TVMFFITypeIndex::kTVMFFINone as i32 {
-        return Ok(());
-    }
-    if visitor.is_null() {
-        return Err(runtime_error("no active structural visitor").into());
-    }
-    let callback = unsafe { (*(*visitor).vtable).visit };
-    with_visitor_def_region(visitor, def_region_kind, || unsafe {
-        let value = AnyView::from_raw_ffi_any(raw);
-        visit_result_from_raw(callback(visitor, value))
-    })
-}
-
-fn call_structural_visit_hook(
-    visitor: StructuralVisitorHandle,
-    raw: TVMFFIAny,
-    def_region_kind: DefRegionKind,
-    attr: TVMFFIAny,
-) -> NativeResult {
-    with_visitor_def_region(visitor, def_region_kind, || unsafe {
-        match attr.type_index {
-            x if x == TVMFFITypeIndex::kTVMFFIOpaquePtr as i32 => {
-                let pointer = attr.data_union.v_ptr;
-                if pointer.is_null() {
-                    return Err(runtime_error("structural visit hook is null").into());
-                }
-                // The `__s_visit__` protocol stores exactly an
-                // `FStructuralVisit` in an opaque-pointer attribute.
-                let hook: FStructuralVisit = std::mem::transmute(pointer);
-                let value = AnyView::from_raw_ffi_any(raw);
-                visit_result_from_raw(hook(visitor, value))
-            }
-            x if x == TVMFFITypeIndex::kTVMFFIFunction as i32 => {
-                let function = Function::try_from(AnyView::from_raw_ffi_any(attr))?;
-                let visitor_value = borrowed_visitor_view(visitor);
-                let value = AnyView::from_raw_ffi_any(raw);
-                visit_result_from_any(function.call_packed(&[visitor_value, value])?)
-            }
-            _ => Err(Error::new(
-                TYPE_ERROR,
-                "__s_visit__ must be an opaque function pointer or ffi.Function",
-                "",
-            )
-            .into()),
-        }
-    })
-}
-
-unsafe fn borrowed_visitor_view<'a>(visitor: StructuralVisitorHandle) -> AnyView<'a> {
-    let object = visitor.cast::<TVMFFIObject>();
-    let mut raw = TVMFFIAny::new();
-    raw.type_index = (*object).type_index;
-    raw.small_str_len = 0;
-    raw.data_union.v_obj = object;
-    AnyView::from_raw_ffi_any(raw)
-}
-
-#[inline(always)]
-fn native_result_into_raw(result: NativeResult) -> TVMFFIAny {
-    match result {
-        Ok(()) => TVMFFIAny::new(),
-        Err(NativeHalt::Error(error)) => unsafe { Any::into_raw_ffi_any(Any::from(error)) },
-        Err(NativeHalt::Interrupt(payload)) => {
-            let interrupt = ObjectArc::new(RuntimeVisitInterruptObj {
-                base: Object::new(),
-                value: payload,
-            });
-            let object = unsafe { ObjectArc::into_raw(interrupt) }.cast_mut();
-            let mut raw = TVMFFIAny::new();
-            raw.type_index = TVMFFITypeIndex::kTVMFFIVisitInterrupt as i32;
-            raw.data_union.v_obj = object.cast::<TVMFFIObject>();
-            raw
-        }
-    }
-}
-
-unsafe fn visit_result_from_raw(raw: TVMFFIAny) -> NativeResult {
-    // None is the overwhelmingly common success result. Avoid constructing
-    // and dropping an owning Any unless the hook actually stopped or failed.
-    if raw.type_index == TVMFFITypeIndex::kTVMFFINone as i32 {
-        Ok(())
-    } else {
-        visit_result_from_any(Any::from_raw_ffi_any(raw))
-    }
-}
-
-fn visit_result_from_any(value: Any) -> NativeResult {
-    match value.type_index() {
-        x if x == TVMFFITypeIndex::kTVMFFINone as i32 => Ok(()),
-        x if x == TVMFFITypeIndex::kTVMFFIError as i32 => match Error::try_from(value) {
-            Ok(error) | Err(error) => Err(NativeHalt::Error(error)),
-        },
-        x if x == TVMFFITypeIndex::kTVMFFIVisitInterrupt as i32 => {
-            let raw = *value.as_raw_ffi_any();
-            let object = unsafe { raw.data_union.v_obj };
-            if object.is_null() {
-                return Err(runtime_error("structural visit returned a null interrupt").into());
-            }
-            let payload = unsafe { (*object.cast::<RuntimeVisitInterruptObj>()).value.clone() };
-            Err(NativeHalt::Interrupt(payload))
-        }
-        _ => Err(Error::new(
-            TYPE_ERROR,
-            "structural visit hook must return None or ffi.VisitInterrupt",
-            "",
-        )
-        .into()),
-    }
-}
-
-#[inline(always)]
-fn with_visit_region<T>(
-    kind: DefRegionKind,
-    callback: impl FnOnce(DefRegionKind) -> Result<T>,
-) -> Result<T> {
-    let active = active_structural_visitor()?;
-    with_visitor_def_region(
-        active,
-        kind,
-        #[inline(always)]
-        || {
-            // SAFETY: the active invocation keeps this thread's ABI visitor alive.
-            let kind = def_region_from_raw(unsafe { (*active).def_region_mode })?;
-            callback(kind)
-        },
-    )
-}
-
-#[inline(always)]
-fn with_visitor_def_region<T>(
-    visitor: StructuralVisitorHandle,
-    kind: DefRegionKind,
-    callback: impl FnOnce() -> T,
-) -> T {
-    unsafe {
-        let previous = (*visitor).def_region_mode;
-        // Precedence: a pattern region propagates; entering any kind inside it has no effect.
-        if previous != DefRegionKind::Pattern as i32 {
-            (*visitor).def_region_mode = kind as i32;
-        }
-        struct Restore {
-            visitor: StructuralVisitorHandle,
-            previous: i32,
-        }
-        impl Drop for Restore {
-            fn drop(&mut self) {
-                if self.previous != DefRegionKind::Pattern as i32 {
-                    unsafe { (*self.visitor).def_region_mode = self.previous };
-                }
-            }
-        }
-        let _restore = Restore { visitor, previous };
-        callback()
-    }
-}
-
-#[inline(always)]
-fn def_region_from_raw(kind: i32) -> Result<DefRegionKind> {
-    match kind {
-        x if x == DefRegionKind::None as i32 => Ok(DefRegionKind::None),
-        x if x == DefRegionKind::Pattern as i32 => Ok(DefRegionKind::Pattern),
-        x if x == DefRegionKind::Simple as i32 => Ok(DefRegionKind::Simple),
-        _ => Err(runtime_error("invalid structural definition-region kind")),
-    }
-}
-
-#[cold]
-fn with_value_context(halt: NativeHalt, value: TVMFFIAny) -> NativeHalt {
-    if value.type_index < TVMFFITypeIndex::kTVMFFIStaticObjectBegin as i32 {
-        halt
-    } else {
-        let halt = match halt {
-            NativeHalt::Error(error) => NativeHalt::Error(with_visit_error_context(error, value)),
-            interrupt => interrupt,
         };
-        with_error_context(halt, &format!("object `{}`", type_key_of(value.type_index)))
+        // The enclosing callback may resume using its ancestor mutable borrow.
+        // Native hooks cannot restore Rust-only borrow provenance for us.
+        unsafe { (*Self::from_handle(runtime)).dispatcher = context };
+        result
     }
-}
 
-/// Visit `root` with a [`StructuralVisitor`] or typed callback chain.
-///
-/// A matching callback owns recursion; unmatched values use default child
-/// traversal. Use [`VisitCallbacks`] to attach mutable state to the chain.
-pub fn structural_visit<R, M>(
-    root: &R,
-    visitor: impl IntoVisitor<M>,
-) -> Result<Option<VisitInterrupt>>
-where
-    for<'x> AnyView<'x>: From<&'x R>,
-{
-    visitor.visit_root(raw_of(AnyView::from(root)))
-}
-
-/// Walk `root` with an observer, the Rust analog of C++
-/// `StructuralWalk<order>(root, callbacks...)`.
-///
-/// `walker` is anything implementing [`IntoWalker`]: a `&mut` reference to a
-/// stateful [`WalkDispatch`] walker (`#[dispatch(walk)]`), a bare closure
-/// in any [`WalkChainLink`] shape (catch-all `&StructuralView`, typed, or node,
-/// with an optional trailing [`DefRegionKind`]), or a tuple of such
-/// callbacks tried in order — the C++ callback overloads and variadic
-/// chain. A [`WalkWithContextPolicy`] may be passed by value or mutable reference.
-/// The walker owns recursion: the handler runs once per value,
-/// before or after the value's children according to `order`, and steers
-/// traversal through the returned [`WalkResult`].
-pub fn structural_walk<R, M, H>(
-    root: &R,
-    walker: H,
-    order: WalkOrder,
-) -> Result<Option<VisitInterrupt>>
-where
-    H: IntoWalker<M>,
-    for<'x> AnyView<'x>: From<&'x R>,
-{
-    walker.into_walker().walk_root(AnyView::from(root), order)
-}
-
-fn finish(result: NativeResult) -> Result<Option<VisitInterrupt>> {
-    match result {
-        Ok(()) => Ok(None),
-        Err(NativeHalt::Error(error)) => Err(error),
-        Err(NativeHalt::Interrupt(payload)) => Ok(Some(VisitInterrupt { value: payload })),
+    /// Create the handler view for borrowed `runtime`, without retaining it.
+    ///
+    /// # Safety
+    /// The live runtime's vtable must match D. Keep this view within the current
+    /// higher-ranked handler call, never outliving the runtime or dispatcher.
+    #[inline(always)]
+    unsafe fn visitor_context<'a, D>(
+        runtime: StructuralVisitorHandle,
+    ) -> StructuralVisitorView<'a, D, Base> {
+        StructuralVisitorView {
+            runtime,
+            _marker: PhantomData,
+        }
     }
-}
 
-#[inline]
-pub(crate) fn field_def_region(field: &TVMFFIFieldInfo, inherited: DefRegionKind) -> DefRegionKind {
-    // Precedence: a pattern region propagates; entering any kind inside it has no effect.
-    if inherited == DefRegionKind::Pattern {
-        DefRegionKind::Pattern
-    } else if field.flags & FLAG_SEQ_HASH_DEF_SIMPLE != 0 {
-        DefRegionKind::Simple
-    } else if field.flags & FLAG_SEQ_HASH_DEF_PATTERN != 0 {
-        DefRegionKind::Pattern
-    } else {
-        inherited
+    /// Publish `context` and descend through borrowed `raw`, then annotate errors.
+    /// The raw return transfers one owning None/interrupt/Error token.
+    ///
+    /// # Safety
+    /// `runtime` must be live and `context` its current exclusive dispatcher reborrow;
+    /// `raw` remains borrowed and must survive the complete synchronous descent.
+    #[inline(always)]
+    unsafe fn default_visit_raw(
+        runtime: StructuralVisitorHandle,
+        context: *mut c_void,
+        raw: TVMFFIAny,
+    ) -> TVMFFIAny {
+        // Context is the supplied exclusive reborrow. Publish it before descent;
+        // the handle-only scanner never creates or uses a competing D reference.
+        unsafe { (*Self::from_handle(runtime)).dispatcher = context };
+        unsafe {
+            StructuralVisitorObj::with_visit_context_raw(
+                Base::default_visit_raw(runtime.cast(), AnyView::from_raw_ffi_any(raw)),
+                raw,
+            )
+        }
     }
-}
 
-/// A simple definition applies to a FreeVar value itself, but not to
-/// the FreeVar's own reflected children: nested free vars there must resolve
-/// against an outer binding instead of rebinding. Mirrors C++
-/// `VisitReflectedFieldsExpected`.
-#[inline]
-pub(crate) fn free_var_child_region(
-    inherited: DefRegionKind,
-    structural_eq_hash_kind: i32,
-) -> DefRegionKind {
-    if inherited == DefRegionKind::Simple
-        && structural_eq_hash_kind == TVMFFISEqHashKind::kTVMFFISEqHashKindFreeVar as i32
+    /// Visit borrowed `root` with `dispatch` on a fresh engine; the root's owner outlives it.
+    pub(super) fn run_visitor<D>(
+        root: TVMFFIAny,
+        dispatch: &mut D,
+    ) -> Result<Option<VisitInterrupt>>
+    where
+        for<'s, 'v, 'c, 'r> &'s mut D: crate::Dispatcher<
+                (AnyView<'v>, &'c mut StructuralVisitorView<'r, D, Base>),
+                Option<Result<Option<VisitInterrupt>>>,
+            >,
     {
-        DefRegionKind::None
-    } else {
-        inherited
+        let base = Base::new()?;
+        let type_index = Base::type_index();
+        // The managed runtime may borrow its dispatcher only for this call.
+        // Trusted hooks release all temporary handles before the owner is dropped.
+        let mut engine = unsafe {
+            ObjectArc::<Object>::new_opaque_unchecked(
+                StructuralVisitEngine {
+                    base,
+                    dispatcher: dispatcher_ptr(dispatch),
+                },
+                type_index,
+            )
+        };
+        let runtime = ObjectArc::as_mut_ptr(&mut engine).cast::<StructuralVisitorObj>();
+        // The engine and outer dispatcher storage stay stationary for the whole run.
+        // Only raw field projections cross recursion; no whole-engine borrow survives.
+        unsafe {
+            (*runtime).vtable = Self::vtable::<D>();
+            *(*runtime).def_region_mode.get() = DefRegionKind::None as i32;
+        }
+        // Keep the result owned while releasing the runtime, including on unwind.
+        let result =
+            unsafe { Any::from_raw_ffi_any(StructuralVisitorObj::call_visitor_raw(runtime, root)) };
+        // Trusted hooks have released every temporary strong/weak runtime reference.
+        drop(engine);
+        // The public traversal boundary, as the C++ `StructuralVisitExpected`.
+        visit_result_from_any(result).map_err(|error| enrich_visit_error(error, root))
     }
 }
+
+// -----------------------------------------------------------------------------
+// Prefix-only default traversal and native ABI operations
+// -----------------------------------------------------------------------------
+
+impl StructuralVisitorObj {
+    /// Consume `result`, naming the borrowed `value` in it when it is an Error.
+    #[inline(always)]
+    fn with_visit_context_raw(result: TVMFFIAny, value: TVMFFIAny) -> TVMFFIAny {
+        if result.type_index == TVMFFITypeIndex::kTVMFFINone as i32 {
+            result
+        } else {
+            Self::with_visit_stop_context_raw(result, value)
+        }
+    }
+
+    // Continuing visits need no owning conversion or input inspection. Keep
+    // interrupt/error handling out of their recursive frames.
+    #[cold]
+    #[inline(never)]
+    extern "C-unwind" fn with_visit_stop_context_raw(
+        result: TVMFFIAny,
+        value: TVMFFIAny,
+    ) -> TVMFFIAny {
+        if result.type_index != TVMFFITypeIndex::kTVMFFIError as i32
+            || value.type_index < TVMFFITypeIndex::kTVMFFIStaticObjectBegin as i32
+        {
+            result
+        } else {
+            // SAFETY: the Error tag establishes the owned object's representation.
+            unsafe {
+                let error = take_error(Any::from_raw_ffi_any(result));
+                Any::into_raw_ffi_any(update_visit_error_context(error, value).into())
+            }
+        }
+    }
+
+    /// Visit the children of `value` through its hook or reflected fields, without
+    /// dispatching `value` itself.
+    ///
+    /// # Safety
+    ///
+    /// `runtime` is live with its dispatcher published, and `value` outlives descent.
+    #[inline(always)]
+    unsafe fn visit_children_raw(runtime: StructuralVisitorHandle, value: TVMFFIAny) -> TVMFFIAny {
+        if let Some(attr) = structural_visit_column().get_raw_ffi_any(value.type_index)
+            && attr.type_index != TVMFFITypeIndex::kTVMFFINone as i32
+        {
+            return unsafe { Self::call_structural_visit_hook_raw(runtime, value, attr) };
+        }
+
+        if value.type_index < TVMFFITypeIndex::kTVMFFIStaticObjectBegin as i32 {
+            TVMFFIAny::new()
+        } else {
+            unsafe { Self::visit_reflected_fields_raw(runtime, value) }
+        }
+    }
+
+    /// Visit each reflected field of the object in `value`.
+    ///
+    /// # Safety
+    ///
+    /// As [`Self::visit_children_raw`]. Outlined (frequent, not cold) to keep reflection
+    /// scratch out of recursive frames.
+    #[inline(never)]
+    unsafe extern "C-unwind" fn visit_reflected_fields_raw(
+        runtime: StructuralVisitorHandle,
+        value: TVMFFIAny,
+    ) -> TVMFFIAny {
+        let type_info = unsafe { TVMFFIGetTypeInfo(value.type_index) };
+        if type_info.is_null() {
+            return Any::into_raw_ffi_any(unregistered_visit_type_error(value.type_index).into());
+        }
+        let def_region_kind = unsafe {
+            free_var_child_region(
+                std::mem::transmute::<i32, DefRegionKind>(*(*runtime).def_region_mode.get()),
+                seq_hash_kind(type_info),
+            )
+        };
+        let object = unsafe { value.data_union.v_obj } as *mut u8;
+        let halted = unsafe {
+            for_each_field_info(type_info, &mut |field| {
+                let result = Self::visit_reflected_field(runtime, object, field, def_region_kind);
+                if result.is_none() {
+                    ControlFlow::Continue(())
+                } else {
+                    ControlFlow::Break(result)
+                }
+            })
+        };
+        Any::into_raw_ffi_any(halted.unwrap_or_else(Any::new))
+    }
+
+    /// Visit one reflected `field` of `object` under `inherited_region`.
+    ///
+    /// # Safety
+    ///
+    /// `runtime` and `object` are live, and `field` describes `object`'s storage.
+    unsafe fn visit_reflected_field(
+        runtime: StructuralVisitorHandle,
+        object: *mut u8,
+        field: &TVMFFIFieldInfo,
+        inherited_region: DefRegionKind,
+    ) -> Any {
+        if field.flags & FLAG_SEQ_HASH_IGNORE != 0 {
+            return Any::new();
+        }
+
+        let Some(getter) = field.getter else {
+            return Any::from(unsafe {
+                missing_field_getter_error("visitor", field.name.as_str())
+            });
+        };
+        let address = unsafe { object.offset(field.offset as isize) as *mut c_void };
+        // Own the getter result so partial writes and recursive borrows drop safely.
+        let mut child = Any::new();
+        if unsafe { getter(address, Any::as_raw_ffi_any_mut(&mut child)) } != 0 {
+            return Any::from(Error::from_raised());
+        }
+
+        let borrowed = AnyView::from(&child);
+        let child_region = field_def_region(field, inherited_region);
+        Self::with_def_region_kind(runtime, child_region, || unsafe {
+            Any::from_raw_ffi_any(Self::call_visitor_raw(runtime, *borrowed.as_raw_ffi_any()))
+        })
+    }
+
+    /// Dispatch borrowed `value` through the runtime's vtable.
+    #[inline(always)]
+    fn call_visitor_raw(runtime: StructuralVisitorHandle, value: TVMFFIAny) -> TVMFFIAny {
+        if value.type_index == TVMFFITypeIndex::kTVMFFINone as i32 {
+            core::hint::cold_path();
+            return TVMFFIAny::new();
+        }
+        unsafe {
+            let callback = (*(*runtime).vtable).visit;
+            callback(runtime, AnyView::from_raw_ffi_any(value))
+        }
+    }
+
+    /// Call the registered visit `hook` (native pointer or packed function) on `value`.
+    ///
+    /// # Safety
+    ///
+    /// `runtime` is live with its dispatcher published, `value` and `hook` outlive the
+    /// call, and a native hook has the visit ABI for this runtime's layout and obeys
+    /// [`StructuralVisitorBase`]'s non-escaping contract.
+    #[inline(always)]
+    pub unsafe fn call_structural_visit_hook_raw(
+        runtime: *mut Self,
+        value: TVMFFIAny,
+        hook: TVMFFIAny,
+    ) -> TVMFFIAny {
+        unsafe {
+            if hook.type_index == TVMFFITypeIndex::kTVMFFIOpaquePtr as i32 {
+                let pointer = hook.data_union.v_ptr;
+                // Native pointer registration is an unsafe contract: a non-null
+                // callback with this ABI, borrowed runtime lifetime and owning result.
+                let hook: FStructuralVisit = std::mem::transmute(pointer);
+                hook(runtime, AnyView::from_raw_ffi_any(value))
+            } else {
+                core::hint::cold_path();
+                Self::call_structural_visit_hook_slow_raw(runtime, value, hook)
+            }
+        }
+    }
+
+    /// The packed-function arm of [`Self::call_structural_visit_hook_raw`], outlined as cold;
+    /// its result tag is checked.
+    #[cold]
+    #[inline(never)]
+    extern "C-unwind" fn call_structural_visit_hook_slow_raw(
+        runtime: StructuralVisitorHandle,
+        value: TVMFFIAny,
+        hook: TVMFFIAny,
+    ) -> TVMFFIAny {
+        // Packed hooks (including Python class methods) can return any well-formed
+        // Any through safe APIs. Their result tag needs validation before decoding.
+        let result = unsafe {
+            Function::try_from(AnyView::from_raw_ffi_any(hook)).and_then(|function| {
+                // Borrow the live runtime for this synchronous hook; it may not retain it.
+                let object = runtime.cast::<TVMFFIObject>();
+                let mut runtime = TVMFFIAny::new();
+                runtime.type_index = (*object).type_index;
+                runtime.data_union.v_obj = object;
+                function.call_packed(&[
+                    AnyView::from_raw_ffi_any(runtime),
+                    AnyView::from_raw_ffi_any(value),
+                ])
+            })
+        };
+        let result = match result {
+            Ok(value) => checked_hook_result(value),
+            Err(error) => error.into(),
+        };
+        Any::into_raw_ffi_any(result)
+    }
+
+    /// Run `callback` under requested `kind` on live borrowed `visitor`, preserving
+    /// Pattern precedence. Restore prior region on return or Rust unwind. Internal
+    /// callers keep the runtime live and retain no reference to its region field.
+    #[inline(always)]
+    fn with_def_region_kind<T>(
+        visitor: StructuralVisitorHandle,
+        kind: DefRegionKind,
+        callback: impl FnOnce() -> T,
+    ) -> T {
+        unsafe {
+            let previous = *(*visitor).def_region_mode.get();
+            if previous == kind as i32 || previous == DefRegionKind::Pattern as i32 {
+                // Inherited descent does not change state; Pattern keeps precedence.
+                return callback();
+            }
+            *(*visitor).def_region_mode.get() = kind as i32;
+            struct Restore {
+                visitor: StructuralVisitorHandle,
+                previous: i32,
+            }
+            impl Drop for Restore {
+                #[inline(always)]
+                fn drop(&mut self) {
+                    unsafe { *(*self.visitor).def_region_mode.get() = self.previous };
+                }
+            }
+            let _restore = Restore { visitor, previous };
+            callback()
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Private utility functions
+// -----------------------------------------------------------------------------
+
+#[inline(always)]
+fn dispatcher_ptr<D>(dispatch: &mut D) -> *mut c_void {
+    std::ptr::from_mut(dispatch).cast()
+}
+
+// The visit result carrier, as C++: None continues; a VisitInterrupt or an Error stops.
+#[inline(always)]
+fn visit_result_raw(result: Result<Option<VisitInterrupt>>, raw: TVMFFIAny) -> TVMFFIAny {
+    match result {
+        Ok(None) => TVMFFIAny::new(),
+        Ok(Some(interrupt)) => Any::into_raw_ffi_any(interrupt.into()),
+        Err(error) => {
+            core::hint::cold_path();
+            StructuralVisitorObj::with_visit_context_raw(Any::into_raw_ffi_any(error.into()), raw)
+        }
+    }
+}
+
+#[inline(always)]
+pub(super) fn visit_result_from_any(result: Any) -> Result<Option<VisitInterrupt>> {
+    let tag = result.type_index();
+    if tag == TVMFFITypeIndex::kTVMFFINone as i32 {
+        return Ok(None);
+    }
+    core::hint::cold_path();
+    if tag == TVMFFITypeIndex::kTVMFFIError as i32 {
+        // SAFETY: internal results obey the documented owning carrier protocol.
+        Err(unsafe { take_error(result) })
+    } else {
+        // SAFETY: the owning result protocol established a non-null interrupt.
+        // Transfer that same reference, including carriers shared by native hooks.
+        use crate::type_traits::AnyCompatible;
+        let mut raw = Any::into_raw_ffi_any(result);
+        Ok(Some(unsafe {
+            VisitInterrupt::move_from_any_after_check(&mut raw)
+        }))
+    }
+}
+
+// A packed hook's owning Any is valid, but its result type is dynamic.
+#[inline(always)]
+fn checked_hook_result(value: Any) -> Any {
+    let tag = value.type_index();
+    if tag == TVMFFITypeIndex::kTVMFFINone as i32
+        || tag == TVMFFITypeIndex::kTVMFFIError as i32
+        || tag == TVMFFITypeIndex::kTVMFFIVisitInterrupt as i32
+    {
+        value
+    } else {
+        invalid_visit_hook_result_error().into()
+    }
+}
+
+/// Consume exactly one Error reference after its integer tag was checked.
+#[inline(always)]
+unsafe fn take_error(value: Any) -> Error {
+    use crate::type_traits::AnyCompatible;
+    let mut raw = Any::into_raw_ffi_any(value);
+    unsafe { Error::move_from_any_after_check(&mut raw) }
+}
+
+// Columns are process-lifetime registry entries; a missing per-type cell still
+// falls back to reflected traversal. A missing required column is an error.
+static STRUCTURAL_VISIT_COLUMN: ColdInitLazyLock<TypeAttrColumn> = ColdInitLazyLock::new(|| {
+    TypeAttrColumn::lookup(STRUCTURAL_VISIT_ATTR).expect("missing __s_visit__ column")
+});
+
+/// Return the shared visit-hook column without caching optional per-type cells.
+#[inline(always)]
+fn structural_visit_column() -> TypeAttrColumn {
+    *STRUCTURAL_VISIT_COLUMN
+}
+
+// -----------------------------------------------------------------------------
+// Outlined errors
+// -----------------------------------------------------------------------------
 
 #[cold]
-fn with_error_context(halt: NativeHalt, frame: &str) -> NativeHalt {
-    match halt {
-        NativeHalt::Error(error) => {
-            NativeHalt::Error(with_structural_error_context(error, "visit", frame))
-        }
-        interrupt => interrupt,
-    }
-}
-
-fn runtime_error(message: &str) -> Error {
-    Error::new(RUNTIME_ERROR, message, "")
-}
-
-pub(crate) fn type_attr_column(attr_name: &str) -> Option<TypeAttrColumn> {
-    TypeAttrColumn::new(attr_name)
-}
-
-/// Cached `__s_visit__` column pointer (0 = not seen yet). A registry column
-/// is stable once created — C++ `DefaultVisitExpected` caches the same
-/// pointer in a function-local static — while an absent column is re-queried
-/// because a later attr registration may create it.
-static STRUCTURAL_VISIT_COLUMN: AtomicUsize = AtomicUsize::new(0);
-
-#[inline]
-fn structural_visit_column() -> Option<TypeAttrColumn> {
-    let cached = STRUCTURAL_VISIT_COLUMN.load(Ordering::Relaxed);
-    if cached != 0 {
-        let pointer = cached as *mut TVMFFITypeAttrColumn;
-        return Some(unsafe { TypeAttrColumn::from_non_null(NonNull::new_unchecked(pointer)) });
-    }
-    initialize_structural_visit_column()
-}
-
-#[inline]
-fn has_registered_visit_hook(type_index: i32) -> bool {
-    structural_visit_column()
-        .and_then(|column| column.get_raw(type_index))
-        .is_some_and(|attr| attr.type_index != TVMFFITypeIndex::kTVMFFINone as i32)
+#[inline(never)]
+fn unregistered_visit_type_error(type_index: i32) -> Error {
+    runtime_error(&format!(
+        "native visitor: unregistered type index {type_index}"
+    ))
 }
 
 #[cold]
 #[inline(never)]
-fn initialize_structural_visit_column() -> Option<TypeAttrColumn> {
-    let column = type_attr_column(STRUCTURAL_VISIT_ATTR)?;
-    STRUCTURAL_VISIT_COLUMN.store(column.as_ptr() as usize, Ordering::Relaxed);
-    Some(column)
-}
-
-pub(crate) fn type_key_of(type_index: i32) -> String {
-    unsafe {
-        let info = TVMFFIGetTypeInfo(type_index);
-        if info.is_null() {
-            format!("<type_index {type_index}>")
-        } else {
-            (*info).type_key.as_str().to_string()
-        }
-    }
-}
-
-/// Visit every reflected field described by `info` and its ancestors in the
-/// same parent-to-child order as C++ `ForEachFieldInfoWithEarlyStop`.
-///
-/// # Safety
-///
-/// `info` must point to an immortal registered type-info record.
-pub(crate) unsafe fn for_each_field_info<B>(
-    info: *const crate::tvm_ffi_sys::TVMFFITypeInfo,
-    callback: &mut impl FnMut(&'static TVMFFIFieldInfo) -> ControlFlow<B>,
-) -> Option<B> {
-    // Ancestor slot 0 is the root Object. C++ starts at slot 1, walks toward
-    // the immediate parent, then visits the concrete type's own fields.
-    for depth in 1..(*info).type_depth {
-        let ancestor = *(*info).type_acenstors.offset(depth as isize);
-        if let Some(value) = visit_field_level(ancestor, callback) {
-            return Some(value);
-        }
-    }
-    visit_field_level(info, callback)
-}
-
-unsafe fn visit_field_level<B>(
-    info: *const crate::tvm_ffi_sys::TVMFFITypeInfo,
-    callback: &mut impl FnMut(&'static TVMFFIFieldInfo) -> ControlFlow<B>,
-) -> Option<B> {
-    if info.is_null() || (*info).fields.is_null() {
-        return None;
-    }
-    let fields = std::slice::from_raw_parts((*info).fields, (*info).num_fields as usize);
-    for field in fields {
-        // C reflection tables are immortal once registered.
-        let field: &'static TVMFFIFieldInfo = &*(field as *const TVMFFIFieldInfo);
-        if let ControlFlow::Break(value) = callback(field) {
-            return Some(value);
-        }
-    }
-    None
-}
-
-#[inline]
-fn raw_of(view: AnyView<'_>) -> TVMFFIAny {
-    *view.as_raw_ffi_any()
+fn invalid_visit_hook_result_error() -> Error {
+    Error::new(
+        TYPE_ERROR,
+        "structural visit hook must return None or ffi.VisitInterrupt",
+    )
 }

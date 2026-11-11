@@ -4,7 +4,7 @@
 # Test ellipsoidals earth model functions and methods.
 
 __all__ = ('Tests',)
-__version__ = '25.07.20'
+__version__ = '26.10.28'
 
 from bases import coverage, GeodSolve, geographiclib, isPython35, isPython39, RandomLatLon
 from testLatLon import Tests as _TestsLL
@@ -48,6 +48,21 @@ class Tests(_TestsLL, _TestsV):
             t = d.dup(reframe=RefFrames.ITRF2000)
             t = eval('RefFrames.ITRF2014 @ t')  # PYLINT W0123
             self.test('__matmul__', t, t)
+
+        # Customized conversions must not change later default coordinates.
+        for lat in (45, -45, 85, -85):  # courtesy antonsoo #87
+            for warm in (False, True):
+                q = LatLon(lat, 0)
+                expected = q.toUtmUps() if warm else LatLon(lat, 0).toUtmUps()
+                u = q.toUtmUps(falsed=False)
+                self.test('toUtmUps custom falsed', u.falsed, False)
+                u = q.toUtmUps()
+                self.test('toUtmUps default falsed', u.falsed, True)
+                self.test('toUtmUps default', u.toStr(prec=3), expected.toStr(prec=3))
+                u = q.toUtm() if abs(lat) < 80 else q.toUps()
+                self.test('toUtm/toUps default', u.toStr(prec=3), expected.toStr(prec=3))
+                if warm:
+                    self.test('toUtmUps cached', q.toUtmUps() is expected, True)
 
         if coverage:  # coverage
             n = 'test'

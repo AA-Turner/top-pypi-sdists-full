@@ -54,25 +54,35 @@ impl SpecsAdapter for StatsigGrpcSpecsAdapter {
         self: Arc<Self>,
         statsig_runtime: &Arc<StatsigRuntime>,
     ) -> Result<(), StatsigErr> {
+        let mut rx = self.initialization_tx.subscribe();
         let handle_id = self
             .clone()
             .spawn_grpc_streaming_thread(statsig_runtime, self.ops_stats.clone())
             .await?;
 
         self.set_task_handle_id(handle_id)?;
-        let mut rx = self.initialization_tx.subscribe();
-        match timeout(self.init_timeout, rx.recv()).await {
-            Ok(res) => match res {
-                Ok(Ok(())) => Ok(()),
-                Ok(Err(err)) => Err(StatsigErr::GrpcError(format!(
-                    "Failed to initialize from streaming: {err}"
-                ))),
-                Err(_) => Err(StatsigErr::GrpcError("Failed to get a ".to_string())),
-            },
-            Err(_) => Err(StatsigErr::GrpcError(
-                "Start Timeout to get a response".to_string(),
-            )),
-        }
+        let wait_for_update = async {
+            loop {
+                match rx.recv().await {
+                    Ok(result) => {
+                        return result.map_err(|err| {
+                            StatsigErr::GrpcError(format!(
+                                "Failed to initialize from streaming: {err}"
+                            ))
+                        });
+                    }
+                    Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(broadcast::error::RecvError::Closed) => {
+                        return Err(StatsigErr::GrpcError(
+                            "Stream closed before initialization".into(),
+                        ));
+                    }
+                }
+            }
+        };
+        timeout(self.init_timeout, wait_for_update)
+            .await
+            .map_err(|_| StatsigErr::GrpcError("Start Timeout to get a response".into()))?
     }
 
     async fn schedule_background_sync(
@@ -524,7 +534,7 @@ mod tests {
         adapter.initialize(listener.clone());
         mock_proxy
             .send_stream_update(Ok(ConfigSpecResponse {
-                spec: r#"{"dynamic_configs":{"config":{"defaultValue":"https://statsigcdn.openai.com/v1/dynamic_config_value/not-a-sha","remoteConfigMetadata":{"sha256":"not-a-sha","byteLength":1,"contentType":"application/json","compression":"none"},"rules":[]}}}"#.to_string(),
+                spec: r#"{"dynamic_configs":{"config":{"entity":"dynamic_config","defaultValue":"https://statsigcdn.openai.com/v1/dynamic_config_value/not-a-sha","remoteConfigMetadata":{"sha256":"not-a-sha","byteLength":1,"contentType":"application/json","compression":"none"},"rules":[]}}}"#.to_string(),
                 last_updated: 123,
                 zstd_dict_id: None,
             }))
@@ -639,6 +649,7 @@ mod tests {
                 json!({
                     "dynamic_configs": {
                         "config": {
+                            "entity": "dynamic_config",
                             "defaultValue": download_path,
                             "remoteConfigMetadata": {
                                 "sha256": sha,
@@ -699,6 +710,7 @@ mod tests {
                 json!({
                     "dynamic_configs": {
                         "config": {
+                            "entity": "dynamic_config",
                             "defaultValue": placeholder,
                             "remoteConfigMetadata": {
                                 "sha256": sha,

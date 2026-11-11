@@ -32,6 +32,7 @@ from chalk.features.underscore import (
     Underscore,
     UnderscoreAttr,
     UnderscoreCall,
+    UnderscoreCast,
     UnderscoreFunction,
     UnderscoreItem,
     UnderscoreRoot,
@@ -52,7 +53,12 @@ from chalk.sql._internal.sql_file_resolver import get_sql_file_resolvers, get_sq
 from chalk.sql._internal.sql_source import BaseSQLSource
 from chalk.streams._windows import MaterializationWindowConfig
 from chalk.utils.collections import FrozenOrderedSet, ensure_tuple
-from chalk.utils.duration import CHALK_MAX_TIMEDELTA, parse_chalk_duration_s, timedelta_to_duration
+from chalk.utils.duration import (
+    CHALK_MAX_TIMEDELTA,
+    parse_chalk_duration,
+    parse_chalk_duration_s,
+    timedelta_to_duration,
+)
 from chalk.utils.import_utils import py_path_to_module
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.paths import get_directory_root
@@ -122,6 +128,18 @@ supported_aggs = (
 
 class ChalkParseError(ValueError):
     pass
+
+
+class _BucketOnParseError(ChalkParseError):
+    """A malformed `materialize_bucket_on` chain, carrying the expression node the error is about.
+
+    Diagnostics underline `at` -- the offending filter, bound, column, or call -- instead of the
+    feature's whole `expression=` value.
+    """
+
+    def __init__(self, message: str, at: Any):
+        super().__init__(message)
+        self.at = at
 
 
 def _try_parse_datetime(
@@ -653,7 +671,8 @@ def run_post_import_fixups():
                 f.lsp_error_builder.add_diagnostic(
                     message=f"The windowed materialization on feature '{f.window_stem}' is incorrectly configured.",
                     label=error,
-                    range=f.lsp_error_builder.property_value_kwarg_range(
+                    range=(_underscore_source_range(e.at) if isinstance(e, _BucketOnParseError) else None)
+                    or f.lsp_error_builder.property_value_kwarg_range(
                         feature_name=f.window_stem,
                         kwarg="expression",
                     )
@@ -970,6 +989,375 @@ def clean_filters(joined_class: Type[Features], filters: list[UnderscoreFunction
     return parsed_filters
 
 
+_WINDOW_BOUND_COMPARISONS = ("<", "<=", ">", ">=")
+_NOW_ATTRS = ("chalk_now", "chalk_window")
+
+
+@dataclass(frozen=True)
+class _BucketOnChain:
+    """A materialized aggregation written as `<source>.where(...).materialize_bucket_on(...).where(...)`.
+
+    The filters before `materialize_bucket_on` select rows and form the series identity; the filters after
+    it bound the window over the bucket column. Both lower into the same flat filter list that
+    `<source>[..., <row filter>, <bound>]` produces, so the explicit spelling keeps the series
+    key of the bracket spelling it replaces. The engine reads the bucket column off the
+    expression itself rather than guessing it from the bounds.
+    """
+
+    source: Underscore
+    row_filters: list[UnderscoreFunction]
+    bucket_call: UnderscoreCall
+    bucket_column: UnderscoreAttr
+    resolution: timedelta | None
+    window_bounds: list[UnderscoreFunction]
+
+
+def _as_method_call(expr: Any, method: str) -> UnderscoreCall | None:
+    if (
+        isinstance(expr, UnderscoreCall)
+        and isinstance(expr._chalk__parent, UnderscoreAttr)
+        and expr._chalk__parent._chalk__attr == method
+    ):
+        return expr
+    return None
+
+
+def _peel_where_calls(expr: Any, full_expr: Underscore | None) -> tuple[Any, list[UnderscoreFunction]]:
+    """Strip trailing `.where(...)` calls, returning the receiver and the filters in source order."""
+    calls: list[UnderscoreCall] = []
+    while (call := _as_method_call(expr, "where")) is not None:
+        calls.append(call)
+        expr = call._chalk__parent._chalk__parent
+    filters: list[UnderscoreFunction] = []
+    for call in reversed(calls):
+        if len(call._chalk__kwargs) != 0:
+            raise _BucketOnParseError(f"`.where(...)` does not accept keyword arguments in `{full_expr}`", call)
+        if len(call._chalk__args) == 0:
+            raise _BucketOnParseError(f"`.where(...)` requires at least one filter in `{full_expr}`", call)
+        for arg in call._chalk__args:
+            if not isinstance(arg, UnderscoreFunction):
+                raise _BucketOnParseError(
+                    f"expected a filter, like `_.amount > 0`, but found `{arg}` in `{full_expr}`",
+                    arg if isinstance(arg, Underscore) else call,
+                )
+            filters.append(arg)
+    return expr, filters
+
+
+def _mentions_now_or_outer(expr: Any) -> bool:
+    """Whether `expr` refers to `__`, `_.chalk_now`, or `_.chalk_window`.
+
+    `_.chalk_now` is spelled on `_` but is a property of the query row, not of the aggregated
+    child row -- morally it is `__.chalk_now` -- and `_.chalk_window` is an offset from it.
+    """
+    if isinstance(expr, DoubleUnderscore):
+        return True
+    if isinstance(expr, UnderscoreAttr):
+        if isinstance(expr._chalk__parent, UnderscoreRoot) and expr._chalk__attr in _NOW_ATTRS:
+            return True
+        return _mentions_now_or_outer(expr._chalk__parent)
+    if isinstance(expr, UnderscoreItem):
+        return _mentions_now_or_outer(expr._chalk__parent) or any(_mentions_now_or_outer(k) for k in expr._chalk__key)
+    if isinstance(expr, UnderscoreCall):
+        return (
+            _mentions_now_or_outer(expr._chalk__parent)
+            or any(_mentions_now_or_outer(a) for a in expr._chalk__args)
+            or any(_mentions_now_or_outer(v) for v in expr._chalk__kwargs.values())
+        )
+    if isinstance(expr, UnderscoreFunction):
+        return any(_mentions_now_or_outer(a) for a in expr._chalk__args) or any(
+            _mentions_now_or_outer(v) for v in expr._chalk__kwargs.values()
+        )
+    if isinstance(expr, UnderscoreCast):
+        return _mentions_now_or_outer(expr._chalk__value)
+    if isinstance(expr, (list, tuple)):
+        return any(_mentions_now_or_outer(e) for e in expr)
+    return False
+
+
+def _is_constant_offset_from_now(expr: Any) -> bool:
+    """Whether `expr` is `_.chalk_now` or `_.chalk_window`, optionally `+`/`-` constant timedeltas.
+
+    This is the only bound shape the engine can evaluate today.
+    """
+    if isinstance(expr, UnderscoreAttr):
+        return isinstance(expr._chalk__parent, UnderscoreRoot) and expr._chalk__attr in _NOW_ATTRS
+    if isinstance(expr, UnderscoreFunction) and expr._chalk__function_name in ("+", "-"):
+        args = expr._chalk__args
+        return (
+            len(args) == 2
+            and len(expr._chalk__kwargs) == 0
+            and isinstance(args[1], timedelta)
+            and _is_constant_offset_from_now(args[0])
+        )
+    return False
+
+
+def _is_bare_column(expr: Any, column: UnderscoreAttr) -> bool:
+    return (
+        isinstance(expr, UnderscoreAttr)
+        and isinstance(expr._chalk__parent, UnderscoreRoot)
+        and expr._chalk__attr == column._chalk__attr
+        and expr._chalk__version == column._chalk__version
+    )
+
+
+def _is_upper_window_bound(bound: UnderscoreFunction, bucket_column: UnderscoreAttr) -> bool:
+    """Whether a validated bound caps the bucket column from above, written in either operand order."""
+    op = bound._chalk__function_name
+    column_on_left = _is_bare_column(bound._chalk__args[0], bucket_column)
+    return op in ("<", "<=") if column_on_left else op in (">", ">=")
+
+
+def _validate_window_bound(
+    bound: UnderscoreFunction, bucket_column: UnderscoreAttr, full_expr: Underscore | None
+) -> None:
+    """A filter after `.materialize_bucket_on(...)` must be `<bucket column> <cmp> <edge>`, in either order.
+
+    How a bucket that only partly matches a bound is treated depends on how the aggregation is read:
+
+    - Online lookups read whole buckets, so a bucket straddling either bound counts in full. They
+      also count a bucket that starts exactly on the upper bound, as if it were written `<=`.
+    - Offline queries recomputed from raw rows filter every row against the bound itself, so the
+      same feature can differ between online and offline by up to one bucket of rows at each edge.
+    - A continuous buffer recomputes `[upper bound - buffer, upper bound)` from raw rows, so with
+      one configured the upper edge is exact on both paths.
+    - Tile-backed offline queries count a bucket straddling the lower bound in full but drop one
+      straddling the upper bound.
+    """
+    op = bound._chalk__function_name
+    args = bound._chalk__args
+    if op not in _WINDOW_BOUND_COMPARISONS or len(args) != 2 or len(bound._chalk__kwargs) != 0:
+        raise _BucketOnParseError(
+            f"the filter `{bound}` after `.materialize_bucket_on({bucket_column})` must be a comparison (<, <=, >, >=) "
+            + f"between `{bucket_column}` and a bound like `_.chalk_now - timedelta(days=2)` in `{full_expr}`",
+            bound,
+        )
+    lhs, rhs = args
+    if _is_bare_column(lhs, bucket_column):
+        edge = rhs
+    elif _is_bare_column(rhs, bucket_column):
+        edge = lhs
+    else:
+        raise _BucketOnParseError(
+            f"the filter `{bound}` after `.materialize_bucket_on({bucket_column})` must compare `{bucket_column}` itself, "
+            + f"unmodified, against a window bound in `{full_expr}`. "
+            + "Filters on any other column belong before `.materialize_bucket_on(...)`.",
+            bound,
+        )
+    if not _mentions_now_or_outer(edge):
+        raise _BucketOnParseError(
+            f"the filter `{bound}` after `.materialize_bucket_on({bucket_column})` must bound `{bucket_column}` "
+            + f"relative to `_.chalk_now` or `__`, but `{edge}` refers to neither, in `{full_expr}`. "
+            + "Filters that select rows belong before `.materialize_bucket_on(...)`.",
+            bound,
+        )
+    if not _is_constant_offset_from_now(edge):
+        raise _BucketOnParseError(
+            f"the window bound `{edge}` in `{full_expr}` is not supported yet: a bound after `.materialize_bucket_on(...)` "
+            + "must currently be `_.chalk_now` or `_.chalk_window`, plus or minus a constant timedelta",
+            bound,
+        )
+
+
+def _bucket_column_type_error(bucket_column: UnderscoreAttr, dtype: pa.DataType) -> str:
+    """The error for a bucket column whose type is not a timestamp.
+
+    Buckets and window bounds are timestamp arithmetic, so the column's pyarrow type -- not its
+    Python annotation -- is what has to be a timestamp.
+    """
+    return (
+        f"`.materialize_bucket_on({bucket_column})` must name a timestamp column, but `{bucket_column}` has type "
+        + f"`{dtype}`; use a `datetime` or `FeatureTime` column"
+    )
+
+
+def _underscore_source_range(node: Any) -> RangeGQL | None:
+    """The source range of an underscore node, for a diagnostic that points at it.
+
+    The AST node of `<receiver>.method(...)` starts at the beginning of the whole receiver chain,
+    so a method call's range starts at `method` instead, read off its attribute node.
+    """
+    if not isinstance(node, Underscore):
+        return None
+    location = node._chalk_definition_location
+    if location is None or location.end_line is None or location.end_column is None:
+        return None
+    start_line, start_column = location.line, location.column
+    if isinstance(node, UnderscoreCall) and isinstance(node._chalk__parent, UnderscoreAttr):
+        method = node._chalk__parent
+        method_location = method._chalk_definition_location
+        if (
+            method_location is not None
+            and method_location.end_line is not None
+            and method_location.end_column is not None
+        ):
+            start_line = method_location.end_line
+            start_column = method_location.end_column - len(method._chalk__attr)
+    # Definition locations are 1-based source lines; LSP lines are 0-based.
+    return RangeGQL(
+        start=PositionGQL(line=start_line - 1, character=start_column),
+        end=PositionGQL(line=location.end_line - 1, character=location.end_column),
+    )
+
+
+def _find_method_call(expr: Any, method: str) -> UnderscoreCall | None:
+    """The first `<receiver>.<method>(...)` call anywhere in `expr`, or `None`."""
+    if (call := _as_method_call(expr, method)) is not None:
+        return call
+    children: list[Any]
+    if isinstance(expr, UnderscoreAttr):
+        children = [expr._chalk__parent]
+    elif isinstance(expr, UnderscoreItem):
+        children = [expr._chalk__parent, *expr._chalk__key]
+    elif isinstance(expr, UnderscoreCall):
+        children = [expr._chalk__parent, *expr._chalk__args, *expr._chalk__kwargs.values()]
+    elif isinstance(expr, UnderscoreFunction):
+        children = [*expr._chalk__args, *expr._chalk__kwargs.values()]
+    elif isinstance(expr, UnderscoreCast):
+        children = [expr._chalk__value]
+    elif isinstance(expr, (list, tuple)):
+        children = list(expr)
+    else:
+        return None
+    for child in children:
+        if (found := _find_method_call(child, method)) is not None:
+            return found
+    return None
+
+
+def _peel_bucket_on_chain(operand: Any, full_expr: Underscore | None) -> _BucketOnChain | None:
+    """Parse `<source>.where(...)*.materialize_bucket_on(...).where(...)*`, or `None` if there is no `materialize_bucket_on`.
+
+    Without `materialize_bucket_on` nothing is checked and the operand is left to its existing parser or
+    validator, which treat `.where` exactly as they did before `materialize_bucket_on` existed.
+    """
+    receiver = operand
+    while (where_call := _as_method_call(receiver, "where")) is not None:
+        receiver = where_call._chalk__parent._chalk__parent
+    if _as_method_call(receiver, "materialize_bucket_on") is None:
+        return None
+
+    before_bounds, window_bounds = _peel_where_calls(operand, full_expr)
+    bucket_call = _as_method_call(before_bounds, "materialize_bucket_on")
+    if bucket_call is None:
+        return None
+
+    if len(bucket_call._chalk__args) != 1:
+        raise _BucketOnParseError(
+            f"`.materialize_bucket_on(...)` takes exactly one positional argument, the column to bucket on, in `{full_expr}`",
+            bucket_call,
+        )
+    bucket_column = bucket_call._chalk__args[0]
+    if (
+        isinstance(bucket_column, UnderscoreAttr)
+        and isinstance(bucket_column._chalk__parent, UnderscoreRoot)
+        and bucket_column._chalk__attr in _NOW_ATTRS
+    ):
+        raise _BucketOnParseError(
+            f"`.materialize_bucket_on({bucket_column})` must name a timestamp column of the aggregated rows, like "
+            + f"`_.ts`, but `{bucket_column}` is relative to the time of the query, not a column of the rows. "
+            + f"Compare against it in a `.where(...)` after `.materialize_bucket_on(...)` instead, in `{full_expr}`",
+            bucket_column,
+        )
+    if not isinstance(bucket_column, UnderscoreAttr) or not isinstance(bucket_column._chalk__parent, UnderscoreRoot):
+        raise _BucketOnParseError(
+            "`.materialize_bucket_on(...)` must name a column of the aggregated namespace, like `_.ts`, "
+            + f"but got `{bucket_column}` in `{full_expr}`",
+            bucket_column if isinstance(bucket_column, Underscore) else bucket_call,
+        )
+    unexpected_kwargs = [k for k in bucket_call._chalk__kwargs if k != "resolution"]
+    if unexpected_kwargs:
+        raise _BucketOnParseError(
+            f"unexpected keyword arguments for `.materialize_bucket_on(...)`: {', '.join(sorted(unexpected_kwargs))}",
+            bucket_call,
+        )
+    resolution: timedelta | None = None
+    if "resolution" in bucket_call._chalk__kwargs:
+        raw_resolution = bucket_call._chalk__kwargs["resolution"]
+        if not isinstance(raw_resolution, (str, timedelta)):
+            raise _BucketOnParseError(
+                "`.materialize_bucket_on(resolution=...)` must be a duration, like `timedelta(days=1)` or '1d', "
+                + f"but got `{raw_resolution!r}`",
+                bucket_call,
+            )
+        try:
+            resolution = parse_chalk_duration(raw_resolution)
+        except ValueError as e:
+            raise _BucketOnParseError(
+                f"invalid `.materialize_bucket_on(resolution=...)`: {e.args[0] if e.args else e}", bucket_call
+            ) from e
+        if resolution <= timedelta(0):
+            raise _BucketOnParseError(
+                f"`.materialize_bucket_on(resolution=...)` must be positive, but got `{raw_resolution!r}`", bucket_call
+            )
+        # Bucket widths are stored in whole seconds (`bucket_duration_seconds`), so a fractional
+        # resolution would be silently truncated to a different width.
+        if resolution % timedelta(seconds=1) != timedelta(0):
+            raise _BucketOnParseError(
+                f"`.materialize_bucket_on(resolution={raw_resolution!r})` would be truncated, because bucket widths are a "
+                + "whole number of seconds; use a resolution that is a whole number of seconds",
+                bucket_call,
+            )
+
+    source, row_filters = _peel_where_calls(bucket_call._chalk__parent._chalk__parent, full_expr)
+    if _as_method_call(source, "materialize_bucket_on") is not None:
+        raise _BucketOnParseError(
+            f"`.materialize_bucket_on(...)` can only be called once, in `{full_expr}`", bucket_call
+        )
+
+    # With an explicit bucket column, filters are spelled only with `.where(...)`, so a filter's
+    # position says what it is: everything before `materialize_bucket_on` selects rows, everything after
+    # bounds the window. The brackets only select the aggregated column.
+    if isinstance(source, UnderscoreItem):
+        bracket_filters = [k for k in source._chalk__key if isinstance(k, UnderscoreFunction)]
+        if bracket_filters:
+            columns = [k for k in source._chalk__key if not isinstance(k, UnderscoreFunction)]
+            selected = (
+                f"{source._chalk__parent}[{', '.join(str(c) for c in columns)}]"
+                if columns
+                else str(source._chalk__parent)
+            )
+            filter_list = ", ".join(str(f) for f in bracket_filters)
+            raise _BucketOnParseError(
+                f"`.materialize_bucket_on(...)` requires filters to be written with `.where(...)`, not inside `[...]`: "
+                + f"write `{selected}.where({filter_list}).materialize_bucket_on(...)` instead of `{source}.materialize_bucket_on(...)`, "
+                + f"in `{full_expr}`",
+                bracket_filters[0],
+            )
+    # Rejecting window-relative row filters keeps the engine's split of the flat filter list
+    # unambiguous.
+    for row_filter in row_filters:
+        if _mentions_now_or_outer(row_filter):
+            raise _BucketOnParseError(
+                f"the filter `{row_filter}` refers to `_.chalk_now`, `_.chalk_window`, or `__`, so it must come "
+                + f"after `.materialize_bucket_on(...)`, as a bound on `{bucket_column}`, in `{full_expr}`",
+                row_filter,
+            )
+
+    for bound in window_bounds:
+        _validate_window_bound(bound, bucket_column, full_expr)
+
+    # Leaving the upper bound out does not remove it: materialized reads fall back to `chalk_now`.
+    # Requiring it puts that bound in the expression.
+    if not any(_is_upper_window_bound(bound, bucket_column) for bound in window_bounds):
+        raise _BucketOnParseError(
+            f"`.materialize_bucket_on({bucket_column})` needs an explicit upper bound on `{bucket_column}`, such as "
+            + f"`.where({bucket_column} < _.chalk_now)`, which is the bound that "
+            + f"applies when none is written, in `{full_expr}`",
+            bucket_call,
+        )
+
+    return _BucketOnChain(
+        source=source,
+        row_filters=row_filters,
+        bucket_call=bucket_call,
+        bucket_column=bucket_column,
+        resolution=resolution,
+        window_bounds=window_bounds,
+    )
+
+
 def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
     is_history_fold = is_history_fold_expression(f.underscore_expression)
     if f.window_duration is None and not is_history_fold:
@@ -994,6 +1382,10 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
     getitem_expression = parsed_agg.operand
     aggregation_kwargs = parsed_agg.aggregation_kwargs
     additional_features = parsed_agg.additional_features
+
+    bucket_on_chain = _peel_bucket_on_chain(getitem_expression, f.underscore_expression)
+    if bucket_on_chain is not None:
+        getitem_expression = bucket_on_chain.source
 
     filters: list[UnderscoreFunction] = []
     aggregated_value = None
@@ -1026,6 +1418,9 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
         child_attr_expression = getitem_expression
     else:
         raise ChalkParseError(f"missing attribute to aggregate, e.g. `_.a[_.amount].{aggregation}()`")
+
+    if bucket_on_chain is not None:
+        filters = [*filters, *bucket_on_chain.row_filters, *bucket_on_chain.window_bounds]
 
     if not isinstance(child_attr_expression, UnderscoreAttr):
         raise ChalkParseError(f"expected reference to has-many feature, like _.children[...].{aggregation}()`")
@@ -1102,7 +1497,40 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
     if f.window_materialization is None:
         raise ChalkParseError("missing 'materialization' in the windowed feature")
 
-    parsed_filters = clean_filters(joined_class, filters)
+    if bucket_on_chain is not None:
+        # The engine reads the bucket column off the expression, so it must exist here; a bound
+        # names it too, but a chain need not have any bounds.
+        bucket_attr = bucket_on_chain.bucket_column._chalk__attr
+        try:
+            bucket_feature = unwrap_feature(getattr(joined_class, bucket_attr))
+        except Exception:
+            raise _BucketOnParseError(
+                f"`.materialize_bucket_on({bucket_on_chain.bucket_column})` names no feature of '{joined_class.namespace}'",
+                bucket_on_chain.bucket_column,
+            )
+        if bucket_feature.is_has_one or bucket_feature.is_has_many:
+            raise _BucketOnParseError(
+                f"`.materialize_bucket_on({bucket_on_chain.bucket_column})` must name a scalar or feature-time feature "
+                + f"of '{joined_class.namespace}', not a relationship",
+                bucket_on_chain.bucket_column,
+            )
+        bucket_dtype = bucket_feature.converter.pyarrow_dtype
+        if not pa.types.is_timestamp(bucket_dtype):
+            raise _BucketOnParseError(
+                _bucket_column_type_error(bucket_on_chain.bucket_column, bucket_dtype),
+                bucket_on_chain.bucket_column,
+            )
+
+    if bucket_on_chain is not None:
+        # Parsed one at a time so an error points at the filter that caused it.
+        parsed_filters: list[Filter] = []
+        for filt in filters:
+            try:
+                parsed_filters.extend(clean_filters(joined_class, [filt]))
+            except ChalkParseError as e:
+                raise _BucketOnParseError(e.args[0], filt) from e
+    else:
+        parsed_filters = clean_filters(joined_class, filters)
     bucket_start = datetime.fromtimestamp(0, tz=timezone.utc)
     if f.window_materialization is True:
         bucket_duration = timedelta(seconds=window_duration)
@@ -1143,6 +1571,21 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
                         )
                     bucket_start = bs
                     found = True
+
+        if bucket_on_chain is not None and (resolution := bucket_on_chain.resolution) is not None:
+            # `windowed(..., materialization=True)` already sized its buckets from `resolution`
+            # (see `Windowed._default_bucket_duration`), so only a width the user wrote into the
+            # materialization config can disagree with it.
+            if f.window_materialization.get("bucket_durations") or (
+                bucket_duration is not None and bucket_duration != resolution
+            ):
+                raise _BucketOnParseError(
+                    f"The windowed feature '{f.window_stem}' sets its bucket width twice, in "
+                    + "`.materialize_bucket_on(resolution=...)` and in the materialization's `bucket_duration`/`bucket_durations`. "
+                    + "Specify it in only one place.",
+                    bucket_on_chain.bucket_call,
+                )
+            bucket_duration = resolution
 
         if bucket_duration is None:
             raise ChalkParseError(
@@ -1382,6 +1825,14 @@ class _UnderscoreValidationError(ValueError):
     It will not propagate outside of `supplement_diagnostics`.
     """
 
+
+class _LocatedUnderscoreValidationError(_UnderscoreValidationError):
+    """An `_UnderscoreValidationError` about a specific node, which its diagnostic underlines."""
+
+    def __init__(self, message: str, at: Any):
+        super().__init__(message)
+        self.at = at
+
     ...
 
 
@@ -1538,6 +1989,13 @@ class ChalkImporter:
                                 + "as the aggregate operation, e.g. "
                                 + "`positive_count: int = _.transactions[_.amount > 0].count()`"
                             )
+                        bucket_on_call = _find_method_call(f.underscore_expression, "materialize_bucket_on")
+                        if bucket_on_call is not None and not _is_materialized(f, feature_class):
+                            raise _LocatedUnderscoreValidationError(
+                                "`.materialize_bucket_on(...)` names the bucket column of a materialized aggregation, but this "
+                                + "feature is not materialized; add `materialization=...` or remove `.materialize_bucket_on(...)`",
+                                bucket_on_call,
+                            )
                         _supplemental_validate_underscore_expression(
                             state=_SupplementalState(),
                             class_namespace=feature_class,
@@ -1546,7 +2004,14 @@ class ChalkImporter:
                     except _UnderscoreValidationError as valid_exc:
                         import inspect
 
-                        if f.underscore_expression._chalk_definition_location is not None:
+                        located_range = (
+                            _underscore_source_range(valid_exc.at)
+                            if isinstance(valid_exc, _LocatedUnderscoreValidationError)
+                            else None
+                        )
+                        if located_range is not None:
+                            range = located_range
+                        elif f.underscore_expression._chalk_definition_location is not None:
                             definition_location = f.underscore_expression._chalk_definition_location
                             if (
                                 isinstance(f.underscore_expression, UnderscoreFunction)
@@ -1785,6 +2250,72 @@ def _supplemental_validate_feature_in_namespace(
             return _HasManyNamespaceExpr(namespace=foreign_feature_namespace.namespace)
 
 
+def _is_materialized(f: Feature, feature_class: type[FeaturesProtocol]) -> bool:
+    """Whether `f` is a materialized aggregation.
+
+    `windowed(..., materialization=True)` resolves its materialization per window, so the base
+    windowed feature carries none of its own; its window pseudofeatures do.
+    """
+    if f.window_materialization is not None:
+        return True
+    return any(
+        p.is_windowed_pseudofeature and p.window_stem == f.window_stem and p.window_materialization is not None
+        for p in feature_class.features
+    )
+
+
+def _supplemental_validate_bucket_on_chain(
+    state: _SupplementalState,
+    *,
+    class_namespace: type[FeaturesProtocol],
+    chain: _BucketOnChain,
+    outer_class_namespace: type[FeaturesProtocol] | None,
+) -> Union[_HasManyNamespaceExpr, None]:
+    """Validate `<source>.where(...)*.materialize_bucket_on(...).where(...)*` once its shape has been parsed.
+
+    The source is a has-many, either bare (`_.events`, enough for `.count()`) or with a selected
+    column (`_.events[_.amount]`). Every filter, the bucket column, and every bound is resolved
+    against the has-many's namespace, with `__` referring to `class_namespace`.
+    """
+    source_result = _supplemental_validate_underscore_expression(
+        state=state,
+        class_namespace=class_namespace,
+        underscore=chain.source,
+        outer_class_namespace=outer_class_namespace,
+    )
+    if source_result is None:
+        return None  # windowed and pseudo-features are not validated further
+    if not isinstance(source_result, _HasManyNamespaceExpr):
+        raise _UnderscoreValidationError(
+            f"Cannot call `.materialize_bucket_on(...)` on non-dataframe underscore expression `{chain.source}`"
+        )
+    if source_result.namespace not in FeatureSetBase.registry:
+        return source_result
+    child_namespace = FeatureSetBase.registry[source_result.namespace]
+    for expr in (*chain.row_filters, chain.bucket_column, *chain.window_bounds):
+        try:
+            result = _supplemental_validate_underscore_expression(
+                state=state,
+                class_namespace=child_namespace,
+                underscore=expr,
+                outer_class_namespace=class_namespace,
+            )
+        except _LocatedUnderscoreValidationError:
+            raise
+        except _UnderscoreValidationError as e:
+            # Point at the filter, bound, or bucket column that failed, not the whole expression.
+            raise _LocatedUnderscoreValidationError(e.args[0], expr) from e
+        if isinstance(result, _HasOneNamespaceExpr):
+            raise _LocatedUnderscoreValidationError(
+                f"the input '{expr!r}' is a feature namespace '{result.namespace}' which cannot be used as a scalar value",
+                expr,
+            )
+        # A `FeatureTime` column resolves to no type here; it is always a timestamp.
+        if expr is chain.bucket_column and isinstance(result, _ScalarExpr) and not pa.types.is_timestamp(result.dtype):
+            raise _LocatedUnderscoreValidationError(_bucket_column_type_error(chain.bucket_column, result.dtype), expr)
+    return source_result
+
+
 def _supplemental_validate_underscore_expression(
     state: _SupplementalState,
     *,
@@ -1929,6 +2460,26 @@ def _supplemental_validate_underscore_expression(
             raise _UnderscoreValidationError(f"Cannot call non-attribute {underscore._chalk__parent}.")
         caller = underscore._chalk__parent._chalk__parent
         op_name = underscore._chalk__parent._chalk__attr
+
+        if op_name in ("where", "materialize_bucket_on"):
+            # `.materialize_bucket_on(...)` is a purely syntactic form, not a `chalk.functions` call. A chain
+            # around it is validated as one unit, by the same parser `parse_windowed_materialization`
+            # uses, so the two agree on which spellings are legal -- including a bare has-many
+            # source like `_.events.where(...).materialize_bucket_on(_.ts).count()`, which a lone `.where`
+            # does not accept.
+            try:
+                bucket_on_chain = _peel_bucket_on_chain(underscore, underscore)
+            except _BucketOnParseError as e:
+                raise _LocatedUnderscoreValidationError(e.args[0], e.at) from e
+            except ChalkParseError as e:
+                raise _UnderscoreValidationError(e.args[0]) from e
+            if bucket_on_chain is not None:
+                return _supplemental_validate_bucket_on_chain(
+                    state,
+                    class_namespace=class_namespace,
+                    chain=bucket_on_chain,
+                    outer_class_namespace=outer_class_namespace,
+                )
 
         if (op := getattr(F, op_name, None)) is not None:
             if getattr(op, "_chalk__method_chaining_predicate", lambda _: True)(underscore):

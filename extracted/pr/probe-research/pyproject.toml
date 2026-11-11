@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 # plugin, the `probe-research-mcp` binaries, and mcp.research.prbe.ai. The import
 # name (`probe`) and the CLI binary (`probe`) are unchanged.
 name = "probe-research"
-version = "0.510.0"
+version = "0.522.0"
 description = "Probe: experiment tracking for ML teams and their coding agents (SDK, CLI, read-only MCP)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -142,7 +142,7 @@ mcp-http = ["uvicorn>=0.30"]
 # path is stdlib-only). 3.4: pyjwt[crypto]'s floor; Ed25519 itself is older.
 # zstandard: the importer reads Codex 0.166+'s compressed rollouts (`.jsonl.zst`,
 # cli/imports/transcripts/archive.py, D82); imported lazily, never by core.
-cli = ["probe-research-cli==0.510.0", "typer>=0.12,<0.29", "questionary>=2.0,<3", "tomlkit>=0.12", "cryptography>=3.4", "zstandard>=0.23"]
+cli = ["probe-research-cli==0.522.0", "typer>=0.12,<0.29", "questionary>=2.0,<3", "tomlkit>=0.12", "cryptography>=3.4", "zstandard>=0.23"]
 mcp = ["mcp>=1.24,<2", "anyio>=4.5", "tiktoken>=0.8,<0.14"]
 all = ["probe-research[cli,mcp]"]
 # `probe.integrations.lightning.ProbeLogger` (plan (a)). Brings torch: never a
@@ -156,7 +156,7 @@ huggingface = ["transformers[torch]>=4.46"]
 # exactly (R3.4). Installed by the wizard when the researcher turns daemon mode
 # on, into the CLI's own uv tool environment; without
 # it capture keeps running and daemon mode reports itself unavailable.
-daemon = ["probe-research-cli==0.510.0", 
+daemon = ["probe-research-cli==0.522.0", 
     "pydantic-ai-slim[openai,mcp]==2.51.0",
     "pydantic-ai-harness[skills]==0.36.0",
     "pydantic-ai-skills==2.0.0",
@@ -172,13 +172,13 @@ daemon = ["probe-research-cli==0.510.0",
 # Upper bound = the line verify_harbor_contract() is pinned against. NB:
 # litellm>=1.93 (a harbor dep) ships an sdist needing rustc>=1.86 — add
 # litellm<1.93 if the install fails to build.
-harbor = ["probe-research-cli==0.510.0", "harbor>=0.20,<0.26; python_version >= '3.12'"]
+harbor = ["probe-research-cli==0.522.0", "harbor>=0.20,<0.26; python_version >= '3.12'"]
 
 [project.urls]
 Homepage = "https://www.useprobe.ai"
 Documentation = "https://docs.prbe.ai"
-Repository = "https://github.com/prbe-ai/research-os-agent"
-Changelog = "https://github.com/prbe-ai/research-os-agent/blob/main/CHANGELOG.md"
+Repository = "https://github.com/prbe-ai/probe"
+Changelog = "https://github.com/prbe-ai/probe/blob/main/CHANGELOG.md"
 
 [project.scripts]
 # Through probe._entry, which turns a missing optional dependency into a message
@@ -203,23 +203,23 @@ path = "hatch_build.py"
 "skills" = "share/probe-research/skills"
 # The hook routes the Probe service runs for a frozen hook shim (`probe.service.hooks.proxy.copies`
 # PARTS, which tests/test_service_hooks_proxy.py holds equal to these lines).
-"plugins/probe-research/hooks" = "share/probe-research/plugins/probe-research/hooks"
-"plugins/probe-research/.claude-plugin" = "share/probe-research/plugins/probe-research/.claude-plugin"
-"plugins/probe-research/.codex-plugin" = "share/probe-research/plugins/probe-research/.codex-plugin"
-"plugins/probe-research/.kimi-plugin" = "share/probe-research/plugins/probe-research/.kimi-plugin"
-"plugins/probe-research-daemon/hooks" = "share/probe-research/plugins/probe-research-daemon/hooks"
-"plugins/probe-research-daemon/inline" = "share/probe-research/plugins/probe-research-daemon/inline"
-"plugins/probe-research-daemon/.claude-plugin" = "share/probe-research/plugins/probe-research-daemon/.claude-plugin"
-"plugins/probe-research-daemon/.codex-plugin" = "share/probe-research/plugins/probe-research-daemon/.codex-plugin"
-"plugins/probe-research-daemon/.kimi-plugin" = "share/probe-research/plugins/probe-research-daemon/.kimi-plugin"
-"plugins/probe-research-tap/hooks" = "share/probe-research/plugins/probe-research-tap/hooks"
-"plugins/probe-research-tap/tap" = "share/probe-research/plugins/probe-research-tap/tap"
-"plugins/probe-research-tap/.claude-plugin" = "share/probe-research/plugins/probe-research-tap/.claude-plugin"
-"plugins/probe-research-tap/.codex-plugin" = "share/probe-research/plugins/probe-research-tap/.codex-plugin"
-"plugins/probe-research-tap/.kimi-plugin" = "share/probe-research/plugins/probe-research-tap/.kimi-plugin"
+"plugins/probe/hooks" = "share/probe-research/plugins/probe/hooks"
+"plugins/probe/.claude-plugin" = "share/probe-research/plugins/probe/.claude-plugin"
+"plugins/probe/.codex-plugin" = "share/probe-research/plugins/probe/.codex-plugin"
+"plugins/probe/.kimi-plugin" = "share/probe-research/plugins/probe/.kimi-plugin"
+"plugins/probe-daemon/hooks" = "share/probe-research/plugins/probe-daemon/hooks"
+"plugins/probe-daemon/inline" = "share/probe-research/plugins/probe-daemon/inline"
+"plugins/probe-daemon/.claude-plugin" = "share/probe-research/plugins/probe-daemon/.claude-plugin"
+"plugins/probe-daemon/.codex-plugin" = "share/probe-research/plugins/probe-daemon/.codex-plugin"
+"plugins/probe-daemon/.kimi-plugin" = "share/probe-research/plugins/probe-daemon/.kimi-plugin"
+"plugins/probe-tap/hooks" = "share/probe-research/plugins/probe-tap/hooks"
+"plugins/probe-tap/tap" = "share/probe-research/plugins/probe-tap/tap"
+"plugins/probe-tap/.claude-plugin" = "share/probe-research/plugins/probe-tap/.claude-plugin"
+"plugins/probe-tap/.codex-plugin" = "share/probe-research/plugins/probe-tap/.codex-plugin"
+"plugins/probe-tap/.kimi-plugin" = "share/probe-research/plugins/probe-tap/.kimi-plugin"
 
 [tool.hatch.build.targets.sdist]
-include = ["src/probe", "skills", "plugins/probe-research/hooks", "plugins/probe-research/.claude-plugin", "plugins/probe-research/.codex-plugin", "plugins/probe-research/.kimi-plugin", "plugins/probe-research-daemon/hooks", "plugins/probe-research-daemon/inline", "plugins/probe-research-daemon/.claude-plugin", "plugins/probe-research-daemon/.codex-plugin", "plugins/probe-research-daemon/.kimi-plugin", "plugins/probe-research-tap/hooks", "plugins/probe-research-tap/tap", "plugins/probe-research-tap/.claude-plugin", "plugins/probe-research-tap/.codex-plugin", "plugins/probe-research-tap/.kimi-plugin", "README.md", "pyproject.toml", "hatch_build.py"]
+include = ["src/probe", "skills", "plugins/probe/hooks", "plugins/probe/.claude-plugin", "plugins/probe/.codex-plugin", "plugins/probe/.kimi-plugin", "plugins/probe-daemon/hooks", "plugins/probe-daemon/inline", "plugins/probe-daemon/.claude-plugin", "plugins/probe-daemon/.codex-plugin", "plugins/probe-daemon/.kimi-plugin", "plugins/probe-tap/hooks", "plugins/probe-tap/tap", "plugins/probe-tap/.claude-plugin", "plugins/probe-tap/.codex-plugin", "plugins/probe-tap/.kimi-plugin", "README.md", "pyproject.toml", "hatch_build.py"]
 
 [tool.hatch.build.targets.sdist.hooks.custom]
 path = "hatch_build.py"

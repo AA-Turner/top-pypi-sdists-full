@@ -24,6 +24,7 @@
 // DLPack related declarations
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DLDeviceType {
     kDLCPU = 1,
     kDLCUDA = 2,
@@ -41,18 +42,23 @@ pub enum DLDeviceType {
     kDLHexagon = 16,
     kDLMAIA = 17,
     kDLTrn = 18,
+    kDLTPU = 19,
+    kDLTPUHost = 20,
+    kDLAscend = 21,
 }
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct DLDevice {
-    pub device_type: DLDeviceType,
+    /// A [`DLDeviceType`] code, an `i32` so the codes stay an open set.
+    pub device_type: i32,
     pub device_id: i32,
 }
 
 /// DLPack data type code enum
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DLDataTypeCode {
     kDLInt = 0,
     kDLUInt = 1,
@@ -72,6 +78,7 @@ pub enum DLDataTypeCode {
     kDLFloat6_e2m3fn = 15,
     kDLFloat6_e3m2fn = 16,
     kDLFloat4_e2m1fn = 17,
+    kDLBcomplex = 18,
 }
 
 /// DLPack data type struct
@@ -107,8 +114,8 @@ pub struct DLTensor {
 impl DLDevice {
     pub fn new(device_type: DLDeviceType, device_id: i32) -> Self {
         Self {
-            device_type: device_type,
-            device_id: device_id,
+            device_type: device_type as i32,
+            device_id,
         }
     }
 }
@@ -117,8 +124,8 @@ impl DLDataType {
     pub fn new(code: DLDataTypeCode, bits: u8, lanes: u16) -> Self {
         Self {
             code: code as u8,
-            bits: bits,
-            lanes: lanes,
+            bits,
+            lanes,
         }
     }
 }

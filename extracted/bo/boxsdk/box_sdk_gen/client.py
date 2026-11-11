@@ -198,7 +198,11 @@ from box_sdk_gen.managers.automate_workflows import AutomateWorkflowsManager
 
 from box_sdk_gen.managers.notes import NotesManager
 
+from box_sdk_gen.managers.document_split import DocumentSplitManager
+
 from box_sdk_gen.managers.query import QueryManager
+
+from box_sdk_gen.managers.shuttle import ShuttleManager
 
 from box_sdk_gen.networking.auth import Authentication
 
@@ -478,7 +482,13 @@ class BoxClient:
             auth=self.auth, network_session=self.network_session
         )
         self.notes = NotesManager(auth=self.auth, network_session=self.network_session)
+        self.document_split = DocumentSplitManager(
+            auth=self.auth, network_session=self.network_session
+        )
         self.query = QueryManager(auth=self.auth, network_session=self.network_session)
+        self.shuttle = ShuttleManager(
+            auth=self.auth, network_session=self.network_session
+        )
 
     def make_request(self, fetch_options: FetchOptions) -> FetchResponse:
         """

@@ -31,6 +31,7 @@ from .paginator import (
     ListAnalysisReportsPaginator,
     ListContainerAssociationsPaginator,
     ListFirewallPoliciesPaginator,
+    ListFirewallPoliciesV2Paginator,
     ListFirewallsPaginator,
     ListFlowOperationResultsPaginator,
     ListFlowOperationsPaginator,
@@ -57,6 +58,8 @@ from .type_defs import (
     CreateContainerAssociationResponseTypeDef,
     CreateFirewallPolicyRequestTypeDef,
     CreateFirewallPolicyResponseTypeDef,
+    CreateFirewallPolicyV2RequestTypeDef,
+    CreateFirewallPolicyV2ResponseTypeDef,
     CreateFirewallRequestTypeDef,
     CreateFirewallResponseTypeDef,
     CreateProxyConfigurationRequestTypeDef,
@@ -77,6 +80,8 @@ from .type_defs import (
     DeleteContainerAssociationResponseTypeDef,
     DeleteFirewallPolicyRequestTypeDef,
     DeleteFirewallPolicyResponseTypeDef,
+    DeleteFirewallPolicyV2RequestTypeDef,
+    DeleteFirewallPolicyV2ResponseTypeDef,
     DeleteFirewallRequestTypeDef,
     DeleteFirewallResponseTypeDef,
     DeleteNetworkFirewallTransitGatewayAttachmentRequestTypeDef,
@@ -102,6 +107,8 @@ from .type_defs import (
     DescribeFirewallMetadataResponseTypeDef,
     DescribeFirewallPolicyRequestTypeDef,
     DescribeFirewallPolicyResponseTypeDef,
+    DescribeFirewallPolicyV2RequestTypeDef,
+    DescribeFirewallPolicyV2ResponseTypeDef,
     DescribeFirewallRequestTypeDef,
     DescribeFirewallResponseTypeDef,
     DescribeFlowOperationRequestTypeDef,
@@ -142,6 +149,8 @@ from .type_defs import (
     ListContainerAssociationsResponseTypeDef,
     ListFirewallPoliciesRequestTypeDef,
     ListFirewallPoliciesResponseTypeDef,
+    ListFirewallPoliciesV2RequestTypeDef,
+    ListFirewallPoliciesV2ResponseTypeDef,
     ListFirewallsRequestTypeDef,
     ListFirewallsResponseTypeDef,
     ListFlowOperationResultsRequestTypeDef,
@@ -189,6 +198,8 @@ from .type_defs import (
     UpdateFirewallPolicyChangeProtectionResponseTypeDef,
     UpdateFirewallPolicyRequestTypeDef,
     UpdateFirewallPolicyResponseTypeDef,
+    UpdateFirewallPolicyV2RequestTypeDef,
+    UpdateFirewallPolicyV2ResponseTypeDef,
     UpdateLoggingConfigurationRequestTypeDef,
     UpdateLoggingConfigurationResponseTypeDef,
     UpdateProxyConfigurationRequestTypeDef,
@@ -351,6 +362,16 @@ class NetworkFirewallClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#create_firewall_policy)
         """
 
+    def create_firewall_policy_v2(
+        self, **kwargs: Unpack[CreateFirewallPolicyV2RequestTypeDef]
+    ) -> CreateFirewallPolicyV2ResponseTypeDef:
+        """
+        Creates a Next Generation policy according to the specifications.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_firewall_policy_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#create_firewall_policy_v2)
+        """
+
     def create_proxy(
         self, **kwargs: Unpack[CreateProxyRequestTypeDef]
     ) -> CreateProxyResponseTypeDef:
@@ -450,6 +471,16 @@ class NetworkFirewallClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_firewall_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#delete_firewall_policy)
+        """
+
+    def delete_firewall_policy_v2(
+        self, **kwargs: Unpack[DeleteFirewallPolicyV2RequestTypeDef]
+    ) -> DeleteFirewallPolicyV2ResponseTypeDef:
+        """
+        Deletes the specified <a>FirewallPolicyV2</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_firewall_policy_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#delete_firewall_policy_v2)
         """
 
     def delete_network_firewall_transit_gateway_attachment(
@@ -582,6 +613,16 @@ class NetworkFirewallClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_firewall_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#describe_firewall_policy)
+        """
+
+    def describe_firewall_policy_v2(
+        self, **kwargs: Unpack[DescribeFirewallPolicyV2RequestTypeDef]
+    ) -> DescribeFirewallPolicyV2ResponseTypeDef:
+        """
+        Returns the data objects for the specified Next Generation policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_firewall_policy_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#describe_firewall_policy_v2)
         """
 
     def describe_flow_operation(
@@ -778,6 +819,16 @@ class NetworkFirewallClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_firewall_policies.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#list_firewall_policies)
+        """
+
+    def list_firewall_policies_v2(
+        self, **kwargs: Unpack[ListFirewallPoliciesV2RequestTypeDef]
+    ) -> ListFirewallPoliciesV2ResponseTypeDef:
+        """
+        Retrieves the metadata for the Next Generation policies that you have defined.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_firewall_policies_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#list_firewall_policies_v2)
         """
 
     def list_firewalls(
@@ -1034,6 +1085,16 @@ class NetworkFirewallClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#update_firewall_policy_change_protection)
         """
 
+    def update_firewall_policy_v2(
+        self, **kwargs: Unpack[UpdateFirewallPolicyV2RequestTypeDef]
+    ) -> UpdateFirewallPolicyV2ResponseTypeDef:
+        """
+        Updates the properties of the specified Next Generation policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_firewall_policy_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#update_firewall_policy_v2)
+        """
+
     def update_logging_configuration(
         self, **kwargs: Unpack[UpdateLoggingConfigurationRequestTypeDef]
     ) -> UpdateLoggingConfigurationResponseTypeDef:
@@ -1172,6 +1233,17 @@ class NetworkFirewallClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_firewall_policies"]
     ) -> ListFirewallPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_firewall_policies_v2"]
+    ) -> ListFirewallPoliciesV2Paginator:
         """
         Create a paginator for an operation.
 

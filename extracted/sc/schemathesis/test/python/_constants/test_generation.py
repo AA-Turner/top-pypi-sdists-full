@@ -10,6 +10,7 @@ from hypothesis.errors import NoSuchExample
 
 import schemathesis
 from schemathesis.config import GenerationConfig, SchemathesisConfig
+from schemathesis.core.transforms import deepclone
 from schemathesis.generation.body_overrides import build_body_override_overlay_strategy
 from schemathesis.generation.feedback import FeedbackSources
 from schemathesis.generation.hypothesis.examples import generate_many
@@ -88,7 +89,6 @@ def test_constant_from_fastapi_app_unlocks_bug():
     assert case.body["code"] == buggy_asgi_app.UNLOCK_CODE
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_registered_constants_apply_to_direct_operation_strategy():
     @schemathesis.python.constants
     def source():
@@ -108,7 +108,6 @@ def test_registered_constants_apply_to_direct_operation_strategy():
     assert case.body["code"] == graphql_string_pool.TOKEN
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_registered_constants_apply_to_direct_state_machine():
     @schemathesis.python.constants
     def source():
@@ -412,7 +411,6 @@ def test_constant_usage_recorded_in_case_metadata():
     assert draw.origin.module == "test.python._constants.fixtures.buggy_app"
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_constants_auto_extracted_from_wsgi_app():
     # No registered source and no explicit pool: loading a WSGI app introspects its modules by default.
     operation = schemathesis.openapi.from_wsgi("/openapi.json", app=buggy_app.app)["/unlock"]["POST"]
@@ -424,7 +422,6 @@ def test_constants_auto_extracted_from_wsgi_app():
     assert any(draw.origin.source == "application" for draw in case._meta.constants_draws)
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_app_constants_are_cached_across_strategy_builds():
     calls = 0
 
@@ -442,7 +439,6 @@ def test_app_constants_are_cached_across_strategy_builds():
     assert calls == 1
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_app_constants_cache_survives_schema_clone():
     # `@schema.parametrize()` clones the schema per test function; each clone must not re-import the app.
     calls = 0
@@ -461,7 +457,6 @@ def test_app_constants_cache_survives_schema_clone():
     assert calls == 1
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_app_constants_cache_is_invalidated_when_registry_changes():
     calls = []
 
@@ -483,7 +478,6 @@ def test_app_constants_cache_is_invalidated_when_registry_changes():
     assert calls == ["first", "first", "second"]
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_constants_auto_extracted_from_asgi_app():
     operation = schemathesis.openapi.from_asgi("/openapi.json", app=buggy_asgi_app.app)["/unlock"]["POST"]
     case = find(
@@ -494,7 +488,6 @@ def test_constants_auto_extracted_from_asgi_app():
     assert any(draw.origin.source == "application" for draw in case._meta.constants_draws)
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_auto_extraction_disabled_by_config():
     config = SchemathesisConfig.from_str("[analysis.constants]\nenabled = false\n")
     operation = schemathesis.openapi.from_wsgi("/openapi.json", app=buggy_app.app, config=config)["/unlock"]["POST"]
@@ -538,7 +531,6 @@ def test_constant_applied_to_graphql_argument():
     assert any(d.value == graphql_app.SECRET_CODE for d in case._meta.constants_draws)
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_constants_auto_extracted_from_graphql_wsgi_app():
     # The strawberry request handler is a library view, but Flask records the app's own module,
     # so its resolver literals are reached without manual registration.
@@ -598,7 +590,6 @@ def test_graphql_constants_cover_scalar_shapes():
         _graphql_case(operations["Query.byColor"], pool, _has_any_draw)
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_graphql_constants_replace_only_some_list_elements():
     def partly_substituted(case):
         tags = graphql.value_from_ast_untyped(
@@ -724,7 +715,6 @@ def test_stateful_prune_keeps_non_body_constant_draws():
     assert prune_overwritten_body_constants((query_draw, kept_body, overwritten_body), body) == (query_draw, kept_body)
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_registered_constants_extracted_once_until_registry_changes():
     calls = []
 
@@ -1065,6 +1055,17 @@ _FORM_SCHEMA = {
 }
 
 
+def _form_schema_with_all_of():
+    schema = deepclone(_FORM_SCHEMA)
+    schema["components"] = {
+        "schemas": {"HasBlob": {"type": "object", "properties": {"blob": {"type": "string", "format": "binary"}}}}
+    }
+    schema["paths"]["/upload"]["post"]["requestBody"]["content"]["multipart/form-data"]["schema"]["allOf"] = [
+        {"$ref": "#/components/schemas/HasBlob"}
+    ]
+    return schema
+
+
 def test_form_body_records_constant_provenance(ctx):
     schema = ctx.openapi.from_full_schema(_FORM_SCHEMA)
     operation = schema["/upload"]["POST"]
@@ -1082,6 +1083,40 @@ def test_form_body_records_constant_provenance(ctx):
     draw = next(draw for draw in generated.constants_draws if draw.parameter_name == "label")
     assert draw.value == "MAGIC_LABEL"
     assert draw.location == "body"
+
+
+@pytest.mark.parametrize("raw_schema", [_FORM_SCHEMA, _form_schema_with_all_of()], ids=["inline", "allOf-ref"])
+def test_form_body_does_not_record_constant_for_encoded_field(ctx, raw_schema):
+    schemathesis.openapi.media_type("application/octet-stream", st.just(b"MEDIA_TYPE_VALUE"))
+    schema = ctx.openapi.from_full_schema(raw_schema)
+    operation = schema["/upload"]["POST"]
+    config = schema.config.generation_for(operation=operation, phase="fuzzing")
+    label_strategy = _build_form_strategy_with_encoding(
+        operation.body[0], operation, config, GenerationMode.POSITIVE, _source("string", "MAGIC_LABEL")
+    )
+    generated = find(
+        label_strategy,
+        lambda result: (
+            isinstance(result, GeneratedValue)
+            and any(draw.parameter_name == "label" and draw.value == "MAGIC_LABEL" for draw in result.constants_draws)
+        ),
+        settings=_FIND_FIRST,
+    )
+    assert [draw for draw in generated.constants_draws if draw.parameter_name == "label"] == [
+        _constant_draw("label", "MAGIC_LABEL", body_path="/label")
+    ]
+
+    strategy = _build_form_strategy_with_encoding(
+        operation.body[0], operation, config, GenerationMode.POSITIVE, _source("bytes", b"STALE_CONSTANT")
+    )
+
+    assert [
+        draw
+        for value in generate_many(strategy, 20)
+        if isinstance(value, GeneratedValue)
+        for draw in value.constants_draws
+        if draw.parameter_name == "blob"
+    ] == []
 
 
 @given(data=st.data())
@@ -1432,7 +1467,6 @@ def test_constant_draw_survives_metadata_round_trip(value):
     assert restored.constants_draws[0].body_path == "/payload/blob"
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_stateful_body_merge_prunes_overwritten_constant_provenance():
     @schemathesis.python.constants
     def source():

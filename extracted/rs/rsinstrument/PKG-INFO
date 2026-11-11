@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: RsInstrument
-Version: 1.131.0
+Version: 1.132.0
 Summary: VISA or Socket Communication Module for Rohde & Schwarz Instruments
 Author: Rohde & Schwarz GmbH & Co. KG
 Maintainer: Rohde & Schwarz GmbH & Co. KG
@@ -27,7 +27,7 @@ Requires-Dist: defusedxml>=0.7.1
 Provides-Extra: discovery
 Requires-Dist: zeroconf; extra == "discovery"
 Provides-Extra: mcp
-Requires-Dist: fastmcp>=2.14.0; extra == "mcp"
+Requires-Dist: fastmcp>=4.1.5; extra == "mcp"
 Requires-Dist: zeroconf; extra == "mcp"
 Requires-Dist: pydantic>=2.0; extra == "mcp"
 Provides-Extra: otel
@@ -49,7 +49,7 @@ Requires-Dist: pytest-cov>=5.0; extra == "dev-mcp-otel"
 Requires-Dist: ruff>=0.9.0; extra == "dev-mcp-otel"
 Requires-Dist: ty>=0.0.1; extra == "dev-mcp-otel"
 Requires-Dist: pyvisa-py>=0.7.0; extra == "dev-mcp-otel"
-Requires-Dist: fastmcp>=2.14.0; extra == "dev-mcp-otel"
+Requires-Dist: fastmcp>=4.1.5; extra == "dev-mcp-otel"
 Requires-Dist: zeroconf; extra == "dev-mcp-otel"
 Requires-Dist: pydantic>=2.0; extra == "dev-mcp-otel"
 Requires-Dist: opentelemetry-api>=1.20.0; extra == "dev-mcp-otel"
@@ -101,6 +101,34 @@ If you're looking for examples with specific instruments, check out the ones for
 Version history:
 ----------------
 
+    Version 1.132.0.129 (06.11.2026)
+        - New Core 1.116.0
+        - Small changes and warning ignores in PyCharm 2026.2.4.
+        - Changed behaviour: when the instrument does not support \*OPT?, this results in empty options array.
+        - **Breaking change — MCP structured results**: all built-in MCP tools now return
+          structured dicts (FastMCP ``structuredContent``) instead of JSON-encoded strings.
+          Each tool also advertises an ``output_schema`` so MCP clients can introspect the
+          result shape via ``list_tools``. A JSON text mirror is still emitted in ``content``
+          for backwards-compatible clients. Gate results (``forbidden`` / ``needs_confirmation``
+          / ``cancelled``) are also plain dicts with the same keys (``status``, ``gate``,
+          ``rule_id``, ``hint``, …). Callers that previously called ``json.loads()`` on tool
+          results must access the dict directly.
+        - MCP write safety (breaking): removed the ``confirm`` tool parameter from write-gated
+          tools; FastMCP rejects unknown arguments such as ``confirm``. Approval only via MCP
+          elicitation (prompt shows resource and write statements; ``gate: needs_confirmation``
+          includes a ``hint``; clients without elicitation do not execute the write).
+          ``Instrument-Query-SCPI`` is query-only (chained writes → ``forbidden`` /
+          ``query_tool_rejects_writes``); ``Instrument-Batch-SCPI`` still gates chained writes
+          in query entries. Shipped rules include VNA confirmations, MMEM CDIR/COPY/dir ops,
+          and numeric ON forms for enable rules. Scoped ``exclude_rules`` / CLI
+          ``--exclude-write-rule`` / ``excluded_write_rule_ids`` (including on custom policies);
+          ``forbidden`` defaults cannot be overridden by overlay, only excluded (warning logged).
+        - MCP ``Instrument-File``: ``info`` with live CDIR and pinned ``allowed_dirs``;
+          ``--instrument-file-root auto`` pins the first successful ``MMEM:CDIR?`` per resource;
+          ``unsafe_default_directory`` for filesystem roots; upload/delete path checks before
+          approval; SCPI-embedded paths validated. See the User Manual:
+          `MCP Server <https://rsinstrument.readthedocs.io/en/latest/StepByStepGuide.html#mcp>`_
+
     Version 1.131.0.128 (13.08.2026)
         - Added selective status-error suppression. You can now configure rules to suppress known, non-critical instrument errors. New ``RsInstrument`` methods:
 
@@ -115,7 +143,7 @@ Version history:
 
         - Added pull-based instrument discovery with immutable snapshots, optional parallel ``*IDN?``, TTL cache (in-memory or file), and optional LXI/DNS/mDNS enrichment.
           See the User Manual: `Finding available instruments <https://rsinstrument.readthedocs.io/en/latest/StepByStepGuide.html#finding-available-instruments>`_
-        - MCP server: modular ``RsInstrument.mcp`` package with loadable SCPI write policy (JSON overlay by ``rule_id``), FastMCP elicitation / ``confirm=true``, and expanded confirmation rules.
+        - MCP server: modular ``RsInstrument.mcp`` package with loadable SCPI write policy (JSON overlay by ``rule_id``), FastMCP elicitation, and expanded confirmation rules (superseded by 1.132 elicitation-only approval; see above).
         - MCP built-in tools: ``Instrument-Discovery``, ``Instrument-Batch-SCPI`` (OPC for ``*RST``/``*RCL``, drained ``<error-queue>``), model-aware screenshots, ``Instrument-Enable-User-Interaction``, ``Instrument-Save-Recall``, sandboxed ``Instrument-File``, and improved ``Instrument-SCPI-Exists`` matching.
         - MCP assembly API: ``BuiltinToolSettings`` / ``ToolSpec`` / ``add_builtin_tools`` /
           ``create_builtin_tool_specs`` / ``merge_tool_specs``; CLI ``--write-rules``,

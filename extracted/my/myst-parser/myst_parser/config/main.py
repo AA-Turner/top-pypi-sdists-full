@@ -42,6 +42,7 @@ def check_extensions(inst: "MdParserConfig", field: dc.Field, value: Any) -> Non
             "html_image",
             "linkify",
             "replacements",
+            "section_ref",
             "smartquotes",
             "strikethrough",
             "substitution",
@@ -138,19 +139,30 @@ def check_inventories(_: "MdParserConfig", field: dc.Field, value: Any) -> None:
 def check_heading_slug_func(
     inst: "MdParserConfig", field: dc.Field, value: Any
 ) -> None:
-    """Check that the heading_slug_func is a callable."""
+    """Check that the heading_slug_func is a preset name or a callable."""
     if value is None:
         return
     if isinstance(value, str):
-        # attempt to load the function as a python import
-        try:
-            module_path, function_name = value.rsplit(".", 1)
-            mod = import_module(module_path)
-            value = getattr(mod, function_name)
-        except ImportError as exc:
+        from myst_parser.slugs import SLUG_PRESETS
+
+        if value in SLUG_PRESETS:
+            value = SLUG_PRESETS[value]
+        elif "." in value:
+            # attempt to load the function as a python import (legacy form)
+            try:
+                module_path, function_name = value.rsplit(".", 1)
+                mod = import_module(module_path)
+                value = getattr(mod, function_name)
+            except (ImportError, AttributeError, ValueError) as exc:
+                raise TypeError(
+                    f"'{field.name}' could not be loaded from string: {value!r}"
+                ) from exc
+        else:
             raise TypeError(
-                f"'{field.name}' could not be loaded from string: {value!r}"
-            ) from exc
+                f"'{field.name}' is not a known preset "
+                f"({', '.join(sorted(SLUG_PRESETS))}) "
+                f"or a python import path: {value!r}"
+            )
         setattr(inst, field.name, value)
     if not callable(value):
         raise TypeError(f"'{field.name}' is not callable: {value!r}")
@@ -231,7 +243,9 @@ class MdParserConfig:
         default=False,
         metadata={
             "validator": instance_of(bool),
-            "help": "Open all external links in a new tab",
+            "help": "Open all external links in a new tab "
+            '(sets target="_blank" and rel="noreferrer noopener", '
+            "unless the link already sets them)",
         },
     )
 
@@ -301,11 +315,21 @@ class MdParserConfig:
         metadata={
             "validator": check_heading_slug_func,
             "help": (
-                "Function for creating heading anchors, "
-                "or a python import path e.g. `my_package.my_module.my_function`"
+                "Function for creating heading anchors: "
+                'a preset name ("docutils", "github", "gitlab"), '
+                "or (legacy) a python import path "
+                "e.g. `my_package.my_module.my_function`"
             ),
             "global_only": True,
-            "doc_type": "None | Callable[[str], str] | str",
+            "doc_type": "None | str | Callable[[str], str]",
+        },
+    )
+
+    heading_anchors_html_ids: bool = dc.field(
+        default=True,
+        metadata={
+            "validator": instance_of(bool),
+            "help": "Also emit heading anchor slugs as (additional) HTML ids",
         },
     )
 
@@ -564,16 +588,33 @@ def merge_file_level(
 
         old_value, field = fields[name]
 
-        try:
-            validate_field(new, field, value)
-        except Exception as exc:
-            warning(MystWarnings.MD_TOPMATTER, str(exc))
+        if field.metadata.get("global_only"):
+            warning(
+                MystWarnings.MD_TOPMATTER,
+                f"'{name}' is a global-only config and cannot be set in topmatter",
+            )
             continue
 
-        if field.metadata.get("merge_topmatter"):
-            value = {**old_value, **value}
-
-        setattr(new, name, value)
+        # Assign before validating, and let the validator have the last word.
+        # A validator may normalise what it is given and write the result back
+        # on the instance -- check_fence_as_directive turns the sequence into a
+        # set, check_url_schemes turns the list form into a dict.
+        # Validating first and assigning afterwards overwrote that with the raw
+        # topmatter value. This is also the order __post_init__ uses, where the
+        # value is already on the instance before validate_fields runs.
+        try:
+            if field.metadata.get("merge_topmatter"):
+                # Validate the topmatter value itself before merging it into
+                # the global mapping, so that a non-mapping (a list, a string,
+                # null) is reported as a warning rather than raised.
+                validate_field(new, field, value)
+                value = {**old_value, **value}
+            setattr(new, name, value)
+            validate_field(new, field, value)
+        except Exception as exc:
+            setattr(new, name, old_value)
+            warning(MystWarnings.MD_TOPMATTER, str(exc))
+            continue
 
     return new
 
@@ -593,6 +634,8 @@ def read_topmatter(text: str | Iterator[str]) -> dict[str, Any] | None:
     """
     import yaml
 
+    from myst_parser.parsers.directives import YAML_LOAD_ERRORS
+
     if isinstance(text, str):
         if not text.startswith("---"):  # skip creating the line list in memory
             return None
@@ -609,7 +652,7 @@ def read_topmatter(text: str | Iterator[str]) -> dict[str, Any] | None:
         top_matter.append(line.rstrip() + "\n")
     try:
         metadata = yaml.safe_load("".join(top_matter))
-    except (yaml.parser.ParserError, yaml.scanner.ScannerError) as err:
+    except YAML_LOAD_ERRORS as err:
         raise TopmatterReadError("Malformed YAML") from err
     if not isinstance(metadata, dict):
         raise TopmatterReadError(f"YAML is not a dict: {type(metadata)}")

@@ -11,7 +11,7 @@ requires = [
 
 [project]
 name = "pyopencl"
-version = "2026.1.4"
+version = "2026.1.5"
 description = "Python wrapper for OpenCL"
 readme = "README.rst"
 license = "MIT"
@@ -34,11 +34,10 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Physics",
 ]
 dependencies = [
-    "importlib-resources; python_version<'3.9'",
     "numpy",
-    "platformdirs>=2.2",
+    # version that added support for XDG_* vars on macos
+    "platformdirs>=4.6",
     "pytools>=2025.1.6",
-
     # for Buffer, override
     "typing_extensions>=4.6",
 ]
@@ -103,6 +102,7 @@ extend-ignore = [
     "type-check-without-type-error",
     "blind-except",
     "try-consider-else",
+    "pytest-parameter-with-default-argument",
 
     # FIXME: This is a longer discussion...
     "non-empty-init-module",

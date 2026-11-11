@@ -34,6 +34,9 @@ from linkml_map.datamodel import TR_SCHEMA
 from linkml_map.spec_normalizer import normalize_spec
 from linkml_map.spec_scan import ValidationMessage, iter_derivation_dicts
 from linkml_map.spec_scan import check_deprecated_fields as check_deprecated_fields  # re-export
+from linkml_map.transformer.content_id import mints_ids, missing_identifier_message
+from linkml_map.transformer.transformer import coercible_datatype
+from linkml_map.utils.enum_index import enum_index
 from linkml_map.utils.eval_utils import FUNCTIONS
 from linkml_map.utils.join_utils import resolve_join
 
@@ -543,6 +546,26 @@ def validate_spec_semantics(
     source_all_classes = set(source_sv.all_classes()) if source_sv is not None else set()
     target_all_classes = set(target_sv.all_classes()) if target_sv is not None else set()
 
+    # Names a slot derivation's ``range`` may use: elements of either schema, plus the
+    # spec's own derivations, which range inference assigns to nested-object slots.
+    known_ranges = set(derivation_pool)
+    known_ranges.update(ed.get("name") for ed in iter_derivation_dicts(data.get("enum_derivations", [])))
+    for sv in (source_sv, target_sv):
+        if sv is not None:
+            known_ranges.update(sv.all_types(), sv.all_classes(), sv.all_enums())
+
+    class_default_mint_ids = _class_default_mint_ids(data.get("class_defaults"))
+    if target_sv is not None:
+        for name in class_default_mint_ids:
+            if name not in target_all_classes:
+                messages.append(
+                    ValidationMessage(
+                        severity="error",
+                        path=f"class_defaults[{name}]",
+                        message=f"class_defaults names {name!r}, which is not a class in the target schema",
+                    )
+                )
+
     # Validate class_derivations (recurses into nested CDs internally)
     for cd in iter_derivation_dicts(data.get("class_derivations", [])):
         _validate_class_derivation(
@@ -554,6 +577,9 @@ def validate_spec_semantics(
             derivation_pool=derivation_pool,
             source_all_classes=source_all_classes,
             target_all_classes=target_all_classes,
+            spec_mint_ids=data.get("mint_ids"),
+            class_default_mint_ids=class_default_mint_ids,
+            known_ranges=known_ranges,
         )
 
     # Validate enum_derivations
@@ -563,8 +589,8 @@ def validate_spec_semantics(
     return messages
 
 
-def _collect_class_derivation_pool(data: dict[str, Any]) -> set[str]:
-    """Names of all top-level class_derivations in the spec.
+def _collect_class_derivation_pool(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """All top-level class_derivations in the spec, by name.
 
     This is the pool used to resolve ``is_a`` and ``mixins`` references
     against spec-internal derivations (#219). Only top-level CDs are
@@ -572,7 +598,7 @@ def _collect_class_derivation_pool(data: dict[str, Any]) -> set[str]:
     :meth:`~linkml_map.transformer.transformer.Transformer._find_class_derivation_by_name`
     which raises ``KeyError`` for anything not at the top level.
     """
-    return {cd.get("name") for cd in iter_derivation_dicts(data.get("class_derivations", [])) if cd.get("name")}
+    return {cd["name"]: cd for cd in iter_derivation_dicts(data.get("class_derivations", [])) if cd.get("name")}
 
 
 def _slot_is_string_typed(sv: SchemaView, range_name: str | None) -> bool:
@@ -606,9 +632,12 @@ def _validate_class_derivation(
     messages: list[ValidationMessage],
     parent_class_deriv: dict[str, Any] | None = None,
     parent_path: str = "",
-    derivation_pool: set[str] | None = None,
+    derivation_pool: dict[str, dict[str, Any]] | None = None,
     source_all_classes: set[str] | None = None,
     target_all_classes: set[str] | None = None,
+    spec_mint_ids: bool | None = None,
+    class_default_mint_ids: dict[str, bool | None] | None = None,
+    known_ranges: set[str] | None = None,
 ) -> None:
     """Validate a single class derivation against schemas.
 
@@ -701,6 +730,8 @@ def _validate_class_derivation(
             s.name for s in induced_source_slots if not s.multivalued and _slot_is_string_typed(source_sv, s.range)
         }
 
+    _check_join_keys(cd, resolved_source_class, source_sv, cd_path, messages, source_all_classes)
+
     # Validate slot_derivations (may be list or dict after normalization)
     slot_derivation_dicts = iter_derivation_dicts(cd.get("slot_derivations", []))
 
@@ -723,6 +754,10 @@ def _validate_class_derivation(
             strict,
             messages,
         )
+        _check_range_exists(sd, known_ranges, sd_path, strict, messages)
+        if target_class_slots is not None and sd_name in target_class_slots:
+            _check_range_override(sd, cd_name, target_sv, sd_path, strict, messages)
+            _check_enum_literals(sd, cd_name, target_sv, sd_path, strict, messages)
 
         # Recurse into nested class_derivations declared on this slot.
         for nested_cd in iter_derivation_dicts(sd.get("class_derivations", [])):
@@ -737,13 +772,42 @@ def _validate_class_derivation(
                 derivation_pool=derivation_pool,
                 source_all_classes=source_all_classes,
                 target_all_classes=target_all_classes,
+                spec_mint_ids=spec_mint_ids,
+                class_default_mint_ids=class_default_mint_ids,
+                known_ranges=known_ranges,
             )
 
     # Warning: target class has required slots with no derivation
     if target_sv is not None and target_class_slots is not None:
-        derived_slot_names = {sd.get("name") for sd in slot_derivation_dicts if "name" in sd}
+        derived_slot_names, class_mint_ids = _with_inherited_derivations(cd, derivation_pool or {})
+        target_class = target_sv.get_class(cd_name)
+        instantiable = not (target_class.abstract or target_class.mixin)
         for slot in target_sv.class_induced_slots(cd_name):
-            if slot.required and slot.name not in derived_slot_names:
+            if slot.name in derived_slot_names:
+                continue
+            if slot.identifier and not instantiable:
+                continue
+            default_mint_ids = (class_default_mint_ids or {}).get(cd_name)
+            if slot.identifier and mints_ids(spec_mint_ids, default_mint_ids, class_mint_ids):
+                messages.append(
+                    ValidationMessage(
+                        severity="info",
+                        path=cd_path,
+                        message=(
+                            f"Identifier slot '{slot.name}' has no derivation; "
+                            "it will be synthesized from a hash of the record's content"
+                        ),
+                    )
+                )
+            elif slot.identifier:
+                messages.append(
+                    ValidationMessage(
+                        severity="error",
+                        path=cd_path,
+                        message=missing_identifier_message(cd_name, slot.name),
+                    )
+                )
+            elif slot.required:
                 messages.append(
                     ValidationMessage(
                         severity="warning",
@@ -751,6 +815,52 @@ def _validate_class_derivation(
                         message=f"Required target slot '{slot.name}' has no derivation",
                     )
                 )
+
+
+def _class_default_mint_ids(raw: Any) -> dict[str, bool | None]:
+    """``mint_ids`` per target class from a raw ``class_defaults`` section.
+
+    Accepts the dict form, including the compact ``Class: true`` shorthand, and the
+    list form with explicit names.
+    """
+    if isinstance(raw, dict):
+        return {name: body if isinstance(body, bool) else (body or {}).get("mint_ids") for name, body in raw.items()}
+    return {d["name"]: d.get("mint_ids") for d in iter_derivation_dicts(raw) if "name" in d}
+
+
+def _with_inherited_derivations(
+    cd: dict[str, Any], derivation_pool: dict[str, dict[str, Any]]
+) -> tuple[set[str], bool | None]:
+    """Slot-derivation names and ``mint_ids`` of *cd*, including what it inherits.
+
+    Mirrors the runtime's ancestor merge: ``mixins`` then ``is_a``, depth-first, with
+    *cd*'s own ``mint_ids`` taking precedence over the first ancestor that sets one.
+    Parents that aren't top-level class derivations (e.g. target schema classes)
+    contribute nothing.
+
+    :param cd: A class derivation dict.
+    :param derivation_pool: Top-level class derivations by name.
+    :return: The derived slot names and the effective class-level ``mint_ids``.
+    """
+    names: set[str] = set()
+    mint_ids: bool | None = None
+    seen: set[int] = set()
+
+    def visit(node: dict[str, Any]) -> None:
+        nonlocal mint_ids
+        if id(node) in seen:
+            return
+        seen.add(id(node))
+        names.update(sd["name"] for sd in iter_derivation_dicts(node.get("slot_derivations", [])) if "name" in sd)
+        if mint_ids is None:
+            mint_ids = node.get("mint_ids")
+        parents = list(node.get("mixins") or []) + ([node["is_a"]] if node.get("is_a") else [])
+        for parent in parents:
+            if parent in derivation_pool:
+                visit(derivation_pool[parent])
+
+    visit(cd)
+    return names, mint_ids
 
 
 def _build_joined_class_map(
@@ -769,6 +879,9 @@ def _build_joined_class_map(
     2. Implicit join targets — nested ``class_derivations`` whose
        ``populated_from`` differs from this CD's, which the engine's
        normalization pass (#212) will auto-resolve.
+    3. Implicit join targets named by a dotted reference — ``populated_from:
+       Other.slot`` or ``{Other.slot}`` in an expression, where ``Other`` is
+       another source class rather than a slot. The engine joins these too.
 
     :param cd: This class derivation dict.
     :param source_sv: Source schema view, or ``None``.
@@ -814,7 +927,91 @@ def _build_joined_class_map(
                     else:
                         result[nested_source] = (nested_source, None)
 
+        source_slots = set()
+        if parent_source in source_all_classes:
+            source_slots = {s.name for s in source_sv.class_induced_slots(parent_source)}
+        for sd in slot_derivation_dicts:
+            bases = set(extract_expr_attribute_references(sd["expr"])) if sd.get("expr") else set()
+            populated_from = sd.get("populated_from")
+            if populated_from and "." in populated_from:
+                bases.add(populated_from.split(".", 1)[0])
+            for base in bases - source_slots - set(result) - {parent_source}:
+                if base in source_all_classes:
+                    result[base] = (base, {s.name for s in source_sv.class_induced_slots(base)})
+
     return result
+
+
+def _check_join_keys(
+    cd: dict[str, Any],
+    primary_class: str | None,
+    source_sv: SchemaView | None,
+    cd_path: str,
+    messages: list[ValidationMessage],
+    source_all_classes: set[str],
+) -> None:
+    """Check that each entry of a class derivation's ``joins:`` has keys that resolve.
+
+    An entry needs ``join_on``, or both ``source_key`` and ``lookup_key``; without
+    them the runtime raises. A key that isn't a slot on its class passes that check
+    but silently resolves every joined value to null, so it is reported too:
+    ``source_key`` against the primary class, ``lookup_key`` against the joined class,
+    and ``join_on`` against both.
+
+    :param primary_class: The class the derivation reads rows from, or ``None`` if unresolved.
+    """
+    joins = cd.get("joins") or {}
+    if not isinstance(joins, dict):
+        return
+    for alias, spec in joins.items():
+        spec_dict = spec if isinstance(spec, dict) else {}
+        join_path = f"{cd_path}.joins[{alias}]"
+        join_on = spec_dict.get("join_on")
+        source_key = spec_dict.get("source_key")
+        lookup_key = spec_dict.get("lookup_key")
+        if not join_on and not (source_key and lookup_key):
+            messages.append(
+                ValidationMessage(
+                    severity="warning",
+                    path=join_path,
+                    message=(
+                        f"Join spec for '{alias}' is missing keys: "
+                        f"must specify 'join_on' or both 'source_key' and "
+                        f"'lookup_key'. Runtime will raise ValueError."
+                    ),
+                )
+            )
+            continue
+        joined_class = spec_dict.get("class_named") or alias
+        if source_sv is None or primary_class not in source_all_classes or joined_class not in source_all_classes:
+            continue
+        primary_slots = {s.name for s in source_sv.class_induced_slots(primary_class)}
+        joined_slots = {s.name for s in source_sv.class_induced_slots(joined_class)}
+        if join_on:
+            key_checks = [
+                ("join_on", join_on, primary_slots, primary_class),
+                ("join_on", join_on, joined_slots, joined_class),
+            ]
+        else:
+            key_checks = [
+                ("source_key", source_key, primary_slots, primary_class),
+                ("lookup_key", lookup_key, joined_slots, joined_class),
+            ]
+        for key_label, key_value, slot_set, class_name in key_checks:
+            if key_value in slot_set:
+                continue
+            messages.append(
+                ValidationMessage(
+                    severity="warning",
+                    path=join_path,
+                    message=(
+                        f"Join spec for '{alias}': "
+                        f"'{key_label}={key_value}' is not a slot on source class "
+                        f"'{class_name}'. Runtime will silently resolve cross-table "
+                        f"values to null."
+                    ),
+                )
+            )
 
 
 def _check_cross_table_join(
@@ -830,7 +1027,8 @@ def _check_cross_table_join(
     Closes #211 at validate-spec time. Mirrors the runtime synthesis logic
     in :class:`~linkml_map.transformer.transformer.Transformer`:
 
-    - Explicit ``joins:`` covers the nested source → verify its keys.
+    - Explicit ``joins:`` covers the nested source → nothing to predict; its keys
+      are checked by :func:`_check_join_keys`.
     - No explicit join, :func:`~linkml_map.utils.join_utils.resolve_join`
       returns a key → ``info`` (will auto-synthesize at runtime).
     - No explicit join, :func:`~linkml_map.utils.join_utils.resolve_join`
@@ -849,58 +1047,8 @@ def _check_cross_table_join(
 
     parent_joins = parent_cd.get("joins") or {}
     if isinstance(parent_joins, dict) and nested_source in parent_joins:
-        # Explicit join is present — verify the spec carries enough keys to
-        # actually resolve a row, mirroring the runtime check in
-        # ``_resolve_joined_row``. A structurally-valid-but-empty entry like
-        # ``joins: {Reading: {}}`` would otherwise pass validation but blow
-        # up at transform time with ``ValueError: Join spec ... must
-        # specify 'join_on' or both 'source_key' and 'lookup_key'``.
-        spec = parent_joins[nested_source]
-        spec_dict = spec if isinstance(spec, dict) else {}
-        join_on = spec_dict.get("join_on")
-        source_key = spec_dict.get("source_key")
-        lookup_key = spec_dict.get("lookup_key")
-        if not join_on and not (source_key and lookup_key):
-            messages.append(
-                ValidationMessage(
-                    severity="warning",
-                    path=nested_path,
-                    message=(
-                        f"Join spec for '{nested_source}' is missing keys: "
-                        f"must specify 'join_on' or both 'source_key' and "
-                        f"'lookup_key'. Runtime will raise ValueError."
-                    ),
-                )
-            )
-        elif source_sv is not None and parent_source in source_all_classes and nested_source in source_all_classes:
-            # Keys are declared — verify they exist on the respective source
-            # classes. A typo'd key passes the structural check but produces
-            # silent nulls at runtime: ``source_obj.get(missing_key)`` returns
-            # None, the join match fails, cross-table values resolve to null.
-            parent_slots = {s.name for s in source_sv.class_induced_slots(parent_source)}
-            nested_slots = {s.name for s in source_sv.class_induced_slots(nested_source)}
-            if join_on:
-                key_checks = [(join_on, parent_slots, parent_source), (join_on, nested_slots, nested_source)]
-                key_label = "join_on"
-            else:
-                key_checks = [(source_key, parent_slots, parent_source), (lookup_key, nested_slots, nested_source)]
-            for i, (key_value, slot_set, class_name) in enumerate(key_checks):
-                if key_value in slot_set:
-                    continue
-                if not join_on:
-                    key_label = "source_key" if i == 0 else "lookup_key"
-                messages.append(
-                    ValidationMessage(
-                        severity="warning",
-                        path=nested_path,
-                        message=(
-                            f"Join spec for '{nested_source}': "
-                            f"'{key_label}={key_value}' is not a slot on source class "
-                            f"'{class_name}'. Runtime will silently resolve cross-table "
-                            f"values to null."
-                        ),
-                    )
-                )
+        # An explicit join covers the nested source; its keys are checked with the
+        # parent's other joins in _check_join_keys.
         return
 
     if source_sv is None:
@@ -944,7 +1092,7 @@ def _check_cross_table_join(
 def _check_class_inheritance_refs(
     cd: dict[str, Any],
     cd_path: str,
-    derivation_pool: set[str],
+    derivation_pool: dict[str, dict[str, Any]],
     target_sv: SchemaView | None,
     messages: list[ValidationMessage],
     target_all_classes: set[str],
@@ -1035,7 +1183,20 @@ def _validate_slot_derivation(
     # Source: populated_from slot should be valid on the source class
     populated_from = sd.get("populated_from")
     if source_class_slots is not None and populated_from is not None:
-        if populated_from not in source_class_slots:
+        base, _, attr = populated_from.partition(".")
+        if base in joined_class_slots and attr:
+            joined_class, joined_slots = joined_class_slots[base]
+            attr = attr.split(".", 1)[0]
+            if joined_slots is not None and attr not in joined_slots:
+                messages.append(
+                    ValidationMessage(
+                        severity="error",
+                        path=sd_path,
+                        message=f"Source slot '{populated_from}' (populated_from): '{attr}' is not a slot on "
+                        f"joined class '{joined_class}'",
+                    )
+                )
+        elif base not in source_class_slots:
             messages.append(
                 ValidationMessage(
                     severity="error",
@@ -1113,6 +1274,151 @@ def _validate_slot_derivation(
                         ),
                     )
                 )
+
+
+_NUMERIC_DATATYPES = {"integer", "float", "decimal"}
+
+
+def _datatype_fits(spec_datatype: str | None, target_datatype: str) -> bool:
+    """Whether values coerced to *spec_datatype* still validate against *target_datatype*.
+
+    Integers and floats are valid wherever a float or decimal is; anything that isn't
+    a number or a boolean stays a string. ``None`` is a range with no coercion, whose
+    values pass through as the strings they arrived as.
+
+    >>> _datatype_fits("integer", "decimal"), _datatype_fits("float", "integer")
+    (True, False)
+    >>> _datatype_fits(None, "string"), _datatype_fits("integer", "string")
+    (True, False)
+    >>> _datatype_fits("string", "decimal"), _datatype_fits(None, "boolean")
+    (False, False)
+    """
+    if target_datatype == "string":
+        return spec_datatype not in _NUMERIC_DATATYPES | {"boolean"}
+    if target_datatype in ("float", "decimal"):
+        return spec_datatype in _NUMERIC_DATATYPES
+    return spec_datatype == target_datatype
+
+
+def _check_range_exists(
+    sd: dict[str, Any],
+    known_ranges: set[str] | None,
+    sd_path: str,
+    strict: bool,
+    messages: list[ValidationMessage],
+) -> None:
+    """Report a slot derivation ``range`` that names nothing the schemas or spec define.
+
+    Values are coerced only to ranges the transformer recognizes; any other name passes
+    them through unchanged, so a misspelled ``range: integr`` would otherwise go unnoticed.
+
+    :param known_ranges: Types, classes and enums of both schemas, and the spec's own
+        derivation names. ``None`` skips the check.
+    """
+    range_name = sd.get("range")
+    if known_ranges is None or range_name is None or range_name in known_ranges:
+        return
+    messages.append(
+        ValidationMessage(
+            severity="error" if strict else "warning",
+            path=sd_path,
+            message=f"range '{range_name}' is not a type, class or enum in the source or target schema",
+            category="unknown-range",
+        )
+    )
+
+
+def _check_range_override(
+    sd: dict[str, Any],
+    class_name: str,
+    target_sv: SchemaView,
+    sd_path: str,
+    strict: bool,
+    messages: list[ValidationMessage],
+) -> None:
+    """Report a slot derivation ``range`` that keeps values from matching the target slot's range.
+
+    An explicit ``range`` wins over the target schema's, so values are coerced to it
+    instead (#361) and not resolved against a target enum (#360). That is only a
+    problem when the two disagree: a ``range: string`` on a slot whose target range is
+    an enum or a decimal leaves the output invalid with no other sign of why.
+
+    :param sd: The normalized slot derivation.
+    :param class_name: Target class the slot belongs to.
+    :param target_sv: The target schema.
+    :param sd_path: Path of the slot derivation, for messages.
+    :param strict: If ``True``, a conflicting range is an error instead of a warning.
+    :param messages: List to append findings to.
+    """
+    spec_range = sd.get("range")
+    target_range = target_sv.induced_slot(sd["name"], class_name).range
+    if spec_range is None or target_range is None or spec_range == target_range:
+        return
+    all_enums = target_sv.all_enums()
+    if target_range in all_enums:
+        consequence = "its values aren't resolved to the target enum's permissible values"
+    else:
+        target_datatype = coercible_datatype(target_sv, target_range)
+        spec_datatype = "string" if spec_range in all_enums else coercible_datatype(target_sv, spec_range)
+        if target_datatype is None or _datatype_fits(spec_datatype, target_datatype):
+            return
+        consequence = f"its values aren't coerced to {target_datatype}"
+    messages.append(
+        ValidationMessage(
+            severity="error" if strict else "warning",
+            path=sd_path,
+            message=(
+                f"range '{spec_range}' overrides the target slot's range '{target_range}', "
+                f"so {consequence}. Remove the range to use the target schema's."
+            ),
+            category="range-override",
+        )
+    )
+
+
+def _check_enum_literals(
+    sd: dict[str, Any],
+    class_name: str,
+    target_sv: SchemaView,
+    sd_path: str,
+    strict: bool,
+    messages: list[ValidationMessage],
+) -> None:
+    """Check that a slot's ``value`` and ``value_mappings`` targets name values of its target enum.
+
+    These literals are known before any data is read, so a spelling the runtime
+    can't resolve to a permissible value (#360) is reported here instead of in
+    the output.
+
+    :param sd: The normalized slot derivation.
+    :param class_name: Target class the slot belongs to.
+    :param target_sv: The target schema.
+    :param sd_path: Path of the slot derivation, for messages.
+    :param strict: If ``True``, unresolved values are errors instead of warnings.
+    :param messages: List to append findings to.
+    """
+    slot_range = sd.get("range") or target_sv.induced_slot(sd["name"], class_name).range
+    if slot_range not in target_sv.all_enums():
+        return
+    index = enum_index(target_sv, slot_range)
+    if index is None:
+        return
+    literals = [("value", sd["value"])] if sd.get("value") is not None else []
+    literals += [
+        (f"value_mappings[{vm['key']}]", vm["value"])
+        for vm in sd.get("value_mappings", {}).values()
+        if vm.get("value") is not None
+    ]
+    for field, literal in literals:
+        _, problem = index.resolve(str(literal))
+        if problem:
+            messages.append(
+                ValidationMessage(
+                    severity="error" if strict else "warning",
+                    path=sd_path,
+                    message=f"{field}: {problem}",
+                )
+            )
 
 
 def _validate_enum_derivation(

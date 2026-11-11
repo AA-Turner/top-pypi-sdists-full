@@ -31,13 +31,15 @@ from schemathesis.core.hooks import HOOKS_MODULE_ENV_VAR
 from schemathesis.core.shell import ShellType
 from schemathesis.engine import Status, control, events
 from schemathesis.engine.run import Phase, PhaseName
-from schemathesis.specs.openapi import unregister_string_format
 from test.apps.catalog.graphql import bookstore as graphql_bookstore
 from test.apps.catalog.openapi import basic as openapi_basic
+from test.apps.catalog.openapi import stateful
 from test.apps.fragments import handlers
 from test.apps.fragments.schemas import PAYLOAD_SCHEMA, linked_users
 from test.fixtures.app_runner import accept_connections, wait_for_port
-from test.utils import HERE, SIMPLE_PATH, refusing_url
+from test.utils import HERE, get_schema_path, refusing_url
+
+SIMPLE_PATH = get_schema_path("simple_swagger.yaml")
 
 
 def test_commands_help(cli, snapshot_cli):
@@ -352,16 +354,16 @@ ALL_HEALTH_CHECKS = sorted(check.name for check in hypothesis.HealthCheck)
 @pytest.mark.usefixtures("hypothesis_ci_profile")
 @pytest.mark.parametrize("deterministic", [False, True])
 @pytest.mark.parametrize(
-    ("command", "app", "suppressed"),
+    ("command", "factory", "suppressed"),
     [
-        (("run", "--phases=fuzzing", "--max-examples=2"), "success", []),
-        (("run", "--phases=stateful", "--max-examples=2"), "stateful_users", ALL_HEALTH_CHECKS),
-        (("fuzz", "--max-time=1"), "success", []),
+        (("run", "--phases=fuzzing", "--max-examples=2"), openapi_basic.success, []),
+        (("run", "--phases=stateful", "--max-examples=2"), stateful.stateful_users, ALL_HEALTH_CHECKS),
+        (("fuzz", "--max-time=1"), openapi_basic.success, []),
     ],
     ids=["run-fuzzing", "run-stateful", "fuzz"],
 )
-def test_cli_ignores_hypothesis_ci_profile(ctx, cli, settings_recorder, command, app, suppressed, deterministic):
-    api = getattr(ctx.openapi.apps, app)()
+def test_cli_ignores_hypothesis_ci_profile(ctx, cli, settings_recorder, command, factory, suppressed, deterministic):
+    api = ctx.openapi.serve(factory())
     result = cli.main(
         command[0],
         api.schema_url,
@@ -451,7 +453,7 @@ def test_openapi_auth_skips_malformed_security_requirements(cli, ctx):
 
 @pytest.mark.parametrize("workers", [1, 2])
 def test_cli_run_output_empty(ctx, cli, workers):
-    api = ctx.openapi.apps.no_operations()
+    api = ctx.openapi.serve(openapi_basic.no_operations())
     result = cli.run_and_assert(api.schema_url, f"--workers={workers}", exit_code=ExitCode.INTERRUPTED)
     assert " HYPOTHESIS OUTPUT " not in result.stdout
     assert " SUMMARY " in result.stdout
@@ -546,23 +548,22 @@ def test_timeout_reclassified_as_error_on_flaky_replay(ctx, cli):
 def test_connection_timeout(ctx, cli, workers):
     # Timeout on a slow endpoint surfaces as a Network Error and fails the run.
     api = ctx.openapi.apps.slow()
-    with ctx.restore_checks():
 
-        @schemathesis.check
-        def noop(ctx, response, case):
-            pass
+    @schemathesis.check
+    def noop(ctx, response, case):
+        pass
 
-        result = cli.run(
-            api.schema_url,
-            "--request-timeout=0.05",
-            f"--workers={workers}",
-            "--phases=fuzzing",
-            "--checks=noop",
-        )
-        assert result.exit_code == 1, result.stdout
-        assert "Network Error" in result.stdout, result.stdout
-        assert "GET /api/slow" in result.stdout, result.stdout
-        assert "Read timed out" in result.stdout, result.stdout
+    result = cli.run(
+        api.schema_url,
+        "--request-timeout=0.05",
+        f"--workers={workers}",
+        "--phases=fuzzing",
+        "--checks=noop",
+    )
+    assert result.exit_code == 1, result.stdout
+    assert "Network Error" in result.stdout, result.stdout
+    assert "GET /api/slow" in result.stdout, result.stdout
+    assert "Read timed out" in result.stdout, result.stdout
 
 
 # Only the first request stalls, and only past the default timeout, so a missing timeout fails instead of hanging.
@@ -811,11 +812,12 @@ def test_invalid_operation(ctx, cli, snapshot_cli):
     assert cli.run(api.schema_url, "--phases=fuzzing", "--mode=positive") == snapshot_cli
 
 
-def test_invalid_type_with_ref(cli, ctx, snapshot_cli):
+@pytest.mark.parametrize("version", ["3.0.2", "3.1.0"])
+def test_schema_errors(cli, ctx, snapshot_cli, version):
     api = ctx.openapi.apps.success()
     schema_path = ctx.openapi.write_schema(
         {
-            "/test": {
+            "/invalid-type": {
                 "post": {
                     "parameters": [
                         {
@@ -836,19 +838,7 @@ def test_invalid_type_with_ref(cli, ctx, snapshot_cli):
                     "responses": {"default": {"description": "Ok"}},
                 }
             },
-        },
-        # Open API 3.0 ignores keywords next to `$ref`, so only 3.1 reads the invalid `type`.
-        version="3.1.0",
-        components={"schemas": {"S": {"maxProperties": 5}}},
-    )
-    assert cli.run(str(schema_path), f"--url={api.base_url}/api", "--phases=fuzzing", "--mode=positive") == snapshot_cli
-
-
-def test_unsatisfiable_with_ref(cli, ctx, snapshot_cli):
-    api = ctx.openapi.apps.success()
-    schema_path = ctx.openapi.write_schema(
-        {
-            "/test": {
+            "/unsatisfiable-ref": {
                 "post": {
                     "requestBody": {
                         "required": True,
@@ -862,10 +852,48 @@ def test_unsatisfiable_with_ref(cli, ctx, snapshot_cli):
                     },
                     "responses": {"default": {"description": "Ok"}},
                 }
-            }
+            },
+            "/unsatisfiable-query": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "integer", "minimum": 100, "maximum": 10},
+                        }
+                    ],
+                    "responses": {"default": {"description": "Ok"}},
+                }
+            },
+            "/unsatisfiable-array-items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    # Each `oneOf` branch contradicts the sibling `minimum`, so no item can be generated.
+                                    "items": {
+                                        "type": "integer",
+                                        "minimum": 10,
+                                        "oneOf": [{"maximum": 1}, {"maximum": 2}, {"maximum": 3}],
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"default": {"description": "Ok"}},
+                }
+            },
         },
+        # Open API 3.0 ignores keywords next to `$ref`, so only 3.1 reads the invalid `type`.
+        version=version,
         components={
             "schemas": {
+                "S": {"maxProperties": 5},
                 "IntegerType": {"type": "integer", "minimum": 100, "maximum": 1000},
                 "StringType": {"type": "string", "pattern": "^[A-Z]{3,10}$"},
                 "ObjectType": {
@@ -885,60 +913,12 @@ def test_unsatisfiable_with_ref(cli, ctx, snapshot_cli):
             }
         },
     )
-    assert cli.run(str(schema_path), f"--url={api.base_url}/api", "--phases=fuzzing", "--mode=positive") == snapshot_cli
-
-
-def test_unsatisfiable_query_parameter(cli, ctx, snapshot_cli):
-    api = ctx.openapi.apps.success()
-    schema_path = ctx.openapi.write_schema(
-        {
-            "/test": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "id",
-                            "in": "query",
-                            "required": True,
-                            "schema": {"type": "integer", "minimum": 100, "maximum": 10},
-                        }
-                    ],
-                    "responses": {"default": {"description": "Ok"}},
-                }
-            }
-        }
+    assert (
+        cli.run(
+            str(schema_path), f"--url={api.base_url}/api", "--phases=fuzzing", "--mode=positive", "--max-examples=10"
+        )
+        == snapshot_cli
     )
-    assert cli.run(str(schema_path), f"--url={api.base_url}/api", "--phases=fuzzing", "--mode=positive") == snapshot_cli
-
-
-def test_unsatisfiable_empty_array_items(cli, ctx, snapshot_cli):
-    # Each `oneOf` branch contradicts the sibling `minimum`, so no array item can be generated.
-    api = ctx.openapi.apps.success()
-    schema_path = ctx.openapi.write_schema(
-        {
-            "/test": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "minItems": 1,
-                                    "items": {
-                                        "type": "integer",
-                                        "minimum": 10,
-                                        "oneOf": [{"maximum": 1}, {"maximum": 2}, {"maximum": 3}],
-                                    },
-                                }
-                            }
-                        },
-                    },
-                    "responses": {"default": {"description": "Ok"}},
-                }
-            }
-        }
-    )
-    assert cli.run(str(schema_path), f"--url={api.base_url}/api", "--phases=fuzzing", "--mode=positive") == snapshot_cli
 
 
 @pytest.mark.parametrize("workers", [1, 2])
@@ -1047,23 +1027,23 @@ def test_connection_error_cases_are_not_reported_as_skipped(ctx, cli, snapshot_c
 @pytest.mark.snapshot(replace_test_cases=False, replace_traceback=True)
 def test_crashed_check_cases_are_reported_as_errored(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
-    with ctx.check(
+    module = ctx.write_pymodule(
         """
 @schemathesis.check
 def broken_check(ctx, response, case):
     raise ZeroDivisionError("boom")
 """
-    ) as module:
-        assert (
-            cli.run(
-                api.schema_url,
-                "--max-examples=5",
-                "--phases=fuzzing",
-                "--checks=broken_check",
-                hooks=module,
-            )
-            == snapshot_cli
+    )
+    assert (
+        cli.run(
+            api.schema_url,
+            "--max-examples=5",
+            "--phases=fuzzing",
+            "--checks=broken_check",
+            hooks=module,
         )
+        == snapshot_cli
+    )
 
 
 def test_chunked_encoding_error(cli, raw_http_server, snapshot_cli):
@@ -1120,7 +1100,7 @@ def test_proxy_error(ctx, cli, snapshot_cli):
 
 @pytest.fixture
 def digits_format(ctx):
-    module = ctx.write_pymodule(
+    return ctx.write_pymodule(
         """
     import string
     from hypothesis import strategies as st
@@ -1137,8 +1117,6 @@ def digits_format(ctx):
     )
     """
     )
-    yield module
-    unregister_string_format("digits")
 
 
 def test_hooks_valid(ctx, cli, digits_format):
@@ -1162,13 +1140,12 @@ def test_hooks_valid(ctx, cli, digits_format):
 
 @pytest.fixture
 def conditional_check(ctx):
-    with ctx.check("""
+    return ctx.write_pymodule("""
 @schemathesis.check
 def conditional_check(ctx, response, case):
     # skip this check
     return True
-""") as module:
-        yield module
+""")
 
 
 def test_conditional_checks(ctx, cli, hypothesis_max_examples, conditional_check):
@@ -1191,18 +1168,15 @@ def test_conditional_checks(ctx, cli, hypothesis_max_examples, conditional_check
         "AssertionError",
     ]
 )
-def new_check(ctx, request, cli):
+def new_check(ctx, request):
     exception = request.param
-    with ctx.check(
+    return ctx.write_pymodule(
         f"""
 @schemathesis.check
 def new_check(ctx, response, result):
     raise {exception}
 """
-    ) as module:
-        yield module
-    # To verify that "new_check" is unregistered
-    assert "new_check" not in cli.run("--help").stdout
+    )
 
 
 def test_register_check(ctx, new_check, cli, snapshot_cli):
@@ -1545,18 +1519,6 @@ def test_invalid_yaml(testdir, cli, simple_openapi, snapshot_cli, ctx, suffix, e
     assert cli.run(str(schema_file), f"--url={api.base_url}/api") == snapshot_cli
 
 
-@pytest.fixture
-def with_error(ctx):
-    with ctx.check(
-        """
-@schemathesis.check
-def with_error(ctx, response, case):
-    1 / 0
-"""
-    ) as module:
-        yield module
-
-
 @pytest.mark.skipif(
     sys.version_info >= (3, 13) or platform.system() == "Windows",
     reason="Cover only tracebacks that highlight error positions in every line",
@@ -1579,7 +1541,7 @@ def test_multiple_generation_errors_in_fuzzing(ctx, cli, snapshot_cli):
             }
         }
     )
-    with ctx.hook(
+    module = ctx.write_pymodule(
         """
 @schemathesis.hook
 def map_query(ctx, query):
@@ -1587,11 +1549,11 @@ def map_query(ctx, query):
         raise ValueError("Generation failed")
     raise ValueError("Generation failed")
 """
-    ) as module:
-        assert (
-            cli.run_openapi_app(app, "--phases=fuzzing", "--mode=positive", "--max-examples=10", hooks=module)
-            == snapshot_cli
-        )
+    )
+    assert (
+        cli.run_openapi_app(app, "--phases=fuzzing", "--mode=positive", "--max-examples=10", hooks=module)
+        == snapshot_cli
+    )
 
 
 @pytest.mark.parametrize("media_type", ["multipart/form-data", "multipart/mixed", "multipart/*"])
@@ -1987,7 +1949,7 @@ def test_nested_binary_in_yaml(ctx, cli, app_runner, snapshot_cli):
 def test_urlencoded_form(ctx, cli):
     # When the API operation accepts application/x-www-form-urlencoded
     # Then Schemathesis should generate appropriate payload
-    api = ctx.openapi.apps.form()
+    api = ctx.openapi.serve(openapi_basic.form())
     cli.run_and_assert(api.schema_url, "--mode=positive")
 
 
@@ -2099,7 +2061,7 @@ def test_filter_case_sensitivity(ctx, cli, snapshot_cli):
 
 @pytest.mark.parametrize("value", ["--include-by=/x-property == 42", "--exclude-by=/x-property != 42"])
 def test_filter_by(ctx, cli, snapshot_cli, value):
-    api = ctx.openapi.apps.upload_file_and_custom_format()
+    api = ctx.openapi.serve(openapi_basic.upload_file_and_custom_format())
     assert cli.run(api.schema_url, "--mode=positive", "--max-examples=1", value) == snapshot_cli
 
 
@@ -2556,7 +2518,7 @@ def test_response_payload_encoding(ctx, cli, snapshot_cli):
     # See GH-1073
     # When the "failed" response has non UTF-8 encoding
     # Then it should be displayed according its actual encoding
-    api = ctx.openapi.apps.cp866()
+    api = ctx.openapi.serve(openapi_basic.cp866())
     assert cli.run(api.schema_url) == snapshot_cli
 
 
@@ -2566,7 +2528,7 @@ def test_response_schema_conformance_deduplication(ctx, cli, snapshot_cli):
     # When the "response_schema_conformance" check is present
     # And the app return different error messages caused by the same validator
     # Then the errors should be deduplicated
-    api = ctx.openapi.apps.conformance()
+    api = ctx.openapi.serve(openapi_basic.conformance())
     assert cli.run(api.schema_url, "--checks=response_schema_conformance") == snapshot_cli
 
 
@@ -2615,6 +2577,31 @@ def test_graphql_url(ctx, cli, endpoint, args, snapshot_cli):
     assert cli.run(api.schema_url, "--max-examples=5", "--mode=positive", *args) == snapshot_cli
 
 
+def test_graphql_auth_wfc(ctx, cli, tmp_path):
+    api = ctx.graphql.apps.books()
+    headers = []
+
+    # Schema introspection and capability probes carry no auth.
+    @api.wsgi_app.before_request
+    def capture():
+        if request.method == "POST" and "__schema" not in request.get_data(as_text=True):
+            headers.append(request.headers.get("X-Api-Key"))
+
+    auth = tmp_path / "auth.json"
+    auth.write_text(json.dumps({"auth": [{"name": "u", "fixedHeaders": [{"name": "X-Api-Key", "value": "static"}]}]}))
+
+    assert cli.run(api.schema_url, f"--auth-wfc={auth}", "--max-examples=2", "--phases=fuzzing").exit_code == 0
+    assert headers
+    assert set(headers) == {"static"}
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_graphql_wfc_report_refused(ctx, cli, snapshot_cli):
+    api = ctx.graphql.apps.books()
+
+    assert cli.run(api.schema_url, "--report=wfc", "--max-examples=1") == snapshot_cli
+
+
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_graphql_schema_violation(ctx, cli, snapshot_cli):
     # Every case hits the same broken field, so the run must report one finding rather than one per case.
@@ -2641,11 +2628,13 @@ def test_graphql_data_mismatch(ctx, cli, snapshot_cli):
     )
 
 
-@pytest.mark.parametrize("app", ["generic_id_pool", "non_id_pool"], ids=["id-handles", "non-id-handles"])
+@pytest.mark.parametrize(
+    "factory", [graphql_bookstore.generic_id_pool, graphql_bookstore.non_id_pool], ids=["id-handles", "non-id-handles"]
+)
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_graphql_stateful_unique_inputs(ctx, cli, snapshot_cli, app):
+def test_graphql_stateful_unique_inputs(ctx, cli, snapshot_cli, factory):
     # Scenarios repeat inputs that already passed; those steps are skipped, not crashed on.
-    api = getattr(ctx.graphql.apps, app)()
+    api = ctx.graphql.serve(factory())
     assert (
         cli.run(
             api.schema_url,
@@ -2882,15 +2871,14 @@ def test_skipped_on_no_coverage_cases(ctx, cli, snapshot_cli):
 
 @pytest.fixture
 def data_generation_check(ctx):
-    with ctx.check(
+    return ctx.write_pymodule(
         """
 @schemathesis.check
 def data_generation_check(ctx, response, case):
     if case.meta.generation.mode:
         note("MODE: {}".format(case.meta.generation.mode.value))
 """
-    ) as module:
-        yield module
+    )
 
 
 @pytest.mark.flaky(reruns=4)
@@ -2933,15 +2921,7 @@ def test_multiple_generation_modes(ctx, cli, data_generation_check):
 )
 def test_wait_for_schema(cli, app_runner, schema_path, make_app):
     # When Schemathesis is asked to wait for API schema to become available
-    app = make_app()
-    original_run = app.run
-
-    def run_with_delay(*args, **kwargs):
-        time.sleep(0.1)
-        return original_run(*args, **kwargs)
-
-    app.run = run_with_delay
-    schema_url = app_runner.openapi_url(app, path=f"/{schema_path}", wait=False)
+    schema_url = app_runner.openapi_url(make_app(), path=f"/{schema_path}", delay=0.1)
     cli.run_and_assert(schema_url, "--wait-for-schema=1", "--max-examples=1", "--mode=positive")
 
 
@@ -3494,7 +3474,7 @@ def test_complex_urlencoded_example(ctx, cli, snapshot_cli):
 
 @pytest.fixture
 def custom_strings(ctx):
-    with ctx.check(
+    return ctx.write_pymodule(
         """
 @schemathesis.check
 def custom_strings(ctx, response, case):
@@ -3506,8 +3486,7 @@ def custom_strings(ctx, response, case):
         raise AssertionError(str(exc))
     assert "\\x00" not in case.body
 """
-    ) as module:
-        yield module
+    )
 
 
 def test_custom_strings(ctx, cli, hypothesis_max_examples, custom_strings):
@@ -3527,7 +3506,7 @@ def test_custom_strings(ctx, cli, hypothesis_max_examples, custom_strings):
 
 @pytest.fixture
 def verify_overrides(ctx):
-    with ctx.check(
+    return ctx.write_pymodule(
         """
 @schemathesis.check
 def verify_overrides(ctx, response, case):
@@ -3538,8 +3517,7 @@ def verify_overrides(ctx, response, case):
         assert case.query["id"] == "bar"
         assert "key" not in (case.path_parameters or {}), "`key` is present"
 """
-    ) as module:
-        yield module
+    )
 
 
 def test_parameter_overrides(ctx, cli, verify_overrides):
@@ -3558,14 +3536,13 @@ def test_parameter_overrides(ctx, cli, verify_overrides):
 
 @pytest.fixture
 def verify_configured_headers(ctx):
-    with ctx.hook(
+    return ctx.write_pymodule(
         """
 @schemathesis.hook
 def before_call(ctx, case, kwargs):
     assert {key: case.headers.get(key) for key in ("User-Agent", "X-Key")} == {"User-Agent": "ok", "X-Key": "v"}
 """
-    ) as module:
-        yield module
+    )
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -3725,14 +3702,13 @@ def test_documented_redirect_not_followed(cli, ctx):
 
 @pytest.fixture
 def no_null_bytes(ctx):
-    with ctx.check(
+    return ctx.write_pymodule(
         r"""
 @schemathesis.check
 def no_null_bytes(ctx, response, case):
     assert "\x00" not in case.headers.get("X-KEY", {})
 """
-    ) as module:
-        yield module
+    )
 
 
 def test_null_byte_in_header_probe(ctx, cli, snapshot_cli, no_null_bytes):
@@ -3835,39 +3811,6 @@ def test_recursive_reference_error_message(ctx, cli, schema_with_recursive_refer
     api = ctx.openapi.apps.success()
     schema_path = ctx.makefile(schema_with_recursive_references)
     assert cli.run(str(schema_path), f"--url={api.base_url}/api", "--mode=positive") == snapshot_cli
-
-
-@pytest.mark.skipif(platform.system() == "Windows", reason="May behave differently on Windows")
-def test_empty_reference_does_not_cause_infinite_recursion(ctx, cli, snapshot_cli):
-    # Empty $ref should be gracefully skipped during bundling, not cause RecursionError
-    api = ctx.openapi.apps.success()
-    schema_path = ctx.openapi.write_schema(
-        {
-            "/items": {
-                "put": {
-                    "parameters": [{"in": "body", "name": "body", "schema": {"$ref": "#/definitions/Connection"}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        },
-        version="2.0",
-        definitions={
-            "Connection": {
-                "allOf": [{"$ref": "#/definitions/Resource"}],
-                "properties": {
-                    "key": {
-                        "properties": {
-                            "key": {
-                                "$ref": ""  # Empty reference - should be skipped
-                            }
-                        }
-                    }
-                },
-            },
-            "Resource": {},
-        },
-    )
-    assert cli.run(str(schema_path), f"--url={api.base_url}/api", "--phases=examples") == snapshot_cli
 
 
 def test_nullable_reference(ctx, cli, app_runner, snapshot_cli):
@@ -4157,29 +4100,29 @@ def test_rediscover_the_same_failure_in_different_phases_and_store_junit(ctx, cl
     # See GH-2814
     api = ctx.openapi.apps.users_crud()
     report_dir = tmp_path / "reports"
-    with ctx.check(
+    module = ctx.write_pymodule(
         r"""
 @schemathesis.check
 def always_fails(ctx, response, case):
     if case.operation.label == "GET /users/{user_id}":
         raise AssertionError("Failed!")
 """
-    ) as module:
-        assert (
-            cli.main(
-                "run",
-                api.schema_url,
-                "-c",
-                "always_fails",
-                "--max-examples=1",
-                f"--report-dir={report_dir}",
-                f"--report-junit-path={report_dir}/junit.xml",
-                "--report=junit",
-                "--mode=positive",
-                hooks=module,
-            )
-            == snapshot_cli
+    )
+    assert (
+        cli.main(
+            "run",
+            api.schema_url,
+            "-c",
+            "always_fails",
+            "--max-examples=1",
+            f"--report-dir={report_dir}",
+            f"--report-junit-path={report_dir}/junit.xml",
+            "--report=junit",
+            "--mode=positive",
+            hooks=module,
         )
+        == snapshot_cli
+    )
 
 
 @pytest.mark.parametrize(
@@ -4963,27 +4906,27 @@ def test_server_killed_by_its_first_request_is_an_outage(subprocess_runner, cli,
 @pytest.mark.snapshot(replace_traceback=True)
 def test_operation_keeps_its_own_error_when_the_server_goes_away(ctx, subprocess_runner, cli, snapshot_cli):
     port = subprocess_runner.run_app(ONE_SHOT_SERVER)
-    with ctx.check(
+    module = ctx.write_pymodule(
         """
 @schemathesis.check
 def boom(ctx, response, case):
     raise ValueError("check blew up")
 """
-    ) as module:
-        assert (
-            cli.main(
-                "run",
-                f"http://127.0.0.1:{port}/openapi.json",
-                "--phases=fuzzing",
-                "--checks=boom",
-                "--header",
-                "Authorization: Bearer secret",
-                "--max-examples=2",
-                "--mode=positive",
-                hooks=module,
-            )
-            == snapshot_cli
+    )
+    assert (
+        cli.main(
+            "run",
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--phases=fuzzing",
+            "--checks=boom",
+            "--header",
+            "Authorization: Bearer secret",
+            "--max-examples=2",
+            "--mode=positive",
+            hooks=module,
         )
+        == snapshot_cli
+    )
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Requires extra setup on Windows")

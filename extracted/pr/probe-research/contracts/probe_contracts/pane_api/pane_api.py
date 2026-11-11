@@ -53,6 +53,10 @@ class PaneApi:
     states: tuple[PaneApiName, ...]
     #: Why an entry is `partial`.
     reasons: tuple[PaneApiName, ...]
+    #: What the render check at push answered.
+    check_statuses: tuple[PaneApiName, ...]
+    #: A state the render check draws the pane in.
+    check_states: tuple[PaneApiName, ...]
     caps: tuple[PaneApiCap, ...]
 
     @classmethod
@@ -73,5 +77,7 @@ class PaneApi:
             open_errors=read_names("open_errors"),
             states=read_names("states"),
             reasons=read_names("reasons"),
+            check_statuses=read_names("check_statuses"),
+            check_states=read_names("check_states"),
             caps=tuple(PaneApiCap(c["name"], int(c["value"]), c["doc"]) for c in raw["caps"]),
         )

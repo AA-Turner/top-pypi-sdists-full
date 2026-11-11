@@ -928,7 +928,8 @@ class CfnConfiguration(
             run_configurations=omics.CfnConfiguration.RunConfigurationsProperty(
                 vpc_config=omics.CfnConfiguration.VpcConfigProperty(
                     security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
+                    subnet_ids=["subnetIds"],
+                    vpc_owner_account_id="vpcOwnerAccountId"
                 )
             ),
         
@@ -1172,7 +1173,8 @@ class CfnConfiguration(
                 run_configurations_property = omics.CfnConfiguration.RunConfigurationsProperty(
                     vpc_config=omics.CfnConfiguration.VpcConfigProperty(
                         security_group_ids=["securityGroupIds"],
-                        subnet_ids=["subnetIds"]
+                        subnet_ids=["subnetIds"],
+                        vpc_owner_account_id="vpcOwnerAccountId"
                     )
                 )
             '''
@@ -1210,6 +1212,7 @@ class CfnConfiguration(
         name_mapping={
             "security_group_ids": "securityGroupIds",
             "subnet_ids": "subnetIds",
+            "vpc_owner_account_id": "vpcOwnerAccountId",
         },
     )
     class VpcConfigProperty:
@@ -1218,10 +1221,12 @@ class CfnConfiguration(
             *,
             security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            vpc_owner_account_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
             :param security_group_ids: 
             :param subnet_ids: 
+            :param vpc_owner_account_id: The Amazon Web Services account ID of the cross-account VPC owner for RAM-shared VPC configurations.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-configuration-vpcconfig.html
             :exampleMetadata: fixture=_generated
@@ -1234,18 +1239,22 @@ class CfnConfiguration(
                 
                 vpc_config_property = omics.CfnConfiguration.VpcConfigProperty(
                     security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
+                    subnet_ids=["subnetIds"],
+                    vpc_owner_account_id="vpcOwnerAccountId"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__954d7722568637425d55b8627379f43f21f29454601056839c48d65b4716fe81)
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+                check_type(argname="argument vpc_owner_account_id", value=vpc_owner_account_id, expected_type=type_hints["vpc_owner_account_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if security_group_ids is not None:
                 self._values["security_group_ids"] = security_group_ids
             if subnet_ids is not None:
                 self._values["subnet_ids"] = subnet_ids
+            if vpc_owner_account_id is not None:
+                self._values["vpc_owner_account_id"] = vpc_owner_account_id
 
         @builtins.property
         def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1262,6 +1271,15 @@ class CfnConfiguration(
             '''
             result = self._values.get("subnet_ids")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def vpc_owner_account_id(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Web Services account ID of the cross-account VPC owner for RAM-shared VPC configurations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-configuration-vpcconfig.html#cfn-omics-configuration-vpcconfig-vpcowneraccountid
+            '''
+            result = self._values.get("vpc_owner_account_id")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1315,7 +1333,8 @@ class CfnConfigurationProps:
                 run_configurations=omics.CfnConfiguration.RunConfigurationsProperty(
                     vpc_config=omics.CfnConfiguration.VpcConfigProperty(
                         security_group_ids=["securityGroupIds"],
-                        subnet_ids=["subnetIds"]
+                        subnet_ids=["subnetIds"],
+                        vpc_owner_account_id="vpcOwnerAccountId"
                     )
                 ),
             
@@ -7008,6 +7027,7 @@ def _typecheckingstub__954d7722568637425d55b8627379f43f21f29454601056839c48d65b4
     *,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    vpc_owner_account_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -288,6 +288,91 @@ mod blackbox_class_escape {
 mod whitebox_resource_limits {
     use super::*;
 
+    /// Regression: walking a shared graph (`x = [x, x]` thirty times is
+    /// 2^30 nested two-item lists, or two-field dataclasses) in repr, `==`, `<` or `in` never read the
+    /// clock, because the fork polled time by the index within one list. It ran for minutes past
+    /// a 2 s limit, synchronously, so the host's exec timeout could not stop
+    /// it either. Each path must now hit the time limit (exit 124) promptly.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn shared_graph_walks_respect_time_limit() {
+        let graph = "x = [1]\nfor _ in range(30):\n    x = [x, x]\n";
+        for (name, tail) in [
+            ("repr", "s = repr(x)"),
+            ("str", "s = str(x)"),
+            ("print", "print(x)"),
+            ("fstring", "s = f\"{x}\""),
+            ("dict", "s = repr({1: x})"),
+            ("tuple", "s = repr((x, x))"),
+            (
+                "eq",
+                "y = [1]\nfor _ in range(30):\n    y = [y, y]\nb = x == y",
+            ),
+            (
+                "lt",
+                "y = [1]\nfor _ in range(30):\n    y = [y, y]\nb = x < y",
+            ),
+            (
+                "in",
+                "y = [1]\nfor _ in range(30):\n    y = [y, y]\nb = x in [y]",
+            ),
+            ("json", "import json\ns = json.dumps(x)"),
+            (
+                "dataclass",
+                "from dataclasses import dataclass\n@dataclass\nclass D:\n    a: object\n    b: object\nd = D(1, 1)\nfor _ in range(30):\n    d = D(d, d)\ns = repr(d)",
+            ),
+        ] {
+            let mut bash = bash_python_limits(
+                PythonLimits::default().max_duration(std::time::Duration::from_millis(500)),
+            );
+            let script = format!("python3 -c '{graph}{tail}' >/dev/null; echo rc=$?");
+            let started = std::time::Instant::now();
+            // Spawned so the timer runs on another worker: a regression blocks
+            // the thread running the script, not the one awaiting it.
+            let task = tokio::spawn(async move { bash.exec(&script).await });
+            let r = tokio::time::timeout(std::time::Duration::from_secs(20), task).await;
+            let elapsed = started.elapsed();
+            let r = r
+                .unwrap_or_else(|_| panic!("{name}: still running after 20s"))
+                .unwrap()
+                .unwrap();
+            assert!(
+                elapsed < std::time::Duration::from_secs(10),
+                "{name}: took {elapsed:?}"
+            );
+            assert_eq!(r.stdout, "rc=124\n", "{name}: {}", r.stderr);
+        }
+    }
+
+    /// Regression: every invocation used to reserve `max_memory / 64` work
+    /// units up front (1M at the 64 MiB default) out of the 100M budget, so
+    /// the 96th `python3` call in one script failed even for `pass`.
+    #[tokio::test]
+    async fn many_small_invocations_fit_in_one_script() {
+        let mut bash = bash_python_limits(PythonLimits::default());
+        let r = bash
+            .exec("n=0; for i in $(seq 1 300); do python3 -c 'pass' && n=$((n+1)); done; echo $n")
+            .await
+            .unwrap();
+        assert_eq!(r.stdout.trim(), "300", "stderr: {}", r.stderr);
+    }
+
+    /// Memory a Python run actually uses is still charged to the shared work
+    /// budget, so repeated large runs cannot each take a fresh allowance.
+    #[tokio::test]
+    async fn memory_used_is_charged_to_the_work_budget() {
+        let mut bash = Bash::builder()
+            .python_with_limits(PythonLimits::default())
+            .env("BASHKIT_ALLOW_INPROCESS_PYTHON", "1")
+            // ~64 MiB of Python heap at 64 bytes per unit.
+            .limits(ExecutionLimits::new().max_work_units(1_000_000))
+            .build();
+        let r = bash
+            .exec("for i in 1 2 3 4 5 6 7 8; do python3 -c 'x = \"a\" * (16 * 1024 * 1024)' || break; done")
+            .await;
+        let err = r.expect_err("8 x 16 MiB must exhaust a 1M-unit work budget");
+        assert!(err.to_string().contains("work units"), "{err}");
+    }
+
     #[tokio::test]
     async fn tight_memory_blocks_list_bomb() {
         let mut bash = bash_python_tight();
@@ -911,18 +996,102 @@ mod blackbox_format_attacks {
 mod blackbox_dos {
     use super::*;
 
+    // Important security decision (2026-11-05): `re` is allowed since Monty
+    // 1.4. Plain patterns run on the linear-time `regex` crate; patterns with
+    // backreferences or lookaround run on fancy-regex, whose backtracking is
+    // step-capped, and Monty checks its time limit between matches. These
+    // tests are the guard: each classic catastrophic pattern must finish (or
+    // be stopped) well inside the Python time limit.
+    // A wall-clock assertion in these tests is a hang detector, not a
+    // performance budget. The VM's own `max_duration` is the thing under test,
+    // so the wall clock has to sit *above* that limit: a run the limit permits
+    // must not fail here. Two of them had it inverted -- `elapsed < 4s` against
+    // a 5s limit -- so any run finishing between 4s and 5s failed while
+    // `exit_code` correctly showed no timeout. Coverage runs under tarpaulin are
+    // several times slower than a normal build (the whole integration suite
+    // takes ~240s there against ~0.8s for all seven cases here), which put the
+    // `lookbehind` case at 4.02s and turned main red on a bound its own limit
+    // allowed. `regex_loop_is_stopped_by_time_limit` already used the right
+    // shape (6s over a 2s limit); this makes it the rule.
+    fn hang_bound(limit: Duration) -> Duration {
+        limit * 3
+    }
+
+    const REDOS_CASES: &[(&str, &str)] = &[
+        (
+            "nested quantifier",
+            r"re.match(r'(a+)+$', 'a' * 5000 + 'b')",
+        ),
+        (
+            "overlapping alternation",
+            r"re.match(r'(a|a)+$', 'a' * 5000 + 'b')",
+        ),
+        ("nested star", r"re.match(r'(a*)*b', 'a' * 5000)"),
+        ("backreference", r"re.match(r'(a+)+\1$', 'a' * 5000 + 'b')"),
+        ("lookahead", r"re.match(r'(?=(a+)+$)\w', 'a' * 5000 + 'b')"),
+        (
+            "lookbehind",
+            r"re.search(r'(?<=a)(a+)+$', 'a' * 5000 + 'b')",
+        ),
+        (
+            "email-like",
+            r"re.match(r'^([a-zA-Z0-9])(([\-.]|[_]+)?([a-zA-Z0-9]+))*(@)', 'a' * 5000 + '!')",
+        ),
+    ];
+
     #[tokio::test]
-    async fn regex_redos() {
-        let limits = PythonLimits::default().max_duration(Duration::from_secs(5));
+    async fn regex_redos_patterns_are_bounded() {
+        let limit = Duration::from_secs(5);
+        for (name, call) in REDOS_CASES {
+            let limits = PythonLimits::default().max_duration(limit);
+            let mut bash = bash_python_limits(limits);
+            let script = format!("python3 - <<'EOF'\nimport re\nr = {call}\nprint('done')\nEOF");
+            let started = std::time::Instant::now();
+            let r = bash.exec(&script).await.unwrap();
+            let elapsed = started.elapsed();
+            // Either the match finishes or fancy-regex's backtrack cap raises;
+            // a timeout (124) would mean one match ran past the VM's checks.
+            assert_ne!(r.exit_code, 124, "{name}: hit the time limit: {}", r.stderr);
+            assert!(
+                elapsed < hang_bound(limit),
+                "{name}: took {elapsed:?}, over the {:?} hang bound: {}",
+                hang_bound(limit),
+                r.stderr
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn regex_loop_is_stopped_by_time_limit() {
+        // Many cheap-but-slow matches in a loop: the per-match cap alone does
+        // not bound the script, Monty's between-match time check must.
+        let limit = Duration::from_secs(2);
+        let limits = PythonLimits::default().max_duration(limit);
         let mut bash = bash_python_limits(limits);
-        // Classic ReDoS pattern: (a+)+$ against "aaa...b"
-        let _r = bash
-            .exec("python3 -c \"import re\nre.match('(a+)+$', 'a' * 30 + 'b')\"")
+        let started = std::time::Instant::now();
+        let r = bash
+            .exec(
+                "python3 - <<'EOF'\nimport re\nwhile True:\n    re.match(r'(?=(a+)+$)\\w', 'a' * 2000 + 'b')\nEOF",
+            )
             .await
             .unwrap();
-        // Should complete (monty re may not be vulnerable) or be killed by timeout
-        // The key assertion: it should not hang forever
-        // (this test itself has tokio timeout protection)
+        assert_eq!(r.exit_code, 124, "{}", r.stderr);
+        assert!(started.elapsed() < hang_bound(limit), "{}", r.stderr);
+    }
+
+    #[tokio::test]
+    async fn regex_huge_pattern_is_rejected_or_bounded() {
+        // Compile-time blowup: a large counted repetition.
+        let limit = Duration::from_secs(5);
+        let limits = PythonLimits::default().max_duration(limit);
+        let mut bash = bash_python_limits(limits);
+        let started = std::time::Instant::now();
+        let r = bash
+            .exec("python3 -c \"import re\nre.compile('(a{1000}){1000}')\nprint('ok')\"")
+            .await
+            .unwrap();
+        assert_ne!(r.exit_code, 124, "{}", r.stderr);
+        assert!(started.elapsed() < hang_bound(limit), "{}", r.stderr);
     }
 
     #[tokio::test]

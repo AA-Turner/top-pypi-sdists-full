@@ -16,17 +16,28 @@ where one goes out to a person (printed output, errors).
 _LATEST = {
     "astra": "gpt-6-astra",
     "sol": "gpt-6.1-sol",
-    "fable": "claude-fable-5-1",
+    "terra": "gpt-6.1-terra",
+    "luna": "gpt-6-luna",
+    "fable": "claude-fable-5-2",
     "opus": "claude-opus-5-5",
+    "sonnet": "claude-sonnet-5-5",
+    "haiku": "claude-haiku-5-5",
     "argon": "gemini-4-argon",
+    "carbon": "gemini-4-carbon",
 }
 _ALIASES = {
     **_LATEST,
     **{f"{family}-latest": model for family, model in _LATEST.items()},
     "claude-fable-5.1": "claude-fable-5-1",
     "fable-5.1": "claude-fable-5-1",
+    "claude-fable-5.2": "claude-fable-5-2",
+    "fable-5.2": "claude-fable-5-2",
     "claude-opus-5.5": "claude-opus-5-5",
     "opus-5.5": "claude-opus-5-5",
+    "claude-sonnet-5.5": "claude-sonnet-5-5",
+    "sonnet-5.5": "claude-sonnet-5-5",
+    "claude-haiku-5.5": "claude-haiku-5-5",
+    "haiku-5.5": "claude-haiku-5-5",
 }
 
 

@@ -46,6 +46,7 @@ from pygeodesy.constants import INF, INT0, MANT_DIG, NEG0, NINF, _0_0, _1_0, \
 from pygeodesy.errors import _AssertionError, _OverflowError, LenError, _TypeError, \
                              _ValueError, _xError, _xError2, _xkwds, _xkwds_get, \
                              _xkwds_get1, _xkwds_not, _xkwds_pop, _xsError
+# from pygeodesy.fmath import fma, ftruncate  # _MODS
 from pygeodesy.internals import _enquote, _envPYGEODESY, _passarg, typename  # _sizeof
 from pygeodesy.interns import NN, _arg_, _COMMASPACE_, _DMAIN_, _DOT_, _from_, \
                              _not_finite_, _SPACE_, _std_, _UNDER_
@@ -61,7 +62,7 @@ from math import fabs, isinf, isnan, \
                  ceil as _ceil, floor as _floor  # PYCHOK used! .ltp
 
 __all__ = _ALL_LAZY.fsums
-__version__ = '26.02.02'
+__version__ = '26.10.28'
 
 from pygeodesy.interns import (
   _PLUS_     as _add_op_,  # in .auxilats.auxAngle
@@ -1028,7 +1029,11 @@ class Fsum(_Named):  # sync __methods__ with .vector3dBase.Vector3dBase, .fstats
         '''
         return self._truediv(other, _truediv_op_, **raiser_RESIDUAL)
 
-    __trunc__ = __int__
+    def __trunc__(self):
+        '''Return this instance as C{trunc}ated C{int} or signed C{0.0}.
+        '''
+        s, r = self._fprs2
+        return _MODS.fmath.ftruncate(s + r)
 
     if _MODS.sys_version_info2 < (3, 0):  # PYCHOK no cover
         # <https://docs.Python.org/2/library/operator.html#mapping-operators-to-functions>
@@ -2891,7 +2896,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

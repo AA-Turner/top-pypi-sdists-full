@@ -107,11 +107,13 @@ fn family() -> BTreeSet<u32> {
     let own = std::process::id();
     let mut family: BTreeSet<u32> = std::iter::once(own).chain(crate::process::descendants(own)).collect();
     let exe = |pid: u32| fs::read_link(format!("/proc/{pid}/exe")).ok();
-    if let Ok(parent) = crate::process::parent_of(own) {
-        if parent > 1 && exe(parent).is_some() && exe(parent) == exe(own) {
-            family.insert(parent);
-            family.extend(crate::process::descendants(parent));
-        }
+    if let Ok(parent) = crate::process::parent_of(own)
+        && parent > 1
+        && exe(parent).is_some()
+        && exe(parent) == exe(own)
+    {
+        family.insert(parent);
+        family.extend(crate::process::descendants(parent));
     }
     family
 }
@@ -223,10 +225,10 @@ pub fn follow(size: impl FnOnce(&MachineFacts) -> (u64, u64)) -> Option<io::Resu
         let (max, reserve) = size(&facts);
         let budget = Budget { max, reserve, used };
         let mut written = contained.written.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(was) = *written {
-            if was.max.abs_diff(budget.max) < MOVED {
-                return Ok(Budget { used: budget.used, ..was });
-            }
+        if let Some(was) = *written
+            && was.max.abs_diff(budget.max) < MOVED
+        {
+            return Ok(Budget { used: budget.used, ..was });
         }
         write(&contained.root.join("memory.max"), &budget.max.to_string())?;
         *written = Some(budget);
@@ -278,6 +280,13 @@ impl Scope {
         if let Some(scope) = Self::cgroup(namespace, id)? {
             return Ok(scope);
         }
+        Self::inherited(namespace)
+    }
+
+    /// A process-tree token given to a command before its exec. Its descendants retain that
+    /// ownership even if this machine dies; the next machine sweeps them before reusing files.
+    pub fn inherited(namespace: &str) -> crate::Result<Self> {
+        let id = id()?;
         let token = format!("{namespace}-{id}");
         LIVE.lock().unwrap().insert(token.clone());
         Ok(Self(Backend::Tree { token, oom_before: host_oom_kills() }))

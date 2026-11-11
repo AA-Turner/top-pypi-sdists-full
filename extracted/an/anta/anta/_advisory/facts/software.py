@@ -6,38 +6,50 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import ClassVar
+from dataclasses import dataclass
+from typing import Any, ClassVar, Generic, TypeVar, cast
 
 from anta._advisory.facts.models import (
     CommandsFactDefinition,
-    ComponentSoftwareVersion,
+    ComponentSoftwareFact,
     Fact,
     FactProblemKind,
     FactSource,
     FactSourceKind,
+    MitigationFact,
     MitigationState,
-    MitigationValue,
 )
 from anta._advisory.optional_commands import OptionalAntaCommand, is_unsupported_optional_command
 from anta.models import AntaCommand
 
+PackageFactT = TypeVar("PackageFactT", bound="PackageVersionFact[Any]")
+HotfixFactT = TypeVar("HotfixFactT", bound="PersistentHotfixFact[Any]")
 
-class PackageVersionFact(CommandsFactDefinition[ComponentSoftwareVersion]):
+
+class PackageVersionFact(ComponentSoftwareFact, CommandsFactDefinition[PackageFactT], Generic[PackageFactT]):
     """Base fact for one package reported by ``show version detail``."""
 
-    key = "software.package.version"
-    label = "package version"
-    commands = (AntaCommand(command="show version detail", revision=1),)
+    version: str
+    key: ClassVar[str] = "software.package.version"
+    label: ClassVar[str] = "package version"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (AntaCommand(command="show version detail", revision=1),)
     package_name: ClassVar[str]
-    component_name: ClassVar[str]
+    component: ClassVar[str]
 
     @classmethod
+    # Keep each failure classification explicit so collection failures stay distinct from missing data.
     # pylint: disable-next=too-many-return-statements
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[ComponentSoftwareVersion]:  # noqa: PLR0911
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[PackageFactT]:  # noqa: C901, PLR0911
         """Extract and normalize the declared package version."""
         (command,) = commands
         source = FactSource(command.command, FactSourceKind.COMMAND)
-        details = command.json_output.get("details")
+        if is_unsupported_optional_command(command):
+            return cls.unavailable(FactProblemKind.UNSUPPORTED, source)
+        if command.errors:
+            return cls.unavailable(FactProblemKind.COLLECTION_FAILED, source)
+        if not isinstance(command.output, Mapping):
+            return cls.unavailable(FactProblemKind.MISSING if command.output is None else FactProblemKind.MALFORMED, source)
+        details = command.output.get("details")
         if details is None:
             return cls.unavailable(FactProblemKind.MISSING, source)
         if not isinstance(details, Mapping):
@@ -57,53 +69,67 @@ class PackageVersionFact(CommandsFactDefinition[ComponentSoftwareVersion]):
             return cls.unavailable(FactProblemKind.MISSING, source)
         if not isinstance(version, str) or not version.strip():
             return cls.unavailable(FactProblemKind.MALFORMED, source)
-        return cls.available(ComponentSoftwareVersion(cls.component_name, version.strip()), source)
+        return cast("PackageFactT", cls(version.strip())).available(source)
 
 
-class TerminAttrVersionFact(PackageVersionFact):
+@dataclass(frozen=True, slots=True)
+class TerminAttrVersionFact(PackageVersionFact["TerminAttrVersionFact"]):
     """TerminAttr package version."""
 
-    key = "software.terminattr.version"
-    label = "TerminAttr version"
-    package_name = "TerminAttr-core"
-    component_name = "TerminAttr"
+    component: ClassVar[str] = "TerminAttr"
+    key: ClassVar[str] = "software.terminattr.version"
+    label: ClassVar[str] = "TerminAttr version"
+    # An affected EOS version can establish impact without the component version.
+    # Defer collection failures so the assessment can decide whether it is needed.
+    commands: ClassVar[tuple[AntaCommand, ...]] = (OptionalAntaCommand(command="show version detail", revision=1, defer_errors=True),)
+    package_name: ClassVar[str] = "TerminAttr-core"
 
 
-class OpenSshClientVersionFact(PackageVersionFact):
+@dataclass(frozen=True, slots=True)
+class OpenSshClientVersionFact(PackageVersionFact["OpenSshClientVersionFact"]):
     """OpenSSH client package version."""
 
-    key = "software.openssh_clients.version"
-    label = "OpenSSH client version"
-    package_name = "openssh-clients"
-    component_name = "openssh-clients"
+    component: ClassVar[str] = "openssh-clients"
+    key: ClassVar[str] = "software.openssh_clients.version"
+    label: ClassVar[str] = "OpenSSH client version"
+    commands: ClassVar[tuple[AntaCommand, ...]] = PackageVersionFact.commands
+    package_name: ClassVar[str] = "openssh-clients"
 
 
-class OpenSshServerVersionFact(PackageVersionFact):
+@dataclass(frozen=True, slots=True)
+class OpenSshServerVersionFact(PackageVersionFact["OpenSshServerVersionFact"]):
     """OpenSSH server package version."""
 
-    key = "software.openssh_server.version"
-    label = "OpenSSH server version"
-    package_name = "openssh-server"
-    component_name = "openssh-server"
+    component: ClassVar[str] = "openssh-server"
+    key: ClassVar[str] = "software.openssh_server.version"
+    label: ClassVar[str] = "OpenSSH server version"
+    commands: ClassVar[tuple[AntaCommand, ...]] = PackageVersionFact.commands
+    package_name: ClassVar[str] = "openssh-server"
 
 
-class PersistentHotfixFact(CommandsFactDefinition[MitigationValue]):
+class PersistentHotfixFact(MitigationFact, CommandsFactDefinition[HotfixFactT], Generic[HotfixFactT]):
     """Base fact for one installed and boot-persistent advisory SWIX hotfix."""
 
-    key = "mitigation.hotfix"
-    label = "persistent SWIX hotfix"
+    state: MitigationState
+    key: ClassVar[str] = "mitigation.hotfix"
+    label: ClassVar[str] = "persistent SWIX hotfix"
     extension_name: ClassVar[str]
-    commands = (
+    commands: ClassVar[tuple[AntaCommand, ...]] = (
         OptionalAntaCommand(command="show extensions", revision=2),
         OptionalAntaCommand(command="show boot-extensions", revision=1),
     )
 
     @classmethod
-    def _installed_extension(cls, command: AntaCommand) -> Fact[MitigationValue] | Mapping[str, object]:
+    # pylint: disable-next=too-many-return-statements
+    def _installed_extension(cls, command: AntaCommand) -> Fact[HotfixFactT] | Mapping[str, object]:  # noqa: PLR0911
         """Return installed extension data or a result decided by extension state alone."""
         source = FactSource(command.command, FactSourceKind.COMMAND)
         if is_unsupported_optional_command(command):
             return cls.unavailable(FactProblemKind.UNSUPPORTED, source)
+        if command.errors:
+            return cls.unavailable(FactProblemKind.COLLECTION_FAILED, source)
+        if not isinstance(command.output, Mapping):
+            return cls.unavailable(FactProblemKind.MISSING if command.output is None else FactProblemKind.MALFORMED, source)
         extensions = command.json_output.get("extensions")
         if extensions is None:
             return cls.unavailable(FactProblemKind.MISSING, source)
@@ -112,27 +138,31 @@ class PersistentHotfixFact(CommandsFactDefinition[MitigationValue]):
 
         extension = extensions.get(cls.extension_name)
         if extension is None:
-            return cls.available(MitigationValue(MitigationState.INEFFECTIVE), source)
+            return cast("HotfixFactT", cls(MitigationState.INEFFECTIVE)).available(source)
         if not isinstance(extension, Mapping) or not isinstance(extension.get("status"), str):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
         return extension
 
     @classmethod
-    def _boot_state(cls, command: AntaCommand) -> Fact[MitigationValue]:
+    def _boot_state(cls, command: AntaCommand) -> Fact[HotfixFactT]:
         """Return persistence state from boot-extension output."""
         source = FactSource(command.command, FactSourceKind.COMMAND)
         if is_unsupported_optional_command(command):
             return cls.unavailable(FactProblemKind.UNSUPPORTED, source)
+        if command.errors:
+            return cls.unavailable(FactProblemKind.COLLECTION_FAILED, source)
+        if not isinstance(command.output, Mapping):
+            return cls.unavailable(FactProblemKind.MISSING if command.output is None else FactProblemKind.MALFORMED, source)
         boot_extensions = command.json_output.get("extensions")
         if boot_extensions is None:
             return cls.unavailable(FactProblemKind.MISSING, source)
         if not isinstance(boot_extensions, list) or not all(isinstance(item, str) for item in boot_extensions):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
         state = MitigationState.EFFECTIVE if cls.extension_name in {item.strip() for item in boot_extensions} else MitigationState.INEFFECTIVE
-        return cls.available(MitigationValue(state), source)
+        return cast("HotfixFactT", cls(state)).available(source)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[MitigationValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[HotfixFactT]:
         """Verify that the advisory SWIX is installed and enabled for boot."""
         extensions_command, boot_extensions_command = commands
         extension = cls._installed_extension(extensions_command)
@@ -140,21 +170,36 @@ class PersistentHotfixFact(CommandsFactDefinition[MitigationValue]):
             return extension
         if extension["status"] != "installed":
             source = FactSource(extensions_command.command, FactSourceKind.COMMAND)
-            return cls.available(MitigationValue(MitigationState.INEFFECTIVE), source)
+            return cast("HotfixFactT", cls(MitigationState.INEFFECTIVE)).available(source)
         return cls._boot_state(boot_extensions_command)
 
 
-class SA173HotfixFact(PersistentHotfixFact):
+@dataclass(frozen=True, slots=True)
+class SA173HotfixFact(PersistentHotfixFact["SA173HotfixFact"]):
     """Installed and boot-persistent SA173 SWIX hotfix."""
 
-    key = "mitigation.hotfix.sa173"
-    label = "SA173 SWIX hotfix"
-    extension_name = "sa173-SecurityAdvisory173_CVE-2026-73455.swix"
+    key: ClassVar[str] = "mitigation.hotfix.sa173"
+    label: ClassVar[str] = "SA173 SWIX hotfix"
+    commands: ClassVar[tuple[AntaCommand, ...]] = PersistentHotfixFact.commands
+    extension_name: ClassVar[str] = "sa173-SecurityAdvisory173_CVE-2026-73455.swix"
 
 
-class SA171HotfixFact(PersistentHotfixFact):
+@dataclass(frozen=True, slots=True)
+class SA178HotfixFact(PersistentHotfixFact["SA178HotfixFact"]):
+    """Installed and boot-persistent SA178 SWIX hotfix."""
+
+    key: ClassVar[str] = "mitigation.hotfix.sa178"
+    label: ClassVar[str] = "SA178 SWIX hotfix"
+    # The assessment only requires hotfix evidence on the advisory's eligible releases.
+    commands: ClassVar[tuple[AntaCommand, ...]] = tuple(command.model_copy(update={"defer_errors": True}) for command in PersistentHotfixFact.commands)
+    extension_name: ClassVar[str] = "sa178-SecurityAdvisory178_CVE-2026-73440.swix"
+
+
+@dataclass(frozen=True, slots=True)
+class SA171HotfixFact(PersistentHotfixFact["SA171HotfixFact"]):
     """Installed and boot-persistent SA171 CVE-2026-73435 SWIX hotfix."""
 
-    key = "mitigation.hotfix.sa171_cve_2026_73435"
-    label = "SA171 CVE-2026-73435 SWIX hotfix"
-    extension_name = "sa171-SecurityAdvisory171_CVE-2026-73435.swix"
+    key: ClassVar[str] = "mitigation.hotfix.sa171_cve_2026_73435"
+    label: ClassVar[str] = "SA171 CVE-2026-73435 SWIX hotfix"
+    commands: ClassVar[tuple[AntaCommand, ...]] = PersistentHotfixFact.commands
+    extension_name: ClassVar[str] = "sa171-SecurityAdvisory171_CVE-2026-73435.swix"

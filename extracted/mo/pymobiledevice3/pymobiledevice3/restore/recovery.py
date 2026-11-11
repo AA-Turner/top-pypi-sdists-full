@@ -23,9 +23,14 @@ RESTORE_VARIANT_MACOS_RECOVERY_OS = "macOS Customer"
 
 class Recovery(BaseRestore):
     def __init__(
-        self, ipsw: IPSW, device: Device, tss: Optional[dict[str, Any]] = None, behavior: Behavior = Behavior.Update
+        self,
+        ipsw: IPSW,
+        device: Device,
+        tss: Optional[dict[str, Any]] = None,
+        behavior: Behavior = Behavior.Update,
+        variant: Optional[str] = None,
     ):
-        super().__init__(ipsw, device, tss, behavior)
+        super().__init__(ipsw, device, tss, behavior, variant)
         self.tss_localpolicy = None
         self.tss_recoveryos_root_ticket = None
         self.restore_boot_args = None
@@ -93,16 +98,21 @@ class Recovery(BaseRestore):
         tss.add_common_tags(parameters)
         tss.add_ap_tags(parameters)
 
-        # TODO: This break updating iPhone 15P Pro. Consider re-adding it once we figure out what went wrong
-        # build_manifest_info = self.build_identity['Info']
-        # for manifest_property in build_manifest_info.get('RequestManifestProperties', []):
-        #     tss.add_tags({manifest_property: build_manifest_info[manifest_property]})
-
         # add personalized parameters
         if await self.device.get_is_image4_supported():
             tss.add_ap_img4_tags(parameters)
         else:
             tss.add_ap_img3_tags(parameters)
+
+        # The identity names more of its properties to send, like MobileDevice's
+        # `_AMAuthInstallBundlePopulateManifestProperties`: each is read from the identity, else from its Info,
+        # and skipped when it is in neither (e.g. `Ap,VM` on a physical device)
+        identity = self.build_identity if build_identity is None else build_identity
+        info = identity["Info"]
+        for name in info.get("RequestManifestProperties", []):
+            value = identity.get(name, info.get(name))
+            if value is not None:
+                tss.setdefault_tags({name: value})
 
         # normal mode; request baseband ticket as well
         if self.device.lockdown is not None:
@@ -386,7 +396,11 @@ class Recovery(BaseRestore):
             self.device.irecv.send_zero_length_download()
 
         if self.restore_boot_args:
-            self.device.irecv.send_command(f"setenv boot-args {self.restore_boot_args}")
+            # like MobileDevice's `_setArgs`: non-persistent, unless the iBoot is too old to know the command
+            try:
+                self.device.irecv.send_command(f"setenvnp boot-args {self.restore_boot_args}")
+            except UsbError:
+                self.device.irecv.send_command(f"setenv boot-args {self.restore_boot_args}")
 
         with contextlib.suppress(UsbError):
             self.device.irecv.send_command("bootx", b_request=1)
@@ -396,10 +410,10 @@ class Recovery(BaseRestore):
         self.device.irecv.set_autoboot(enable)
 
     async def enter_restore(self):
-        if self.macos_variant:
+        if self.macos_variant or self.ipsw.build_manifest.build_major >= 8:
+            # MobileDevice's default `RestoreBootArgs` for every device class (AMRestoreCreateDefaultOptions).
+            # Without `-restore` a cloudOS research VM's restore ramdisk panics in `seputil --gigalocker-shutdown`.
             self.restore_boot_args = "rd=md0 nand-enable-reformat=1 -progress -restore"
-        elif self.ipsw.build_manifest.build_major >= 8:
-            self.restore_boot_args = "rd=md0 nand-enable-reformat=1 -progress"
 
         # upload data to make device boot restore mode
 

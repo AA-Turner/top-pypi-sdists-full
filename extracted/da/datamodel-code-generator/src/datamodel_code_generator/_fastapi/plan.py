@@ -73,14 +73,12 @@ from datamodel_code_generator._target_contract import (
     is_required,
     label,
     literal_text,
-    members_by_consumer,
     operation_schemes,
     parameter_place,
     range_start,
     scheme_catalogues,
     scope_problem,
     security_requirements,
-    symbols_by_id,
     type_uses,
     unresolved_reference,
     uses_by_id,
@@ -266,7 +264,8 @@ class MediaSpec:
     properties the form's schema types without declaring them, when that is not as the text they come as, which any
     other member is, and `checked` is their type when they are text that the model keeps without one, as a dataclass
     does. `extras` says JSON whose type reaches a Pydantic dataclass that allows extra members, which a response writes
-    through the runtime's serializer, as Pydantic's own writes none.
+    through the runtime's serializer, as Pydantic's own writes none. `encodings` are those the media declares for the
+    members its model has in the request (`media_encodings`).
     """
 
     media_type: str
@@ -280,6 +279,7 @@ class MediaSpec:
     checked: TypeView | None = None
     encoded: tuple[ParameterPlan, ...] = ()
     extras: bool = False
+    encodings: tuple[WireDeclaration, ...] = ()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -530,11 +530,6 @@ def _part_text(encoding: WireDeclaration) -> bool:
     )
 
 
-def _encodings(media: MediaSpec) -> Iterator[WireDeclaration]:
-    """Return the encodings a media declares for the members its model has in the request (`member_encodings`)."""
-    return media_encodings(media.use, media.declaration)
-
-
 def _files(media: MediaSpec) -> frozenset[str]:
     parts = None if media.use is None else media.use.parts
     return frozenset(() if parts is None else (name for name, part in parts.members if part.file))
@@ -552,7 +547,7 @@ def _json_members(media: MediaSpec, versions: OpenAPIVersions) -> frozenset[str 
     texts = {name for name, part in parts.members if not part.file}
     return frozenset(
         child.name
-        for child in _encodings(media)
+        for child in media.encodings
         if child.name in texts and _json_type(child) and not form_styled(child, versions, multipart=True)
     )
 
@@ -568,7 +563,7 @@ def _typed_members(media: MediaSpec, kinds: LexicalKinds, versions: OpenAPIVersi
     scalars = {member.name for member in form_members(kinds, media.use) if member.kind is not None}
     return _json_members(media, versions) | {
         child.name
-        for child in _encodings(media)
+        for child in media.encodings
         if (
             (child.name in files and content_types(child) is not None)
             or (child.name in scalars and child.name not in files and _part_text(child))
@@ -589,7 +584,7 @@ def _encoded(media: MediaSpec, kinds: LexicalKinds, versions: OpenAPIVersions) -
     return next(
         (
             child
-            for child in _encodings(media)
+            for child in media.encodings
             if child.children
             or (child.name in files if form_styled(child, versions, multipart=True) else _untyped(child, typed))
         ),
@@ -647,8 +642,9 @@ class Planner:  # noqa: PLR0904
         self.types = types
         self.unspelled: set[TypeUseId] = set()
         self.uses = uses_by_id(request.batch)
-        self.symbols = symbols_by_id(request.batch)
-        self.members = members_by_consumer(request.batch)
+        self.tables = wire.kinds.tables
+        self.symbols = self.tables.symbols
+        self.members = self.tables.members
         self.extras = extras_symbols(self.symbols, self.members)
         self.parameter_plans = parameter_plans(wire)
         self.scheme_catalogues = scheme_catalogues(request.batch)
@@ -1224,6 +1220,7 @@ class Planner:  # noqa: PLR0904
             kind=kind,
             use=use,
             declaration=declaration,
+            encodings=tuple(media_encodings(use, declaration)),
             extras=kind == "json"
             and use is not None
             and use.type is not None
@@ -1271,7 +1268,7 @@ class Planner:  # noqa: PLR0904
         members = tuple(form_members(self.wire.kinds, media.use))
         encoded = self.encoded(media, members)
         json_members = _json_members(media, self.wire.versions)
-        encodings = {encoding.name or "": encoding for encoding in _encodings(media)}
+        encodings = {encoding.name or "": encoding for encoding in media.encodings}
         multipart = media.kind == "multipart"
         parts = media.use.parts if multipart else None
         files = {
@@ -1293,7 +1290,7 @@ class Planner:  # noqa: PLR0904
                         member.name in json_members
                         or part_json(self.wire.kinds, member.type, encodings.get(member.name), self.wire.versions)
                     ),
-                    untyped=multipart and self.wire.kinds.untyped(member.leaf),
+                    untyped=multipart and self.wire.kinds.tables.untyped(member.leaf),
                 ),
             )
             for member in members
@@ -1319,7 +1316,7 @@ class Planner:  # noqa: PLR0904
                 media,
                 extras,
                 json=multipart and part_json(self.wire.kinds, extras.type, None, self.wire.versions),
-                untyped=multipart and self.wire.kinds.untyped(extras.leaf),
+                untyped=multipart and self.wire.kinds.tables.untyped(extras.leaf),
             )
         elif multipart and (media.use.parts is None or media.use.parts.extra is None):
             additional = JsonPartSpec("", BuiltinType("object"), untyped=True)
@@ -1360,7 +1357,7 @@ class Planner:  # noqa: PLR0904
         textless = frozenset(member.name for member in members if member.kind is None)
         multipart = media.kind == "multipart"
         encodings = tuple(
-            child for child in _encodings(media) if _planned(child, self.wire.versions, textless, multipart=multipart)
+            child for child in media.encodings if _planned(child, self.wire.versions, textless, multipart=multipart)
         )
         if not encodings:
             return {}
@@ -1403,7 +1400,7 @@ class Planner:  # noqa: PLR0904
             and all(
                 (facts := member.model_facts) is not None
                 and self.kind(facts.type) is not None
-                and not (self.textless(facts.type) and self.wire.kinds.member(facts.type)[0] != "string")
+                and not (self.textless(facts.type) and self.wire.kinds.tables.member_kind(facts.type)[0] != "string")
                 for member in self.members.get(value.symbol, ())
             )
         )
@@ -1431,7 +1428,7 @@ class Planner:  # noqa: PLR0904
 
     def json_null(self, media: MediaSpec | None) -> bool:
         """Return whether a media is JSON of a type that accepts null, so its response sends None as `null`."""
-        return media is not None and json_null(media.kind, media.use, self.symbols, self.members)
+        return media is not None and json_null(media.kind, media.use, self.tables)
 
     def primary(self, operation: OperationContract, responses: tuple[ResponseSpec, ...]) -> PrimarySpec | None:
         """Choose the primary response and decide whether FastAPI's response_model sends bare values.

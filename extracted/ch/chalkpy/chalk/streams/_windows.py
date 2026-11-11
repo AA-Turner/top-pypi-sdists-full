@@ -22,7 +22,7 @@ from typing import (
 from chalk._validation.feature_validation import FeatureValidation
 from chalk._validation.validation import Validation
 from chalk.features._encoding.primitive import TPrimitive
-from chalk.features.underscore import Underscore
+from chalk.features.underscore import Underscore, materialize_bucket_on_resolution
 from chalk.utils.collections import ensure_tuple
 from chalk.utils.duration import CHALK_MAX_TIMEDELTA, CronTab, Duration, parse_chalk_duration_s
 
@@ -188,11 +188,24 @@ class Windowed(Generic[TRich], metaclass=_WINDOWED_METACLASS):
             underscore_expression=self._expression,
             offline_underscore_expression=self._offline_expression,
             window_materialization=(
-                MaterializationWindowConfig(bucket_duration=timedelta(seconds=abs(window_duration)))
+                MaterializationWindowConfig(bucket_duration=self._default_bucket_duration(window_duration))
                 if self._materialization is True and window_duration is not None
                 else self._materialization if isinstance(self._materialization, dict) else None
             ),
         )
+
+    def _default_bucket_duration(self, window_duration: int) -> timedelta:
+        """The bucket width `materialization=True` implies: `materialize_bucket_on(resolution=...)`, else the window.
+
+        An unparseable resolution falls back to the window here; the importer reports it.
+        """
+        resolution = materialize_bucket_on_resolution(self._expression)
+        if isinstance(resolution, (str, timedelta)):
+            try:
+                return timedelta(seconds=parse_chalk_duration_s(resolution))
+            except ValueError:
+                pass
+        return timedelta(seconds=abs(window_duration))
 
     def __init__(
         self,

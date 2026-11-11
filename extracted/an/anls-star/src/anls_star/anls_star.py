@@ -10,7 +10,7 @@ Otera, 2025
 import abc
 import math
 import warnings
-from typing import Any, Literal, Union, cast, overload
+from typing import Any, Literal, cast, overload
 
 from munkres import Munkres, make_cost_matrix
 
@@ -41,7 +41,7 @@ class ANLSTree(abc.ABC):
         if isinstance(obj, (str, float, int, bool)):
             return ANLSLeaf(obj)
         else:
-            raise ValueError(f"Found unsupported type {type(obj)} for {obj} while creating ANLS tree")
+            raise TypeError(f"Found unsupported type {type(obj)} for {obj} while creating ANLS tree")
 
     def anls(self, other: "ANLSTree") -> tuple[float, "ANLSTree", list[dict[tuple[str, ...], float]]]:
         nls_list, closest_gt, key_scores = self.nls_list(other, (), [])
@@ -49,10 +49,10 @@ class ANLSTree(abc.ABC):
         return (sum(nls_list) / length) if length > 0 else 1.0, closest_gt, key_scores
 
     def __str__(self) -> str:
-        return f"ANLSTree({repr(self.obj)})"
+        return f"ANLSTree({self.obj!r})"
 
     def __repr__(self) -> str:
-        return f"ANLSTree({repr(self.obj)})"
+        return f"ANLSTree({self.obj!r})"
 
     @abc.abstractmethod
     def __len__(self) -> int:
@@ -75,7 +75,7 @@ class ANLSTree(abc.ABC):
 class ANLSTuple(ANLSTree):
     def __init__(self, obj, is_gt: bool):
         if not isinstance(obj, tuple):
-            raise ValueError(f"ANLSTuple expects a tuple, got {type(obj)}")
+            raise TypeError(f"ANLSTuple expects a tuple, got {type(obj)}")
         if not is_gt:
             raise ValueError("Tuples are reserved for 1-of-n ground truths. Use lists as containers in predictions.")
         if len(obj) == 0:
@@ -84,7 +84,7 @@ class ANLSTuple(ANLSTree):
         self.tree: tuple[ANLSTree, ...] = tuple(ANLSTree.make_tree(x, is_gt=is_gt) for x in obj)
 
     def __repr__(self):
-        return f"ANLSTuple({repr(self.obj)})"
+        return f"ANLSTuple({self.obj!r})"
 
     def __len__(self):
         return max(len(x) for x in self.tree)
@@ -121,7 +121,7 @@ class ANLSTuple(ANLSTree):
         return best_nls, best_length, chosen_gt, chosen_key_scores
 
     def pairwise_len(self, other):
-        best_nls, best_length, chosen_gt, chosen_key_scores = self._choose_best_item(other, (), [])
+        _, best_length, _, _ = self._choose_best_item(other, (), [])
         return best_length
 
     def nls_list(
@@ -131,19 +131,20 @@ class ANLSTuple(ANLSTree):
         key_scores: list[dict[tuple[str, ...], float]],
     ) -> tuple[list[float], Any, list[dict[tuple[str, ...], float]]]:
         key_scores = key_scores.copy()
-        best_nls, best_length, chosen_gt, chosen_key_scores = self._choose_best_item(other, key_hierarchy, key_scores)
+        best_nls, _, chosen_gt, chosen_key_scores = self._choose_best_item(other, key_hierarchy, key_scores)
         return best_nls, chosen_gt, chosen_key_scores
 
 
 class ANLSList(ANLSTree):
     def __init__(self, obj, is_gt: bool):
         if not isinstance(obj, list):
-            raise ValueError(f"ANLSList expects a list, got {type(obj)}")
+            raise TypeError(f"ANLSList expects a list, got {type(obj)}")
+
         self.obj = obj
         self.tree: list[ANLSTree] = [ANLSTree.make_tree(x, is_gt=is_gt) for x in obj]
 
     def __repr__(self):
-        return f"ANLSList({repr(self.obj)})"
+        return f"ANLSList({self.obj!r})"
 
     def __len__(self):
         return sum(len(x) for x in self.tree)
@@ -267,12 +268,13 @@ class ANLSList(ANLSTree):
 class ANLSDict(ANLSTree):
     def __init__(self, obj, is_gt: bool):
         if not isinstance(obj, dict):
-            raise ValueError(f"ANLSDict expects a dict, got {type(obj)}")
+            raise TypeError(f"ANLSDict expects a dict, got {type(obj)}")
+
         self.obj = obj
         self.tree: dict[Any, ANLSTree] = {k: ANLSTree.make_tree(v, is_gt=is_gt) for k, v in obj.items()}
 
     def __repr__(self):
-        return f"ANLSDict({repr(self.obj)})"
+        return f"ANLSDict({self.obj!r})"
 
     def __len__(self):
         return sum(len(x) for x in self.tree.values())
@@ -300,7 +302,8 @@ class ANLSDict(ANLSTree):
 
         nlss = []
         chosen_gts = {}
-        for k in list(self.tree.keys()) + [k for k in other.tree.keys() if k not in self.tree.keys()]:
+
+        for k in list(self.tree) + [k for k in other.tree if k not in self.tree]:
             self_value = self.tree.get(k, ANLSNone())
             other_value = other.tree.get(k, ANLSNone())
 
@@ -361,11 +364,11 @@ class ANLSNone(ANLSTree):
 class ANLSLeaf(ANLSTree):
     def __init__(self, obj):
         if not isinstance(obj, (str, float, int, bool)):
-            raise ValueError(f"Leaf must be a primitive type, got {type(obj)}")
+            raise TypeError(f"Leaf must be a primitive type, got {type(obj)}")
         self.obj = obj
 
     def __repr__(self):
-        return f"ANLSLeaf({repr(self.obj)})"
+        return f"ANLSLeaf({self.obj!r})"
 
     def __len__(self):
         return 1
@@ -442,7 +445,9 @@ def anls_score(
 @overload
 def anls_score(
     gt: Any, pred: Any, *, return_gt: bool = False, return_key_scores: bool = False
-) -> Union[float, tuple[float, Any], tuple[float, dict], tuple[float, Any, dict]]: ...
+) -> (
+    float | tuple[float, Any] | tuple[float, dict] | tuple[float, Any, dict]
+): ...  # TODO: Check if the following holds: The return_key_scores overloads currently return dict, but construct_nested_dict() returns dict[str, ScoreNode]. Tightening these overload return types makes the public API more accurate for type checkers.
 
 
 def anls_score(gt, pred, return_gt: bool = False, return_key_scores: bool = False):

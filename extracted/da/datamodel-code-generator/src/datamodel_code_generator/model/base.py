@@ -488,12 +488,16 @@ class ConstraintsBase(_BaseModel):
     @cached_property
     def has_constraints(self) -> bool:
         """Check if any constraint values are set."""
-        return any(v is not None for v in self.model_dump().values())
+        return bool(self.set_values())
 
     @cached_property
     def _exclude_unset_dump(self) -> dict[str, Any]:
         """Cached model_dump(exclude_unset=True); constraints are immutable after creation. Read-only."""
         return self.model_dump(exclude_unset=True)
+
+    def set_values(self, *, exclude: set[str] | None = None) -> dict[str, Any]:
+        """Return the constraint values set (not None), by their keywords, without the fields named in ``exclude``."""
+        return self.model_dump(by_alias=True, exclude_none=True, exclude=exclude)
 
     @staticmethod
     def merge_constraints(a: ConstraintsBaseT | None, b: ConstraintsBaseT | None) -> ConstraintsBaseT | None:
@@ -522,8 +526,7 @@ def _overlay_constraints(
         key: value
         for constraints in (base, overriding)
         if isinstance(constraints, ConstraintsBase)
-        for key, value in constraints.model_dump(by_alias=True).items()
-        if value is not None
+        for key, value in constraints.set_values().items()
     }
     return constraints_class.model_validate(values) if issubclass(constraints_class, ConstraintsBase) else None
 
@@ -606,6 +609,9 @@ class DataModelFieldBase(_BaseModel):  # noqa: PLR0904
 
             A generation collects them only for a model type that Pydantic reads, whose fields are Pydantic fields.
             """
+
+        def _writes_bytes_pattern_rust_rejects(self) -> bool:
+            """Return whether the field writes a ``bytes`` pattern Pydantic's default engine rejects; Pydantic only."""
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -2984,6 +2990,10 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
             if (values := holder.__dict__.get(VALUES_AS_WRITTEN_KEY)) is not None
         )
 
+    def _builds_patterns_with_python_engine(self) -> bool:  # noqa: PLR6301
+        """Return whether the config the model applies selects ``python-re``: a model with no config does not."""
+        return False
+
     def _pydantic_constructs(self) -> Iterator[tuple[PydanticConstruct, str | None]]:
         """Yield the Pydantic constructs that the model's rendering writes, each with the field that writes it.
 
@@ -3991,7 +4001,7 @@ def _root_constraint_keywords(root_field: DataModelFieldBase) -> dict[str, Any]:
     """Return the constraints other than ``unique_items`` that a root field sets, by their keywords."""
     if not isinstance(constraints := root_field.constraints, ConstraintsBase):
         return {}
-    return constraints.model_dump(by_alias=True, exclude_none=True, exclude={"unique_items"})
+    return constraints.set_values(exclude={"unique_items"})
 
 
 def _named_field(field: DataModelFieldBase) -> str | None:

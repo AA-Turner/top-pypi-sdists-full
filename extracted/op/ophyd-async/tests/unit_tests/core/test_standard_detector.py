@@ -173,6 +173,33 @@ class StreamableOnlyDataLogic(DetectorDataLogic):
         return [datakey_name]
 
 
+async def test_stream_resource_data_provider_1d_single_collection_is_array():
+    provider = StreamResourceDataProvider(
+        uri="file://localhost/tmp/test.h5",
+        resources=[
+            StreamResourceInfo(
+                data_key="det-spectrum",
+                shape=(3,),
+                chunk_shape=(1, 3),
+                dtype_numpy="<f8",
+                parameters={"dataset": "/entry/data/spectrum"},
+            )
+        ],
+        mimetype="application/x-hdf5",
+        collections_written_signal=soft_signal_rw(int),
+    )
+
+    assert await provider.make_datakeys(collections_per_event=1) == {
+        "det-spectrum": {
+            "dtype": "array",
+            "dtype_numpy": "<f8",
+            "external": "STREAM:",
+            "shape": [1, 3],
+            "source": "file://localhost/tmp/test.h5",
+        }
+    }
+
+
 # Parameterized Tests for Logic Combinations
 
 
@@ -538,6 +565,16 @@ async def test_collect_asset_docs_uses_trigger_observed_event(
     docs = [doc async for doc in det.collect_asset_docs()]
     assert [name for name, _ in docs] == ["stream_resource", "stream_datum"]
     assert docs[1][1]["indices"] == {"start": 0, "stop": 1}
+
+
+async def test_trigger_times_out_on_collection_timeout(tmp_path):
+    det = StandardDetector(name="det")
+    det.add_detector_logics(
+        JustInternalTriggerLogic(), StreamableOnlyDataLogic(tmp_path)
+    )
+    await det.prepare(TriggerInfo(exposure_timeout=100, collection_timeout=0.1))
+    with pytest.raises(TimeoutError):
+        await det.trigger()
 
 
 async def test_kickoff_respects_prepare_bounds(tmp_path):

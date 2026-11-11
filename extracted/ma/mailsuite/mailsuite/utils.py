@@ -35,11 +35,17 @@ mailparser_logger = logging.getLogger("mailparser")
 mailparser_logger.setLevel(logging.CRITICAL)
 
 # The lookbehind starts a scheme only where a run of letters starts; without
-# it every offset inside a long run is retried, which is quadratic
+# it every offset inside a long run is retried, which is quadratic. Every
+# repeat is over one character class: re keeps a position for each repeat of
+# a group until the match ends, so a group repeated once per label or path
+# segment costs memory in proportion to the URL's length. The host therefore
+# ends before the first dot that no word character follows, and the path
+# gives back the sentence punctuation that ends it
 url_regex = re.compile(
-    r"(?<![A-Za-z])([A-Za-z]+://)([-\w]+(?:\.\w[-\w]*)+)(:\d+)?(/[^.!,?"
-    r"\"<>\[\]{}\s\x7F-\xFF]*(?:[.!,?]+[^.!,?"
-    r"\"<>\[\]{}\s\x7F-\xFF]+)*)?"
+    r"(?<![A-Za-z])([A-Za-z]+://)"
+    r"((?=[-\w]+\.\w)[-\w.]*?(?=\.(?!\w)|(?![-\w.])))"
+    r"(:\d+)?"
+    r"(/[^\"<>\[\]{}\s\x7F-\xFF]*(?<![.!,?]))?"
 )
 header_regex = re.compile(r"^([a-zA-Z-]+): (.+)", re.MULTILINE)
 
@@ -731,9 +737,10 @@ def parse_email(
     Raises:
         MessageLimitExceeded: The message exceeds a limit of
           :func:`check_message_limits`, checked with its defaults before
-          parsing; an address header value, read up to the next ``\\n``,
-          is longer than ``MAX_HEADER_FIELD_LENGTH``; or an address header
-          nests comments too deeply to parse. It is a ``ValueError``.
+          parsing; an extracted address header value, excluding trailing
+          carriage returns, is longer than ``MAX_HEADER_FIELD_LENGTH``;
+          or an address header nests comments too deeply to parse. It is
+          a ``ValueError``.
         ValueError: The data is not an email, or mail-parser could not parse
           it (the mail-parser error is the ``__cause__``).
         EmailParserError: A ``.msg`` file could not be converted, because
@@ -796,8 +803,11 @@ def parse_email(
     parsed_email["headers_string"] = headers_str
     _headers = {}
     _header_matches = header_regex.findall(headers_str)
-    for header in _header_matches:
-        _headers[header[0].lower()] = header[1]
+    for name, value in _header_matches:
+        # The regex includes trailing CRs but never matches an empty LF value.
+        value = value.rstrip("\r")
+        if value:
+            _headers[name.lower()] = value
     for header in address_headers + addresses_headers:
         if len(_headers.get(header, "")) > MAX_HEADER_FIELD_LENGTH:
             raise MessageLimitExceeded(

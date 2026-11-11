@@ -27,6 +27,7 @@ __all__ = (
     "ComputeNodeGroupStatusType",
     "EndpointTypeType",
     "ExecutionPolicyType",
+    "LaunchTemplateModeType",
     "ListClustersPaginatorName",
     "ListComputeNodeGroupsPaginatorName",
     "ListQueuesPaginatorName",
@@ -73,6 +74,7 @@ ComputeNodeGroupStatusType = Literal[
 ]
 EndpointTypeType = Literal["SLURMCTLD", "SLURMDBD", "SLURMRESTD"]
 ExecutionPolicyType = Literal["EVERY_BOOT", "FIRST_BOOT_ONLY"]
+LaunchTemplateModeType = Literal["CUSTOM", "MANAGED"]
 ListClustersPaginatorName = Literal["list_clusters"]
 ListComputeNodeGroupsPaginatorName = Literal["list_compute_node_groups"]
 ListQueuesPaginatorName = Literal["list_queues"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sequence-ai
-Version: 0.58.0
+Version: 0.58.3
 Summary: The inference and benchmark platform for physical AI: deploy a robot policy, run it on your robot, score it.
 Project-URL: Homepage, https://generalsequences.com
 Project-URL: Documentation, https://generalsequences.com/docs/
@@ -1116,16 +1116,18 @@ many GPUs at once as its plan allows - 8 on Starter, 32 on Team, what is agreed 
 `seq account` shows its limit, how many each holds now, how many are left and which
 evals are waiting for GPUs (a count the platform could not read says `unknown`, never full).
 
-**GPU, CPU and memory are billed apart, per second, on every card.** A card is billed per card, for at least 60 s each
-time a machine starts. A policy's worker - serving or in an eval - is billed **its card's standard machine's CPU and
+**GPU, CPU and memory are billed apart, per second, on every card.** A card is billed per card. Each time it starts, a
+policy's worker that comes up is billed its card for at least 60 s, and an eval's machine its card, CPU and memory for
+at least that long; a build check, and a start that ends before it comes up, are billed by the second, with no minimum.
+A policy's worker - deployed or in an eval - is billed **its card's standard machine's CPU and
 memory** at the serving rates, the same wherever it runs: an L4's 8 cores and 32 GiB, an RTX-PRO-6000's 8 and 64, an
 H100's 16 and 256, an A100's 12 and 170, an A100-40GB's 12 and 85, its count of cards times one card's, and 4 cores
 and 16 GiB with no card - or the `cpu=` / `memory=` it declares, where that is more. `seq gpus` lists them
 (`policy_machines` in `GET /v1/pricing`). A policy's build check is billed its CPU and memory at its request. A
 benchmark's machines - its evals', its registration check and its shell - and the machine a build runs on are billed
 the greater of what they request and what they used, their average cores and their peak memory, where they share a
-machine, and their request on a machine of their own; all at the rates `seq gpus` lists for checks, evals and
-benchmarks. `cpu=` /
+machine, and their request on a machine of their own; all at the rates `seq gpus` lists for builds, checks, shells
+and an eval's benchmark machines. `cpu=` /
 `memory=` is what a worker needs at least; without them a worker requests only the
 minimum (0.125 cores, 0.125 GiB). Declare `memory=` for a policy that runs a copy on each of several cards or holds
 large buffers, so its machine holds them. `seq deploy --dry-run` prices one worker per hour - its card, and its CPU
@@ -1308,12 +1310,15 @@ with sequence_ai.record("pick_user", key=RECORD_KEY_user) as rec_user:
 
 Each item is a dict, its `kind` saying which:
 
-- `step`, one act: `robot`, `episode`, `step`, `observations` (each its robot sent since its last act, as it sent it -
+- `step`, one act: `robot` and `robot_key` (the name and last four of the key its robot connected with, as
+  `seq usage` names it), `episode`, `step`, `observations` (each its robot sent since its last act, as it sent it -
   frames byte for byte), `action` (the chunk it answered), `params`, `driver` (`model`, or `human` with `operator`
   through teleop) and `at`;
 - `label` (`success`, `notes`) and `end`, an episode's;
 - `driver`, who drives a robot from now through teleop, and `help`, a robot's ask for a person with its newest frame;
-- `gap`: a worker let `count` records go before your recorder read them.
+- `gap`: a worker let `count` records go before your recorder read them - or, with `episode`, `observations` and
+  `acts` (the first and last step of each), the steps of an episode that came to its worker before record was on
+  there, which were not recorded. A worker hears `record=on` within a minute.
 
 Each worker holds its newest minute, at most 32 MiB, in memory and nothing on disk. A recorder away longer loses the
 oldest and is told how many in a `gap`; one that must have no gap keeps capture on as well. A recorder started again
@@ -1490,7 +1495,7 @@ What the platform fixes; everything else is your code's. Each value is what the 
 | Scale to zero | A worker ends after its idle timeout with no robot acting: 60 seconds unless its deployment sets another, 2 seconds to 20 minutes. `min_workers` (default 0) keeps some warm. |
 | Cards | The platform's price list names them (`GET /v1/pricing`): A100, A100-40GB, H100, L4 and RTX-PRO-6000 as of 2026-11. A benchmark's sims run on an L4 or an RTX-PRO-6000, or on CPU machines when it says `gpu="cpu"`. |
 | Regions | A deployment's workers start in the region nearest each robot. A benchmark's and an eval's machines run wherever a card is available. |
-| Billing | Per second of a worker's life: each card for at least 60 s each time the worker starts, plus its card's standard machine's CPU cores and GiB of memory (an L4's 8 and 32), or what it declares where more, the same wherever it runs. |
+| Billing | Per second of a worker's life: each card for at least 60 s each time the worker comes up, plus its card's standard machine's CPU cores and GiB of memory (an L4's 8 and 32), or what it declares where more, the same wherever it runs. |
 
 ## Install footprint
 

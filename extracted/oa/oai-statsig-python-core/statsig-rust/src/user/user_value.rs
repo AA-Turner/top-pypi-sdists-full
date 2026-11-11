@@ -12,12 +12,8 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::{
-    DynamicValue,
-    evaluation::dynamic_string::lowercase_if_changed,
-    hashing::ahash_str,
-    interned_string::InternedString,
-    log_w,
-    value_parsing::{maybe_parse_f64, maybe_parse_i64, try_parse_timestamp},
+    DynamicValue, evaluation::dynamic_string::lowercase_if_changed, hashing::ahash_str,
+    interned_string::InternedString, log_w, value_parsing::parse_string_values,
 };
 
 const TAG: &str = "UserValue";
@@ -43,9 +39,7 @@ pub struct UserString {
 
 impl UserString {
     pub fn new(value: String) -> Self {
-        let int_value = maybe_parse_i64(&value);
-        let float_value = maybe_parse_f64(&value);
-        let timestamp_value = try_parse_timestamp(&value, int_value);
+        let (int_value, float_value, timestamp_value) = parse_string_values(&value);
         let value = InternedString::from_string_uninterned(value);
         let lowercased_value = lowercase_if_changed(value.as_str())
             .map(InternedString::from_string_uninterned)
@@ -360,12 +354,14 @@ impl From<DynamicValue> for UserValue {
 }
 
 impl From<String> for UserValue {
+    #[inline]
     fn from(value: String) -> Self {
         Self::from_string(value)
     }
 }
 
 impl From<&str> for UserValue {
+    #[inline]
     fn from(value: &str) -> Self {
         Self::from_string(value)
     }

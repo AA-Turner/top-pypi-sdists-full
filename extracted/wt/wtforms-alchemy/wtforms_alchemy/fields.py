@@ -12,6 +12,7 @@ from wtforms.validators import ValidationError
 from wtforms.widgets import CheckboxInput, ListWidget
 from wtforms_components import SelectField, SelectMultipleField
 from wtforms_components.fields.html5 import StringField
+from wtforms_components.fields.select import Choice
 from wtforms_components.widgets import SelectWidget, TelInput
 
 from .utils import find_entity
@@ -41,34 +42,15 @@ class ModelFieldList(FieldList):
     def model(self):
         return self.unbound_field.args[0].Meta.model
 
-    def _get_bound_field_for_entry(self, formdata, data, index):
-        assert (
-            not self.max_entries or len(self.entries) < self.max_entries
-        ), "You cannot have more than max_entries entries in this FieldList"
-        new_index = self.last_index = index or (self.last_index + 1)
-        name = "%s-%d" % (self.short_name, new_index)
-        id = "%s-%d" % (self.id, new_index)
-        return self.unbound_field.bind(
-            form=None, name=name, prefix=self._prefix, id=id, _meta=self.meta
-        )
-
     def _add_entry(self, formdata=None, data=unset_value, index=None):
-        field = self._get_bound_field_for_entry(
-            formdata=formdata, data=data, index=index
-        )
+        # With formdata, match the entity by submitted identifiers only, not
+        # by the object at the same position in the collection.
+        field = super()._add_entry(formdata, unset_value if formdata else data, index)
+        field.index = self.last_index
         if data != unset_value and data:
-            if formdata:
-                field.process(formdata)
-            else:
-                field.process(formdata, data=data)
-
             entity = find_entity(self.object_data, self.model, field.data)
             if entity is not None:
                 field.process(formdata, entity)
-        else:
-            field.process(formdata)
-
-        self.entries.append(field)
         return field
 
     def populate_obj(self, obj, name):
@@ -240,7 +222,7 @@ class QuerySelectMultipleField(QuerySelectField):
             import warnings
 
             warnings.warn(
-                "allow_blank=True does not do anything for " "QuerySelectMultipleField."
+                "allow_blank=True does not do anything for QuerySelectMultipleField."
             )
         self._invalid_formdata = False
 
@@ -370,21 +352,9 @@ class GroupedQuerySelectField(SelectField):
         self._data = data
         self._formdata = None
 
-    def iter_choices(self):
-        """
-        We should update how choices are iter to make sure that value from
-        internal list or tuple should be selected.
-        """
-        for value, label in self.concrete_choices:
-            yield (
-                value,
-                label,
-                (
-                    self.coerce,
-                    self.get_pk(self.data) if self.data else self.blank_value,
-                ),
-                {},
-            )
+    def _choice(self, value, label):
+        selected = self.get_pk(self.data) if self.data else self.blank_value
+        return Choice(value, label, value == selected, {})
 
     def process_formdata(self, valuelist):
         if valuelist:
@@ -505,18 +475,9 @@ class GroupedQuerySelectMultipleField(SelectField):
         self._data = valuelist
         self._formdata = None
 
-    def iter_choices(self):
-        """
-        We should update how choices are iter to make sure that value from
-        internal list or tuple should be selected.
-        """
-        for value, label in self.concrete_choices:
-            yield (
-                value,
-                label,
-                (self.coerce, [self.get_pk(obj) for obj in self.data or []]),
-                {},
-            )
+    def _choice(self, value, label):
+        selected = [self.get_pk(obj) for obj in self.data or []]
+        return Choice(value, label, value in selected, {})
 
     def process_formdata(self, valuelist):
         self._formdata = set(valuelist)

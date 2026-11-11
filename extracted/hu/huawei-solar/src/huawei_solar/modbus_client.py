@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 import tenacity
 from tenacity import (
@@ -22,6 +22,7 @@ from tmodbus.utils.crc import calculate_crc16
 from .exceptions import ConnectionInterruptedException, DecodeError, ReadException
 from .modbus_pdu import (
     CompleteUploadPDU,
+    HuaweiReadDeviceIdentificationPDU,
     LoginPDU,
     LoginRequestChallengePDU,
     StartFileUploadPDU,
@@ -39,8 +40,8 @@ DEFAULT_TCP_PORT = 502
 DEFAULT_BAUDRATE = 9600
 
 DEFAULT_UNIT_ID = 0
-DEFAULT_TIMEOUT = 10  # especially the SDongle can react quite slowly
-DEFAULT_SCAN_TIMEOUT = 3  # short timeout for scanning — responding devices reply in milliseconds
+DEFAULT_TIMEOUT = 15  # especially the SDongle can react quite slowly
+DEFAULT_SCAN_TIMEOUT = 5  # short timeout for scanning — responding devices reply in milliseconds
 DEFAULT_WAIT_AFTER_CONNECT = 1.0
 DEFAULT_COOLDOWN_TIME = 0.05
 DEFAULT_MAX_CONSECUTIVE_TIMEOUTS = 5
@@ -173,6 +174,44 @@ class AsyncHuaweiSolarClient(RegisterAwareModbusClient, AsyncModbusClient):
         if unit_id == self.unit_id:
             return self
         return AsyncHuaweiSolarClient(self.transport, unit_id=unit_id, word_order=self.word_order)
+
+    async def read_device_identification(
+        self,
+        device_code: Literal[0x01, 0x02, 0x03, 0x04],
+        object_id: int,
+    ) -> dict[int, bytes]:
+        """Read Device Identification (Function Code 0x2B/0x0E)."""
+        result: dict[int, bytes] = {}
+        more = True
+        number_of_objects: int | None = None
+        requested_object_ids: set[int] = set()
+        while more:
+            if object_id in requested_object_ids:
+                _LOGGER.warning(
+                    "Device repeated object id %#04x while streaming device identification; "
+                    "stopping with the objects collected so far.",
+                    object_id,
+                )
+                break
+            requested_object_ids.add(object_id)
+
+            response = await self.execute(
+                HuaweiReadDeviceIdentificationPDU(read_device_id_code=device_code, object_id=object_id)
+            )
+            result.update(response.objects)
+            more = response.more
+            object_id = response.next_object_id
+
+            if number_of_objects is None:
+                number_of_objects = response.number_of_objects
+            elif number_of_objects != response.number_of_objects:
+                _LOGGER.warning(
+                    "Number of objects changed between requests: was %d, now %d",
+                    number_of_objects,
+                    response.number_of_objects,
+                )
+
+        return result
 
     async def get_file(
         self,

@@ -13,6 +13,17 @@ from .Properties import Properties
 from .ScpiEnums import ScpiEnum, enum_spec_prefixes, enum_spec_strings
 
 
+class CornerValues(Enum):
+	"""
+	Corner values, default and step values. Built-in enum
+	"""
+	DEF = 0
+	MIN = 1
+	MAX = 2
+	UP = 3
+	DOWN = 4
+
+
 class BinFloatFormat(Enum):
 	"""Binary format of a float number."""
 	Single_4bytes = 1
@@ -295,6 +306,17 @@ def str_special_values_to_int(string: str) -> int:
 	if string == 'ULEL':
 		# noinspection PyTypeChecker
 		return int_neg_inf / 10
+	if string == 'DEF':
+		return 0
+	if string == 'MAX':
+		return 1000000000
+	if string == 'MIN':
+		return 0
+	if string == 'UP':
+		return 1
+	if string == 'DOWN':
+		return -1
+
 	# noinspection PyTypeChecker
 	return None
 
@@ -338,6 +360,16 @@ def str_to_float(string: str) -> float:
 		return -sys.float_info.max / 10
 	if string == 'Simulating':
 		return 0.0
+	if string == 'DEF':
+		return 0.0
+	if string == 'MAX':
+		return 1E9
+	if string == 'MIN':
+		return 1E-9
+	if string == 'UP':
+		return 1.0
+	if string == 'DOWN':
+		return -1.0
 	try:
 		return float(string)
 	except ValueError:
@@ -369,7 +401,7 @@ def bool_to_str(value: bool) -> str:
 		return 'ON' if value is True else 'OFF'
 	else:
 		# noinspection PyStringConversionWithoutDunderMethod
-		raise RsInstrException(f"bool_to_str: unsupported variable type '{type(value)}', value '{value}'. Only boolean values are supported.")
+		raise RsInstrException(f"bool_to_str: unsupported variable type '{type(value).__name__}', value '{value}'. Only boolean values are supported.")
 
 
 def str_enclose_by_quotes(string: str) -> str:
@@ -394,6 +426,7 @@ def list_to_csv_str(value: List, delimiter: str = ',') -> str:
 	assert_list_data(value)
 	result = []
 	for x in value:
+		# noinspection bad-argument-type
 		el = value_to_str(x)
 		if not el:
 			raise TypeError(f"List element type is not supported by Conversions.list_to_csv_str: '{x}'")
@@ -421,6 +454,7 @@ def list_to_csv_quoted_str(value: List) -> str:
 		if isinstance(x, str):
 			el = str_enclose_by_quotes(x)
 		else:
+			# noinspection bad-argument-type
 			el = value_to_str(x)
 		if not el:
 			raise TypeError(f"List element type is not supported by Conversions.list_to_csv_quoted_str: '{x}'")
@@ -438,7 +472,7 @@ def decimal_value_to_str(x: int | float) -> str:
 	elif isinstance(x, float):
 		return float_to_str(x)
 	else:
-		raise RsInstrException(f"decimal_value_to_str: unsupported variable type '{type(x)}', value '{x}'. Only integer and float types are supported.")
+		raise RsInstrException(f"decimal_value_to_str: unsupported variable type '{type(x).__name__}', value '{x}'. Only integer and float types are supported.")
 
 
 def decimal_or_bool_value_to_str(x: int | float | bool) -> str:
@@ -455,7 +489,25 @@ def decimal_or_bool_value_to_str(x: int | float | bool) -> str:
 	elif isinstance(x, float):
 		return float_to_str(x)
 	else:
-		raise RsInstrException(f"decimal_or_bool_value_to_str: unsupported variable type '{type(x)}', value '{x}'. Only integer, float and boolean types are supported.")
+		raise RsInstrException(f"decimal_or_bool_value_to_str: unsupported variable type '{type(x).__name__}', value '{x}'. Only integer, float and boolean types are supported.")
+
+
+def decimal_or_enum_value_to_str(x: int | float | Enum) -> str:
+	"""Converts scalar decimal value to string.
+	Supported element types:
+	- int
+	- float
+	- enum -> converts to raw string"""
+	if isinstance(x, int):
+		return str(x)
+	elif isinstance(x, float):
+		return float_to_str(x)
+	elif isinstance(x, Enum):
+		if isinstance(x.value, str):
+			return enum_value_to_scpi_string(x.value)
+		return enum_value_to_scpi_string(x.name)
+	else:
+		raise RsInstrException(f"decimal_or_enum_value_to_str: unsupported variable type '{type(x)}', value '{x}'. Only integer, float and enum types are supported.")
 
 
 def value_to_str(x: int | bool | float | str | Enum) -> str:

@@ -10,13 +10,109 @@ use std::{
 
 use super::{
     fast_statsig_user::{FastStatsigUser, FastUserCustomMap, FastUserData, FastUserUnitIDMap},
+    unit_id::UnitID,
     user_value::UserValue,
 };
 use crate::hashing;
 
+type StaticFields = Vec<(&'static str, UserValue)>;
+
+/// Custom attributes shared across multiple users or requests.
+///
+/// Build the base once. Each call to [`Self::prepare`] takes its own user ID
+/// and optional custom attributes. The resulting user can be reused for several
+/// evaluations, each of which reads the current SDK configuration.
+///
+/// ```
+/// use statsig_rust::{PreparedUserBase, Statsig};
+///
+/// # fn evaluate(sdk: &Statsig) {
+/// let base = PreparedUserBase::from_custom(
+///     [("region".to_owned(), "west".into())].into_iter().collect(),
+/// );
+/// let user = base.prepare(
+///     Some("pod-42".into()),
+///     Some([("origin".to_owned(), "worker".into())].into_iter().collect()),
+/// );
+/// let enabled = sdk.check_gate_prepared(&user, "enable_cache", Default::default());
+/// let config = sdk.get_dynamic_config_prepared(&user, "cache_limits", Default::default());
+/// # }
+/// ```
+#[derive(Clone)]
+pub struct PreparedUserBase(Arc<FastUserData>);
+
+impl PreparedUserBase {
+    /// Stores stable custom attributes once, sharing them with every prepared user.
+    pub fn from_custom(custom: FastUserCustomMap) -> Self {
+        Self(Arc::new(FastUserData {
+            custom: Some(custom),
+            ..Default::default()
+        }))
+    }
+
+    /// Creates a user with the supplied ID. An identical custom key on the
+    /// request overrides the base value. Pass `None` for an absent user ID.
+    #[inline]
+    pub fn prepare(
+        &self,
+        user_id: Option<UnitID>,
+        custom: Option<FastUserCustomMap>,
+    ) -> PreparedUser {
+        PreparedUser::new(Some(self.0.clone()), user_id.map(Into::into), custom)
+    }
+
+    /// Prepares a small collection of request fields with static names. Each insertion
+    /// scans the existing names for duplicates, and evaluation scans the list for a match.
+    /// Repeated keys keep their last value and first position.
+    /// Request fields override matching base fields.
+    ///
+    /// ```
+    /// use statsig_rust::PreparedUserBase;
+    ///
+    /// let base = PreparedUserBase::from_custom(Default::default());
+    /// let user = base.prepare_with_fields(
+    ///     Some("pod-42".into()),
+    ///     [("route", "read".into()), ("attempt", 2.into())],
+    /// );
+    /// ```
+    pub fn prepare_with_fields(
+        &self,
+        user_id: Option<UnitID>,
+        fields: impl IntoIterator<Item = (&'static str, UserValue)>,
+    ) -> PreparedUser {
+        let fields = fields.into_iter();
+        let mut entries = StaticFields::with_capacity(fields.size_hint().0);
+        for (key, value) in fields {
+            if let Some((_, previous)) = entries.iter_mut().find(|(name, _)| *name == key) {
+                *previous = value;
+            } else {
+                entries.push((key, value));
+            }
+        }
+
+        if entries.is_empty() {
+            return self.prepare(user_id, Some(FastUserCustomMap::default()));
+        }
+
+        let mut user = self.prepare(user_id, None);
+        user.fields = Some(Arc::new(entries));
+        user
+    }
+}
+
+/// Shares existing base attributes and custom IDs. Each request supplies its primary ID.
+impl From<Arc<FastUserData>> for PreparedUserBase {
+    fn from(base: Arc<FastUserData>) -> Self {
+        Self(base)
+    }
+}
+
+/// An immutable user for gate and dynamic config evaluation.
+/// Queued exposures retain the inputs they need after this user is dropped.
 pub struct PreparedUser {
     pub(crate) base: Option<Arc<FastUserData>>,
     pub(crate) input: PreparedUserInputStorage,
+    fields: Option<Arc<StaticFields>>,
 }
 
 #[derive(Clone, Default)]
@@ -91,7 +187,7 @@ pub struct PreparedRequestFields {
 
 // Intentionally inline: boxing scalar-only input would restore the allocation
 // avoided before sampling. Nonempty custom maps share ownership immediately, so promotion
-// never duplicates a map. The loggable form below remains two compact Arcs.
+// never duplicates a map.
 #[allow(clippy::large_enum_variant)]
 pub(crate) enum PreparedUserInputStorage {
     Inline(PreparedUserInput, OnceLock<Arc<PreparedUserInput>>),
@@ -121,6 +217,7 @@ impl PreparedUserInputStorage {
 pub struct OwnedPreparedUser {
     pub(crate) base: Option<Arc<FastUserData>>,
     pub(crate) input: Arc<PreparedUserInput>,
+    pub(crate) fields: Option<Arc<StaticFields>>,
 }
 
 impl Clone for PreparedUser {
@@ -128,11 +225,13 @@ impl Clone for PreparedUser {
         Self {
             base: self.base.clone(),
             input: PreparedUserInputStorage::Shared(self.input.shared()),
+            fields: self.fields.clone(),
         }
     }
 }
 
 impl PreparedUser {
+    #[inline]
     pub fn new(
         base: Option<Arc<FastUserData>>,
         user_id: Option<UserValue>,
@@ -148,6 +247,7 @@ impl PreparedUser {
         )
     }
 
+    #[inline]
     pub fn with_input(base: Option<Arc<FastUserData>>, input: PreparedUserInput) -> Self {
         let input = if input
             .custom
@@ -158,13 +258,18 @@ impl PreparedUser {
         } else {
             PreparedUserInputStorage::Inline(input, OnceLock::new())
         };
-        Self { base, input }
+        Self {
+            base,
+            input,
+            fields: None,
+        }
     }
 
     pub(crate) fn to_owned(&self) -> OwnedPreparedUser {
         OwnedPreparedUser {
             base: self.base.clone(),
             input: self.input.shared(),
+            fields: self.fields.clone(),
         }
     }
 
@@ -187,12 +292,13 @@ impl PreparedUser {
         custom_ids(&self.input, self.base.as_deref())
     }
 
+    #[inline]
     pub(crate) fn get_custom_value(&self, key: &str) -> Option<&UserValue> {
-        self.input
-            .custom
-            .as_ref()
-            .and_then(|custom| custom.get(key))
-            .or_else(|| self.base.as_ref()?.custom.as_ref()?.get(key))
+        let value = match &self.fields {
+            Some(fields) => find_static_field(fields, key),
+            None => self.input.custom.as_ref().and_then(|map| map.get(key)),
+        };
+        value.or_else(|| self.base.as_ref()?.custom.as_ref()?.get(key))
     }
 
     pub(crate) fn create_exposure_dedupe_user_hash(&self, unit_id_type: Option<&str>) -> u64 {
@@ -222,6 +328,13 @@ impl PreparedUser {
                     .map(|(key, value)| (key.clone(), value.clone())),
             );
         }
+        if let Some(fields) = &self.fields {
+            data.custom.get_or_insert_with(Default::default).extend(
+                fields
+                    .iter()
+                    .map(|(key, value)| ((*key).to_owned(), value.clone())),
+            );
+        }
         if let Some(ids) = &self.input.custom_ids {
             data.custom_ids
                 .get_or_insert_with(Default::default)
@@ -229,6 +342,16 @@ impl PreparedUser {
         }
         FastStatsigUser::new(data).to_public_user()
     }
+}
+
+pub(crate) fn find_static_field<'a>(
+    fields: &'a [(&'static str, UserValue)],
+    key: &str,
+) -> Option<&'a UserValue> {
+    fields
+        .iter()
+        .find(|(name, _)| *name == key)
+        .map(|(_, value)| value)
 }
 
 impl OwnedPreparedUser {
@@ -542,3 +665,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "prepared_field_list_tests.rs"]
+mod field_list_tests;

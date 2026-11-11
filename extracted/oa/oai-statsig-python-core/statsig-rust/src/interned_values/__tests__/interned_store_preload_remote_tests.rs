@@ -17,7 +17,7 @@ fn json_with_remote_configs() -> Vec<u8> {
     response["layer_configs"]["test_layer_with_no_exp"]["checksum"] = serde_json::json!("103");
     let configs = response["dynamic_configs"].as_object_mut().unwrap();
     configs.get_mut("test_experiment_no_targeting").unwrap()["checksum"] = serde_json::json!("107");
-    configs.get_mut("test_exp_random_id").unwrap()["remoteConfigMetadata"] =
+    configs.get_mut("test_empty_array").unwrap()["remoteConfigMetadata"] =
         serde_json::json!({ "default": { "url": "https://example.com/default" } });
     configs.get_mut("an_experiment1").unwrap()["rules"][0]["remoteConfigMetadata"] =
         serde_json::json!({ "url": "https://example.com/rule" });
@@ -49,7 +49,7 @@ fn protobuf_with_remote_configs(
         ..pb::Spec::default()
     };
     let remote_rule = pb::Spec {
-        entity: pb::EntityType::EntityDynamicConfig as i32,
+        entity: pb::EntityType::EntityExperiment as i32,
         rules: vec![pb::Rule {
             remote_config_metadata: Some(pb::RemoteConfigValueMetadata::default()),
             ..pb::Rule::default()
@@ -170,6 +170,40 @@ rusty_fork_test! {
     }
 
     #[test]
+    fn json_inline_only_entries_reject_remote_metadata() {
+        use serde_json::json;
+
+        let condition = json!({"type":"public", "idType":"userID", "targetValue":{"remoteConfigMetadata":"user value"}});
+        let direct = ("remoteConfigMetadata", serde_json::Value::Null);
+        for (collection, clean, (field, value)) in [
+            ("param_stores", json!({"parameters":{}}), direct.clone()),
+            ("condition_map", condition.clone(), direct.clone()),
+            ("condition_map", condition, ("rules", json!([null, {"remoteConfigMetadata":{}}]))),
+            ("override_rules", json!({"name":"r","id":"r","passPercentage":100,
+                "returnValue":{"remoteConfigMetadata":"user value"},"conditions":[],"idType":"userID"}), direct),
+        ] {
+            let mut snapshot = json!({"time":1,"feature_gates":{},"dynamic_configs":{},
+                "layer_configs":{},"condition_map":{},"experiment_to_layer":{},"has_updates":true});
+            snapshot[collection] = json!("entries");
+            let mut invalid = clean.clone();
+            invalid[field] = value;
+            for (first, last, reject) in [(&clean, &invalid, true), (&invalid, &clean, false)] {
+                // The last value for a repeated entity name is the one evaluated.
+                let wire = snapshot.to_string().replace(r#""entries""#,
+                    &format!(r#"{{"x":{first},"x":{last}}}"#));
+                let typed = serde_json::from_reader::<_, SpecsResponseFull>(wire.as_bytes());
+                if reject {
+                    assert!(typed.unwrap_err().to_string().contains("unsupported_entity"));
+                    let error = InternedStore::preload(wire.as_bytes()).unwrap_err();
+                    assert!(error.to_string().contains("unsupported_entity"), "{collection}: {error}");
+                } else {
+                    typed.unwrap();
+                }
+            }
+        }
+    }
+
+    #[test]
     fn json_preload_does_not_skip_remote_metadata_in_feature_gates() {
         let mut response: serde_json::Value = serde_json::from_slice(&json_with_remote_configs()).unwrap();
         response["feature_gates"]["segment:best_engineers"]["remoteConfigMetadata"] =
@@ -189,7 +223,7 @@ rusty_fork_test! {
         assert!(InternedStore::try_get_preloaded_layer_config(
             &InternedString::from_str_ref("test_layer_with_no_exp")
         ).is_some());
-        for name in ["test_exp_random_id", "an_experiment1"] {
+        for name in ["test_empty_array", "an_experiment1"] {
             assert!(InternedStore::try_get_preloaded_dynamic_config(
                 &InternedString::from_str_ref(name)
             ).is_none());
@@ -212,7 +246,7 @@ rusty_fork_test! {
         assert!(InternedStore::try_get_preloaded_dynamic_config(
             &InternedString::from_str_ref("test_experiment_no_targeting")
         ).is_some());
-        for name in ["test_exp_random_id", "an_experiment1"] {
+        for name in ["test_empty_array", "an_experiment1"] {
             assert!(InternedStore::try_get_preloaded_dynamic_config(
                 &InternedString::from_str_ref(name)
             ).is_none());

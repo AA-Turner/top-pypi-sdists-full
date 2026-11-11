@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from textwrap import dedent
 from unittest import TestCase, skipIf
 import unittest
 import beniget
@@ -7,23 +8,10 @@ import sys
 import ast as _ast
 import gast as _gast
 
-from beniget.beniget import _get_lookup_scopes
+from beniget.beniget import _get_lookup_scopes, TypeParamScope, collect_locals
 
 # Show full diff in unittest
 unittest.util._MAX_LENGTH=2000
-
-def replace_deprecated_names(out):
-    return out.replace(
-        '<Num>', '<Constant>'
-    ).replace(
-        '<Ellipsis>', '<Constant>'
-    ).replace(
-        '<Str>', '<Constant>'
-    ).replace(
-        '<Bytes>', '<Constant>'
-    ).replace(
-        '<NameConstant>', '<Constant>'
-    )
 
 @contextmanager
 def captured_output():
@@ -34,7 +22,6 @@ def captured_output():
         yield sys.stdout, sys.stderr
     finally:
         sys.stdout, sys.stderr = old_out, old_err
-
 
 class StrictDefUseChains(beniget.DefUseChains):
         def warn(self, msg, node):
@@ -47,14 +34,15 @@ class TestDefUseChains(TestCase):
     ast = _gast
 
     def checkChains(self, code, ref, strict=True):
-        node = self.ast.parse(code)
+        node = self.ast.parse(dedent(code))
         if strict:
             c = StrictDefUseChains()
         else:
             c = beniget.DefUseChains()
 
         c.visit(node)
-        self.assertEqual(c.dump_chains(node), ref)
+        out = list(map(normalize_chain, c.dump_chains(node)))
+        self.assertEqual(ref, out)
         return node, c
 
     def test_simple_expression(self):
@@ -378,6 +366,36 @@ while done:
         code = "import x as y; y()"
         self.checkChains(code, ["y -> (y -> (<Call> -> ()))"])
 
+    def test_simple_function(self):
+        node, c = self.checkChains( "def foo(y): True", ['foo -> ()'])
+        self.assertEqual(c.dump_chains(node.body[0]), ['y -> ()'])
+
+    def test_function_defaults(self):
+        node, c = self.checkChains("x=1\ndef foo(x=x): pass\nx=2",
+                                   ['x -> (x -> (foo -> ()))',
+                                    'foo -> ()',
+                                    'x -> ()',
+                                    ])
+        self.assertEqual(c.dump_chains(node.body[1]), [
+            'x -> ()',
+        ])
+
+    def test_function_varargs(self):
+        node, c = self.checkChains("def foo(*args): args", ['foo -> ()'])
+        self.assertEqual(c.dump_chains(node.body[0]), ['args -> (args -> ())'])
+
+    def test_function_kwargs(self):
+        node, c = self.checkChains("def foo(**kwargs): kwargs", ['foo -> ()'])
+        self.assertEqual(c.dump_chains(node.body[0]), ['kwargs -> (kwargs -> ())'])
+
+    def test_function_kwonly_defaults(self):
+        code = '''
+        a = 1
+        def foo(*, x=a): x
+        '''
+        node, c = self.checkChains(code, ['a -> (a -> (foo -> ()))', 'foo -> ()'])
+        self.assertEqual(c.dump_chains(node.body[1]), ['x -> (x -> ())'])
+
     def test_simple_lambda(self):
         node, c = self.checkChains( "lambda y: True", [])
         self.assertEqual(c.dump_chains(node.body[0].value), ['y -> ()'])
@@ -401,6 +419,13 @@ while done:
     def test_lambda_kwargs(self):
         node, c = self.checkChains( "lambda **kwargs: kwargs", [])
         self.assertEqual(c.dump_chains(node.body[0].value), ['kwargs -> (kwargs -> (<Lambda> -> ()))'])
+
+    def test_lambda_kwonly_defaults(self):
+        code = '''
+        a = 1
+        lambda *, x=a: x
+        '''
+        self.checkChains(code, ['a -> (a -> (<Lambda> -> ()))'])
 
     def test_multiple_import_as(self):
         code = "import x as y, z; y"
@@ -521,7 +546,7 @@ def outer():
         self.assertEqual(c.dump_chains(node.body[0].body[0]), ['mytype -> (mytype -> (<Call> -> ()))'])
 
     def check_message(self, code, expected_messages, filename=None):
-        node = self.ast.parse(code)
+        node = self.ast.parse(dedent(code))
         c = beniget.DefUseChains(filename)
         with captured_output() as (out, err):
             c.visit(node)
@@ -559,6 +584,38 @@ def outer():
         code = "def A():\n x = 1\n class B: x = x"
         self.check_message(code,
                            ["unbound identifier 'x' at <unknown>:3"])
+
+    def test_unbound_class_magic_in_class0(self):
+        code = "class A:\n __class__"
+        self.checkChains(code, ['A -> ()'], strict=False)
+        self.check_message(code,
+                           ["unbound identifier '__class__' at <unknown>:2"])
+
+    def test_unbound_class_magic_in_class1(self):
+        code = "class A:\n if 1: __class__"
+        self.checkChains(code, ['A -> ()'], strict=False)
+        self.check_message(code,
+                           ["unbound identifier '__class__' at <unknown>:2"])
+
+    def test_unbound_class_magic(self):
+        code = "def A():\n __class__"
+        self.check_message(code,
+                           ["unbound identifier '__class__' at <unknown>:2"])
+
+    def test_unbound_class_magic_in_method_arg_default(self):
+        code = "class A:\n def foo(_,a=__class__): pass"
+        self.check_message(code,
+                           ["unbound identifier '__class__' at <unknown>:2"])
+
+    def test_no_unbound_class_magic_in_method(self):
+        code = "class A:\n def foo(_): __class__"
+        self.checkChains(code, ['A -> (__class__ -> ())'])
+        self.check_message(code, [])
+
+    def test_no_unbound_class_magic_in_inner_class_in_method(self):
+        code = "class A:\n def foo(_):\n  class B: __class__"
+        self.checkChains(code, ['A -> (__class__ -> ())'])
+        self.check_message(code, [])
 
     def test_unbound_local_identifier_in_method(self):
         code = "class A:pass\nclass B:\n def A(self) -> A:pass"
@@ -606,6 +663,57 @@ def outer():
         code = "x = 1; del x; x = 1; x"
         self.check_message(code,
                            [])
+
+    def test_deleted_class_member(self):
+        code = "x = 1\nclass C:\n x = 1; del x; y = x"
+        self.check_message(code, [])
+
+
+    def test_deleted_class_member_in_enclosing_function(self):
+        code = """
+        x = 1
+        def outer():
+            x = 2
+            class C:
+                x = 3
+                del x
+                value = x
+            return C"""
+        self.check_message(code, [])
+        self.checkChains(code, ['x -> (x -> ())', 'outer -> ()'])
+
+    def test_deleted_class_global_remains_unbound(self):
+        code = "x = 1\nclass C:\n global x\n del x\n value = x"
+        self.check_message(code, ["unbound identifier 'x' at <unknown>:5"])
+
+    def test_deleted_class_nonlocal_remains_unbound(self):
+        code = "def outer():\n x = 1\n class C:\n  nonlocal x\n  del x\n  value = x"
+        self.check_message(code, ["unbound identifier 'x' at <unknown>:6"])
+
+    def test_deleted_class_name_without_global_remains_unbound(self):
+        code = "def outer():\n x = 1\n class C:\n  x = 2\n  del x\n  value = x"
+        self.check_message(code, ["unbound identifier 'x' at <unknown>:6"])
+
+    def test_conditionally_deleted_class_member(self):
+        code = "x = 1\nclass C:\n x = 1\n if 1: del x\n y = x"
+
+        node = self.ast.parse(code)
+        du = StrictDefUseChains()
+        du.visit(node)
+        use = node.body[1].body[-1].value
+        self.assertEqual([d.node for d in beniget.UseDefChains(du).chains[use]],
+                         [node.body[0].targets[0], node.body[1].body[0].targets[0]])
+
+
+    def test_conditionally_deleted_class_member_use(self):
+        code = 'x = 1\nclass C:\n x = 2\n if 1:\n  del x\n  v = x'
+
+        node = self.ast.parse(code)
+        du = StrictDefUseChains()
+        du.visit(node)
+        use = node.body[1].body[-1].body[-1].value
+        self.assertEqual([d.node for d in beniget.UseDefChains(du).chains[use]],
+                         [node.body[0].targets[0]])
 
     def test_del_in_for(self):
         code = "for x in [1]:\n del x\nx"
@@ -747,17 +855,13 @@ v # not unbound, we must stay over approximated"""
         code = '''\
 x = 1
 class y:
-    @property(x)
-    def a(self):...
+    def a(self, v=x):...
     x = 2
-    @property(x)
-    def b(self):...
+    def b(self, v=x):...
     del x
-    @property(x)
-    def c(self):...
+    def c(self, v=x):...
 '''
-        self.check_message(code, ["W: unbound identifier 'x' at <unknown>:9:14"])
-        self.checkChains(code, ['x -> (x -> (<Call> -> ()))', 'y -> ()'], strict=False)
+        self.checkChains(code, ['x -> (x -> (a -> ()), x -> (c -> ()))', 'y -> ()'], strict=False)
 
     def test_assign_uses_class_level_name(self):
         code = '''
@@ -1151,7 +1255,7 @@ Thing:TypeAlias = 'Mapping'
                     'Type -> (Type -> (<Subscript> -> ()))',
                     'C -> (C -> (.field -> ()), C -> (.D -> ()), C -> (.D -> '
                     '(.field2 -> ())))',
-                    'Thing -> (Thing -> (), Thing -> (<Subscript> -> ()))'],
+                    'Thing -> (Thing -> (<Subscript> -> ()), Thing -> ())'],
                 strict=False
             )
         produced_messages = out.getvalue().strip().split("\n")
@@ -1360,8 +1464,9 @@ fn = outer()
             yield self.ast.parse('lambda: True').body[0].value      # Lambda
             yield self.ast.parse('(x for x in list())').body[0].value  # GeneratorExp
             yield self.ast.parse('{k:v for k, v in dict().items()}').body[0].value  # DictComp
+            yield TypeParamScope(None)
 
-        mod, fn, cls, lambd, gen, comp = get_scopes()
+        mod, fn, cls, lambd, gen, comp, typeparams = get_scopes()
         assert isinstance(mod, self.ast.Module)
         assert isinstance(fn, self.ast.FunctionDef)
         assert isinstance(cls, self.ast.ClassDef)
@@ -1378,6 +1483,11 @@ fn = outer()
         assert _get_lookup_scopes((mod, fn)) == [mod, fn]
         assert _get_lookup_scopes((mod, cls)) == [mod, cls]
         assert _get_lookup_scopes((mod,)) == [mod]
+        assert _get_lookup_scopes((mod, typeparams)) == [mod, typeparams]
+        assert _get_lookup_scopes((mod, typeparams, typeparams)) == [mod, typeparams, typeparams]
+        assert _get_lookup_scopes((mod, cls, typeparams)) == [mod, cls, typeparams]
+        assert _get_lookup_scopes((mod, cls, cls, typeparams)) == [mod, cls, typeparams]
+        assert _get_lookup_scopes((mod, cls, cls, typeparams, fn)) == [mod, typeparams, fn]
 
         with self.assertRaises(ValueError, msg='invalid heads: must include at least one element'):
             _get_lookup_scopes(())
@@ -1499,6 +1609,571 @@ A = bytes
         self.checkChains(code, ['Optional -> (Optional -> ())',
                                 'var -> ()'])
 
+    def test_pep563_disallowed_expressions(self):
+        cases = [
+            "def func(a: (yield)) -> ...: ...",
+            "def func(a: ...) -> (yield from []): ...",
+            "def func(*a: (y := 3)) -> ...: ...",
+            "def func(**a: (await 42)) -> ...: ...",
+
+            "x: (yield) = True",
+            "x: (yield from []) = True",
+            "x: (y := 3) = True",
+            "x: (await 42) = True",]
+
+        for code in cases:
+            if ':=' in code and sys.version_info < (3,8):
+                continue
+            if 'await' in code and sys.version_info < (3,7):
+                continue
+            code = f'from __future__ import annotations\n' + code
+            with self.subTest(code):
+                self.check_message(code, ['cannot be used in annotation-like scopes'])
+
+        for code in cases:
+            if ':=' in code and sys.version_info < (3,8):
+                continue
+            if 'await' in code and sys.version_info < (3,7):
+                continue
+            with self.subTest(code):
+                # TODO: From python 3.14, this should generate the same error.
+                self.check_message(code, [])
+
+    # PEP-695 test cases taken from https://github.com/python/cpython/pull/103764/files
+    # but also https://github.com/python/cpython/pull/109297/files and
+    # https://github.com/python/cpython/pull/109123/files
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_typeparams_name_collision_01(self):
+        # The following code triggers syntax error at runtime.
+        # But detecting this would required beniget to keep track of the 
+        # names of type parameters and validate them like we validate comprehensions or annotations. 
+        # We don't do it for functions currently, so it doesn't make sens to do it for 
+        # type parameters at this time.
+        code = """def func[**A, A](): ..."""
+        node, du = self.checkChains(code, ['func -> ()'])
+        assert du.dump_chains(TypeParamScope(node.body[0])) == ['A -> ()', 'A -> ()']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_typeparams_name_non_collision_02(self):
+        code = """def func[A](A): return A"""
+        node, du = self.checkChains(code, ['func -> ()'])
+        assert du.dump_chains(TypeParamScope(node.body[0])) == ['A -> ()']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_typeparams_name_non_collision_03(self):
+        code = """def func[A](*A): return A"""
+        node, du = self.checkChains(code, ['func -> ()'])
+        func = node.body[0]
+        assert du.dump_chains(func) == ['A -> (A -> ())']
+        assert du.dump_chains(TypeParamScope(func)) == ['A -> ()']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_typeparams_name_non_collision_04(self):
+        # Mangled names should not cause a conflict.
+        code = """class ClassA:\n def func[__A](self, __A): return __A"""
+        node, du = self.checkChains(code, ['ClassA -> ()'])
+        cls = node.body[0]
+        method = cls.body[0]
+        assert du.dump_chains(method) == ['self -> ()', '__A -> (__A -> ())']
+        assert du.dump_chains(TypeParamScope(method)) == ['__A -> ()']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_typeparams_name_non_collision_05(self):
+        code = """class ClassA:\n def func[_ClassA__A](self, __A): return __A"""
+        node, du = self.checkChains(code, ['ClassA -> ()'])
+        cls = node.body[0]
+        method = cls.body[0]
+        assert du.dump_chains(method) == ['self -> ()', '__A -> (__A -> ())']
+        assert du.dump_chains(TypeParamScope(method)) == ['_ClassA__A -> ()']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_typeparams_name_non_collision_06(self):
+        code = """class ClassA[X]:\n def func(self, X): return X"""
+        node, du = self.checkChains(code, ['ClassA -> ()'])
+        cls = node.body[0]
+        assert du.dump_chains(cls) == ['func -> ()']
+        assert du.dump_chains(TypeParamScope(cls)) == ['X -> ()']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_typeparams_name_non_collision_07(self):
+        code = """class ClassA[X]:\n def func(self):\n  X = 1;return X"""
+        node, du = self.checkChains(code, ['ClassA -> ()'])
+        cls = node.body[0]
+        assert du.dump_chains(cls) == ['func -> ()']
+        assert du.dump_chains(TypeParamScope(cls)) == ['X -> ()']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_typeparams_name_non_collision_08(self):
+        code = """class ClassA[X]:\n def func(self): return [X for X in [1, 2]]"""
+        node, du = self.checkChains(code, ['ClassA -> ()'])
+        cls = node.body[0]
+        assert du.dump_chains(cls) == ['func -> ()']
+        assert du.dump_chains(TypeParamScope(cls)) == ['X -> ()']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_typeparams_name_non_collision_09(self):
+        code = """class ClassA[X]:\n def func[X](self):..."""
+        node, du = self.checkChains(code, ['ClassA -> ()'])
+        cls = node.body[0]
+        method = cls.body[0]
+        assert du.dump_chains(cls) == ['func -> ()']
+        assert du.dump_chains(TypeParamScope(cls)) == ['X -> ()']
+        assert du.dump_chains(method) == ['self -> ()']
+        assert du.dump_chains(TypeParamScope(method)) == ['X -> ()']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_typeparams_name_non_collision_10(self):
+        code = """class ClassA[X,Y]:\n Y: bytes\n X: int"""
+        node, du = self.checkChains(code, ['ClassA -> ()'])
+        cls = node.body[0]
+        assert du.dump_chains(cls) == ['Y -> ()', 'X -> ()']
+        assert du.dump_chains(TypeParamScope(cls)) == ['X -> ()', 'Y -> ()']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_typeparams_name_non_collision_13(self):
+        code = """X = 1\ndef outer():\n def inner[X]():\n  global X;X=2\n return inner"""
+        node, chains = self.checkChains(code, ['X -> ()', 'outer -> ()'])
+        self.assertEqual(chains.dump_chains(node.body[-1]), ['inner -> (inner -> ())'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_typeparams_disallowed_expressions(self):
+        cases = ["type X = (yield)",
+        "type X = (yield from x)",
+        "type X = (await 42)",
+        "async def f(): type X = (yield)",
+        "type X = (y := 3)",
+        "class X[T: (yield)]: pass",
+        "class X[T: (yield from [])]: pass",
+        "class X[T: (await 42)]: pass",
+        "class X[T: (y := 3)]: pass",
+        ]
+
+        for code in cases:
+            with self.subTest(code):
+                self.check_message(code, ['cannot be used in annotation-like scopes'])
+
+        for code in cases:
+            code = f'from __future__ import annotations\n' + code
+            with self.subTest(code):
+                self.check_message(code, ['cannot be used in annotation-like scopes'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_type_alias_name_collision_01(self):
+        # syntax error at runtime "duplicate type parameter 'A'"
+        code = """type TA1[A, **A] = None"""
+        self.checkChains(code, ['TA1 -> ()'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_type_alias_name_non_collision_02(self):
+        code = """type TA1[A] = lambda A: A"""
+        self.checkChains(code, ['TA1 -> ()'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_type_alias_name_non_collision_03(self):
+        code = """class Outer[A]:\n type TA1[A] = None"""
+        self.checkChains(code, ['Outer -> ()'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_type_alias_access_01(self):
+        code = "type TA1[A, B] = dict[A, B]"
+        self.checkChains(code, ['TA1 -> ()'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_type_alias_access_02(self):
+        code = """type TA1[A, B] = TA1[A, B] | int"""
+        self.checkChains(code, ['TA1 -> (TA1 -> (<Subscript> -> (<BinOp> -> ())))'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_type_alias_access_03(self):
+        code = """class Outer[A]:\n def inner[B](self):\n  type TA1[C] = TA1[A, B] | int; return TA1"""
+        self.checkChains(code, ['Outer -> ()'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_scopes01(self):
+        code = """\
+from typing import Sequence
+
+# The following generates no compiler error, but a type checker
+# should generate an error because an upper bound type must be concrete,
+# and ``Sequence[S]`` is generic. Future extensions to the type system may
+# eliminate this limitation.
+class ClassA[S, T: Sequence[S]]: ...
+
+# The following generates no compiler error, because the bound for ``S``
+# is lazily evaluated. However, type checkers should generate an error.
+class ClassB[S: Sequence[T], T]: ...
+"""
+        node, du = self.checkChains(code, ['Sequence -> (Sequence -> (<Subscript> -> ()), Sequence -> (<Subscript> -> ()))',
+                                'ClassA -> ()',
+                                'ClassB -> ()'])
+        assert du.dump_chains(TypeParamScope(node.body[1])) == ['S -> (S -> (<Subscript> -> ()))', 'T -> ()']
+        assert du.dump_chains(TypeParamScope(node.body[2])) == ['S -> ()', 'T -> (T -> (<Subscript> -> ()))']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_scopes02(self):
+        code = """\
+from x import BaseClass, dec, Foo
+
+class ClassA[T](BaseClass[T], param = Foo[T]): ...  # OK
+
+print(T)  # Runtime error: 'T' is not defined
+
+@dec(Foo[T])  # Runtime error: 'T' is not defined
+class ClassA[T]: ...
+"""
+        self.check_message(code, ["W: unbound identifier 'T' at <unknown>:5:6", 
+                                  "W: unbound identifier 'T' at <unknown>:7:9"])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_scopes03(self):
+        code = """\
+from x import dec
+def func1[T](a: T) -> T: ...  # OK
+
+print(T)  # Runtime error: 'T' is not defined
+
+def func2[T](a = list[T]): ...  # Runtime error: 'T' is not defined
+
+@dec(list[T])  # Runtime error: 'T' is not defined
+def func3[T](): ...
+"""
+        self.check_message(code, ["W: unbound identifier 'T' at <unknown>:4:6", 
+                                  "W: unbound identifier 'T' at <unknown>:6:22", 
+                                  "W: unbound identifier 'T' at <unknown>:8:10"])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_scopes04(self):
+
+        code = """\
+S = 0
+
+def outer1[S]():
+    S = 1
+    T = 1
+
+    def outer2[T]():
+
+        def inner1():
+            nonlocal S  # OK because it binds variable S from outer1
+            print(S)
+            nonlocal T  # Syntax error: nonlocal binding not allowed for type parameter
+            print(T)
+
+        def inner2():
+            global S  # OK because it binds variable S from global scope
+            print(S)
+"""
+        self.check_message(code,  ['W: names defined in annotation scopes cannot be rebound with nonlocal statements at <unknown>:12:12'])
+        node, du = self.checkChains(code, ['S -> (S -> (<Call> -> ()))', 'outer1 -> ()'], strict=False)
+        # assert
+
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_scopes04bis(self):
+        code = '''\
+def outer1():
+    def outer2[T]():
+        def inner1():
+            print(T)
+        inner1()
+    outer2()
+outer1()
+'''
+        self.check_message(code, [])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_scopes05(self):
+        code = """\
+from typing import Sequence
+
+class Outer:
+    class Private:
+        pass
+
+    # If the type parameter scope was like a traditional function/method scope,
+    # the base class 'Private' would not be accessible here.
+    class Inner[T](Private, Sequence[T]):
+        pass
+
+    # Likewise, 'Inner' would not be available in these type annotations.
+    def method1[T](self, a: Inner[T]) -> Inner[T]:
+        return a
+"""
+        node, du = self.checkChains(code, [('Sequence -> ('
+                                                'Sequence -> ('
+                                                    '<Subscript> -> ('
+                                                        'Inner -> ('
+                                                            'Inner -> ('
+                                                                '<Subscript> -> ()'
+                                                            '), '
+                                                            'Inner -> ('
+                                                                '<Subscript> -> ()'
+                                                            ')'
+                                                        ')'
+                                                    ')'
+                                                ')'
+                                            ')'), 
+                                            'Outer -> ()'])
+        Outer = next(iter(d for d in du.locals[node] if d.name() == 'Outer'))
+        assert du.dump_chains(Outer.node) == ['Private -> (Private -> (Inner -> (Inner -> (<Subscript> -> ()), Inner -> (<Subscript> -> ()))))', 
+                                              'Inner -> (Inner -> (<Subscript> -> ()), Inner -> (<Subscript> -> ()))', 
+                                              'method1 -> ()']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_scopes06(self):
+        code = """\
+from typing import Sequence
+from x import decorator
+
+T = 0
+
+@decorator(T)  # Argument expression `T` evaluates to 0
+class ClassA[T](Sequence[T]):
+    T = 1
+
+    # All methods below should result in a type checker error
+    # "type parameter 'T' already in use" because they are using the
+    # type parameter 'T', which is already in use by the outer scope
+    # 'ClassA'.
+    def method1[T](self):
+        ...
+
+    def method2[T](self, x = T):  # Parameter 'x' gets default value of 1
+        ...
+
+    def method3[T](self, x: T):  # Parameter 'x' has type T (scoped to method3)
+        ...
+
+"""
+        node, du = self.checkChains(code, ['Sequence -> (Sequence -> (<Subscript> -> (ClassA -> ())))',
+                                'decorator -> (decorator -> (<Call> -> (ClassA -> ())))',
+                                'T -> (T -> (<Call> -> (ClassA -> ())))',
+                                'ClassA -> ()'])
+        ClassA = next(iter(d for d in du.locals[node] if d.name() == 'ClassA'))
+        assert du.dump_chains(TypeParamScope(ClassA.node)) == ['T -> (T -> (<Subscript> -> (ClassA -> ())))']
+        assert du.dump_chains(ClassA.node) == ['T -> (T -> (method2 -> ()))', 
+                                               'method1 -> ()', 
+                                               'method2 -> ()', 
+                                               'method3 -> ()']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_scopes07(self):
+        code = """\
+T = 0
+
+# T refers to the global variable
+print(T)  # Prints 0
+
+class Outer[T]:
+    T = 1
+
+    # T refers to the local variable scoped to class 'Outer'
+    print(T)  # Prints 1
+
+    class Inner1:
+        T = 2
+
+        # T refers to the local type variable within 'Inner1'
+        print(T)  # Prints 2
+
+        def inner_method(self):
+            # T refers to the type parameter scoped to class 'Outer';
+            # If 'Outer' did not use the new type parameter syntax,
+            # this would instead refer to the global variable 'T'
+            print(T)  # Prints 'T'
+
+    def outer_method(self):
+        T = 3
+
+        # T refers to the local variable within 'outer_method'
+        print(T)  # Prints 3
+
+        def inner_func():
+            # T refers to the variable captured from 'outer_method'
+            print(T)  # Prints 3
+"""
+        node, du = self.checkChains(code,  ['T -> (T -> (<Call> -> ()))', 'Outer -> ()'])
+
+        assert [d.name() for d in du.locals[node]] == ['T', 'Outer']
+
+        Outer = next(iter(d for d in du.locals[node] if d.name() == 'Outer'))
+        Inner1 = next(iter(d for d in du.locals[Outer.node] if d.name() == 'Inner1'))
+        inner_method = next(iter(d for d in du.locals[Inner1.node] if d.name() == 'inner_method'))
+        outer_method = next(iter(d for d in du.locals[Outer.node] if d.name() == 'outer_method'))
+
+        assert du.dump_chains(inner_method.node) == ['self -> ()',]
+        assert du.dump_chains(Inner1.node) == ['T -> (T -> (<Call> -> ()))', 'inner_method -> ()',]
+        assert du.dump_chains(outer_method.node) == ['self -> ()',
+                                                     'T -> (T -> (<Call> -> ()), T -> (<Call> -> ()))',
+                                                     'inner_func -> ()',]
+
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_scopes08(self):
+        code = '''\
+from x import decorator
+T = 1
+@decorator
+def f[decorator, T: int, U: (int, str), *Ts, **P](
+    y: U,
+    x: T = T, # default values are evaluated outside the TypeParamScope scope
+    *args: *Ts,
+    **kwargs: P.kwargs,
+) -> T:
+    return x
+'''
+        node, du = self.checkChains(code,  ['decorator -> (decorator -> ())', 
+                                 'T -> (T -> (f -> ()))', 
+                                 'f -> ()'])
+        assert du.dump_chains(TypeParamScope(node.body[-1])) == [
+            'decorator -> ()', 'T -> (T -> (), T -> ())', 
+            'U -> (U -> ())', 'Ts -> (Ts -> (<Starred> -> ()))', 
+            'P -> (P -> (.kwargs -> ()))']
+        assert du.dump_chains(node.body[-1]) == ['y -> ()', 'x -> (x -> ())', 
+                                                 'args -> ()', 'kwargs -> ()']
+
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_scopes09(self):
+        code = '''\
+from x import decorator
+@decorator
+class B[decorator](object):
+    print(decorator)
+'''
+        self.checkChains(code,  ['decorator -> (decorator -> (B -> ()))', 
+                                 'B -> ()'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_scopes10(self):
+        code = '''\
+class C[V]:
+    class D:
+        class E:
+            a: V'''
+        node, du = self.checkChains(code,  ['C -> ()'])
+        C = next(iter(d for d in du.locals[node] if d.name() == 'C'))
+        assert TypeParamScope(C.node) in du.locals
+        assert du.dump_chains(TypeParamScope(C.node)) == ['V -> (V -> ())']
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_gen_exp_in_nested_class(self):
+        # from https://github.com/python/cpython/pull/109196/files
+        code = """
+        from test.test_type_params import make_base
+        class C[T]:
+            T = "class"
+            class Inner(make_base(T for _ in (1,)), make_base(T)):
+                pass
+        """
+        self.checkChains(code, ['make_base -> (make_base -> (<Call> -> (Inner -> ())), make_base -> (<Call> -> (Inner -> ())))', 'C -> ()'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_listcomp_in_nested_class(self):
+        code = """
+            from test.test_type_params import make_base
+            class C[T]:
+                T = "class"
+                class Inner(make_base([T for _ in (1,)]), make_base(T)):
+                    pass
+        """
+        self.checkChains(code, ['make_base -> (make_base -> (<Call> -> (Inner -> ())), make_base -> (<Call> -> (Inner -> ())))', 'C -> ()'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_gen_exp_in_nested_generic_class(self):
+        code = """
+            from test.test_type_params import make_base
+            class C[T]:
+                T = "class"
+                class Inner[U](make_base(T for _ in (1,)), make_base(T)):
+                    pass
+        """
+        self.check_message(code, [])
+        self.checkChains(code, ['make_base -> (make_base -> (<Call> -> (Inner -> ())), make_base -> (<Call> -> (Inner -> ())))', 'C -> ()'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_listcomp_in_nested_generic_class(self):
+        code = """
+        from test.test_type_params import make_base
+        class C[T]:
+            T = "class"
+            class Inner[U](make_base([T for _ in (1,)]), make_base(T)):
+                pass
+        """
+        self.check_message(code, [])
+        self.checkChains(code, ['make_base -> (make_base -> (<Call> -> (Inner -> ())), make_base -> (<Call> -> (Inner -> ())))', 'C -> ()'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_gen_exp_in_generic_method(self):
+        code = """
+            class C[T]:
+                T = "class"
+                def meth[U](x: (T for _ in (1,)), y: T):
+                    pass
+        """
+        self.check_message(code, [])
+        self.checkChains(code, ['C -> ()'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_nested_scope_in_generic_alias(self):
+        code = """
+            class C[T]:
+                T = "class"
+                {}
+        """
+        error_cases = [
+            "type Alias1[T] = lambda: T",
+            "type Alias2 = lambda: T",
+            "type Alias3[T] = (T for _ in (1,))",
+            "type Alias4 = (T for _ in (1,))",
+            "type Alias5[T] = [T for _ in (1,)]",
+            "type Alias6 = [T for _ in (1,)]",
+        ]
+        for case in error_cases:
+            with self.subTest(case=case):
+                self.check_message(code.format(case), [])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_pep695_later_defined_typevar_reference(self):
+        cases = [
+            'class o[T:(S,),S]:...',
+            'def o[T:(S,),S]():...',
+            'type o[T:(S,),S]=...', ]
+
+        for code in cases:
+            with self.subTest(code):
+                self.checkChains(code, ['o -> ()'])
+
+        for code in cases:
+            code = 'S = 1\n' + code
+            with self.subTest(code):
+                self.checkChains(code, ['S -> ()', 'o -> ()'])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")  
+    def test_pepe695_class_keywords(self):
+        src = '''
+        class A[T]:
+            ...
+        class Bag[T](A[T], metaclass=T): ...'''
+        self.check_message(src, [])
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")  
+    def test_pepe695_annotations_before_python_314(self):
+        src = '''def f[T](a:(b:=True)): ...'''
+
+        # Python 3.12
+        self.check_message(src, [])
+
+        # Python 3.14
+        self.check_message('from __future__ import annotations\n' + src, 
+                           ['W: assignment expression cannot be used in annotation-like scopes at <unknown>:2:12'])
+
+    @skipIf(sys.version_info < (3,13), "Python 3.13 syntax")  
+    def test_pep696_type_aliases_default_forward_reference(self):
+        code = '''type X[T = defer] = ...; defer = X'''
+        self.check_message(code, [])
+
     @skipIf(sys.version_info < (3,10), "Python 3.10 syntax")
     def test_match_value(self):
         code = '''
@@ -1509,6 +2184,54 @@ match command:
         '''
         self.checkChains(code, ['command -> (command -> ())',
                                 'b -> (b -> ())'])
+
+    @skipIf(sys.version_info < (3,10), "Python 3.10 syntax")
+    def test_match_capture_is_available_in_guard(self):
+        code = '''
+match 1:
+    case captured if captured:
+        captured
+captured
+'''
+        self.checkChains(
+            code,
+            ['captured -> (captured -> (), captured -> (), captured -> ())']
+        )
+
+
+    @skipIf(sys.version_info < (3,10), "Python 3.10 syntax")
+    def test_match_capture_shadows_outer_name_in_guard(self):
+        code = '''
+captured = 1
+match 1:
+    case captured if captured:
+        captured
+captured
+'''
+        self.checkChains(
+            code,
+            ['captured -> ()',
+             'captured -> (captured -> (), captured -> (), captured -> ())']
+        )
+
+    @skipIf(sys.version_info < (3,10), "Python 3.10 syntax")
+    def test_match_capture_from_guard_failed_case_reaches_next_guard(self):
+        code = '''
+subject = 1
+match subject:
+    case previous if False:
+        pass
+    case _ if previous:
+        pass
+'''
+        module = self.ast.parse(dedent(code))
+        chains = StrictDefUseChains()
+        chains.visit(module)
+
+        first_case, second_case = module.body[1].cases
+        capture = chains.chains[first_case.pattern]
+        next_guard_use = chains.chains[second_case.guard]
+        self.assertIn(next_guard_use, capture.users())
 
     @skipIf(sys.version_info < (3,10), "Python 3.10 syntax")
     def test_match_list(self):
@@ -1650,25 +2373,69 @@ print(x, y)
         code = '''@D \ndef C(b=(D:=1)): ...'''
         self.check_message(code, [])
 
+    def test_fstring(self):
+        code = "v = 3.6; f'f-strings are new in Python {v}!'"
+        self.checkChains(code, ['v -> (v -> (<FormattedValue> -> (<JoinedStr> -> ())))'])
+
+    @skipIf(sys.version_info < (3, 14), 'Use the t-strings')
+    def test_tstring(self):
+        # Template strings are evaluated eagerly from left to right, 
+        # just like f-strings. This means that interpolations are evaluated 
+        # immediately when the template string is processed, not deferred or wrapped in lambdas.
+        code = "pi = 3.14; t't-strings are new in Python {pi!s}!'"
+        self.checkChains(code, ['pi -> (pi -> (<Interpolation> -> (<TemplateStr> -> ())))'])
+
 
 class TestDefUseChainsStdlib(TestDefUseChains):
     ast = _ast
 
+if sys.implementation.name == 'pypy':
+    def replace_platform_dependent_names(chain):
+        return chain.replace('<builtin_function>', '<builtin_function_or_method>')
+else:
+    def replace_platform_dependent_names(chain):
+        return chain
+
+# Work around Constant simplification from Python 3.8
+if sys.version_info < (3, 8):
+    def replace_deprecated_names(out):
+        return out.replace(
+            '<Num>', '<Constant>'
+        ).replace(
+            '<Ellipsis>', '<Constant>'
+        ).replace(
+            '<Str>', '<Constant>'
+        ).replace(
+            '<Bytes>', '<Constant>'
+        ).replace(
+            '<NameConstant>', '<Constant>'
+        )
+else:
+    def replace_deprecated_names(out): 
+        return out
+
+def normalize_chain(out):
+    out = replace_platform_dependent_names(out)
+    out = replace_deprecated_names(out)
+    return out
+
+def normalize_usedef_chains(self):
+    out = sorted((normalize_chain(kname), normalize_chain("{} <- {{{}}}".format(
+            kname, ", ".join(sorted(normalize_chain(u) for u in usesnames))
+        ))) for kname, usesnames in self._dump_chains())
+    return ", ".join(s for k, s in out)
+
 class TestUseDefChains(TestCase):
     ast = _gast
-    def checkChains(self, code, ref):
+
+    def checkChains(self, code, ref, strict=True):
         node = self.ast.parse(code)
 
-        c = StrictDefUseChains()
+        c = StrictDefUseChains() if strict else beniget.DefUseChains()
+
         c.visit(node)
         cc = beniget.UseDefChains(c)
-        actual = str(cc)
-
-        # work around Constant simplification from Python 3.8
-        if sys.version_info.minor in {6, 7}:
-            # 3.6 or 3.7
-            actual = replace_deprecated_names(actual)
-
+        actual = normalize_usedef_chains(cc)
         self.assertEqual(actual, ref)
 
     def test_simple_expression(self):
@@ -1691,6 +2458,140 @@ class TestUseDefChains(TestCase):
         code = "a = 1; del a"
         self.checkChains(code, "a <- {a}")
 
+    @skipIf(sys.version_info < (3,13), "Python 3.13 syntax")  
+    def test_pep696_type_aliases(self):
+        code = '''type X[T = bytes] = dict[T, int]'''
+        self.checkChains(code, '<Subscript> <- {<Tuple>, dict}, '
+                               '<Tuple> <- {T, int}, '
+                               'T <- {T}, bytes <- {<type>}, '
+                               'dict <- {<type>}, int <- {<type>}')
+
+    @skipIf(sys.version_info < (3,13), "Python 3.13 syntax")  
+    def test_pepe696_function_type_param(self):
+        code = '''def foo[T = bytes, *Ts = *tuple[str, int], **P = [str, int]](*args: *Ts, **kwargs: P.kwargs) -> T: ...'''
+        self.checkChains(code, '.kwargs <- {P}, <List> <- {int, str}, '
+                               '<Starred> <- {<Subscript>}, '
+                               '<Starred> <- {Ts}, <Subscript> <- {<Tuple>, tuple}, '
+                               '<Tuple> <- {int, str}, P <- {P}, T <- {T}, '
+                               'Ts <- {Ts}, bytes <- {<type>}, int <- {<type>}, '
+                               'int <- {<type>}, str <- {<type>}, '
+                               'str <- {<type>}, tuple <- {<type>}')
+
+    @skipIf(sys.version_info < (3,13), "Python 3.13 syntax")  
+    def test_pep696_class_paramspec(self):
+        code = '''class Foo[**P = [str, int]]: ...'''
+        self.checkChains(code, '<List> <- {int, str}, int <- {<type>}, str <- {<type>}')
+
+    @skipIf(sys.version_info < (3,13), "Python 3.13 syntax")  
+    def test_pepe696_class_typevar_tuple(self):
+        code = '''class Foo[*Ts = *tuple[str, int]]: ...'''
+        self.checkChains(code, '<Starred> <- {<Subscript>}, '
+                               '<Subscript> <- {<Tuple>, tuple}, '
+                               '<Tuple> <- {int, str}, '
+                               'int <- {<type>}, str <- {<type>}, tuple <- {<type>}')
+
+    def test_fstring(self):
+        code = "v = 3.6; f'f-strings are new in Python {v}!'"
+        self.checkChains(code, '<FormattedValue> <- {v}, '
+                               '<JoinedStr> <- {<Constant>, <Constant>, <FormattedValue>}, '
+                               'v <- {v}')
+
+    @skipIf(sys.version_info < (3, 14), 'Use the t-strings')
+    def test_tstring(self):
+        code = "pi = 3.14; t't-strings are new in Python {pi!s}!'"
+        self.checkChains(code, '<Interpolation> <- {pi}, '
+                               '<TemplateStr> <- {<Constant>, <Constant>, <Interpolation>}, '
+                               'pi <- {pi}')
+
+    def test_class_magic(self):
+        code = "class A:\n def foo(_): A.foo"
+        self.checkChains(code, '.foo <- {A}, '
+                               'A <- {A}')
+        code = "class A:\n def foo(_): __class__.foo"
+        self.checkChains(code, '.foo <- {__class__}, '
+                               '__class__ <- {A}')
+
+
 class TestUseDefChainsStdlib(TestUseDefChains):
     ast = _ast
 
+class TestCollecLocals(TestCase):
+    ast = _gast
+
+    def test_module_locals(self):
+        src = 'class A:...  \ndef b(): ...  \nvar = True   \nfrom x import y as e   \nimport ast   \nimport concurrent.futures'
+        node = self.ast.parse(src)
+        assert collect_locals(node) == {'A', 'b', 'var', 'e', 'ast', 'concurrent'}
+
+    def test_class_locals(self):
+        src = 'class A:\n    x = 1\n    def foo(self): pass\n    def bar(self): pass'
+        node = self.ast.parse(src)
+        assert collect_locals(node.body[0]) == {'x', 'foo', 'bar'}
+
+    def test_function_locals(self):
+        src = 'def f():\n    x = 1\n    y = 2\n    return x + y'
+        node = self.ast.parse(src)
+        assert collect_locals(node.body[0]) == {'x', 'y'}
+
+    def test_function_parameters(self):
+        src = 'def f(a, b, *, c, **kwargs): pass'
+        node = self.ast.parse(src)
+        # TODO: Is it normal that parameters are not included in locals?
+        assert collect_locals(node.body[0]) == set()
+
+    @skipIf(sys.version_info < (3,9), "Python 3.9 syntax")
+    def test_warlus_operator(self):
+        src = 'def f():\n    if (x := 1):\n        pass'
+        node = self.ast.parse(src)
+        assert collect_locals(node.body[0]) == {'x'}
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_class_type_parameters(self):
+        src = 'class A[T, U]: v = 1'
+        cls = self.ast.parse(src).body[0]
+        assert collect_locals(cls) == {'v'}
+        assert collect_locals(TypeParamScope(cls)) == {'A', 'T', 'U'}
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_function_type_parameters(self):
+        src = 'def f[T, U](): v = 1'
+        cls = self.ast.parse(src).body[0]
+        assert collect_locals(cls) == {'v'}
+        assert collect_locals(TypeParamScope(cls)) == {'f', 'T', 'U'}
+
+    def test_comprehensions(self):
+        src = '[x for x in range(10)]'
+        node = self.ast.parse(src)
+        comp = node.body[0].value
+        assert collect_locals(comp) == {'x'}
+
+class TestCollecLocalsStdlib(TestCollecLocals):
+    ast = _ast
+
+class TestTypeParamScope(TestCase):
+    ast = _gast
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_TypeParamScope_equality(self):
+        src = 'class A[T]: ...'
+        node = self.ast.parse(src).body[0]
+
+        assert TypeParamScope(node) == TypeParamScope(node)
+        assert hash(TypeParamScope(node)) == hash(TypeParamScope(node))
+
+        assert TypeParamScope(node) != node
+        assert hash(TypeParamScope(node)) != hash(node)
+
+        assert TypeParamScope(node) is not TypeParamScope(node)
+
+
+    @skipIf(sys.version_info < (3,12), "Python 3.12 syntax")
+    def test_TypeParamScope_in_locals(self):
+        src = 'class ClassA[T]:\n def func(self, x: T) -> T: ...'
+        node, du = TestDefUseChains.checkChains(self, src, ['ClassA -> ()'])
+
+        assert TypeParamScope(node.body[0]) in du.locals
+        assert du.dump_chains(TypeParamScope(node.body[0])) == ['T -> (T -> (), T -> ())']
+
+class TestTypeParamScopeStdlib(TestTypeParamScope):
+    ast = _ast

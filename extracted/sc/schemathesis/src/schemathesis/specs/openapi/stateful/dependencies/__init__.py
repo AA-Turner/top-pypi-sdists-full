@@ -5,12 +5,13 @@ Infers which operations must run before others by tracking resource creation and
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+import re
+from collections.abc import Iterator, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, TypeGuard
 
 from schemathesis.core import NOT_SET
 from schemathesis.core.errors import InvalidSchema, OperationNotFound, RefResolutionError
-from schemathesis.core.jsonschema.types import JsonSchema, get_type
+from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, get_type
 from schemathesis.core.result import Ok
 from schemathesis.core.transforms import format_body_key
 from schemathesis.specs.openapi.adapter.parameters import ParameterLocation
@@ -20,18 +21,19 @@ from schemathesis.specs.openapi.stateful.dependencies import naming
 from schemathesis.specs.openapi.stateful.dependencies.inputs import (
     align_created_identifiers,
     bind_created_item_keys,
-    bind_echoed_body_fields,
     bind_id_fields_to_returned_resources,
     bind_item_parameters_to_collections,
-    bind_parent_keys_to_item_fields,
+    bind_parent_keys,
     declared_parameter_types,
     disambiguate_module_variants,
     disambiguate_path_suffix_matches,
     extract_inputs,
+    fit_body_fields_to_read_values,
     merge_related_resources,
     rebind_body_fields_to_unique_producers,
     rebind_inherited_suffix_matches,
     rebind_orphan_synthetics,
+    unbind_mistyped_values,
     update_input_field_bindings,
 )
 from schemathesis.specs.openapi.stateful.dependencies.models import (
@@ -40,14 +42,19 @@ from schemathesis.specs.openapi.stateful.dependencies.models import (
     DefinitionSource,
     DependencyGraph,
     InputSlot,
+    LinkDefinition,
     NormalizedLink,
     OperationMap,
     OperationNode,
+    OutputSlot,
     ResourceDefinition,
+    ResourceMap,
+    path_shape,
 )
-from schemathesis.specs.openapi.stateful.dependencies.outputs import extract_outputs
+from schemathesis.specs.openapi.stateful.dependencies.outputs import collections_with_post, extract_outputs
 from schemathesis.specs.openapi.stateful.dependencies.resources import (
     InferenceState,
+    referenced_schema_names,
     remove_unused_resources,
 )
 from schemathesis.specs.openapi.stateful.links import find_link_target
@@ -76,6 +83,7 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
 
     # Declared types of each operation's path parameters, so a bound value can be checked against them
     path_parameter_types: dict[str, dict[str, list[str]]] = {}
+    post_collections = collections_with_post(schema)
     for result in schema.get_all_operations():
         if isinstance(result, Ok):
             operation = result.ok()
@@ -86,7 +94,9 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
             }
             bindings = DeferredBindings()
             inputs = list(extract_inputs(operation=operation, state=state, deferred=bindings))
-            outputs = extract_outputs(operation=operation, inputs=inputs, state=state)
+            outputs = extract_outputs(
+                operation=operation, inputs=inputs, state=state, post_collections=post_collections
+            )
             operations[operation.label] = OperationNode(
                 method=operation.method,
                 path=operation.path,
@@ -99,7 +109,7 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
     # producer paths can sort after their consumers (e.g. /departments alphabetises before
     # /locations) and the per-operation pass would otherwise drop those slots.
     for label, bindings in deferred.items():
-        for target_resource_name, target_field, body_path in bindings.nested_fks:
+        for target_resource_name, target_field, body_path, takes_array in bindings.nested_fks:
             target_resource = resources.get(target_resource_name)
             if target_resource is None:
                 continue
@@ -109,6 +119,7 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
                     resource_field=target_field,
                     parameter_name=format_body_key(body_path),
                     parameter_location=ParameterLocation.BODY,
+                    takes_array=takes_array,
                     body_path=body_path,
                 )
             )
@@ -120,7 +131,9 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
             owner = resources.get(resource_name)
             if owner is None or owner.source < DefinitionSource.SCHEMA_WITH_PROPERTIES:
                 continue
-            field = naming.find_matching_field(parameter=parameter_name, resource=owner.name, fields=owner.fields)
+            field = naming.find_matching_field(
+                parameter=parameter_name, resource=owner.name, fields=owner.fields, types=owner.types
+            )
             # `{project_key}` under `/project-members` names a project, not the member's `key`.
             if field is None or not naming.parameter_names_resource_field(
                 parameter=parameter_name, field=field, resource=owner.name
@@ -172,6 +185,50 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
             )
             bound.add(property_name)
 
+    # An integer field named after a listed collection of integer-keyed objects holds one of their keys (`part` <- the
+    # `pk` of a `Part`) when the response, the field's title or the path says which collection it is.
+    collections = _listed_collections(operations)
+    for label, bindings in deferred.items():
+        node = operations[label]
+        taken = {(slot.parameter_location, slot.parameter_name) for slot in node.inputs}
+        candidates = [(name, field_schema, ParameterLocation.BODY) for _, name, field_schema in bindings.named_scalars]
+        candidates.extend(
+            (name, field_schema, ParameterLocation.QUERY) for name, field_schema in bindings.named_query_parameters
+        )
+        references: dict[str, str] | None = None
+        for name, field_schema, location in candidates:
+            if (
+                (location, name) in taken
+                or not _is_plain_integer(field_schema)
+                or naming.normalize_for_matching(name) in naming.PAGINATION_FIELDS
+            ):
+                continue
+            # A list filter selects by a field of the items it lists; `?page=` and `?limit=` select by none.
+            if location == ParameterLocation.QUERY and not any(
+                name in (output.resource.fields if output.response_fields is None else output.response_fields)
+                for output in _main_outputs(node)
+                if output.cardinality == Cardinality.MANY
+            ):
+                continue
+            if references is None:
+                references = _referenced_schemas(schema, label, node)
+            collection = _collection_named_by(name, field_schema, location, node, references, collections, resources)
+            if collection is None:
+                continue
+            key = next((key for key in ("id", "pk") if key in collection.fields), None)
+            if key is None or collection.types.get(key) != {"integer"}:
+                continue
+            node.inputs.append(
+                InputSlot(
+                    resource=collection,
+                    resource_field=key,
+                    parameter_name=name,
+                    parameter_location=location,
+                    is_named_after_collection=True,
+                )
+            )
+            taken.add((location, name))
+
     rebind_inherited_suffix_matches(operations, resources)
 
     # Update input slots with improved resource definitions discovered during extraction
@@ -182,7 +239,7 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
     update_input_field_bindings(state.updated_resources, operations)
 
     # Merge parameter-inferred resources with schema-defined ones
-    merge_related_resources(operations, resources)
+    merge_related_resources(operations, resources, state.item_collections)
 
     # Bind required body fields to a producer only when the response field identifies it uniquely.
     rebind_body_fields_to_unique_producers(operations, deferred)
@@ -208,11 +265,17 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
     # `fromAirportId` names what responses return under `fromAirport` (`AirportResponse.id`).
     bind_id_fields_to_returned_resources(operations)
 
-    # An item carries the key of the parent it lives under (`Shipment.warehouseId`) when nothing produces the parent.
-    bind_parent_keys_to_item_fields(schema, operations)
+    # A bare `{id}` in `/options/{id}/entry` keys what `/options/{id}` takes, and an item carries the key of the parent
+    # it lives under (`Shipment.warehouseId`) when nothing produces the parent.
+    bind_parent_keys(schema, operations)
 
-    # Bind update body fields to values only the item `GET` returns (`version`, `checksum`).
-    bind_echoed_body_fields(schema, operations, deferred)
+    # Bind update body fields to values only the item `GET` returns (`version`, `checksum`), and unbind copied fields
+    # whose `enum` rejects a value the resource returns (`type` <- `Domain.type`).
+    fit_body_fields_to_read_values(schema, operations, deferred)
+
+    # A body field taking an array of identifiers never takes one value (`customer_id: [1, 2]` <- `Customer.id`),
+    # and a UUID parameter never takes a non-string field (`{id}` <- an integer `Group.pk`).
+    unbind_mistyped_values(schema, operations, deferred)
 
     # Clean up orphaned resources
     remove_unused_resources(operations, resources)
@@ -226,6 +289,138 @@ def _accepts_code(schema: JsonSchema, resource: ResourceDefinition) -> bool:
     return isinstance(schema, dict) and "format" not in schema and resource.types.get("code") == set(get_type(schema))
 
 
+def _is_plain_integer(schema: JsonSchema) -> TypeGuard[JsonSchemaObject]:
+    return (
+        isinstance(schema, dict)
+        and [kind for kind in get_type(schema) if kind != "null"] == ["integer"]
+        and "enum" not in schema
+        and "const" not in schema
+    )
+
+
+def _listed_collections(operations: OperationMap) -> dict[str, set[str]]:
+    # What list operations return as their items, with the paths listing them; not arrays nested inside one object
+    # (`tags: [NestedTag]`).
+    listed: dict[str, set[str]] = {}
+    for node in operations.values():
+        if node.method != "get" or naming.trailing_path_parameter(node.path) is not None:
+            continue
+        for output in node.outputs:
+            if (
+                output.cardinality == Cardinality.MANY
+                and "*" not in output.pointer
+                and not output.is_primitive_identifier
+            ):
+                listed.setdefault(output.resource.name, set()).add(node.path)
+    return listed
+
+
+def _main_outputs(node: OperationNode) -> list[OutputSlot]:
+    # The objects the operation returns, not the ones nested inside them.
+    return [
+        output
+        for output in node.outputs
+        if not any(
+            other is not output and output.pointer.startswith(other.pointer.rstrip("/") + "/") for other in node.outputs
+        )
+    ]
+
+
+def _referenced_schemas(schema: OpenApiSchema, label: str, node: OperationNode) -> dict[str, str]:
+    operation = schema.find_operation_by_label(label)
+    assert operation is not None
+    references: dict[str, str] = {}
+    for output in _main_outputs(node):
+        # Outputs come from the operation's own responses.
+        response = operation.responses.get(output.status_code)
+        assert response is not None
+        references.update(referenced_schema_names(response, output.pointer))
+    return references
+
+
+def _collection_named_by(
+    field: str,
+    field_schema: JsonSchemaObject,
+    location: ParameterLocation,
+    node: OperationNode,
+    references: dict[str, str],
+    collections: dict[str, set[str]],
+    resources: ResourceMap,
+) -> ResourceDefinition | None:
+    word = naming.to_pascal_case(field)
+    # The operation's own objects are not what its fields point to: `part` on manufacturer parts is not one of them.
+    own = {output.resource.name for output in _main_outputs(node)}
+    named = [name for name in collections if name.endswith(word) and name not in own]
+    if not named:
+        return None
+    # The response returns the referenced object for it: `role` as a `NestedDeviceRole` or `rear_port` as a
+    # `FrontPortRearPort` (a name ending in the collection), else `part_detail` as a `PartBrief` (starting with it).
+    referenced = references.get(field) or references.get(f"{field}_detail")
+    if referenced is not None:
+        related = [name for name in collections if referenced.endswith(name) and name not in own] or [
+            name for name in collections if _starts_with_word(referenced, name) and name not in own
+        ]
+        return resources[max(related, key=lambda name: (name == referenced, len(name)))] if related else None
+    # Its title names one of them: `part` titled "Supplier Part".
+    title = field_schema.get("title")
+    if isinstance(title, str):
+        normalized_title = naming.normalize_for_matching(title.replace(" ", ""))
+        if normalized_title != naming.normalize_for_matching(field):
+            titled = [name for name in named if naming.normalize_for_matching(name) == normalized_title]
+            if titled:
+                return resources[titled[0]]
+    # The path picks one by whole words: `template` on `/parameters` is a `ParameterTemplate`, `type` on `/eventlog`
+    # is no `EventType`. Not a collection kept under the operation's own items: `version` on documents is their
+    # counter, not one of the `DocumentVersion` items under `/documents/{id}/versions`.
+    own_collection = (
+        naming.collection_path(node.path) if naming.trailing_path_parameter(node.path) else node.path.rstrip("/")
+    )
+    own_items = path_shape(own_collection) + "/{}/"
+    words = _path_words(node.path)
+    specific = [
+        name
+        for name in named
+        if name != word
+        and _is_word_run(naming.normalize_for_matching(name[: -len(word)]), words)
+        and not any(path_shape(listing).startswith(own_items) for listing in collections[name])
+    ]
+    if len(specific) == 1:
+        return resources[specific[0]]
+    # A list filter on a field of its items may take the only collection of that name; a body field needs the
+    # evidence above, as names like `version` hold counters, not keys.
+    if not specific and location == ParameterLocation.QUERY and named == [word]:
+        return resources[word]
+    return None
+
+
+def _starts_with_word(schema_name: str, collection: str) -> bool:
+    # `PartBrief` is a view of `Part`; `Partition` is not.
+    return schema_name.startswith(collection) and (
+        len(schema_name) == len(collection) or schema_name[len(collection)].isupper()
+    )
+
+
+def _path_words(path: str) -> list[str]:
+    return [
+        naming.normalize_for_matching(naming.to_singular(word))
+        for segment in path.split("/")
+        if "{" not in segment
+        for word in re.findall(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z0-9]+|[A-Z]+", segment)
+    ]
+
+
+def _is_word_run(text: str, words: list[str]) -> bool:
+    return any(
+        "".join(words[start:end]) == text for start in range(len(words)) for end in range(start + 1, len(words) + 1)
+    )
+
+
+def unshare_responses(schema: OpenApiSchema) -> None:
+    _unshare_responses(schema)
+    # Operations built earlier still point at the response definitions that were just replaced
+    schema._operations.clear_cache()
+
+
 def inject_links(schema: OpenApiSchema) -> int:
     injected = 0
     # Shared by producers and targets; the same operations recur across thousands of links.
@@ -234,13 +429,14 @@ def inject_links(schema: OpenApiSchema) -> int:
     # target - only same-target links can be subsets. Values keep the mapping alive so `id` is unique.
     # Next to them, the next suffix to try per colliding link name, as names taken once stay taken.
     normalized_cache: dict[int, tuple[dict[str, Any], dict[tuple[str, str], list[NormalizedLink]], dict[str, int]]] = {}
-    _unshare_responses(schema)
+    shared = _unshare_responses(schema)
     # Operations built earlier still point at the response definitions that were just replaced
     schema._operations.clear_cache()
     for response_links in schema.analysis.dependency_graph.iter_links():
         operation = _find_operation_by_reference(schema, response_links.producer_operation_ref, operation_cache)
         response = operation.responses.get(response_links.status_code)
         links = response.source.setdefault(schema.adapter.links_keyword, {})
+        _, reader_paths = shared.get(id(response.source), (None, ()))
 
         entry = normalized_cache.get(id(links))
         if entry is None:
@@ -259,7 +455,7 @@ def inject_links(schema: OpenApiSchema) -> int:
 
         # Compared against what was known before this response, not against each other.
         pending: list[NormalizedLink] = []
-        for link_name, definition in response_links.links.items():
+        for link_name, definition in _followable_links(response_links.links, reader_paths):
             inferred_link = definition.to_openapi()
 
             # Check if duplicate / subsets exists
@@ -281,19 +477,23 @@ def inject_links(schema: OpenApiSchema) -> int:
     return injected
 
 
-def _unshare_responses(schema: OpenApiSchema) -> None:
+def _unshare_responses(schema: OpenApiSchema) -> dict[int, tuple[Mapping[str, Any], list[str]]]:
     """Give each operation its own copy of a response it shares, so links inferred for one never reach another.
 
     A link may forward the producer's own path parameters, which another operation sharing the response lacks.
+    A response in another document than its operations stays in place; those are returned keyed by `id`, with the
+    paths of the operations reading each.
     """
     slots: list[tuple[dict[str, Any], str, Mapping[str, Any]]] = []
     uses: dict[int, int] = {}
+    # Values keep each response alive so its `id` stays unique
+    kept: dict[int, tuple[Mapping[str, Any], list[str]]] = {}
     # Raw definitions, as building every operation costs far more than resolving its responses
     try:
         entries = schema._operation_lookup.entries()
     except RefResolutionError:
         # An unresolvable path item is reported as a schema error for its operations
-        return
+        return {}
     for entry in entries:
         raw_responses = entry.definition.get("responses", {})
         try:
@@ -310,10 +510,26 @@ def _unshare_responses(schema: OpenApiSchema) -> None:
             # Copied elsewhere, its own references would resolve against the wrong document
             if response.resolver.base_uri == entry.resolver.base_uri:
                 slots.append((raw_responses, keys[status_code], response.source))
+            else:
+                kept.setdefault(id(response.source), (response.source, []))[1].append(entry.path)
     links_keyword = schema.adapter.links_keyword
     for raw_responses, key, definition in slots:
         if uses[id(definition)] > 1:
             raw_responses[key] = {**definition, links_keyword: dict(definition.get(links_keyword, {}))}
+    return kept
+
+
+def _followable_links(
+    links: dict[str, LinkDefinition], reader_paths: Sequence[str]
+) -> Iterator[tuple[str, LinkDefinition]]:
+    """Links that every operation reading the response can follow, as each has the path parameters they copy."""
+    for name, link in links.items():
+        if all(
+            all(f"{{{value.removeprefix('$request.path.')}}}" in path for path in reader_paths)
+            for value in link.parameters.values()
+            if value.startswith("$request.path.")
+        ):
+            yield name, link
 
 
 def _find_operation_by_reference(schema: OpenApiSchema, reference: str, cache: dict[str, APIOperation]) -> APIOperation:

@@ -1,0 +1,418 @@
+//  ██████   ██████ ██████████  █████████  █████   █████ █████    ███████
+// ░░██████ ██████ ░░███░░░░░█ ███░░░░░███░░███   ░░███ ░░███   ███░░░░░███      ███         ███
+//  ░███░█████░███  ░███  █ ░ ░███    ░░░  ░███    ░███  ░███  ███     ░░███    ░███        ░███
+//  ░███░░███ ░███  ░██████   ░░█████████  ░███████████  ░███ ░███      ░███ ███████████ ███████████
+//  ░███ ░░░  ░███  ░███░░█    ░░░░░░░░███ ░███░░░░░███  ░███ ░███      ░███░░░░░███░░░ ░░░░░███░░░
+//  ░███      ░███  ░███ ░   █ ███    ░███ ░███    ░███  ░███ ░░███     ███     ░███        ░███
+//  █████     █████ ██████████░░█████████  █████   █████ █████ ░░░███████░      ░░░         ░░░
+// ░░░░░     ░░░░░ ░░░░░░░░░░  ░░░░░░░░░  ░░░░░   ░░░░░ ░░░░░    ░░░░░░░
+//
+//
+//  License:         MIT License
+//                   meshio++ default license: LICENSE
+//
+//  Main authors:    Vicente Mataix Ferrandiz
+//
+//
+
+// System includes
+#include <array>
+#include <charconv>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <limits>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+// Project includes
+#include "meshioplusplus/detail/value_io.hpp"
+#include "meshioplusplus/detail/provenance.hpp"
+#include "meshioplusplus/detail/subset.hpp"
+#include "meshioplusplus/exceptions.hpp"
+#include "meshioplusplus/formats/obj_off.hpp"
+#include "meshioplusplus/detail/fast_number.hpp"
+#include "meshioplusplus/detail/classic_stream.hpp"
+#include "../detail/open_source.hpp"
+#include "../detail/row_writer.hpp"
+#include "../detail/text_cursor.hpp"
+#include "../detail/typed_view.hpp"
+
+namespace meshioplusplus {
+
+namespace {
+
+struct FaceBlock {
+    std::size_t mSize = 0;
+    std::vector<std::int64_t> mIdx;  // flat, 0-based
+    std::vector<std::int64_t> mVt;   // per corner, the 0-based `vt` index (-1 none)
+    std::vector<std::int64_t> mGids;
+    std::size_t mCount = 0;
+};
+
+// The `vn` or `vt` rows of a file, flat. Rows may differ in width while
+// reading; one that does is refused when the array is made.
+struct AttributeRows {
+    std::vector<double> mValues;
+    std::size_t mRows = 0;
+    std::size_t mWidth = 0;
+    bool mUniform = true;
+
+    void AddRow(const double* pValues, std::size_t Count) {
+        if (mRows == 0)
+            mWidth = Count;
+        else if (Count != mWidth)
+            mUniform = false;
+        mValues.insert(mValues.end(), pValues, pValues + Count);
+        ++mRows;
+    }
+};
+
+std::string cell_type_for(std::size_t n) {
+    if (n == 3)
+        return "triangle";
+    if (n == 4)
+        return "quad";
+    return "polygon";
+}
+
+NDArray make_point_data(const AttributeRows& rRows) {
+    if (!rRows.mUniform)
+        throw ReadError("OBJ: rows of one attribute with different lengths");
+    NDArray a(DType::Float64, {rRows.mRows, rRows.mWidth});
+    if (!rRows.mValues.empty())
+        std::memcpy(a.As<double>(), rRows.mValues.data(), rRows.mValues.size() * sizeof(double));
+    return a;
+}
+
+// `std::stoll(std::string(Token), nullptr, 10)` over a token that holds no
+// blank: the leading integer, an optional sign included, with whatever follows
+// ignored. Like `stoll`, a token with no digit throws `std::invalid_argument`
+// and a value outside `int64` throws `std::out_of_range`.
+std::int64_t obj_stoll(std::string_view Token) {
+    std::size_t i = 0;
+    bool negative = false;
+    if (i < Token.size() && (Token[i] == '+' || Token[i] == '-')) {
+        negative = Token[i] == '-';
+        ++i;
+    }
+    if (i >= Token.size() || Token[i] < '0' || Token[i] > '9')
+        throw std::invalid_argument("stoll");
+    std::uint64_t magnitude = 0;
+    const auto parsed =
+        std::from_chars(Token.data() + i, Token.data() + Token.size(), magnitude);
+    constexpr auto maximum = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+    if (parsed.ec == std::errc::result_out_of_range || magnitude > maximum + (negative ? 1u : 0u))
+        throw std::out_of_range("stoll");
+    return negative ? static_cast<std::int64_t>(0 - magnitude)
+                    : static_cast<std::int64_t>(magnitude);
+}
+
+// `v`, `vn` and `vt` carry numbers until the first token that is not one.
+void obj_read_numbers(std::string_view Rest, std::vector<double>& rOut) {
+    detail::TextStream iss(Rest);
+    double x;
+    while (iss >> x)
+        rOut.push_back(x);
+}
+
+}  // namespace
+
+Mesh read_obj(const std::string& rPath) {
+    const detail::FileSource source = detail::open_source(rPath, "Could not open file: " + rPath);
+    detail::TextCursor cursor(source.View());
+
+    std::vector<double> points;  // flat x, y, z
+    AttributeRows vn, vt;
+    std::vector<FaceBlock> blocks;
+    std::int64_t group_id = -1;
+    std::vector<double> row;
+    std::vector<std::int64_t> dat;
+    std::vector<std::int64_t> dat_vt;
+
+    while (!cursor.AtEnd()) {
+        std::string_view line = cursor.Line();
+        std::size_t b = 0, e = line.size();
+        while (b < e && detail::text_is_blank(line[b]))
+            ++b;
+        while (e > b && detail::text_is_blank(line[e - 1]))
+            --e;
+        if (b == e || line[b] == '#')
+            continue;
+        line = line.substr(b, e - b);
+
+        // The tag is the first blank-separated token; the rest is its payload.
+        std::size_t t = 0;
+        while (t < line.size() && !detail::text_is_blank(line[t]))
+            ++t;
+        const std::string_view tag = line.substr(0, t);
+        const std::string_view rest = line.substr(t);
+        if (tag == "v") {
+            // A vertex short of three numbers keeps zeros for the rest, and a
+            // value that does not parse ends the line, as a stream would.
+            std::array<double, 3> p{0, 0, 0};
+            detail::TextStream iss(rest);
+            iss >> p[0] >> p[1] >> p[2];
+            points.insert(points.end(), p.begin(), p.end());
+        } else if (tag == "vn" || tag == "vt") {
+            row.clear();
+            obj_read_numbers(rest, row);
+            (tag == "vn" ? vn : vt).AddRow(row.data(), row.size());
+        } else if (tag == "f") {
+            dat.clear();
+            dat_vt.clear();
+            std::size_t i = 0;
+            while (true) {
+                while (i < rest.size() && detail::text_is_blank(rest[i]))
+                    ++i;
+                if (i >= rest.size())
+                    break;
+                const std::size_t first = i;
+                std::size_t slash = std::string_view::npos;
+                while (i < rest.size() && !detail::text_is_blank(rest[i])) {
+                    if (rest[i] == '/' && slash == std::string_view::npos)
+                        slash = i;
+                    ++i;
+                }
+                const std::size_t last = slash == std::string_view::npos ? i : slash;
+                dat.push_back(obj_stoll(rest.substr(first, last - first)) - 1);
+                // `v/vt`, `v/vt/vn`: the texture index; `v` and `v//vn` have none.
+                std::int64_t vt_index = -1;
+                if (slash != std::string_view::npos && slash + 1 < i && rest[slash + 1] != '/') {
+                    std::size_t end = slash + 1;
+                    while (end < i && rest[end] != '/')
+                        ++end;
+                    try {
+                        vt_index = obj_stoll(rest.substr(slash + 1, end - slash - 1)) - 1;
+                    } catch (const std::exception&) {
+                        vt_index = -1;
+                    }
+                }
+                dat_vt.push_back(vt_index);
+            }
+            std::size_t sz = dat.size();
+            if (blocks.empty() || (blocks.back().mCount > 0 && blocks.back().mSize != sz)) {
+                FaceBlock fb;
+                fb.mSize = sz;
+                blocks.push_back(std::move(fb));
+            }
+            FaceBlock& cur = blocks.back();
+            if (cur.mCount == 0)
+                cur.mSize = sz;
+            cur.mIdx.insert(cur.mIdx.end(), dat.begin(), dat.end());
+            cur.mVt.insert(cur.mVt.end(), dat_vt.begin(), dat_vt.end());
+            cur.mGids.push_back(group_id);
+            ++cur.mCount;
+        } else if (tag == "g") {
+            FaceBlock fb;
+            blocks.push_back(std::move(fb));
+            ++group_id;
+        }
+        // 's' and others: ignored.
+    }
+
+    // Drop empty blocks (e.g. from trailing 'g').
+    std::vector<FaceBlock> nonempty;
+    for (auto& fb : blocks)
+        if (fb.mCount > 0)
+            nonempty.push_back(std::move(fb));
+
+    // Texture coordinates by corner (`f v/vt`): when every corner names a `vt`,
+    // each point gets one `uv`; a point whose corners name different ones (a
+    // seam) is split, the first copy keeping its index and the others appended
+    // in the order met, with `obj:parent_point` naming the point each copies.
+    const std::size_t np_in = points.size() / 3;
+    std::vector<double> uv;
+    std::vector<std::int64_t> parent;
+    bool has_uv = vt.mRows > 0 && vt.mUniform && vt.mWidth >= 2 && !nonempty.empty();
+    for (const auto& fb : nonempty)
+        for (std::size_t k = 0; has_uv && k < fb.mVt.size(); ++k)
+            has_uv = fb.mVt[k] >= 0 && static_cast<std::size_t>(fb.mVt[k]) < vt.mRows &&
+                     fb.mIdx[k] >= 0 && static_cast<std::size_t>(fb.mIdx[k]) < np_in;
+    if (has_uv) {
+        std::vector<std::vector<std::pair<std::int64_t, std::int64_t>>> copies(np_in);
+        parent.resize(np_in);
+        for (std::size_t p = 0; p < np_in; ++p)
+            parent[p] = static_cast<std::int64_t>(p);
+        uv.assign(2 * np_in, std::nan(""));
+        for (auto& fb : nonempty)
+            for (std::size_t k = 0; k < fb.mIdx.size(); ++k) {
+                const std::int64_t p = fb.mIdx[k];
+                const std::int64_t t = fb.mVt[k];
+                auto& list = copies[static_cast<std::size_t>(p)];
+                std::int64_t id = -1;
+                for (const auto& [vt_at, out] : list)
+                    if (vt_at == t)
+                        id = out;
+                if (id < 0) {
+                    id = list.empty() ? p : static_cast<std::int64_t>(parent.size());
+                    if (!list.empty()) {
+                        parent.push_back(p);
+                        const std::size_t at = 3 * static_cast<std::size_t>(p);
+                        const std::array<double, 3> xyz = {points[at], points[at + 1],
+                                                           points[at + 2]};
+                        points.insert(points.end(), xyz.begin(), xyz.end());
+                        uv.push_back(0.0);
+                        uv.push_back(0.0);
+                    }
+                    list.emplace_back(t, id);
+                    uv[2 * static_cast<std::size_t>(id)] =
+                        vt.mValues[static_cast<std::size_t>(t) * vt.mWidth];
+                    uv[2 * static_cast<std::size_t>(id) + 1] =
+                        vt.mValues[static_cast<std::size_t>(t) * vt.mWidth + 1];
+                }
+                fb.mIdx[k] = id;
+            }
+    }
+
+    Mesh mesh;
+    std::size_t np = points.size() / 3;
+    NDArray pts(DType::Float64, {np, 3});
+    if (!points.empty())
+        std::memcpy(pts.As<double>(), points.data(), points.size() * sizeof(double));
+    mesh.AssignPoints(std::move(pts));
+
+    // The raw rows; one per input point is carried to the seam copies. Once
+    // `uv` holds the texture coordinates, `vt` rows that are not one per point
+    // (a seamed file's) say nothing more and are left out.
+    auto raw_rows = [&](const AttributeRows& rRows) {
+        NDArray a = make_point_data(rRows);
+        if (np == np_in || rRows.mRows != np_in)
+            return a;
+        return detail::subset_gather_rows(a, parent);
+    };
+    if (vt.mRows > 0) {
+        NDArray rows = raw_rows(vt);
+        if (!has_uv || vt.mRows == np_in)
+            mesh.AddPointData("obj:vt", std::move(rows));
+    }
+    if (vn.mRows > 0)
+        mesh.AddPointData("obj:vn", raw_rows(vn));
+    if (has_uv) {
+        NDArray uv_array(DType::Float64, {np, 2});
+        std::memcpy(uv_array.As<double>(), uv.data(), uv.size() * sizeof(double));
+        mesh.AddPointData("uv", std::move(uv_array));
+        if (np > np_in) {
+            NDArray parents(DType::Int64, {np});
+            std::memcpy(parents.As<std::int64_t>(), parent.data(), np * sizeof(std::int64_t));
+            mesh.AddPointData("obj:parent_point", std::move(parents));
+        }
+    }
+
+    if (!nonempty.empty()) {
+        std::vector<NDArray> gid_blocks;
+        for (auto& fb : nonempty) {
+            NDArray data(DType::Int64, {fb.mCount, fb.mSize});
+            if (!fb.mIdx.empty())
+                std::memcpy(data.As<std::int64_t>(), fb.mIdx.data(),
+                            fb.mIdx.size() * sizeof(std::int64_t));
+            mesh.AddCellBlock(cell_type_for(fb.mSize), std::move(data));
+
+            NDArray g(DType::Int64, {fb.mCount});
+            std::memcpy(g.As<std::int64_t>(), fb.mGids.data(), fb.mCount * sizeof(std::int64_t));
+            gid_blocks.push_back(std::move(g));
+        }
+        mesh.AddCellData("obj:group_ids", std::move(gid_blocks));
+    }
+    return mesh;
+}
+
+void write_obj(const std::string& rPath, const Mesh& rMesh) {
+    for (const auto cb : rMesh.CellRange())
+        if (cb.Type() != "triangle" && cb.Type() != "quad" && cb.Type() != "polygon")
+            throw WriteError(
+                "Wavefront .obj files can only contain triangle, quad, "
+                "or polygon cells.");
+
+    auto os = detail::make_classic_ofstream(rPath, std::ios::binary);
+    if (!os)
+        throw WriteError("Could not open file for writing: " + rPath);
+
+    const NDArray& points = rMesh.Points();
+    const std::size_t num_points = rMesh.NumPoints();
+    const std::size_t dim = rMesh.PointDim();
+
+    os << detail::provenance_render_lines(detail::SlotTier::Block, "# ");
+    // One `CNumber::Append` per value (row_writer.hpp: `to_chars` for the
+    // plain precisions, roadmap 5.7.1) into a line, written whole; every value
+    // is formatted in the C convention, whatever the process locale.
+    const detail::CNumber number;
+    std::string line;
+    const detail::DoubleView point_values(points);
+    for (std::size_t r = 0; r < num_points; ++r) {
+        double x = (0 < dim) ? point_values[r * dim + 0] : 0.0;
+        double y = (1 < dim) ? point_values[r * dim + 1] : 0.0;
+        double z = (2 < dim) ? point_values[r * dim + 2] : 0.0;
+        line.assign("v ");
+        number.Append(line, "%.17g", x);
+        line.push_back(' ');
+        number.Append(line, "%.17g", y);
+        line.push_back(' ');
+        number.Append(line, "%.17g", z);
+        line.push_back('\n');
+        os << line;
+    }
+
+    auto write_pd = [&](const char* key, const char* tag) {
+        if (!rMesh.HasPointData(key))
+            return;
+        const NDArray& d = rMesh.PointData(key);
+        std::size_t nc = d.Shape().size() >= 2 ? d.Shape()[1] : 1;
+        const detail::DoubleView values(d);
+        for (std::size_t r = 0; r < (d.Shape().empty() ? 0 : d.Shape()[0]); ++r) {
+            line.assign(tag);
+            for (std::size_t c = 0; c < nc; ++c)
+                number.Append(line, " %.17g", values[r * nc + c]);
+            line.push_back('\n');
+            os << line;
+        }
+    };
+    write_pd("obj:vn", "vn");
+    // `uv` (one pair per point) becomes one `vt` per point, which every face
+    // corner names (`f v/vt`); it replaces the raw `obj:vt` rows.
+    bool with_uv = false;
+    if (rMesh.HasPointData("uv")) {
+        const NDArray& d = rMesh.PointData("uv");
+        with_uv = d.Shape().size() == 2 && d.Shape()[0] == num_points && d.Shape()[1] >= 2;
+    }
+    if (with_uv) {
+        const NDArray& d = rMesh.PointData("uv");
+        const std::size_t nc = d.Shape()[1];
+        const detail::DoubleView values(d);
+        for (std::size_t r = 0; r < num_points; ++r) {
+            double u = values[r * nc], v = values[r * nc + 1];
+            if (!std::isfinite(u) || !std::isfinite(v))
+                u = v = 0.0;  // a point no face uses
+            line.assign("vt ");
+            number.Append(line, "%.17g", u);
+            line.push_back(' ');
+            number.Append(line, "%.17g", v);
+            line.push_back('\n');
+            os << line;
+        }
+    } else {
+        write_pd("obj:vt", "vt");
+    }
+
+    for (const auto cb : rMesh.CellRange()) {
+        const NDArray& conn_array = cb.Conn();
+        std::size_t k = conn_array.Shape().size() >= 2 ? conn_array.Shape()[1] : 1;
+        const detail::Int64View conn(conn_array);
+        for (std::size_t r = 0; r < cb.NumCells(); ++r) {
+            os << 'f';
+            for (std::size_t j = 0; j < k; ++j) {
+                os << ' ' << (conn[r * k + j] + 1);
+                if (with_uv)
+                    os << '/' << (conn[r * k + j] + 1);
+            }
+            os << '\n';
+        }
+    }
+}
+
+}  // namespace meshioplusplus

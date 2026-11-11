@@ -4,14 +4,13 @@
 # See the file `LICENSE` for details.
 from __future__ import annotations
 
-from ._typing import assert_never
 from .common import UNDEFINED
 from .session import DEFAULT_IDLE_TIMEOUT, DEFAULT_MAX_AGE, get_requests_session
 from collections.abc import Callable, Collection, Mapping, Sequence
 from http import HTTPStatus
 from requests import Response
 from requests_toolbelt import MultipartEncoder  # type: ignore
-from typing import TYPE_CHECKING, Any, BinaryIO, Final, Literal, NamedTuple, TypedDict
+from typing import TYPE_CHECKING, Any, BinaryIO, Final, Literal, NamedTuple, TypedDict, assert_never
 from urllib.parse import quote
 
 import datetime
@@ -1786,23 +1785,6 @@ class AivenClient(AivenClientBase):
     def get_project_ca(self, project: str) -> Mapping:
         return self.verify(self.get, self.build_path("project", project, "kms", "ca"))
 
-    def invite_project_user(self, project: str, user_email: str, member_type: str | None = None) -> Mapping:
-        body = {
-            "user_email": user_email,
-        }
-        if member_type is not None:
-            body["member_type"] = member_type
-        return self.verify(self.post, self.build_path("project", project, "invite"), body=body)
-
-    def remove_project_user(self, project: str, user_email: str) -> Mapping:
-        return self.verify(self.delete, self.build_path("project", project, "user", user_email))
-
-    def list_project_users(self, project: str) -> Sequence[dict[str, Any]]:
-        return self.verify(self.get, self.build_path("project", project, "users"), result_key="users")
-
-    def list_invited_project_users(self, project: str) -> Sequence[dict[str, Any]]:
-        return self.verify(self.get, self.build_path("project", project, "users"), result_key="invitations")
-
     def create_user(self, email: str, password: str | None, real_name: str, *, tenant: str | None = None) -> Mapping:
         request = {
             "email": email,
@@ -1951,17 +1933,117 @@ class AivenClient(AivenClientBase):
         )
 
     def get_service_logs(
-        self, project: str, service: str, sort_order: str | None = None, offset: str | None = None, limit: int = 100
+        self,
+        project: str,
+        service: str,
+        sort_order: str | None = None,
+        offset: str | None = None,
+        limit: int = 100,
+        log_type: str | None = None,
     ) -> Mapping:
         body: dict[str, Any] = {"limit": limit}
         if offset is not None:
             body["offset"] = str(offset)
         if sort_order is not None:
             body["sort_order"] = sort_order
+        if log_type is not None:
+            body["log_type"] = log_type
         return self.verify(
             self.post,
             self.build_path("project", project, "service", service, "logs"),
             body=body,
+        )
+
+    def _application_vcs_integration_path(self, organization_id: str, *parts: str) -> str:
+        return self.build_path("organization", organization_id, "application", "vcs-integrations", *parts)
+
+    def list_application_vcs_integrations(self, organization_id: str) -> Sequence[dict[str, Any]]:
+        return self.verify(
+            self.get,
+            self._application_vcs_integration_path(organization_id),
+            result_key="vcs_integrations",
+        )
+
+    def list_application_vcs_repositories(
+        self,
+        organization_id: str,
+        vcs_integration_id: str,
+        search: str | None = None,
+        cursor: str | None = None,
+    ) -> Mapping:
+        params: dict[str, Any] = {}
+        if search is not None:
+            params["search"] = search
+        if cursor is not None:
+            params["cursor"] = cursor
+        return self.verify(
+            self.get,
+            self._application_vcs_integration_path(organization_id, vcs_integration_id, "repositories"),
+            params=params,
+        )
+
+    def list_application_vcs_branches(
+        self,
+        organization_id: str,
+        vcs_integration_id: str,
+        remote_repository_id: str,
+        cursor: str | None = None,
+    ) -> Mapping:
+        params: dict[str, Any] = {}
+        if cursor is not None:
+            params["cursor"] = cursor
+        return self.verify(
+            self.get,
+            self._application_vcs_integration_path(
+                organization_id, vcs_integration_id, "repositories", remote_repository_id, "branches"
+            ),
+            params=params,
+        )
+
+    def list_application_container_manifest_files(
+        self,
+        organization_id: str,
+        vcs_integration_id: str,
+        remote_repository_id: str,
+        commit_sha: str,
+    ) -> Sequence[dict[str, Any]]:
+        return self.verify(
+            self.get,
+            self._application_vcs_integration_path(
+                organization_id,
+                vcs_integration_id,
+                "repositories",
+                remote_repository_id,
+                "refs",
+                commit_sha,
+                "container-manifest-files",
+            ),
+            result_key="container_manifest_files",
+        )
+
+    def scan_application_container_manifest(
+        self,
+        organization_id: str,
+        vcs_integration_id: str,
+        remote_repository_id: str,
+        commit_sha: str,
+        branch: str,
+        file_path: str,
+        repository_url: str,
+    ) -> Mapping:
+        return self.verify(
+            self.post,
+            self._application_vcs_integration_path(
+                organization_id,
+                vcs_integration_id,
+                "repositories",
+                remote_repository_id,
+                "refs",
+                commit_sha,
+                "scan-container-manifest",
+            ),
+            body={"branch": branch, "file_path": file_path, "repository_url": repository_url},
+            result_key="file_scan",
         )
 
     def get_events(self, project: str, limit: int = 100) -> Sequence[dict[str, Any]]:
@@ -1971,166 +2053,6 @@ class AivenClient(AivenClientBase):
             self.build_path("project", project, "events"),
             params=params,
             result_key="events",
-        )
-
-    def get_stripe_key(self) -> str:
-        return self.verify(self.get, self.build_path("config", "stripe_key"), result_key="stripe_key")
-
-    def list_project_credits(self, project: str) -> Sequence[dict[str, Any]]:
-        return self.verify(
-            self.get,
-            self.build_path("project", project, "credits"),
-            result_key="credits",
-        )
-
-    def create_billing_group(
-        self,
-        billing_group_name: str,
-        *,
-        account_id: str | None = None,
-        card_id: str | None = None,
-        vat_id: str | None = None,
-        billing_currency: str | None = None,
-        billing_extra_text: str | None = None,
-        billing_emails: Sequence[str] | None = None,
-        company: str | None = None,
-        address_lines: Sequence[str] | None = None,
-        country_code: str | None = None,
-        city: str | None = None,
-        state: str | None = None,
-        zip_code: str | None = None,
-    ) -> Mapping:
-        body: dict[str, Any] = {"billing_group_name": billing_group_name}
-        if account_id is not None:
-            body["account_id"] = account_id
-        if card_id is not None:
-            body["card_id"] = card_id
-        if vat_id is not None:
-            body["vat_id"] = vat_id
-        if billing_currency is not None:
-            body["billing_currency"] = billing_currency
-        if billing_extra_text is not None:
-            body["billing_extra_text"] = billing_extra_text
-        if billing_emails is not None:
-            body["billing_emails"] = [{"email": email} for email in billing_emails]
-        if company is not None:
-            body["company"] = company
-        if address_lines is not None:
-            body["address_lines"] = address_lines
-        if country_code is not None:
-            body["country_code"] = country_code
-        if city is not None:
-            body["city"] = city
-        if state is not None:
-            body["state"] = state
-        if zip_code is not None:
-            body["zip_code"] = zip_code
-
-        return self.verify(self.post, "/billing-group", body=body, result_key="billing_group")
-
-    def get_billing_groups(self) -> Sequence[dict[str, Any]]:
-        return self.verify(self.get, "/billing-group", result_key="billing_groups")
-
-    def get_billing_group(self, billing_group: str) -> Mapping:
-        return self.verify(self.get, self.build_path("billing-group", billing_group), result_key="billing_group")
-
-    def get_billing_group_projects(self, billing_group: str) -> Sequence[dict[str, Any]]:
-        return self.verify(self.get, self.build_path("billing-group", billing_group, "projects"), result_key="projects")
-
-    def update_billing_group(  # noqa: PLR0912
-        self,
-        billing_group: str,
-        *,
-        billing_group_name: str | None = None,
-        account_id: str | None = None,
-        card_id: str | None = None,
-        vat_id: str | None = None,
-        billing_currency: str | None = None,
-        billing_extra_text: str | None = None,
-        billing_emails: Sequence[str] | None = None,
-        company: str | None = None,
-        address_lines: Sequence[str] | None = None,
-        country_code: str | None = None,
-        city: str | None = None,
-        state: str | None = None,
-        zip_code: str | None = None,
-    ) -> Mapping:
-        body: dict[str, Any] = {}
-        if billing_group_name is not None:
-            body["billing_group_name"] = billing_group_name
-        if account_id is not None:
-            body["account_id"] = account_id
-        if card_id is not None:
-            body["card_id"] = card_id
-        if vat_id is not None:
-            body["vat_id"] = vat_id
-        if billing_currency is not None:
-            body["billing_currency"] = billing_currency
-        if billing_extra_text is not None:
-            body["billing_extra_text"] = billing_extra_text
-        if billing_emails is not None:
-            body["billing_emails"] = [{"email": email} for email in billing_emails]
-        if company is not None:
-            body["company"] = company
-        if address_lines is not None:
-            body["address_lines"] = address_lines
-        if country_code is not None:
-            body["country_code"] = country_code
-        if city is not None:
-            body["city"] = city
-        if state is not None:
-            body["state"] = state
-        if zip_code is not None:
-            body["zip_code"] = zip_code
-
-        return self.verify(self.put, self.build_path("billing-group", billing_group), body=body, result_key="billing_group")
-
-    def delete_billing_group(self, billing_group: str) -> Mapping:
-        return self.verify(self.delete, self.build_path("billing-group", billing_group))
-
-    def assign_projects_to_billing_group(self, billing_group: str, *, project_names: Sequence[str]) -> Mapping:
-        body = {"projects_names": project_names}
-        return self.verify(self.post, self.build_path("billing-group", billing_group, "projects-assign"), body=body)
-
-    def get_billing_group_events(self, billing_group: str, *, limit: int = 100) -> Sequence[dict[str, Any]]:
-        return self.verify(
-            self.get, self.build_path("billing-group", billing_group, "events"), params={"limit": limit}, result_key="events"
-        )
-
-    def list_billing_group_credits(self, billing_group: str) -> Sequence[dict[str, Any]]:
-        return self.verify(
-            self.get,
-            self.build_path("billing-group", billing_group, "credits"),
-            result_key="credits",
-        )
-
-    def claim_billing_group_credit(self, billing_group: str, *, credit_code: str) -> Mapping:
-        return self.verify(
-            self.post,
-            self.build_path("billing-group", billing_group, "credits"),
-            body={"code": credit_code},
-            result_key="credit",
-        )
-
-    def list_billing_group_invoices(self, billing_group: str, *, sort: str | None = None) -> Sequence[dict[str, Any]]:
-        params = {"sort": sort} if sort else {}
-        invoices = self.verify(
-            self.get, self.build_path("billing-group", billing_group, "invoice"), params=params, result_key="invoices"
-        )
-        for invoice in invoices:
-            if invoice.get("download_cookie"):
-                invoice["download"] = (
-                    self.base_url
-                    + self.api_prefix
-                    + self.build_path(
-                        "billing-group", billing_group, "invoice", invoice["invoice_number"], invoice["download_cookie"]
-                    )
-                )
-        return invoices
-
-    def get_billing_group_invoice_lines(self, billing_group: str, invoice_number: str) -> Sequence[dict[str, Any]]:
-        return self.verify(
-            self.get, self.build_path("billing-group", billing_group, "invoice", invoice_number, "lines"), result_key="lines"
         )
 
     def start_service_maintenance(self, project: str, service: str) -> Mapping:
@@ -2669,63 +2591,6 @@ class AivenClient(AivenClientBase):
             self.build_path("organization", organization_id, "user-groups", group_id),
         )
 
-    def create_payment_method_setup_intent(self) -> str:
-        return self.verify(self.get, self.build_path("create_payment_method_setup_intent"), result_key="client_secret")
-
-    def list_payment_methods(self, organization_id: str) -> Sequence[dict[str, Any]]:
-        organization = self.verify(self.get, self.build_path("organization", organization_id))
-        return self.verify(
-            self.get, self.build_path("account", organization["account_id"], "payment_methods"), result_key="cards"
-        )
-
-    def attach_payment_method(self, organization_id: str, payment_method_id: str) -> dict[str, Any]:
-        organization = self.verify(self.get, self.build_path("organization", organization_id))
-        request = {
-            "payment_method_id": payment_method_id,
-        }
-        return self.verify(
-            self.post,
-            self.build_path("account", organization["account_id"], "payment_methods"),
-            body=request,
-            result_key="card",
-        )
-
-    def delete_organization_card(self, organization_id: str, card_id: str) -> None:
-        organization = self.verify(self.get, self.build_path("organization", organization_id))
-        self.verify(self.delete, self.build_path("account", organization["account_id"], "payment_method", card_id))
-
-    def sustainability_service_plan_emissions_project(
-        self, project: str, service_type: str, plan: str, cloud: str
-    ) -> dict[str, Any]:
-        return self.verify(
-            self.get,
-            self.build_path(
-                "project",
-                project,
-                "sustainability",
-                "emissions-project",
-                "service-types",
-                service_type,
-                "plans",
-                plan,
-                "clouds",
-                cloud,
-            ),
-        )
-
-    def sustainability_project_emissions_estimate(self, project: str, since: str, until: str) -> dict[str, Any]:
-        params = {"since": since, "until": until}
-        return self.verify(
-            self.get,
-            self.build_path(
-                "project",
-                project,
-                "sustainability",
-                "emissions",
-            ),
-            params=params,
-        )
-
     def byoc_create(
         self,
         *,
@@ -3131,17 +2996,14 @@ class AivenClient(AivenClientBase):
         *,
         organization_id: str,
         organization_vpc_id: str,
-        peering_connection_id: str,
         add: Sequence[Mapping[str, str]] | None = None,
         delete: Sequence[str] | None = None,
     ) -> Mapping[Any, Any]:
         path = self.build_path(
             "organization",
             organization_id,
-            "vpcs",
+            "vpc",
             organization_vpc_id,
-            "peering-connections",
-            peering_connection_id,
             "user-peer-network-cidrs",
         )
         body: dict[str, Any] = {}
@@ -3502,4 +3364,104 @@ class AivenClient(AivenClientBase):
                 "upgrade-validation",
             ),
             body={"comment": comment},
+        )
+
+    # ---- Kafka Connect custom plugins ----------------------------------------
+
+    def kafka_connect_custom_plugin_file_create(
+        self,
+        *,
+        organization_id: str,
+        plugin_name: str,
+        plugin_version: str,
+        service_type: str = "kafka_connect",
+        content_type: str = "application/java-archive",
+        plugin_description: str | None = None,
+        file_description: str | None = None,
+    ) -> Mapping:
+        body: dict[str, Any] = {
+            "plugin_name": plugin_name,
+            "plugin_version": plugin_version,
+            "service_type": service_type,
+            "content_type": content_type,
+        }
+        if plugin_description is not None:
+            body["plugin_description"] = plugin_description
+        if file_description is not None:
+            body["file_description"] = file_description
+        return self.verify(
+            self.post,
+            self.build_path("organization", organization_id, "kafka-connect", "custom-plugin-files"),
+            body=body,
+        )
+
+    def kafka_connect_custom_plugin_file_update(
+        self,
+        *,
+        organization_id: str,
+        plugin_file_id: str,
+        file_description: str | None,
+    ) -> Mapping:
+        return self.verify(
+            self.put,
+            self.build_path("organization", organization_id, "kafka-connect", "custom-plugin-files", plugin_file_id),
+            body={"file_description": file_description},
+        )
+
+    def kafka_connect_custom_plugin_file_delete(self, *, organization_id: str, plugin_file_id: str) -> Mapping:
+        return self.verify(
+            self.delete,
+            self.build_path("organization", organization_id, "kafka-connect", "custom-plugin-files", plugin_file_id),
+        )
+
+    def kafka_connect_custom_plugin_file_get(self, *, organization_id: str, plugin_file_id: str) -> Mapping:
+        return self.verify(
+            self.get,
+            self.build_path("organization", organization_id, "kafka-connect", "custom-plugin-files", plugin_file_id),
+        )
+
+    def kafka_connect_custom_plugin_file_list(self, *, organization_id: str, plugin_name: str) -> Sequence[dict[str, Any]]:
+        return self.verify(
+            self.get,
+            self.build_path("organization", organization_id, "kafka-connect", "custom-plugins", plugin_name, "files"),
+            result_key="plugin_files",
+        )
+
+    def kafka_connect_custom_plugin_update(
+        self,
+        *,
+        organization_id: str,
+        plugin_name: str,
+        plugin_description: str | None,
+    ) -> Mapping:
+        return self.verify(
+            self.put,
+            self.build_path("organization", organization_id, "kafka-connect", "custom-plugins", plugin_name),
+            body={"plugin_description": plugin_description},
+        )
+
+    def kafka_connect_custom_plugin_get(self, *, organization_id: str, plugin_name: str) -> Mapping:
+        return self.verify(
+            self.get,
+            self.build_path("organization", organization_id, "kafka-connect", "custom-plugins", plugin_name),
+        )
+
+    def kafka_connect_custom_plugin_list(self, *, organization_id: str) -> Sequence[dict[str, Any]]:
+        return self.verify(
+            self.get,
+            self.build_path("organization", organization_id, "kafka-connect", "custom-plugins"),
+            result_key="plugins",
+        )
+
+    def kafka_connect_custom_plugin_class_get(self, *, organization_id: str, plugin_class_name: str) -> Mapping:
+        return self.verify(
+            self.get,
+            self.build_path("organization", organization_id, "kafka-connect", "custom-plugin-classes", plugin_class_name),
+        )
+
+    def kafka_connect_custom_plugin_class_list(self, *, organization_id: str) -> Sequence[dict[str, Any]]:
+        return self.verify(
+            self.get,
+            self.build_path("organization", organization_id, "kafka-connect", "custom-plugin-classes"),
+            result_key="plugin_classes",
         )

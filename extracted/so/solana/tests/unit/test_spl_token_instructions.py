@@ -1,7 +1,9 @@
 """Unit tests for SPL-token instructions."""
 
+import pytest
 import spl.token.instructions as spl_token
 import spl.token.models as token_models
+from solders.instruction import AccountMeta, Instruction
 from solders.pubkey import Pubkey
 from solders.system_program import ID as SYSTEM_PROGRAM_ID
 from spl.token.constants import (
@@ -33,6 +35,7 @@ def test_initialize_mint(stubbed_sender):
         mint_authority=mint_authority,
     )
     instruction = spl_token.initialize_mint(params_no_freeze)
+    assert instruction.data == bytes([0, 18]) + bytes(mint_authority) + bytes([0])
     decoded_params = spl_token.decode_initialize_mint(instruction)
     assert not decoded_params.freeze_authority
     assert decoded_params == params_no_freeze
@@ -58,6 +61,7 @@ def test_initialize_mint2(stubbed_sender):
         mint_authority=mint_authority,
     )
     instruction = spl_token.initialize_mint2(params_no_freeze)
+    assert instruction.data == bytes([20, 18]) + bytes(mint_authority) + bytes([0])
     decoded_params = spl_token.decode_initialize_mint2(instruction)
     assert not decoded_params.freeze_authority
     assert decoded_params == params_no_freeze
@@ -125,6 +129,34 @@ def test_initialize_multisig2():
         multisig=new_multisig,
         signers=signers,
         m=len(signers),
+    )
+    instruction = spl_token.initialize_multisig2(params)
+    assert spl_token.decode_initialize_multisig2(instruction) == params
+
+
+def test_initialize_multisig_m_of_n():
+    """Test initialize multisig where fewer signatures are required than there are signers."""
+    new_multisig = Pubkey([0] * 31 + [0])
+    signers = [Pubkey([0] * 31 + [i + 1]) for i in range(3)]
+    params = token_models.InitializeMultisigParams(
+        program_id=TOKEN_PROGRAM_ID,
+        multisig=new_multisig,
+        signers=signers,
+        m=2,
+    )
+    instruction = spl_token.initialize_multisig(params)
+    assert spl_token.decode_initialize_multisig(instruction) == params
+
+
+def test_initialize_multisig2_m_of_n():
+    """Test initialize multisig2 where fewer signatures are required than there are signers."""
+    new_multisig = Pubkey([0] * 31 + [0])
+    signers = [Pubkey([0] * 31 + [i + 1]) for i in range(3)]
+    params = token_models.InitializeMultisig2Params(
+        program_id=TOKEN_PROGRAM_ID,
+        multisig=new_multisig,
+        signers=signers,
+        m=2,
     )
     instruction = spl_token.initialize_multisig2(params)
     assert spl_token.decode_initialize_multisig2(instruction) == params
@@ -225,9 +257,37 @@ def test_set_authority():
         signers=[Pubkey([0] * 31 + [i]) for i in range(3, 10)],
     )
     instruction = spl_token.set_authority(multisig_params)
+    assert instruction.data == bytes([6, 1, 0])
     decoded_params = spl_token.decode_set_authority(instruction)
     assert not decoded_params.new_authority
     assert decoded_params == multisig_params
+
+
+def test_set_authority_token_2022_authority_types():
+    """Test set authority with an authority type only Token-2022 defines."""
+    mint, current_authority, new_authority = Pubkey([1] * 32), Pubkey([2] * 32), Pubkey([3] * 32)
+    # SetAuthority (6) for TransferFeeConfig (4), as Token-2022 encodes it.
+    instruction = Instruction(
+        program_id=TOKEN_2022_PROGRAM_ID,
+        data=bytes([6, 4, 1]) + bytes(new_authority),
+        accounts=[
+            AccountMeta(pubkey=mint, is_signer=False, is_writable=True),
+            AccountMeta(pubkey=current_authority, is_signer=True, is_writable=False),
+        ],
+    )
+    decoded_params = spl_token.decode_set_authority(instruction)
+    assert decoded_params.authority == spl_token.AuthorityType.TRANSFER_FEE_CONFIG
+    assert decoded_params.new_authority == new_authority
+
+    params = token_models.SetAuthorityParams(
+        program_id=TOKEN_2022_PROGRAM_ID,
+        account=mint,
+        authority=spl_token.AuthorityType.WITHHELD_WITHDRAW,
+        current_authority=current_authority,
+    )
+    instruction = spl_token.set_authority(params)
+    assert instruction.data == bytes([6, 5, 0])
+    assert spl_token.decode_set_authority(instruction) == params
 
 
 def test_mint_to(stubbed_receiver):
@@ -469,6 +529,31 @@ def test_sync_native(stubbed_sender):
     instruction = spl_token.sync_native(params)
     decoded_params = spl_token.decode_sync_native(instruction)
     assert params == decoded_params
+
+
+def test_decode_sync_native_rejects_other_instructions(stubbed_receiver, stubbed_sender):
+    """decode_sync_native must validate the instruction type like every other decoder."""
+    transfer = spl_token.transfer(
+        token_models.TransferParams(
+            program_id=TOKEN_PROGRAM_ID,
+            source=stubbed_sender.pubkey(),
+            dest=stubbed_receiver,
+            owner=stubbed_sender.pubkey(),
+            amount=1,
+        )
+    )
+    with pytest.raises(ValueError, match="instruction index mismatch"):
+        spl_token.decode_sync_native(transfer)
+
+
+def test_decode_sync_native_rejects_missing_account():
+    """A sync_native instruction without its account must raise ValueError, not IndexError."""
+    instruction = spl_token.sync_native(
+        token_models.SyncNativeParams(program_id=TOKEN_PROGRAM_ID, account=Pubkey([0] * 31 + [1]))
+    )
+    bare = Instruction(program_id=instruction.program_id, data=instruction.data, accounts=[])
+    with pytest.raises(ValueError, match="expected at least 1"):
+        spl_token.decode_sync_native(bare)
 
 
 def test_get_account_data_size():

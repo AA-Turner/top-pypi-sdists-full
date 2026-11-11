@@ -30,7 +30,7 @@ from math import atan, degrees, e as _base_e, fabs, log, radians, \
                  sin, sqrt, tan
 
 __all__ = _ALL_LAZY.lom
-__version__ = '26.10.20'
+__version__ = '26.11.03'
 
 _TRIPS = 17  # per iteration loop
 
@@ -305,8 +305,8 @@ def _log_2(a, e):
 
 def _LPUV4(L, P, forward, saS, caS):
     sL, cL, sP, cP = sincos2_(L, P)
-    V =                     cP * cL
     W = sP if forward else (cP * sL)
+    V =                     cP * cL
     U = fdot_(V, caS,  W, saS)
     V = fdot_(V, saS, -W, caS)
     if forward:
@@ -350,7 +350,7 @@ def _tan_2(a):
 
 # **) MIT License
 #
-# Copyright (C) 2026-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2026-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

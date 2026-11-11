@@ -8,8 +8,8 @@ from snowflake.core.code_bundle._generated.api.code_bundle_api_base import (
 )
 from snowflake.core.code_bundle._generated.models import (
     ExecuteCodeBundleRequest,
+    ExecuteCodeBundleResponse,
     SuccessAcceptedResponse,
-    SuccessResponse,
 )
 
 
@@ -53,7 +53,7 @@ class CodeBundleResource(CodeBundleResourceBase):
         self,
         execute_code_bundle_request: ExecuteCodeBundleRequest,
         async_exec: Optional[bool] = None,
-    ) -> Union[SuccessResponse, SuccessAcceptedResponse]:
+    ) -> Union[ExecuteCodeBundleResponse, SuccessAcceptedResponse]:
         """Execute this code bundle.
 
         Parameters
@@ -72,10 +72,13 @@ class CodeBundleResource(CodeBundleResourceBase):
 
         Returns
         _______
-        Union[SuccessResponse, SuccessAcceptedResponse]
-            A ``SuccessResponse`` when the execution completes synchronously, or a
+        Union[ExecuteCodeBundleResponse, SuccessAcceptedResponse]
+            An ``ExecuteCodeBundleResponse`` when the execution completes synchronously, or a
             ``SuccessAcceptedResponse`` (with the ``job_id``) when the server accepts it for asynchronous
-            processing.
+            processing. The ``ExecuteCodeBundleResponse``'s ``return_value`` holds the run's ``RETURN_VALUE``
+            column as a string, with non-string values encoded as JSON text, and is ``None`` when the run
+            returns no ``RETURN_VALUE`` column or a NULL one. ``status`` holds the run's status message when
+            the run returns a status column, and is ``None`` otherwise.
 
         Examples
         ________
@@ -109,7 +112,7 @@ class CodeBundleResource(CodeBundleResourceBase):
         self,
         execute_code_bundle_request: ExecuteCodeBundleRequest,
         async_exec: Optional[bool] = None,
-    ) -> PollingOperation[Union[SuccessResponse, SuccessAcceptedResponse]]:
+    ) -> PollingOperation[Union[ExecuteCodeBundleResponse, SuccessAcceptedResponse]]:
         """An asynchronous version of :func:`execute`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
@@ -123,6 +126,6 @@ class CodeBundleResource(CodeBundleResourceBase):
             async_exec=async_exec,
             async_req=True,
         )
-        # The generated client types the future as Future[SuccessResponse], but a 202 response
+        # The generated client types the future as Future[ExecuteCodeBundleResponse], but a 202 response
         # (async_exec=True) is deserialized as SuccessAcceptedResponse at runtime.
         return PollingOperations.identity(future)  # type: ignore[arg-type]

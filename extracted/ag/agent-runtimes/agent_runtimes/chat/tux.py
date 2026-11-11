@@ -25,10 +25,20 @@ from rich.style import Style
 from rich.text import Text
 
 from agent_runtimes.loop import LoopSession, SessionSync, SlashCommandRegistry
+from agent_runtimes.loop.session import is_session_agui_url
 
-from .banner import LOOP_VERSION, LOOP_WORDMARK, TOKENS_DOWN, TOKENS_UP
+from .banner import (
+    DATALAYER_MARK,
+    DATALAYER_MARK_STAND_IN,
+    LOOP_VERSION,
+    LOOP_WORDMARK,
+    TOKENS_DOWN,
+    TOKENS_UP,
+    drawn_cells,
+)
 from .commands import SlashCommand, build_registry
 from .execution import TuxExecutionGateway
+from .markdown_stream import MarkdownStream
 
 # Rich styles matching Datalayer brand
 # Brand color reference (from BRAND_MANUAL.md):
@@ -197,6 +207,8 @@ class CliTux:
         )
         self._executor = TuxExecutionGateway(agent_id, server_url=self.server_url)
         self.startup_message = startup_message
+        #: A paused session to resume before the first prompt, by its uid.
+        self.resume_at_start: Optional[str] = None
         # Voice at the terminal (VO-15): the microphone on Ctrl+T,
         # the answers said with --speak; made on first use.
         self.voice = voice
@@ -204,6 +216,8 @@ class CliTux:
         self._voice_session: Any = None
         # How the next message was said, sent with it (VO-15, VO-27).
         self._spoken_line: Optional[Dict[str, str]] = None
+        # The answer being drawn, when a turn is under way (`MarkdownStream`).
+        self._answer: Optional[MarkdownStream] = None
 
         # Initialize slash commands. The registry is the source of truth —
         # built-ins plus whatever the installed plugins contributed — and
@@ -212,6 +226,12 @@ class CliTux:
             self, eggs=eggs, jupyter_url=jupyter_url
         )
         self.commands: dict[str, SlashCommand] = self.command_registry.as_mapping()
+        # Whether the session's agent decides, as its runtime said it: the
+        # runtime and agent it was read for, and its decisions or None
+        # (`commands.decisions.refresh`). /decisions is offered only then.
+        self.decisions: Optional[tuple[tuple[str, str], Optional[Dict[str, Any]]]] = (
+            None
+        )
 
         # What a command is allowed to know about the session it runs in, so a
         # command can be written against the session rather than against this
@@ -493,8 +513,24 @@ class CliTux:
         except Exception:
             return None
 
+    #: Whether the welcome was drawn in this process: the start draws it
+    #: before its questions, and neither the launch nor the prompt draws it
+    #: again below what was said since.
+    _welcome_drawn = False
+
     def show_welcome(self) -> None:
-        """Display the welcome banner."""
+        """Display the welcome banner, once in this process.
+
+        The start draws it before its questions, again before a launch and
+        again as the prompt opens: only the first is drawn.
+        """
+        if CliTux._welcome_drawn:
+            return
+        CliTux._welcome_drawn = True
+        self._draw_welcome()
+
+    def _draw_welcome(self) -> None:
+        """Draw the welcome banner."""
         display_name = self._get_display_name()
         cwd = self._get_cwd()
 
@@ -571,7 +607,14 @@ class CliTux:
         footer_right = Text(" Cheaper • Faster • Collaborative", style=STYLE_MUTED)
 
         # Create the main panel
-        title = f" ☰ {LOOP_WORDMARK} {version} "
+        # The mark is measured as this terminal draws it: where the tables
+        # say two cells and the terminal draws one, the line is laid out with
+        # a one-cell stand-in and the mark put back, so the corner is in line.
+        from rich.cells import cell_len
+
+        stands_in = drawn_cells(DATALAYER_MARK) != cell_len(DATALAYER_MARK)
+        mark = DATALAYER_MARK_STAND_IN if stands_in else DATALAYER_MARK
+        title = f" {mark} {LOOP_WORDMARK} {version} by Datalayer "
 
         content = Group(
             Columns([left_panel, right_panel], equal=False, expand=True),
@@ -586,7 +629,15 @@ class CliTux:
             box=ROUNDED,
         )
 
-        self.console.print(main_panel)
+        if stands_in and self.console.is_terminal:
+            with self.console.capture() as drawn:
+                self.console.print(main_panel)
+            self.console.file.write(
+                drawn.get().replace(DATALAYER_MARK_STAND_IN, DATALAYER_MARK, 1)
+            )
+            self.console.file.flush()
+        else:
+            self.console.print(main_panel)
         # Current working directory, shown full-width beneath the box and
         # truncated (keeping both ends) only if it overflows the terminal.
         path_line = self._truncate_middle(cwd, max(10, self.console.width - 2))
@@ -630,6 +681,10 @@ class CliTux:
 
     async def show_prompt(self) -> str:
         """Display the prompt and get user input with slash command completion."""
+        # Whether this agent decides: /decisions is offered only when it does.
+        from .commands import decisions as _decisions_cmd
+
+        await _decisions_cmd.refresh(self)
         # Initialize prompt session lazily (after commands are registered)
         if self.prompt_session is None:
             # The reactor's REPL machinery, over the same registry: the slash
@@ -1034,10 +1089,22 @@ class CliTux:
         try:
             # Create or reuse the AG-UI client for conversation history
             if self._agui_client is None:
-                self._agui_client = AGUIClient(self.agent_url)
+                headers: dict[str, str] = {}
+                if is_session_agui_url(self.agent_url):
+                    # A session's turns are signed as the session commands
+                    # are: its record is written in the person's name.
+                    from .commands.sessions_shared import signing_headers
+
+                    headers = signing_headers(self)
+                self._agui_client = AGUIClient(self.agent_url, headers=headers)
                 await self._agui_client.connect()
 
             client = self._agui_client
+            if is_session_agui_url(self.agent_url):
+                # The thread is a session of the agent from this message on:
+                # what `/pause`, `/swap`, `/clone` and `/export` act on.
+                self.session.session_uid = client.thread_id
+                self.session.conversation_id = client.thread_id
 
             # Show thinking indicator: on a terminal only, nothing animates
             # into a pipe.
@@ -1087,6 +1154,9 @@ class CliTux:
                 else self._watch_approvals(approval_stop)
             )
 
+            # The answer's text, drawn as Markdown while it streams; held on
+            # the instance so that whatever ends the turn closes it.
+            answer = self._answer = MarkdownStream(self.console)
             spoken, self._spoken_line = self._spoken_line, None
             async for event in client.run(
                 message,
@@ -1111,10 +1181,12 @@ class CliTux:
                     await _clear_waiting_indicator(show_bullet=False)
                     content = event.delta or ""
                     response_text += content
-                    self.console.print(content, end="", markup=False)
+                    # Markdown on a terminal, the text as it comes elsewhere.
+                    answer.write(content)
 
                 elif event.type == EventType.TOOL_CALL_START:
                     await _clear_waiting_indicator(show_bullet=False)
+                    answer.end()
                     # Start of a new tool call
                     # Use event properties which handle both camelCase and snake_case
                     tool_call_id = event.tool_call_id or ""
@@ -1181,6 +1253,7 @@ class CliTux:
 
                 elif event.type == EventType.RUN_FINISHED:
                     await _clear_waiting_indicator(show_bullet=False)
+                    answer.end()
                     # Do not break immediately: the server emits a trailing
                     # ``usage`` event (authoritative pydantic-ai
                     # ``result.usage()``) right after RUN_FINISHED. Mark the run
@@ -1192,6 +1265,7 @@ class CliTux:
 
                 elif event.type == EventType.RUN_ERROR:
                     await _clear_waiting_indicator(show_bullet=False)
+                    answer.end()
                     if current_tool_call:
                         current_tool_call.status = "error"
                     self.console.print()
@@ -1199,6 +1273,7 @@ class CliTux:
                     break
 
             await _clear_waiting_indicator(show_bullet=False)
+            answer.end()
 
             # Stop the approval watcher now that the run is complete.
             approval_stop.set()
@@ -1330,6 +1405,10 @@ class CliTux:
         except Exception as e:
             self._failed(f"Error: {e}")
         finally:
+            # An answer cut short (an error, an interrupt) is still closed and drawn.
+            if self._answer is not None:
+                self._answer.end()
+                self._answer = None
             # Ensure the approval watcher is always torn down.
             _appr_task = locals().get("approval_task")
             _appr_stop = locals().get("approval_stop")
@@ -1474,6 +1553,10 @@ class CliTux:
             # renders the colors instead of printing the escape sequences.
             self.console.print(Text.from_ansi(self.startup_message))
             self.console.print()
+        if self.resume_at_start:
+            # The paused session picked at the start: its conversation
+            # loaded, so the first message goes on with it.
+            await self.run_line(f"/resume {self.resume_at_start}")
 
         while self.running:
             try:
@@ -1507,6 +1590,7 @@ async def run_tux(
     voice: bool = False,
     speak: bool = False,
     cloud_runtime: Optional[str] = None,
+    resume: Optional[str] = None,
 ) -> None:
     """Run theLoop assistant TUX.
 
@@ -1533,4 +1617,6 @@ async def run_tux(
         speak=speak,
         cloud_runtime=cloud_runtime,
     )
+    # A paused session picked as `loop` started: resumed before the first prompt.
+    tux.resume_at_start = resume
     await tux.run()

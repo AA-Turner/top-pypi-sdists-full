@@ -21,6 +21,7 @@ class TerminalMixin:
         *,
         accounting: dict | None = None,
         beacon: bool = True,
+        ended_at: str | None = None,
     ) -> dict:
         """Journal the terminal status BEHIND this run's queued ops (F3/F3a).
 
@@ -41,6 +42,8 @@ class TerminalMixin:
         backlog is neither closed early nor alerted on, while a requeue can
         still take the run over. Verdict first: a pre-empted job killed
         during that beat has already saved it (review of #2060).
+
+        ``ended_at``: a re-logged run's real end (`probe run end --ended-at`); default now.
         """
         self.stop_heartbeat()
         if not getattr(self, "_sends_terminal_status", True) and not self._leased():
@@ -49,7 +52,7 @@ class TerminalMixin:
             self._client.hand_off_delivery()
             self._closed_status = status
             return {"finish_queued": False, "delivered": 0, "remaining": pending_count}
-        ended_at = _now()
+        ended_at = ended_at or _now()
         # The close is queued behind the run's data, but this process is done
         # with the run: the daemon hears it now (fire-and-forget).
         from ..launch import daemon_channel

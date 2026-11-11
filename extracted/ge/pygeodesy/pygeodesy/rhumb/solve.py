@@ -506,7 +506,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2022-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2022-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

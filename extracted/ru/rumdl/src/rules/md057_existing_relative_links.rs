@@ -615,11 +615,8 @@ impl MD057ExistingRelativeLinks {
             });
         }
 
-        for reference in ctx.reference_definitions() {
-            if ctx.line_info(reference.line).is_some_and(|info| info.in_front_matter) {
-                continue;
-            }
-            let url = reference.url.as_str();
+        for reference in ctx.body_reference_definitions() {
+            let url = reference.url;
             if url.is_empty() || self.is_non_file_destination(url, ctx.flavor) || self.is_fragment_only_link(url) {
                 continue;
             }
@@ -768,40 +765,6 @@ impl MD057ExistingRelativeLinks {
         } else {
             ctx.offset_to_line_col(offset)
         }
-    }
-
-    /// Byte range of a reference definition's destination in the document.
-    ///
-    /// Both the label and the title can repeat the destination text, so the
-    /// search is bounded to what sits between the label's closing bracket and
-    /// the title. Anchoring anywhere else risks a fix rewriting the label,
-    /// which would leave every usage of the reference dangling.
-    fn ref_def_url_range(content: &str, ref_def: &crate::lint_context::ReferenceDef) -> Option<std::ops::Range<usize>> {
-        let def = content.get(ref_def.byte_offset..ref_def.byte_end)?;
-        let label_end = Self::label_end(def)?;
-        let search_end = ref_def.title_byte_start.map_or(def.len(), |title| {
-            title.saturating_sub(ref_def.byte_offset).min(def.len())
-        });
-        let offset = def.get(label_end..search_end)?.find(ref_def.url.as_str())? + label_end;
-        let start = ref_def.byte_offset + offset;
-        Some(start..start + ref_def.url.len())
-    }
-
-    /// Offset just past the `]:` that closes a reference definition's label.
-    ///
-    /// A label may itself contain a bracket when the bracket is escaped, so
-    /// escapes are skipped rather than matched.
-    fn label_end(def: &str) -> Option<usize> {
-        let bytes = def.as_bytes();
-        let mut i = 0;
-        while i < bytes.len() {
-            match bytes[i] {
-                b'\\' => i += 2,
-                b']' if bytes.get(i + 1) == Some(&b':') => return Some(i + 2),
-                _ => i += 1,
-            }
-        }
-        None
     }
 
     /// Whether this document has frontmatter the rule is configured to check.
@@ -1618,13 +1581,20 @@ impl Rule for MD057ExistingRelativeLinks {
                     line,
                     column,
                     end_line: line,
-                    end_column: position(destination.fix_range.end).1,
+                    end_column: position(
+                        destination
+                            .fix_range
+                            .as_ref()
+                            .map_or(destination.url_range.end, |range| range.end),
+                    )
+                    .1,
                     message: Self::self_referential_message(&full_url, &self_link),
                     severity: Severity::Warning,
                     fix: match &self_link {
-                        SelfReferentialLink::Fragment(fragment) => {
-                            Some(Fix::new(destination.fix_range.clone(), fragment.clone()))
-                        }
+                        SelfReferentialLink::Fragment(fragment) => destination
+                            .fix_range
+                            .clone()
+                            .map(|range| Fix::new(range, fragment.clone())),
                         SelfReferentialLink::WholeFile => None,
                     },
                 });
@@ -1638,10 +1608,16 @@ impl Rule for MD057ExistingRelativeLinks {
                     line,
                     column,
                     end_line: line,
-                    end_column: position(destination.fix_range.end).1,
+                    end_column: position(
+                        destination
+                            .fix_range
+                            .as_ref()
+                            .map_or(destination.url_range.end, |range| range.end),
+                    )
+                    .1,
                     message: format!("Relative link '{full_url}' can be simplified to '{suggestion}'"),
                     severity: Severity::Warning,
-                    fix: Some(Fix::new(destination.fix_range.clone(), suggestion)),
+                    fix: destination.fix_range.clone().map(|range| Fix::new(range, suggestion)),
                 });
             }
 
@@ -1764,11 +1740,11 @@ impl Rule for MD057ExistingRelativeLinks {
         }
 
         // Also process reference definitions: [ref]: ./path.md
-        for ref_def in ctx.reference_definitions() {
-            if ctx.line_info(ref_def.line).is_some_and(|info| info.in_front_matter) {
-                continue;
-            }
-            let url = &ref_def.url;
+        // Only the definitions the parser reads, with their destinations as it
+        // decodes them: text after a paragraph line, indented as code, or under
+        // a label defined earlier defines nothing.
+        for definition in ctx.body_reference_definitions() {
+            let url = definition.url;
 
             // Skip empty URLs
             if url.is_empty() {
@@ -1782,11 +1758,16 @@ impl Rule for MD057ExistingRelativeLinks {
 
             // Where this definition's destination sits, shared by every report
             // on it. Without a located destination a warning falls back to the
-            // start of the definition's line and offers no fix.
-            let url_range = Self::ref_def_url_range(ctx.content, ref_def);
-            let (line, col) = url_range
-                .as_ref()
-                .map_or((ref_def.line, 1), |range| position(range.start));
+            // definition's label. Only a destination written verbatim is
+            // rewritten: a fix derived from the decoded value would change
+            // what an escape or a character reference spells.
+            let url_range = definition.verbatim_range();
+            let (line, col) = position(
+                definition
+                    .destination
+                    .as_ref()
+                    .map_or(definition.start, |range| range.start),
+            );
             let end_col = col + url.chars().count();
 
             // Handle absolute paths based on config
@@ -3686,6 +3667,26 @@ Use [spaces] and [missing] here.
     }
 
     #[test]
+    fn test_definition_shaped_paragraph_continuation_is_not_checked() {
+        let temp_dir = tempdir().unwrap();
+        let rule = MD057ExistingRelativeLinks::new().with_path(temp_dir.path());
+        for content in [
+            "Some text\n[r]: missing.md\n",
+            "- item\n  [r]: missing.md\n",
+            "> quoted\n> [r]: missing.md\n",
+            "Term\n: definition\n[r]: missing.md\n",
+        ] {
+            let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+            let result = rule.check(&ctx).unwrap();
+            assert!(result.is_empty(), "{content:?} is text, not a definition: {result:?}");
+        }
+        // The control: the same line after a blank line is a definition.
+        let content = "Some text\n\n[r]: missing.md\n";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        assert_eq!(rule.check(&ctx).unwrap().len(), 1);
+    }
+
+    #[test]
     fn test_inline_and_reference_both_checked() {
         // Both inline links and reference definitions should be checked
         let temp_dir = tempdir().unwrap();
@@ -3694,6 +3695,7 @@ Use [spaces] and [missing] here.
         let content = r#"# Test Document
 
 [inline link](./inline-missing.md)
+
 [ref]: ./ref-missing.md
 
 Use [ref] here.
@@ -3717,6 +3719,30 @@ Use [ref] here.
             result.iter().any(|w| w.message.contains("ref-missing.md")),
             "Should warn about ref-missing.md"
         );
+    }
+
+    #[test]
+    fn test_only_parsed_reference_definitions_are_checked() {
+        let temp_dir = tempdir().unwrap();
+        let rule = MD057ExistingRelativeLinks::new().with_path(temp_dir.path());
+        // (text, line of the definition the parser reads, if any)
+        let cases: &[(&str, Option<usize>)] = &[
+            ("[r]: missing.md\n", Some(1)),
+            ("- [r]: missing.md\n", Some(1)),
+            ("> [r]:\n> missing.md\n", Some(2)),
+            // A definition cannot interrupt a paragraph.
+            ("para\n[r]: missing.md\n", None),
+            ("- item\n  [r]: missing.md\n", None),
+            // Indented four columns, it is code.
+            ("    [r]: missing.md\n", None),
+            // Trailing text that is not a title makes it a paragraph.
+            ("[r]: missing.md junk\n", None),
+        ];
+        for &(content, line) in cases {
+            let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+            let lines: Vec<_> = rule.check(&ctx).unwrap().iter().map(|w| w.line).collect();
+            assert_eq!(lines, line.into_iter().collect::<Vec<_>>(), "{content:?}");
+        }
     }
 
     #[test]
@@ -6170,8 +6196,12 @@ mod cached_position_tests {
                 assert_eq!(warnings.len(), 6);
                 for (warning, destination) in warnings.iter().zip(destinations) {
                     let (line, column) = ctx.offset_to_line_col(destination.url_range.start);
+                    let fix_range = destination
+                        .fix_range
+                        .clone()
+                        .expect("every destination here is located");
                     let end = if warning.fix.is_some() {
-                        destination.fix_range.end
+                        fix_range.end
                     } else {
                         destination.url_range.end
                     };
@@ -6180,7 +6210,7 @@ mod cached_position_tests {
                         (line, column, line, ctx.offset_to_line_col(end).1)
                     );
                     if let Some(fix) = &warning.fix {
-                        assert_eq!(fix.range, destination.fix_range);
+                        assert_eq!(fix.range, fix_range);
                         assert_eq!(
                             fix.replacement,
                             if destination.url == "page.md" {
@@ -6191,8 +6221,8 @@ mod cached_position_tests {
                         );
                     }
                 }
-                let definition = &ctx.reference_definitions()[0];
-                let range = MD057ExistingRelativeLinks::ref_def_url_range(&content, definition).unwrap();
+                let definition = ctx.body_reference_definitions().next().unwrap();
+                let range = definition.destination.clone().unwrap();
                 let (line, column) = ctx.offset_to_line_col(range.start);
                 let warning = warnings.last().unwrap();
                 assert_eq!(

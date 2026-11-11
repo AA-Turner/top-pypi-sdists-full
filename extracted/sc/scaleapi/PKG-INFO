@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: scaleapi
-Version: 2.18.4
+Version: 2.19.0
 Summary: The official Python client library for Scale AI, the Data Platform for AI
 Home-page: https://github.com/scaleapi/scaleapi-python-client
 Author: Scale AI
@@ -138,6 +138,32 @@ __ https://scale.com/docs/api-reference
         client.create_task(TaskType.ImageAnnotation, **payload)
     except ScaleDuplicateResource as err:
         print(err.message)  # If unique_id is already used for a different task
+
+Data collection (``TaskType.DataCollectionV2``) tasks take an ``upload_type`` that sets the rest of
+the payload's shape. Fields that are not part of the upload type's schema are rejected. Tasks are
+deduplicated on ``(project, metadata.id)``, so resending the same ``metadata.id`` returns the
+existing task instead of creating a new one.
+
+.. code-block:: python
+
+    from scaleapi.tasks import TaskType
+
+    payload = dict(
+        project = "test_project",
+        upload_type = "video-annotation",
+        video_attachment = [
+            {"url": "s3://bucket/left.mp4", "sensor_id": "left", "name": "left"},
+        ],
+        hypothesis = "s3://bucket/prelabels.sfs",  # optional
+        metadata = {"id": "recording-0001"},
+    )
+
+    task = client.create_task(TaskType.DataCollectionV2, **payload)
+
+    # If the task's processing pipeline fails to start, the request still succeeds
+    # and the task comes back with an "error" status.
+    if task.status == "error":
+        print(task.as_dict())
 
 
 Retrieve a task
@@ -306,6 +332,45 @@ __ https://docs.scale.com/reference/audit-a-task
     # audit() is also available on Task object
     task = client.get_task('30553edd0b6a93f8f05f0fee')
     task.audit(True)
+
+
+Create a Fixless Audit
+^^^^^^^^^^^^^^^^^^^^^^
+
+Fixless audits record structured feedback on specific parts of a completed task's response (an annotation, a scene attribute, a missing object...) without modifying the response. They must be enabled for your project and require a team Admin or Manager API key.
+
+Pass the response you audited as ``target_response_url``: the completed task's ``response['annotations']['url']``. Each feedback item has a ``Scope`` saying where it applies. ``frames`` is a single frame index or an inclusive ``(start, end)`` range. Errors take an ``ErrorCategory`` and a ``Severity`` (``Severity.Standard`` by default).
+
+.. code-block :: python
+
+    from scaleapi.audits import ErrorCategory, FeedbackItem, Scope, Severity
+
+    task = client.get_task('30553edd0b6a93f8f05f0fee')
+
+    audit = client.create_fixless_audit(
+        task.id,
+        task.response['annotations']['url'],
+        accepted=False,
+        comments='Two issues in the first second',
+        feedback_items=[
+            FeedbackItem.error(
+                Scope.annotation('cuboid_12', frames=(0, 9)),
+                ErrorCategory.Geometry,
+                Severity.Severe,
+                description='Box is too loose',
+            ),
+            FeedbackItem.error(
+                Scope.point([412.0, 230.5], frames=4, sensor_id=0),
+                ErrorCategory.Missing,
+                description='Pedestrian not labeled',
+            ),
+            FeedbackItem.comment(Scope.scene(frames=0), 'Low light scene'),
+        ],
+    )
+
+    # Also available on the Task object, along with its existing audits
+    task.create_fixless_audit(task.response['annotations']['url'], accepted=True)
+    audits = task.audits()  # newest first
 
 
 Update A Task's Unique Id
@@ -535,8 +600,6 @@ __ https://scale.com/docs/api-reference/projects#create-project
 
     print(project.name)  # Test_Project
 
-Specify ``rapid=true`` for Rapid projects and ``studio=true`` for Studio projects. Throws ``ScaleDuplicateResource`` exception if a project with the same name already exists.
-
 Retrieve Project
 ^^^^^^^^^^^^^^^^
 
@@ -700,215 +763,6 @@ A list of examples scripts for use.
 * `cancel_batch.py`__ to concurrently cancel tasks in batches
 
 __ https://github.com/scaleapi/scaleapi-python-client/blob/master/examples/cancel_batch.py
-
-Evaluation tasks (For Scale Rapid projects only)
-________________________________________________
-
-Evaluation tasks are tasks that we know the answer to and are used to measure workers' performance internally to ensure the quality
-
-Create Evaluation Task
-^^^^^^^^^^^^^^^^^^^^^^
-
-Create an evaluation task.
-
-.. code-block:: python
-
-    client.create_evaluation_task(TaskType, ...task parameters...)
-
-Passing in the applicable values into the function definition. The applicable fields are the same as for create_task. Applicable fields for each task type can be found in `Scale's API documentation`__. Additionally an expected_response is required. An optional initial_response can be provided if it's for a review phase evaluation task.
-
-__ https://scale.com/docs/api-reference
-
-.. code-block:: python
-
-    from scaleapi.tasks import TaskType
-
-    expected_response = {
-        "annotations": {
-            "answer_reasonable": {
-                "type": "category",
-                "field_id": "answer_reasonable",
-                "response": [
-                    [
-                        "no"
-                    ]
-                ]
-            }
-        }
-    }
-
-    initial_response = {
-        "annotations": {
-            "answer_reasonable": {
-                "type": "category",
-                "field_id": "answer_reasonable",
-                "response": [
-                    [
-                        "yes"
-                    ]
-                ]
-            }
-        }
-    }
-
-    attachments = [
-        {"type": "image", "content": "https://i.imgur.com/bGjrNzl.jpeg"}
-    ]
-
-    payload = dict(
-        project = "test_project",
-        attachments,
-        initial_response=initial_response,
-        expected_response=expected_response,
-    )
-
-    client.create_evaluation_task(TaskType.TextCollection, **payload)
-
-Training tasks (For Scale Rapid projects only)
-________________________________________________
-
-Training tasks are used to onboard taskers onto your project
-
-Create Training Task
-^^^^^^^^^^^^^^^^^^^^^^
-
-Create a training task.
-
-.. code-block:: python
-
-    client.create_training_task(TaskType, ...task parameters...)
-
-Studio Assignments (For Scale Studio only)
-__________________________________________
-
-Manage project assignments for your labelers.
-
-List All Assignments
-^^^^^^^^^^^^^^^^^^^^
-
-Lists all your Scale team members and the projects they are assigned to.
-Returns a dictionary of all teammate assignments with keys as 'emails' of each teammate, and values as a list of project names the teammate are assigned to.
-
-.. code-block:: python
-
-    assignments = client.list_studio_assignments()
-    my_assignment = assignments.get('my-email@example.com')
-
-Add Studio Assignment
-^^^^^^^^^^^^^^^^^^^^^
-
-Assigns provided projects to specified teammate emails.
-
-Accepts a list of emails and a list of projects.
-
-Returns a dictionary of all teammate assignments with keys as 'emails' of each teammate, and values as a list of project names the teammate are assigned to.
-
-.. code-block:: python
-
-    assignments = client.add_studio_assignments(['email1@example.com', 'email2@example.com'], ['project 1', 'project 2'])
-
-
-Remove Studio Assignment
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-Removes provided projects from specified teammate emails.
-
-Accepts a list of emails and a list of projects.
-
-Returns a dictionary of all teammate assignments with keys as 'emails' of each teammate, and values as a list of project names the teammate are assigned to.
-
-.. code-block:: python
-
-    assignments = client.remove_studio_assignments(['email1@example.com', 'email2@example.com'], ['project 1', 'project 2'])
-
-Studio Project Groups (For Scale Studio Only)
-_____________________________________________
-
-Manage groups of labelers in our project by using Studio Project Groups.
-
-List Studio Project Groups
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Returns all labeler groups for the specified project.
-
-.. code-block:: python
-
-    list_project_group = client.list_project_groups('project_name')
-
-Add Studio Project Group
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-Creates a project group with the provided group_name for the specified project and adds the provided teammate emails to the new project group. The team members must be assigned to the specified project in order to be added to the new group.
-
-Returns the created StudioProjectGroup object.
-
-.. code-block:: python
-
-    added_project_group = client.create_project_group(
-        'project_name', ['email1@example.com'], 'project_group_name'
-    )
-
-Update Studio Project Group
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Assign or remove teammates from a project group.
-
-Returns the updated StudioProjectGroup object.
-
-.. code-block:: python
-
-    updated_project_group = client.update_project_group(
-        'project_name', 'project_group_name', ['emails_to_add'], ['emails_to_remove']
-    )
-
-Studio Batches (For Scale Studio Only)
-_______________________________________
-
-Get information about your pending Studio batches.
-
-List Studio Batches
-^^^^^^^^^^^^^^^^^^^
-
-Returns a list of StudioBatch objects for all pending Studio batches.
-
-.. code-block:: python
-
-    studio_batches = client.list_studio_batches()
-
-Assign Studio Batches
-^^^^^^^^^^^^^^^^^^^^^^
-
-Sets labeler group assignment for the specified batch.
-
-Returns a StudioBatch object for the specified batch.
-
-.. code-block:: python
-
-    assigned_studio_batch = client.assign_studio_batches('batch_name', ['project_group_name'])
-
-Set Studio Batches Priority
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Sets the order to prioritize your pending Studio batches. You must include all pending studio batches in the List.
-
-Returns a List of StudioBatch objects in the new order.
-
-.. code-block:: python
-
-    studio_batch_priority = client.set_studio_batches_priorities(
-        ['pending_batch_1', 'pending_batch_2', 'pending_batch_3']
-    )
-
-Reset Studio Batches Priority
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Resets the order of your Studio batches to the default order, which prioritizes older batches first.
-
-Returns a List of StudioBatch objects in the new order.
-
-.. code-block:: python
-
-    reset_studio_batch_prioprity = client.reset_studio_batches_priorities()
 
 
 Error handling

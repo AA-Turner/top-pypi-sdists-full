@@ -1,0 +1,1006 @@
+import copy
+import json
+import re
+import time
+from unittest.mock import ANY
+
+import fastapi
+import flask
+import pytest
+import requests
+from fastapi import FastAPI, Request
+from hypothesis import Phase
+from hypothesis import strategies as st
+from hypothesis.vendor.pretty import pretty
+
+import schemathesis
+from schemathesis.checks import not_a_server_error
+from schemathesis.core import SCHEMATHESIS_TEST_CASE_HEADER
+from schemathesis.core.errors import IncorrectUsage, InvalidSchema
+from schemathesis.core.failures import Failure, FailureGroup
+from schemathesis.core.parameters import ParameterLocation
+from schemathesis.core.transforms import merge_at
+from schemathesis.core.transport import USER_AGENT, Response
+from schemathesis.generation import GenerationMode
+from schemathesis.generation.hypothesis.examples import generate_many
+from schemathesis.specs.openapi.checks import content_type_conformance, response_schema_conformance
+from schemathesis.transport.prepare import get_default_headers
+from test.apps.catalog.graphql.bookstore import books
+from test.utils import run_given
+
+
+@pytest.fixture
+def schema_with_payload(ctx):
+    return ctx.openapi.load_schema(
+        {
+            "/data": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"text/plain": {"schema": {"type": "string"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                },
+                "put": {
+                    "requestBody": {"$ref": "#/components/requestBodies/Sample"},
+                    "responses": {"200": {"description": "OK"}},
+                },
+                "patch": {
+                    "requestBody": {"$ref": "#/components/requestBodies/Ref"},
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        },
+        components={
+            "requestBodies": {
+                "Sample": {
+                    "required": True,
+                    "content": {"text/plain": {"schema": {"type": "object"}}},
+                },
+                "Ref": {"$ref": "#/components/requestBodies/Sample"},
+            }
+        },
+    )
+
+
+def test_make_case_explicit_media_type(schema_with_payload):
+    # When there is only one possible media type
+    # And the `media_type` argument is passed to `make_case` explicitly
+    for method in ("POST", "PUT", "PATCH"):
+        case = schema_with_payload["/data"][method].Case(body="<foo></foo>", media_type="text/xml")
+        # Then this explicit media type should be in `case`
+        assert case.media_type == "text/xml"
+
+
+def test_make_case_automatic_media_type(schema_with_payload):
+    # When there is only one possible media type
+    # And the `media_type` argument is not passed to `make_case`
+    for method in ("POST", "PUT", "PATCH"):
+        case = schema_with_payload["/data"][method].Case(body="foo")
+        # Then it should be chosen automatically
+        assert case.media_type == "text/plain"
+
+
+def test_make_case_missing_media_type(ctx):
+    # When there are multiple available media types
+    schema = ctx.openapi.load_schema(
+        {
+            "/data": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "text/plain": {"schema": {"type": "string"}},
+                            "application/json": {"schema": {"type": "array"}},
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        }
+    )
+    # And the `media_type` argument is not passed to `make_case`
+    # Then there should be a usage error
+    with pytest.raises(IncorrectUsage):
+        schema["/data"]["POST"].Case(body="foo")
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        ({"path_parameters": {"name": "test"}}, "Case(path_parameters={'name': 'test'})"),
+        (
+            {"path_parameters": {"name": "test"}, "query": {"q": 1}},
+            "Case(path_parameters={'name': 'test'}, query={'q': 1})",
+        ),
+    ],
+)
+def test_case_repr(ctx, kwargs, expected):
+    operation = ctx.openapi.load_operation("GET /users/{name}", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case(**kwargs)
+    assert repr(case) == expected
+
+
+@pytest.mark.parametrize("override", [False, True])
+@pytest.mark.parametrize("converter", [lambda x: x, lambda x: x + "/"], ids=["as-is", "trailing-slash"])
+def test_as_transport_kwargs(ctx, override, converter):
+    api = ctx.openapi.apps.success()
+    base_url = converter(f"{api.base_url}/api")
+    operation = ctx.openapi.load_operation("GET /success", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case(cookies={"TOKEN": "secret"})
+    if override:
+        data = case.as_transport_kwargs(base_url)
+    else:
+        operation.base_url = base_url
+        data = case.as_transport_kwargs()
+    assert data == {
+        "headers": {**get_default_headers(), "User-Agent": USER_AGENT, SCHEMATHESIS_TEST_CASE_HEADER: ANY},
+        "method": "GET",
+        "params": {},
+        "cookies": {"TOKEN": "secret"},
+        "url": f"{api.base_url}/api/success",
+    }
+    response = requests.request(**data)
+    assert response.status_code == 200
+    assert response.json() == {"success": True}
+
+
+def test_mutate_body(ctx):
+    api = ctx.openapi.apps.users_crud()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    operation = schema["/users/"]["post"]
+    case = operation.Case(body={"foo": "bar"})
+    response = case.call()
+    assert response.request.body == json.dumps(case.body).encode()
+    schema.app = 42
+    assert case.as_transport_kwargs()["json"] == case.body
+
+
+def test_reserved_characters_in_operation_name(ctx):
+    # See GH-992
+    # When an API operation name contains `:`
+    operation = ctx.openapi.load_operation("GET /foo:bar", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case()
+    # Then it should not be truncated during API call
+    assert case.as_transport_kwargs("/")["url"] == "/foo:bar"
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        ({}, {"User-Agent": USER_AGENT, "X-Key": "foo"}),
+        ({"User-Agent": "foo/1.0"}, {"User-Agent": "foo/1.0", "X-Key": "foo"}),
+        ({"X-Value": "bar"}, {"X-Value": "bar", "User-Agent": USER_AGENT, "X-Key": "foo"}),
+        ({"UsEr-agEnT": "foo/1.0"}, {"UsEr-agEnT": "foo/1.0", "X-Key": "foo"}),
+    ],
+)
+def test_as_transport_kwargs_override_user_agent(ctx, headers, expected):
+    api = ctx.openapi.apps.success()
+    operation = ctx.openapi.load_operation("GET /success", {"responses": {"200": {"description": "OK"}}})
+    operation.base_url = f"{api.base_url}/api"
+    original_headers = headers.copy()
+    case = operation.Case(headers=headers)
+    data = case.as_transport_kwargs(headers={"X-Key": "foo"})
+    expected[SCHEMATHESIS_TEST_CASE_HEADER] = ANY
+    assert data == {
+        "headers": {**get_default_headers(), **expected},
+        "method": "GET",
+        "params": {},
+        "cookies": {},
+        "url": f"{api.base_url}/api/success",
+    }
+    assert case.headers == original_headers
+    response = requests.request(**data)
+    assert response.status_code == 200
+    assert response.json() == {"success": True}
+
+
+@pytest.mark.parametrize("header", ["content-Type", "Content-Type"])
+def test_as_transport_kwargs_override_content_type(ctx, header):
+    schema = ctx.openapi.load_schema(
+        {
+            "/data": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"text/plain": {"schema": {"type": "string"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        }
+    )
+    case = schema["/data"]["post"].Case(body="<html></html>", media_type="text/plain")
+    # When the `Content-Type` header is explicitly passed
+    data = case.as_transport_kwargs(headers={header: "text/html"})
+    # Then it should be used in network requests
+    assert data == {
+        "method": "POST",
+        "data": b"<html></html>",
+        "params": {},
+        "cookies": {},
+        "headers": {
+            **get_default_headers(),
+            header: "text/html",
+            "User-Agent": USER_AGENT,
+            SCHEMATHESIS_TEST_CASE_HEADER: ANY,
+        },
+        "url": "/data",
+    }
+
+
+@pytest.mark.parametrize("override", [False, True])
+def test_call(ctx, override):
+    api = ctx.openapi.apps.success()
+    base_url = f"{api.base_url}/api"
+    operation = ctx.openapi.load_operation("GET /success", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case()
+    if override:
+        response = case.call(base_url)
+    else:
+        operation.base_url = base_url
+        response = case.call()
+    assert response.status_code == 200
+    assert response.json() == {"success": True}
+
+
+def custom_check(ctx, response, case):
+    pass
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {"additional_checks": (custom_check,)},
+        {"excluded_checks": (not_a_server_error,)},
+    ],
+)
+def test_call_and_validate(ctx, kwargs):
+    api = ctx.openapi.apps.success()
+    api_schema = schemathesis.openapi.from_url(api.schema_url)
+
+    @run_given(case=api_schema["/api/success"]["GET"].as_strategy(), max_examples=1)
+    def test(case):
+        case.call_and_validate(**kwargs)
+
+
+def test_call_and_validate_negative_case_with_body_override(ctx):
+    api = ctx.openapi.apps.payload()
+    api_schema = schemathesis.openapi.from_url(api.schema_url)
+
+    @run_given(
+        case=api_schema["/api/payload"]["POST"].as_strategy(generation_mode=GenerationMode.NEGATIVE), max_examples=5
+    )
+    def test(case):
+        case.call_and_validate(json={"name": "John"})
+
+
+_CALLER_BODIES = [({"json": {"name": "John"}}, b'{"name": "John"}'), ({"data": b"caller bytes"}, b"caller bytes")]
+_GENERATED_BODIES = [None, {"name": 1}, b"generated bytes"]
+
+
+@pytest.fixture(params=["requests", "wsgi", "asgi"])
+def payload_target(request, ctx):
+    """The payload operation over each transport, and a reader for the body the application received."""
+    if request.param == "asgi":
+        received: list[bytes] = []
+        app = FastAPI()
+
+        @app.post("/api/payload")
+        async def payload(incoming: Request):
+            received.append(await incoming.body())
+            return fastapi.Response(status_code=200)
+
+        schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+        return schema["/api/payload"]["POST"], lambda: received[-1]
+    api = ctx.openapi.apps.payload()
+    if request.param == "wsgi":
+        schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
+    else:
+        schema = schemathesis.openapi.from_url(api.schema_url)
+    return schema["/api/payload"]["POST"], lambda: api.requests[-1].body
+
+
+@pytest.mark.parametrize("generated", _GENERATED_BODIES, ids=["null", "object", "bytes"])
+@pytest.mark.parametrize(("caller", "expected"), _CALLER_BODIES, ids=["json", "data"])
+def test_body_passed_by_the_caller_replaces_the_generated_one(payload_target, generated, caller, expected):
+    operation, received = payload_target
+    case = operation.Case(body=generated, media_type="application/json")
+    response = case.call(**caller)
+    # What the application received, and what the response reports as sent (used for reproduction).
+    assert (received(), response.request.body) == (expected, expected)
+
+
+def test_metadata_has_only_relevant_components(ctx):
+    api = ctx.openapi.apps.custom_format()
+    api_schema = schemathesis.openapi.from_url(api.schema_url)
+
+    operation = api_schema["/api/custom_format"]["GET"]
+
+    @run_given(
+        case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE)
+        | operation.as_strategy(generation_mode=GenerationMode.NEGATIVE),
+        max_examples=10,
+    )
+    def test(case):
+        # Metadata should only contain components relevant to the API operation
+        assert len(case.meta.components) == 1
+        assert ParameterLocation.QUERY in case.meta.components
+
+
+def test_call_and_validate_for_asgi():
+    app = FastAPI()
+
+    @app.get("/users")
+    async def users():
+        return {"success": True}
+
+    api_schema = schemathesis.openapi.from_dict(app.openapi())
+
+    @run_given(case=api_schema["/users"]["GET"].as_strategy(), max_examples=1)
+    def test(case):
+        with pytest.raises(IncorrectUsage, match="If you use the ASGI integration"):
+            case.call_and_validate()
+
+
+def test_asgi_call_with_and_without_explicit_base_url():
+    app = FastAPI()
+
+    @app.get("/items")
+    def items():
+        return {"ok": True}
+
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+    case = schema["/items"]["GET"].Case()
+    assert case.call().status_code == 200
+    assert case.call(base_url="http://testserver").status_code == 200
+
+
+@pytest.mark.parametrize("method", ["call", "call_and_validate"])
+@pytest.mark.parametrize(
+    ("servers", "suggestion", "path"),
+    [
+        ([], '    schema.config.update(base_url="https://api.example.com")\n', "/users"),
+        (
+            [{"url": "https://api.example.com/v1"}],
+            "Your schema declares a server at https://api.example.com/v1:\n"
+            '    schema.config.update(base_url="https://api.example.com/v1")\n',
+            "/v1/users",
+        ),
+    ],
+    ids=["no-servers", "declared-server"],
+)
+def test_call_without_base_url_error_message(ctx, method, servers, suggestion, path):
+    schema = ctx.openapi.load_schema(
+        {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}}, servers=servers
+    )
+    with pytest.raises(IncorrectUsage) as exc_info:
+        getattr(schema["/users"]["GET"].Case(), method)()
+    assert str(exc_info.value) == (
+        "The `base_url` argument is required when specifying a schema via a file, "
+        "so Schemathesis knows where to send the data.\n"
+        f"{suggestion}"
+        f"You can also pass `base_url` to `Case.{method}`.\n"
+        "If you use the ASGI integration, please supply your test client as the `session` argument to `call`.\n"
+        f"URL: {path}"
+    )
+
+
+def test_call_without_base_url_ignores_malformed_swagger_schemes():
+    schema = schemathesis.openapi.from_dict(
+        {
+            "swagger": "2.0",
+            "info": {"title": "Test", "version": "1"},
+            "host": "example.org",
+            "schemes": "http",
+            "paths": {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        }
+    )
+    with pytest.raises(IncorrectUsage, match=r'schema\.config\.update\(base_url="https://api\.example\.com"\)'):
+        schema["/users"]["GET"].Case().call()
+
+
+def test_validate_response(ctx, response_factory):
+    operation = ctx.openapi.load_operation("GET /users", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case()
+    with pytest.raises(FailureGroup):
+        case.validate_response(response_factory.requests(status_code=418))
+
+
+def test_validate_response_no_errors(ctx, response_factory):
+    operation = ctx.openapi.load_operation("GET /users", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case()
+    assert case.validate_response(response_factory.requests(status_code=200)) is None
+
+
+def test_validate_response_custom_check_raising_while_handling_error(ctx, response_factory):
+    operation = ctx.openapi.load_operation("GET /x", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case()
+
+    def has_id(ctx, response, case):
+        try:
+            response.json()["id"]
+        except KeyError:
+            raise AssertionError("Missing `id`") from None
+
+    with pytest.raises(FailureGroup) as exc:
+        case.validate_response(response_factory.requests(content=b"{}"), checks=[has_id])
+    assert [(failure.title, failure.message) for failure in exc.value.exceptions] == [
+        ("Custom check failed: `has_id`", "Missing `id`")
+    ]
+
+
+@pytest.mark.parametrize("factory_type", ["httpx", "httpx2", "requests", "wsgi"])
+@pytest.mark.parametrize(
+    ("response_schema", "payload", "schema_path", "instance", "instance_path"),
+    [
+        ({"type": "object"}, [], ["type"], [], []),
+        ({"$ref": "#/components/schemas/Foo"}, [], ["type"], [], []),
+        (
+            {"type": "object", "properties": {"foo": {"type": "object"}}},
+            {"foo": 42},
+            ["properties", "foo", "type"],
+            42,
+            ["foo"],
+        ),
+    ],
+)
+def test_validate_response_schema_path(
+    ctx,
+    response_factory,
+    factory_type,
+    response_schema,
+    payload,
+    schema_path,
+    instance,
+    instance_path,
+):
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {"application/json": {"schema": response_schema}},
+                        },
+                    },
+                },
+            }
+        },
+        components={"schemas": {"Foo": {"type": "object"}}},
+    )
+    response = getattr(response_factory, factory_type)(content=json.dumps(payload).encode("utf-8"))
+    with pytest.raises(Failure) as exc:
+        schema["/test"]["POST"].validate_response(response)
+    assert not schema["/test"]["POST"].is_valid_response(response)
+    failure = exc.value
+    assert failure.schema_path == schema_path
+    assert failure.schema == {"type": "object"}
+    assert failure.instance == instance
+    assert failure.instance_path == instance_path
+
+
+def test_response_from_requests(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app({"/cookies": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/api/cookies")
+    def set_cookies():
+        response = flask.make_response("")
+        response.set_cookie("foo", "bar")
+        response.set_cookie("baz", "spam")
+        return response
+
+    port = app_runner.run_flask_app(app)
+    response = requests.get(f"http://127.0.0.1:{port}/api/cookies", timeout=10)
+    serialized = Response.from_requests(response, True)
+    assert serialized.content == b""
+    assert serialized.status_code == 200
+    assert serialized.http_version == "1.1"
+    assert serialized.message == "OK"
+    assert serialized.headers["set-cookie"] == ["foo=bar; Path=/", "baz=spam; Path=/"]
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [
+        ("/userz", "`/userz` not found. Did you mean `/users`?"),
+        ("/what?", "`/what?` not found"),
+    ],
+)
+def test_operation_path_suggestion(swagger_20, value, message):
+    with pytest.raises(LookupError, match=re.escape(message)):
+        swagger_20[value]["POST"]
+
+
+def test_method_suggestion(swagger_20):
+    with pytest.raises(LookupError, match="Method `PUT` not found. Available methods: GET"):
+        swagger_20["/users"]["PUT"]
+
+
+def test_method_suggestion_without_parameters(swagger_20):
+    swagger_20.raw_schema["paths"]["/users"]["parameters"] = []
+    swagger_20.raw_schema["paths"]["/users"]["x-ext"] = []
+    with pytest.raises(LookupError, match="Method `PUT` not found. Available methods: GET$"):
+        swagger_20["/users"]["PUT"]
+
+
+def test_method_lookup_on_path_without_operations(ctx):
+    schema = ctx.openapi.load_schema({"/users": {"parameters": []}})
+    assert len(schema["/users"]) == 1
+    with pytest.raises(LookupError, match="^Method `GET` not found.$"):
+        schema["/users"]["GET"]
+
+
+@pytest.mark.parametrize("mode", list(GenerationMode))
+@pytest.mark.hypothesis_nested
+def test_generation_mode_is_available(ctx, mode):
+    # When a new case is generated
+    operation = ctx.openapi.load_operation(
+        "POST /data",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {"text/plain": {"schema": {"type": "string"}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+
+    @run_given(case=operation.as_strategy(generation_mode=mode), max_examples=1)
+    def test(case):
+        # Then its generator mode should be available
+        assert case.meta.generation.mode == mode
+
+
+@pytest.mark.hypothesis_nested
+def test_disabled_security_parameters_are_not_serialized_into_query(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/data": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "ids",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "array", "items": {"type": "integer"}, "minItems": 2},
+                            "explode": False,
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        },
+        components={"securitySchemes": {"ApiKey": {"type": "apiKey", "in": "query", "name": "key"}}},
+        security=[{"ApiKey": []}],
+    )
+    schema.config.generation.update(with_security_parameters=False)
+
+    @run_given(case=schema["/data"]["GET"].as_strategy(), max_examples=5)
+    def test(case):
+        assert list(case.query) == ["ids"]
+        assert case.query["ids"].count(",") >= 1
+
+
+@pytest.mark.hypothesis_nested
+def test_negative_multipart_keeps_registered_media_type_for_text_property(ctx):
+    schemathesis.openapi.media_type("image/png", st.just(b"\x89PNG"))
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "multipart/form-data": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"file": {"type": "string"}, "size": {"type": "integer"}},
+                            "required": ["file", "size"],
+                        },
+                        "encoding": {"file": {"contentType": "image/png"}},
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+
+    bodies = [case.body for case in generate_many(operation.as_strategy(generation_mode=GenerationMode.NEGATIVE), 200)]
+    # Negative bodies may omit `file` or not be objects at all; where `file` is present, it keeps its media type.
+    assert {body["file"] for body in bodies if isinstance(body, dict) and "file" in body} == {b"\x89PNG"}
+
+
+@pytest.mark.hypothesis_nested
+def test_case_insensitive_headers(ctx):
+    operation = ctx.openapi.load_operation(
+        "POST /data",
+        {
+            "parameters": [{"name": "X-id", "in": "header", "required": True, "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    # When headers are generated
+
+    @run_given(case=operation.as_strategy(), max_examples=1)
+    def test(case):
+        assert "X-id" in case.headers
+        # Then they are case-insensitive
+        case.headers["x-ID"] = "foo"
+        assert len(case.headers) == 1
+        assert case.headers["X-id"] == "foo"
+
+
+def test_iter_parameters(ctx):
+    operation = ctx.openapi.load_operation(
+        "POST /data",
+        {
+            "parameters": [
+                {"name": "X-id", "in": "header", "required": True, "schema": {"type": "string"}},
+                {"name": "q", "in": "query", "required": True, "schema": {"type": "string"}},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    params = list(operation.iter_parameters())
+    assert len(params) == 2
+    assert params[0].name == "X-id"
+    assert params[1].name == "q"
+
+
+@pytest.mark.parametrize("factory_type", ["httpx", "httpx2", "requests", "wsgi"])
+def test_checks_errors_deduplication(ctx, response_factory, factory_type):
+    # See GH-1394
+    operation = ctx.openapi.load_operation(
+        "GET /data",
+        {
+            "responses": {
+                "200": {"description": "OK", "content": {"application/json": {"schema": {"type": "integer"}}}}
+            },
+        },
+    )
+    case = operation.Case()
+    response = getattr(response_factory, factory_type)(content=b"42", content_type=None)
+    # When there are two checks that raise the same failure
+    with pytest.raises(FailureGroup) as exc:
+        case.validate_response(response, checks=(content_type_conformance, response_schema_conformance))
+    assert len(exc.value.exceptions) == 1
+
+
+def test_validate_response_failure_is_catchable_from_public_errors(ctx, response_factory):
+    operation = ctx.openapi.load_operation("GET /data", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case()
+    with pytest.raises(schemathesis.errors.FailureGroup):
+        case.validate_response(response_factory.requests(status_code=500))
+
+
+def test_operation_hash(openapi_30):
+    # API Operations should be hashable
+    _ = {i.ok() for i in openapi_30.get_all_operations()}
+
+
+def test_operation_and_case_never_equal_foreign_objects(ctx):
+    operation = ctx.openapi.load_operation("GET /data", {"responses": {"200": {"description": "OK"}}})
+    assert operation != "GET /data"
+    assert operation.Case() != "GET /data"
+
+
+def test_hypothesis_reports_omit_schema_and_parameter_sets(ctx):
+    # Falsifying-example reports would otherwise dump whole schemas into the output.
+    schema = ctx.openapi.load_schema({"/data": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    assert (pretty(schema), pretty(schema["/data"]["GET"].query)) == ("", "")
+
+
+def test_operation_survives_deepcopy_as_the_same_object(ctx):
+    operation = ctx.openapi.load_operation("GET /data", {"responses": {"200": {"description": "OK"}}})
+    assert copy.deepcopy(operation) is operation  # noqa: TID251
+
+
+@pytest.fixture
+def echo_app(ctx):
+    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/users")
+    def users():
+        time.sleep(float(flask.request.args.get("delay", 0)))
+        return flask.jsonify(
+            {"headers": dict(flask.request.headers), "cookies": flask.request.cookies, "query": flask.request.args}
+        )
+
+    return app
+
+
+@pytest.mark.parametrize("arg", ["headers", "cookies"])
+def test_call_overrides(app_runner, echo_app, arg):
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(echo_app))
+    original = {"A": "X", "B": "X"}
+    case = schema["/users"]["GET"].Case(headers=original, cookies=original, query=original)
+    received = case.call(**{arg: {"B": "Y"}}).json()[arg]
+    assert {key: received[key] for key in original} == {"A": "X", "B": "Y"}
+
+
+@pytest.mark.parametrize("transport", ["requests", "wsgi"])
+def test_call_percent_encodes_non_latin1_cookies(app_runner, echo_app, transport):
+    if transport == "requests":
+        schema = schemathesis.openapi.from_url(app_runner.openapi_url(echo_app))
+    else:
+        schema = schemathesis.openapi.from_wsgi("/openapi.json", echo_app)
+    case = schema["/users"]["GET"].Case(cookies={"ascii": "a%b", "wide": "k,╯°□°%"})
+    assert case.call().json()["cookies"] == {"ascii": "a%b", "wide": "k%2C%E2%95%AF%C2%B0%E2%96%A1%C2%B0%25"}
+
+
+@pytest.mark.parametrize(
+    ("schema", "explode", "value", "expected"),
+    [
+        ({"type": "object"}, True, {"k": "v", "n": 1}, "k=v,n=1"),
+        ({"type": "object"}, False, {"k": "v", "n": 1}, "k,v,n,1"),
+        ({"type": "array"}, False, ["x", True], "x,true"),
+    ],
+    ids=["object-explode", "object", "array"],
+)
+@pytest.mark.parametrize("transport", ["requests", "wsgi"])
+def test_call_serializes_container_cookie_values(ctx, app_runner, transport, schema, explode, value, expected):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/cookies": {
+                "get": {
+                    "parameters": [{"name": "p", "in": "cookie", "schema": schema, "explode": explode}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/cookies")
+    def cookies():
+        return flask.jsonify(flask.request.cookies)
+
+    if transport == "requests":
+        loaded = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    else:
+        loaded = schemathesis.openapi.from_wsgi("/openapi.json", app)
+    case = loaded["/cookies"]["GET"].Case(cookies={"p": value, "plain": "kept"})
+    assert case.call().json() == {"p": expected, "plain": "kept"}
+
+
+@pytest.mark.parametrize("transport", ["requests", "wsgi"])
+def test_call_sends_undeclared_container_cookies_as_json(app_runner, echo_app, transport):
+    if transport == "requests":
+        schema = schemathesis.openapi.from_url(app_runner.openapi_url(echo_app))
+    else:
+        schema = schemathesis.openapi.from_wsgi("/openapi.json", echo_app)
+    case = schema["/users"]["GET"].Case(cookies={"obj": {"k": "v"}, "arr": ["x", 1]})
+    assert case.call().json()["cookies"] == {"obj": "{%22k%22:%20%22v%22}", "arr": "[%22x%22%2C%201]"}
+
+
+@pytest.mark.parametrize("with_config", [True, False])
+def test_call_verify_override(app_runner, echo_app, with_config):
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(echo_app))
+    if with_config:
+        schema.config.tls_verify = "/tmp"
+    assert schema["/users"]["GET"].Case().call(verify=False).verify is False
+
+
+def test_call_uses_configured_tls_verify(app_runner, echo_app):
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(echo_app))
+    schema.config.tls_verify = False
+    assert schema["/users"]["GET"].Case().call().verify is False
+
+
+# A netrc entry for the host replaces generated credentials, but not configured ones.
+@pytest.mark.parametrize(
+    ("basic_auth", "expected"),
+    [(("user", "pass"), "Basic dXNlcjpwYXNz"), (None, "Basic bmV0cmM6c2VjcmV0")],
+    ids=["configured", "generated"],
+)
+def test_call_prefers_configured_auth_over_netrc(ctx, app_runner, monkeypatch, tmp_path, basic_auth, expected):
+    netrc = tmp_path / "netrc"
+    netrc.write_text("machine 127.0.0.1 login netrc password secret\n")
+    monkeypatch.setenv("NETRC", str(netrc))
+    app, _ = ctx.openapi.make_flask_app(
+        {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        components={"securitySchemes": {"basic": {"type": "http", "scheme": "basic"}}},
+        security=[{"basic": []}],
+    )
+
+    @app.route("/users")
+    def users():
+        return flask.jsonify(flask.request.headers.get("Authorization"))
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    schema.config.update(basic_auth=basic_auth)
+    case = generate_many(schema["/users"]["GET"].as_strategy(), 1)[0]
+    assert case.call().json() == expected
+
+
+@pytest.mark.parametrize(
+    ("setting", "value", "base_url", "error", "match"),
+    [
+        ("request_timeout", 0.05, None, requests.exceptions.ReadTimeout, "timed out"),
+        ("request_cert", "abc", "https://127.0.0.1:1", OSError, "invalid path: abc"),
+        ("proxy", "http://127.0.0.1:1", None, requests.exceptions.ProxyError, "Unable to connect to proxy"),
+    ],
+    ids=["timeout", "cert", "proxy"],
+)
+def test_call_uses_configured_transport_settings(app_runner, echo_app, setting, value, base_url, error, match):
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(echo_app))
+    setattr(schema.config, setting, value)
+    with pytest.raises(error, match=match):
+        schema["/users"]["GET"].Case(query={"delay": "0.2"}).call(base_url=base_url)
+
+
+# The client certificate is loaded before connecting, so no server is needed.
+@pytest.mark.parametrize("with_config", [True, False])
+def test_call_cert_override(openapi_30, with_config):
+    if with_config:
+        openapi_30.config.request_cert = "/tmp"
+    case = openapi_30["/users"]["GET"].Case()
+    with pytest.raises(OSError, match="invalid path: abc"):
+        case.call(cert="abc", base_url="https://127.0.0.1:1")
+
+
+@pytest.mark.parametrize("with_config", [True, False])
+def test_call_timeout_override(app_runner, echo_app, with_config):
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(echo_app))
+    if with_config:
+        schema.config.request_timeout = 0.05
+    case = schema["/users"]["GET"].Case(query={"delay": "0.2"})
+    assert case.call(timeout=42).status_code == 200
+
+
+def test_merge_at():
+    data = {"params": {"A": 1}}
+    merge_at(data, "params", {"B": 2})
+    assert data == {"params": {"A": 1, "B": 2}}
+
+
+@pytest.mark.parametrize(("call_arg", "received_as"), [("headers", "headers"), ("params", "query")])
+def test_call_overrides_wsgi(echo_app, call_arg, received_as):
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", echo_app)
+    original = {"A": "X", "B": "X"}
+    case = schema["/users"]["GET"].Case(headers=original, query=original)
+    received = case.call(**{call_arg: {"B": "Y"}}).json()[received_as]
+    assert {key: received[key] for key in original} == {"A": "X", "B": "Y"}
+
+
+@pytest.mark.parametrize(
+    ("base_url", "expected"),
+    [
+        ("https://tenant.example/api/v1/aas/X", "https://tenant.example/api/v1/aas/X/views"),
+        ("/api/v1/aas/X", "http://localhost/api/v1/aas/X/views"),
+    ],
+)
+def test_call_base_url_override_wsgi(base_url, expected):
+    app = flask.Flask(__name__)
+
+    @app.route("/<path:path>")
+    def echo(path):
+        return {"url": flask.request.url}
+
+    schema = schemathesis.openapi.from_dict(
+        {
+            "openapi": "3.0.0",
+            "info": {"title": "Test", "version": "1"},
+            "paths": {"/views": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        }
+    )
+    schema.app = app
+    schema.config.base_url = "http://localhost/api/v1"
+    case = schema["/views"]["GET"].Case()
+
+    response = case.call(base_url=base_url)
+
+    assert (response.json(), response.request.url) == ({"url": expected}, expected)
+
+
+def test_call_base_url_override_wsgi_graphql():
+    schema = schemathesis.graphql.from_wsgi("/graphql", app=books().server)
+    case = next(iter(schema.get_all_operations())).ok().Case(body="{ __typename }")
+
+    response = case.call(base_url="http://localhost/prefix")
+
+    assert (response.status_code, response.request.url) == (200, "http://localhost/graphql")
+
+
+@pytest.mark.hypothesis_nested
+def test_call_and_validate_refreshes_expired_graphql_token(ctx):
+    app = flask.Flask(__name__)
+    received = []
+
+    @app.route("/graphql", methods=["POST"])
+    def graphql_endpoint():
+        received.append(flask.request.headers.get("Authorization"))
+        if len(received) == 1:
+            return flask.jsonify({"errors": [{"message": "Token expired"}]}), 401
+        return flask.jsonify({"data": {"hello": "world"}})
+
+    schema = ctx.graphql.load_sdl("type Query { hello: String }")
+    issued = []
+
+    @schema.auth(retry_on=[401])
+    class TokenAuth:
+        def get(self, case, ctx):
+            issued.append(f"token-{len(issued)}")
+            return issued[-1]
+
+        def set(self, case, data, ctx):
+            case.headers = {**(case.headers or {}), "Authorization": f"Bearer {data}"}
+
+    @run_given(case=schema["Query"]["hello"].as_strategy(), max_examples=1, phases=[Phase.generate])
+    def test(case):
+        received.clear()
+        case.call_and_validate(app=app, base_url="http://localhost/graphql")
+        assert received == [f"Bearer {token}" for token in issued[-2:]]
+
+
+@pytest.mark.parametrize(
+    ("name", "location", "exists"),
+    [
+        ("X-Key", "header", True),
+        ("X-Key2", "header", False),
+        ("X-Key", "cookie", False),
+        ("X-Key", "query", False),
+        ("key", "query", True),
+        ("bla", "body", False),
+        ("body", "body", True),
+        ("unknown", "unknown", False),
+    ],
+)
+def test_get_parameter(ctx, name, location, exists):
+    operation = ctx.openapi.load_operation(
+        "GET /data/",
+        {
+            "parameters": [
+                {"name": "X-Key", "in": "header", "required": True, "schema": {"type": "string"}},
+                {"name": "key", "in": "query", "required": True, "schema": {"type": "string"}},
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "text/plain": {"schema": {"type": "string"}},
+                    "application/json": {"schema": {"type": "array"}},
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        components={
+            "securitySchemes": {
+                "ApiKeyAuth": {"type": "apiKey", "name": "X-Key", "in": "header"},
+            }
+        },
+        security=[{"ApiKeyAuth": []}],
+    )
+
+    parameter = operation.get_parameter(name, location)
+    assert (parameter is not None) is exists
+    if exists:
+        assert parameter.name == name
+        assert parameter.location == location
+
+
+def test_parameter_containers_for_locations_without_parameters(ctx):
+    operation = ctx.openapi.load_operation("GET /data", {"responses": {"200": {"description": "OK"}}})
+    with pytest.raises(ValueError, match="`body` is not a parameter location"):
+        operation.get_parameter_set(ParameterLocation.BODY)
+    assert operation.Case().get_container(ParameterLocation.UNKNOWN) is None
+    assert list(operation.get_bodies_for_media_type("application/json")) == []
+
+
+def test_formatted_path(ctx):
+    operation = ctx.openapi.load_operation("GET /users/{name}", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case(path_parameters={"name": "test"})
+    assert case.formatted_path == "/users/test"
+
+
+def test_formatted_path_missing_parameter(ctx):
+    operation = ctx.openapi.load_operation(
+        "GET /users/{name}",
+        {
+            "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    case = operation.Case(path_parameters={})
+    with pytest.raises(InvalidSchema, match="^Path parameter 'name' is not defined$"):
+        assert case.formatted_path

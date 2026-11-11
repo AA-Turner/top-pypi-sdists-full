@@ -4,6 +4,7 @@ import enum
 import re
 from collections.abc import Collection, Mapping
 from functools import lru_cache
+from typing import TypeAlias
 
 from schemathesis.core.text import to_pascal_case
 
@@ -204,14 +205,11 @@ def from_parameter(parameter: str, path: str, *, body_field: bool = False, query
     # For body fields the prefix-match against the path-derived resource is the
     # safety check, so the `{parameter}` template requirement is dropped.
     if body_field or f"{{{parameter}}}" in path:
-        for suffix in ("uuid", "guid", "slug", "name", "id"):
-            if lower.endswith(suffix) and len(lower) > len(suffix):
-                prefix_lower = lower[: -len(suffix)]
-                if len(prefix_lower) >= 2:
-                    path_resource = from_path(strip_version_prefix(path), parameter_name=parameter)
-                    if path_resource is not None and path_resource.lower() == prefix_lower:
-                        return path_resource
-                break
+        prefix_lower = _concatenated_prefix(parameter, path, body_field=body_field)
+        if prefix_lower is not None:
+            path_resource = from_path(strip_version_prefix(path), parameter_name=parameter)
+            if path_resource is not None and path_resource.lower() == prefix_lower:
+                return path_resource
 
     # Path parameter named after its parent collection (`/sessions/{session}` -> Session).
     # Common route-model-binding convention; bind only when the name equals the singularized
@@ -222,6 +220,23 @@ def from_parameter(parameter: str, path: str, *, body_field: bool = False, query
             return path_resource
 
     return None
+
+
+def _concatenated_prefix(parameter: str, path: str, *, body_field: bool) -> str | None:
+    lower = parameter.lower()
+    # `/entry/{entrypk}` keys an entry. A body field like `serverpk` often holds a public key, and a parent
+    # `{orderpk}` in `/orders/{orderpk}/items` would take the resource of the items under it.
+    primary_key = ("pk",) if trailing_path_parameter(path) == parameter and not body_field else ()
+    for suffix in ("uuid", "guid", "slug", "name", "id", *primary_key):
+        if lower.endswith(suffix) and len(lower) > len(suffix):
+            prefix_lower = lower[: -len(suffix)]
+            return prefix_lower if len(prefix_lower) >= 2 else None
+    return None
+
+
+def is_concatenated_primary_key(parameter: str) -> bool:
+    """Whether `parameter` joins a resource name and `pk` without a separator (`entrypk`)."""
+    return _split_parameter_name(parameter)[1] == "pk"
 
 
 @lru_cache(maxsize=512)
@@ -259,6 +274,36 @@ def owning_resource(parameter: str, path: str) -> str | None:
     return _owning_segment_resource(_resource_segments(strip_version_prefix(path)), parameter)
 
 
+def item_collections(paths: Collection[str]) -> frozenset[str]:
+    """Collections a path keys items of, with blanked parameters (`/options/{id}/entry/{pk}` -> `options/{}/entry`)."""
+    collections = set()
+    for path in paths:
+        segments = _blank_parameters(path)
+        for index, segment in enumerate(segments):
+            if segment == "{}":
+                collections.add("/".join(segments[:index]))
+    return frozenset(collections)
+
+
+@lru_cache(maxsize=512)
+def nested_resource_names(parameter: str, path: str, collections: frozenset[str]) -> tuple[str, ...]:
+    """Item collections under `{parameter}`, normalized (`/options/{id}/entry/{entrypk}` -> `entry` for `id`)."""
+    segments = _resource_segments(path)
+    placeholder = f"{{{parameter}}}"
+    if placeholder not in segments:
+        return ()
+    blanked = _blank_parameters(path)
+    return tuple(
+        normalize_for_matching(to_singular(segments[index]))
+        for index in range(segments.index(placeholder) + 1, len(segments))
+        if "/".join(blanked[: index + 1]) in collections
+    )
+
+
+def _blank_parameters(path: str) -> list[str]:
+    return ["{}" if "{" in segment else segment for segment in _resource_segments(path)]
+
+
 def _owning_segment_resource(segments: list[str], parameter: str) -> str | None:
     placeholder = f"{{{parameter}}}"
     if placeholder not in segments:
@@ -267,6 +312,90 @@ def _owning_segment_resource(segments: list[str], parameter: str) -> str | None:
     if index == 0 or "{" in segments[index - 1]:
         return None
     return to_pascal_case(to_singular(segments[index - 1]))
+
+
+# Static segments of a path, with `{}` for every parameter: `("sites", "{}", "managed", "devices")`.
+CollectionShape: TypeAlias = tuple[str, ...]
+
+
+@lru_cache(maxsize=32)
+def qualified_collections(paths: frozenset[str]) -> frozenset[CollectionShape]:
+    """Collections behind a static segment that key their items unlike the plain collection of the same name.
+
+    `/sites/{id}/managed/devices/{deviceId}` lists other things than `/devices/{serial}` does, while
+    `/stock/devices/{serial}` lists the same devices.
+    """
+    placeholders = _collection_placeholders(paths)
+    # `/urls/{list_type}` without `/urls` selects a list rather than naming an item
+    listed = {_collection_shape(path) for path in paths}
+    return _keyed_unlike_plain(placeholders, listed)
+
+
+def item_collection(path: str) -> CollectionShape:
+    """The collection whose items `path` addresses: `/managed/devices/{deviceId}` -> `("managed", "devices")`."""
+    shape = _collection_shape(path)
+    end = len(shape)
+    while end and shape[end - 1] == "{}":
+        end -= 1
+    return shape[:end]
+
+
+def _collection_placeholders(paths: Collection[str]) -> dict[CollectionShape, set[str]]:
+    placeholders: dict[CollectionShape, set[str]] = {}
+    for path in paths:
+        shape = _collection_shape(path)
+        end = 0
+        for index, segment in enumerate(_collection_segments(path)):
+            if shape[index] != "{}":
+                end = index + 1
+            elif end:
+                # Every key of `/apps/{owner}/{app}` counts
+                placeholders.setdefault(shape[:end], set()).add(segment)
+    return placeholders
+
+
+def _keyed_unlike_plain(
+    placeholders: dict[CollectionShape, set[str]], listed: set[CollectionShape]
+) -> frozenset[CollectionShape]:
+    plain: dict[str, set[str]] = {}
+    for shape, keys in placeholders.items():
+        if len(shape) == 1 or shape[-2] == "{}":
+            plain.setdefault(shape[-1], set()).update(keys)
+    return frozenset(shape for shape, keys in placeholders.items() if _keyed_unlike(shape, keys, plain, listed))
+
+
+def _keyed_unlike(
+    shape: CollectionShape, keys: set[str], plain: dict[str, set[str]], listed: set[CollectionShape]
+) -> bool:
+    return (
+        len(shape) > 1
+        and shape[-2] != "{}"
+        and shape in listed
+        and shape[-1] in plain
+        and _item_keys(plain[shape[-1]], shape[-1]).isdisjoint(_item_keys(keys, shape[-1]))
+    )
+
+
+def _item_keys(placeholders: set[str], collection: str) -> set[str]:
+    # `{deviceId}`, `{device_id}`, `{device}` and `{id}` under `/devices` are one key
+    prefix = normalize_for_matching(to_singular(collection))
+    return {
+        normalize_for_matching(placeholder.strip("{}")).removeprefix(prefix) or "id" for placeholder in placeholders
+    }
+
+
+@lru_cache(maxsize=2048)
+def _collection_segments(path: str) -> tuple[str, ...]:
+    return tuple(_resource_segments(strip_version_prefix(path)))
+
+
+@lru_cache(maxsize=2048)
+def _collection_shape(path: str) -> CollectionShape:
+    return _shape(_collection_segments(path))
+
+
+def _shape(segments: tuple[str, ...]) -> CollectionShape:
+    return tuple("{}" if "{" in segment else segment for segment in segments)
 
 
 IRREGULAR_TO_PLURAL = {
@@ -564,8 +693,36 @@ def to_plural(word: str) -> str:
 # Common identifier field names in priority order
 ID_FIELD_NAMES = ["id", "uuid", "guid", "uid"]
 
+# Request fields that page through a list (page-number, limit-offset and cursor pagination); never references.
+PAGINATION_FIELDS = frozenset(
+    {
+        "page",
+        "pagesize",
+        "perpage",
+        "size",
+        "limit",
+        "offset",
+        "cursor",
+        "start",
+        "skip",
+        "top",
+        "after",
+        "before",
+        "since",
+        "count",
+        "first",
+        "last",
+        "pagenumber",
+        "pageindex",
+        "pageno",
+        "pagenum",
+    }
+)
 
-def find_matching_field(*, parameter: str, resource: str, fields: list[str]) -> str | None:
+
+def find_matching_field(
+    *, parameter: str, resource: str, fields: list[str], types: Mapping[str, set[str]] | None = None
+) -> str | None:
     """Find which resource field matches the parameter name."""
     if not fields:
         return None
@@ -575,6 +732,14 @@ def find_matching_field(*, parameter: str, resource: str, fields: list[str]) -> 
     prefix, suffix = _split_parameter_name(parameter)
     for strategy in _FIELD_MATCHING_STRATEGIES:
         field = strategy(fields, parameter, prefix, suffix, resource_normalized)
+        # Only an integer `pk` is a primary key; a string one partitions a table next to a sort key.
+        if (
+            field == "pk"
+            and types is not None
+            and types.get("pk") != {"integer"}
+            and not normalize_for_matching(parameter).endswith("pk")
+        ):
+            continue
         if field is not None:
             return field
     return None
@@ -647,7 +812,9 @@ def _match_identifier_synonym(
         names = [*ID_FIELD_NAMES, "slug"]
     elif suffix_normalized in ("identifier", "pk"):
         names = ["id"]
-    elif suffix_normalized in ID_FIELD_NAMES or suffix_normalized == "ids":
+    elif suffix_normalized in ("id", "ids"):
+        names = [*ID_FIELD_NAMES, "pk"]
+    elif suffix_normalized in ID_FIELD_NAMES:
         names = ID_FIELD_NAMES
     else:
         return None
@@ -738,6 +905,9 @@ def _split_parameter_name(parameter_name: str) -> tuple[str, str]:
 
     if parameter_name.endswith("_slug") and len(parameter_name) > 5:
         return parameter_name[:-5], "_slug"
+
+    if parameter_name.endswith("pk") and len(parameter_name) > 2:
+        return parameter_name[:-2], "pk"
 
     return "", parameter_name
 

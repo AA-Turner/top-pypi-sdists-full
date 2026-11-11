@@ -22871,12 +22871,12 @@ class PostV31OrgOwnerProjectNewConfigLogVisibilitySetting(str, Enum):
 
 
 class PostV31OrgOwnerProjectNewConfig(BaseModel):
-    """Configuration for the project. Use zdr_enabled for Zero Data Retention; log_visibility_setting remains supported for existing clients. Do not send both fields."""
+    """Configuration for the project. Use display_name and logo_url to brand the hosted Connect Link page. Use zdr_enabled for Zero Data Retention; log_visibility_setting remains supported for existing clients. Do not send both fields."""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
     is_2fa_enabled: Optional[bool] = Field(default=None, alias="is_2FA_enabled")
-    logo_url: Optional[str] = None
-    display_name: Optional[Annotated[str, Field(max_length=75)]] = None
+    logo_url: Optional[str] = Field(default=None, description="URL of the logo shown to end users on the hosted Connect Link page. Use a publicly reachable https image URL. The Composio logo is shown when omitted.")
+    display_name: Optional[Annotated[str, Field(max_length=75)]] = Field(default=None, description="App name shown to end users on the hosted Connect Link page, up to 75 characters. The page shows Composio when omitted.")
     mask_secret_keys_in_connected_account: Optional[bool] = None
     log_visibility_setting: Optional[PostV31OrgOwnerProjectNewConfigLogVisibilitySetting] = None
     is_composio_link_enabled_for_managed_auth: Optional[bool] = Field(default=None, description="Whether to enable composio link for managed authentication. This key will be deprecated in the future. Please don't use this key.")
@@ -22893,7 +22893,7 @@ class PostV31OrgOwnerProjectNewBody(BaseModel):
     should_create_api_key: Optional[bool] = Field(default=False, description="Whether to create an API key for the project. If true, the API key will be created and returned in the response.")
     api_key_allowed_ips: Optional[list[str]] = Field(default=None, description="IPv4 or IPv6 addresses allowed to use the project API key. Requires should_create_api_key to be true. Omit to allow requests from any IP address.")
     api_key_permissions: Optional[list[PostV31OrgOwnerProjectNewApiKeyPermissions]] = Field(default=None, description="Permission levels for the project API key. Requires should_create_api_key to be true. Omit to create a full-access API key.")
-    config: Optional[PostV31OrgOwnerProjectNewConfig] = Field(default=None, description="Configuration for the project. Use zdr_enabled for Zero Data Retention; log_visibility_setting remains supported for existing clients. Do not send both fields.")
+    config: Optional[PostV31OrgOwnerProjectNewConfig] = Field(default=None, description="Configuration for the project. Use display_name and logo_url to brand the hosted Connect Link page. Use zdr_enabled for Zero Data Retention; log_visibility_setting remains supported for existing clients. Do not send both fields.")
 
 
 class PostV31OrgOwnerProjectNewResponse(BaseModel):
@@ -24680,7 +24680,7 @@ class PostV31FilesUploadRequestBody(BaseModel):
     tool_slug: str = Field(..., description='Slug of the action where this file belongs to. Example: "GMAIL_SEND_EMAIL", "SLACK_UPLOAD_FILE"')
     filename: str = Field(..., description='Name of the original file. Example: "quarterly_report.pdf"')
     mimetype: str = Field(..., description='Mime type of the original file. Example: "application/pdf", "image/png"')
-    md5: str = Field(..., description='MD5 hash of the file for deduplication and integrity verification. Example: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"')
+    md5: str = Field(..., description='MD5 hash of the file for integrity verification. Example: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"')
 
 
 class PostV31FilesUploadRequestType(str, Enum):

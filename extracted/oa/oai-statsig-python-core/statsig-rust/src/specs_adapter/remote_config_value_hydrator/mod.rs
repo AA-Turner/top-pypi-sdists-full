@@ -30,9 +30,10 @@ use errors::HydrationTimeoutStep;
 use telemetry::{HydrationOutcome, HydrationResult};
 
 pub(crate) use download::DOWNLOAD_CONCURRENCY;
+pub(crate) use errors::unsupported_entity_error;
 pub(crate) use json::HydratedJsonStoreUpdate;
 pub(crate) use protobuf::{
-    ProtobufHydrationSession,
+    ProtobufHydrationSession, declares_unsupported_remote_metadata,
     protobuf_spec_has_remote_metadata as protobuf_spec_bytes_have_remote_metadata,
     protobuf_top_level_has_hydrated_sidecar_provenance,
     remote_metadata_marker_without_metadata_error, rewrite_decoded_dynamic_config_envelope,

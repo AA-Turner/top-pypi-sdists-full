@@ -94,6 +94,7 @@ from pyopencl._cl import (  # ruff:ignore[unused-import]
         queue_properties,
 
         mem_flags,
+        mem_properties,
         svm_mem_flags,
 
         channel_order,
@@ -146,6 +147,7 @@ from pyopencl._cl import (  # ruff:ignore[unused-import]
         MemoryObject,
         MemoryMap,
         Buffer,
+        DevicePointerEXT,
 
         _Program,
         Kernel,
@@ -1508,7 +1510,7 @@ def image_from_array(
             ctx: Context,
             ary: NDArray[Any],
             num_channels: int | None = None,
-            mode: Literal["r", "w"] = "r",
+            mode: Literal["r", "w", "rw"] = "r",
             norm_int: bool = False
         ) -> Image:
     if not ary.flags.c_contiguous:
@@ -1541,6 +1543,8 @@ def image_from_array(
         mode_flags = mem_flags.READ_ONLY
     elif mode == "w":
         mode_flags = mem_flags.WRITE_ONLY
+    elif mode == "rw":
+        mode_flags = mem_flags.READ_WRITE
     else:
         raise ValueError("invalid value '%s' for 'mode'" % mode)
 
@@ -1868,6 +1872,7 @@ __all__ = [
     "Context",
     "CtxFactory",
     "Device",
+    "DevicePointerEXT",
     "DeviceTopologyAmd",
     "Error",
     "Event",
@@ -1967,6 +1972,7 @@ __all__ = [
     "mem_info",
     "mem_migration_flags",
     "mem_object_type",
+    "mem_properties",
     "pipe_info",
     "pipe_properties",
     "platform_info",

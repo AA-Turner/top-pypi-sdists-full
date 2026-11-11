@@ -153,6 +153,8 @@ from .teams_credential import TeamsCredential
 from .teams_graph_chat_credential import TeamsGraphChatCredential
 from .tenable_asm_credential import TenableAsmCredential
 from .tenable_cloud_credential import TenableCloudCredential
+from .tenable_cloud_security_credential import TenableCloudSecurityCredential
+from .tenable_cloud_security_region import TenableCloudSecurityRegion
 from .tenable_sc_credential import TenableScCredential
 from .threat_fox_credential import ThreatFoxCredential
 from .ticketing_ivanti_dataset import TicketingIvantiDataset
@@ -847,6 +849,21 @@ class ProviderConfig_CloudsecuritySentinelone(UncheckedBaseModel):
     type: typing.Literal["cloudsecurity_sentinelone"] = "cloudsecurity_sentinelone"
     credential: SentinelOneCredential
     url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_CloudsecurityTenable(UncheckedBaseModel):
+    type: typing.Literal["cloudsecurity_tenable"] = "cloudsecurity_tenable"
+    credential: TenableCloudSecurityCredential
+    region: typing.Optional[TenableCloudSecurityRegion] = None
+    url: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
@@ -1594,6 +1611,8 @@ class ProviderConfig_NetworksecurityAzure(UncheckedBaseModel):
 class ProviderConfig_NetworksecurityGoogle(UncheckedBaseModel):
     type: typing.Literal["networksecurity_google"] = "networksecurity_google"
     credential: GoogleServiceAccountCredential
+    dns_log_configuration_ids: typing.Optional[typing.List[str]] = None
+    log_resource_names: typing.Optional[typing.List[str]] = None
     project_id: str
     traffic_log_configuration_ids: typing.Optional[typing.List[str]] = None
 
@@ -1868,6 +1887,7 @@ class ProviderConfig_SiemRapid7Insightidr(UncheckedBaseModel):
 
 class ProviderConfig_SiemSentinel(UncheckedBaseModel):
     type: typing.Literal["siem_sentinel"] = "siem_sentinel"
+    azure_cloud: typing.Optional[AzureCloud] = None
     credential: SentinelCredential
     default_tables: typing.Optional[typing.List[str]] = None
     ingest_url: typing.Optional[str] = None
@@ -2007,6 +2027,7 @@ class ProviderConfig_SinkAzureBlob(UncheckedBaseModel):
 
 class ProviderConfig_SinkAzureMonitorLogs(UncheckedBaseModel):
     type: typing.Literal["sink_azure_monitor_logs"] = "sink_azure_monitor_logs"
+    azure_cloud: typing.Optional[AzureCloud] = None
     client_id: str
     credential: AzureMonitorLogsCredential
     rule_id: str
@@ -2245,6 +2266,19 @@ class ProviderConfig_SinkTrimedx(UncheckedBaseModel):
     customer_id: str
     subscription_key: str
     username: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_SsfOkta(UncheckedBaseModel):
+    type: typing.Literal["ssf_okta"] = "ssf_okta"
+    url: str
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
@@ -3010,6 +3044,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_CloudsecurityOrca,
         ProviderConfig_CloudsecurityPaloalto,
         ProviderConfig_CloudsecuritySentinelone,
+        ProviderConfig_CloudsecurityTenable,
         ProviderConfig_CloudsecurityUpwind,
         ProviderConfig_CloudsecurityWiz,
         ProviderConfig_CustomSynqly,
@@ -3103,6 +3138,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_SinkSumoLogic,
         ProviderConfig_SinkSwimlane,
         ProviderConfig_SinkTrimedx,
+        ProviderConfig_SsfOkta,
         ProviderConfig_StorageAwsS3,
         ProviderConfig_StorageAzureBlob,
         ProviderConfig_StorageGcs,

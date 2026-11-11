@@ -835,6 +835,512 @@ class CfnAppAuthorizationProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_appfabric_09bd86cb.IAppBundleRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnAppBundle(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appfabric.CfnAppBundle",
+):
+    '''Creates an app bundle to collect data from an application using AppFabric.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appfabric-appbundle.html
+    :cloudformationResource: AWS::AppFabric::AppBundle
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_appfabric as appfabric
+        
+        cfn_app_bundle = appfabric.CfnAppBundle(self, "MyCfnAppBundle",
+            customer_managed_key_identifier="customerManagedKeyIdentifier",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        customer_managed_key_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::AppFabric::AppBundle``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param customer_managed_key_identifier: The Amazon Resource Name (ARN) of the AWS Key Management Service (AWS KMS) key to use to encrypt the application data. If this is not specified, an AWS owned key is used for encryption.
+        :param tags: A map of the key-value pairs of the tag or tags to assign to the resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2cb4f9c6af250799d74880017de011910c656135deca2e128c744f342717ee8f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAppBundleProps(
+            customer_managed_key_identifier=customer_managed_key_identifier, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAppBundle")
+    @builtins.classmethod
+    def arn_for_app_bundle(
+        cls,
+        resource: "_aws_appfabric_09bd86cb.IAppBundleRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__248e933dc45be94510090b125457063ab6efa2f55ea6cc0f34ca0e035ce12782)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAppBundle", [resource]))
+
+    @jsii.member(jsii_name="isCfnAppBundle")
+    @builtins.classmethod
+    def is_cfn_app_bundle(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAppBundle.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8c806bda04c5b6a92a070d35b7d4f0a440d7f613f67bc427c1fb907a49c9e61a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAppBundle", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__454ab0caac891f9ad558f14d50b580c2a1d8c69bae584e424f5fe2b87fc1ab0d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a906c259082dfcbcbe7fc4aa84a82ae6a0b7d2b705a89247c0112dd41cfa1fbb)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appBundleRef")
+    def app_bundle_ref(self) -> "_aws_appfabric_09bd86cb.AppBundleReference":
+        '''A reference to a AppBundle resource.'''
+        return typing.cast("_aws_appfabric_09bd86cb.AppBundleReference", jsii.get(self, "appBundleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the app bundle.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="customerManagedKeyIdentifier")
+    def customer_managed_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the AWS Key Management Service (AWS KMS) key to use to encrypt the application data.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "customerManagedKeyIdentifier"))
+
+    @customer_managed_key_identifier.setter
+    def customer_managed_key_identifier(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__753182d1af4dd0b34e21ef516aed75c33fd328701e4bbee01eac80fef7ab7d07)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customerManagedKeyIdentifier", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A map of the key-value pairs of the tag or tags to assign to the resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8f52efd6925da07102720cd869140c4068391b68a7ee87c64f87d7ee0a7da3be)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appfabric.CfnAppBundleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "customer_managed_key_identifier": "customerManagedKeyIdentifier",
+        "tags": "tags",
+    },
+)
+class CfnAppBundleProps:
+    def __init__(
+        self,
+        *,
+        customer_managed_key_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAppBundle``.
+
+        :param customer_managed_key_identifier: The Amazon Resource Name (ARN) of the AWS Key Management Service (AWS KMS) key to use to encrypt the application data. If this is not specified, an AWS owned key is used for encryption.
+        :param tags: A map of the key-value pairs of the tag or tags to assign to the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appfabric-appbundle.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appfabric as appfabric
+            
+            cfn_app_bundle_props = appfabric.CfnAppBundleProps(
+                customer_managed_key_identifier="customerManagedKeyIdentifier",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__af3b1bb84c4ffc27e1f27e8def14a59950d814924a1517d10c193cf666303349)
+            check_type(argname="argument customer_managed_key_identifier", value=customer_managed_key_identifier, expected_type=type_hints["customer_managed_key_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if customer_managed_key_identifier is not None:
+            self._values["customer_managed_key_identifier"] = customer_managed_key_identifier
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def customer_managed_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the AWS Key Management Service (AWS KMS) key to use to encrypt the application data.
+
+        If this is not specified, an AWS owned key is used for encryption.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appfabric-appbundle.html#cfn-appfabric-appbundle-customermanagedkeyidentifier
+        '''
+        result = self._values.get("customer_managed_key_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A map of the key-value pairs of the tag or tags to assign to the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appfabric-appbundle.html#cfn-appfabric-appbundle-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAppBundleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_appfabric_09bd86cb.IIngestionRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnIngestion(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appfabric.CfnIngestion",
+):
+    '''Creates a data ingestion for an application using AppFabric.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appfabric-ingestion.html
+    :cloudformationResource: AWS::AppFabric::Ingestion
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_appfabric as appfabric
+        
+        cfn_ingestion = appfabric.CfnIngestion(self, "MyCfnIngestion",
+            app="app",
+            app_bundle_arn="appBundleArn",
+            ingestion_type="ingestionType",
+            tenant_id="tenantId",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        app: builtins.str,
+        app_bundle_arn: builtins.str,
+        ingestion_type: builtins.str,
+        tenant_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::AppFabric::Ingestion``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param app: The name of the application.
+        :param app_bundle_arn: The Amazon Resource Name (ARN) of the app bundle for the ingestion.
+        :param ingestion_type: The type of the ingestion.
+        :param tenant_id: The ID of the application tenant.
+        :param tags: A map of the key-value pairs of the tag or tags to assign to the resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__01f51fe651b9cfd08565843076093f8350a838bb16cb239891b0eea07c8209fb)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnIngestionProps(
+            app=app,
+            app_bundle_arn=app_bundle_arn,
+            ingestion_type=ingestion_type,
+            tenant_id=tenant_id,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForIngestion")
+    @builtins.classmethod
+    def arn_for_ingestion(
+        cls,
+        resource: "_aws_appfabric_09bd86cb.IIngestionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__80f84e74e2d265d72e4e723681be3816331b37cf6f432469db9e41d040959f25)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIngestion", [resource]))
+
+    @jsii.member(jsii_name="isCfnIngestion")
+    @builtins.classmethod
+    def is_cfn_ingestion(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnIngestion.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__74355b3843389484f0e931ffa6e68ad3f09d1edce810a3aff296cbdf20d7134a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIngestion", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9da1dbaed08ed14c668e95b50654eabb85a327df1200fcaa159ceed23e4b7b34)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__893badb36fbb5a02d494bbe9c3202313a19a9d2f52b5006c9577f1f2d878f512)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the ingestion.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp of when the ingestion was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The status of the ingestion.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp of when the ingestion was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ingestionRef")
+    def ingestion_ref(self) -> "_aws_appfabric_09bd86cb.IngestionReference":
+        '''A reference to a Ingestion resource.'''
+        return typing.cast("_aws_appfabric_09bd86cb.IngestionReference", jsii.get(self, "ingestionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="app")
+    def app(self) -> builtins.str:
+        '''The name of the application.'''
+        return typing.cast(builtins.str, jsii.get(self, "app"))
+
+    @app.setter
+    def app(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4f70cdeb860267ffe4080b0ff2b00863f076ce3510096d5743254d565158aebe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "app", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="appBundleArn")
+    def app_bundle_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the app bundle for the ingestion.'''
+        return typing.cast(builtins.str, jsii.get(self, "appBundleArn"))
+
+    @app_bundle_arn.setter
+    def app_bundle_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b69c644aab9786604e56a12ebda08754ce1f7c17368cc2c0c17e25afa316df73)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "appBundleArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="ingestionType")
+    def ingestion_type(self) -> builtins.str:
+        '''The type of the ingestion.'''
+        return typing.cast(builtins.str, jsii.get(self, "ingestionType"))
+
+    @ingestion_type.setter
+    def ingestion_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__83b024dd8262168b093048612b9a2932385b65547e79047b3e65a78683266762)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ingestionType", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tenantId")
+    def tenant_id(self) -> builtins.str:
+        '''The ID of the application tenant.'''
+        return typing.cast(builtins.str, jsii.get(self, "tenantId"))
+
+    @tenant_id.setter
+    def tenant_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b02b50b9288a79aade159a0d4e96b7ec2fca6863268a2cdff5082736f8a78611)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tenantId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A map of the key-value pairs of the tag or tags to assign to the resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9cfc6cddc18e260b73b2f241352bce16209ebba6792daf0b58fce69e5e5d5620)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_appfabric_09bd86cb.IIngestionDestinationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnIngestionDestination(
     _aws_cdk_0cae9daa.CfnResource,
@@ -1741,11 +2247,144 @@ class CfnIngestionDestinationProps:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appfabric.CfnIngestionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app": "app",
+        "app_bundle_arn": "appBundleArn",
+        "ingestion_type": "ingestionType",
+        "tenant_id": "tenantId",
+        "tags": "tags",
+    },
+)
+class CfnIngestionProps:
+    def __init__(
+        self,
+        *,
+        app: builtins.str,
+        app_bundle_arn: builtins.str,
+        ingestion_type: builtins.str,
+        tenant_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIngestion``.
+
+        :param app: The name of the application.
+        :param app_bundle_arn: The Amazon Resource Name (ARN) of the app bundle for the ingestion.
+        :param ingestion_type: The type of the ingestion.
+        :param tenant_id: The ID of the application tenant.
+        :param tags: A map of the key-value pairs of the tag or tags to assign to the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appfabric-ingestion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appfabric as appfabric
+            
+            cfn_ingestion_props = appfabric.CfnIngestionProps(
+                app="app",
+                app_bundle_arn="appBundleArn",
+                ingestion_type="ingestionType",
+                tenant_id="tenantId",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__70486248dcacd57d3e83a2fa06fdb232feb9399fed747c82c6b2efebb8aef391)
+            check_type(argname="argument app", value=app, expected_type=type_hints["app"])
+            check_type(argname="argument app_bundle_arn", value=app_bundle_arn, expected_type=type_hints["app_bundle_arn"])
+            check_type(argname="argument ingestion_type", value=ingestion_type, expected_type=type_hints["ingestion_type"])
+            check_type(argname="argument tenant_id", value=tenant_id, expected_type=type_hints["tenant_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app": app,
+            "app_bundle_arn": app_bundle_arn,
+            "ingestion_type": ingestion_type,
+            "tenant_id": tenant_id,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def app(self) -> builtins.str:
+        '''The name of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appfabric-ingestion.html#cfn-appfabric-ingestion-app
+        '''
+        result = self._values.get("app")
+        assert result is not None, "Required property 'app' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def app_bundle_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the app bundle for the ingestion.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appfabric-ingestion.html#cfn-appfabric-ingestion-appbundlearn
+        '''
+        result = self._values.get("app_bundle_arn")
+        assert result is not None, "Required property 'app_bundle_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ingestion_type(self) -> builtins.str:
+        '''The type of the ingestion.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appfabric-ingestion.html#cfn-appfabric-ingestion-ingestiontype
+        '''
+        result = self._values.get("ingestion_type")
+        assert result is not None, "Required property 'ingestion_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tenant_id(self) -> builtins.str:
+        '''The ID of the application tenant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appfabric-ingestion.html#cfn-appfabric-ingestion-tenantid
+        '''
+        result = self._values.get("tenant_id")
+        assert result is not None, "Required property 'tenant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A map of the key-value pairs of the tag or tags to assign to the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appfabric-ingestion.html#cfn-appfabric-ingestion-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIngestionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnAppAuthorization",
     "CfnAppAuthorizationProps",
+    "CfnAppBundle",
+    "CfnAppBundleProps",
+    "CfnIngestion",
     "CfnIngestionDestination",
     "CfnIngestionDestinationProps",
+    "CfnIngestionProps",
 ]
 
 publication.publish()
@@ -1863,6 +2502,127 @@ def _typecheckingstub__388a6fb0339d38a0dafbb279f8d16f746564b5d7e13eae6116eaee441
     tenant: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppAuthorization.TenantProperty, typing.Dict[builtins.str, typing.Any]]],
     credential: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppAuthorization.CredentialProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2cb4f9c6af250799d74880017de011910c656135deca2e128c744f342717ee8f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    customer_managed_key_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__248e933dc45be94510090b125457063ab6efa2f55ea6cc0f34ca0e035ce12782(
+    resource: _aws_appfabric_09bd86cb.IAppBundleRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c806bda04c5b6a92a070d35b7d4f0a440d7f613f67bc427c1fb907a49c9e61a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__454ab0caac891f9ad558f14d50b580c2a1d8c69bae584e424f5fe2b87fc1ab0d(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a906c259082dfcbcbe7fc4aa84a82ae6a0b7d2b705a89247c0112dd41cfa1fbb(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__753182d1af4dd0b34e21ef516aed75c33fd328701e4bbee01eac80fef7ab7d07(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f52efd6925da07102720cd869140c4068391b68a7ee87c64f87d7ee0a7da3be(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af3b1bb84c4ffc27e1f27e8def14a59950d814924a1517d10c193cf666303349(
+    *,
+    customer_managed_key_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01f51fe651b9cfd08565843076093f8350a838bb16cb239891b0eea07c8209fb(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    app: builtins.str,
+    app_bundle_arn: builtins.str,
+    ingestion_type: builtins.str,
+    tenant_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80f84e74e2d265d72e4e723681be3816331b37cf6f432469db9e41d040959f25(
+    resource: _aws_appfabric_09bd86cb.IIngestionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74355b3843389484f0e931ffa6e68ad3f09d1edce810a3aff296cbdf20d7134a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9da1dbaed08ed14c668e95b50654eabb85a327df1200fcaa159ceed23e4b7b34(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__893badb36fbb5a02d494bbe9c3202313a19a9d2f52b5006c9577f1f2d878f512(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f70cdeb860267ffe4080b0ff2b00863f076ce3510096d5743254d565158aebe(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b69c644aab9786604e56a12ebda08754ce1f7c17368cc2c0c17e25afa316df73(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83b024dd8262168b093048612b9a2932385b65547e79047b3e65a78683266762(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b02b50b9288a79aade159a0d4e96b7ec2fca6863268a2cdff5082736f8a78611(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9cfc6cddc18e260b73b2f241352bce16209ebba6792daf0b58fce69e5e5d5620(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1992,6 +2752,17 @@ def _typecheckingstub__7c8e3d8056274d5a562bb923d805c164d97a0aa5bed801619798ec4ad
     destination_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIngestionDestination.DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     ingestion_arn: builtins.str,
     processing_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIngestionDestination.ProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70486248dcacd57d3e83a2fa06fdb232feb9399fed747c82c6b2efebb8aef391(
+    *,
+    app: builtins.str,
+    app_bundle_arn: builtins.str,
+    ingestion_type: builtins.str,
+    tenant_id: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

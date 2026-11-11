@@ -6,7 +6,7 @@ from datetime import datetime
 import pytest
 from dirty_equals import IsStr
 from foxglove.testing import DummyServer
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 
 from aioaws.ses import SesAttachment, SesClient, SesConfig, SesRecipient, SesWebhookInfo
 from aioaws.sns import SnsWebhookError
@@ -390,7 +390,7 @@ async def test_webhook_subscribe(client: AsyncClient, aws: DummyServer, mocker):
 
 async def test_real_send(real_aws: AWS):
     async with AsyncClient() as client:
-        ses = SesClient(client, SesConfig(real_aws.access_key, real_aws.secret_key, 'eu-west-1'))
+        ses = SesClient(client, SesConfig(real_aws.access_key, real_aws.secret_key, 'us-east-1'))
 
         message_id = await ses.send_email(
             'testing@scolvin.com',

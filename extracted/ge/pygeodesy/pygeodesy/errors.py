@@ -28,7 +28,7 @@ from pygeodesy.lazily import _ALL_LAZY, _ALL_MODS as _MODS, _PYTHON_X_DEV
 from copy import copy as _copy
 
 __all__ = _ALL_LAZY.errors  # _ALL_DOCS('_InvalidError', '_IsnotError')  _under
-__version__ = '26.10.02'
+__version__ = '26.10.27'
 
 _argument_   = 'argument'
 _basics      = _MODS.into(basics=__name__)  # PYLINT E1120
@@ -95,9 +95,9 @@ class _AttributeError(AttributeError):
 class _ConvergenceError(ValueError):  # in .ellipses, .elliptic
     '''(INTERNAL) Format a C{ConvergenceError}.
     '''
-    def __init__(self, maxit, d, tol, **thresh):  # PYCHOK cause=None
+    def __init__(self, MAXIT, d, tol, **thresh):  # PYCHOK cause=None
         t = _streprs.Fmt.no_convergence(d, tol, **thresh)
-        _error_init(ValueError, self, (), maxit=maxit, txt=t)
+        _error_init(ValueError, self, (), MAXIT=MAXIT, txt=t)
 
 
 class _ImportError(ImportError):
@@ -940,7 +940,7 @@ def _xStrError(*Refs, **name_value_Error):  # in .gars, .geohash, .wgrs
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

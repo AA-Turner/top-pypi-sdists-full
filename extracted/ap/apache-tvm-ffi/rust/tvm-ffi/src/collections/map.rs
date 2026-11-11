@@ -16,28 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-//! Immutable [`Map`] container backed by the C++ `ffi.Map` object.
+//! [`Map`], an immutable hash map whose lookups run in the FFI runtime.
 //!
-//! The `MapObj` header mirrors C++ `MapBaseObj`, so [`Map::len`] reads `size`
-//! directly (no FFI). The hash-table storage itself is an implementation detail,
-//! so lookups and iteration are delegated to the global functions the C++ runtime
-//! registers (`ffi.MapGetItem`, `ffi.MapForwardIterFunctor`, ...): there is no
-//! Map-specific C ABI, and a Rust re-implementation would have to replicate the
-//! hashing (`AnyHash`/`AnyEqual`) and dense/small probing, just as the Python
-//! bindings also delegate.
-//!
-//! `Any` conversions follow C++ `MapTypeTraitsBase` (map_base.h): the strict
-//! check walks every entry, and a failed strict `try_from` falls back to
-//! converting the entries one by one into a new map.
+//! Converting an `Any` into a `Map<K, V>` checks every entry; when an entry
+//! is not a `K`/`V` as is, the entries are converted one by one into a new map.
+
+// The `MapObj` header mirrors C++ `MapBaseObj`, so `Map::len` reads `size`
+// directly (no FFI). The hash-table storage itself is an implementation detail,
+// so lookups and iteration are delegated to the global functions the C++ runtime
+// registers (`ffi.MapGetItemOrMissing`, `ffi.MapForwardIterFunctor`, ...): there is no
+// Map-specific C ABI, and a Rust re-implementation would have to replicate the
+// hashing (`AnyHash`/`AnyEqual`) and dense/small probing, just as the Python
+// bindings also delegate.
+
+use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Deref;
 
+use crate::IntoArg;
 use crate::any::TryFromTemp;
 use crate::derive::Object;
+use crate::extra::cold_init_lazy_lock::ColdInitLazyLock;
 use crate::function::Function;
 use crate::object::{Object, ObjectArc};
-use crate::type_traits::ContainerElement;
+use crate::type_traits::{ContainerElement, TypeSubsumes};
 use crate::{Any, AnyCompatible, AnyView, Error, ObjectRefCore, Result};
 use tvm_ffi_sys::TVMFFITypeIndex as TypeIndex;
 use tvm_ffi_sys::{TVMFFIAny, TVMFFIObject};
@@ -51,12 +54,22 @@ pub(crate) fn element_view<T: ContainerElement>(value: &T) -> AnyView<'_> {
     }
 }
 
+/// The address of the runtime's missing-value sentinel, which
+/// `ffi.MapGetItemOrMissing` returns for an absent key. The sentinel lives for
+/// the whole process, so its address identifies it.
+static MISSING_OBJECT: ColdInitLazyLock<usize> = ColdInitLazyLock::new(|| {
+    let missing = Function::get_global("ffi.GetInvalidObject")
+        .and_then(|f| f.call_packed(&[]))
+        .expect("ffi.GetInvalidObject failed");
+    unsafe { missing.as_raw_ffi_any().data_union.v_obj as usize }
+});
+
 fn element_from_any<T: ContainerElement>(value: Any) -> Result<T> {
     unsafe {
         if T::container_check_any_strict(value.as_raw_ffi_any()) {
             let mut value = std::mem::ManuallyDrop::new(value);
             return Ok(T::container_move_from_any_after_check(
-                &mut *value.as_data_ptr(),
+                &mut *value.as_raw_ffi_any_mut(),
             ));
         }
         T::container_try_cast_from_any_view(value.as_raw_ffi_any()).map_err(|()| {
@@ -65,29 +78,28 @@ fn element_from_any<T: ContainerElement>(value: Any) -> Result<T> {
                 T::container_get_mismatch_type_info(value.as_raw_ffi_any()),
                 T::container_type_str()
             );
-            Error::new(crate::error::TYPE_ERROR, &message, "")
+            Error::new(crate::error::TYPE_ERROR, &message)
         })
     }
 }
 
-/// Container object for [`Map`]. The header fields mirror C++ `MapBaseObj`
-/// (`include/tvm/ffi/container/map_base.h`) so [`Map::len`] can read `size`
-/// without an FFI call; the storage `data` points to stays opaque.
-///
-/// This is a partial mirror by design: `MapBaseObj` has one more trailing field
-/// after `slots_` (a `data_deleter_` function pointer), omitted here because this
-/// binding is read-only — it only reads fields up to `size`, which precede it,
-/// and never allocates a `MapObj` itself (the C++ runtime allocates the larger
-/// `Small`/`DenseMapBaseObj` subclass), so the trailing field is never touched.
-/// The layout also assumes `TVM_FFI_DEBUG_WITH_ABI_CHANGE` is off (the default):
-/// with that debug flag set, `MapBaseObj` gains a *leading* `state_marker` field
-/// that would shift every offset below.
+/// The object behind a [`Map`]. The header fields are laid out as the C++
+/// `MapBaseObj`, so [`Map::len`] reads `size` without an FFI call; the storage
+/// `data` points to stays opaque.
+//
+// This is a partial mirror by design: `MapBaseObj` has one more trailing field
+// after `slots_` (a `data_deleter_` function pointer), omitted here because this
+// binding is read-only — it only reads fields up to `size`, which precede it,
+// and never allocates a `MapObj` itself (the C++ runtime allocates the larger
+// `Small`/`DenseMapBaseObj` subclass), so the trailing field is never touched.
+// The layout also assumes `TVM_FFI_DEBUG_WITH_ABI_CHANGE` is off (the default):
+// with that debug flag set, `MapBaseObj` gains a *leading* `state_marker` field
+// that would shift every offset below.
 #[repr(C)]
 #[derive(Object)]
-#[type_key = "ffi.Map"]
-#[type_index(TypeIndex::kTVMFFIMap)]
+#[object(type_key = "ffi.Map", unsafe type_index = TypeIndex::kTVMFFIMap)]
 pub struct MapObj {
-    pub object: Object,
+    pub(crate) object: Object,
     /// Pointer to the (opaque) key/value storage region (`MapBaseObj::data_`).
     pub data: *mut core::ffi::c_void,
     /// Number of entries (`MapBaseObj::size_`).
@@ -96,13 +108,33 @@ pub struct MapObj {
     pub slots: u64,
 }
 
-/// Immutable, reference-counted map from `K` to `V`, sharing its underlying
-/// `MapObj` with C++. Cloning is cheap (it bumps the refcount).
+/// An immutable, reference-counted map from `K` to `V`, passed across
+/// languages as `ffi.Map`.
+///
+/// Cloning a `Map` is cheap: it shares the same entries.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_ffi::{Map, String};
+///
+/// let map: Map<String, i64> = [(String::from("a"), 1), (String::from("b"), 2)]
+///     .into_iter()
+///     .collect();
+/// assert_eq!(map.len(), 2);
+/// assert_eq!(map.get("b")?, Some(2));
+/// assert_eq!(map.get("c")?, None);
+/// # Ok::<(), tvm_ffi::Error>(())
+/// ```
 #[repr(C)]
 pub struct Map<K, V> {
     data: ObjectArc<MapObj>,
     _marker: PhantomData<(K, V)>,
 }
+
+// SAFETY: a `Map` is immutable, so sharing it is as safe as sharing its entries.
+unsafe impl<K: Send + Sync, V: Send + Sync> Send for Map<K, V> {}
+unsafe impl<K: Send + Sync, V: Send + Sync> Sync for Map<K, V> {}
 
 // Manual `Clone`: the data is the shared `ObjectArc`, so `Map<K, V>` is `Clone`
 // regardless of whether `K`/`V` are (they are only phantom markers).
@@ -115,7 +147,41 @@ impl<K, V> Clone for Map<K, V> {
     }
 }
 
-unsafe impl<K, V> ObjectRefCore for Map<K, V> {
+/// A map upcasts to the root [`ObjectRef`](crate::object::ObjectRef).
+impl<K, V> From<Map<K, V>> for crate::object::ObjectRef
+where
+    Map<K, V>: ObjectRefCore,
+{
+    #[inline]
+    fn from(value: Map<K, V>) -> Self {
+        crate::object::into_root_object_ref(value)
+    }
+}
+
+/// The strict downcast from the root [`ObjectRef`](crate::object::ObjectRef).
+impl<K, V> TryFrom<crate::object::ObjectRef> for Map<K, V>
+where
+    Map<K, V>: ObjectRefCore,
+{
+    type Error = crate::error::Error;
+    #[inline]
+    fn try_from(value: crate::object::ObjectRef) -> crate::error::Result<Self> {
+        crate::object::root_try_into(value)
+    }
+}
+
+impl<K, V> TryFrom<&crate::object::ObjectRef> for Map<K, V>
+where
+    Map<K, V>: ObjectRefCore + crate::type_traits::DowncastRefFromObject,
+{
+    type Error = crate::error::Error;
+    #[inline]
+    fn try_from(value: &crate::object::ObjectRef) -> crate::error::Result<Self> {
+        crate::object::root_try_into_ref(value)
+    }
+}
+
+unsafe impl<K: ContainerElement, V: ContainerElement> ObjectRefCore for Map<K, V> {
     type ContainerType = MapObj;
 
     fn data(this: &Self) -> &ObjectArc<MapObj> {
@@ -150,12 +216,12 @@ where
     K: ContainerElement,
     V: ContainerElement,
 {
-    /// Creates a new, empty map (via an `ffi.Map()` call to the C++ runtime).
+    /// Creates an empty map.
     pub fn new() -> Self {
         Self::from_pairs(&[]).expect("ffi.Map() failed to construct an empty map")
     }
 
-    /// Builds a map by calling the C++ `ffi.Map` constructor with a flattened
+    /// Builds a map by calling the runtime's `ffi.Map` constructor with a flattened
     /// `[k0, v0, k1, v1, ...]` argument list.
     fn from_pairs(pairs: &[(K, V)]) -> Result<Self> {
         let mut args: Vec<AnyView<'_>> = Vec::with_capacity(pairs.len() * 2);
@@ -167,8 +233,7 @@ where
         Self::try_from(result)
     }
 
-    /// Returns the number of entries in the map by reading the `MapObj` header
-    /// directly (no FFI call), like [`Array::len`](crate::Array).
+    /// Returns the number of entries.
     pub fn len(&self) -> usize {
         self.size as usize
     }
@@ -179,8 +244,7 @@ where
     }
 
     /// Returns whether `key` is present, propagating any FFI error (e.g. a key
-    /// the C++ runtime cannot hash) rather than panicking. Backs both
-    /// [`Map::contains_key`] and [`Map::get`].
+    /// the runtime cannot hash) rather than panicking.
     fn try_contains_key(&self, key: &K) -> Result<bool> {
         let result = crate::cached_global_func!("ffi.MapCount")
             .call_packed(&[AnyView::from(self), element_view(key)])?;
@@ -189,7 +253,7 @@ where
 
     /// In debug builds, panics if `K` does not match the map's actual key type,
     /// checked against one stored key. Compiles to nothing in release, so
-    /// [`Map::get`] / [`Map::contains_key`] keep their single-FFI-call fast path.
+    /// [`Map::get`] and [`Map::contains_key`] stay one FFI call there.
     ///
     /// A pure key lookup *hashes* the key rather than retrieving one, so a wrong
     /// `K` simply fails to match and reads as "absent" — unlike [`Map::iter`],
@@ -214,61 +278,69 @@ where
         }
     }
 
-    /// Returns `true` if `key` is present in the map.
+    /// Returns whether `key` is present.
     ///
-    /// Panics if the lookup fails in the C++ runtime (e.g. `key` is not
-    /// hashable); use [`Map::get`] when such failures must be recovered from.
-    /// Passing a `key` whose *type* does not match the map's key type is
-    /// **undefined** (currently reads as `false`; see [`Map::get`]); debug builds
-    /// assert against it.
-    pub fn contains_key(&self, key: &K) -> bool {
-        let present = self
-            .try_contains_key(key)
-            .expect("ffi.MapCount call failed");
+    /// # Errors
+    ///
+    /// Returns an error if the runtime cannot look `key` up, such as when it
+    /// is not hashable.
+    ///
+    /// The result for a `key` of another type than the map's keys is
+    /// unspecified, as for [`Map::get`]. Code generic over `K` that passes a
+    /// `&K` adds the bound `for<'a> &'a K: IntoArg<K>`.
+    pub fn contains_key(&self, key: impl IntoArg<K>) -> Result<bool> {
+        let present = self.try_contains_key(key.into_arg().borrow())?;
         if !present {
             self.debug_assert_key_type();
         }
-        present
+        Ok(present)
     }
 
-    /// Looks up `key`, returning `Ok(None)` if absent, or `Err` if the lookup
-    /// fails in the C++ runtime (e.g. `key` is not hashable) or the stored value
-    /// cannot be converted to `V`. The map is immutable, so the lookup
-    /// (existence check then `ffi.MapGetItem`) cannot race with itself.
+    /// Looks up `key`, returning `Ok(None)` if it is absent.
     ///
-    /// Passing a `key` whose *type* does not match the map's key type is
-    /// **undefined**: the result is unspecified — it currently reads as absent
-    /// (`Ok(None)`) because a pure lookup hashes the key rather than retrieving
-    /// one, so the mismatch cannot be surfaced as an `Err` the way a value
-    /// mismatch (or [`Map::iter`], which retrieves keys) is. Debug builds assert
-    /// against this misuse.
-    pub fn get(&self, key: &K) -> Result<Option<V>> {
-        if !self.try_contains_key(key)? {
+    /// # Errors
+    ///
+    /// Returns an error if the runtime cannot look `key` up, such as when it
+    /// is not hashable, or if the value is not a `V`.
+    ///
+    /// The result for a `key` of another type than the map's keys is
+    /// unspecified: it currently reads as absent, since a lookup hashes the key
+    /// instead of reading a stored one. Debug builds assert against it.
+    ///
+    /// A `&str` key builds a temporary `String` for the runtime lookup. Code
+    /// generic over `K` that passes a `&K` adds the bound
+    /// `for<'a> &'a K: IntoArg<K>`.
+    pub fn get(&self, key: impl IntoArg<K>) -> Result<Option<V>> {
+        let key = key.into_arg();
+        let result = crate::cached_global_func!("ffi.MapGetItemOrMissing")
+            .call_packed(&[AnyView::from(self), element_view(key.borrow())])?;
+        let raw = result.as_raw_ffi_any();
+        if raw.type_index >= TypeIndex::kTVMFFIStaticObjectBegin as i32
+            && unsafe { raw.data_union.v_obj } as usize == *MISSING_OBJECT
+        {
             self.debug_assert_key_type();
             return Ok(None);
         }
-        let result = crate::cached_global_func!("ffi.MapGetItem")
-            .call_packed(&[AnyView::from(self), element_view(key)])?;
         let value = element_from_any(result)?;
         Ok(Some(value))
     }
 
     /// Returns an iterator over the `(key, value)` pairs of the map.
-    pub fn iter(&self) -> MapItems<K, V> {
-        self.make_iter(|f| (iter_read::<K>(f, 0, "key"), iter_read::<V>(f, 1, "value")))
+    pub fn iter(&self) -> Iter<K, V> {
+        Iter(self.make_iter(|f| (iter_read::<K>(f, 0, "key"), iter_read::<V>(f, 1, "value"))))
     }
 
     /// Returns an iterator over the keys of the map.
-    pub fn keys(&self) -> MapKeys<K> {
-        self.make_iter(|f| iter_read::<K>(f, 0, "key"))
+    pub fn keys(&self) -> Keys<K> {
+        Keys(self.make_iter(|f| iter_read::<K>(f, 0, "key")))
     }
 
     /// Returns an iterator over the values of the map.
-    pub fn values(&self) -> MapValues<V> {
-        self.make_iter(|f| iter_read::<V>(f, 1, "value"))
+    pub fn values(&self) -> Values<V> {
+        Values(self.make_iter(|f| iter_read::<V>(f, 1, "value")))
     }
 
-    /// Builds a [`MapIter`] whose `read` extracts each entry as `T`. The
+    /// Builds a `MapIter` whose `read` extracts each entry as `T`. The
     /// forward-iteration functor is requested only for a non-empty map, so
     /// iterating an empty map makes no FFI call and allocates no functor.
     fn make_iter<T>(&self, read: fn(&Function) -> T) -> MapIter<T> {
@@ -281,7 +353,7 @@ where
         }
     }
 
-    /// Obtains a fresh stateful forward-iteration functor from the C++ runtime.
+    /// Obtains a fresh stateful forward-iteration functor from the runtime.
     fn iter_functor(&self) -> Function {
         let result = crate::cached_global_func!("ffi.MapForwardIterFunctor")
             .call_packed(&[AnyView::from(self)])
@@ -291,28 +363,51 @@ where
 
     /// Reads all entries as raw `(Any, Any)` pairs without converting to
     /// `K`/`V`, propagating FFI failures instead of panicking (unlike the
-    /// iterator API): this backs `check_any_strict` and
+    /// iterator API): this backs strict checks and the converting fallback in
     /// `try_cast_from_any_view`, which run during argument decoding where a
     /// panic could unwind across the C ABI.
     fn try_raw_entries(&self) -> Result<Vec<(Any, Any)>> {
-        let mut entries = Vec::with_capacity(self.len());
-        let mut remaining = self.len();
+        forward_entries(
+            crate::cached_global_func!("ffi.MapForwardIterFunctor"),
+            AnyView::from(self),
+            self.len(),
+        )
+    }
+
+    /// Converts raw entries one by one into a new map.
+    fn from_raw_entries(entries: Vec<(Any, Any)>) -> Result<Self> {
+        let mut pairs = Vec::with_capacity(entries.len());
+        for (k, v) in entries {
+            pairs.push((element_from_any::<K>(k)?, element_from_any::<V>(v)?));
+        }
+        Self::from_pairs(&pairs)
+    }
+}
+
+/// The `len` entries of the map or dict `container`, read with the iterator
+/// functor that `iter_functor` makes for it.
+fn forward_entries(
+    iter_functor: &Function,
+    container: AnyView,
+    len: usize,
+) -> Result<Vec<(Any, Any)>> {
+    let mut entries = Vec::with_capacity(len);
+    let mut remaining = len;
+    if remaining == 0 {
+        return Ok(entries);
+    }
+    let functor = iter_functor
+        .call_packed(&[container])
+        .and_then(Function::try_from)?;
+    loop {
+        let k = functor.call_packed(&[AnyView::from(&0i64)])?;
+        let v = functor.call_packed(&[AnyView::from(&1i64)])?;
+        entries.push((k, v));
+        remaining -= 1;
         if remaining == 0 {
             return Ok(entries);
         }
-        let functor = crate::cached_global_func!("ffi.MapForwardIterFunctor")
-            .call_packed(&[AnyView::from(self)])
-            .and_then(Function::try_from)?;
-        loop {
-            let k = functor.call_packed(&[AnyView::from(&0i64)])?;
-            let v = functor.call_packed(&[AnyView::from(&1i64)])?;
-            entries.push((k, v));
-            remaining -= 1;
-            if remaining == 0 {
-                return Ok(entries);
-            }
-            functor.call_packed(&[AnyView::from(&2i64)])?;
-        }
+        functor.call_packed(&[AnyView::from(&2i64)])?;
     }
 }
 
@@ -345,16 +440,85 @@ where
     }
 }
 
+/// Formats the map as its `repr`; see [`AnyView`].
+impl<K: ContainerElement, V: ContainerElement> std::fmt::Display for Map<K, V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&AnyView::from_object(&**ObjectRefCore::data(self)), f)
+    }
+}
+
 impl<K, V> FromIterator<(K, V)> for Map<K, V>
 where
     K: ContainerElement,
     V: ContainerElement,
 {
-    /// Duplicate keys follow C++ `ffi.Map` semantics: a later pair overwrites an
-    /// earlier one, so the resulting map may be smaller than the iterator.
+    /// For duplicate keys, a later pair overwrites an earlier one, as in
+    /// `HashMap`, so the resulting map may be smaller than the iterator.
     fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
         let pairs: Vec<(K, V)> = iter.into_iter().collect();
         Self::from_pairs(&pairs).expect("ffi.Map() failed to construct a map")
+    }
+}
+
+impl<K: ContainerElement, V: ContainerElement, const N: usize> From<[(K, V); N]> for Map<K, V> {
+    fn from(pairs: [(K, V); N]) -> Self {
+        Self::from_pairs(&pairs).expect("ffi.Map() failed to construct a map")
+    }
+}
+
+/// A reference-count bump, as `From<&T> for T` of an object reference.
+impl<K, V> From<&Map<K, V>> for Map<K, V> {
+    #[inline]
+    fn from(value: &Map<K, V>) -> Self {
+        value.clone()
+    }
+}
+
+impl<K, V> Map<K, V> {
+    /// View this map as a `Map<KU, VU>` without a copy, as C++
+    /// `Map<KU, VU>(const Map<K, V>&)` does for bases `KU` and `VU`.
+    ///
+    /// It is a method, not `From`, for the reasons on [`Array::upcast`](crate::Array::upcast).
+    #[inline(always)]
+    pub fn upcast<KU: TypeSubsumes<K>, VU: TypeSubsumes<V>>(self) -> Map<KU, VU> {
+        Map {
+            data: self.data,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Borrow this map as a `Map<KU, VU>`, as [`upcast`](Self::upcast) does.
+    #[inline(always)]
+    pub fn upcast_ref<KU: TypeSubsumes<K>, VU: TypeSubsumes<V>>(&self) -> &Map<KU, VU> {
+        // SAFETY: both are `repr(C)` over one `ObjectArc<MapObj>`, and every
+        // entry of `Map<K, V>` is a valid entry of `Map<KU, VU>`.
+        unsafe { &*(self as *const Self as *const Map<KU, VU>) }
+    }
+}
+
+impl<K, V, KU: TypeSubsumes<K>, VU: TypeSubsumes<V>> IntoArg<Map<KU, VU>> for Map<K, V> {
+    type Output = Map<KU, VU>;
+    #[inline(always)]
+    fn into_arg(self) -> Map<KU, VU> {
+        self.upcast()
+    }
+    #[inline(always)]
+    fn into_owned(self) -> Map<KU, VU> {
+        self.upcast()
+    }
+}
+
+impl<'a, K, V, KU: TypeSubsumes<K> + 'a, VU: TypeSubsumes<V> + 'a> IntoArg<Map<KU, VU>>
+    for &'a Map<K, V>
+{
+    type Output = &'a Map<KU, VU>;
+    #[inline(always)]
+    fn into_arg(self) -> &'a Map<KU, VU> {
+        self.upcast_ref()
+    }
+    #[inline(always)]
+    fn into_owned(self) -> Map<KU, VU> {
+        self.upcast_ref().clone()
     }
 }
 
@@ -395,16 +559,14 @@ fn iter_advance(functor: &Function, remaining: &mut usize) {
     }
 }
 
-/// Forward iterator over a [`Map`], yielding `T` per entry. The `read` fn pulls
-/// the current entry (key, value, or both) from the C++ functor, so each variant
-/// touches only the command(s) it needs — `keys()` never reads values, and vice
-/// versa. Created via the [`MapItems`] / [`MapKeys`] / [`MapValues`] aliases.
-pub struct MapIter<T> {
+/// Forward iterator over a [`Map`], yielding `T` per entry.
+struct MapIter<T> {
     /// `None` for an empty map (no functor is requested); `Some` while at least
     /// one entry remains to be yielded.
     functor: Option<Function>,
     remaining: usize,
     _keepalive: ObjectArc<MapObj>,
+    /// Reads the current entry, only the key or value the iterator yields.
     read: fn(&Function) -> T,
 }
 
@@ -432,12 +594,41 @@ impl<T> Iterator for MapIter<T> {
 
 impl<T> ExactSizeIterator for MapIter<T> {}
 
-/// Iterator over `(key, value)` pairs, created by [`Map::iter`].
-pub type MapItems<K, V> = MapIter<(K, V)>;
-/// Iterator over keys, created by [`Map::keys`].
-pub type MapKeys<K> = MapIter<K>;
-/// Iterator over values, created by [`Map::values`].
-pub type MapValues<V> = MapIter<V>;
+macro_rules! map_iterator {
+    ($(#[$doc:meta])* $name:ident<$($param:ident),+>, $item:ty) => {
+        $(#[$doc])*
+        pub struct $name<$($param),+>(MapIter<$item>);
+
+        impl<$($param),+> Iterator for $name<$($param),+> {
+            type Item = $item;
+
+            #[inline]
+            fn next(&mut self) -> Option<$item> {
+                self.0.next()
+            }
+
+            #[inline]
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                self.0.size_hint()
+            }
+        }
+
+        impl<$($param),+> ExactSizeIterator for $name<$($param),+> {}
+    };
+}
+
+map_iterator!(
+    /// Iterator over `(key, value)` pairs, created by [`Map::iter`].
+    Iter<K, V>, (K, V)
+);
+map_iterator!(
+    /// Iterator over keys, created by [`Map::keys`].
+    Keys<K>, K
+);
+map_iterator!(
+    /// Iterator over values, created by [`Map::values`].
+    Values<V>, V
+);
 
 impl<K, V> IntoIterator for &Map<K, V>
 where
@@ -445,7 +636,7 @@ where
     V: ContainerElement,
 {
     type Item = (K, V);
-    type IntoIter = MapItems<K, V>;
+    type IntoIter = Iter<K, V>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -461,7 +652,7 @@ where
 {
     #[inline]
     unsafe fn is_undefined(field: *const Self) -> bool {
-        ObjectArc::is_null(std::ptr::addr_of!((*field).data))
+        unsafe { ObjectArc::is_null(std::ptr::addr_of!((*field).data)) }
     }
 
     fn type_str() -> String {
@@ -486,7 +677,7 @@ where
         if data.type_index != TypeIndex::kTVMFFIMap as i32 {
             return false;
         }
-        let map = <Self as AnyCompatible>::copy_from_any_view_after_check(data);
+        let map = unsafe { <Self as AnyCompatible>::copy_from_any_view_after_check(data) };
         match map.try_raw_entries() {
             Ok(entries) => entries.iter().all(|(k, v)| unsafe {
                 K::container_check_any_strict(k.as_raw_ffi_any())
@@ -496,9 +687,20 @@ where
         }
     }
 
+    unsafe fn match_constraints(data: &TVMFFIAny) -> bool {
+        let map = unsafe { <Self as AnyCompatible>::copy_from_any_view_after_check(data) };
+        match map.try_raw_entries() {
+            Ok(entries) => entries.iter().all(|(k, v)| unsafe {
+                K::container_match_constraints(k.as_raw_ffi_any())
+                    && V::container_match_constraints(v.as_raw_ffi_any())
+            }),
+            Err(_) => false,
+        }
+    }
+
     unsafe fn copy_to_any_view(src: &Self, data: &mut TVMFFIAny) {
         data.type_index = TypeIndex::kTVMFFIMap as i32;
-        data.data_union.v_obj = ObjectArc::as_raw(Self::data(src)) as *mut TVMFFIObject;
+        data.data_union.v_obj = ObjectArc::as_ptr(Self::data(src)) as *mut TVMFFIObject;
         data.small_str_len = 0;
     }
 
@@ -509,41 +711,95 @@ where
     }
 
     unsafe fn copy_from_any_view_after_check(data: &TVMFFIAny) -> Self {
-        let ptr = data.data_union.v_obj as *const MapObj;
-        crate::object::unsafe_::inc_ref(ptr as *mut TVMFFIObject);
-        Self::from_data(ObjectArc::from_raw(ptr))
+        let ptr = unsafe { data.data_union.v_obj as *const MapObj };
+        unsafe { crate::object::unsafe_::inc_ref(ptr as *mut TVMFFIObject) };
+        unsafe { Self::from_data(ObjectArc::from_raw(ptr)) }
     }
 
     unsafe fn move_from_any_after_check(data: &mut TVMFFIAny) -> Self {
-        let ptr = data.data_union.v_obj as *const MapObj;
-        let obj = Self::from_data(ObjectArc::from_raw(ptr));
+        let ptr = unsafe { data.data_union.v_obj as *const MapObj };
+        let obj = unsafe { Self::from_data(ObjectArc::from_raw(ptr)) };
         data.type_index = TypeIndex::kTVMFFINone as i32;
         data.data_union.v_int64 = 0;
         obj
     }
 
     unsafe fn try_cast_from_any_view(data: &TVMFFIAny) -> Result<Self, ()> {
+        if data.type_index == TypeIndex::kTVMFFIDict as i32 {
+            // A dict is mutable, so it converts by copy, as C++ `Map` accepts it.
+            // `ffi.Dict` shares the `MapBaseObj` header.
+            let len = unsafe { (*(data.data_union.v_obj as *const MapObj)).size as usize };
+            let entries = unsafe {
+                forward_entries(
+                    crate::cached_global_func!("ffi.DictForwardIterFunctor"),
+                    AnyView::from_raw_ffi_any(*data),
+                    len,
+                )
+                .map_err(|_| ())?
+            };
+            return Self::from_raw_entries(entries).map_err(|_| ());
+        }
         if data.type_index != TypeIndex::kTVMFFIMap as i32 {
             return Err(());
         }
 
         // Fast path: if all entries match strictly, we can just copy the reference.
-        if <Self as AnyCompatible>::check_any_strict(data) {
-            return Ok(<Self as AnyCompatible>::copy_from_any_view_after_check(
-                data,
-            ));
+        if unsafe { <Self as AnyCompatible>::check_any_strict(data) } {
+            return Ok(unsafe { <Self as AnyCompatible>::copy_from_any_view_after_check(data) });
         }
 
         // Slow path: try to convert entry by entry into a new map, as C++
         // `TryCastFromAnyView` does.
-        let src = <Self as AnyCompatible>::copy_from_any_view_after_check(data);
-        let mut pairs = Vec::with_capacity(src.len());
-        for (k, v) in src.try_raw_entries().map_err(|_| ())? {
-            let k = element_from_any::<K>(k).map_err(|_| ())?;
-            let v = element_from_any::<V>(v).map_err(|_| ())?;
-            pairs.push((k, v));
-        }
-        Self::from_pairs(&pairs).map_err(|_| ())
+        let src = unsafe { <Self as AnyCompatible>::copy_from_any_view_after_check(data) };
+        let entries = src.try_raw_entries().map_err(|_| ())?;
+        Self::from_raw_entries(entries).map_err(|_| ())
+    }
+}
+
+// The cell's payload word is the single object pointer of the handle.
+unsafe impl<K, V> crate::type_traits::RefFromAnyUnchecked for Map<K, V>
+where
+    K: ContainerElement,
+    V: ContainerElement,
+{
+    #[inline(always)]
+    unsafe fn ref_from_any_unchecked(cell: &TVMFFIAny) -> &Self {
+        unsafe { &*(core::ptr::addr_of!(cell.data_union) as *const Self) }
+    }
+}
+
+unsafe impl<K, V> crate::type_traits::DowncastRefFromAny for Map<K, V>
+where
+    K: ContainerElement,
+    V: ContainerElement,
+{
+    #[inline(always)]
+    unsafe fn downcast_ref_from_any(cell: &TVMFFIAny) -> Option<&Self> {
+        unsafe { crate::type_traits::downcast_ref_from_any_in_place::<Self>(cell) }
+    }
+}
+
+unsafe impl<K, V> crate::type_traits::DowncastRefFromObject for Map<K, V>
+where
+    K: ContainerElement,
+    V: ContainerElement,
+{
+    #[inline(always)]
+    unsafe fn downcast_ref_from_object(place: &*mut TVMFFIObject) -> Option<&Self> {
+        unsafe { crate::type_traits::downcast_ref_from_object_in_place::<Self>(place) }
+    }
+}
+
+impl<'b, K, V> TryFrom<&'b Any> for Map<K, V>
+where
+    K: ContainerElement,
+    V: ContainerElement,
+{
+    type Error = Error;
+
+    fn try_from(value: &'b Any) -> Result<Self> {
+        let temp: TryFromTemp<Self> = TryFromTemp::try_from(value)?;
+        Ok(TryFromTemp::into_value(temp))
     }
 }
 

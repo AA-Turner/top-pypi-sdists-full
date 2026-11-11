@@ -14,16 +14,23 @@ from typing import Any
 import yaml
 
 from . import (
+    context_refs,
+    dimension_display,
+    epistemic_dimensions,
     epistemic_graph,
+    lifecycle_statuses,
     relation_registry,
     relation_vocabulary,
+    semantic_labels,
     semantic_language_registry,
     semantic_units,
+    structured_filters,
     traversal_profiles,
     vault,
 )
 from . import find as find_module
 from .kbdir import kb_dirname
+from .vocabulary.registry import PUBLIC_INSTANCE
 
 SCHEMA_VERSION = 1
 MIN_REQUIRED_SAMPLE = 5
@@ -1107,6 +1114,7 @@ def infer_category_registry(
         page_type=page_type,
         registry=registry,
     )
+    dimension_counts = _dimension_counts(vault_root, registry, observations)
     grouped: dict[str, list[dict[str, Any]]] = {}
     for item in observations:
         grouped.setdefault(str(item["category_key"]), []).append(item)
@@ -1181,20 +1189,174 @@ def infer_category_registry(
             for alias, canonical in sorted(registry.category_aliases.items())
         ],
         "candidate_changes": candidate_changes,
-        # Every verdict a unit's `verdict:` row or an experiment's `outcome:` accepts here: the
-        # shipped ones, then the vault's own once its registry has no error finding.
-        "verdicts": [
-            {
-                "key": definition.key,
-                "labels": dict(definition.labels),
-                "description": definition.description,
-                "shipped": definition.core,
-            }
-            for definition in registry.verdict_definitions().values()
+        # Every entry each label registry accepts here, such as each verdict a unit's
+        # `verdict:` row or an experiment's `outcome:` takes: the shipped ones, then the vault's
+        # own once its registry has no error finding.
+        **{
+            labels.section: [
+                {
+                    **_label_entry(definition),
+                    # A dimension also lists what makes a unit belong to it, how context shows it
+                    # and how many units of this scan belong to it.
+                    **{
+                        field: value
+                        for field, value in definition.as_dict().items()
+                        if field in semantic_labels.MEMBER_FIELDS
+                    },
+                    **(
+                        dimension_counts[definition.key]
+                        if labels is semantic_labels.DIMENSIONS
+                        else {}
+                    ),
+                }
+                for definition in registry.label_definitions(labels).values()
+            ]
+            for labels in semantic_labels.REGISTRIES
+        },
+        # Every kind with its labels in each language. A `##` heading names each rich kind; a
+        # compact kind, such as `observation`, is in the list too, and no heading names it.
+        "kinds": [
+            _label_entry(definition) for definition in registry.kind_label_definitions().values()
         ],
         "proposal": semantic_language_registry.registry_proposal(registry),
         "content_hash": registry.content_hash,
         "registry_findings": [item.as_dict() for item in registry.findings],
+    }
+
+
+def _dimension_counts(
+    vault_root: Path,
+    registry: semantic_language_registry.SemanticLanguageRegistry,
+    observations: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """How many scanned units, and on how many pages, belong to each dimension of `registry`, and
+    how many of them carry each mark that the dimension's display behaviours count.
+
+    Membership is the `unit.dimension` filter's, and the marks are its groups', from one graph
+    read for the whole vault in the caller's view, so an edge to a page withheld from the caller
+    counts no unit and sets no mark. `edges` says how a row was counted: "not_needed" for a
+    dimension whose members and counted marks no edge decides, "counted" when the graph answered,
+    and "unavailable" when it could not. An unavailable row gives no count that edges decide,
+    because a count without the edges would present a part as the whole: its unit and page counts
+    are null when edges decide membership, and its mark counts are null. When the graph is
+    missing or stale, a rebuild is scheduled, as the filter does, and the row names the
+    operation that runs it now.
+    """
+    relations = relation_registry.load_registry(vault_root)
+    lookups = epistemic_dimensions.membership(registry, relations)
+    # The display behaviours whose marks each row counts, as the dimension lists them.
+    counted = {
+        key: tuple(name for name in display if name in dimension_display.COUNTED_MARKS)
+        for key, display in lookups.display.items()
+    }
+    mark_behaviours = dimension_display.edge_behaviours(
+        name for names in counted.values() for name in names
+    )
+    edges = epistemic_dimensions.read_edges(
+        vault_root,
+        lookups,
+        admission=find_module.caller_admission(vault_root),
+        behaviours=mark_behaviours,
+    )
+    if edges.status == "warming":
+        epistemic_graph.schedule_background_rebuild(
+            vault_root,
+            mutation_coordinator=epistemic_graph.EpistemicGraphIndex(
+                vault_root
+            )._canonical_mutation_coordinator(),
+        )
+    answer = epistemic_dimensions.UnitDimensions.from_edges(lookups, edges.edges)
+    status_basis = lifecycle_statuses.Basis(vault_root)
+    units: Counter[str] = Counter()
+    pages: dict[str, set[str]] = {}
+    shown: dict[str, list[dimension_display.DisplayUnit]] = {}
+    for item in observations:
+        # The report's registry is the public instance's, as a filter plan's is, so another
+        # instance's kind joins no dimension and carries no trait here either.
+        own_kind = not structured_filters.foreign_entry(
+            "unit.kind", item["kind"], item, PUBLIC_INSTANCE
+        )
+        view = {
+            "kind": item["kind"],
+            "form": item["form"],
+            "row_keys": item["row_keys"],
+            "occurrence": item["occurrence"],
+        }
+        belongs = answer({"path": item["path"]}, view, own_kind=own_kind)
+        unit: dimension_display.DisplayUnit | None = None
+        for key in belongs:
+            units[key] += 1
+            pages.setdefault(key, set()).add(item["path"])
+            if counted.get(key):
+                unit = unit or _display_unit(item, view, own_kind, status_basis)
+                shown.setdefault(key, []).append(unit)
+    edge_dimensions = frozenset().union(*lookups.by_family.values())
+    counts: dict[str, dict[str, Any]] = {}
+    for key in registry.label_definitions(semantic_labels.DIMENSIONS):
+        reads_edges = bool(dimension_display.edge_behaviours(counted.get(key, ())))
+        if key not in edge_dimensions and not reads_edges:
+            status = "not_needed"
+        else:
+            status = "counted" if edges.status == "available" else "unavailable"
+        members_known = key not in edge_dimensions or edges.status == "available"
+        counts[key] = {
+            "unit_count": units[key] if members_known else None,
+            "page_count": len(pages.get(key, ())) if members_known else None,
+            "edges": status,
+        }
+        if counted.get(key):
+            view = dimension_display.display(
+                shown.get(key, ()),
+                counted[key],
+                language=registry,
+                relations=relations,
+                edges=edges if members_known else None,
+            )
+            for name in counted[key]:
+                mark = dimension_display.COUNTED_MARKS[name]
+                counts[key][mark] = view.counts.get(mark)
+        if status == "unavailable" and edges.status == "warming":
+            counts[key]["repair"] = _GRAPH_REBUILD
+    return counts
+
+
+def _display_unit(
+    item: Mapping[str, Any],
+    view: Mapping[str, Any],
+    own_kind: bool,
+    status_basis: lifecycle_statuses.Basis,
+) -> dimension_display.DisplayUnit:
+    """What a dimension's display reads of one scanned unit."""
+    frontmatter = item["frontmatter"]
+    return dimension_display.DisplayUnit(
+        ref=context_refs.vault_ref(item["path"]),
+        path=item["path"],
+        node=epistemic_dimensions.node_key(item["path"], view),
+        kind=item["kind"] if own_kind else None,
+        verdict=item.get("verdict"),
+        historical=dimension_display.page_is_history(
+            status_basis, frontmatter.get("status"), path=item["path"], frontmatter=frontmatter
+        ),
+    )
+
+
+#: The operation that refreshes the graph a dimension row could not read its edges from. A plain
+#: reconcile refreshes a missing or stale graph; `rebuild_graph` is only for a broken lineage.
+_GRAPH_REBUILD: dict[str, Any] = {
+    "tool": "maintain_memory",
+    "args": {"mode": "reconcile"},
+    "reason": "The graph that records typed edges is missing or stale; a rebuild has been "
+    "scheduled, and this operation runs it now.",
+}
+
+
+def _label_entry(definition: semantic_labels.LabelDefinition) -> dict[str, Any]:
+    """One entry of a label list in the schema read: a kind or an entry of a label registry."""
+    return {
+        "key": definition.key,
+        "labels": dict(definition.labels),
+        "description": definition.description,
+        "shipped": definition.core,
     }
 
 
@@ -1226,6 +1388,7 @@ def _scan_category_observations(
     observations: list[dict[str, Any]] = []
     for page in pages:
         projects = tuple(sorted(_page_projects(page.frontmatter)))
+        instance = _page_instance(vault_root, page)
         document = semantic_units.parse_semantic_units(
             page.body,
             path=page.rel_path,
@@ -1266,6 +1429,17 @@ def _scan_category_observations(
                     "excerpt_truncated": truncated,
                     "page_type": page.page_type,
                     "projects": projects,
+                    # What the dimension count reads: the instance the page selected, the
+                    # governed rows the unit carries and where the graph holds it.
+                    "instance": instance,
+                    "row_keys": semantic_units.carried_row_keys(unit),
+                    "occurrence": semantic_units.occurrence_key(
+                        unit.form, unit.span, unit.source_hash
+                    ),
+                    # What the dimension marks read: the unit's verdict and its page's
+                    # frontmatter, which carries the status and selects its instance.
+                    "verdict": unit.verdict,
+                    "frontmatter": page.frontmatter,
                     # A rich unit that omits ``- category:`` defaults its category
                     # to the governed kind; that is not an authored category
                     # choice and never seeds a registration candidate.
@@ -1300,13 +1474,19 @@ def validate_category_registry(
         else semantic_language_registry.load_registry(vault_root)
     )
     findings: list[dict[str, Any]] = [item.as_dict() for item in registry.findings]
+    outcome = None
     if proposal is not None:
-        # The save refuses a proposal that drops a saved verdict, so validation reports it too.
-        dropped = semantic_language_registry.dropped_verdicts_finding(
-            semantic_language_registry.load_registry(vault_root), registry
+        current = semantic_language_registry.load_registry(vault_root)
+        # The save refuses a proposal that drops a saved label-registry entry, such as a
+        # verdict, so validation reports it too.
+        findings.extend(
+            dropped.as_dict()
+            for _labels, dropped in semantic_language_registry.dropped_label_findings(
+                current, registry
+            )
         )
-        if dropped is not None:
-            findings.append(dropped.as_dict())
+        # The save leads with the same sentences, so a caller sees what a label changes first.
+        outcome = kind_label_outcome(vault_root, current, registry)
     # A non-fatal registry finding (e.g. a `core_category_shadowed` warning) must
     # NOT suppress unrelated observation validation. Category resolution only
     # collapses to `registry_invalid` when the registry carries an actual error
@@ -1346,6 +1526,7 @@ def validate_category_registry(
         )
     )
     return {
+        **({"outcome": outcome} if outcome else {}),
         "subject": "categories",
         "valid": not any(item.get("severity") == "error" for item in findings),
         "strict": strict,
@@ -1359,28 +1540,176 @@ def diff_category_registries(
     before: semantic_language_registry.SemanticLanguageRegistry,
     after: semantic_language_registry.SemanticLanguageRegistry,
 ) -> dict[str, Any]:
-    """Diff reviewed categories, custom kinds and vault verdicts as distinct namespaces."""
+    """Diff reviewed categories, custom kinds, kind labels and each label registry as distinct
+    namespaces.
+
+    `kinds` compares the vault's own kinds without their labels, and `kind_labels` lists the
+    labels the vault adds or removes on any kind. A labels-only entry under a shipped kind's key
+    is no vault kind, so removing it removes labels and never a kind.
+    """
     before_proposal = semantic_language_registry.registry_proposal(before)
     after_proposal = semantic_language_registry.registry_proposal(after)
-    # `verdicts` is in a proposal only when the vault has some.
+    # A label-registry section is in a proposal only when the vault has entries in it.
+    label_sections = tuple(labels.section for labels in semantic_labels.REGISTRIES)
     # nosemgrep: ep-word-set -- the registry document's own sections, fixed by its schema
-    namespaces = ("categories", "kinds", "verdicts")
-    changes = {
+    namespaces = ("categories", *label_sections)
+    changes: dict[str, Any] = {
         namespace: _definition_changes(
             before_proposal.get(namespace, {}), after_proposal.get(namespace, {})
         )
         for namespace in namespaces
     }
+    changes["kinds"] = _definition_changes(
+        semantic_language_registry.kinds_without_labels(before),
+        semantic_language_registry.kinds_without_labels(after),
+    )
+    changes["kind_labels"] = _kind_label_changes(before, after)
+    kind_labels_changed = bool(changes["kind_labels"]["added"] or changes["kind_labels"]["removed"])
     return {
         "subject": "categories",
-        "changed": any(_definition_changes_present(value) for value in changes.values()),
+        "changed": kind_labels_changed or any(
+            _definition_changes_present(changes[namespace]) for namespace in (*namespaces, "kinds")
+        ),
         "categories_changed": _definition_changes_present(changes["categories"]),
         "kinds_changed": _definition_changes_present(changes["kinds"]),
-        "verdicts_changed": _definition_changes_present(changes["verdicts"]),
+        "kind_labels_changed": kind_labels_changed,
+        **{
+            f"{section}_changed": _definition_changes_present(changes[section])
+            for section in label_sections
+        },
         "before_hash": before.content_hash,
         "after_hash": after.content_hash,
         "changes": changes,
     }
+
+
+def _kind_label_changes(
+    before: semantic_language_registry.SemanticLanguageRegistry,
+    after: semantic_language_registry.SemanticLanguageRegistry,
+) -> dict[str, dict[str, dict[str, str]]]:
+    """The labels the vault adds and removes, by kind and language. A changed label is both."""
+    old = semantic_language_registry.written_kind_labels(before)
+    new = semantic_language_registry.written_kind_labels(after)
+
+    def missing(these: dict[str, dict[str, str]], others: dict[str, dict[str, str]]):
+        out = {
+            kind: {
+                language: text for language, text in labels.items()
+                if others.get(kind, {}).get(language) != text
+            }
+            for kind, labels in these.items()
+        }
+        return {kind: labels for kind, labels in out.items() if labels}
+
+    return {"added": missing(new, old), "removed": missing(old, new)}
+
+
+def kind_label_outcome(
+    vault_root: Path,
+    current: semantic_language_registry.SemanticLanguageRegistry,
+    candidate: semantic_language_registry.SemanticLanguageRegistry,
+) -> str | None:
+    """One sentence for each kind label that `candidate` adds or removes against `current`.
+
+    A label names a `##` heading, so each sentence says how many stored headings, on how many
+    pages, start or stop being units of a kind, as the lexical store counts them. The store
+    keeps every heading in that spelling, so each count is an upper bound. A count the store
+    cannot give is unknown, never zero. None when no label changes, or when `candidate`
+    has an error finding: its vault labels then name no heading, and the save refuses it.
+    """
+    if any(finding.severity == "error" for finding in candidate.findings):
+        return None
+    changes = _kind_label_changes(current, candidate)
+    labels = [
+        (change, kind, language, text)
+        for change in ("removed", "added")
+        for kind, written in changes[change].items()
+        for language, text in written.items()
+    ]
+    if not labels:
+        return None
+    forms = {semantic_language_registry.normalize_label(text) for *_rest, text in labels}
+    counts = _stored_heading_counts(vault_root, forms)
+    return " ".join(
+        _kind_label_sentence(
+            change, kind, language, text, counts,
+            before=_heading_kind(current, text), after=_heading_kind(candidate, text),
+        )
+        for change, kind, language, text in labels
+    )
+
+
+def _heading_kind(
+    registry: semantic_language_registry.SemanticLanguageRegistry, text: str
+) -> str | None:
+    """The kind a `## text` heading names, also where a vault kind's project or page-type scope
+    keeps it from naming that heading on some pages."""
+    resolution = registry.resolve_heading(text)
+    if resolution.resolved is None and resolution.status == "scope_violation":
+        return getattr(resolution.definition, "key", None)
+    return resolution.resolved
+
+
+def _stored_heading_counts(
+    vault_root: Path, forms: set[str]
+) -> dict[str, tuple[int, int, int]] | str:
+    """The lexical store's count per heading form, or why the count is unknown."""
+    from . import lexstore
+    from .vocabulary import usage
+
+    if usage.restricted(vault_root) is not None:
+        return "this caller may not count headings across the whole vault"
+    counts = lexstore.get_store(Path(vault_root)).heading_unit_counts(forms)
+    return "the lexical store is not current" if counts is None else counts
+
+
+def _kind_label_sentence(
+    change: str,
+    kind: str,
+    language: str,
+    text: str,
+    counts: dict[str, tuple[int, int, int]] | str,
+    *,
+    before: str | None,
+    after: str | None,
+) -> str:
+    head = (
+        f"Adding the {language} label {text!r} to {kind}" if change == "added"
+        else f"Removing the {language} label {text!r} from {kind}"
+    )
+    if before == after:
+        names = after or "no kind"
+        return f"{head} changes no unit: a heading {text!r} names {names} either way."
+    if before is None:
+        effect = f"start being {after} units"
+    elif after is None:
+        effect = f"stop being {before} units"
+    else:
+        effect = f"change from {before} to {after} units"
+    if isinstance(counts, str):
+        return (
+            f"{head}: the stored headings {text!r} {effect}; how many is unknown, because {counts}."
+        )
+    form = semantic_language_registry.normalize_label(text)
+    headings, pages, inside = counts.get(form, (0, 0, 0))
+    if not headings:
+        return f"{head}: no stored heading spells {text!r}, so no unit changes."
+    # The store keeps every heading in its spelling, so each count is an upper bound.
+    stored = f"{_count(headings, 'stored heading')} {text!r} on up to {_count(pages, 'page')}"
+    sentence = (
+        f"{head}: up to {stored} {effect}. Each count is an upper bound: a heading nested in "
+        "another unit, or on a page outside the kind's scope, is no unit of its own."
+    )
+    observations = _count(inside, "compact observation")
+    if inside and before is None:
+        sentence += f" Up to {observations} under those headings join the new units."
+    elif inside and after is None:
+        sentence += f" Up to {observations} under those headings become observations again."
+    return sentence
+
+
+def _count(number: int, noun: str) -> str:
+    return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
 
 
 def _definition_changes(
@@ -2503,6 +2832,20 @@ def _page_projects(frontmatter: dict[str, Any]) -> set[str]:
     elif projects:
         out.add(str(projects))
     return out
+
+
+def _page_instance(vault_root: Path, page) -> str | None:
+    """The vocabulary instance a page selected, or None when it is unavailable, as the filter's
+    unit view reads it: then only core kinds are the unit's own."""
+    from .vocabulary import instances
+
+    try:
+        return (
+            instances.page_scope(vault_root, page.rel_path, dict(page.frontmatter))
+            or PUBLIC_INSTANCE
+        )
+    except (ValueError, OSError):
+        return None
 
 
 def _page_relations(

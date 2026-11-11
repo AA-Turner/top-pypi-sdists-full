@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 
 import grpc
 import trustme
-from google.protobuf import any_pb2, descriptor_pb2, descriptor_pool, message_factory
+from google.protobuf import any_pb2, descriptor_pb2, descriptor_pool, duration_pb2, message_factory
 from google.rpc import error_details_pb2, status_pb2
 from grpc_reflection.v1alpha import reflection, reflection_pb2
 
@@ -252,7 +252,9 @@ def users(
     With `annotated`, `GetUser` sets a custom option from `annotations.proto`, imported for that option alone.
     `pkg.Accounts/CreateAccount` (in `accounts_descriptor_set()`, not reflected) rejects an empty `display_name`,
     an empty `profile.contact_email` and the reserved name `admin` with INVALID_ARGUMENT, listing each field in
-    `google.rpc.BadRequest` details next to a detail of a type clients do not know.
+    `google.rpc.BadRequest` details next to a detail of a type clients do not know. With `x-details: malformed`
+    metadata, the details do not decode. With `x-details: invalid-retry-info` or `x-details: invalid-duration`, they
+    add a `google.rpc.RetryInfo` or a bare duration with more than a second of nanoseconds, which JSON cannot express.
     """
     descriptor_set = users_descriptor_set(annotated=annotated)
     pool = load_pool(descriptor_set)
@@ -346,7 +348,16 @@ def users(
             details = status_pb2.Status(code=grpc.StatusCode.INVALID_ARGUMENT.value[0], message="invalid account")
             details.details.add().Pack(bad_request)
             details.details.append(any_pb2.Any(type_url="type.googleapis.com/example.Unknown", value=b"\x08\x01"))
-            context.set_trailing_metadata((("grpc-status-details-bin", details.SerializeToString()),))
+            variant = dict(context.invocation_metadata()).get("x-details")
+            delay = duration_pb2.Duration(nanos=1_500_000_000)
+            if variant == "invalid-retry-info":
+                details.details.add().Pack(error_details_pb2.RetryInfo(retry_delay=delay))
+            elif variant == "invalid-duration":
+                details.details.add().Pack(delay)
+            encoded = details.SerializeToString()
+            if variant == "malformed":
+                encoded = b"\xff"
+            context.set_trailing_metadata((("grpc-status-details-bin", encoded),))
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "invalid account")
         return account_class(display_name=request.display_name).SerializeToString()
 
@@ -543,22 +554,36 @@ def library(*, fixed: bool = False) -> GrpcApp:
 def envelope() -> GrpcApp:
     """`types.Types/Envelope` reads `first.extra` without a presence check, as a careless handler would.
 
-    It answers with an empty `types.Envelope`. Reflection describes `types.Types`.
+    It answers with an empty `types.Envelope`. `types.Types/WellKnown` echoes the request, or, with
+    `x-details: invalid-duration` metadata, answers with a duration JSON cannot express.
+    Reflection describes `types.Types`.
     """
     pool = load_pool(all_types_descriptor_set())
     envelope_class = message_factory.GetMessageClass(pool.FindMessageTypeByName("types.Envelope"))
+    well_known_class = message_factory.GetMessageClass(pool.FindMessageTypeByName("types.WellKnown"))
 
-    def handle(payload: bytes, context: grpc.ServicerContext) -> bytes:
+    def handle_envelope(payload: bytes, context: grpc.ServicerContext) -> bytes:
         request = envelope_class.FromString(payload)
         if request.HasField("first") and not request.first.HasField("extra"):
             context.abort(grpc.StatusCode.INTERNAL, "nil extra")
         return envelope_class().SerializeToString()
 
+    def handle_well_known(payload: bytes, context: grpc.ServicerContext) -> bytes:
+        if dict(context.invocation_metadata()).get("x-details") == "invalid-duration":
+            response = well_known_class()
+            response.duration.nanos = 1_500_000_000
+            return response.SerializeToString()
+        return payload
+
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
     server.add_generic_rpc_handlers(
         (
             grpc.method_handlers_generic_handler(
-                "types.Types", {"Envelope": grpc.unary_unary_rpc_method_handler(handle)}
+                "types.Types",
+                {
+                    "Envelope": grpc.unary_unary_rpc_method_handler(handle_envelope),
+                    "WellKnown": grpc.unary_unary_rpc_method_handler(handle_well_known),
+                },
             ),
         )
     )

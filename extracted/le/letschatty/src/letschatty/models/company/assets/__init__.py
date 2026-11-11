@@ -10,4 +10,5 @@ from .workflow_execution import *
 from .notification import *
 from .recordatorio import *
 from .motivo import *
+from .destino_externo import *
 from .recepcion import *

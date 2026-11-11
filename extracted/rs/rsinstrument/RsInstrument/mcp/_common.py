@@ -53,6 +53,6 @@ def safe_tool(fn: typing.Callable[..., typing.Any]) -> typing.Callable[..., typi
             return result
         except Exception as exc:  # pylint: disable=broad-except
             logger.exception("Exception in tool %s", getattr(fn, "__name__", repr(fn)))
-            return f"Error: {exc}"
+            return {"status": "error", "error": str(exc)}
 
     return _wrapper

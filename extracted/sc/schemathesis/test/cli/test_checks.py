@@ -7,52 +7,8 @@ import pytest
 from _pytest.main import ExitCode
 from flask import Response, jsonify, redirect, request
 
-import schemathesis
-from schemathesis.checks import CHECKS
+from test.apps.catalog.openapi import basic
 from test.utils import to_float32
-
-
-@pytest.fixture
-def new_check():
-    @schemathesis.check
-    def check_function(ctx, response, case):
-        pass
-
-    yield check_function
-
-    CHECKS.unregister(check_function.__name__)
-
-
-def test_register_returns_a_value(new_check):
-    # When a function is registered via the `schemathesis.check` decorator
-    # Then this function should be available for further usage
-    # See #721
-    assert new_check is not None
-
-
-def test_negative_data_rejection(ctx, cli):
-    api = ctx.openapi.apps.success()
-    schema_path = ctx.openapi.write_schema(
-        {
-            "/success": {
-                "get": {
-                    "parameters": [{"name": "key", "in": "query", "required": True, "schema": {"type": "integer"}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )
-    result = cli.run_and_assert(
-        str(schema_path),
-        f"--url={api.base_url}/api",
-        "--checks",
-        "negative_data_rejection",
-        "--mode",
-        "negative",
-        "--max-examples=5",
-        exit_code=ExitCode.TESTS_FAILED,
-    )
-    assert "- ST201 Schema-violating request accepted\n" in result.stdout
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -121,40 +77,6 @@ def test_negative_data_rejection_displays_all_cases(ctx, cli, snapshot_cli):
                     "negative_data_rejection": {"expected-statuses": ["400", "401", "403", "404", "422", "428", "5xx"]}
                 }
             },
-        )
-        == snapshot_cli
-    )
-
-
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_negative_data_rejection_path_parameter_type_mutation(ctx, cli, snapshot_cli):
-    # String value for an integer path parameter serializes to the same URL as the integer.
-    # E.g., string "7" becomes /api/run/7 - indistinguishable from integer 7.
-    app, raw_schema = ctx.openapi.make_flask_app(
-        {
-            "/api/run/{id}": {
-                "post": {
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
-                    "responses": {"200": {"description": "Success"}},
-                }
-            }
-        }
-    )
-
-    @app.route("/api/run/<path:id>", methods=["POST"])
-    def run_endpoint(id):
-        if re.fullmatch(r"[+-]?[0-9]+", id):
-            return "", 200
-        return "", 400
-
-    assert (
-        cli.run_openapi_app(
-            app,
-            "--checks=negative_data_rejection",
-            "--mode=negative",
-            "--phases=fuzzing",
-            # The mutation behind the false positive is rare, so the run needs many cases to reach it.
-            "--max-examples=200",
         )
         == snapshot_cli
     )
@@ -2310,7 +2232,7 @@ def test_alternative_security_requirements_should_not_trigger_negative_data_reje
 
 def test_ignored_auth_probes_each_operation_until_enforcement_is_confirmed(ctx, cli):
     # Every successful case used to trigger its own unauthenticated requests; one confirmation is enough.
-    api = ctx.openapi.apps.basic_with_query()
+    api = ctx.openapi.serve(basic.basic_with_query())
 
     cli.run(
         api.schema_url,
@@ -2331,11 +2253,10 @@ def test_ignored_auth_probes_each_operation_until_enforcement_is_confirmed(ctx, 
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_phase_without_checks_is_skipped(ctx, cli, snapshot_cli, phase):
     api = ctx.openapi.apps.users_crud()
-    result = cli.run(api.schema_url, f"--phases={phase}", "--max-examples=1", config={"checks": {"enabled": False}})
-    phase_body = result.stdout.split("SUMMARY", 1)[0].split(f"{phase.title()} (", 1)[1]
-    assert "without checks" in phase_body
-    assert "passed" not in phase_body
-    assert result == snapshot_cli
+    assert (
+        cli.run(api.schema_url, f"--phases={phase}", "--max-examples=1", config={"checks": {"enabled": False}})
+        == snapshot_cli
+    )
 
 
 # Cycling ends at the deadline however slow the runner is; dropping the phase ends the run well before it.

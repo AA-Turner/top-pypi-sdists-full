@@ -50,12 +50,14 @@ from cachekit.di import DIContainer
 from cachekit.hash_utils import redact_cache_key, redact_error_for_log
 from cachekit.interop import InteropError
 from cachekit.key_generator import CacheKeyGenerator
+from cachekit.serializers.auto_serializer import AutoSerializer
 from cachekit.serializers.base import (
     EnvelopeShapeError,
     SerializationError,
     SerializationFormat,
     SerializationMetadata,
     SuspiciousCacheEntryError,
+    VerifiedPayload,
     bounded_error,
 )
 from cachekit.serializers.encryption_wrapper import (
@@ -64,10 +66,11 @@ from cachekit.serializers.encryption_wrapper import (
     KeyringConfigurationError,
     require_cross_sdk_serializer,
 )
-from cachekit.serializers.standard_serializer import StandardSerializer, VerifiedMsgpack
+from cachekit.serializers.standard_serializer import StandardSerializer
 from cachekit.serializers.wrapper import SerializationWrapper
 
 if TYPE_CHECKING:
+    from cachekit.object_cache import ScopedEpochStripes
     from cachekit.reliability.load_control import BackpressureController
     from cachekit.serializers.base import SerializerProtocol
 
@@ -262,8 +265,13 @@ def supports_locking(backend: object) -> TypeGuard[LockableBackend]:
 class FillLockBackend(Protocol):
     """Backend whose miss-path lock reports contention and releases without blocking.
 
-    Not part of LockableBackend: only the decorator's miss path uses it. Currently only
-    CachekitIOBackend. ``acquire_fill_lock`` yields ``(acquired, uncontended)``.
+    Not part of LockableBackend: only the decorator's miss path uses it. CachekitIOBackend and
+    PerRequestRedisBackend. ``acquire_fill_lock`` yields ``(acquired, uncontended)``.
+
+    Contract: the backend's read (``get_with_freshness`` if it has one, else ``get``) raises on a
+    failed read and returns None only for an absent entry. An uncontended grant after a None read
+    skips the post-lock re-read (see ``L2MissProbe``); a read that hid a failure as None would lose
+    its only retry.
     """
 
     def acquire_fill_lock(
@@ -468,9 +476,10 @@ def _supports_multi_delete(backend: object) -> TypeGuard[_MultiDeleteBackend]:
 class L2MissProbe:
     """Whether the async L2 read in a ``probe_l2_miss`` scope found no entry, cleanly.
 
-    ``clean_miss`` is set only where the backend's freshness read itself returned None: the read
-    every backend with ``acquire_fill_lock`` takes. Any other read leaves it False, which costs
-    only a re-read. A read that failed is reported to the caller as a miss too, but leaves it
+    ``clean_miss`` is set only where the backend's own read returned None: its freshness read
+    (CachekitIO), or ``get`` on a backend without one (Redis). Every backend with
+    ``acquire_fill_lock`` raises on a failed read rather than returning None. Any other read leaves
+    it False, which costs only a re-read. A read that failed is reported to the caller as a miss too, but leaves it
     False, so anything other than a confirmed miss reads as "not known to be absent".
     """
 
@@ -577,6 +586,17 @@ def _get_cached_serializer_class(serializer_name: str, import_path: str):
         except (ImportError, AttributeError) as e:
             get_logger().warning(f"Failed to import serializer {import_path}: {redact_error_for_log(e)}")
             raise
+
+
+def _keeps_verified(serializer: Any) -> bool:
+    """Whether ``serializer`` is exactly a built-in that mints :class:`VerifiedPayload` for L1 to keep
+    (``_deserialize_keeping`` / ``_deserialize_verified``), with integrity checking on: integrity off, there is
+    no check for a kept entry to skip. Exact types: a subclass may override the decode. OrjsonSerializer's
+    module needs the [json] extra, so it is looked up only once loaded, as it is wherever an instance exists.
+    """
+    orjson_module = sys.modules.get("cachekit.serializers.orjson_serializer")
+    keeping = (StandardSerializer, AutoSerializer, *((orjson_module.OrjsonSerializer,) if orjson_module else ()))
+    return type(serializer) in keeping and serializer.enable_integrity_checking
 
 
 def _get_cached_serializer_instance(
@@ -948,15 +968,10 @@ class CacheSerializationHandler:
         else:
             self._base_serializer = _get_cached_serializer_instance(serializer_name, enable_integrity_checking)
         self._custom_serializer = not isinstance(serializer_name, str)
-        # Whether an L1 hit may swap this handler's entry for its VerifiedMsgpack (deserialize_l1): plaintext
-        # CK-frame entries of the built-in StandardSerializer with integrity on (interop mode's InteropSerializer
-        # is not one). Encrypted handlers keep ciphertext in L1 (protocol PRE-10, PRE-11).
-        self.keeps_msgpack_in_l1 = (
-            not encryption
-            and not self._custom_serializer
-            and type(self._base_serializer) is StandardSerializer
-            and self._base_serializer.enable_integrity_checking
-        )
+        # Whether an L1 hit may swap this handler's entry for a kept one (deserialize_l1): plaintext
+        # CK-frame entries of a built-in serializer that keeps one, with integrity on (_keeps_verified; interop
+        # mode's InteropSerializer is not one). Encrypted handlers keep ciphertext in L1 (protocol PRE-10, PRE-11).
+        self.keeps_verified_in_l1 = not encryption and not self._custom_serializer and _keeps_verified(self._base_serializer)
 
         # Cache EncryptionWrapper instances per tenant to prevent
         # 360K key copies/hour at 100 req/sec. Uses thread-safe LRU cache (maxsize=256)
@@ -1345,53 +1360,64 @@ class CacheSerializationHandler:
 
     def deserialize_l1(
         self,
-        data: bytes | VerifiedMsgpack,
+        data: bytes | VerifiedPayload,
         cache_key: str = "",
         args: tuple[Any, ...] = (),
         kwargs: dict[str, Any] | None = None,
-    ) -> tuple[Any, VerifiedMsgpack | None]:
+    ) -> tuple[Any, VerifiedPayload | None]:
         """:meth:`deserialize_data` for an entry read from L1, plus what L1 should hold in its place, if anything.
 
-        That is the entry's verified MessagePack, when this handler keeps it (``keeps_msgpack_in_l1``), the
-        entry is its own plaintext envelope, and the MessagePack is no longer. It comes from the retrieve()
-        this decode ran anyway, so the caller's swap (``L1Cache.shrink_if_held``) costs no second retrieve(),
-        and later hits skip it. Everything else gets None: a VerifiedMsgpack this handler keeps decodes
-        without retrieve(), an envelope whose MessagePack is longer decodes as deserialize does, and any
-        other entry goes to deserialize_data, which refuses another handler's VerifiedMsgpack. Raises as
-        deserialize_data.
+        When this handler keeps verified payloads (``keeps_verified_in_l1``), the entry is its own plaintext envelope
+        of a kind its serializer keeps, and the payload this decode verified is no longer than the entry, that payload
+        (:class:`VerifiedPayload`: the MessagePack ``ByteStorage.retrieve()`` returned for the default and auto
+        serializers, the checksummed JSON for orjson), for the caller to swap in (``L1Cache.shrink_if_held``) at no
+        second decode: later hits skip the integrity check (retrieve()'s decompress and checksum, or orjson's
+        checksum). Everything else gets None: a kept entry decodes that way, a longer payload would grow the entry
+        so L1 keeps the envelope, and any other entry goes to deserialize_data, which refuses another handler's kept
+        entry. Every decode, kept or not, runs its serializer's bounded decode. Raises as deserialize_data.
 
         Examples:
             >>> handler = CacheSerializationHandler()
             >>> envelope = handler.serialize_data("hello", cache_key="greeting")
             >>> value, entry = handler.deserialize_l1(envelope, cache_key="greeting")
             >>> value, type(entry).__name__, len(entry) <= len(envelope)
-            ('hello', 'VerifiedMsgpack', True)
-            >>> handler.deserialize_l1(entry, cache_key="greeting")  # already MessagePack
+            ('hello', 'VerifiedPayload', True)
+            >>> handler.deserialize_l1(entry, cache_key="greeting")  # already verified MessagePack
             ('hello', None)
             >>> compressible = handler.serialize_data("ab" * 600, cache_key="k")
-            >>> handler.deserialize_l1(compressible, cache_key="k")[1] is None  # its MessagePack is longer
+            >>> handler.deserialize_l1(compressible, cache_key="k")[1] is None  # its MessagePack is longer: L1 keeps the envelope
             True
         """
         # Inline, not helpers: this is every L1 hit's decode, and an envelope it keeps must cost what
         # deserialize_data costs.
-        if not self.keeps_msgpack_in_l1:
-            return self.deserialize_data(data, cache_key, args, kwargs), None  # pyright: ignore[reportArgumentType]
-        if type(data) is VerifiedMsgpack:  # only L1 holds this type: only such a handler swapped it in
-            return self._base_serializer._deserialize_verified(data), None  # type: ignore[union-attr]
+        if not self.keeps_verified_in_l1:
+            return self.deserialize_data(data, cache_key, args, kwargs), None
+        serializer = self._base_serializer
+        # Only L1 holds this type, and only a keeping handler swapped it in, after a decode that accepted it. Its
+        # owner decodes it; another serializer's (a key shared across serializers) goes to deserialize_data, which
+        # refuses it.
+        if type(data) is VerifiedPayload:
+            if data.owner is not type(serializer):
+                return self.deserialize_data(data, cache_key, args, kwargs), None
+            return serializer._deserialize_verified(data.data), None  # type: ignore[union-attr]
         try:
             payload, metadata, serializer_name = SerializationWrapper.unwrap_metadata(data)
         except (AttributeError, KeyError, TypeError, ValueError):
             return self.deserialize_data(data, cache_key, args, kwargs), None  # a corrupt frame: it raises
-        # Only this handler's own plaintext envelope, whose header says what this handler writes
-        # (compressed: integrity on). Anything else, such as a config-drift entry whose ciphertext must
-        # stay in L1, or a header that misdescribes its payload, is decoded by deserialize_data, not kept.
-        if serializer_name != self._serializer_string_name or metadata.encrypted or not metadata.compressed:
+        # Only this handler's own plaintext envelope. Anything else, such as a config-drift entry whose ciphertext
+        # must stay in L1, is decoded by deserialize_data, not kept; so is an entry the serializer does not keep
+        # (_deserialize_keeping returns None), such as one whose header misdescribes what this handler writes.
+        if serializer_name != self._serializer_string_name or metadata.encrypted:
             return self.deserialize_data(data, cache_key, args, kwargs), None
-        return self._base_serializer._deserialize_keeping_msgpack(payload, len(data))  # type: ignore[union-attr]
+        keeping = serializer._deserialize_keeping(payload, metadata)  # type: ignore[union-attr]
+        if keeping is None:
+            return self.deserialize_data(data, cache_key, args, kwargs), None
+        value, kept = keeping
+        return value, kept if len(kept) <= len(data) else None
 
     def deserialize_data(
         self,
-        data: str | bytes | memoryview,
+        data: str | bytes | memoryview | VerifiedPayload,
         cache_key: str = "",
         args: tuple[Any, ...] = (),
         kwargs: dict[str, Any] | None = None,
@@ -1468,7 +1494,8 @@ class CacheSerializationHandler:
             True
         """
         if self.interop_mode:
-            return self._deserialize_interop(data, cache_key)
+            # A VerifiedPayload here is another handler's swapped L1 entry: the bytes-only decode refuses it.
+            return self._deserialize_interop(data, cache_key)  # pyright: ignore[reportArgumentType]
 
         try:
             # unwrap/from_dict raise bare ValueError subclasses on frame faults. The
@@ -1479,15 +1506,15 @@ class CacheSerializationHandler:
                 # A custom SerializerProtocol may write to the metadata it is handed, so it gets its own
                 # copy rather than the header memo's shared, read-only instance.
                 serialized_data, metadata, serializer_name = SerializationWrapper.unwrap_metadata(
-                    data, shared=not self._custom_serializer
+                    data,  # pyright: ignore[reportArgumentType]  # a VerifiedPayload raises here and is refused below
+                    shared=not self._custom_serializer,
                 )
             except (AttributeError, KeyError, TypeError, ValueError) as e:
-                if self.encryption and type(data) is VerifiedMsgpack:  # pyright: ignore[reportUnnecessaryComparison]
+                if self.encryption and type(data) is VerifiedPayload:
                     # A plaintext handler's swapped L1 entry under this key: refused as the plaintext
                     # envelope it replaced would be, and counted the same way (suspicious_envelope).
                     raise SuspiciousCacheEntryError(
-                        "Encryption is enabled but the L1 entry is another handler's plaintext MessagePack. "
-                        "Refusing it (fail closed)."
+                        "Encryption is enabled but the L1 entry is another handler's plaintext entry. Refusing it (fail closed)."
                     ) from e
                 raise SerializationError(f"Corrupt cache envelope: {bounded_error(e)}") from e
 
@@ -1681,13 +1708,15 @@ class StoreOutcome(NamedTuple):
     a successful stream has none. Key tracking follows stored, L1 follows envelope. deferred says the
     backend write was handed to a write-behind writer (stored is then False: the writer tracks it).
     tracked says the key-registry write rode with the backend write (``set_tracked``), its failure
-    already reported: the caller must not track the key again.
+    already reported: the caller must not track the key again. skipped says an invalidation since the
+    caller's ``epoch`` stopped the write (stored is then False; see ``store_result``).
     """
 
     envelope: Optional[bytes]
     stored: bool
     deferred: bool = False
     tracked: bool = False
+    skipped: bool = False
 
 
 class CacheOperationHandler:
@@ -2113,6 +2142,9 @@ class CacheOperationHandler:
         defer: Callable[[bytes], bool] | None = None,
         registry_id: str | None = None,
         on_track_error: Callable[[str, Exception], None] = lambda _key, _error: None,
+        *,
+        epochs: ScopedEpochStripes | None = None,
+        epoch: int = 0,
     ) -> StoreOutcome:
         """Store result in backend cache with optional tenant context for encryption.
 
@@ -2130,13 +2162,22 @@ class CacheOperationHandler:
                 write when the handler can (``set_tracked``; StoreOutcome.tracked). None writes only.
             on_track_error: Called with the key and the error when that registry write fails; the write
                 still counts as stored.
+            epochs: The caller's invalidation epochs (ScopedEpochStripes), or None to write unconditionally.
+            epoch: ``epochs.seq`` as the caller read it before it read its source. If a stamp in the calling
+                L2 scope on the key's stripe, or on the whole scope, has run since, nothing is written
+                (StoreOutcome.skipped; ``epochs.moved_in_scope``). It is checked after serialization and
+                before the write is handed off or sent, and, for a streamed value, which serializes inside
+                the stream, before the stream starts: a stream that has begun counts as a write already on
+                its way. A buffered skip still returns its envelope, for callers that share the value; a
+                streamed skip returns none.
 
         Returns:
             StoreOutcome. envelope: serialized bytes when the buffered path produced them
             (eligible for L1 backfill), or None when there is nothing for L1 — the value was
             STREAMED to the backend (L1 intentionally skipped), the streaming attempt
-            failed (logged, never retried buffered), or serialization failed. stored: whether
-            the backend write succeeded; an envelope alone is NOT a success signal.
+            failed (logged, never retried buffered), a streamed write was skipped by its epoch,
+            or serialization failed. stored: whether the backend write succeeded; an envelope
+            alone is NOT a success signal.
 
         Note:
             Requires cache_handler to be set via set_cache_handler() before calling.
@@ -2153,6 +2194,14 @@ class CacheOperationHandler:
             if stale_ttl is None and self.serialization_handler.supports_streaming_write():
                 set_streaming = getattr(self._cache_handler, "set_streaming", None)
                 if set_streaming is not None:
+                    # A streamed value serializes inside the stream, so its epoch is checked before the stream
+                    # starts. On a backend that cannot stream, set_streaming answers None and the write buffers
+                    # below, where the epoch is checked after serialization; a handler that does not say which
+                    # backend it writes to counts as streaming.
+                    if epochs is not None and epochs.moved_in_scope(cache_key, epoch):
+                        backend = getattr(self._cache_handler, "backend", None)
+                        if backend is None or supports_streaming_write(backend):
+                            return StoreOutcome(envelope=None, stored=False, skipped=True)
                     streamed = set_streaming(
                         cache_key,
                         lambda sink: self.serialization_handler.write_serialized_to(sink, result),
@@ -2170,6 +2219,8 @@ class CacheOperationHandler:
 
             # Pass cache_key for AAD binding (required for encrypted data)
             serialized_data = self.serialization_handler.serialize_data(result, args, kwargs, cache_key)
+            if epochs is not None and epoch != epochs.seq and epochs.moved_in_scope(cache_key, epoch):  # no call unless one ran
+                return StoreOutcome(envelope=serialized_data, stored=False, skipped=True)
             if defer is not None and defer(serialized_data):
                 return StoreOutcome(envelope=serialized_data, stored=False, deferred=True)
             stored, tracked = _set_l2(
@@ -2664,6 +2715,8 @@ class StandardCacheHandler:
         try:
             # Run sync backend operation in thread pool
             value = await self._with_backpressure_and_timeout_async(self.backend.get, key)
+            if value is None:
+                _note_clean_l2_miss()  # a real miss on a backend that raises on failure (FillLockBackend's contract)
 
             # Optionally refresh TTL if value exists and refresh_ttl provided
             # Uses graceful degradation (skips if backend doesn't support TTL inspection)

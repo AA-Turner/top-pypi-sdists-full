@@ -79,13 +79,18 @@ def _export_full_table(
 
     try:
         if ln_setup.settings.instance.dialect == "postgresql":
-            buffer = io.StringIO()
-            with connection.cursor() as cursor:
-                cursor.execute("SET statement_timeout = 0")
-                cursor.copy_expert(
-                    f'COPY "{table_name}" TO STDOUT WITH (FORMAT CSV, HEADER TRUE)',
-                    buffer,
-                )
+            buffer = io.BytesIO()
+            # cursor.copy() bypasses execute wrappers. Atomic.__enter__ calls
+            # set_token, and the transaction stays open until COPY finishes.
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    cursor.execute("SET statement_timeout = 0")
+                    with cursor.copy(
+                        f'COPY "{table_name}" TO STDOUT WITH (FORMAT CSV, HEADER TRUE)'
+                    ) as copy:
+                        for chunk in copy:
+                            # psycopg 3 yields memoryview chunks, which have no decode().
+                            buffer.write(bytes(chunk))
             buffer.seek(0)
             # Prevent pandas from converting empty strings to float NaN (which PyArrow rejects)
             df = pd.read_csv(buffer, keep_default_na=False)
@@ -157,8 +162,6 @@ def export_db(
     chunk_size: int = 500_000,
 ) -> None:
     """Export registry tables and many-to-many link tables to parquet files.
-
-    Ensure that you connect to postgres instances using `use_root_db_user=True`.
 
     Args:
         module_names: Module names to export (e.g., ["lamindb", "bionty", "pertdb"]).
@@ -322,10 +325,12 @@ def _import_registry(
                 if cursor.fetchone()[0] > 0:
                     raise ValueError(f"Table {table_name} already contains data")
 
-            cursor.copy_expert(
-                f"COPY \"{table_name}\" ({column_names}) FROM STDIN WITH (FORMAT CSV, DELIMITER E'\\t', NULL '\\N')",
-                buffer,
-            )
+            with cursor.copy(
+                "COPY "
+                f'"{table_name}" ({column_names}) '
+                "FROM STDIN WITH (FORMAT CSV, DELIMITER E'\\t', NULL '\\N')"
+            ) as copy:
+                copy.write(buffer.read())
     else:
         num_cols = len(df.columns)
         max_vars = 900  # SQLite has a limit of 999 variables per statement

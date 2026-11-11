@@ -18,546 +18,697 @@
  */
 
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, quote_spanned};
+use proc_macro2::{Span, TokenStream as TokenStream2, TokenTree};
+use quote::{ToTokens, format_ident, quote, quote_spanned};
 use syn::{
-    parse_macro_input, Expr, FnArg, ImplItem, ImplItemMethod, ItemImpl, Meta, NestedMeta,
-    PathArguments, Token, Type,
+    FnArg, GenericParam, ImplItem, ImplItemMethod, ItemImpl, Meta, NestedMeta, Token, Type,
+    parse_macro_input,
 };
 
 use crate::utils::get_tvm_ffi_crate;
 
 pub(crate) fn dispatch(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args = parse_macro_input!(attr as DispatchArgs);
-    let item_impl = parse_macro_input!(item as ItemImpl);
-
-    match expand(&item_impl, args) {
+    let mut item_impl = parse_macro_input!(item as ItemImpl);
+    inline_handlers(&mut item_impl, &args);
+    match expand(&item_impl, &args) {
         Ok(generated) => quote!(#item_impl #generated).into(),
         Err(error) => {
             let error = error.to_compile_error();
-            quote!(#item_impl #error).into()
+            let cfg = presence_attrs(&item_impl.attrs).unwrap_or_default();
+            quote!(#item_impl #(#[#cfg])* #error).into()
+        }
+    }
+}
+
+// Handlers sit on the hot path of every dispatched value, and outlining them
+// costs a frame per node, so inline them unless the user chose otherwise.
+fn inline_handlers(item: &mut ItemImpl, args: &DispatchArgs) {
+    let method_prefix = format!("{}_", args.prefix);
+    for member in &mut item.items {
+        if let ImplItem::Method(method) = member
+            && method.sig.ident.to_string().starts_with(&method_prefix)
+            && !method.attrs.iter().any(|attr| attr.path.is_ident("inline"))
+        {
+            method.attrs.push(syn::parse_quote!(#[inline(always)]));
         }
     }
 }
 
 struct DispatchArgs {
-    mode: DispatchMode,
-    policy: Option<Expr>,
-}
-
-#[derive(Clone, Copy)]
-enum DispatchMode {
-    Walk,
-    Visit,
-    Map,
-    Mutate,
-}
-
-impl DispatchMode {
-    fn name(self) -> &'static str {
-        match self {
-            Self::Walk => "walk",
-            Self::Visit => "visit",
-            Self::Map => "map",
-            Self::Mutate => "mutate",
-        }
-    }
-
-    fn handler_prefix(self) -> &'static str {
-        match self {
-            Self::Walk => "walk_",
-            Self::Visit => "visit_",
-            Self::Map => "map_",
-            Self::Mutate => "mutate_",
-        }
-    }
-
-    fn result_is_optional(self) -> bool {
-        match self {
-            Self::Walk | Self::Map | Self::Mutate => true,
-            Self::Visit => false,
-        }
-    }
+    prefix: syn::Ident,
+    arguments: syn::TypeTuple,
+    output: Type,
 }
 
 impl syn::parse::Parse for DispatchArgs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mode: syn::Ident = input.parse()?;
-        let mode = if mode == "walk" {
-            DispatchMode::Walk
-        } else if mode == "visit" {
-            DispatchMode::Visit
-        } else if mode == "map" {
-            DispatchMode::Map
-        } else if mode == "mutate" {
-            DispatchMode::Mutate
-        } else {
-            return Err(syn::Error::new(
-                mode.span(),
-                "expected `dispatch(walk)`, `dispatch(map)`, `dispatch(visit)`, or \
-                 `dispatch(mutate)`",
-            ));
-        };
-        let policy = if input.is_empty() {
-            None
-        } else {
-            input.parse::<Token![,]>()?;
-            if !matches!(mode, DispatchMode::Visit | DispatchMode::Mutate) {
-                return Err(input.error(
-                    "`policy` is supported by `dispatch(visit)` and `dispatch(mutate)`",
+        let prefix = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let arguments = match input.parse::<Type>()? {
+            Type::Tuple(tuple) if !tuple.elems.is_empty() => tuple,
+            ty => {
+                return Err(syn::Error::new_spanned(
+                    ty,
+                    "dispatch requires a nonempty argument tuple, starting with AnyView or MutationView",
                 ));
             }
-            let name: syn::Ident = input.parse()?;
-            if name != "policy" {
-                return Err(syn::Error::new(name.span(), "expected `policy = expression`"));
-            }
-            input.parse::<Token![=]>()?;
-            let policy = input.parse()?;
-            if !input.is_empty() {
-                input.parse::<Token![,]>()?;
-            }
-            Some(policy)
         };
-        Ok(DispatchArgs { mode, policy })
+        input.parse::<Token![,]>()?;
+        let output = input.parse::<Type>()?;
+        if matches!(output, Type::Infer(_) | Type::ImplTrait(_)) {
+            return Err(syn::Error::new_spanned(
+                output,
+                "dispatch requires an explicit return type",
+            ));
+        }
+        if !input.is_empty() {
+            input.parse::<Token![,]>()?;
+        }
+        Ok(Self {
+            prefix,
+            arguments,
+            output,
+        })
     }
 }
 
-fn expand(item_impl: &ItemImpl, args: DispatchArgs) -> syn::Result<TokenStream2> {
-    let DispatchArgs { mode, policy } = args;
-    if item_impl.trait_.is_some() {
+struct Handler<'a> {
+    method: &'a ImplItemMethod,
+    generics: syn::Generics,
+    local_lifetimes: Vec<syn::Ident>,
+    argument: Argument,
+    capability: Option<Type>,
+    trailing: usize,
+}
+
+fn expand(item: &ItemImpl, args: &DispatchArgs) -> syn::Result<TokenStream2> {
+    if item.trait_.is_some() {
         return Err(syn::Error::new_spanned(
-            item_impl,
-            format!("`dispatch({})` requires an inherent impl", mode.name()),
+            item,
+            "dispatch requires an inherent impl",
         ));
     }
-
-    let handler_prefix = mode.handler_prefix();
-    let handlers = item_impl
+    let method_prefix = format!("{}_", args.prefix);
+    let handlers = item
         .items
         .iter()
-        .filter_map(|item| match item {
+        .filter_map(|member| match member {
             ImplItem::Method(method)
-                if method.sig.ident.to_string().starts_with(handler_prefix) =>
+                if method.sig.ident.to_string().starts_with(&method_prefix) =>
             {
-                Some(parse_handler(method, mode))
+                Some(parse_handler(method, args))
             }
             _ => None,
         })
         .collect::<syn::Result<Vec<_>>>()?;
-
-    if handlers.is_empty() {
+    let Some(first) = handlers.first() else {
         return Err(syn::Error::new_spanned(
-            item_impl,
-            format!(
-                "`dispatch({})` found no `{}*` methods",
-                mode.name(),
-                handler_prefix
-            ),
+            item,
+            format!("no `{method_prefix}*` handlers"),
         ));
-    }
-    let tvm_ffi = get_tvm_ffi_crate();
-    let into_result = match mode {
-        DispatchMode::Walk => quote! {
-            #tvm_ffi::extra::structural_visit::IntoWalkResult::into_walk_result
-        },
-        DispatchMode::Visit => quote! {
-            #tvm_ffi::extra::structural_visit::IntoVisitResult::into_visit_result
-        },
-        DispatchMode::Map | DispatchMode::Mutate => quote! {
-            #tvm_ffi::extra::structural_mutate::IntoMutateResult::into_mutate_result
-        },
     };
-    let links = expand_links(&handlers, mode, &into_result, quote!(value));
-    let self_type = &item_impl.self_ty;
-    let (impl_generics, _, where_clause) = item_impl.generics.split_for_impl();
-    let impl_cfg_attrs = presence_attrs(&item_impl.attrs)?;
-    let (policy_state_impl, policy_method) = if let Some(policy) = policy {
-        let (module, state_trait, method) = match mode {
-            DispatchMode::Visit => (
-                quote!(#tvm_ffi::extra::structural_visit),
-                quote!(VisitCallbackState),
-                quote! {
-                    fn default_visit_children(
-                        &mut self,
-                        value: &#tvm_ffi::StructuralView,
-                        kind: #tvm_ffi::DefRegionKind,
-                    ) -> #tvm_ffi::Result<Option<#tvm_ffi::VisitInterrupt>> {
-                        let policy = #policy;
-                        #tvm_ffi::extra::structural_visit::default_visit_with_policy(
-                            self, &policy, value, kind,
-                        )
-                    }
-                },
-            ),
-            DispatchMode::Mutate => (
-                quote!(#tvm_ffi::extra::structural_mutate),
-                quote!(MutateCallbackState),
-                quote! {
-                    fn on_default_mutate(
-                        &mut self,
-                        value: #tvm_ffi::MutateValue<'_>,
-                        kind: #tvm_ffi::DefRegionKind,
-                    ) -> #tvm_ffi::Result<#tvm_ffi::Any> {
-                        let policy = #policy;
-                        #tvm_ffi::extra::structural_mutate::default_mutate_with_policy(
-                            self, &policy, value, kind,
-                        )
-                    }
-                },
-            ),
-            _ => unreachable!(),
-        };
-        (
-            quote! {
-                #(#[#impl_cfg_attrs])*
-                impl #impl_generics #module::#state_trait<Self> for #self_type #where_clause {
-                    fn callback_state(&self) -> &Self { self }
-                    fn callback_state_mut(&mut self) -> &mut Self { self }
-                }
-            },
-            method,
-        )
-    } else {
-        (quote!(), quote!())
-    };
-    let ordering_errors = handlers
-        .iter()
-        .enumerate()
-        .filter(|(_, handler)| matches!(&handler.argument, HandlerArgument::Value))
-        .flat_map(|(index, handler)| {
-            handlers[index + 1..].iter().map(|later| {
-                let span = handler.method.span();
-                let handler_attrs = &handler.cfg_attrs;
-                let later_attrs = &later.cfg_attrs;
-                let value_type = "StructuralView";
-                quote_spanned! {span=>
-                    #(#[#impl_cfg_attrs])*
-                    #(#[#handler_attrs])*
-                    #(#[#later_attrs])*
-                    compile_error!(concat!(
-                        "the `&", #value_type,
-                        "` catch-all handler must be last among enabled handlers"
-                    ));
-                }
-            })
-        });
-
-    let dispatch_impl = match mode {
-        DispatchMode::Walk => quote! {
-            impl #impl_generics #tvm_ffi::extra::structural_visit::WalkDispatch
-                for #self_type #where_clause
-            {
-                #[allow(unreachable_code, unused_variables)]
-                fn dispatch_walk(
-                    &mut self,
-                    value: &#tvm_ffi::StructuralView,
-                    def_region_kind: #tvm_ffi::extra::structural_visit::DefRegionKind,
-                ) -> Option<#tvm_ffi::Result<#tvm_ffi::WalkResult>> {
-                    #(#links)*
-                    None
-                }
-            }
-        },
-        DispatchMode::Visit => quote! {
-            impl #impl_generics #tvm_ffi::extra::structural_visit::StructuralVisitor
-                for #self_type #where_clause
-            {
-                #policy_method
-
-                #[inline(always)]
-                #[allow(unreachable_code, unused_variables)]
-                fn visit(
-                    &mut self,
-                    value: &#tvm_ffi::StructuralView,
-                    def_region_kind: #tvm_ffi::extra::structural_visit::DefRegionKind,
-                ) -> #tvm_ffi::Result<
-                    Option<#tvm_ffi::extra::structural_visit::VisitInterrupt>
-                > {
-                    #(#links)*
-                    <Self as #tvm_ffi::extra::structural_visit::StructuralVisitor>::
-                        default_visit_children(self, value, def_region_kind)
-                }
-            }
-        },
-        DispatchMode::Map => quote! {
-            impl #impl_generics #tvm_ffi::extra::structural_mutate::MapDispatch
-                for #self_type #where_clause
-            {
-                #[allow(unreachable_code, unused_variables)]
-                fn dispatch_map(
-                    &mut self,
-                    value: &#tvm_ffi::StructuralView,
-                    def_region_kind: #tvm_ffi::extra::structural_visit::DefRegionKind,
-                ) -> Option<#tvm_ffi::Result<#tvm_ffi::Any>> {
-                    #(#links)*
-                    None
-                }
-            }
-        },
-        DispatchMode::Mutate => quote! {
-            impl #impl_generics #tvm_ffi::extra::structural_mutate::MutateDispatch
-                for #self_type #where_clause
-            {
-                #policy_method
-
-                #[inline(always)]
-                #[allow(unreachable_code, unused_variables)]
-                fn dispatch_mutate(
-                    &mut self,
-                    value: &#tvm_ffi::StructuralView,
-                    mutator: &mut #tvm_ffi::extra::structural_mutate::Mutator,
-                ) -> Option<#tvm_ffi::Result<#tvm_ffi::Any>> {
-                    <Self as #tvm_ffi::extra::structural_mutate::MutateDispatch>::dispatch_mutate_value(
-                        self, #tvm_ffi::MutateValue::borrowed(value), mutator,
-                    )
-                }
-
-                #[inline(always)]
-                #[allow(unreachable_code, unused_variables, unused_mut)]
-                fn dispatch_mutate_value(
-                    &mut self,
-                    mut value: #tvm_ffi::MutateValue<'_>,
-                    mutator: &mut #tvm_ffi::Mutator,
-                ) -> Option<#tvm_ffi::Result<#tvm_ffi::Any>> {
-                    #(#links)*
-                    None
-                }
-            }
-        },
-    };
-
-    Ok(quote! {
-        #(#ordering_errors)*
-        #policy_state_impl
-
-        #(#[#impl_cfg_attrs])*
-        #dispatch_impl
-    })
-}
-
-fn expand_links(
-    handlers: &[Handler],
-    mode: DispatchMode,
-    into_result: &TokenStream2,
-    value: TokenStream2,
-) -> Vec<TokenStream2> {
-    handlers
-        .iter()
-        .map(|handler| {
-            let method = &handler.method;
-            let attrs = &handler.cfg_attrs;
-            let trailing_arg = match mode {
-                DispatchMode::Mutate if handler.wants_mutator => quote!(, mutator),
-                DispatchMode::Mutate => quote!(),
-                _ if handler.wants_def_region => quote!(, def_region_kind),
-                _ => quote!(),
-            };
-            let wrap_result = |result: TokenStream2| {
-                if mode.result_is_optional() {
-                    quote!(Some(#result))
-                } else {
-                    result
-                }
-            };
-            let invoke = match &handler.argument {
-                HandlerArgument::Value => {
-                    let value = if matches!(mode, DispatchMode::Mutate) {
-                        quote!(#value.as_value())
-                    } else {
-                        value.clone()
-                    };
-                    let result = wrap_result(quote! {
-                        #into_result(self.#method(#value #trailing_arg))
-                    });
-                    quote! {
-                        return #result;
-                    }
-                }
-                HandlerArgument::BorrowedNode(node_type) => {
-                    let result = wrap_result(quote! {
-                        #into_result(self.#method(node #trailing_arg))
-                    });
-                    quote! {
-                        if let Some(node) = #value.as_node::<#node_type>() {
-                            return #result;
-                        }
-                    }
-                }
-                HandlerArgument::Capability(value_type) => {
-                    let result = wrap_result(quote! {
-                        #into_result(self.#method(typed #trailing_arg))
-                    });
-                    quote! {
-                        match #value.try_cast::<#value_type>() {
-                            Ok(typed) => return #result,
-                            Err(original) => #value = original,
-                        }
-                    }
-                }
-                HandlerArgument::Owned(value_type) => {
-                    let result = wrap_result(quote! {
-                        #into_result(self.#method(typed #trailing_arg))
-                    });
-                    quote! {
-                        if let Some(typed) = #value.cast::<#value_type>() {
-                            return #result;
-                        }
-                    }
-                }
-            };
-            quote! {
-                #(#[#attrs])*
-                {
-                    #invoke
-                }
-            }
-        })
-        .collect()
-}
-
-struct Handler {
-    method: syn::Ident,
-    argument: HandlerArgument,
-    wants_def_region: bool,
-    wants_mutator: bool,
-    cfg_attrs: Vec<Meta>,
-}
-
-enum HandlerArgument {
-    Value,
-    BorrowedNode(Type),
-    Owned(Type),
-    Capability(Type),
-}
-
-fn parse_handler(method: &ImplItemMethod, mode: DispatchMode) -> syn::Result<Handler> {
-    let inputs = &method.sig.inputs;
-    let receiver_is_expected = match inputs.first() {
-        Some(FnArg::Receiver(receiver)) => {
-            receiver.reference.is_some() && receiver.mutability.is_some()
-        }
-        _ => false,
-    };
-    let arity_is_expected = inputs.len() == 2 || inputs.len() == 3;
-    if !receiver_is_expected || !arity_is_expected {
-        let message = if matches!(mode, DispatchMode::Mutate) {
-            "mutate handlers must take `&mut self`, a node, and optionally `&mut Mutator`"
-                .to_owned()
-        } else {
-            format!(
-                "{} handlers must take `&mut self`, a node, and optionally a trailing \
-                 `DefRegionKind` argument",
-                mode.name()
-            )
-        };
-        return Err(syn::Error::new_spanned(&method.sig, message));
-    }
-    let wants_def_region = !matches!(mode, DispatchMode::Mutate) && inputs.len() == 3;
-    let wants_mutator = matches!(mode, DispatchMode::Mutate) && inputs.len() >= 3;
-    if wants_mutator {
-        let context_type = match inputs.iter().nth(2) {
-            Some(FnArg::Typed(context)) => context.ty.as_ref(),
-            _ => unreachable!("the third argument cannot be a receiver"),
-        };
-        parse_mutator(context_type)?;
-    }
-
-    let value_type = match inputs.iter().nth(1) {
-        Some(FnArg::Typed(value)) => (*value.ty).clone(),
-        _ => unreachable!("the second argument cannot be a receiver"),
-    };
-    let argument = match &value_type {
-        Type::Reference(reference) if reference.mutability.is_none() => {
-            if is_dispatch_value(reference.elem.as_ref()) {
-                HandlerArgument::Value
-            } else {
-                HandlerArgument::BorrowedNode((*reference.elem).clone())
-            }
-        }
-        Type::Reference(_) => {
+    for handler in handlers.iter().take(handlers.len() - 1) {
+        let catch_all = matches!(handler.argument, Argument::Value)
+            || handler.capability.as_ref().is_some_and(|ty| {
+                matches!(ty, Type::Path(path) if path.path.segments.last().is_some_and(|s| s.ident == "Any"))
+            });
+        if catch_all {
             return Err(syn::Error::new_spanned(
-                value_type,
-                format!(
-                    "{} handler values cannot be mutable references",
-                    mode.name()
-                ),
+                &handler.method.sig.ident,
+                "the dispatch catch-all must be last",
             ));
         }
-        Type::Path(path)
-            if matches!(mode, DispatchMode::Mutate)
-                && path
-                    .path
-                    .segments
-                    .last()
-                    .is_some_and(|s| s.ident == "MutateValue") =>
-        {
-            let segment = path.path.segments.last().unwrap();
-            let value_type = if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                args.args.iter().find_map(|arg| match arg {
-                    syn::GenericArgument::Type(ty) => Some(ty.clone()),
-                    _ => None,
-                })
-            } else {
-                None
-            };
-            let tvm_ffi = get_tvm_ffi_crate();
-            HandlerArgument::Capability(
-                value_type.unwrap_or_else(|| syn::parse_quote!(#tvm_ffi::Any)),
-            )
-        }
-        _ => HandlerArgument::Owned(value_type),
+    }
+    let tvm_ffi = get_tvm_ffi_crate();
+    // Only binder declarations and the receiver are shared between handlers.
+    // The attribute alone supplies the argument and result contract.
+    let mut generics = item.generics.clone();
+    generics.params.extend(first.generics.params.clone());
+    if let Some(method_where) = &first.generics.where_clause {
+        generics
+            .make_where_clause()
+            .predicates
+            .extend(method_where.predicates.clone());
+    }
+    let mut lifetimes = Lifetimes::new(&generics);
+    let FnArg::Receiver(receiver) = &first.method.sig.inputs[0] else {
+        unreachable!()
     };
-    let cfg_attrs = presence_attrs(&method.attrs)?;
-    Ok(Handler {
-        method: method.sig.ident.clone(),
-        argument,
-        wants_def_region,
-        wants_mutator,
-        cfg_attrs,
+    let receiver_lifetime = receiver
+        .reference
+        .as_ref()
+        .and_then(|(_, l)| l.clone())
+        .filter(|l| l.ident != "_")
+        .unwrap_or_else(|| lifetimes.fresh());
+    let mut arguments = args.arguments.clone();
+    for ty in &mut arguments.elems {
+        lifetimes.normalize(ty, None);
+    }
+    let mut output = args.output.clone();
+    // As in an ordinary method, result lifetime elision borrows the receiver.
+    lifetimes.normalize(&mut output, Some(&receiver_lifetime));
+    let carrier = &arguments.elems[0];
+    generics
+        .make_where_clause()
+        .predicates
+        .push(syn::parse_quote!(
+            #carrier: #tvm_ffi::extra::dispatch::DispatchInput
+        ));
+    let source = quote!(<#carrier as #tvm_ffi::extra::dispatch::DispatchInput>::Source);
+    let mut borrow_name = "__tvm_ffi_match_borrow".to_owned();
+    while lifetimes.used.contains(&borrow_name) {
+        borrow_name.push('_');
+    }
+    let borrow = syn::Lifetime::new(&format!("'{borrow_name}"), Span::mixed_site());
+    let mut patterns = Vec::new();
+    for handler in &handlers {
+        let FnArg::Typed(value) = &handler.method.sig.inputs[1] else {
+            unreachable!()
+        };
+        let mut ty: Type = syn::parse2(elide_lifetimes(
+            value.ty.to_token_stream(),
+            &handler.local_lifetimes,
+        ))?;
+        if matches!(handler.argument, Argument::Owned)
+            && handler.capability.is_none()
+            && has_pattern_lifetime(&ty)
+        {
+            lifetimes.normalize(&mut ty, None);
+            generics.make_where_clause().predicates.push(syn::parse_quote!(
+                for<#borrow> #ty: #tvm_ffi::match_any_internal::ValuePattern<&#borrow mut #source>
+            ));
+        }
+        patterns.push(ty);
+    }
+    generics.params.extend(
+        lifetimes
+            .added
+            .into_iter()
+            .map(|l| -> GenericParam { syn::parse_quote!(#l) }),
+    );
+    // Lifetimes must precede type and const parameters in impl declarations.
+    let mut params: Vec<_> = generics.params.into_iter().collect();
+    params.sort_by_key(|param| !matches!(param, GenericParam::Lifetime(_)));
+    generics.params = params.into_iter().collect();
+    // Self in the contract means the implementor, not its receiver reference.
+    let arguments: syn::TypeTuple =
+        syn::parse2(replace_self(arguments.into_token_stream(), &item.self_ty))?;
+    let output: Type = syn::parse2(replace_self(output.into_token_stream(), &item.self_ty))?;
+    let where_clause = generics
+        .where_clause
+        .take()
+        .map(|clause| syn::parse2(replace_self(clause.into_token_stream(), &item.self_ty)))
+        .transpose()?;
+    generics = syn::parse2(replace_self(generics.into_token_stream(), &item.self_ty))?;
+    generics.where_clause = where_clause;
+    let mut constrained = quote!(#arguments #output).into_iter().collect::<Vec<_>>();
+    constrained.extend(item.self_ty.to_token_stream());
+    for param in &generics.params {
+        let ident = match param {
+            GenericParam::Type(param) => &param.ident,
+            GenericParam::Const(param) => &param.ident,
+            GenericParam::Lifetime(_) => continue,
+        };
+        if !contains_ident(constrained.iter().cloned().collect(), ident) {
+            return Err(syn::Error::new_spanned(
+                param,
+                "dispatch generic parameters must occur in the receiver type, argument tuple or return type; move an unused parameter to an ordinary helper method",
+            ));
+        }
+    }
+    let (impl_generics, _, where_clause) = generics.split_for_impl();
+    let self_type = &item.self_ty;
+    let mutable = &receiver.mutability;
+    let value = format_ident!("__tvm_ffi_value", span = Span::mixed_site());
+    let bound = format_ident!("__tvm_ffi_matched", span = Span::mixed_site());
+    let names: Vec<_> = (0..arguments.elems.len() - 1)
+        .map(|i| format_ident!("__tvm_ffi_arg_{i}", span = Span::mixed_site()))
+        .collect();
+    let types: Vec<_> = arguments.elems.iter().collect();
+    let dispatch_self = format_ident!("self", span = Span::mixed_site());
+    let mut errors = Vec::new();
+    let mut arms = Vec::new();
+    for (handler, pattern_type) in handlers.iter().zip(&patterns) {
+        let method = &handler.method.sig.ident;
+        let error = if first.generics != handler.generics
+            || first.method.sig.inputs[0] != handler.method.sig.inputs[0]
+        {
+            Some("dispatch handlers must use the same receiver and method generics")
+        } else if handler.trailing > names.len() {
+            Some("dispatch handler has more trailing arguments than the dispatch signature")
+        } else {
+            None
+        };
+        if let Some(error) = error {
+            errors.push(quote_spanned! {method.span()=> compile_error!(#error); });
+            continue;
+        }
+        let forwarded = &names[..handler.trailing];
+        let type_args: Vec<_> = handler
+            .method
+            .sig
+            .generics
+            .params
+            .iter()
+            .filter_map(|param| match param {
+                GenericParam::Type(param) => {
+                    let ident = &param.ident;
+                    Some(quote!(#ident))
+                }
+                GenericParam::Const(param) => {
+                    let ident = &param.ident;
+                    Some(quote!(#ident))
+                }
+                GenericParam::Lifetime(_) => None,
+            })
+            .collect();
+        let type_args = if type_args.is_empty() {
+            quote!()
+        } else {
+            quote!(::<#(#type_args),*>)
+        };
+        let invocation = quote_spanned! {method.span()=> #dispatch_self.#method #type_args (#bound #(, #forwarded)*) };
+        // `Into` cannot convert between two `Result`s, so a `Result` handler of a
+        // `Result` dispatcher converts its success value instead.
+        let returns_result = matches!(
+            &handler.method.sig.output,
+            syn::ReturnType::Type(_, ty) if is_result(ty)
+        );
+        let call = if returns_result && is_result(&output) {
+            quote_spanned! {method.span()=> ::core::option::Option::Some(::core::result::Result::map(#invocation, ::core::convert::Into::into)) }
+        } else {
+            quote_spanned! {method.span()=> ::core::option::Option::Some(::core::convert::Into::<#output>::into(#invocation)) }
+        };
+        let pattern = match &handler.argument {
+            Argument::BorrowedNode => {
+                let Type::Reference(reference) = pattern_type else {
+                    unreachable!()
+                };
+                let ty = &reference.elem;
+                quote!(#ty(ref #bound))
+            }
+            Argument::Value | Argument::Owned => quote!(#pattern_type(#bound)),
+        };
+        arms.push(replace_self(quote!(#pattern => #call), &item.self_ty));
+    }
+    let matching = quote! {
+        #tvm_ffi::match_any!(#value {
+            #(#arms,)*
+            _ => ::core::option::Option::None,
+        })
+    };
+    // Handler generics belong to the inherent method, not its enclosing impl.
+    // The tuple adapter keeps them in its trait arguments and forwards directly.
+    let param_name = |param: &GenericParam| match param {
+        GenericParam::Lifetime(param) => param.lifetime.ident.to_string(),
+        GenericParam::Type(param) => param.ident.to_string(),
+        GenericParam::Const(param) => param.ident.to_string(),
+    };
+    let mut method_generics = generics.clone();
+    method_generics.params = method_generics
+        .params
+        .into_iter()
+        .filter(|param| {
+            !item.generics.params.iter().any(|original| {
+                std::mem::discriminant(original) == std::mem::discriminant(param)
+                    && param_name(original) == param_name(param)
+            })
+        })
+        .collect();
+    let type_args: Vec<_> = method_generics
+        .params
+        .iter()
+        .filter_map(|param| match param {
+            GenericParam::Type(param) => Some(param.ident.to_token_stream()),
+            GenericParam::Const(param) => Some(param.ident.to_token_stream()),
+            GenericParam::Lifetime(_) => None,
+        })
+        .collect();
+    let type_args = if type_args.is_empty() {
+        quote!()
+    } else {
+        quote!(::<#(#type_args),*>)
+    };
+    let (method_generics, _, method_where) = method_generics.split_for_impl();
+    let (inherent_generics, _, inherent_where) = item.generics.split_for_impl();
+    let value_type = types[0];
+    let trailing_types = &types[1..];
+    let impl_cfg = presence_attrs(&item.attrs)?;
+    Ok(quote! {
+        #(#[#impl_cfg])*
+        impl #inherent_generics #self_type #inherent_where {
+            /// Dispatch one value, returning `None` only when no handler matches.
+            #[inline(always)]
+            #[allow(unreachable_code, unused_variables, unused_mut)]
+            pub fn dispatch #method_generics (
+                &#receiver_lifetime #mutable #dispatch_self,
+                #value: #value_type #(, #names: #trailing_types)*
+            ) -> ::core::option::Option<#output> #method_where {
+                #(#errors)*
+                #matching
+            }
+        }
+
+        #(#[#impl_cfg])*
+        impl #impl_generics #tvm_ffi::Dispatcher<(#(#types,)*), ::core::option::Option<#output>>
+            for &#receiver_lifetime #mutable #self_type #where_clause
+        {
+            #[inline(always)]
+            fn dispatch_tuple(#dispatch_self, (#value, #(#names,)*): (#(#types,)*))
+                -> ::core::option::Option<#output>
+            {
+                <#self_type>::dispatch #type_args (#dispatch_self, #value #(, #names)*)
+            }
+        }
     })
 }
 
-fn parse_mutator(context_type: &Type) -> syn::Result<()> {
-    let Type::Reference(reference) = context_type else {
+fn parse_handler<'a>(method: &'a ImplItemMethod, args: &DispatchArgs) -> syn::Result<Handler<'a>> {
+    if let Some(attribute) = method
+        .attrs
+        .iter()
+        .find(|attribute| attribute.path.is_ident("cfg") || attribute.path.is_ident("cfg_attr"))
+    {
         return Err(syn::Error::new_spanned(
-            context_type,
-            "the mutator must be `&mut Mutator`",
-        ));
-    };
-    if reference.mutability.is_none() {
-        return Err(syn::Error::new_spanned(
-            context_type,
-            "the mutate context must be a mutable reference",
+            attribute,
+            "conditional dispatch handlers are unsupported; configure the whole impl instead",
         ));
     }
-    let Type::Path(path) = reference.elem.as_ref() else {
+    let signature = &method.sig;
+    if !matches!(signature.inputs.first(), Some(FnArg::Receiver(r)) if r.reference.is_some())
+        || signature.inputs.len() < 2
+        || signature.asyncness.is_some()
+        || signature.unsafety.is_some()
+        || signature.abi.is_some()
+        || signature.variadic.is_some()
+    {
         return Err(syn::Error::new_spanned(
-            context_type,
-            "expected `&mut Mutator`",
-        ));
-    };
-    let Some(segment) = path.path.segments.last() else {
-        return Err(syn::Error::new_spanned(
-            context_type,
-            "expected `&mut Mutator`",
-        ));
-    };
-    if segment.ident != "Mutator" {
-        return Err(syn::Error::new_spanned(
-            context_type,
-            "expected `&mut Mutator`",
+            signature,
+            "dispatch handlers must be safe synchronous methods taking &self or &mut self and a value",
         ));
     }
-    if !matches!(segment.arguments, PathArguments::None) {
-        return Err(syn::Error::new_spanned(
-            context_type,
-            "`Mutator` does not take a state type; store pass state on the dispatch object",
-        ));
+    let FnArg::Typed(value) = &signature.inputs[1] else {
+        unreachable!()
+    };
+    let capability = if is_capability(&value.ty) {
+        let Type::Path(path) = &*value.ty else {
+            unreachable!()
+        };
+        let segment = path.path.segments.last().unwrap();
+        let ty = if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+            args.args.iter().find_map(|arg| match arg {
+                syn::GenericArgument::Type(ty) => Some(ty.clone()),
+                _ => None,
+            })
+        } else {
+            None
+        };
+        let tvm_ffi = get_tvm_ffi_crate();
+        Some(ty.unwrap_or_else(|| syn::parse_quote!(#tvm_ffi::Any)))
+    } else {
+        None
+    };
+    let receiver = &signature.inputs[0];
+    let arguments = &args.arguments;
+    let output = &args.output;
+    let where_clause = &signature.generics.where_clause;
+    let mut visible = quote!(#receiver #arguments #output #where_clause);
+    for param in &signature.generics.params {
+        match param {
+            GenericParam::Lifetime(param) => param.bounds.to_tokens(&mut visible),
+            param => param.to_tokens(&mut visible),
+        }
     }
-    Ok(())
+    // Lifetimes absent from the explicit contract and shared bounds stay local
+    // to each handler's matching pattern.
+    let local_lifetimes: Vec<_> = signature
+        .generics
+        .lifetimes()
+        .filter(|param| {
+            param.bounds.is_empty() && !contains_lifetime(visible.clone(), &param.lifetime.ident)
+        })
+        .map(|param| param.lifetime.ident.clone())
+        .collect();
+    let mut generics = signature.generics.clone();
+    generics.params = generics.params.into_iter().filter(|param| {
+        !matches!(param, GenericParam::Lifetime(param) if local_lifetimes.contains(&param.lifetime.ident))
+    }).collect();
+    if generics.params.is_empty() {
+        generics.lt_token = None;
+        generics.gt_token = None;
+    }
+    Ok(Handler {
+        method,
+        generics,
+        local_lifetimes,
+        argument: parse_argument(&value.ty)?,
+        capability,
+        trailing: signature.inputs.len() - 2,
+    })
 }
 
-fn presence_attrs(attrs: &[syn::Attribute]) -> syn::Result<Vec<Meta>> {
+/// Whether `ty` is written as a `Result<..>` path.
+fn is_result(ty: &Type) -> bool {
+    matches!(ty, Type::Path(path) if path.path.segments.last().is_some_and(|s| s.ident == "Result"))
+}
+
+fn is_capability(ty: &Type) -> bool {
+    matches!(ty, Type::Path(path) if path.path.segments.last().is_some_and(|s| s.ident == "MutationView"))
+}
+
+fn has_pattern_lifetime(ty: &Type) -> bool {
+    let Type::Path(path) = ty else { return false };
+    path.qself
+        .as_ref()
+        .is_some_and(|qualified| has_pattern_lifetime(&qualified.ty))
+        || path.path.segments.iter().any(|segment| {
+            let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
+                return false;
+            };
+            args.args.iter().any(|arg| match arg {
+                syn::GenericArgument::Lifetime(lifetime) => lifetime.ident != "_",
+                syn::GenericArgument::Type(ty) => has_pattern_lifetime(ty),
+                _ => false,
+            })
+        })
+}
+
+fn contains_ident(tokens: TokenStream2, ident: &syn::Ident) -> bool {
+    tokens.into_iter().any(|token| match token {
+        TokenTree::Ident(found) => found == *ident,
+        TokenTree::Group(group) => contains_ident(group.stream(), ident),
+        _ => false,
+    })
+}
+
+fn contains_lifetime(tokens: TokenStream2, ident: &syn::Ident) -> bool {
+    let mut lifetime = false;
+    for token in tokens {
+        match &token {
+            TokenTree::Ident(found) if lifetime && *found == *ident => return true,
+            TokenTree::Group(group) if contains_lifetime(group.stream(), ident) => return true,
+            _ => {}
+        }
+        lifetime = matches!(token, TokenTree::Punct(p) if p.as_char() == '\'');
+    }
+    false
+}
+
+fn elide_lifetimes(tokens: TokenStream2, lifetimes: &[syn::Ident]) -> TokenStream2 {
+    let mut output = TokenStream2::new();
+    let mut lifetime = false;
+    for token in tokens {
+        match token {
+            TokenTree::Ident(ident) if lifetime && lifetimes.contains(&ident) => {
+                output.extend([TokenTree::Ident(syn::Ident::new("_", ident.span()))]);
+                lifetime = false;
+            }
+            TokenTree::Group(group) => {
+                let mut rewritten = TokenTree::Group(proc_macro2::Group::new(
+                    group.delimiter(),
+                    elide_lifetimes(group.stream(), lifetimes),
+                ));
+                rewritten.set_span(group.span());
+                output.extend([rewritten]);
+                lifetime = false;
+            }
+            token => {
+                lifetime = matches!(&token, TokenTree::Punct(p) if p.as_char() == '\'');
+                output.extend([token]);
+            }
+        }
+    }
+    output
+}
+
+fn replace_self(tokens: TokenStream2, self_type: &Type) -> TokenStream2 {
+    let mut output = TokenStream2::new();
+    let mut tokens = tokens.into_iter().peekable();
+    while let Some(token) = tokens.next() {
+        match token {
+            TokenTree::Ident(ident) if ident == "Self" => {
+                if matches!(tokens.peek(), Some(TokenTree::Punct(p))
+                    if p.as_char() == ':' && p.spacing() == proc_macro2::Spacing::Joint)
+                {
+                    output.extend(quote!(<#self_type>));
+                } else {
+                    self_type.to_tokens(&mut output);
+                }
+            }
+            TokenTree::Group(group) => {
+                let mut new = proc_macro2::Group::new(
+                    group.delimiter(),
+                    replace_self(group.stream(), self_type),
+                );
+                new.set_span(group.span());
+                output.extend([TokenTree::Group(new)]);
+            }
+            token => output.extend([token]),
+        }
+    }
+    output
+}
+
+struct Lifetimes {
+    used: Vec<String>,
+    added: Vec<syn::Lifetime>,
+}
+
+impl Lifetimes {
+    fn new(generics: &syn::Generics) -> Self {
+        Self {
+            used: generics
+                .lifetimes()
+                .map(|p| p.lifetime.ident.to_string())
+                .collect(),
+            added: Vec::new(),
+        }
+    }
+
+    fn fresh(&mut self) -> syn::Lifetime {
+        let mut index = self.used.len();
+        loop {
+            let name = format!("__tvm_ffi_dispatch_{index}");
+            if !self.used.contains(&name) {
+                self.used.push(name.clone());
+                let lifetime = syn::Lifetime::new(&format!("'{name}"), Span::mixed_site());
+                self.added.push(lifetime.clone());
+                return lifetime;
+            }
+            index += 1;
+        }
+    }
+
+    fn elided(&mut self, output: Option<&syn::Lifetime>) -> syn::Lifetime {
+        output.cloned().unwrap_or_else(|| self.fresh())
+    }
+
+    fn path(&mut self, path: &mut syn::Path, output: Option<&syn::Lifetime>) {
+        for segment in &mut path.segments {
+            if matches!(segment.arguments, syn::PathArguments::None)
+                && matches!(
+                    segment.ident.to_string().as_str(),
+                    "AnyView" | "MutationView"
+                )
+            {
+                let lifetime = self.elided(output);
+                segment.arguments =
+                    syn::PathArguments::AngleBracketed(syn::parse_quote!(<#lifetime>));
+            }
+            if let syn::PathArguments::AngleBracketed(args) = &mut segment.arguments {
+                for arg in &mut args.args {
+                    match arg {
+                        syn::GenericArgument::Lifetime(l) => {
+                            if l.ident == "_" {
+                                *l = self.elided(output);
+                            }
+                        }
+                        syn::GenericArgument::Type(ty) => self.normalize(ty, output),
+                        syn::GenericArgument::Binding(binding) => {
+                            self.normalize(&mut binding.ty, output)
+                        }
+                        _ => (),
+                    }
+                }
+                if matches!(
+                    segment.ident.to_string().as_str(),
+                    "AnyView" | "MutationView"
+                ) && !matches!(args.args.first(), Some(syn::GenericArgument::Lifetime(_)))
+                {
+                    let lifetime = self.elided(output);
+                    args.args
+                        .insert(0, syn::GenericArgument::Lifetime(lifetime));
+                }
+            }
+            // Parenthesized Fn trait and nested fn types bind their own elided
+            // lifetimes; do not turn those higher-ranked borrows into impl params.
+        }
+    }
+
+    fn normalize(&mut self, ty: &mut Type, output: Option<&syn::Lifetime>) {
+        match ty {
+            Type::Reference(reference) => {
+                if reference.lifetime.as_ref().is_none_or(|l| l.ident == "_") {
+                    reference.lifetime = Some(self.elided(output));
+                }
+                self.normalize(&mut reference.elem, output);
+            }
+            Type::Path(path) => {
+                if let Some(qself) = &mut path.qself {
+                    self.normalize(&mut qself.ty, output);
+                }
+                self.path(&mut path.path, output);
+            }
+            Type::Array(array) => self.normalize(&mut array.elem, output),
+            Type::Slice(slice) => self.normalize(&mut slice.elem, output),
+            Type::Ptr(pointer) => self.normalize(&mut pointer.elem, output),
+            Type::Paren(paren) => self.normalize(&mut paren.elem, output),
+            Type::Group(group) => self.normalize(&mut group.elem, output),
+            Type::Tuple(tuple) => {
+                for elem in &mut tuple.elems {
+                    self.normalize(elem, output);
+                }
+            }
+            Type::TraitObject(object) => {
+                for bound in &mut object.bounds {
+                    match bound {
+                        syn::TypeParamBound::Lifetime(l) => {
+                            if l.ident == "_" {
+                                *l = self.elided(output);
+                            }
+                        }
+                        syn::TypeParamBound::Trait(t) if t.lifetimes.is_none() => {
+                            self.path(&mut t.path, output)
+                        }
+                        _ => (),
+                    }
+                }
+            }
+            _ => (),
+        }
+    }
+}
+
+pub(crate) enum Argument {
+    Value,
+    BorrowedNode,
+    Owned,
+}
+
+pub(crate) fn parse_argument(ty: &Type) -> syn::Result<Argument> {
+    match ty {
+        Type::Reference(reference) if reference.mutability.is_none() => Ok(Argument::BorrowedNode),
+        Type::Reference(_) => Err(syn::Error::new_spanned(
+            ty,
+            "dispatch values cannot be mutable references",
+        )),
+        ty if is_dispatch_value(ty) => Ok(Argument::Value),
+        _ => Ok(Argument::Owned),
+    }
+}
+
+pub(crate) fn presence_attrs(attrs: &[syn::Attribute]) -> syn::Result<Vec<Meta>> {
     attrs
         .iter()
         .filter(|attr| attr.path.is_ident("cfg") || attr.path.is_ident("cfg_attr"))
@@ -576,16 +727,15 @@ fn presence_meta(meta: Meta) -> Option<Meta> {
     if !list.path.is_ident("cfg_attr") {
         return None;
     }
-
     let mut items = list.nested.into_iter();
     let condition = items.next()?;
     let mut retained = syn::punctuated::Punctuated::new();
     retained.push(condition);
     for item in items {
-        if let NestedMeta::Meta(meta) = item {
-            if let Some(meta) = presence_meta(meta) {
-                retained.push(NestedMeta::Meta(meta));
-            }
+        if let NestedMeta::Meta(meta) = item
+            && let Some(meta) = presence_meta(meta)
+        {
+            retained.push(NestedMeta::Meta(meta));
         }
     }
     if retained.len() == 1 {
@@ -596,12 +746,6 @@ fn presence_meta(meta: Meta) -> Option<Meta> {
     }
 }
 
-fn is_dispatch_value(value_type: &Type) -> bool {
-    let Type::Path(path) = value_type else {
-        return false;
-    };
-    path.path
-        .segments
-        .last()
-        .is_some_and(|segment| segment.ident == "StructuralView")
+pub(crate) fn is_dispatch_value(ty: &Type) -> bool {
+    matches!(ty, Type::Path(path) if path.path.segments.last().is_some_and(|s| s.ident == "AnyView"))
 }

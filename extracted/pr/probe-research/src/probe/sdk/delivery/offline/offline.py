@@ -66,6 +66,7 @@ _CREATE_FIELDS = (
     "metadata",
     "labeled_point_budget",
     "authored_by",
+    "started_at",
 )
 #: Keywords that choose WHERE the run lives, resolved at sync.
 _HOME_FIELDS = ("project", "experiment", "question", "experiment_name", "workspace")
@@ -513,6 +514,7 @@ def _create_from_init(
         slug=create_kw.pop("slug", None),
         heartbeat=False,
         authored_by=create_kw.pop("authored_by", None),
+        started_at=create_kw.pop("started_at", None),
     )
     body["creation_key"] = key
     body = _offline_body(body, started_at=started_at, owner=owner)
@@ -570,7 +572,7 @@ def _open_offline_handle(
         "project_id": None,
         "experiment_id": None,
         "write_epoch": 1,
-        "started_at": started_at,
+        "started_at": body.get("started_at") or started_at,
         "liveness_mode": "offline",
     }
     run = OfflineRun(client, data)
@@ -592,7 +594,8 @@ def _offline_body(body: dict, *, started_at: str, owner: str) -> dict:
     metadata["offline"] = {"recorded_at": started_at, "skipped": list(SKIPPED_CAPTURE)}
     metadata["offline_owner"] = owner
     out["metadata"] = metadata
-    out.update(offline=True, started_at=started_at)
+    # A given start (a re-logged past run) is the run's real one; else the moment it was recorded.
+    out.update(offline=True, started_at=out.get("started_at") or started_at)
     return out
 
 

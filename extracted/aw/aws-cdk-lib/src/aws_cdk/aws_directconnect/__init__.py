@@ -3017,6 +3017,347 @@ class CfnPublicVirtualInterfaceProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_directconnect_0e7a20b8.IResiliencyGroupRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnResiliencyGroup(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_directconnect.CfnResiliencyGroup",
+):
+    '''Resource Type definition for AWS::DirectConnect::ResiliencyGroup.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-resiliencygroup.html
+    :cloudformationResource: AWS::DirectConnect::ResiliencyGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_directconnect as directconnect
+        
+        cfn_resiliency_group = directconnect.CfnResiliencyGroup(self, "MyCfnResiliencyGroup",
+            resiliency_group_name="resiliencyGroupName",
+        
+            # the properties below are optional
+            connection_arns=["connectionArns"],
+            intended_resiliency_model="intendedResiliencyModel",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        resiliency_group_name: builtins.str,
+        connection_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef"]]] = None,
+        intended_resiliency_model: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::DirectConnect::ResiliencyGroup``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param resiliency_group_name: The name of the resiliency group.
+        :param connection_arns: The ARNs of the connections that are members of the resiliency group. When specified, this is the complete, authoritative membership list: on update, connections not present are disassociated, and an explicit empty list removes all members. Omit the property to leave the existing membership unmanaged (unchanged on update). On create, an omitted or empty list means no connections are associated.
+        :param intended_resiliency_model: The resiliency model that the resiliency group is intended to meet. Required when creating a resiliency group.
+        :param tags: The tags associated with the resiliency group.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a38c6dfe4b15621faf45f68185df091e941dc82a2149712c40e0e4d43b8d78c6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResiliencyGroupProps(
+            resiliency_group_name=resiliency_group_name,
+            connection_arns=connection_arns,
+            intended_resiliency_model=intended_resiliency_model,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForResiliencyGroup")
+    @builtins.classmethod
+    def arn_for_resiliency_group(
+        cls,
+        resource: "_aws_directconnect_0e7a20b8.IResiliencyGroupRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6df355b3dbc2b445a50427749f938e4ecc7bec0e666f30f4513ead969822f83a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForResiliencyGroup", [resource]))
+
+    @jsii.member(jsii_name="isCfnResiliencyGroup")
+    @builtins.classmethod
+    def is_cfn_resiliency_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResiliencyGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__537e8e91faf591f6f87535fca726bad8c18887555fcd400069721079381d1dd6)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResiliencyGroup", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__86153a92a937136473ae2e369fd80d95371f5260a1e190034bcfe5451119fffe)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__34ce37cd408b714e456a2656d3f01196ea9f042ada40b203f8624bf5c144dec9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResiliencyGroupArn")
+    def attr_resiliency_group_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resiliency group.
+
+        :cloudformationAttribute: ResiliencyGroupArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResiliencyGroupArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResiliencyGroupId")
+    def attr_resiliency_group_id(self) -> builtins.str:
+        '''The ID of the resiliency group.
+
+        :cloudformationAttribute: ResiliencyGroupId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResiliencyGroupId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resiliencyGroupRef")
+    def resiliency_group_ref(
+        self,
+    ) -> "_aws_directconnect_0e7a20b8.ResiliencyGroupReference":
+        '''A reference to a ResiliencyGroup resource.'''
+        return typing.cast("_aws_directconnect_0e7a20b8.ResiliencyGroupReference", jsii.get(self, "resiliencyGroupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resiliencyGroupName")
+    def resiliency_group_name(self) -> builtins.str:
+        '''The name of the resiliency group.'''
+        return typing.cast(builtins.str, jsii.get(self, "resiliencyGroupName"))
+
+    @resiliency_group_name.setter
+    def resiliency_group_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__443d3768b4eb848e2644a1505bd2a359eb5620d08fe31e04743961e2277fc8bd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resiliencyGroupName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionArns")
+    def connection_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of the connections that are members of the resiliency group.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "connectionArns"))
+
+    @connection_arns.setter
+    def connection_arns(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__638edf8ca96b5ce581b8b6bb8509945531b8ff148c9b7dbbcbfcf38097f379a7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectionArns", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="intendedResiliencyModel")
+    def intended_resiliency_model(self) -> typing.Optional[builtins.str]:
+        '''The resiliency model that the resiliency group is intended to meet.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "intendedResiliencyModel"))
+
+    @intended_resiliency_model.setter
+    def intended_resiliency_model(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a10f22987d50d733a4962fe96887aa2d47214f022526be956c46883ebb8863cf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "intendedResiliencyModel", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the resiliency group.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__05cbe191b87e70db99f1dd95158bbe280e4e804a9baaeafdde9f4b7928087a77)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_directconnect.CfnResiliencyGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resiliency_group_name": "resiliencyGroupName",
+        "connection_arns": "connectionArns",
+        "intended_resiliency_model": "intendedResiliencyModel",
+        "tags": "tags",
+    },
+)
+class CfnResiliencyGroupProps:
+    def __init__(
+        self,
+        *,
+        resiliency_group_name: builtins.str,
+        connection_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef"]]] = None,
+        intended_resiliency_model: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResiliencyGroup``.
+
+        :param resiliency_group_name: The name of the resiliency group.
+        :param connection_arns: The ARNs of the connections that are members of the resiliency group. When specified, this is the complete, authoritative membership list: on update, connections not present are disassociated, and an explicit empty list removes all members. Omit the property to leave the existing membership unmanaged (unchanged on update). On create, an omitted or empty list means no connections are associated.
+        :param intended_resiliency_model: The resiliency model that the resiliency group is intended to meet. Required when creating a resiliency group.
+        :param tags: The tags associated with the resiliency group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-resiliencygroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_directconnect as directconnect
+            
+            cfn_resiliency_group_props = directconnect.CfnResiliencyGroupProps(
+                resiliency_group_name="resiliencyGroupName",
+            
+                # the properties below are optional
+                connection_arns=["connectionArns"],
+                intended_resiliency_model="intendedResiliencyModel",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__416ba1247e5534c3c5ebc92cf4d78cbbb0ccbac8e5131096c2c3ee4183440fa6)
+            check_type(argname="argument resiliency_group_name", value=resiliency_group_name, expected_type=type_hints["resiliency_group_name"])
+            check_type(argname="argument connection_arns", value=connection_arns, expected_type=type_hints["connection_arns"])
+            check_type(argname="argument intended_resiliency_model", value=intended_resiliency_model, expected_type=type_hints["intended_resiliency_model"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resiliency_group_name": resiliency_group_name,
+        }
+        if connection_arns is not None:
+            self._values["connection_arns"] = connection_arns
+        if intended_resiliency_model is not None:
+            self._values["intended_resiliency_model"] = intended_resiliency_model
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def resiliency_group_name(self) -> builtins.str:
+        '''The name of the resiliency group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-resiliencygroup.html#cfn-directconnect-resiliencygroup-resiliencygroupname
+        '''
+        result = self._values.get("resiliency_group_name")
+        assert result is not None, "Required property 'resiliency_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connection_arns(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef"]]]:
+        '''The ARNs of the connections that are members of the resiliency group.
+
+        When specified, this is the complete, authoritative membership list: on update, connections not present are disassociated, and an explicit empty list removes all members. Omit the property to leave the existing membership unmanaged (unchanged on update). On create, an omitted or empty list means no connections are associated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-resiliencygroup.html#cfn-directconnect-resiliencygroup-connectionarns
+        '''
+        result = self._values.get("connection_arns")
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_directconnect_0e7a20b8.IConnectionRef"]]], result)
+
+    @builtins.property
+    def intended_resiliency_model(self) -> typing.Optional[builtins.str]:
+        '''The resiliency model that the resiliency group is intended to meet.
+
+        Required when creating a resiliency group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-resiliencygroup.html#cfn-directconnect-resiliencygroup-intendedresiliencymodel
+        '''
+        result = self._values.get("intended_resiliency_model")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the resiliency group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directconnect-resiliencygroup.html#cfn-directconnect-resiliencygroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResiliencyGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_directconnect_0e7a20b8.ITransitVirtualInterfaceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTransitVirtualInterface(
     _aws_cdk_0cae9daa.CfnResource,
@@ -3769,6 +4110,8 @@ __all__ = [
     "CfnPrivateVirtualInterfaceProps",
     "CfnPublicVirtualInterface",
     "CfnPublicVirtualInterfaceProps",
+    "CfnResiliencyGroup",
+    "CfnResiliencyGroupProps",
     "CfnTransitVirtualInterface",
     "CfnTransitVirtualInterfaceProps",
 ]
@@ -4352,6 +4695,76 @@ def _typecheckingstub__90c6271856e4af9b71018ea29afa7c5c6b15f873ee9d157717f75a627
     allocate_public_virtual_interface_role_arn: typing.Optional[builtins.str] = None,
     rate_limit: typing.Optional[builtins.str] = None,
     route_filter_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a38c6dfe4b15621faf45f68185df091e941dc82a2149712c40e0e4d43b8d78c6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    resiliency_group_name: builtins.str,
+    connection_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IConnectionRef]]] = None,
+    intended_resiliency_model: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6df355b3dbc2b445a50427749f938e4ecc7bec0e666f30f4513ead969822f83a(
+    resource: _aws_directconnect_0e7a20b8.IResiliencyGroupRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__537e8e91faf591f6f87535fca726bad8c18887555fcd400069721079381d1dd6(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86153a92a937136473ae2e369fd80d95371f5260a1e190034bcfe5451119fffe(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__34ce37cd408b714e456a2656d3f01196ea9f042ada40b203f8624bf5c144dec9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__443d3768b4eb848e2644a1505bd2a359eb5620d08fe31e04743961e2277fc8bd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__638edf8ca96b5ce581b8b6bb8509945531b8ff148c9b7dbbcbfcf38097f379a7(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a10f22987d50d733a4962fe96887aa2d47214f022526be956c46883ebb8863cf(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05cbe191b87e70db99f1dd95158bbe280e4e804a9baaeafdde9f4b7928087a77(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__416ba1247e5534c3c5ebc92cf4d78cbbb0ccbac8e5131096c2c3ee4183440fa6(
+    *,
+    resiliency_group_name: builtins.str,
+    connection_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_directconnect_0e7a20b8.IConnectionRef]]] = None,
+    intended_resiliency_model: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

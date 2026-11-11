@@ -27,8 +27,11 @@ PASSED_ON = ("SIGTERM", "SIGHUP")
 class ProgramLauncher:
     """The shim's end of its command's launcher channel: one program at a time."""
 
-    def __init__(self, channel: socket.socket) -> None:
+    def __init__(self, channel: socket.socket, held: socket.socket) -> None:
         self.channel = channel
+        #: Our copy of the command's end while it is in flight (alone there, macOS may collect it):
+        #: let go at the command's first message, else a reply to a command gone blocks for good.
+        self.held: socket.socket | None = held
         self.program: subprocess.Popen | None = None
         self._buffer = b""
         self._fds: list[int] = []
@@ -45,6 +48,7 @@ class ProgramLauncher:
             self.is_open = False
             self._close_fds()
             return
+        self._close_held()  # the command wrote this: its end has arrived
         self._buffer += data
         while b"\n" in self._buffer:
             line, self._buffer = self._buffer.split(b"\n", 1)
@@ -97,6 +101,16 @@ class ProgramLauncher:
             self._send({"pid": self.program.pid})
         finally:
             self._close_fds()
+
+    def close(self) -> None:
+        """The command ended: the channel goes, with our copy of its end if still held."""
+        self.channel.close()
+        self._close_held()
+
+    def _close_held(self) -> None:
+        if self.held is not None:
+            self.held.close()
+            self.held = None
 
     def _send(self, message: dict) -> None:
         with contextlib.suppress(OSError):

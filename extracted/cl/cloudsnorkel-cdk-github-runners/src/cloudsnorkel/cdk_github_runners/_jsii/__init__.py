@@ -19,9 +19,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@cloudsnorkel/cdk-github-runners",
-    "0.18.2",
+    "1.0.0",
     __name__[0:-6],
-    "cdk-github-runners@0.18.2.jsii.tgz",
+    "cdk-github-runners@1.0.0.jsii.tgz",
 )
 
 __all__ = [

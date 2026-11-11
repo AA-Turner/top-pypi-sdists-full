@@ -243,7 +243,6 @@ def _secret_env(
 
 def _cloud_run_template_args(
     sa: gcp.serviceaccount.Account,
-    stop_wake_enabled: bool,
 ) -> gcp.cloudrunv2.ServiceTemplateArgs:
     """Build the shared Cloud Run template used by both deployments.
 
@@ -268,47 +267,38 @@ def _cloud_run_template_args(
             "subscription-api-bearer-token",
         ),
         _secret_env("DEVIN_AI_API_KEY", "devin-ai-api-key"),
+        _secret_env(
+            "DEVIN_STOP_HOOK_BEARER_TOKEN",
+            "devin-stop-hook-bearer-token",
+        ),
+        _secret_env(
+            "HYDRA_HANDOFF_BOT_APP_ID",
+            "hydra-handoff-bot-app-id",
+        ),
+        _secret_env(
+            "HYDRA_HANDOFF_BOT_PRIVATE_KEY",
+            "hydra-handoff-bot-private-key",
+        ),
+        _secret_env("SLACK_BOT_TOKEN_HITL", "slack-bot-token-hitl"),
+        _secret_env(
+            "ZENDESK_WEBHOOK_SIGNING_SECRET",
+            "zendesk-webhook-signing-secret",
+        ),
+        # MoonBot Zendesk credentials, injected into resolution
+        # Devin sessions via `session_secrets`. The token secret
+        # is shared with internal-mcp-servers; the runtime SA's
+        # secretAccessor grant is a manual bootstrap step (see
+        # BOOTSTRAP.md), not Pulumi-managed.
+        gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+            name="ZENDESK_SUBDOMAIN",
+            value=ZENDESK_SUBDOMAIN,
+        ),
+        gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+            name="ZENDESK_EMAIL",
+            value=ZENDESK_EMAIL,
+        ),
+        _secret_env("ZENDESK_API_TOKEN", ZENDESK_API_TOKEN_SECRET_ID),
     ]
-    if stop_wake_enabled:
-        envs.extend(
-            [
-                _secret_env(
-                    "DEVIN_STOP_HOOK_BEARER_TOKEN",
-                    "devin-stop-hook-bearer-token",
-                ),
-                _secret_env(
-                    "HYDRA_HANDOFF_BOT_APP_ID",
-                    "hydra-handoff-bot-app-id",
-                ),
-                _secret_env(
-                    "HYDRA_HANDOFF_BOT_PRIVATE_KEY",
-                    "hydra-handoff-bot-private-key",
-                ),
-            ]
-        )
-    envs.extend(
-        [
-            _secret_env("SLACK_BOT_TOKEN_HITL", "slack-bot-token-hitl"),
-            _secret_env(
-                "ZENDESK_WEBHOOK_SIGNING_SECRET",
-                "zendesk-webhook-signing-secret",
-            ),
-            # MoonBot Zendesk credentials, injected into resolution
-            # Devin sessions via `session_secrets`. The token secret
-            # is shared with internal-mcp-servers; the runtime SA's
-            # secretAccessor grant is a manual bootstrap step (see
-            # BOOTSTRAP.md), not Pulumi-managed.
-            gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
-                name="ZENDESK_SUBDOMAIN",
-                value=ZENDESK_SUBDOMAIN,
-            ),
-            gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
-                name="ZENDESK_EMAIL",
-                value=ZENDESK_EMAIL,
-            ),
-            _secret_env("ZENDESK_API_TOKEN", ZENDESK_API_TOKEN_SECRET_ID),
-        ]
-    )
     return gcp.cloudrunv2.ServiceTemplateArgs(
         service_account=sa.email,
         scaling=gcp.cloudrunv2.ServiceTemplateScalingArgs(
@@ -338,7 +328,6 @@ def define_cloud_run_services(
     secrets: dict[str, gcp.secretmanager.Secret],
     api_services: list[gcp.projects.Service],
     iam_bindings: list[pulumi.Resource],
-    stop_wake_enabled: bool,
 ) -> tuple[gcp.cloudrunv2.Service, gcp.cloudrunv2.Service]:
     """Define two Cloud Run v2 deployments of the same container image.
 
@@ -355,7 +344,7 @@ def define_cloud_run_services(
           X-Slack-Signature HMAC validation (Slack best practice).
     """
     depends = api_services + list(secrets.values()) + iam_bindings
-    template = _cloud_run_template_args(sa, stop_wake_enabled)
+    template = _cloud_run_template_args(sa)
 
     # ---- internal-agent-bus-cloudrun ----
     # Lives behind GCLB + Cloud Armor. Only accepts traffic forwarded by the
@@ -706,8 +695,6 @@ def define_firestore(
 
 def main() -> None:
     """Define and deploy all infrastructure resources."""
-    stop_wake_enabled = config.get_bool("stop-wake-enabled") or False
-
     # Enable APIs first
     api_services = define_apis()
 
@@ -722,7 +709,7 @@ def main() -> None:
 
     # Cloud Run services (two deployments of the same image)
     internal_service, slack_service = define_cloud_run_services(
-        sa, secrets, api_services, iam_bindings, stop_wake_enabled
+        sa, secrets, api_services, iam_bindings
     )
 
     # Cloud Armor policy (attached to GCLB, protects internal service only)

@@ -7,8 +7,8 @@
 # --------------------------------------------------------------------------
 
 from copy import deepcopy
+import sys
 from typing import Any, Awaitable, TYPE_CHECKING, Union
-from typing_extensions import Self
 
 from azure.core import AsyncPipelineClient
 from azure.core.credentials import AzureKeyCredential
@@ -19,11 +19,18 @@ from ..._utils.serialization import Deserializer, Serializer
 from ._configuration import KnowledgeBaseRetrievalClientConfiguration
 from ._operations import _KnowledgeBaseRetrievalClientOperationsMixin
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self  # type: ignore
+
 if TYPE_CHECKING:
     from azure.core.credentials_async import AsyncTokenCredential
 
 
-class KnowledgeBaseRetrievalClient(_KnowledgeBaseRetrievalClientOperationsMixin):
+class KnowledgeBaseRetrievalClient(
+    _KnowledgeBaseRetrievalClientOperationsMixin
+):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """KnowledgeBaseRetrievalClient.
 
     :param endpoint: The endpoint URL of the search service. Required.
@@ -34,9 +41,9 @@ class KnowledgeBaseRetrievalClient(_KnowledgeBaseRetrievalClientOperationsMixin)
      ~azure.core.credentials_async.AsyncTokenCredential
     :param knowledge_base_name: The name of the knowledge base. Required.
     :type knowledge_base_name: str
-    :keyword api_version: The API version to use for this operation. Known values are "2026-04-01".
-     Default value is "2026-04-01". Note that overriding this default value may result in
-     unsupported behavior.
+    :keyword api_version: The API version to use for this operation. Known values are "2026-10-01"
+     and None. Default value is None. If not set, the operation's default API version will be used.
+     Note that overriding this default value may result in unsupported behavior.
     :paramtype api_version: str
     """
 

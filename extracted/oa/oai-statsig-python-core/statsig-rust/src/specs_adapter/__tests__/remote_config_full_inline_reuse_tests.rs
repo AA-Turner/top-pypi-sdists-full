@@ -143,6 +143,72 @@ async fn assert_blob_requests(server: &MockServer, expected: usize) {
 }
 
 #[tokio::test]
+async fn protobuf_rejects_remote_metadata_inside_json_envelopes() {
+    let server = MockServer::start().await;
+    let hydrator = test_hydrator("forbidden-proto-json");
+    // The param store has a matching prior checksum: its incoming bytes must still be checked.
+    let current = SpecsResponseFull {
+        param_stores: serde_json::from_value(serde_json::json!({
+            "store": {"parameters": {}, "checksum": "7"}
+        }))
+        .unwrap(),
+        ..Default::default()
+    };
+    let param_store = pb::SpecsEnvelope {
+        kind: pb::SpecsEnvelopeKind::ParamStore as i32,
+        name: "store".into(),
+        checksum: "7".into(),
+        data: Some(br#"{"parameters":{},"remoteConfigMetadata":{}}"#.to_vec()),
+    };
+    let rest = serde_json::json!({
+        "experiment_to_layer": {},
+        "override_rules": {"public": {
+            "name": "public", "id": "public", "idType": "userID", "passPercentage": 100,
+            "conditions": [], "returnValue": true, "remoteConfigMetadata": {}
+        }}
+    });
+    for hint in [Some(true), Some(false), None] {
+        for bad_override in [true, false] {
+            let mut top = protobuf_top_level_envelope(hint);
+            let mut frames = if bad_override {
+                let mut data = pb::SpecsTopLevel::decode(top.data.as_deref().unwrap()).unwrap();
+                data.rest = serde_json::to_vec(&rest).unwrap();
+                top.data = Some(data.encode_to_vec());
+                vec![top]
+            } else {
+                vec![top, param_store.clone()]
+            };
+            if hint == Some(true) {
+                frames.push(remote_config("allowed", "8", b"{}"));
+            }
+            frames.push(protobuf_done_envelope());
+            let wire = serialize_protobuf_envelopes(&frames).unwrap();
+            if hint == Some(true) {
+                let error = hydrate_from_mock_source(
+                    &hydrator,
+                    &mut protobuf_response_data(wire.clone()),
+                    &server,
+                )
+                .await
+                .unwrap_err();
+                assert!(
+                    error.to_string().contains("unsupported_entity"),
+                    "{error:?}"
+                );
+            }
+            let error = parse_hydrated_update(&server, &current, wire, false, false)
+                .await
+                .expect_err("must reject JSON metadata before reuse");
+            assert!(
+                error.to_string().contains("unsupported_entity"),
+                "{error:?}"
+            );
+        }
+    }
+    assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
 async fn inline_full_reuse_mixed_full_keeps_inline_rules_and_hydrates_remote_values() {
     let server = MockServer::start().await;
     let default_body = br#"{"remote":"default"}"#;

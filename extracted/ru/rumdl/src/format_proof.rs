@@ -766,6 +766,16 @@ impl<'a> FormatProof<'a> {
             let end = ranges.partition_point(|range| range.start <= pos);
             end > 0 && pos < ranges[end - 1].end
         };
+        // Native rules read a comment from its opener to the next `-->`, even
+        // across the blank line where the parser ends the paragraph holding
+        // the opener. An opener the parser left as text can therefore hide
+        // parsed blocks from the native view; no policy is certified then.
+        if memchr::memmem::find_iter(source.as_bytes(), b"<!--")
+            .any(|opener| !contains(&literals, opener) && !contains(&inline_code, opener))
+        {
+            facts.bits = 0;
+            return facts;
+        }
         if has_config_candidates
             && (unknown_html
                 || crate::inline_config::inline_rule_option_candidate_offsets(source)
@@ -1389,8 +1399,8 @@ mod tests {
             "[x]:\n  https://example.com\n",
             "[x]: https://example.com\n  \"name@example.com\"\n",
             "> [x]:\n>   https://example.com\n",
-            "![www.example.com][r]\n\n[r]: <>\n",
-            "[https://example.com][r]\n\n[r]: <>\n",
+            "![www.example.com][r]\n",
+            "[https://example.com][r]\n",
         ] {
             let context = LintContext::new(source, MarkdownFlavor::Standard, None);
             assert_ne!(rule.fix(&context).unwrap(), source);

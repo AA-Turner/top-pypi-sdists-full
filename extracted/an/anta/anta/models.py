@@ -14,7 +14,7 @@ from functools import wraps
 from string import Formatter
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError, create_model, field_serializer
+from pydantic import BaseModel, ConfigDict, ValidationError, create_model, field_serializer, field_validator
 
 from anta.constants import EOS_BLACKLIST_CMDS, KNOWN_EOS_ERRORS, UNSUPPORTED_PLATFORM_ERRORS
 from anta.custom_types import Revision
@@ -193,8 +193,7 @@ class AntaCommand(BaseModel):
     def uid(self) -> str:
         """Generate a unique identifier for this command."""
         uid_str = f"{self.command}_{self.version}_{self.revision or 'NA'}_{self.ofmt}"
-        # Ignoring S324 probable use of insecure hash function - sha1 is enough for our needs.
-        return hashlib.sha1(uid_str.encode()).hexdigest()  # noqa: S324
+        return hashlib.sha1(uid_str.encode(), usedforsecurity=False).hexdigest()
 
     @property
     def json_output(self) -> dict[str, Any]:
@@ -403,12 +402,18 @@ class AntaTest(ABC):
         Attributes
         ----------
         result_overwrite
-            Define fields to overwrite in the TestResult object.
+            Define fields to overwrite in the TestResult object. An empty override is treated as omitted.
         """
 
         model_config = ConfigDict(extra="forbid")
         result_overwrite: ResultOverwrite | None = None
         filters: Filters | None = None
+
+        @field_validator("result_overwrite")
+        @classmethod
+        def _normalize_result_overwrite(cls, value: ResultOverwrite | None) -> ResultOverwrite | None:
+            """Treat an override with no configured fields as an omitted override."""
+            return None if value == cls.ResultOverwrite() else value
 
         def __hash__(self) -> int:
             """Implement generic hashing for AntaTest.Input.

@@ -80,6 +80,7 @@ def _default_headers(
     headers = {
         "Polar-Version": version,
         "Authorization": f"Bearer {access_token}",
+        "User-Agent": "polar-sdk-python/1.1.0",
     }
     if organization_id is not None:
         headers["Polar-Organization"] = organization_id
@@ -275,12 +276,9 @@ def deserialize(data: object, model: typing_extensions.TypeForm[_ModelT]) -> _Mo
         raise PolarDeserializationError(e) from e
 
 
-E = typing.TypeVar("E", bound=PolarClientError)
-
-
 def _handle_errors(
     response: httpx.Response,
-    errors: dict[int, type[E]] | None = None,
+    errors: collections.abc.Mapping[int, type[PolarClientError]] | None = None,
 ) -> None:
     status_code = response.status_code
 
@@ -313,9 +311,12 @@ def _handle_errors(
 def parse_response_json(
     response: httpx.Response,
     response_model: typing.Any | None = None,
-    errors: dict[int, type[E]] | None = None,
+    errors: collections.abc.Mapping[int, type[PolarClientError]] | None = None,
 ) -> typing.Any:
     _handle_errors(response, errors)
+
+    if not response.content:
+        return None
 
     if response_model is not None:
         return deserialize(response.json(), response_model)
@@ -325,7 +326,7 @@ def parse_response_json(
 
 def parse_response_text(
     response: httpx.Response,
-    errors: dict[int, type[E]] | None = None,
+    errors: collections.abc.Mapping[int, type[PolarClientError]] | None = None,
 ) -> str:
     _handle_errors(response, errors)
     return response.text
@@ -333,6 +334,6 @@ def parse_response_text(
 
 def parse_response_none(
     response: httpx.Response,
-    errors: dict[int, type[E]] | None = None,
+    errors: collections.abc.Mapping[int, type[PolarClientError]] | None = None,
 ) -> None:
     _handle_errors(response, errors)

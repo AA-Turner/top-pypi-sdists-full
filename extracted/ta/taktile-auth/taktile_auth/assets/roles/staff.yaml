@@ -54,6 +54,8 @@ fwd_viewer/org_id:
     - r:workspace_case/org_id,ws_id
     - r:workspace_case_template/org_id,ws_id
     - r:audit_logs/org_id
+# Fleet staff roles: platform-wide, granted by login, incident.io shifts or reviewed files.
+# Each nests an _org/org_id sub-role that carries its grants, so they survive scoping a token to an org.
 staff_member:
     - staff_member_org/*
 staff_member_org/org_id: []
@@ -73,3 +75,15 @@ staff_config_manager:
     - staff_member
     - staff_config_manager_org/*
 staff_config_manager_org/org_id: []
+# Scoped staff roles: time-limited access to one org or workspace through access requests.
+# The tiers nest each other; staff_org_viewer is only ever nested.
+staff_org_viewer/org_id: []
+staff_org_admin/org_id:
+    - staff_org_viewer/org_id
+staff_ws_inspector/org_id,ws_id:
+    - staff_org_viewer/org_id
+staff_ws_data_viewer/org_id,ws_id:
+    - staff_ws_inspector/org_id,ws_id
+staff_ws_admin/org_id,ws_id:
+    - staff_ws_data_viewer/org_id,ws_id
+staff_pii_viewer/org_id,ws_id: []

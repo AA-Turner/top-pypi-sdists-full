@@ -1,0 +1,51 @@
+import math
+
+from .._helpers import read, write
+from .._quality import attach_quality, compute_quality
+from ._common import add_io_args
+from ._json import emit_json
+
+
+def add_args(parser):
+    add_io_args(parser)
+    parser.add_argument(
+        "--output",
+        "-o",
+        type=str,
+        default=None,
+        help="write the metrics into this file as cell_data",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the report (no per-cell arrays) as JSON",
+    )
+
+
+def _format(value: float) -> str:
+    return "  n/a " if math.isnan(value) else f"{value:8.4f}"
+
+
+def quality(args):
+    mesh = read(args.infile, file_format=args.input_format)
+    report = compute_quality(mesh)
+    if args.output is not None:
+        write(args.output, attach_quality(mesh))
+    if args.json:
+        emit_json({k: v for k, v in report.items() if k != "cell_arrays"})
+        return
+
+    print(f"Mesh quality report for {args.infile}")
+    print(
+        f"  cells: {report['num_cells']}   "
+        f"inverted: {report['num_inverted']}   "
+        f"degenerate: {report['num_degenerate']}"
+    )
+    print(f"  {'metric':<24}{'min':>10}{'mean':>10}{'max':>10}{'count':>10}")
+    for name, s in report["metrics"].items():
+        if s["count"] == 0:
+            continue
+        print(
+            f"  {name:<24}{_format(s['min']):>10}{_format(s['mean']):>10}"
+            f"{_format(s['max']):>10}{s['count']:>10}"
+        )

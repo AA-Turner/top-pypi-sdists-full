@@ -346,6 +346,7 @@ __all__ = (
     "ConditionTypeDef",
     "ConnectionCredentialsTypeDef",
     "ConnectionDataTypeDef",
+    "ContactAnalysisReferenceStateTypeDef",
     "ContactAnalysisReferenceTypeDef",
     "ContactAnalysisTypeDef",
     "ContactConfigurationTypeDef",
@@ -376,6 +377,11 @@ __all__ = (
     "ContactFlowTypeConditionTypeDef",
     "ContactFlowTypeDef",
     "ContactFlowVersionSummaryTypeDef",
+    "ContactLensChannelConfigurationTypeDef",
+    "ContactLensRedactionConfigurationTypeDef",
+    "ContactLensSentimentConfigurationTypeDef",
+    "ContactLensSummaryConfigurationTypeDef",
+    "ContactLensTypeDef",
     "ContactMetricInfoTypeDef",
     "ContactMetricResultTypeDef",
     "ContactMetricValueTypeDef",
@@ -391,6 +397,8 @@ __all__ = (
     "ControlPlaneAttributeFilterTypeDef",
     "ControlPlaneTagFilterTypeDef",
     "ControlPlaneUserAttributeFilterTypeDef",
+    "ConversationalAnalyticsConfigurationTypeDef",
+    "ConversationalAnalyticsTypeDef",
     "CreateAgentStatusRequestTypeDef",
     "CreateAgentStatusResponseTypeDef",
     "CreateAttachedFileRequestTypeDef",
@@ -2324,6 +2332,11 @@ class ConnectionCredentialsTypeDef(TypedDict):
     Expiry: NotRequired[str]
 
 
+class ContactAnalysisReferenceStateTypeDef(TypedDict):
+    Status: NotRequired[str]
+    StatusReason: NotRequired[str]
+
+
 class ContactAnalysisReferenceTypeDef(TypedDict):
     Name: NotRequired[str]
     Value: NotRequired[str]
@@ -2469,6 +2482,25 @@ class ContactFlowVersionSummaryTypeDef(TypedDict):
     Version: NotRequired[int]
     LastModifiedTime: NotRequired[datetime]
     LastModifiedRegion: NotRequired[str]
+
+
+class ContactLensChannelConfigurationTypeDef(TypedDict):
+    AnalyticsModes: NotRequired[list[str]]
+
+
+class ContactLensRedactionConfigurationTypeDef(TypedDict):
+    Behavior: NotRequired[str]
+    Policy: NotRequired[str]
+    Entities: NotRequired[list[str]]
+    MaskMode: NotRequired[str]
+
+
+class ContactLensSentimentConfigurationTypeDef(TypedDict):
+    Behavior: NotRequired[str]
+
+
+class ContactLensSummaryConfigurationTypeDef(TypedDict):
+    SummaryModes: NotRequired[list[str]]
 
 
 class ContactMetricInfoTypeDef(TypedDict):
@@ -7034,6 +7066,16 @@ class ListContactFlowVersionsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ConversationalAnalyticsConfigurationTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    LanguageLocale: NotRequired[str]
+    LanguageLocales: NotRequired[list[str]]
+    ChannelConfiguration: NotRequired[ContactLensChannelConfigurationTypeDef]
+    RedactionConfiguration: NotRequired[ContactLensRedactionConfigurationTypeDef]
+    SummaryConfiguration: NotRequired[ContactLensSummaryConfigurationTypeDef]
+    SentimentConfiguration: NotRequired[ContactLensSentimentConfigurationTypeDef]
+
+
 class GetContactMetricsRequestTypeDef(TypedDict):
     InstanceId: str
     ContactId: str
@@ -9160,6 +9202,11 @@ class SearchContactFlowModulesResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ConversationalAnalyticsTypeDef(TypedDict):
+    Configuration: NotRequired[ConversationalAnalyticsConfigurationTypeDef]
+    ContactAnalysisReferenceState: NotRequired[ContactAnalysisReferenceStateTypeDef]
+
+
 class GetContactMetricsResponseTypeDef(TypedDict):
     MetricResults: list[ContactMetricResultTypeDef]
     Id: str
@@ -10321,6 +10368,10 @@ class ContactEvaluationAttributeFilterTypeDef(TypedDict):
 class ContactFlowSearchFilterTypeDef(TypedDict):
     TagFilter: NotRequired[ControlPlaneTagFilterTypeDef]
     FlowAttributeFilter: NotRequired[ContactFlowAttributeFilterTypeDef]
+
+
+class ContactLensTypeDef(TypedDict):
+    ConversationalAnalytics: NotRequired[ConversationalAnalyticsTypeDef]
 
 
 class SendOutboundWebNotificationRequestTypeDef(TypedDict):
@@ -11487,6 +11538,7 @@ class ContactTypeDef(TypedDict):
     Attributes: NotRequired[dict[str, str]]
     NextContacts: NotRequired[list[NextContactEntryTypeDef]]
     GlobalResiliencyMetadata: NotRequired[GlobalResiliencyMetadataTypeDef]
+    ContactLens: NotRequired[ContactLensTypeDef]
 
 
 class ContactSearchSummaryPaginatorTypeDef(TypedDict):

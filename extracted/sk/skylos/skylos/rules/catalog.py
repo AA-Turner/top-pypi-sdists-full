@@ -394,7 +394,9 @@ _RULES = (
         "SKY-L027", "Duplicate string literal", "quality", finding_type="advice"
     ),
     RuleCatalogEntry("SKY-L028", "Too many returns", "quality", finding_type="advice"),
-    RuleCatalogEntry("SKY-L029", "Unclear boolean argument", "quality", finding_type="advice"),
+    RuleCatalogEntry(
+        "SKY-L029", "Unclear boolean argument", "quality", finding_type="advice"
+    ),
     RuleCatalogEntry(
         "SKY-L030",
         "Broad exception with trivial handler",
@@ -443,6 +445,26 @@ _RULES = (
         "quality",
         "LOW",
         finding_type="advice",
+    ),
+    RuleCatalogEntry(
+        "SKY-L040",
+        "Constant assertion in test",
+        "quality",
+        "LOW",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-L041", "Empty test body", "quality", "LOW", finding_type="review"
+    ),
+    RuleCatalogEntry(
+        "SKY-L042", "Repeated test assertion", "quality", "LOW", finding_type="review"
+    ),
+    RuleCatalogEntry(
+        "SKY-L043",
+        "Sleep used for test synchronization",
+        "quality",
+        "LOW",
+        finding_type="review",
     ),
     RuleCatalogEntry(
         "SKY-P401", "Potential unbounded read", "quality", finding_type="advice"
@@ -1649,6 +1671,76 @@ _RULES = (
     RuleCatalogEntry(
         "SKY-D401",
         "Terraform AWS new database storage encryption disabled",
+        "security",
+        "HIGH",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D402",
+        "Terraform AWS public S3 bucket ACL",
+        "security",
+        "HIGH",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D403",
+        "Terraform AWS public S3 bucket policy",
+        "security",
+        "HIGH",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D404",
+        "Terraform AWS S3 public access protections disabled",
+        "security",
+        "HIGH",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D405",
+        "Terraform AWS database public accessibility enabled",
+        "security",
+        "HIGH",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D406",
+        "Terraform AWS EBS volume encryption disabled",
+        "security",
+        "HIGH",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D407",
+        "Terraform AWS instance metadata tokens optional",
+        "security",
+        "HIGH",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D408",
+        "Terraform AWS worldwide database ingress",
+        "security",
+        "HIGH",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D409",
+        "Kubernetes privileged container",
+        "security",
+        "HIGH",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D410",
+        "Kubernetes host namespace access",
+        "security",
+        "HIGH",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D411",
+        "Kubernetes sensitive host path mounted",
         "security",
         "HIGH",
         finding_type="review",

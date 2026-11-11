@@ -111,11 +111,28 @@ impl std::fmt::Display for ResponseDataReadError {
 #[derive(Clone, Eq, Hash, PartialEq)]
 struct ResponseLimitClientKey {
     runtime: Option<tokio::runtime::Id>,
+    identity_encoding: bool,
     proxy_host: Option<String>,
     proxy_port: Option<u16>,
     proxy_auth: Option<String>,
     proxy_protocol: Option<String>,
     ca_cert_pem: Option<Vec<u8>>,
+}
+
+fn requests_snapshot(args: &RequestArgs) -> bool {
+    args.headers
+        .as_ref()
+        .and_then(|h| h.get("Accept"))
+        .is_some_and(|v| crate::id_lists_adapter::snapshot_http::accepts_snapshot(v))
+}
+
+fn client_builder(args: &RequestArgs) -> reqwest::ClientBuilder {
+    let builder = reqwest::Client::builder();
+    if requests_snapshot(args) {
+        builder.no_gzip().no_brotli().no_zstd().no_deflate()
+    } else {
+        builder
+    }
 }
 
 impl ResponseLimitClientKey {
@@ -137,6 +154,7 @@ impl ResponseLimitClientKey {
 
         Self {
             runtime: None,
+            identity_encoding: requests_snapshot(request_args),
             proxy_host,
             proxy_port,
             proxy_auth,
@@ -336,6 +354,10 @@ impl Default for NetworkProviderReqwest {
 
 #[async_trait]
 impl NetworkProvider for NetworkProviderReqwest {
+    fn supports_wire_responses_without_redirects(&self) -> bool {
+        true
+    }
+
     async fn send(&self, method: &HttpMethod, args: &RequestArgs) -> Response {
         self.send_default(NetworkRequest::new(method, args))
             .await
@@ -823,7 +845,7 @@ impl ReqwestTransport {
         }
 
         // The HTTP/2 send path handles redirects explicitly so it can preserve method and header rules.
-        let mut builder = reqwest::Client::builder()
+        let mut builder = client_builder(args)
             .http2_prior_knowledge()
             .redirect(Policy::none());
         if let Some(proxy) = &args.proxy_config {
@@ -855,7 +877,7 @@ impl ReqwestTransport {
         request_args: &RequestArgs,
         disable_redirects: bool,
     ) -> (reqwest::Client, bool) {
-        let mut client_builder = reqwest::Client::builder();
+        let mut client_builder = client_builder(request_args);
         let mut cacheable = true;
         if disable_redirects {
             client_builder = client_builder.redirect(Policy::none());
@@ -888,14 +910,17 @@ impl ReqwestTransport {
                     "Failed to build reqwest client with proxy config: {}. Falling back to default client.",
                     e
                 );
-                (Self::build_default_client(disable_redirects), false)
+                (
+                    Self::build_default_client(request_args, disable_redirects),
+                    false,
+                )
             }
         }
     }
 
-    fn build_default_client(disable_redirects: bool) -> reqwest::Client {
+    fn build_default_client(args: &RequestArgs, disable_redirects: bool) -> reqwest::Client {
         if disable_redirects {
-            return reqwest::Client::builder()
+            return client_builder(args)
                 .redirect(Policy::none())
                 .build()
                 .expect("default reqwest client with redirects disabled should build");
@@ -954,10 +979,9 @@ impl ReqwestTransport {
 
 impl ReqwestTransport {
     async fn write_unlimited_response_to_temp_file(
-        response: reqwest::Response,
+        mut response: reqwest::Response,
     ) -> Result<ResponseData, StatsigErr> {
-        let headers = get_response_headers(&response);
-        let mut response = response;
+        let headers = std::mem::take(response.headers_mut());
         let mut temp_file = tempfile::spooled_tempfile(1024 * 1024 * 2); // 2MB
 
         let mut total_bytes = 0;
@@ -980,16 +1004,16 @@ impl ReqwestTransport {
 
         log_d!(TAG, "Wrote {} bytes to spooled temp file", total_bytes);
 
-        Ok(ResponseData::from_stream_with_headers(
-            Box::new(reader),
+        Ok(with_response_headers(
+            ResponseData::from_stream(Box::new(reader)),
             headers,
         ))
     }
 
     async fn write_unlimited_response_to_in_memory_buffer(
-        response: reqwest::Response,
+        mut response: reqwest::Response,
     ) -> Result<ResponseData, StatsigErr> {
-        let headers = get_response_headers(&response);
+        let headers = std::mem::take(response.headers_mut());
         let bytes = response
             .bytes()
             .await
@@ -997,19 +1021,18 @@ impl ReqwestTransport {
 
         log_d!(TAG, "Wrote {} bytes to in-memory buffer", bytes.len());
 
-        Ok(ResponseData::from_shared_bytes_with_headers(
-            Arc::from(bytes.as_ref()),
+        Ok(with_response_headers(
+            ResponseData::from_shared_bytes_with_headers(Arc::from(bytes.as_ref()), None),
             headers,
         ))
     }
 
     async fn write_response_to_temp_file(
-        response: reqwest::Response,
+        mut response: reqwest::Response,
         max_response_bytes: Option<u64>,
     ) -> Result<ResponseData, ResponseDataReadError> {
         validate_response_content_length(&response, max_response_bytes)?;
-        let headers = get_response_headers(&response);
-        let mut response = response;
+        let headers = std::mem::take(response.headers_mut());
         let mut temp_file = tempfile::spooled_tempfile(1024 * 1024 * 2); // 2MB
 
         let mut total_bytes = 0u64;
@@ -1032,8 +1055,8 @@ impl ReqwestTransport {
 
         log_d!(TAG, "Wrote {} bytes to spooled temp file", total_bytes);
 
-        Ok(ResponseData::from_stream_with_headers(
-            Box::new(reader),
+        Ok(with_response_headers(
+            ResponseData::from_stream(Box::new(reader)),
             headers,
         ))
     }
@@ -1043,7 +1066,7 @@ impl ReqwestTransport {
         max_response_bytes: Option<u64>,
     ) -> Result<ResponseData, ResponseDataReadError> {
         validate_response_content_length(&response, max_response_bytes)?;
-        let headers = get_response_headers(&response);
+        let headers = std::mem::take(response.headers_mut());
         let mut bytes = Vec::new();
         let mut total_bytes = 0u64;
         while let Some(item) = response.chunk().await.map_err(|e| {
@@ -1055,7 +1078,10 @@ impl ReqwestTransport {
 
         log_d!(TAG, "Wrote {} bytes to in-memory buffer", bytes.len());
 
-        Ok(ResponseData::from_bytes_with_headers(bytes, headers))
+        Ok(with_response_headers(
+            ResponseData::from_bytes(bytes),
+            headers,
+        ))
     }
 }
 
@@ -1136,18 +1162,14 @@ fn is_config_sync_endpoint(url: &str) -> bool {
     )
 }
 
-fn get_response_headers(response: &reqwest::Response) -> Option<HashMap<String, String>> {
-    let headers = response.headers();
-    if headers.is_empty() {
-        return None;
+fn with_response_headers(
+    mut data: ResponseData,
+    headers: reqwest::header::HeaderMap,
+) -> ResponseData {
+    for (key, value) in &headers {
+        data.append_header(key.to_string(), value.to_str().unwrap_or("").to_owned());
     }
-
-    let mut headers_map = HashMap::new();
-    for (key, value) in headers {
-        headers_map.insert(key.to_string(), value.to_str().unwrap_or("").to_string());
-    }
-
-    Some(headers_map)
+    data
 }
 
 #[cfg(test)]

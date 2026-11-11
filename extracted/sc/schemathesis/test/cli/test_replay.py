@@ -30,6 +30,7 @@ from schemathesis.core.failures import ServerError
 from schemathesis.core.transforms import UNRESOLVABLE
 from schemathesis.reporting.crashes import MANIFEST_FILENAME, CrashCheck, CrashFile, CrashLink, CrashStep, CrashWriter
 from schemathesis.schemas import BaseSchema
+from test.apps.catalog.graphql import bookstore
 from test.apps.catalog.openapi import basic as openapi_basic
 from test.apps.catalog.openapi.modifiers.stateful import IndependentInternalError
 from test.apps.catalog.openapi.modifiers.under_declared_security import (
@@ -620,8 +621,26 @@ def test_replay_applies_non_path_link_parameter(cli, app_runner, ctx, tmp_path, 
         ({"token": "fresh"}, {"token": "$response.body#/token"}, {"token": "stale"}, {"token": "fresh"}),
         ({"other": "no token here"}, "$response.body#/token", {"token": "recorded"}, {"token": "recorded"}),
         ({"token": "fresh"}, "$response.body", NOT_SET, {"token": "fresh"}),
+        (
+            {"token": "fresh"},
+            {"user": {"id": "$response.body#/token"}},
+            {"user": {"id": "stale", "name": "kept"}, "a": 1},
+            {"user": {"id": "fresh", "name": "kept"}, "a": 1},
+        ),
+        (
+            {"token": "new"},
+            [{"id": "$response.body#/token"}],
+            [{"id": "old", "name": "kept"}],
+            [{"id": "new", "name": "kept"}],
+        ),
     ],
-    ids=["re-extract-field", "unresolvable-keeps-recorded", "wholesale"],
+    ids=[
+        "re-extract-field",
+        "unresolvable-keeps-recorded",
+        "wholesale",
+        "nested-keeps-recorded-siblings",
+        "top-level-array",
+    ],
 )
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_replay_request_body_link(
@@ -775,7 +794,7 @@ def test_replay_graphql_sends_recorded_id_without_json_response(cli, ctx, app_ru
 
 
 def test_replay_graphql_lists_no_link_for_explored_id(cli, ctx, tmp_path):
-    api = ctx.graphql.apps.unknown_id_failure()
+    api = ctx.graphql.serve(bookstore.unknown_id_failure())
     cli.run(api.schema_url, "--max-examples=20", "--phases=stateful", "--mode=positive", "--seed=42")
 
     result = cli.main("replay", "--keep")
@@ -885,7 +904,7 @@ def test_timing_only_failure_not_recorded_or_hinted(cli, ctx, tmp_path):
 
 
 def test_replay_kitchen_sink_at_scale(cli, ctx, tmp_path):
-    api = ctx.openapi.apps.kitchen_sink()
+    api = ctx.openapi.serve(openapi_basic.kitchen_sink())
 
     # /api/flaky is non-deterministic by design; sanitization would mask the `key` body field, so replay can't restore it.
     cli.run(
@@ -1706,7 +1725,6 @@ def test_replay_reruns_recorded_check_disabled_in_config(cli, app_runner, ctx, c
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-@pytest.mark.usefixtures("restore_checks")
 def test_replay_check_raising_unexpected_error_is_errored_not_crash(
     cli, app_runner, ctx, crash_factory, tmp_path, snapshot_cli
 ):

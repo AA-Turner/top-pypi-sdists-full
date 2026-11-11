@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aphysics/common/motor.proto\x12\x0ephysics.common\"\x8b\x01\n\x05Motor\x12#\n\ractuator_name\x18\x04 \x01(\tR\x0c\x61\x63tuatorName\x12\'\n\x0ftorque_constant\x18\x02 \x01(\x01R\x0etorqueConstant\x12#\n\rcurrent_limit\x18\x03 \x01(\x01R\x0c\x63urrentLimitJ\x04\x08\x01\x10\x02R\tmotor_keyb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aphysics/common/motor.proto\x12\x0ephysics.common\"\xb0\x01\n\x05Motor\x12#\n\ractuator_name\x18\x04 \x01(\tR\x0c\x61\x63tuatorName\x12\'\n\x0ftorque_constant\x18\x02 \x01(\x01R\x0etorqueConstant\x12#\n\rcurrent_limit\x18\x03 \x01(\x01R\x0c\x63urrentLimit\x12#\n\rrotor_inertia\x18\x05 \x01(\x01R\x0crotorInertiaJ\x04\x08\x01\x10\x02R\tmotor_keyb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,5 +32,5 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'vention_sim.physics.common.
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_MOTOR']._serialized_start=47
-  _globals['_MOTOR']._serialized_end=186
+  _globals['_MOTOR']._serialized_end=223
 # @@protoc_insertion_point(module_scope)

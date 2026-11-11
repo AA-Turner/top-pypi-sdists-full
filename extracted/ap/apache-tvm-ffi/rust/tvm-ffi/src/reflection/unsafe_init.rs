@@ -18,11 +18,10 @@
  */
 
 //! Objects made with every field undefined, for reflection to set the fields,
-//! as C++ makes an object with `UnsafeInit`.
+//! such as when a JSON graph is read back or `__ffi_init__` runs.
 //!
-//! A C++ object made with `UnsafeInit` holds undefined (null) references, which
-//! the field setters overwrite and the destructor skips. A Rust reference is
-//! never null, so a Rust object cannot hold one; instead [`unsafe_init`]
+//! A Rust reference is never null, so an object cannot hold a null reference
+//! for its setters to overwrite later; instead [`unsafe_init`]
 //! allocates the object zeroed, and a field holding all-zero bytes that are no
 //! value of its type ([`AnyCompatible::is_undefined`]) is undefined. The field
 //! setter writes an undefined field without dropping it, the field getter reads
@@ -31,25 +30,25 @@
 
 use std::alloc::Layout;
 use std::ffi::c_void;
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::AtomicU64;
 
 use crate::object::{Object, ObjectArc, ObjectCore, ObjectRef, ObjectRefCore};
 use crate::tvm_ffi_sys::TVMFFIObjectDeleterFlagBitMask::{
     kTVMFFIObjectDeleterFlagBitMaskStrong, kTVMFFIObjectDeleterFlagBitMaskWeak,
 };
-use crate::tvm_ffi_sys::{TVMFFIObject, TVMFFIObjectHandle, COMBINED_REF_COUNT_BOTH_ONE};
+use crate::tvm_ffi_sys::{COMBINED_REF_COUNT_BOTH_ONE, TVMFFIObject, TVMFFIObjectHandle};
 use crate::type_traits::AnyCompatible;
 use crate::{Error, INTERNAL_ERROR};
 
 /// An object type whose object can start with every field undefined, for
-/// reflection to set the fields: C++ `UnsafeInit`.
+/// reflection to set the fields.
 ///
-/// The creator that `#[rs_class]` registers for its type makes the object with
+/// The creator that `#[rs_object]` registers for its type makes the object with
 /// [`unsafe_init`], which a JSON graph read back, `__ffi_init__` and
-/// `__ffi_new__` then fill. `#[rs_class]` implements it for its object, so the
-/// parent's object must implement it too: [`Object`] does, and so does the
-/// object of a non-final C++ type bound by `tvm-ffi-stubgen`.
+/// `__ffi_new__` then fill. `#[rs_object]` implements it for its object, so the
+/// parent's object must implement it too: [`Object`] does, and so does a
+/// binding with `#[object(rs_parent)]` on its [`derive(Object)`](crate::derive::Object).
 ///
 /// `__ffi_init__` leaves an `init_off` field as the creator made it, so such a
 /// field's type must take all-zero bytes as a value, as a scalar, `Option<T>`
@@ -58,7 +57,7 @@ use crate::{Error, INTERNAL_ERROR};
 /// # Safety
 ///
 /// `drop_defined_fields` drops each defined field of the object and no
-/// undefined one (as [`drop_if_defined`] does), the parent's object's included.
+/// undefined one, the parent's object's included.
 pub unsafe trait UnsafeInit: ObjectCore {
     /// Drops the defined fields of the object at `this`, the parent's object's
     /// included, and leaves the undefined ones.
@@ -82,9 +81,8 @@ unsafe impl UnsafeInit for Object {
 ///
 /// `field` points to a field of an object, defined or undefined, which is not
 /// used afterwards.
-#[doc(hidden)]
 #[inline]
-pub unsafe fn drop_if_defined<F: AnyCompatible>(field: *mut F) {
+unsafe fn drop_if_defined<F: AnyCompatible>(field: *mut F) {
     unsafe {
         if !F::is_undefined(field) {
             std::ptr::drop_in_place(field);
@@ -92,9 +90,61 @@ pub unsafe fn drop_if_defined<F: AnyCompatible>(field: *mut F) {
     }
 }
 
-/// An object of `T` with every field undefined, as C++
-/// `make_object<T>(UnsafeInit{})` makes one, for reflection to set the fields
-/// through their setters.
+/// The field drops of a derived `UnsafeInit`, chosen by method resolution:
+/// `(&FieldPtr(field)).drop_field()` drops an [`AnyCompatible`] field or an
+/// [`Any`](crate::Any) unless it is undefined, and accepts any other field
+/// only if it has no drop glue.
+#[doc(hidden)]
+pub mod field_drop {
+    use super::drop_if_defined;
+    use crate::any::Any;
+    use crate::type_traits::AnyCompatible;
+
+    pub struct FieldPtr<F>(pub *mut F);
+
+    pub trait DropDefined {
+        /// # Safety
+        ///
+        /// The pointer is to a field of an object, defined or undefined,
+        /// which is not used afterwards.
+        unsafe fn drop_field(&self);
+    }
+
+    impl<F: AnyCompatible> DropDefined for FieldPtr<F> {
+        #[inline(always)]
+        unsafe fn drop_field(&self) {
+            unsafe { drop_if_defined(self.0) }
+        }
+    }
+
+    // All-zero bytes are `None`.
+    impl DropDefined for FieldPtr<Any> {
+        #[inline(always)]
+        unsafe fn drop_field(&self) {
+            unsafe { std::ptr::drop_in_place(self.0) }
+        }
+    }
+
+    pub trait DropNothing {
+        fn drop_field(&self);
+    }
+
+    impl<F> DropNothing for &FieldPtr<F> {
+        #[inline(always)]
+        fn drop_field(&self) {
+            const {
+                assert!(
+                    !std::mem::needs_drop::<F>(),
+                    "a field of an `UnsafeInit` object must implement `AnyCompatible`, be \
+                     `Any`, or have no drop glue"
+                )
+            };
+        }
+    }
+}
+
+/// An object of `T` with every field undefined, zero-filled, for reflection
+/// to set the fields through their setters.
 ///
 /// The [`ObjectRef`] views only the object's header, which is valid all along.
 ///
@@ -128,6 +178,7 @@ pub unsafe fn unsafe_init<T: UnsafeInit>() -> ObjectRef {
 /// The deleter of an object that [`unsafe_init`] made, which may go before
 /// reflection sets every field, as when a JSON graph lacks one.
 unsafe extern "C" fn unsafe_init_deleter<T: UnsafeInit>(ptr: *mut c_void, flags: i32) {
+    // Objects made here drop field by field and never run the struct's `Drop::drop`.
     unsafe {
         if flags & kTVMFFIObjectDeleterFlagBitMaskStrong as i32 != 0 {
             T::drop_defined_fields(ptr.cast::<T>());
@@ -138,9 +189,9 @@ unsafe extern "C" fn unsafe_init_deleter<T: UnsafeInit>(ptr: *mut c_void, flags:
     }
 }
 
-/// The creator of `T` (`TVMFFITypeMetadata::creator`) that `#[rs_class]`
-/// registers, as C++ `ObjectCreatorUnsafeInit<T>`: the owned handle of an
-/// object that [`unsafe_init`] made.
+/// The creator of `T` (`TVMFFITypeMetadata::creator`) that `#[rs_object]`
+/// registers: it writes the owned handle of an object that [`unsafe_init`]
+/// made to `result`.
 ///
 /// # Safety
 ///
@@ -158,7 +209,7 @@ pub unsafe extern "C" fn unsafe_init_creator<T: UnsafeInit>(
         Ok(()) => 0,
         Err(_) => {
             let message = format!("panic while creating an object of `{}`", T::TYPE_KEY);
-            Error::set_raised(&Error::new(INTERNAL_ERROR, &message, ""));
+            Error::set_raised(&Error::new(INTERNAL_ERROR, &message));
             -1
         }
     }
@@ -190,7 +241,7 @@ mod tests {
 
         assert!(!zero_is_undefined::<i64>());
         assert!(!zero_is_undefined::<bool>());
-        // `None`, through the niche of a reference or a device, or through a tag.
+        // `None`, through the niche of a reference or through a tag.
         assert!(!zero_is_undefined::<Option<Array<i64>>>());
         assert!(!zero_is_undefined::<Option<DLDevice>>());
         assert!(!zero_is_undefined::<Option<String>>());
@@ -199,10 +250,10 @@ mod tests {
     #[test]
     fn values_are_defined() {
         let cpu = DLDevice {
-            device_type: DLDeviceType::kDLCPU,
+            device_type: DLDeviceType::kDLCPU as i32,
             device_id: 0,
         };
-        assert!(!is_undefined(Array::<i64>::new(vec![])));
+        assert!(!is_undefined(Array::<i64>::new()));
         assert!(!is_undefined(String::from("")));
         assert!(!is_undefined(BigInt::from(0_i64)));
         assert!(!is_undefined(cpu));

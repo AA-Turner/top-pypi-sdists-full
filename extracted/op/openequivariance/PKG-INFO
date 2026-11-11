@@ -1,24 +1,21 @@
 Metadata-Version: 2.4
 Name: openequivariance
-Version: 0.8.0
+Version: 0.8.1
 Summary: A fast GPU JIT kernel generator for the Clebsch-Gordon Tensor Product
 Author: Austin Glover, Vivek Bharadwaj, Aydin Buluc, James Demmel
 License-Expression: BSD-3-Clause
 License-File: LICENSE
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Project-URL: homepage, https://passionlab.github.io/OpenEquivariance/
 Project-URL: source, https://github.com/PASSIONLab/OpenEquivariance
 Project-URL: issues, https://github.com/PASSIONLab/OpenEquivariance/issues
-Requires-Python: >=3.10
-Requires-Dist: setuptools
-Requires-Dist: ninja
+Requires-Python: >=3.11
 Requires-Dist: jinja2
 Requires-Dist: numpy
-Requires-Dist: pybind11
+Requires-Dist: nanobind-backend>=1.0
 Provides-Extra: bench
 Requires-Dist: matplotlib; extra == "bench"
 Requires-Dist: tqdm; extra == "bench"
@@ -35,6 +32,9 @@ Requires-Dist: pytest-check; extra == "dev"
 Requires-Dist: pytest-subtests; extra == "dev"
 Requires-Dist: torch_geometric; extra == "dev"
 Requires-Dist: cmake; extra == "dev"
+Provides-Extra: sycl
+Requires-Dist: setuptools; extra == "sycl"
+Requires-Dist: ninja; extra == "sycl"
 Provides-Extra: jax
 Requires-Dist: scikit-build-core; extra == "jax"
 Requires-Dist: setuptools-scm; extra == "jax"
@@ -49,15 +49,14 @@ Description-Content-Type: text/markdown
 [[JAX Examples]](#jax-examples)
 [[Citation and Acknowledgements]](#citation-and-acknowledgements)
 
-OpenEquivariance is a CUDA and HIP kernel generator for the Clebsch-Gordon tensor product, 
+OpenEquivariance is a CUDA, HIP, and SYCL (new! beta) kernel generator for the Clebsch-Gordon tensor product, 
 a key kernel in rotation-equivariant deep neural networks. 
 It implements some of the tensor products 
 that [e3nn](https://e3nn.org/) supports 
 commonly found in graph neural networks 
 (e.g. [Nequip](https://github.com/mir-group/nequip) or
 [MACE](https://github.com/ACEsuit/mace)). To get 
-started with PyTorch, ensure that you have PyTorch 
-and GCC 9+ available before installing our package via 
+started, make sure that you have PyTorch installed and run:
 
 ```bash
 pip install openequivariance
@@ -73,9 +72,13 @@ computation and memory consumption significantly.
 For detailed instructions on tests, benchmarks, MACE / Nequip, and our API,
 check out the [documentation](https://passionlab.github.io/OpenEquivariance).
 
-⭐️ **JAX**: Our latest update brings
-support for JAX. For NVIDIA GPUs, 
-install it (after installing JAX) 
+⭐️ **SYCL (beta)**: Thanks to @abagusetty, 
+OpenEquivariance now supports Intel XPUs on PyTorch 
+by compiling SYCL kernels. See our 
+installation guide for more details.
+
+⭐️ **JAX**: We support JAX for NVIDIA and AMD GPUs. 
+For NVIDIA GPUs, install it (after installing JAX) 
 with the following two commands strictly in order:
 
 ``` bash

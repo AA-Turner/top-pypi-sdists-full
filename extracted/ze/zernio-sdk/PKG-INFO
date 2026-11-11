@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zernio-sdk
-Version: 1.4.1678
+Version: 1.4.1711
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -415,10 +415,14 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.list_instagram_pages()` | List Pages with a linked Instagram account |
 | `connect.list_linked_in_organizations()` | List LinkedIn orgs |
 | `connect.list_o_auth_apps()` | List your OAuth apps |
+| `connect.list_org_connection_users()` | List an organization's users |
+| `connect.list_org_connections()` | List organization connections |
 | `connect.list_pinterest_boards_for_selection()` | List Pinterest boards |
 | `connect.list_slack_channels()` | List Slack channels for the channel picker |
 | `connect.list_snapchat_profiles()` | List Snapchat profiles |
 | `connect.list_whats_app_phone_numbers()` | List numbers for selection |
+| `connect.create_google_org_connection()` | Start a Google Workspace organization connection |
+| `connect.create_microsoft_org_connection()` | Start a Microsoft 365 organization connection |
 | `connect.create_o_auth_app()` | Add an OAuth app |
 | `connect.create_pinterest_board()` | Create Pinterest board |
 | `connect.create_platform_invite()` | Create a connect link |
@@ -433,12 +437,14 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.get_hub_spot_connect_url()` | Get HubSpot OAuth connect URL |
 | `connect.get_linked_in_organizations()` | List LinkedIn orgs |
 | `connect.get_o_auth_app()` | Get an OAuth app |
+| `connect.get_org_connection()` | Get an organization connection |
 | `connect.get_page_webhook_subscription()` | Read an account's webhook subscription |
 | `connect.get_pending_o_auth_data()` | Get pending OAuth data |
 | `connect.get_pinterest_boards()` | List Pinterest boards |
 | `connect.get_reddit_flairs()` | List subreddit flairs |
 | `connect.get_reddit_subreddits()` | List Reddit subreddits |
 | `connect.get_shopify_connect_url()` | Get Shopify OAuth connect URL |
+| `connect.get_stripe_connect_url()` | Get Stripe connect URL |
 | `connect.get_subreddit_rules()` | Get subreddit rules |
 | `connect.get_telegram_connect_status()` | Generate Telegram code |
 | `connect.get_webflow_connect_url()` | Get Webflow OAuth URL |
@@ -452,10 +458,13 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.update_gmb_location()` | Update Google Business Profile location |
 | `connect.update_linked_in_organization()` | Switch LinkedIn account type |
 | `connect.update_o_auth_app()` | Update an OAuth app |
+| `connect.update_org_connection()` | Update an organization connection |
 | `connect.update_pinterest_boards()` | Set default Pinterest board |
 | `connect.update_reddit_subreddits()` | Set default subreddit |
 | `connect.update_youtube_default_playlist()` | Set default YouTube playlist |
 | `connect.delete_o_auth_app()` | Remove an OAuth app |
+| `connect.delete_org_connection()` | Delete an organization connection |
+| `connect.add_org_connection_mailbox()` | Add a mailbox from an organization connection |
 | `connect.assign_google_business_location()` | Assign Google Business Profile location to another profile |
 | `connect.complete_meta_ads_business_login()` | Complete Meta business login |
 | `connect.complete_telegram_connect()` | Check Telegram status |
@@ -485,6 +494,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.set_reddit_post_flair()` | Set Reddit post flair |
 | `connect.start_microsoft_admin_consent()` | Admin-consent link for a Microsoft tenant |
 | `connect.test_o_auth_app()` | Check an OAuth app's keys |
+| `connect.verify_org_connection()` | Verify an organization connection |
 | `connect.vote_reddit_thing()` | Vote on a Reddit post or comment |
 
 ### Reddit
@@ -902,6 +912,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### Calendar
 | Method | Description |
 |--------|-------------|
+| `calendar.list_calendar_event_instances()` | List the occurrences of a recurring event |
 | `calendar.list_calendar_events()` | List events in a window |
 | `calendar.list_calendars()` | List calendars |
 | `calendar.create_calendar_event()` | Create an event |
@@ -1042,6 +1053,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### Contacts
 | Method | Description |
 |--------|-------------|
+| `contacts.list_contact_groups()` | List contact groups |
 | `contacts.list_contacts()` | List contacts |
 | `contacts.bulk_create_contacts()` | Bulk create contacts |
 | `contacts.create_contact()` | Create contact |
@@ -1049,6 +1061,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `contacts.get_contact_channels()` | List channels for a contact |
 | `contacts.update_contact()` | Update contact |
 | `contacts.delete_contact()` | Delete contact |
+| `contacts.autocomplete_contacts()` | Search people |
 
 ### Content Retention
 | Method | Description |
@@ -1059,41 +1072,60 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### Conversions
 | Method | Description |
 |--------|-------------|
+| `conversions.list_ad_conversion_associations()` | List associated campaigns |
+| `conversions.list_ad_conversion_destinations()` | List conversion destinations |
 | `conversions.list_ad_conversion_goals()` | List account conversion goals |
+| `conversions.list_ad_custom_conversions()` | List custom conversions |
 | `conversions.list_conversion_actions()` | List conversion actions |
 | `conversions.list_conversion_associations()` | List associated campaigns |
 | `conversions.list_conversion_destinations()` | List conversion destinations |
 | `conversions.list_custom_conversion_goals()` | List custom conversion goals |
 | `conversions.list_event_destinations()` | List event destinations |
 | `conversions.list_events()` | List stored events |
-| `conversions.create_conversion_action()` | Create website conversion action |
+| `conversions.list_forwarding_rules()` | List forwarding rules |
+| `conversions.create_ad_conversion_destination()` | Create a conversion destination |
+| `conversions.create_ad_custom_conversion()` | Create custom conversion |
+| `conversions.create_conversion_action()` | Create conversion action |
 | `conversions.create_conversion_destination()` | Create a conversion destination |
 | `conversions.create_custom_conversion_goal()` | Create a custom conversion goal |
 | `conversions.create_event_destination()` | Add an event destination |
+| `conversions.create_forwarding_rule()` | Add a forwarding rule |
+| `conversions.get_ad_conversion_destination()` | Get a conversion destination |
+| `conversions.get_ad_conversion_metrics()` | Get attribution metrics |
 | `conversions.get_conversion_destination()` | Get a conversion destination |
 | `conversions.get_conversion_metrics()` | Get attribution metrics |
 | `conversions.get_conversions_quality()` | Get Event Match Quality |
 | `conversions.get_event()` | Get one stored event and its deliveries |
+| `conversions.update_ad_conversion_destination()` | Update a conversion destination |
 | `conversions.update_ad_conversion_goals()` | Update account conversion goals |
 | `conversions.update_conversion_action()` | Update a conversion action's settings |
 | `conversions.update_conversion_destination()` | Update a conversion destination |
 | `conversions.update_custom_conversion_goal()` | Update a custom conversion goal |
+| `conversions.delete_ad_conversion_destination()` | Delete a conversion destination |
 | `conversions.delete_conversion_destination()` | Delete a conversion destination |
 | `conversions.delete_event_destination()` | Remove an event destination |
+| `conversions.delete_forwarding_rule()` | Remove a forwarding rule |
+| `conversions.add_ad_conversion_associations()` | Associate campaigns |
 | `conversions.add_conversion_associations()` | Associate campaigns |
 | `conversions.adjust_conversions()` | Adjust uploaded conversions |
+| `conversions.remove_ad_conversion_associations()` | Remove associated campaigns |
 | `conversions.remove_conversion_associations()` | Remove associated campaigns |
 | `conversions.remove_custom_conversion_goal()` | Remove a custom conversion goal |
+| `conversions.restate_event()` | Change a stored event's value |
+| `conversions.retract_event()` | Retract a stored event |
 | `conversions.send_conversions()` | Send conversion events |
 | `conversions.send_events()` | Send events to every destination |
 
 ### Creator Campaigns
 | Method | Description |
 |--------|-------------|
+| `creator_campaigns.list_campaign_drafts()` | List campaign drafts |
 | `creator_campaigns.list_campaign_ledger()` | List campaign ledger |
+| `creator_campaigns.list_campaign_orders()` | List campaign orders |
 | `creator_campaigns.list_campaign_participants()` | List campaign participants |
 | `creator_campaigns.list_campaign_payables()` | List campaign payables |
 | `creator_campaigns.list_campaign_payout_batches()` | List payout batches |
+| `creator_campaigns.list_campaign_samples()` | List campaign sample requests |
 | `creator_campaigns.list_campaign_submissions()` | List campaign submissions |
 | `creator_campaigns.list_creator_campaigns()` | List creator campaigns |
 | `creator_campaigns.create_campaign_adjustment()` | Create campaign adjustment |
@@ -1101,24 +1133,35 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `creator_campaigns.create_campaign_participant()` | Invite campaign participant |
 | `creator_campaigns.create_campaign_payout_batch()` | Pay creators with one card payment |
 | `creator_campaigns.create_creator_campaign()` | Create creator campaign |
+| `creator_campaigns.get_campaign_ad_results()` | Get campaign ad results |
+| `creator_campaigns.get_campaign_draft()` | Get campaign draft |
 | `creator_campaigns.get_campaign_participant()` | Get campaign participant |
 | `creator_campaigns.get_campaign_report()` | Get campaign report |
 | `creator_campaigns.get_campaign_submission()` | Get campaign submission |
 | `creator_campaigns.get_creator_campaign()` | Get creator campaign |
 | `creator_campaigns.update_creator_campaign()` | Update creator campaign |
 | `creator_campaigns.activate_creator_campaign()` | Activate creator campaign |
+| `creator_campaigns.approve_campaign_draft()` | Approve campaign draft |
+| `creator_campaigns.approve_campaign_participant()` | Approve pending campaign participant |
+| `creator_campaigns.approve_campaign_sample()` | Approve campaign sample request |
 | `creator_campaigns.approve_campaign_submission()` | Approve campaign submission |
 | `creator_campaigns.close_creator_campaign()` | Close creator campaign |
+| `creator_campaigns.decline_campaign_sample()` | Decline campaign sample request |
+| `creator_campaigns.deny_campaign_participant()` | Deny pending campaign participant |
+| `creator_campaigns.launch_campaign_ads()` | Launch campaign posts as ads |
 | `creator_campaigns.move_campaign_participant()` | Move participant to another campaign |
 | `creator_campaigns.pause_creator_campaign()` | Pause creator campaign |
 | `creator_campaigns.preview_campaign_payout_batch()` | Preview a payout batch |
 | `creator_campaigns.raise_creator_campaign_budget()` | Raise creator campaign budget |
 | `creator_campaigns.reinstate_campaign_participant()` | Reinstate campaign participant |
+| `creator_campaigns.reject_campaign_draft()` | Reject campaign draft |
 | `creator_campaigns.reject_campaign_submission()` | Reject campaign submission |
 | `creator_campaigns.remove_campaign_participant()` | Remove campaign participant |
 | `creator_campaigns.reopen_campaign_submission()` | Reopen campaign submission |
+| `creator_campaigns.request_campaign_draft_revision()` | Request changes on a campaign draft |
 | `creator_campaigns.resend_campaign_participant_invite()` | Resend campaign participant invite |
 | `creator_campaigns.settle_campaign_participant()` | Settle campaign participant |
+| `creator_campaigns.ship_campaign_sample()` | Mark campaign sample shipped |
 | `creator_campaigns.suspend_campaign_participant()` | Suspend campaign participant |
 
 ### Creator Portal
@@ -1129,10 +1172,14 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `creator_portal.get_creator_payouts()` | List a creator's earnings history |
 | `creator_portal.get_creator_portal()` | Read a creator invite or participant page |
 | `creator_portal.join_creator_campaign()` | Join a campaign |
+| `creator_portal.presign_creator_draft_upload()` | Get an upload URL for a draft |
 | `creator_portal.recover_creator_portal_links()` | Email a creator their campaign links |
 | `creator_portal.remove_creator_account()` | Remove a connected account |
+| `creator_portal.request_creator_sample()` | Request a product sample |
+| `creator_portal.set_creator_spark_code()` | Set a post's Spark code |
 | `creator_portal.start_creator_connect()` | Start connecting a creator account |
 | `creator_portal.start_creator_payouts()` | Start payout onboarding |
+| `creator_portal.submit_creator_draft()` | Submit a draft for review |
 | `creator_portal.submit_creator_post()` | Submit a post |
 
 ### Custom Fields
@@ -1181,6 +1228,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `email.list_email_labels()` | List labels |
 | `email.list_email_messages()` | List email messages |
 | `email.list_email_send_as()` | List send-as addresses |
+| `email.list_email_shared_mailboxes()` | List shared mailboxes |
 | `email.list_email_signatures()` | List signatures |
 | `email.list_email_threads()` | List email threads |
 | `email.list_scheduled_emails()` | List scheduled emails |
@@ -1201,6 +1249,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `email.delete_email_label()` | Delete a label |
 | `email.delete_email_send_as()` | Remove a declared send-as address |
 | `email.delete_email_signature()` | Delete a signature |
+| `email.add_email_shared_mailbox()` | Add a shared mailbox |
 | `email.cancel_scheduled_email()` | Cancel a scheduled email |
 | `email.declare_email_send_as()` | Declare a send-as address |
 | `email.discover_imap_settings()` | Find the mail settings for an address |

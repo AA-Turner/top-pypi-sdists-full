@@ -22,8 +22,27 @@ except ImportError:
         ) from e
 
 
+# The upstream dialect is untyped; reference its preparer class (whichever connector layout loaded).
+_BaseDatabricksIdentifierPreparer: Any = DatabricksDialect.preparer
+
+
+class ChalkDatabricksIdentifierPreparer(_BaseDatabricksIdentifierPreparer):
+    """Quotes each part of a dotted schema separately.
+
+    Unity Catalog names are ``catalog.schema.table``, and SQLAlchemy has only one ``schema`` slot,
+    so a ``catalog.schema`` value is passed there. The base preparer quotes it as one identifier
+    (`` `catalog.schema`.`table` ``), which Databricks reads as a schema literally named
+    ``catalog.schema``. A ``quoted_name`` with ``quote=True`` is still quoted verbatim.
+    """
+
+    def quote_schema(self, schema: str, force: Any = None) -> str:
+        if getattr(schema, "quote", None) is True or "." not in schema:
+            return super().quote_schema(schema)
+        return ".".join(self.quote(part) for part in schema.split("."))
+
+
 class ChalkDatabricksDialect(DatabricksDialect):
-    """DatabricksDialect with working stale-connection detection.
+    """DatabricksDialect with working stale-connection detection and catalog-qualified schemas.
 
     Databricks SQL sessions are closed server-side (idle timeout, warehouse restart)
     while the client-side ``Connection.open`` flag stays True, so a pooled connection
@@ -36,6 +55,7 @@ class ChalkDatabricksDialect(DatabricksDialect):
     """
 
     supports_statement_cache = True
+    preparer = ChalkDatabricksIdentifierPreparer
 
     def is_disconnect(self, e: Exception, connection: Any, cursor: Any) -> bool:
         # RequestError is databricks-sql-connector's transport-level failure (the

@@ -33,6 +33,7 @@ from qwix._src.core import dot_general as core_dot_general
 from qwix._src.core import einsum as core_einsum
 from qwix._src.core import einsum_info as core_einsum_info
 from qwix._src.core import qarray
+from qwix._src.providers import boxed_param as _boxed_param
 from qwix._src.providers import ptq as _ptq
 
 
@@ -193,13 +194,13 @@ def dot_general(
     target_shape = list(rhs.shape)
     for rhs_axis, lhs_axis in zip(rhs_contract, lhs_contract):
       target_shape[rhs_axis] = lhs.shape[lhs_axis]
-    rhs = pad_to_shape(rhs, tuple(target_shape))
+    rhs = pad_to_shape(rhs, tuple(target_shape))  # pyrefly: ignore[bad-argument-type]
 
   if not isinstance(lhs, PaddedQArray):
     target_shape = list(lhs.shape)
     for lhs_axis, rhs_axis in zip(lhs_contract, rhs_contract):
       target_shape[lhs_axis] = rhs.shape[rhs_axis]
-    lhs = pad_to_shape(lhs, tuple(target_shape))
+    lhs = pad_to_shape(lhs, tuple(target_shape))  # pyrefly: ignore[bad-argument-type]
 
   return core_dot_general.dot_general(
       lhs,
@@ -250,7 +251,7 @@ def einsum(
       if name in info.contract_chars:
         lhs_axis = info.lhs.index(name)
         target_shape[axis] = lhs.shape[lhs_axis]
-    rhs = pad_to_shape(rhs, tuple(target_shape))
+    rhs = pad_to_shape(rhs, tuple(target_shape))  # pyrefly: ignore[bad-argument-type]
 
   if not isinstance(lhs, PaddedQArray):
     target_shape = list(lhs.shape)
@@ -258,7 +259,7 @@ def einsum(
       if name in info.contract_chars:
         rhs_axis = info.rhs.index(name)
         target_shape[axis] = rhs.shape[rhs_axis]
-    lhs = pad_to_shape(lhs, tuple(target_shape))
+    lhs = pad_to_shape(lhs, tuple(target_shape))  # pyrefly: ignore[bad-argument-type]
 
   return core_einsum.einsum(
       einsum_str,
@@ -276,7 +277,7 @@ def quantize_act(
     act_name: str | None,
 ):
   """Wrapper to reuse PTQ.quantize_act with this module as qarray backend."""
-  return _ptq.quantize_act(
+  return _boxed_param.quantize_act(
       array, how, rule, act_name, _qarray_module=sys.modules[__name__]  # pyrefly: ignore[bad-argument-type]
   )
 
@@ -285,9 +286,9 @@ def create_quantized_param(
     name: str,
     value: jax.Array,
     how: HowToQuantize,
-) -> _ptq.WithAux[qarray.QArray]:
+) -> _boxed_param.WithAux[qarray.QArray]:
   """Wrapper that delegates to PTQ.create_quantized_param using this backend."""
-  return _ptq.create_quantized_param(
+  return _boxed_param.create_quantized_param(
       name, value, how, _qarray_module=sys.modules[__name__]
   )
 

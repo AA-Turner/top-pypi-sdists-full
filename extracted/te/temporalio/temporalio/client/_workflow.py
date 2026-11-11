@@ -37,6 +37,7 @@ import temporalio.api.workflowservice.v1
 import temporalio.common
 import temporalio.converter
 import temporalio.converter._search_attributes
+import temporalio.converter._serialization_context
 import temporalio.exceptions
 import temporalio.workflow
 from temporalio.converter import (
@@ -136,6 +137,17 @@ class WorkflowHandle(Generic[SelfType, ReturnType]):
             )
         )
 
+    def _close_event_data_converter(
+        self, events: WorkflowHistoryEventAsyncIterator
+    ) -> temporalio.converter.DataConverter:
+        # A workflow started by a Nexus operation handler encodes its result and closing failure
+        # with the handler's Nexus context, which the server returns with the history. An
+        # interceptor may return its own iterator, which then falls back to the workflow context.
+        context = getattr(events, "_propagated_nexus_serialization_context", None)
+        if context is None:
+            return self._data_converter
+        return self._client.data_converter.with_context(context)
+
     @property
     def id(self) -> str:
         """ID of the workflow."""
@@ -225,14 +237,16 @@ class WorkflowHandle(Generic[SelfType, ReturnType]):
         # executions
         hist_run_id = self._result_run_id
         while True:
-            async for event in self._fetch_history_events_for_run(
+            events = self._fetch_history_events_for_run(
                 hist_run_id,
                 wait_new_event=True,
                 event_filter_type=WorkflowHistoryEventFilterType.CLOSE_EVENT,
                 skip_archival=True,
                 rpc_metadata=rpc_metadata,
                 rpc_timeout=rpc_timeout,
-            ):
+            )
+            async for event in events:
+                data_converter = self._close_event_data_converter(events)
                 if event.HasField("workflow_execution_completed_event_attributes"):
                     complete_attr = event.workflow_execution_completed_event_attributes
                     # Follow execution
@@ -241,7 +255,7 @@ class WorkflowHandle(Generic[SelfType, ReturnType]):
                         break
                     # Ignoring anything after the first response like TypeScript
                     type_hints = [self._result_type] if self._result_type else None
-                    results = await self._data_converter.decode_wrapper(
+                    results = await data_converter.decode_wrapper(
                         complete_attr.result,
                         type_hints,
                     )
@@ -257,20 +271,14 @@ class WorkflowHandle(Generic[SelfType, ReturnType]):
                         hist_run_id = fail_attr.new_execution_run_id
                         break
                     raise WorkflowFailureError(
-                        cause=await self._data_converter.decode_failure(
-                            fail_attr.failure
-                        ),
+                        cause=await data_converter.decode_failure(fail_attr.failure),
                     )
                 elif event.HasField("workflow_execution_canceled_event_attributes"):
                     cancel_attr = event.workflow_execution_canceled_event_attributes
                     raise WorkflowFailureError(
                         cause=temporalio.exceptions.CancelledError(
                             "Workflow cancelled",
-                            *(
-                                await self._data_converter.decode_wrapper(
-                                    cancel_attr.details
-                                )
-                            ),
+                            *(await data_converter.decode_wrapper(cancel_attr.details)),
                         )
                     )
                 elif event.HasField("workflow_execution_terminated_event_attributes"):
@@ -278,11 +286,7 @@ class WorkflowHandle(Generic[SelfType, ReturnType]):
                     raise WorkflowFailureError(
                         cause=temporalio.exceptions.TerminatedError(
                             term_attr.reason or "Workflow terminated",
-                            *(
-                                await self._data_converter.decode_wrapper(
-                                    term_attr.details
-                                )
-                            ),
+                            *(await data_converter.decode_wrapper(term_attr.details)),
                         ),
                     )
                 elif event.HasField("workflow_execution_timed_out_event_attributes"):
@@ -1760,6 +1764,9 @@ class WorkflowHistoryEventAsyncIterator:
             None | (Sequence[temporalio.api.history.v1.HistoryEvent])
         ) = None
         self._current_page_index = 0
+        self._propagated_nexus_serialization_context: (
+            temporalio.converter.NexusSerializationContext | None
+        ) = None
 
     @property
     def current_page_index(self) -> int:
@@ -1811,6 +1818,13 @@ class WorkflowHistoryEventAsyncIterator:
         self._current_page = list(resp.history.events)
         self._current_page_index = 0
         self._next_page_token = resp.next_page_token or None
+        # Pages after the first may omit the context, such as the page holding the close event
+        # after a long poll times out
+        context = temporalio.converter._serialization_context._propagated_nexus_serialization_context(
+            resp
+        )
+        if context is not None:
+            self._propagated_nexus_serialization_context = context
 
     def __aiter__(self) -> WorkflowHistoryEventAsyncIterator:
         """Return self as the iterator."""
@@ -1864,6 +1878,9 @@ class WorkflowUpdateHandle(Generic[LocalReturnType]):
         self._workflow_run_id = workflow_run_id
         self._result_type = result_type
         self._known_outcome = known_outcome
+        self._known_outcome_nexus_context: (
+            temporalio.converter.NexusSerializationContext | None
+        ) = None
 
     @functools.cached_property
     def _data_converter(self) -> temporalio.converter.DataConverter:
@@ -1872,6 +1889,18 @@ class WorkflowUpdateHandle(Generic[LocalReturnType]):
                 namespace=self._client.namespace,
                 workflow_id=self.workflow_id,
             )
+        )
+
+    def _set_known_outcome(
+        self,
+        resp: temporalio.api.workflowservice.v1.UpdateWorkflowExecutionResponse
+        | temporalio.api.workflowservice.v1.PollWorkflowExecutionUpdateResponse,
+    ) -> None:
+        self._known_outcome = resp.outcome
+        # An update sent by a Nexus operation handler encodes its outcome with the handler's
+        # Nexus context, which the server returns with the outcome
+        self._known_outcome_nexus_context = temporalio.converter._serialization_context._propagated_nexus_serialization_context(
+            resp
         )
 
     @property
@@ -1918,14 +1947,19 @@ class WorkflowUpdateHandle(Generic[LocalReturnType]):
 
         # Convert outcome to failure or value
         assert self._known_outcome
+        data_converter = (
+            self._client.data_converter.with_context(self._known_outcome_nexus_context)
+            if self._known_outcome_nexus_context
+            else self._data_converter
+        )
         if self._known_outcome.HasField("failure"):
             raise WorkflowUpdateFailedError(
-                await self._data_converter.decode_failure(self._known_outcome.failure),
+                await data_converter.decode_failure(self._known_outcome.failure),
             )
         if not self._known_outcome.success.payloads:
             return None  # type: ignore
         type_hints = [self._result_type] if self._result_type else None
-        results = await self._data_converter.decode(
+        results = await data_converter.decode(
             self._known_outcome.success.payloads, type_hints
         )
         if not results:
@@ -1968,7 +2002,7 @@ class WorkflowUpdateHandle(Generic[LocalReturnType]):
                     )
                 )
                 if res.HasField("outcome"):
-                    self._known_outcome = res.outcome
+                    self._set_known_outcome(res)
                     return
             except RPCError as err:
                 if (

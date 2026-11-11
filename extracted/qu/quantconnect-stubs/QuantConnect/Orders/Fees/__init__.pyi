@@ -1001,6 +1001,19 @@ class FxcmFeeModel(QuantConnect.Orders.Fees.FeeModel):
         ...
 
 
+class EtoroFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Represents a fee model specific to eToro."""
+
+    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
+        """
+        Gets the order fee for a given security and order.
+        
+        :param parameters: The parameters including the security and order details.
+        :returns: A OrderFee in the quote currency of the security.
+        """
+        ...
+
+
 class ConstantFeeModel(QuantConnect.Orders.Fees.FeeModel):
     """Provides an order fee model that always returns the same order fee."""
 

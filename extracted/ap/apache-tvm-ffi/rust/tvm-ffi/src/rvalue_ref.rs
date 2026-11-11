@@ -17,7 +17,7 @@
  * under the License.
  */
 
-//! Move-aware object arguments compatible with C++ `ffi::RValueRef<T>`.
+//! [`RValueRef`], an object argument whose reference the callee may take over.
 
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
@@ -25,15 +25,17 @@ use std::marker::PhantomData;
 use tvm_ffi_sys::{TVMFFIAny, TVMFFIObject, TVMFFITypeIndex as TypeIndex};
 
 use crate::any::ArgTryFromAnyView;
-use crate::{AnyCompatible, AnyView, Error, ObjectRefCore, Result};
+use crate::{AnyView, Error, ObjectRefCore, Result};
 
-/// A move-aware object argument compatible with C++ `ffi::RValueRef<T>`.
+/// An object argument that the callee may move out of, as `ffi::RValueRef<T>`
+/// in the ABI.
 ///
 /// The callee may take the stored strong reference without incrementing its
-/// count; otherwise this wrapper retains and releases it.
+/// count. If it does not, the wrapper keeps the reference and releases it when
+/// dropped.
 pub struct RValueRef<T>
 where
-    T: ObjectRefCore + AnyCompatible,
+    T: ObjectRefCore,
 {
     slot: UnsafeCell<*mut TVMFFIObject>,
     _marker: PhantomData<T>,
@@ -41,7 +43,7 @@ where
 
 impl<T> RValueRef<T>
 where
-    T: ObjectRefCore + AnyCompatible,
+    T: ObjectRefCore,
 {
     /// Transfer an owned object reference into an rvalue argument slot.
     pub fn new(value: T) -> Self {
@@ -55,6 +57,11 @@ where
     }
 
     /// Take the owned object without copying or incrementing its reference count.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the object was already taken, such as by a callee that moved
+    /// it out of the argument slot.
     pub fn into_inner(mut self) -> T {
         let object = *self.slot.get_mut();
         assert!(!object.is_null(), "RValueRef has already been moved");
@@ -68,35 +75,35 @@ where
     unsafe fn from_view(value: &AnyView<'_>, arg_index: Option<usize>) -> Result<Self> {
         let raw = value.as_raw_ffi_any();
         let converted = if raw.type_index == TypeIndex::kTVMFFIObjectRValueRef as i32 {
-            let slot = raw.data_union.v_ptr.cast::<*mut TVMFFIObject>();
-            if slot.is_null() || (*slot).is_null() {
-                return Err(conversion_error::<T>(raw, arg_index, true));
+            let slot = unsafe { raw.data_union.v_ptr.cast::<*mut TVMFFIObject>() };
+            if slot.is_null() || unsafe { (*slot).is_null() } {
+                return Err(unsafe { conversion_error::<T>(raw, arg_index, true) });
             }
-            let object = *slot;
-            let object_view = object_any(object);
-            if T::check_any_strict(&object_view) {
-                *slot = std::ptr::null_mut();
+            let object = unsafe { *slot };
+            let object_view = unsafe { object_any(object) };
+            if unsafe { T::check_any_strict(&object_view) } {
+                unsafe { *slot = std::ptr::null_mut() };
                 return Ok(Self {
                     slot: UnsafeCell::new(object),
                     _marker: PhantomData,
                 });
             }
-            T::try_cast_from_any_view(&object_view)
-        } else if T::check_any_strict(raw) {
-            Ok(T::copy_from_any_view_after_check(raw))
+            unsafe { T::try_cast_from_any_view(&object_view) }
+        } else if unsafe { T::check_any_strict(raw) } {
+            Ok(unsafe { T::copy_from_any_view_after_check(raw) })
         } else {
-            T::try_cast_from_any_view(raw)
+            unsafe { T::try_cast_from_any_view(raw) }
         };
 
         converted
             .map(Self::new)
-            .map_err(|()| conversion_error::<T>(raw, arg_index, false))
+            .map_err(|()| unsafe { conversion_error::<T>(raw, arg_index, false) })
     }
 }
 
 impl<T> From<T> for RValueRef<T>
 where
-    T: ObjectRefCore + AnyCompatible,
+    T: ObjectRefCore,
 {
     fn from(value: T) -> Self {
         Self::new(value)
@@ -105,7 +112,7 @@ where
 
 impl<'a, T> From<&'a RValueRef<T>> for AnyView<'a>
 where
-    T: ObjectRefCore + AnyCompatible,
+    T: ObjectRefCore,
 {
     fn from(value: &'a RValueRef<T>) -> Self {
         let mut raw = TVMFFIAny::new();
@@ -117,7 +124,7 @@ where
 
 impl<T> TryFrom<AnyView<'_>> for RValueRef<T>
 where
-    T: ObjectRefCore + AnyCompatible,
+    T: ObjectRefCore,
 {
     type Error = Error;
 
@@ -128,7 +135,7 @@ where
 
 impl<T> crate::type_traits::TypeSchema for RValueRef<T>
 where
-    T: ObjectRefCore + AnyCompatible,
+    T: ObjectRefCore,
 {
     fn type_schema() -> std::string::String {
         crate::type_traits::type_schema("ObjectRValueRef", &[T::type_schema()])
@@ -137,7 +144,7 @@ where
 
 impl<T> ArgTryFromAnyView for RValueRef<T>
 where
-    T: ObjectRefCore + AnyCompatible,
+    T: ObjectRefCore,
 {
     fn try_from_any_view(value: &AnyView<'_>, arg_index: usize) -> Result<Self> {
         unsafe { Self::from_view(value, Some(arg_index)) }
@@ -146,7 +153,7 @@ where
 
 impl<T> Drop for RValueRef<T>
 where
-    T: ObjectRefCore + AnyCompatible,
+    T: ObjectRefCore,
 {
     fn drop(&mut self) {
         let object = *self.slot.get_mut();
@@ -156,9 +163,19 @@ where
     }
 }
 
+/// Reconstruct the owned object's ABI representation.
+///
+/// # Safety
+/// `object` must point to a live managed object with a registered object-range
+/// dynamic type index.
 unsafe fn object_any(object: *mut TVMFFIObject) -> TVMFFIAny {
     let mut raw = TVMFFIAny::new();
-    raw.type_index = (*object).type_index;
+    raw.type_index = unsafe { (*object).type_index };
+    // SAFETY: The caller provides a live object from an owning reference or
+    // a valid object-rvalue slot, so its dynamic type is in the object range.
+    unsafe {
+        core::hint::assert_unchecked(raw.type_index >= TypeIndex::kTVMFFIStaticObjectBegin as i32)
+    };
     raw.data_union.v_obj = object;
     raw
 }
@@ -169,7 +186,7 @@ unsafe fn conversion_error<T>(
     already_moved: bool,
 ) -> Error
 where
-    T: ObjectRefCore + AnyCompatible,
+    T: ObjectRefCore,
 {
     let source = if already_moved {
         "an already-moved RValueRef".to_string()
@@ -187,6 +204,5 @@ where
             "{prefix}Cannot convert from `{source}` to `RValueRef<{}>`",
             T::type_str()
         ),
-        "",
     )
 }

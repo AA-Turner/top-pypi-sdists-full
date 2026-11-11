@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: newton-usd-schemas
-Version: 0.6.0
+Version: 0.7.0
 Summary: OpenUSD schema definitions for the Newton physics engine
 Project-URL: Homepage, https://github.com/newton-physics/newton-usd-schemas
 Project-URL: Repository, https://github.com/newton-physics/newton-usd-schemas
@@ -8,7 +8,12 @@ Project-URL: Changelog, https://github.com/newton-physics/newton-usd-schemas/blo
 Author: Newton Developers
 License-Expression: Apache-2.0
 License-File: LICENSE.md
-Requires-Python: <3.14,>=3.10
+Requires-Python: >=3.10
+Provides-Extra: usd
+Requires-Dist: usd-core>=25.5; (python_version < '3.14') and extra == 'usd'
+Requires-Dist: usd-core>=26.11; (python_version >= '3.14') and extra == 'usd'
+Provides-Extra: usdex
+Requires-Dist: usd-exchange>=3.0.1; extra == 'usdex'
 Description-Content-Type: text/markdown
 
 # newton-usd-schemas
@@ -30,8 +35,7 @@ To start using the schemas, install the python wheel into a virtual environment 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install newton-usd-schemas
-pip install usd-core  # or any other USD runtime
+pip install 'newton-usd-schemas[usd]'  # or [usdex], or install any other USD runtime separately
 ```
 
 At runtime, simply import the module to register the schemas with OpenUSD.
@@ -57,6 +61,12 @@ stage.Export("/tmp/my_robot.usda")  # or .usdc or .usd
 ```
 
 Once a USD layer is authored to storage, it can be loaded into a Newton runtime using [Newton's USD Parsing](https://newton-physics.github.io/newton/concepts/usd_parsing.html) mechanism.
+
+# Validation
+
+Some of the Newton schemas have automated validation, which can be run with OpenUSD's [UsdValidation](https://openusd.org/release/api/usd_validation_page_front.html) framework. More of the schemas will gain validation as they evolve.
+
+See [Validation](https://github.com/newton-physics/newton-usd-schemas/blob/main/docs/validation.md) for how to validate content.
 
 # Experimental Status
 

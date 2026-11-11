@@ -109,6 +109,20 @@ class AmbiguousExternalCustomerID:
 
 
 @dataclasses.dataclass(kw_only=True, slots=True)
+class AmbiguousExternalMeterID:
+    error: typing.Literal["AmbiguousExternalMeterID"]
+
+    detail: str
+
+
+@dataclasses.dataclass(kw_only=True, slots=True)
+class AmbiguousExternalWebhookEndpointID:
+    error: typing.Literal["AmbiguousExternalWebhookEndpointID"]
+
+    detail: str
+
+
+@dataclasses.dataclass(kw_only=True, slots=True)
 class AttachedCustomField:
     """Schema of a custom field attached to a resource."""
 
@@ -747,10 +761,19 @@ class BenefitCustom:
     organization_id: str
     """The ID of the organization owning the benefit."""
 
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     metadata: MetadataOutputType
 
     visibility: BenefitVisibility
     """The visibility of the benefit in the customer portal."""
+
+    catalog_id: str | None
+    """ID of the catalog that introduced this version of the benefit. None for benefits not managed by declarative config."""
+
+    is_current: bool
+    """Whether this is the current version of the benefit."""
 
     properties: BenefitCustomProperties
 
@@ -911,10 +934,19 @@ class BenefitDiscord:
     organization_id: str
     """The ID of the organization owning the benefit."""
 
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     metadata: MetadataOutputType
 
     visibility: BenefitVisibility
     """The visibility of the benefit in the customer portal."""
+
+    catalog_id: str | None
+    """ID of the catalog that introduced this version of the benefit. None for benefits not managed by declarative config."""
+
+    is_current: bool
+    """Whether this is the current version of the benefit."""
 
     properties: BenefitDiscordProperties
 
@@ -1077,10 +1109,19 @@ class BenefitDownloadables:
     organization_id: str
     """The ID of the organization owning the benefit."""
 
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     metadata: MetadataOutputType
 
     visibility: BenefitVisibility
     """The visibility of the benefit in the customer portal."""
+
+    catalog_id: str | None
+    """ID of the catalog that introduced this version of the benefit. None for benefits not managed by declarative config."""
+
+    is_current: bool
+    """Whether this is the current version of the benefit."""
 
     properties: BenefitDownloadablesProperties
 
@@ -1194,10 +1235,19 @@ class BenefitFeatureFlag:
     organization_id: str
     """The ID of the organization owning the benefit."""
 
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     metadata: MetadataOutputType
 
     visibility: BenefitVisibility
     """The visibility of the benefit in the customer portal."""
+
+    catalog_id: str | None
+    """ID of the catalog that introduced this version of the benefit. None for benefits not managed by declarative config."""
+
+    is_current: bool
+    """Whether this is the current version of the benefit."""
 
     properties: BenefitFeatureFlagProperties
 
@@ -1207,7 +1257,6 @@ class BenefitFeatureFlag:
 @dataclasses.dataclass(kw_only=True, slots=True)
 class BenefitFeatureFlagProperties:
     """Properties for a benefit of type `feature_flag`."""
-
 
 
 @dataclasses.dataclass(kw_only=True, slots=True)
@@ -1277,7 +1326,6 @@ class BenefitFeatureFlagSubscriberProperties:
     """Properties available to subscribers for a benefit of type `feature_flag`."""
 
 
-
 @dataclasses.dataclass(kw_only=True, slots=True)
 class BenefitGitHubRepository:
     """A benefit of type `github_repository`.
@@ -1310,10 +1358,19 @@ class BenefitGitHubRepository:
     organization_id: str
     """The ID of the organization owning the benefit."""
 
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     metadata: MetadataOutputType
 
     visibility: BenefitVisibility
     """The visibility of the benefit in the customer portal."""
+
+    catalog_id: str | None
+    """ID of the catalog that introduced this version of the benefit. None for benefits not managed by declarative config."""
+
+    is_current: bool
+    """Whether this is the current version of the benefit."""
 
     properties: BenefitGitHubRepositoryProperties
 
@@ -2059,10 +2116,19 @@ class BenefitLicenseKeys:
     organization_id: str
     """The ID of the organization owning the benefit."""
 
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     metadata: MetadataOutputType
 
     visibility: BenefitVisibility
     """The visibility of the benefit in the customer portal."""
+
+    catalog_id: str | None
+    """ID of the catalog that introduced this version of the benefit. None for benefits not managed by declarative config."""
+
+    is_current: bool
+    """Whether this is the current version of the benefit."""
 
     properties: BenefitLicenseKeysProperties
 
@@ -2185,10 +2251,19 @@ class BenefitMeterCredit:
     organization_id: str
     """The ID of the organization owning the benefit."""
 
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     metadata: MetadataOutputType
 
     visibility: BenefitVisibility
     """The visibility of the benefit in the customer portal."""
+
+    catalog_id: str | None
+    """ID of the catalog that introduced this version of the benefit. None for benefits not managed by declarative config."""
+
+    is_current: bool
+    """Whether this is the current version of the benefit."""
 
     properties: BenefitMeterCreditProperties
 
@@ -2368,10 +2443,19 @@ class BenefitSlackSharedChannel:
     organization_id: str
     """The ID of the organization owning the benefit."""
 
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     metadata: MetadataOutputType
 
     visibility: BenefitVisibility
     """The visibility of the benefit in the customer portal."""
+
+    catalog_id: str | None
+    """ID of the catalog that introduced this version of the benefit. None for benefits not managed by declarative config."""
+
+    is_current: bool
+    """Whether this is the current version of the benefit."""
 
     properties: BenefitSlackSharedChannelProperties
 
@@ -2714,9 +2798,6 @@ class Checkout:
     product_id: str | None
     """ID of the product to checkout."""
 
-    product_price_id: str | None
-    """ID of the product price to checkout."""
-
     discount_id: str | None
     """ID of the discount applied to the checkout."""
 
@@ -2787,10 +2868,10 @@ class Checkout:
     product: CheckoutProduct | None
     """Product selected to checkout."""
 
-    product_price: LegacyRecurringProductPrice | ProductPrice | None
+    product_price: ProductPrice | None
     """Price of the selected product."""
 
-    prices: dict[str, list[LegacyRecurringProductPrice | ProductPrice]] | None
+    prices: dict[str, list[ProductPrice]] | None
     """Mapping of product IDs to their list of prices."""
 
     discount: (
@@ -2886,10 +2967,6 @@ class CheckoutDiscountFixedOnceForeverDuration:
 
     type: DiscountType
 
-    amount: int
-
-    currency: str
-
     amounts: dict[str, int]
     """Map of currency to fixed amount to discount from the total."""
 
@@ -2911,10 +2988,6 @@ class CheckoutDiscountFixedRepeatDuration:
     duration_in_months: int
 
     type: DiscountType
-
-    amount: int
-
-    currency: str
 
     amounts: dict[str, int]
     """Map of currency to fixed amount to discount from the total."""
@@ -3086,7 +3159,7 @@ class CheckoutLinkProduct:
     organization_id: str
     """The ID of the organization owning the product."""
 
-    prices: list[LegacyRecurringProductPrice | ProductPrice]
+    prices: list[ProductPrice]
     """List of prices for this product."""
 
     benefits: list[BenefitPublic]
@@ -3179,7 +3252,13 @@ class CheckoutProduct:
     organization_id: str
     """The ID of the organization owning the product."""
 
-    prices: list[LegacyRecurringProductPrice | ProductPrice]
+    catalog_id: str | None
+    """ID of the catalog that introduced this version of the product. None for products not managed by declarative config."""
+
+    is_current: bool
+    """Whether this is the current version of the product."""
+
+    prices: list[ProductPrice]
     """List of prices for this product."""
 
     benefits: list[BenefitPublic]
@@ -3294,9 +3373,6 @@ class CheckoutPublic:
     product_id: str | None
     """ID of the product to checkout."""
 
-    product_price_id: str | None
-    """ID of the product price to checkout."""
-
     discount_id: str | None
     """ID of the discount applied to the checkout."""
 
@@ -3356,10 +3432,10 @@ class CheckoutPublic:
     product: CheckoutProduct | None
     """Product selected to checkout."""
 
-    product_price: LegacyRecurringProductPrice | ProductPrice | None
+    product_price: ProductPrice | None
     """Price of the selected product."""
 
-    prices: dict[str, list[LegacyRecurringProductPrice | ProductPrice]] | None
+    prices: dict[str, list[ProductPrice]] | None
     """Mapping of product IDs to their list of prices."""
 
     discount: (
@@ -3373,6 +3449,9 @@ class CheckoutPublic:
     organization: CheckoutOrganization
 
     attached_custom_fields: list[AttachedCustomField] | None
+
+    payment_method_types: list[str]
+    """Payment method types to offer in the payment form."""
 
 
 @dataclasses.dataclass(kw_only=True, slots=True)
@@ -3474,9 +3553,6 @@ class CheckoutPublicConfirmed:
     product_id: str | None
     """ID of the product to checkout."""
 
-    product_price_id: str | None
-    """ID of the product price to checkout."""
-
     discount_id: str | None
     """ID of the discount applied to the checkout."""
 
@@ -3536,10 +3612,10 @@ class CheckoutPublicConfirmed:
     product: CheckoutProduct | None
     """Product selected to checkout."""
 
-    product_price: LegacyRecurringProductPrice | ProductPrice | None
+    product_price: ProductPrice | None
     """Price of the selected product."""
 
-    prices: dict[str, list[LegacyRecurringProductPrice | ProductPrice]] | None
+    prices: dict[str, list[ProductPrice]] | None
     """Mapping of product IDs to their list of prices."""
 
     discount: (
@@ -3553,6 +3629,9 @@ class CheckoutPublicConfirmed:
     organization: CheckoutOrganization
 
     attached_custom_fields: list[AttachedCustomField] | None
+
+    payment_method_types: list[str]
+    """Payment method types to offer in the payment form."""
 
     customer_session_token: str | None
 
@@ -4369,6 +4448,20 @@ class CustomerMeter:
 
 
 @dataclasses.dataclass(kw_only=True, slots=True)
+class CustomerMeterCreditExternalIDConflict:
+    error: typing.Literal["CustomerMeterCreditExternalIDConflict"]
+
+    detail: str
+
+
+@dataclasses.dataclass(kw_only=True, slots=True)
+class CustomerMeterCreditNotReversible:
+    error: typing.Literal["CustomerMeterCreditNotReversible"]
+
+    detail: str
+
+
+@dataclasses.dataclass(kw_only=True, slots=True)
 class CustomerNotReady:
     error: typing.Literal["CustomerNotReady"]
 
@@ -4552,7 +4645,7 @@ class CustomerOrderProduct:
     organization_id: str
     """The ID of the organization owning the product."""
 
-    prices: list[LegacyRecurringProductPrice | ProductPrice]
+    prices: list[ProductPrice]
     """List of prices for this product."""
 
     benefits: list[BenefitPublic]
@@ -4622,7 +4715,7 @@ class CustomerOrderSubscription:
     canceled_at: str | None
     """The timestamp when the subscription was canceled. The subscription might still be active if `cancel_at_period_end` is `true`."""
 
-    started_at: str | None
+    started_at: str
     """The timestamp when the subscription started."""
 
     ends_at: str | None
@@ -4710,9 +4803,6 @@ class CustomerOrganizationData:
 @dataclasses.dataclass(kw_only=True, slots=True)
 class CustomerOrganizationFeatureSettings:
     """Feature flags exposed to the customer portal."""
-
-    member_model_enabled: bool = False
-    """Whether the member model is enabled for this organization."""
 
     checkout_localization_enabled: bool = False
     """Whether localization is enabled for this organization."""
@@ -4931,7 +5021,7 @@ class CustomerProduct:
     organization_id: str
     """The ID of the organization owning the product."""
 
-    prices: list[LegacyRecurringProductPrice | ProductPrice]
+    prices: list[ProductPrice]
     """List of available prices for this product."""
 
     benefits: list[BenefitPublic]
@@ -5173,7 +5263,7 @@ class CustomerStateSubscription:
 
     metadata: MetadataOutputType
 
-    status: Status
+    status: typing.Literal["active", "trialing"]
 
     amount: int
     """The amount of the subscription."""
@@ -5202,7 +5292,7 @@ class CustomerStateSubscription:
     canceled_at: str | None
     """The timestamp when the subscription was canceled. The subscription might still be active if `cancel_at_period_end` is `true`."""
 
-    started_at: str | None
+    started_at: str
     """The timestamp when the subscription started."""
 
     ends_at: str | None
@@ -5367,7 +5457,7 @@ class CustomerSubscription:
     canceled_at: str | None
     """The timestamp when the subscription was canceled. The subscription might still be active if `cancel_at_period_end` is `true`."""
 
-    started_at: str | None
+    started_at: str
     """The timestamp when the subscription started."""
 
     ends_at: str | None
@@ -5411,7 +5501,7 @@ class CustomerSubscription:
 
     product: CustomerSubscriptionProduct
 
-    prices: list[LegacyRecurringProductPrice | ProductPrice]
+    prices: list[ProductPrice]
     """List of enabled prices for the subscription."""
 
     meters: list[CustomerSubscriptionMeter]
@@ -5509,7 +5599,7 @@ class CustomerSubscriptionProduct:
     organization_id: str
     """The ID of the organization owning the product."""
 
-    prices: list[LegacyRecurringProductPrice | ProductPrice]
+    prices: list[ProductPrice]
     """List of prices for this product."""
 
     benefits: list[BenefitPublic]
@@ -5682,10 +5772,6 @@ class DiscountFixedOnceForeverDuration:
 
     type: DiscountType
 
-    amount: int
-
-    currency: str
-
     amounts: dict[str, int]
     """Map of currency to fixed amount to discount from the total."""
 
@@ -5697,6 +5783,9 @@ class DiscountFixedOnceForeverDuration:
 
     id: str
     """The ID of the object."""
+
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
 
     metadata: MetadataOutputType
 
@@ -5733,10 +5822,6 @@ class DiscountFixedOnceForeverDurationBase:
 
     type: DiscountType
 
-    amount: int
-
-    currency: str
-
     amounts: dict[str, int]
     """Map of currency to fixed amount to discount from the total."""
 
@@ -5748,6 +5833,9 @@ class DiscountFixedOnceForeverDurationBase:
 
     id: str
     """The ID of the object."""
+
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
 
     metadata: MetadataOutputType
 
@@ -5787,10 +5875,6 @@ class DiscountFixedRepeatDuration:
 
     type: DiscountType
 
-    amount: int
-
-    currency: str
-
     amounts: dict[str, int]
     """Map of currency to fixed amount to discount from the total."""
 
@@ -5802,6 +5886,9 @@ class DiscountFixedRepeatDuration:
 
     id: str
     """The ID of the object."""
+
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
 
     metadata: MetadataOutputType
 
@@ -5840,10 +5927,6 @@ class DiscountFixedRepeatDurationBase:
 
     type: DiscountType
 
-    amount: int
-
-    currency: str
-
     amounts: dict[str, int]
     """Map of currency to fixed amount to discount from the total."""
 
@@ -5855,6 +5938,9 @@ class DiscountFixedRepeatDurationBase:
 
     id: str
     """The ID of the object."""
+
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
 
     metadata: MetadataOutputType
 
@@ -5903,6 +5989,9 @@ class DiscountPercentageOnceForeverDuration:
     id: str
     """The ID of the object."""
 
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     metadata: MetadataOutputType
 
     name: str
@@ -5949,6 +6038,9 @@ class DiscountPercentageOnceForeverDurationBase:
 
     id: str
     """The ID of the object."""
+
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
 
     metadata: MetadataOutputType
 
@@ -6000,6 +6092,9 @@ class DiscountPercentageRepeatDuration:
     id: str
     """The ID of the object."""
 
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     metadata: MetadataOutputType
 
     name: str
@@ -6048,6 +6143,9 @@ class DiscountPercentageRepeatDurationBase:
 
     id: str
     """The ID of the object."""
+
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
 
     metadata: MetadataOutputType
 
@@ -6735,100 +6833,6 @@ class LLMMetadata:
 
 
 @dataclasses.dataclass(kw_only=True, slots=True)
-class LegacyRecurringProductPriceCustom:
-    """A pay-what-you-want recurring price for a product, i.e. a subscription.
-
-    **Deprecated**: The recurring interval should be set on the product itself."""
-
-    created_at: str
-    """Creation timestamp of the object."""
-
-    modified_at: str | None
-    """Last modification timestamp of the object."""
-
-    id: str
-    """The ID of the price."""
-
-    source: ProductPriceSource
-    """The source of the price . `catalog` is a predefined price, while `ad_hoc` is a price created dynamically on a Checkout session."""
-
-    amount_type: typing.Literal["custom"]
-
-    price_currency: str
-    """The currency in which the customer will be charged."""
-
-    tax_behavior: TaxBehaviorOption | None
-    """The tax behavior of the price. If null, it defaults to the organization's default tax behavior."""
-
-    is_archived: bool
-    """Whether the price is archived and no longer available."""
-
-    product_id: str
-    """The ID of the product owning the price."""
-
-    type: typing.Literal["recurring"]
-    """The type of the price."""
-
-    recurring_interval: RecurringInterval
-    """The recurring interval of the price."""
-
-    minimum_amount: int
-    """The minimum amount the customer can pay. If 0, the price is 'free or pay what you want'."""
-
-    maximum_amount: int | None
-    """The maximum amount the customer can pay."""
-
-    preset_amount: int | None
-    """The initial amount shown to the customer."""
-
-    legacy: typing.Literal[True]
-
-
-@dataclasses.dataclass(kw_only=True, slots=True)
-class LegacyRecurringProductPriceFixed:
-    """A recurring price for a product, i.e. a subscription.
-
-    **Deprecated**: The recurring interval should be set on the product itself."""
-
-    created_at: str
-    """Creation timestamp of the object."""
-
-    modified_at: str | None
-    """Last modification timestamp of the object."""
-
-    id: str
-    """The ID of the price."""
-
-    source: ProductPriceSource
-    """The source of the price . `catalog` is a predefined price, while `ad_hoc` is a price created dynamically on a Checkout session."""
-
-    amount_type: typing.Literal["fixed"]
-
-    price_currency: str
-    """The currency in which the customer will be charged."""
-
-    tax_behavior: TaxBehaviorOption | None
-    """The tax behavior of the price. If null, it defaults to the organization's default tax behavior."""
-
-    is_archived: bool
-    """Whether the price is archived and no longer available."""
-
-    product_id: str
-    """The ID of the product owning the price."""
-
-    type: typing.Literal["recurring"]
-    """The type of the price."""
-
-    recurring_interval: RecurringInterval
-    """The recurring interval of the price."""
-
-    price_amount: int
-    """The price in cents."""
-
-    legacy: typing.Literal[True]
-
-
-@dataclasses.dataclass(kw_only=True, slots=True)
 class LicenseKeyActivationBase:
     id: str
 
@@ -7354,6 +7358,9 @@ MetadataOutputType: typing.TypeAlias = dict[str, str | int | float | bool]
 
 @dataclasses.dataclass(kw_only=True, slots=True)
 class Meter:
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     metadata: MetadataOutputType
 
     created_at: str
@@ -7443,6 +7450,8 @@ class MeterCreditedMetadata:
     units: int
 
     rollover: bool
+
+    reason: typing.Literal["benefit", "manual"] = "benefit"
 
 
 @dataclasses.dataclass(kw_only=True, slots=True)
@@ -8357,6 +8366,12 @@ class OrderProduct:
     organization_id: str
     """The ID of the organization owning the product."""
 
+    catalog_id: str | None
+    """ID of the catalog that introduced this version of the product. None for products not managed by declarative config."""
+
+    is_current: bool
+    """Whether this is the current version of the product."""
+
 
 @dataclasses.dataclass(kw_only=True, slots=True)
 class OrderReceipt:
@@ -8473,7 +8488,7 @@ class OrderSubscription:
     canceled_at: str | None
     """The timestamp when the subscription was canceled. The subscription might still be active if `cancel_at_period_end` is `true`."""
 
-    started_at: str | None
+    started_at: str
     """The timestamp when the subscription started."""
 
     ends_at: str | None
@@ -8826,9 +8841,6 @@ class OrganizationFeatureSettings:
     wallets_enabled: bool = False
     """If this organization has Wallets enabled"""
 
-    member_model_enabled: bool = False
-    """If this organization has the Member model enabled"""
-
     checkout_localization_enabled: bool = False
     """If this organization has checkout localization enabled"""
 
@@ -8840,9 +8852,6 @@ class OrganizationFeatureSettings:
 
     off_session_charges_enabled: bool = False
     """If this organization can create and finalize draft orders via the API (off-session charges against a saved payment method)."""
-
-    meter_cycling_enabled: bool = False
-    """If this organization can set a separate meter cycle on recurring products (a meter interval independent of the billing interval)."""
 
     slack_benefit_enabled: bool = False
     """Enables the slack shared channel benefit"""
@@ -8859,14 +8868,14 @@ class OrganizationFeatureSettings:
     dispute_auto_accept_enabled: bool = False
     """If this organization can set a threshold below which Polar concedes disputes on its behalf. Requires `disputes_enabled`."""
 
-    compass_enabled: bool = False
-    """If this organization has the split product navigation (Billing / Compass / Customers) enabled in the dashboard"""
-
     merchant_migration_enabled: bool = False
     """If this organization can migrate its billing from another provider (e.g. Stripe) to Polar."""
 
-    frame_ancestors_enforced: bool = False
-    """If this organization's checkout tells the browser to refuse framing from any host outside its embed hosts."""
+    staged_events_ingest_enabled: bool = False
+    """If this organization's ingested events are queued in `staged_events` and moved to `events` out of band."""
+
+    config_as_code_enabled: bool = False
+    """If this organization can manage its configuration from a declarative config document."""
 
 
 @dataclasses.dataclass(kw_only=True, slots=True)
@@ -9071,6 +9080,12 @@ class PendingSubscriptionUpdate:
     units: int | None
     """Number of units to apply to the subscription. If `null`, the number of units won't be changed."""
 
+    discount_id: str | None
+    """ID of the new discount to apply to the subscription. If `null`, the subscription keeps its current discount."""
+
+    discount_unset: bool
+    """Whether the subscription's current discount will be removed."""
+
 
 @dataclasses.dataclass(kw_only=True, slots=True)
 class PortalAuthenticatedUser:
@@ -9144,12 +9159,21 @@ class Product:
     organization_id: str
     """The ID of the organization owning the product."""
 
+    catalog_id: str | None
+    """ID of the catalog that introduced this version of the product. None for products not managed by declarative config."""
+
+    is_current: bool
+    """Whether this is the current version of the product."""
+
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     metadata: MetadataOutputType
 
     is_deletable: bool
     """Whether the product can be permanently deleted. Products referenced by an order, subscription, trial or discount cannot be deleted."""
 
-    prices: list[LegacyRecurringProductPrice | ProductPrice]
+    prices: list[ProductPrice]
     """List of prices for this product."""
 
     benefits: list[Benefit]
@@ -9677,6 +9701,13 @@ class SSOEnforcementRequiresConnection:
 
 
 @dataclasses.dataclass(kw_only=True, slots=True)
+class SSORequiresVerifiedDomain:
+    error: typing.Literal["SSORequiresVerifiedDomain"]
+
+    detail: str
+
+
+@dataclasses.dataclass(kw_only=True, slots=True)
 class SeatClaimInfo:
     """Read-only information about a seat claim invitation.
     Safe for email scanners - no side effects when fetched."""
@@ -9710,6 +9741,13 @@ class SeatsList:
 
     total_seats: int
     """Total number of seats for the subscription"""
+
+
+@dataclasses.dataclass(kw_only=True, slots=True)
+class SharedPaymentTokenError:
+    error: typing.Literal["SharedPaymentTokenError"]
+
+    detail: str
 
 
 @dataclasses.dataclass(kw_only=True, slots=True)
@@ -9762,7 +9800,7 @@ class Subscription:
     canceled_at: str | None
     """The timestamp when the subscription was canceled. The subscription might still be active if `cancel_at_period_end` is `true`."""
 
-    started_at: str | None
+    started_at: str
     """The timestamp when the subscription started."""
 
     ends_at: str | None
@@ -9821,7 +9859,7 @@ class Subscription:
         | None
     )
 
-    prices: list[LegacyRecurringProductPrice | ProductPrice]
+    prices: list[ProductPrice]
     """List of enabled prices for the subscription."""
 
     meters: list[SubscriptionMeter]
@@ -11240,6 +11278,9 @@ class WebhookDelivery:
 class WebhookEndpoint:
     """A webhook endpoint."""
 
+    external_id: str | None
+    """An ID from your own system to reference this resource. It must be unique within the organization for this type of resource."""
+
     created_at: str
     """Creation timestamp of the object."""
 
@@ -11360,6 +11401,8 @@ CheckoutForbiddenError: typing.TypeAlias = (
     | DiscountRedemptionLimitReached
 )
 
+CheckoutPaymentError: typing.TypeAlias = PaymentError | SharedPaymentTokenError
+
 CustomField: typing.TypeAlias = (
     CustomFieldText
     | CustomFieldNumber
@@ -11404,10 +11447,6 @@ FileRead: typing.TypeAlias = (
     | ProductMediaFileRead
     | OrganizationAvatarFileRead
     | SupportCaseAttachmentFileRead
-)
-
-LegacyRecurringProductPrice: typing.TypeAlias = (
-    LegacyRecurringProductPriceFixed | LegacyRecurringProductPriceCustom
 )
 
 Payment: typing.TypeAlias = CardPayment | KrCardPayment | GenericPayment

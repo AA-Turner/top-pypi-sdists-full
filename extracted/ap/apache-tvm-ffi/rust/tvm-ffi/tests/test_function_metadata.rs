@@ -22,7 +22,7 @@
 //! `export-metadata` feature, as C++ ones with
 //! `TVM_FFI_DLL_EXPORT_INCLUDE_METADATA`; global functions always do.
 
-use tvm_ffi::function_internal::AsPackedCallable;
+use tvm_ffi::function::AsPackedCallable;
 #[cfg(feature = "export-metadata")]
 use tvm_ffi::tvm_ffi_sys::TVMFFIAny;
 use tvm_ffi::*;
@@ -30,7 +30,7 @@ use tvm_ffi::*;
 // Exported by libtvm_ffi_testing with `TVM_FFI_DLL_EXPORT_TYPED_FUNC` and
 // `TVM_FFI_DLL_EXPORT_INCLUDE_METADATA`, for `int64_t(int64_t)`.
 #[cfg(feature = "export-metadata")]
-extern "C" {
+unsafe extern "C" {
     fn __tvm_ffi__metadata_testing_dll_schema_id_int(
         handle: *mut std::ffi::c_void,
         args: *const TVMFFIAny,
@@ -43,7 +43,7 @@ extern "C" {
 #[cfg(feature = "export-metadata")]
 fn call_getter(getter: tvm_ffi::tvm_ffi_sys::TVMFFISafeCallType) -> String {
     // SAFETY: the getters take no arguments and do not use the handle.
-    let getter = unsafe { Function::from_extern_c(std::ptr::null_mut(), getter, None) };
+    let getter = unsafe { Function::from_extern_c(std::ptr::null_mut(), getter, None).unwrap() };
     getter.call_packed(&[]).unwrap().try_into().unwrap()
 }
 
@@ -53,7 +53,7 @@ fn global_metadata(name: &str) -> String {
     assert_eq!(unsafe { tvm_ffi_sys::TVMFFITestingDummyTarget() }, 0);
     Function::get_global("ffi.GetGlobalFuncMetadata")
         .unwrap()
-        .call_tuple_with_len::<1, _>((String::from(name),))
+        .call_tuple((String::from(name),))
         .unwrap()
         .try_into()
         .unwrap()
@@ -122,11 +122,11 @@ fn test_exported_packed_metadata_is_untyped() {
 // these symbols of the same names would otherwise be defined twice.
 #[cfg(not(feature = "export-metadata"))]
 mod without_export_metadata {
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn __tvm_ffi__metadata_rust_schema_id_int() {}
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn __tvm_ffi__metadata_rust_packed() {}
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn __tvm_ffi__doc_rust_add() {}
 }
 
@@ -135,8 +135,9 @@ mod without_export_metadata {
 fn test_exports_without_metadata() {
     // The functions themselves are exported.
     // SAFETY: rust_add takes two arguments and does not use the handle.
-    let add = unsafe { Function::from_extern_c(std::ptr::null_mut(), __tvm_ffi_rust_add, None) };
-    let sum = add.call_tuple_with_len::<2, _>((1i64, 2i64)).unwrap();
+    let add =
+        unsafe { Function::from_extern_c(std::ptr::null_mut(), __tvm_ffi_rust_add, None).unwrap() };
+    let sum = add.call_tuple((1i64, 2i64)).unwrap();
     assert_eq!(i64::try_from(sum).unwrap(), 3);
     without_export_metadata::__tvm_ffi__metadata_rust_schema_id_int();
     without_export_metadata::__tvm_ffi__metadata_rust_packed();
@@ -146,7 +147,7 @@ fn test_exports_without_metadata() {
 /// Registers `func` as `testing.rust.<name>` and records `name`.
 fn register_typed<F, I, O>(names: &mut Vec<&'static str>, name: &'static str, func: F)
 where
-    F: AsPackedCallable<I, O> + 'static,
+    F: AsPackedCallable<I, O> + Send + Sync + 'static,
 {
     Function::register_global_typed(&format!("testing.rust.{name}"), func, "").unwrap();
     names.push(name);
@@ -286,6 +287,6 @@ fn test_global_untyped_metadata_matches_cpp() {
 fn test_global_typed_registration_calls_the_function() {
     register_globals();
     let add = Function::get_global("testing.rust.add").unwrap();
-    let sum = add.call_tuple_with_len::<2, _>((1i64, 2i64)).unwrap();
+    let sum = add.call_tuple((1i64, 2i64)).unwrap();
     assert_eq!(i64::try_from(sum).unwrap(), 3);
 }

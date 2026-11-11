@@ -6,7 +6,7 @@ This module contains shared types and utilities used by all serializers.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, ClassVar, Protocol, runtime_checkable
+from typing import Any, ClassVar, Protocol, final, runtime_checkable
 
 import msgpack
 
@@ -365,7 +365,10 @@ class EnvelopeShapeError(SerializationError):
 # ---------------------------------------------------------------------------
 
 #: cachekit's own nesting ceiling, enforced by cachekit-core's ``check_msgpack_structure``
-#: walk (through the Rust extension) before msgpack-python ever sees the document. Every
+#: walk (through the Rust extension) before msgpack-python ever sees the document, and by
+#: StandardSerializer's one-pass Rust decode (``unpackb_standard``), which repeats the walk's accounting
+#: inline and runs the walk itself only after a failure (tests/unit/test_standard_decode.py holds the
+#: two to the same verdicts). Every
 #: array or map header on the path counts as a level, an empty one included. Two
 #: constraints pin it: the protocol requires every SDK's bound to sit in 32..=1024, and
 #: it must not exceed msgpack-python's C unpacker stack (a document at the ceiling has to
@@ -426,6 +429,28 @@ def bounded_error(exc: BaseException | str) -> str:
     return text.translate(_LOG_UNSAFE_ESCAPES)
 
 
+@final  # the read paths test `type(data) is VerifiedPayload`
+class VerifiedPayload:
+    """A payload its serializer's own integrity check returned and a decode in this process accepted, which an L1
+    entry holds in place of its envelope (``CacheSerializationHandler.deserialize_l1``). ``owner`` (the serializer's
+    class) decodes it without that check again: the MessagePack ``ByteStorage.retrieve()`` returned for
+    StandardSerializer and AutoSerializer, the JSON under a matching xxHash3-64 for OrjsonSerializer.
+
+    The type is the mark, not the bytes: no backend returns this type, so bytes from L2 never skip the check,
+    whatever they hold. ``owner`` keeps one serializer from decoding another's payload. Its length is that of
+    ``data``, which L1 accounts.
+    """
+
+    __slots__ = ("data", "owner")
+
+    def __init__(self, data: bytes, owner: type) -> None:
+        self.data = data
+        self.owner = owner
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+
 def immutable_buffer(data: bytes | bytearray | memoryview) -> bytes | memoryview:
     """Return ``data`` as one flat, unsigned, immutable byte buffer, copying only when it must.
 
@@ -476,6 +501,11 @@ def unpackb_bounded(data: bytes | bytearray | memoryview, **unpack_opts: Any) ->
     walk's own ``ValueError`` naming the violated bound), which the read paths
     already turn into a controlled cache miss. Trailing bytes are still rejected
     by ``unpackb`` itself.
+
+    No read path calls this any more: the StandardSerializer, AutoSerializer and
+    interop reads decode in one Rust pass under the same bounds (``unpackb_standard``,
+    ``unpackb_auto``, ``unpackb_interop``). It stays as the decode those reproduce,
+    which their parity tests run beside them.
 
     Examples:
         >>> unpackb_bounded(msgpack.packb({"a": [1, 2]}), raw=False)

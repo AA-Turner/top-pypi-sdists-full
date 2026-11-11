@@ -6,6 +6,7 @@ from snowflake.core.code_bundle import (
     CodeBundle,
     CodeBundleCollection,
     ExecuteCodeBundleRequest,
+    ExecuteCodeBundleResponse,
     SuccessAcceptedResponse,
 )
 from snowflake.core.code_bundle_execution import CodeBundleExecutionCollection
@@ -101,6 +102,19 @@ def test_execute_code_bundle(
         # async_exec only accepts the submission; poll to completion *before* the finally block drops the
         # bundle, otherwise the async job races teardown and fails with "Notebook Project does not exist".
         assert_code_bundle_execution_succeeded(code_bundle_execution, response.job_id)
+    finally:
+        bundle.drop()
+
+
+@pytest.mark.skip_storedproc
+def test_execute_code_bundle_sync(code_bundles: CodeBundleCollection, executable_code_bundle_stage_location):
+    bundle_name = random_string(10, "test_code_bundle_execute_sync_")
+    bundle = code_bundles.create(CodeBundle(name=bundle_name, from_location=executable_code_bundle_stage_location))
+    try:
+        response = bundle.execute(ExecuteCodeBundleRequest(entrypoint="main.py"))
+        assert isinstance(response, ExecuteCodeBundleResponse), response
+        assert response.status is None, response
+        assert response.return_value is None, response
     finally:
         bundle.drop()
 

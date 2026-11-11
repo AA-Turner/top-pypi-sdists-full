@@ -3,12 +3,12 @@ use std::sync::LazyLock;
 use std::time::Instant;
 
 use pyo3::prelude::*;
-use pyo3::pyclass::CompareOp;
+use ryo3_core::{PyNotImplementedOr, PyOperandArg};
 use ryo3_macro_rules::py_overflow_error;
 
 use crate::time::PyDuration;
 
-#[pyclass(name = "Instant", frozen, immutable_type)]
+#[pyclass(name = "Instant", frozen, immutable_type, eq, ord)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PyInstant(Instant);
@@ -32,6 +32,17 @@ impl std::fmt::Display for PyInstant {
 impl From<Instant> for PyInstant {
     fn from(i: Instant) -> Self {
         Self(i)
+    }
+}
+
+type DurationArg<'a, 'py> = PyOperandArg<Borrowed<'a, 'py, PyDuration>>;
+
+impl PyInstant {
+    fn try_add(&self, dur: &PyDuration) -> PyResult<Self> {
+        self.0
+            .checked_add(dur.0)
+            .map(Self::from)
+            .ok_or_else(|| py_overflow_error!("instant-overflow-add"))
     }
 }
 
@@ -61,34 +72,19 @@ impl PyInstant {
         hasher.finish()
     }
 
-    #[must_use]
-    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
-        match op {
-            CompareOp::Eq => self.0 == other.0,
-            CompareOp::Ne => self.0 != other.0,
-            CompareOp::Lt => self.0 < other.0,
-            CompareOp::Le => self.0 <= other.0,
-            CompareOp::Gt => self.0 > other.0,
-            CompareOp::Ge => self.0 >= other.0,
-        }
+    fn __add__(&self, other: DurationArg<'_, '_>) -> PyResult<PyNotImplementedOr<Self>> {
+        other.try_map(|dur| self.try_add(dur.get()))
     }
 
-    fn __add__(&self, other: &PyDuration) -> PyResult<Self> {
-        self.0
-            .checked_add(other.0)
-            .map(Self::from)
-            .ok_or_else(|| py_overflow_error!("instant-overflow-add"))
-    }
-
-    fn __radd__(&self, other: &PyDuration) -> PyResult<Self> {
-        self.__add__(other)
+    fn __radd__(&self, other: DurationArg<'_, '_>) -> PyResult<PyNotImplementedOr<Self>> {
+        other.try_map(|dur| self.try_add(dur.get()))
     }
 
     fn __sub__(
         &self,
-        other: arithmetic::PyInstantSubtractInput<'_, '_>,
-    ) -> arithmetic::PyInstantSubtractOutput {
-        other.subtract_from(self)
+        other: PyOperandArg<arithmetic::PyInstantSubtractInput<'_, '_>>,
+    ) -> PyNotImplementedOr<arithmetic::PyInstantSubtractOutput> {
+        other.map(|rhs| rhs.subtract_from(self))
     }
 
     #[must_use]
@@ -126,7 +122,8 @@ mod arithmetic {
 
     use pyo3::IntoPyObjectExt;
     use pyo3::prelude::*;
-    use ryo3_macro_rules::{py_overflow_err, py_type_err};
+    use ryo3_core::FromPyOperand;
+    use ryo3_macro_rules::py_overflow_err;
 
     use crate::time::{PyDuration, PyInstant};
 
@@ -146,26 +143,13 @@ mod arithmetic {
         }
     }
 
-    impl<'a, 'py> FromPyObject<'a, 'py> for PyInstantSubtractInput<'a, 'py> {
-        type Error = PyErr;
-
-        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
-            if let Ok(inst) = obj.cast_exact::<PyInstant>() {
-                Ok(Self::Instant(inst))
-            } else if let Ok(dur) = obj.cast_exact::<PyDuration>() {
-                Ok(Self::Duration(dur))
-            } else {
-                py_type_err!("unsupported operand type(s) for Instant.__sub__")
-            }
-        }
-    }
-
-    impl<'a, 'py> FromPyObject<'a, 'py> for &PyInstantSubtractInput<'a, 'py> {
-        type Error = PyErr;
-
-        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
-            let input = PyInstantSubtractInput::extract(obj)?;
-            Ok(Box::leak(Box::new(input)))
+    impl<'a, 'py> FromPyOperand<'a, 'py> for PyInstantSubtractInput<'a, 'py> {
+        fn from_py_operand(obj: Borrowed<'a, 'py, PyAny>) -> Option<Self> {
+            use ryo3_core::PyOperandExt;
+            obj.operand_match()
+                .or(Self::Instant)
+                .or(Self::Duration)
+                .ok()
         }
     }
 

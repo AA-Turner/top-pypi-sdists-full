@@ -42,7 +42,7 @@ __all__ = [
 ]
 
 BOUND_LIST = ['none', 'single', 'multi', 'balls', 'cubes']
-# these are the exitsing bounds implemented here
+# these are the existing bounds implemented here
 
 
 def _slogdet_checked(matrix):
@@ -75,8 +75,22 @@ def _slogdet_checked(matrix):
 
 class Bound:
     """
-    This is is master class for the all the bounds listing
-    the key methods required from the bound
+    The base class of all the bounds, listing the methods and attributes
+    required from a bound. A user-defined bound (passed as `bound` to the
+    nested samplers) must implement them.
+
+    Attributes
+    ----------
+    ndim : int
+        The number of dimensions of the bound.
+
+    logvol : float
+        The ln(volume) of the bound.
+
+    need_centers : bool
+        If `True`, the sampler sets the attribute `ctrs` of the bound to
+        the current live points before proposing new points (as done for
+        the balls/cubes centered on the live points).
     """
 
     def __init__(self, ndim):
@@ -85,41 +99,166 @@ class Bound:
         self.ndim = ndim
 
     def contains(self, x):
-        """Checks if unit cube contains the point `x`."""
+        """Checks if the bound contains the point `x`."""
         pass
 
     def sample(self, rstate=None):
         """
-        Draw a sample uniformly distributed within the unit cube.
+        Draw a sample uniformly distributed within the bound.
 
         Returns
         -------
         x : `~numpy.ndarray` with shape (ndim,)
-            A coordinate within the unit cube.
+            A coordinate within the bound.
 
         """
         pass
 
     def samples(self, nsamples, rstate=None):
         """
-        Draw `nsamples` samples randomly distributed within the unit cube.
+        Draw `nsamples` samples uniformly distributed within the bound.
 
         Returns
         -------
         x : `~numpy.ndarray` with shape (nsamples, ndim)
-            A collection of coordinates within the unit cube.
+            A collection of coordinates within the bound.
 
         """
         pass
 
     def get_random_axes(self, rstate):
+        """
+        Return the axes, an `~numpy.ndarray` with shape (ndim, ndim), used
+        by the random walk and slice samplers to propose new points
+        (possibly chosen randomly, e.g. from one of several ellipsoids).
+        """
         pass
 
-    def scale_to_logvol(self, rstate):
+    def scale_to_logvol(self, logvol):
+        """Scale the bound to the ln(volume) `logvol` (used to enlarge
+        the bound)."""
         pass
 
     def update(self, points, rstate=None, bootstrap=0, pool=None):
+        """
+        Update the bound to enclose the set of live `points` (an
+        `~numpy.ndarray` with shape (npoints, ndim)). If `bootstrap > 0`,
+        the bound is enlarged using that many bootstrapped realizations.
+        `pool` can be used to compute them in parallel.
+        """
         pass
+
+
+class PeriodicBound(Bound):
+    """
+    A bound for problems with periodic dimensions.
+
+    The wrapped bound (attribute `bound`) is constructed from the points
+    unwrapped onto the window ``[lo, lo + 1)`` along each periodic
+    dimension, where ``lo`` (attribute `lo`) is placed in the middle of
+    the largest gap between the points used for the last update. A
+    cluster of points straddling the periodic boundary is therefore
+    contiguous and is bounded as a single cluster. The window maps
+    one-to-one onto [0, 1), so samples are restricted to the window
+    and returned modulo 1, which keeps them uniformly distributed.
+    Non-periodic coordinates of the samples are returned as they are,
+    i.e. possibly outside the unit cube.
+
+    Attributes of the wrapped bound (e.g. the ellipsoids or the centers)
+    are in the unwrapped coordinates.
+
+    Parameters
+    ----------
+    bound : `Bound`
+        The bound to wrap.
+
+    periodic : iterable
+        Indices of the periodic dimensions.
+    """
+
+    def __init__(self, bound, periodic):
+        # pylint: disable=super-init-not-called
+        # logvol and need_centers are delegated to the wrapped bound
+        self.bound = bound
+        self.ndim = bound.ndim
+        self.periodic = np.array(periodic, dtype=int)
+        self.lo = np.zeros(len(self.periodic))
+
+    def _unwrap(self, x):
+        """Map the periodic coordinates onto the window [lo, lo + 1)."""
+        x = np.array(x, dtype=float)
+        x[..., self.periodic] = self.lo + np.mod(
+            x[..., self.periodic] - self.lo, 1)
+        return x
+
+    @property
+    def logvol(self):
+        """Log volume of the wrapped bound."""
+        return self.bound.logvol
+
+    @property
+    def need_centers(self):
+        """Whether the wrapped bound needs the centers to be set."""
+        return self.bound.need_centers
+
+    @property
+    def ctrs(self):
+        """Centers (unwrapped) for the bounds that need them."""
+        return self.bound.ctrs
+
+    @ctrs.setter
+    def ctrs(self, ctrs):
+        self.bound.ctrs = self._unwrap(ctrs)
+
+    def contains(self, x):
+        """Checks if the bound contains the point `x`."""
+        return self.bound.contains(self._unwrap(x))
+
+    def sample(self, rstate=None):
+        """
+        Draw a sample uniformly distributed within the bound, with the
+        periodic coordinates within [0, 1).
+        """
+        ntries = 0
+        while True:
+            x = self.bound.samples(1, rstate=rstate)[0]
+            xp = x[self.periodic]
+            if np.all((xp > self.lo) & (xp < self.lo + 1)):
+                x[self.periodic] = np.mod(xp, 1)
+                return x
+            ntries += 1
+            if ntries == 10000:
+                warnings.warn('Periodic bound sampling is extremely '
+                              'inefficient: the bound extends far beyond '
+                              'the period along a periodic dimension')
+
+    def samples(self, nsamples, rstate=None):
+        """Draw `nsamples` samples (see `sample`)."""
+        return np.array([self.sample(rstate) for i in range(nsamples)])
+
+    def get_random_axes(self, rstate):
+        """Return the axes used to propose new points."""
+        return self.bound.get_random_axes(rstate)
+
+    def scale_to_logvol(self, logvol):
+        """Scale the wrapped bound to a target volume."""
+        self.bound.scale_to_logvol(logvol)
+
+    def update(self, points, rstate=None, bootstrap=0, pool=None):
+        """
+        Update the wrapped bound. The edge of the window is placed in the
+        middle of the largest gap between the points.
+        """
+        points = np.asarray(points)
+        for k, i in enumerate(self.periodic):
+            xs = np.sort(points[:, i])
+            gaps = np.diff(np.append(xs, xs[0] + 1))
+            j = np.argmax(gaps)
+            self.lo[k] = np.mod(xs[j] + gaps[j] / 2, 1)
+        self.bound.update(self._unwrap(points),
+                          rstate=rstate,
+                          bootstrap=bootstrap,
+                          pool=pool)
 
 
 class UnitCube(Bound):
@@ -201,7 +340,7 @@ class Ellipsoid(Bound):
     def __init__(self, ndim, ctr=None, cov=None, am=None, axes=None):
         super().__init__(ndim)
         if ctr is None:
-            ctr = 0.5 * np.zeros(ndim)
+            ctr = 0.5 * np.ones(ndim)
             cov = np.identity(ndim) * ndim / 4
         self.ctr = np.asarray(ctr)  # center coordinates
         self.cov = np.asarray(cov)  # covariance matrix
@@ -243,11 +382,11 @@ class Ellipsoid(Bound):
         """Scale ellipsoid to a target volume."""
 
         logf = logvol - self.logvol
-        # log of the maxium axis length of the ellipsoid
+        # log of the maximum axis length of the ellipsoid
         max_log_axlen = np.log(np.sqrt(self.ndim) / 2)
         log_axlen = np.log(self.axlens)
         if log_axlen.max() < max_log_axlen - logf / self.ndim:
-            # we are safe to inflate the ellipsoid isothropically
+            # we are safe to inflate the ellipsoid isotropically
             # without hitting boundaries
             f = np.exp(logf / self.ndim)
             self.cov *= f**2
@@ -273,6 +412,8 @@ class Ellipsoid(Bound):
             self.am = (v * (1. / l1)) @ v.T
             self.axlens *= fax
             self.axes = self.axes * fax
+            # the axes are capped, so the volume may grow less than requested
+            logvol = self.logvol + logfax.sum()
         self.logvol = logvol
 
     def major_axis_endpoints(self):
@@ -429,7 +570,7 @@ class MultiEllipsoid(Bound):
 
     ctrs : `~numpy.ndarray` with shape (M, N), optional
         Collection of coordinates of ellipsoid centers. Used to initialize
-        :class:`MultiEllipsoid` if :data:`ams` is also provided.
+        :class:`MultiEllipsoid` if :data:`covs` is also provided.
 
     covs : `~numpy.ndarray` with shape (M, N, N), optional
         Collection of matrices describing the axes of the ellipsoids. Used to
@@ -476,7 +617,7 @@ class MultiEllipsoid(Bound):
         self.logvol_ells = np.array([ell.logvol for ell in self.ells])
 
     def scale_to_logvol(self, logvol):
-        """Scale ellipoids to a corresponding set of
+        """Scale ellipsoids to a corresponding set of
         target volumes or to a new total volume
         If the argument is scalar this is assumed to
         be new logvol, if it's iterable it's assumed to be
@@ -701,7 +842,7 @@ class MultiEllipsoid(Bound):
             # Conservatively set the expansion factor to be the maximum
             # factor derived from our set of bootstraps.
             expand = max(expands)
-            # Put a warning if a boostrap leads to 100 times larger volume
+            # Put a warning if a bootstrap leads to 100 times larger volume
             if np.log10(expand) * firstell.ndim > LOG10_EXPAND_VOL_WARN:
                 warnings.warn(
                     'The enlargement factor for the ellipsoidal bounds'
@@ -890,7 +1031,7 @@ class RadFriends(Bound):
             `~numpy.random.Generator` instance.
 
         bootstrap : int, optional
-            The number of bootstrapped realizations of the ellipsoids. The
+            The number of bootstrapped realizations of the balls. The
             maximum distance to the set of points "left out" during each
             iteration is used to enlarge the resulting volumes.
             Default is `0`.
@@ -904,7 +1045,7 @@ class RadFriends(Bound):
             with the unit cube. Default is `False`.
 
         use_clustering : bool, optional
-            Whether to use clustering to avoid issues with widely-seperated
+            Whether to use clustering to avoid issues with widely-separated
             modes. Default is `True`.
 
         """
@@ -1050,8 +1191,7 @@ class SupFriends(Bound):
         return idxs
 
     def overlap(self, x):
-        """Checks how many cubes `x` falls within, skipping the `j`-th
-        cube."""
+        """Check how many cubes `x` falls within."""
 
         q = len(self.within(x))
 
@@ -1158,7 +1298,7 @@ class SupFriends(Bound):
             `~numpy.random.Generator` instance.
 
         bootstrap : int, optional
-            The number of bootstrapped realizations of the ellipsoids. The
+            The number of bootstrapped realizations of the cubes. The
             maximum distance to the set of points "left out" during each
             iteration is used to enlarge the resulting volumes.
             Default is `0`.
@@ -1172,7 +1312,7 @@ class SupFriends(Bound):
             with the unit cube. Default is `False`.
 
         use_clustering : bool, optional
-            Whether to use clustering to avoid issues with widely-seperated
+            Whether to use clustering to avoid issues with widely-separated
             modes. Default is `True`.
 
         """
@@ -1214,6 +1354,7 @@ class SupFriends(Bound):
         self.am /= hsmax**2
         self.axes *= hsmax
         self.axes_inv /= hsmax
+        self.ctrs = points
 
         detln = _slogdet_checked(self.am)
         self.logvol = self.ndim * np.log(2.) - 0.5 * detln
@@ -1221,8 +1362,7 @@ class SupFriends(Bound):
         # Estimate the volume and fractional overlap with the unit cube
         # using Monte Carlo integration.
         if mc_integrate:
-            self.funit = self.monte_carlo_logvol(points,
-                                                 return_overlap=True,
+            self.funit = self.monte_carlo_logvol(return_overlap=True,
                                                  rstate=rstate)[1]
 
     def _get_covariance_from_all_points(self, points):
@@ -1310,7 +1450,7 @@ def rand_choice(pb, rstate):
 
 def improve_covar_mat(covar0, ntries=100, max_condition_number=1e12):
     """
-    Given the covariance matrix improve it, if it is not invertable
+    Given the covariance matrix improve it, if it is not invertible
     or eigen values are negative or condition number that is above the limit
     Returns:
     a tuple with three elements
@@ -1503,7 +1643,7 @@ def _bounding_ellipsoids(points, ell, scale=None):
     if scale is None:
         scale = points.std(axis=0)[None, :]
         # scale factor across different dimensions
-        # to make things more isothropic
+        # to make things more isotropic
     # Split points into two clusters using k-means clustering with k=2.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -1541,8 +1681,8 @@ def _bounding_ellipsoids(points, ell, scale=None):
     nparam = (ndim * (ndim + 3)) // 2
     log_vol_dec = nparam * np.log(npoints) / npoints
     # this is the log vol decrement for one extra ellipsoid
-    # note that this is missing a factor of two to mimick previous behaviour
-    # this makes splitting less agressive
+    # note that this is missing a factor of two to mimic previous behaviour
+    # this makes splitting less aggressive
 
     # now we try to split again
     out_ells = (_bounding_ellipsoids(points_k[0], ells[0], scale=scale) +

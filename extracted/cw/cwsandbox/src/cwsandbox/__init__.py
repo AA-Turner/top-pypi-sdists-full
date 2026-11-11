@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-__version__ = "1.27.0"
+__version__ = "1.28.0"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
@@ -107,6 +107,7 @@ from cwsandbox.exceptions import (
     SandboxFileError,
     SandboxLogReplayGapError,
     SandboxLogResumeError,
+    SandboxNameInUseError,
     SandboxNotFoundError,
     SandboxNotRunningError,
     SandboxProtocolError,
@@ -414,6 +415,7 @@ __all__ = [
     "SandboxFileType",
     "SandboxLogReplayGapError",
     "SandboxLogResumeError",
+    "SandboxNameInUseError",
     "SandboxNotFoundError",
     "SandboxNotRunningError",
     "SandboxPage",

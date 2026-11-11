@@ -60,6 +60,8 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateProfileAssociationRequestTypeDef,
+    UpdateProfileAssociationResponseTypeDef,
     UpdateProfileResourceAssociationRequestTypeDef,
     UpdateProfileResourceAssociationResponseTypeDef,
 )
@@ -133,7 +135,7 @@ class Route53ProfilesClient(BaseClient):
         self, **kwargs: Unpack[AssociateResourceToProfileRequestTypeDef]
     ) -> AssociateResourceToProfileResponseTypeDef:
         """
-        Associates a DNS reource configuration to a Route 53 Profile.
+        Associates a DNS resource configuration to a Route 53 Profile.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53profiles/client/associate_resource_to_profile.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53profiles/client/#associate_resource_to_profile)
@@ -263,6 +265,17 @@ class Route53ProfilesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53profiles/client/untag_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53profiles/client/#untag_resource)
+        """
+
+    def update_profile_association(
+        self, **kwargs: Unpack[UpdateProfileAssociationRequestTypeDef]
+    ) -> UpdateProfileAssociationResponseTypeDef:
+        """
+        Updates the name or priority of the specified Route 53 Profile association with
+        a VPC.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53profiles/client/update_profile_association.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53profiles/client/#update_profile_association)
         """
 
     def update_profile_resource_association(

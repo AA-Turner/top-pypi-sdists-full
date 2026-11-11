@@ -1,0 +1,1371 @@
+"""The two CLIs' ``--json`` outputs are one shape.
+
+Every verb both CLIs share that prints JSON is run through the Python CLI
+(in-process) and the native binary on the same files; each output must parse
+as strict JSON (no bare ``NaN``), and the two must agree -- the same keys, the
+same strings, integers, booleans and nulls, and floats within a tolerance -- as
+must the exit codes. The native binary is found through
+``MESHIOPLUSPLUS_NATIVE_CLI`` or under ``build/``; without one, the parity half
+is skipped and only the Python half's validity is checked.
+"""
+
+import contextlib
+import glob
+import io
+import json
+import math
+import os
+import subprocess
+
+import numpy as np
+import pytest
+
+import meshioplusplus as mio
+from meshioplusplus._regions import Region
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Keys only the Python CLI reports (documented in doc/cli.md#json-output).
+PYTHON_ONLY = {"sets"}
+
+
+def _native_cli():
+    env = os.environ.get("MESHIOPLUSPLUS_NATIVE_CLI")
+    if env and os.path.isfile(env):
+        return env
+    found = [
+        p
+        for p in glob.glob(os.path.join(ROOT, "build", "*", "meshioplusplus"))
+        if os.path.isfile(p) and os.access(p, os.X_OK)
+    ]
+    return max(found, key=os.path.getmtime) if found else None
+
+
+NATIVE = _native_cli()
+
+
+def _python(args):
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        code = mio._cli.main(args)
+    return code or 0, out.getvalue()
+
+
+def _native(args):
+    r = subprocess.run([NATIVE, *args], capture_output=True, text=True)
+    return r.returncode, r.stdout
+
+
+def _strict(text):
+    def reject(token):
+        raise ValueError(f"non-standard JSON constant {token}")
+
+    return json.loads(text, parse_constant=reject)
+
+
+def _same(a, b, path="$"):
+    if isinstance(a, dict) and isinstance(b, dict):
+        ka = set(a) - PYTHON_ONLY
+        kb = set(b) - PYTHON_ONLY
+        assert (
+            ka == kb
+        ), f"{path}: keys differ: python-only {ka - kb}, native-only {kb - ka}"
+        for k in ka:
+            _same(a[k], b[k], f"{path}.{k}")
+    elif isinstance(a, list) and isinstance(b, list):
+        assert len(a) == len(b), f"{path}: lengths {len(a)} != {len(b)}"
+        for i, (x, y) in enumerate(zip(a, b)):
+            _same(x, y, f"{path}[{i}]")
+    elif isinstance(a, bool) or isinstance(b, bool) or a is None or b is None:
+        assert a == b, f"{path}: {a!r} != {b!r}"
+    elif isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        assert math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-12), f"{path}: {a} != {b}"
+    else:
+        assert a == b, f"{path}: {a!r} != {b!r}"
+
+
+@pytest.fixture(scope="module")
+def files(tmp_path_factory):
+    d = tmp_path_factory.mktemp("cli_json")
+    n = 3
+    xs, ys = np.meshgrid(np.arange(n + 1.0), np.arange(n + 1.0))
+    pts = np.column_stack([xs.ravel(), ys.ravel(), np.zeros(xs.size)])
+    quads = np.array(
+        [
+            [
+                j * (n + 1) + i,
+                j * (n + 1) + i + 1,
+                (j + 1) * (n + 1) + i + 1,
+                (j + 1) * (n + 1) + i,
+            ]
+            for j in range(n)
+            for i in range(n)
+        ]
+    )
+    grid = mio.Mesh(
+        pts,
+        [("quad", quads)],
+        point_data={"u": pts[:, 0] * 2.0},
+        cell_data={"c": [np.arange(len(quads), dtype=float)]},
+    )
+    moved = mio.Mesh(pts + [0.0, 0.0, 0.25], [("quad", quads)])
+    tagged = mio.Mesh(pts, [("quad", quads)])
+    tagged.regions = [
+        Region("left", "point", [0, 4, 8, 12]),
+        Region("right", "point", [3, 7, 11, 15]),
+        Region("a", "cell", [0, 1, 2]),
+        Region("b", "cell", [2, 3]),
+    ]
+    parts = mio.Mesh(
+        np.array(
+            [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1]],
+            dtype=float,
+        ),
+        [
+            (
+                "tetra",
+                np.array([[0, 1, 2, 3], [0, 2, 1, 4]], dtype=np.int64),
+            )
+        ],
+        regions=[
+            Region("upper", "cell", [0], dim=3),
+            Region("lower", "cell", [1], dim=3),
+            Region("slave", "point", [0]),
+            Region("cut", "side", [[0, 3]]),
+        ],
+    )
+    paths = {
+        "grid": str(d / "grid.vtu"),
+        "moved": str(d / "moved.vtu"),
+        "tagged": str(d / "tagged.inp"),
+        "parts": str(d / "parts.vtu"),
+    }
+    # a 3x3x3 hexahedral block, for agglomerate
+    xs, ys, zs = np.meshgrid(*(np.arange(n + 1.0),) * 3, indexing="ij")
+    hpts = np.column_stack([xs.ravel(), ys.ravel(), zs.ravel()])
+
+    def vid(i, j, k):
+        return (i * (n + 1) + j) * (n + 1) + k
+
+    hexes = np.array(
+        [
+            [
+                vid(i, j, k),
+                vid(i + 1, j, k),
+                vid(i + 1, j + 1, k),
+                vid(i, j + 1, k),
+                vid(i, j, k + 1),
+                vid(i + 1, j, k + 1),
+                vid(i + 1, j + 1, k + 1),
+                vid(i, j + 1, k + 1),
+            ]
+            for i in range(n)
+            for j in range(n)
+            for k in range(n)
+        ]
+    )
+    # two tetrahedra over one face: valid when the apexes are on opposite sides
+    paths["tets"] = str(d / "tets.vtu")
+    tpts = np.array(
+        [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1]], dtype=float
+    )
+    mio.write(
+        paths["tets"],
+        mio.Mesh(tpts, [("tetra", np.array([[0, 1, 2, 3], [0, 2, 1, 4]]))]),
+    )
+    paths["hexes"] = str(d / "hexes.vtu")
+    mio.write(paths["hexes"], mio.Mesh(hpts, [("hexahedron", hexes)]))
+    # the two tetrahedra of `parts` stored as polyhedra, for poly-to-tet
+    paths["polys"] = str(d / "polys.vtu")
+    mio.write(
+        paths["polys"],
+        mio.Mesh(
+            parts.points,
+            [
+                (
+                    "polyhedron4",
+                    [
+                        [[0, 2, 1], [0, 1, 3], [1, 2, 3], [0, 3, 2]],
+                        [[0, 1, 2], [0, 4, 1], [1, 4, 2], [0, 2, 4]],
+                    ],
+                )
+            ],
+        ),
+    )
+    # a two-step sequence (times 0 and 1 by index), for resample
+    for k in range(2):
+        mio.write(
+            str(d / f"seq_{k}.vtu"),
+            mio.Mesh(pts, [("quad", quads)], point_data={"u": pts[:, 0] + 10.0 * k}),
+        )
+    paths["seq"] = str(d / "seq_*.vtu")
+    # two quadratic tetrahedra with a point field, for tessellate
+    curved = mio.convert_cells(
+        mio.Mesh(parts.points, [("tetra", parts.cells[0].data)]), mode="elevate"
+    )
+    curved.point_data["u"] = curved.points[:, 0] + 2.0 * curved.points[:, 2]
+    paths["curved"] = str(d / "curved.vtu")
+    mio.write(paths["curved"], curved)
+    mio.write(paths["grid"], grid)
+    # a tetrahedral cube whose top face is displaced, for morph
+    cube = mio.convert_cells(
+        mio.Mesh(
+            np.array(
+                [
+                    [i, j, k]
+                    for k in (0, 0.5, 1)
+                    for j in (0, 0.5, 1)
+                    for i in (0, 0.5, 1)
+                ],
+                dtype=float,
+            ),
+            [
+                (
+                    "hexahedron",
+                    np.array(
+                        [
+                            [a, a + 1, a + 4, a + 3, a + 9, a + 10, a + 13, a + 12]
+                            for a in (0, 1, 3, 4, 9, 10, 12, 13)
+                        ]
+                    ),
+                )
+            ],
+        ),
+        mode="simplexify",
+    )
+    lift = np.zeros((len(cube.points), 3))
+    lift[cube.points[:, 2] == 1.0, 2] = 0.1
+    cube.point_data["d"] = lift
+    paths["morphable"] = str(d / "morphable.vtu")
+    mio.write(paths["morphable"], cube)
+    # the same cube with its centre node pushed through a face, for untangle
+    tangled = cube.points.copy()
+    centre = int(np.argmin(np.linalg.norm(tangled - 0.5, axis=1)))
+    tangled[centre] = [0.5, 0.5, 0.92]
+    paths["tangled"] = str(d / "tangled.vtu")
+    # a triangulated square carrying two crossed 2-D metrics, for metric
+    sq = mio.convert_cells(mio.rectangle(dims=(6, 6)), mode="simplexify")
+    m2 = np.zeros((len(sq.points), 3))
+    m2[:, 0] = 1.0 + 900.0 * np.exp(-((sq.points[:, 0] - 0.5) ** 2) / 0.01)
+    m2[:, 2] = 1.0
+    m3 = m2[:, [2, 1, 0]].copy()
+    sq.point_data["a"] = m2
+    sq.point_data["b"] = m3
+    paths["metrics"] = str(d / "metrics.vtu")
+    mio.write(paths["metrics"], sq)
+    mio.write(paths["tangled"], mio.Mesh(tangled, cube.cells))
+    mio.write(paths["moved"], moved)
+    mio.write(paths["tagged"], tagged)
+    mio.write(paths["parts"], parts)
+    # NURBS models the repository already holds, for the iga verbs
+    meshes = os.path.join(ROOT, "tests", "python", "meshes")
+    paths["nurbs"] = os.path.join(meshes, "mfem", "nurbs", "pipe-nurbs.mesh")
+    paths["plate"] = os.path.join(meshes, "cad_json", "plate_with_hole.cad.json")
+    # two overlapping spheres, for find-intersections and thickness
+    paths["sphere_a"] = str(d / "sphere_a.vtu")
+    paths["sphere_b"] = str(d / "sphere_b.vtu")
+    mio.write(paths["sphere_a"], mio.icosa_sphere(1.0, 2))
+    paths["sphere_big"] = str(d / "sphere_big.vtu")
+    mio.write(paths["sphere_big"], mio.icosa_sphere(1.02, 2))
+    paths["sphere_dev"] = str(d / "sphere_dev.vtu")
+    try:
+        mio.write(
+            paths["sphere_dev"],
+            mio.deviation(mio.icosa_sphere(1.02, 2), mio.icosa_sphere(1.0, 2)),
+        )
+    except NotImplementedError:  # pragma: no cover - a core-less build
+        mio.write(paths["sphere_dev"], mio.icosa_sphere(1.02, 2))
+    mio.write(paths["sphere_b"], mio.icosa_sphere(1.0, 2, center=(1.0, 0.0, 0.0)))
+    paths["chained"] = str(d / "chained.vtu")
+    try:
+        mio.write(
+            paths["chained"],
+            mio.slice(mio.icosa_sphere(1.0, 2), (0, 0, 0.2), (0, 0, 1), chain=True),
+        )
+    except NotImplementedError:  # pragma: no cover - a core-less build
+        pass
+    paths["fitted"] = str(d / "fitted.vtu")
+    try:
+        mio.write(
+            paths["fitted"],
+            mio.fit_primitives(mio.segment(mio.extract_skin(mio.box((2, 2, 2))))),
+        )
+    except NotImplementedError:  # pragma: no cover - a core-less build
+        pass
+    paths["box_skin"] = str(d / "box_skin.vtu")
+    paths["box_solid"] = str(d / "box_solid.vtu")
+    try:
+        skin = mio.box_surface((3, 3, 3))
+        mio.write(paths["box_skin"], skin)
+        mio.write(paths["box_solid"], mio.fit_cad_iterate(skin, backend="native"))
+    except NotImplementedError:  # pragma: no cover - a core-less build
+        pass
+    paths["block"] = str(d / "block.vtu")
+    paths["block_spec"] = str(d / "block_spec.json")
+    paths["measured"] = str(d / "measured.vtu")
+    blk = mio.Mesh(
+        np.array(
+            [
+                [0, 0, 0],
+                [2, 0, 0],
+                [2, 3, 0],
+                [0, 3, 0],
+                [0, 0, 4],
+                [2, 0, 4],
+                [2, 3, 4],
+                [0, 3, 4],
+            ],
+            dtype=float,
+        ),
+        [
+            (
+                "quad",
+                np.array(
+                    [
+                        [0, 3, 2, 1],
+                        [4, 5, 6, 7],
+                        [0, 4, 7, 3],
+                        [1, 2, 6, 5],
+                        [0, 1, 5, 4],
+                        [3, 7, 6, 2],
+                    ]
+                ),
+            )
+        ],
+    )
+    blk.regions = [
+        mio.Region(n, "cell", np.array([k]))
+        for k, n in enumerate(["bottom", "top", "xmin", "xmax", "ymin", "ymax"])
+    ]
+    mio.write(paths["block"], blk)
+    import json as _json
+
+    with open(paths["block_spec"], "w") as f:
+        _json.dump(
+            {
+                "elements": [
+                    {"name": "A", "fit": "plane", "region": "bottom"},
+                    {"name": "B", "fit": "plane", "region": "xmax"},
+                    {"name": "C", "fit": "plane", "region": "ymin"},
+                    {"name": "T", "fit": "plane", "region": "top"},
+                ],
+                "dimensions": [{"type": "distance", "between": ["A", "T"]}],
+                "tolerances": [
+                    {"type": "perpendicularity", "feature": "B", "datum": "A"}
+                ],
+            },
+            f,
+        )
+    try:
+        mio.write(paths["measured"], mio.measure(blk, paths["block_spec"])[0])
+    except NotImplementedError:  # pragma: no cover - a core-less build
+        pass
+    paths["dir"] = str(d)
+    return paths
+
+
+CASES = [
+    ("info", lambda f: ["info", f["grid"], "--json"]),
+    ("info_fast", lambda f: ["info", f["grid"], "--fast", "--json"]),
+    ("info_regions", lambda f: ["info", f["tagged"], "--json"]),
+    ("quality", lambda f: ["quality", f["grid"], "--json"]),
+    (
+        "check_pass",
+        lambda f: ["check", f["grid"], "--require", "aspect_ratio <= 1.5", "--json"],
+    ),
+    (
+        "check_fail",
+        lambda f: ["check", f["grid"], "-r", "aspect_ratio <= 0.5 @ 10%", "--json"],
+    ),
+    ("check_conformity", lambda f: ["check-conformity", f["hexes"], "--json"]),
+    ("check_tetrahedra", lambda f: ["check-tetrahedra", f["tets"], "--json"]),
+    ("stats", lambda f: ["stats", f["grid"], "--json"]),
+    (
+        "iga_evaluate_nurbs",
+        lambda f: [
+            "iga-evaluate",
+            f["nurbs"],
+            "-p",
+            "0.3,0.7,0.4",
+            "-p",
+            "1,0.5,1.5",
+            "--patch",
+            "1",
+            "--derivatives",
+            "1",
+        ],
+    ),
+    (
+        "iga_evaluate_face",
+        lambda f: [
+            "iga-evaluate",
+            f["plate"],
+            "-p",
+            "0.5,0.5",
+            "-p",
+            "2,2",
+            "--derivatives",
+            "1",
+        ],
+    ),
+    ("diff_same", lambda f: ["diff", f["grid"], f["grid"], "--json"]),
+    ("diff_moved", lambda f: ["diff", f["grid"], f["moved"], "--json"]),
+    ("regions", lambda f: ["regions", f["tagged"], "--json"]),
+    ("data_info", lambda f: ["data", "info", f["grid"], "--json"]),
+    (
+        "hausdorff",
+        lambda f: ["hausdorff", f["grid"], f["moved"], "--max", "0.1", "--json"],
+    ),
+    (
+        "register",
+        lambda f: ["register", f["moved"], f["grid"], "--json"],
+    ),
+    (
+        "register_auto",
+        lambda f: [
+            "register",
+            f["sphere_big"],
+            f["sphere_a"],
+            "--initial",
+            "auto",
+            "--symmetric-check",
+            "--adaptive-trim",
+            "3",
+            "--json",
+        ],
+    ),
+    (
+        "register_landmarks",
+        lambda f: [
+            "register-landmarks",
+            "0,0,0;1,0,0;0,2,0",
+            "1,2,3;2,2,3;1,4,3",
+            "--json",
+        ],
+    ),
+    ("symmetry_plane", lambda f: ["symmetry-plane", f["sphere_a"], "--json"]),
+    (
+        "deviation_register",
+        lambda f: [
+            "deviation",
+            f["sphere_b"],
+            f["sphere_a"],
+            "--register",
+            "--json",
+        ],
+    ),
+    (
+        "find_intersections_clean",
+        lambda f: ["find-intersections", f["sphere_a"], "--json"],
+    ),
+    (
+        "find_intersections_two",
+        lambda f: [
+            "find-intersections",
+            f["sphere_a"],
+            "--other",
+            f["sphere_b"],
+            "--max-pairs",
+            "5",
+            "--json",
+        ],
+    ),
+    ("thickness", lambda f: ["thickness", f["sphere_a"], "--json"]),
+    ("fit_curves", lambda f: ["fit-curves", f["chained"], "--json"]),
+    (
+        "silhouette",
+        lambda f: [
+            "silhouette",
+            f["sphere_a"],
+            "--normal",
+            "1,2,3",
+            "--clearance",
+            "0.05",
+            "--json",
+        ],
+    ),
+    (
+        "thickness_sphere",
+        lambda f: [
+            "thickness",
+            f["sphere_a"],
+            "--method",
+            "sphere",
+            "--two-sided",
+            "--max-normal-deviation",
+            "60",
+            "--json",
+        ],
+    ),
+    (
+        "thickness_cone",
+        lambda f: [
+            "thickness",
+            f["sphere_a"],
+            "--method",
+            "cone",
+            "--cone-angle",
+            "20",
+            "--cone-rays",
+            "8",
+            "--json",
+        ],
+    ),
+    (
+        "thickness_clearance",
+        lambda f: [
+            "thickness",
+            f["sphere_a"],
+            "--other",
+            f["sphere_b"],
+            "--direction",
+            "inward",
+            "--min",
+            "0.5",
+            "--json",
+        ],
+    ),
+    (
+        "deviation",
+        lambda f: [
+            "deviation",
+            f["sphere_big"],
+            f["sphere_a"],
+            "--tolerance",
+            "0.05",
+            "--bins",
+            "8",
+            "--json",
+        ],
+    ),
+    (
+        "deviation_gate",
+        lambda f: [
+            "deviation",
+            f["sphere_big"],
+            f["sphere_a"],
+            "--tolerance",
+            "0.001",
+            "--min-share",
+            "0.5",
+            "--max-normal-angle",
+            "180",
+            "--json",
+        ],
+    ),
+    (
+        "periodic",
+        lambda f: [
+            "periodic",
+            f["tagged"],
+            "--slave",
+            "left",
+            "--master",
+            "right",
+            "--translate",
+            "3,0,0",
+            "--json",
+        ],
+    ),
+    (
+        "contact_pairs",
+        lambda f: [
+            "contact-pairs",
+            f["parts"],
+            f["parts"],
+            "--slave-region",
+            "slave",
+            "--master-region",
+            "lower",
+            "--tolerance",
+            "10",
+            "--json",
+        ],
+    ),
+]
+
+# Verbs that write a file: each CLI gets its own output path.
+WRITING = [
+    (
+        "exaggerate",
+        lambda f, out: [
+            "exaggerate",
+            f["sphere_dev"],
+            out + ".vtu",
+            "--scale",
+            "5",
+            "--json",
+        ],
+    ),
+    (
+        "colorize",
+        lambda f, out: [
+            "colorize",
+            f["sphere_dev"],
+            out + ".vtu",
+            "--field",
+            "deviation:distance",
+            "--steps",
+            "4",
+            "--json",
+        ],
+    ),
+    (
+        "deviation_regions",
+        lambda f, out: [
+            "deviation-regions",
+            f["sphere_dev"],
+            out + ".vtu",
+            "--tolerance",
+            "0.01",
+            "--json",
+        ],
+    ),
+    (
+        "extrude",
+        lambda f, out: [
+            "extrude",
+            f["grid"],
+            out + ".vtu",
+            "--direction=0,0,-2",
+            "--num-layers",
+            "3",
+            "--ratio",
+            "1.5",
+            "--json",
+        ],
+    ),
+    (
+        "revolve",
+        lambda f, out: [
+            "revolve",
+            f["grid"],
+            out + ".vtu",
+            "--angle",
+            "90",
+            "--num-layers",
+            "4",
+            "--json",
+        ],
+    ),
+    (
+        "mirror",
+        lambda f, out: [
+            "mirror",
+            f["hexes"],
+            out + ".vtu",
+            "--normal=1,0,0",
+            "--keep-original",
+            "--json",
+        ],
+    ),
+    (
+        "mirror_auto",
+        lambda f, out: [
+            "mirror",
+            f["sphere_a"],
+            out + ".vtu",
+            "--plane",
+            "auto",
+            "--json",
+        ],
+    ),
+    (
+        "auto_align",
+        lambda f, out: ["auto-align", f["sphere_b"], out + ".vtu", "--json"],
+    ),
+    (
+        "feature_edges",
+        lambda f, out: ["feature-edges", f["grid"], out + ".vtu", "--json"],
+    ),
+    (
+        "segment",
+        lambda f, out: ["segment", f["grid"], out + ".vtu", "--json"],
+    ),
+    (
+        "tessellate",
+        lambda f, out: ["tessellate", f["curved"], out + ".vtu", "--json"],
+    ),
+    (
+        "tessellate_options",
+        lambda f, out: [
+            "tessellate",
+            f["curved"],
+            out + ".vtu",
+            "--levels",
+            "1",
+            "--no-fields",
+            "--record-stencil",
+            "--json",
+        ],
+    ),
+    (
+        "measure",
+        lambda f, out: ["measure", f["block"], f["block_spec"], out + ".vtu", "--json"],
+    ),
+    (
+        "align_datums",
+        lambda f, out: [
+            "align-datums",
+            f["measured"],
+            out + ".vtu",
+            "--primary",
+            "A",
+            "--secondary",
+            "B",
+            "--origin",
+            "C",
+            "--json",
+        ],
+    ),
+    (
+        "deviation_element",
+        lambda f, out: [
+            "deviation",
+            f["block"],
+            f["measured"],
+            "--element",
+            "T",
+            "--json",
+        ],
+    ),
+    (
+        "remove_islands",
+        lambda f, out: ["remove-islands", f["sphere_a"], out + ".vtu", "--json"],
+    ),
+    (
+        "flip_normals",
+        lambda f, out: ["flip-normals", f["sphere_a"], out + ".vtu", "--json"],
+    ),
+    (
+        "clip",
+        lambda f, out: [
+            "clip",
+            f["sphere_a"],
+            out + ".vtu",
+            "--origin",
+            "0,0,0.1",
+            "--normal",
+            "0,0,1",
+            "--json",
+        ],
+    ),
+    (
+        "offset_surface",
+        lambda f, out: [
+            "offset-surface",
+            f["sphere_a"],
+            out + ".vtu",
+            "--distance",
+            "0.05",
+            "--json",
+        ],
+    ),
+    (
+        "thicken",
+        lambda f, out: [
+            "thicken",
+            f["sphere_a"],
+            out + ".vtu",
+            "--thickness",
+            "0.05",
+            "--side",
+            "both",
+            "--json",
+        ],
+    ),
+    (
+        "hollow",
+        lambda f, out: [
+            "hollow",
+            f["sphere_a"],
+            out + ".vtu",
+            "--wall",
+            "0.05",
+            "--json",
+        ],
+    ),
+    (
+        "constrain_primitives",
+        lambda f, out: ["constrain-primitives", f["fitted"], out + ".vtu", "--json"],
+    ),
+    (
+        "face_support",
+        lambda f, out: ["face-support", f["box_solid"], f["box_skin"], "--json"],
+    ),
+    (
+        "fit_cad_iterate",
+        lambda f, out: [
+            "fit-cad-iterate",
+            f["box_skin"],
+            out + ".vtu",
+            "--backend",
+            "native",
+            "--json",
+        ],
+    ),
+    (
+        "step_elements",
+        lambda f, out: ["step-elements", f["fitted"], out + ".step", "--json"],
+    ),
+    (
+        "fit_primitives",
+        lambda f, out: [
+            "fit-primitives",
+            f["grid"],
+            out + ".vtu",
+            "--patch-data",
+            "",
+            "--json",
+        ],
+    ),
+    (
+        "iga_refine_nurbs",
+        lambda f, out: [
+            "iga-refine",
+            f["nurbs"],
+            out + ".mesh",
+            "-o",
+            "mfem",
+            "-s",
+            "2",
+            "-e",
+            "1",
+            "--json",
+        ],
+    ),
+    (
+        "iga_refine_face",
+        lambda f, out: [
+            "iga-refine",
+            f["plate"],
+            out + ".cad.json",
+            "-s",
+            "2,3",
+            "-e",
+            "0,1",
+            "--json",
+        ],
+    ),
+    (
+        "iga_sample_face",
+        lambda f, out: [
+            "iga-sample",
+            f["plate"],
+            out + ".vtu",
+            "-s",
+            "4",
+            "--json",
+        ],
+    ),
+    (
+        "mesh_cad_surface_face",
+        lambda f, out: [
+            "mesh-cad-surface",
+            f["plate"],
+            out + ".vtu",
+            "--size",
+            "0.5",
+            "--deflection",
+            "0.01",
+            "--json",
+        ],
+    ),
+    (
+        "mesh_cad_surface_refined",
+        lambda f, out: [
+            "mesh-cad-surface",
+            f["plate"],
+            out + ".vtu",
+            "--size",
+            "0.5",
+            "--min-angle",
+            "25",
+            "--smooth",
+            "1",
+            "--smooth-method",
+            "odt",
+            "--json",
+        ],
+    ),
+    (
+        "mesh_cad_surface_curved",
+        lambda f, out: [
+            "mesh-cad-surface",
+            f["plate"],
+            out + ".msh",
+            "--size",
+            "0.5",
+            "--order",
+            "3",
+            "--json",
+        ],
+    ),
+    (
+        "region_adjacency",
+        lambda f, out: ["region-adjacency", f["tagged"], out + ".vtu", "--json"],
+    ),
+    (
+        "find_interface",
+        lambda f, out: [
+            "find-interface",
+            f["parts"],
+            out + ".vtu",
+            "--region-a",
+            "upper",
+            "--region-b",
+            "lower",
+            "--json",
+        ],
+    ),
+    (
+        "split_interface",
+        lambda f, out: [
+            "split-interface",
+            f["parts"],
+            out + ".vtu",
+            "--side-region",
+            "cut",
+            "--add-cohesive",
+            "--json",
+        ],
+    ),
+    ("convert", lambda f, out: ["convert", f["grid"], out + ".vtk", "--json"]),
+    (
+        "agglomerate",
+        lambda f, out: [
+            "agglomerate",
+            f["hexes"],
+            out + ".vtu",
+            "--merge-coplanar-faces",
+            "--min-sphericity",
+            "0.3",
+            "--json",
+        ],
+    ),
+    (
+        "tet_to_poly",
+        lambda f, out: [
+            "tet-to-poly",
+            f["parts"],
+            out + ".vtu",
+            "--record-vertex-ids",
+            "--json",
+        ],
+    ),
+    (
+        "poly_to_tet",
+        lambda f, out: ["poly-to-tet", f["polys"], out + ".vtu", "--json"],
+    ),
+    (
+        "resample",
+        lambda f, out: [
+            "resample",
+            f["seq"],
+            out + "_{index}.vtu",
+            "--time-from",
+            "index",
+            "--times",
+            "0:1:0.25",
+            "--json",
+        ],
+    ),
+    (
+        "resample_times_from",
+        lambda f, out: [
+            "resample",
+            f["seq"],
+            out + "_{index}.vtu",
+            "--time-from",
+            "index",
+            "--times-from",
+            f["seq"],
+            "--json",
+        ],
+    ),
+    (
+        "resample_nearest",
+        lambda f, out: [
+            "resample",
+            f["seq"],
+            out + "_{index}.vtu",
+            "--time-from",
+            "index",
+            "--times",
+            "0.2,0.9",
+            "--method",
+            "nearest",
+            "--json",
+        ],
+    ),
+    (
+        "metric",
+        lambda f, out: [
+            "metric",
+            f["metrics"],
+            out + ".vtu",
+            "--arrays",
+            "a,b",
+            "--target-vertices",
+            "200",
+            "--hmin",
+            "0.01",
+            "--hmax",
+            "0.5",
+            "--gradation",
+            "1.5",
+            "--json",
+        ],
+    ),
+    (
+        "untangle",
+        lambda f, out: ["untangle", f["tangled"], out + ".vtu", "--json"],
+    ),
+    (
+        "morph",
+        lambda f, out: [
+            "morph",
+            f["morphable"],
+            out + ".vtu",
+            "--array",
+            "d",
+            "--steps",
+            "2",
+            "--json",
+        ],
+    ),
+    (
+        "eigenmodes",
+        lambda f, out: ["eigenmodes", f["sphere_a"], out + ".vtu", "-k", "4", "--json"],
+    ),
+    (
+        "point-normals",
+        lambda f, out: [
+            "point-normals",
+            f["sphere_a"],
+            out + ".vtu",
+            "--k",
+            "8",
+            "--json",
+        ],
+    ),
+    (
+        "reconstruct",
+        lambda f, out: [
+            "reconstruct",
+            f["sphere_a"],
+            out + ".vtu",
+            "--resolution",
+            "16",
+            "--json",
+        ],
+    ),
+    (
+        "hull",
+        lambda f, out: ["hull", f["sphere_a"], out + ".vtu", "--json"],
+    ),
+    (
+        "hull-2d",
+        lambda f, out: [
+            "hull",
+            f["sphere_a"],
+            out + ".vtu",
+            "--dimension",
+            "2",
+            "--json",
+        ],
+    ),
+    (
+        "delaunay",
+        lambda f, out: ["delaunay", f["sphere_a"], out + ".vtu", "--json"],
+    ),
+    (
+        "coordinates",
+        lambda f, out: [
+            "coordinates",
+            f["sphere_a"],
+            out + ".vtu",
+            "--system",
+            "spherical",
+            "--axis",
+            "1,0,0",
+            "--json",
+        ],
+    ),
+    (
+        "geodesic",
+        lambda f, out: [
+            "geodesic",
+            f["sphere_a"],
+            out + ".vtu",
+            "--source",
+            "0,3",
+            "--json",
+        ],
+    ),
+    (
+        "parameterize",
+        lambda f, out: [
+            "parameterize",
+            f["sphere_a"],
+            out + ".obj",
+            "--padding",
+            "0.05",
+            "--json",
+        ],
+    ),
+    (
+        "graph_cell",
+        lambda f, out: [
+            "graph",
+            f["hexes"],
+            out + ".graph",
+            "--kind",
+            "cell",
+            "--json",
+        ],
+    ),
+    (
+        "graph_clique_scotch",
+        lambda f, out: [
+            "graph",
+            f["hexes"],
+            out + ".txt",
+            "--kind",
+            "clique",
+            "--format",
+            "scotch",
+            "--json",
+        ],
+    ),
+    (
+        "regions_edit",
+        lambda f, out: [
+            "regions",
+            f["tagged"],
+            out + ".inp",
+            "--union",
+            "ab=a,b",
+            "--json",
+        ],
+    ),
+    (
+        "octree_mesh_castellated",
+        lambda f, out: [
+            "octree-mesh",
+            f["hexes"],
+            out + ".vtu",
+            "--output",
+            "castellated",
+            "--max-size",
+            "1",
+            "--min-size",
+            "0.25",
+            "--fill",
+            "cover",
+            "--json",
+        ],
+    ),
+]
+
+
+def _run_both(args_py, args_native):
+    code_py, text_py = _python(args_py)
+    doc_py = _strict(text_py)
+    if NATIVE is None:
+        return code_py, doc_py, None, None
+    code_n, text_n = _native(args_native)
+    return code_py, doc_py, code_n, _strict(text_n)
+
+
+@pytest.mark.parametrize("name, build", CASES, ids=[c[0] for c in CASES])
+def test_json_output_agrees(files, name, build):
+    code_py, doc_py, code_n, doc_n = _run_both(build(files), build(files))
+    if NATIVE is None:
+        pytest.skip("no native CLI binary built; checked the Python output only")
+    assert code_py == code_n
+    _same(doc_py, doc_n)
+
+
+@pytest.mark.parametrize("name, build", WRITING, ids=[w[0] for w in WRITING])
+def test_json_output_of_writing_verbs_agrees(files, name, build):
+    base = os.path.join(files["dir"], name)
+    args_py = build(files, base + "_py")
+    args_n = build(files, base + "_native")
+    code_py, doc_py, code_n, doc_n = _run_both(args_py, args_n)
+    if NATIVE is None:
+        pytest.skip("no native CLI binary built; checked the Python output only")
+    assert code_py == code_n
+    for doc in (doc_py, doc_n):
+        if isinstance(doc, dict) and "output" in doc:
+            doc["output"] = "<out>"
+    _same(doc_py, doc_n)
+
+
+@pytest.mark.parametrize("kind", ["node", "clique", "cell"])
+@pytest.mark.parametrize("ext", [".graph", ".grf"])
+def test_graph_files_agree(files, kind, ext):
+    base = os.path.join(files["dir"], f"graph_{kind}")
+    py_out, native_out = base + "_py" + ext, base + "_native" + ext
+    code, _ = _python(["graph", files["hexes"], py_out, "--kind", kind])
+    assert code == 0
+    if NATIVE is None:
+        pytest.skip("no native CLI binary built; checked the Python output only")
+    assert _native(["graph", files["hexes"], native_out, "--kind", kind])[0] == 0
+    with open(py_out, "rb") as a, open(native_out, "rb") as b:
+        assert a.read() == b.read()
+
+
+def test_json_is_strict_even_with_nan(files, capsys):
+    # a metric that is NaN everywhere prints null, never a bare NaN
+    code, text = _python(["quality", files["grid"], "--json"])
+    doc = _strict(text)
+    assert code == 0
+    # min_angle is not defined for quads: count 0, and min/max/mean are null
+    assert doc["metrics"]["quality:min_angle"]["count"] == 0
+    assert doc["metrics"]["quality:min_angle"]["min"] is None
+
+
+def test_check_exit_codes(files, tmp_path):
+    assert _python(["check", files["grid"], "-r", "aspect_ratio <= 1.5"])[0] == 0
+    assert _python(["check", files["grid"], "-r", "aspect_ratio <= 0.5"])[0] == 1
+    assert _python(["check", files["grid"], "-r", "bogus >= 1"])[0] == 2
+    assert _python(["check", str(tmp_path / "missing.vtu")])[0] == 2
+    gate = tmp_path / "gate.txt"
+    gate.write_text("# the part's gate\nskewness <= 0.1\naspect_ratio <= 1.5 @ 5%\n")
+    assert _python(["check", files["grid"], "--gate", str(gate)])[0] == 0
+    if NATIVE is not None:
+        assert _native(["check", files["grid"], "-r", "aspect_ratio <= 0.5"])[0] == 1
+        assert _native(["check", files["grid"], "-r", "bogus >= 1"])[0] == 2
+        assert _native(["check", files["grid"], "--gate", str(gate)])[0] == 0
+
+
+def test_check_conformity_exit_codes(files, tmp_path):
+    # A coarse quad beside two fine ones: one T-junction, exit 1.
+    pts = np.array(
+        [[0, 0], [1, 0], [1, 1], [0, 1], [2, 0], [2, 0.5], [2, 1], [1, 0.5]],
+        dtype=float,
+    )
+    quads = np.array([[0, 1, 2, 3], [1, 4, 5, 7], [7, 5, 6, 2]])
+    t = str(tmp_path / "t.vtu")
+    mio.write(t, mio.Mesh(pts, [("quad", quads)]))
+    assert _python(["check-conformity", files["hexes"]])[0] == 0
+    assert _python(["check-conformity", t])[0] == 1
+    flagged = str(tmp_path / "flags.vtu")
+    assert _python(["check-conformity", t, flagged])[0] == 1
+    assert list(np.nonzero(mio.read(flagged).point_data["conformity:hanging"])[0]) == [
+        7
+    ]
+    assert _python(["check-conformity", str(tmp_path / "missing.vtu")])[0] == 2
+    if NATIVE is not None:
+        assert _native(["check-conformity", files["hexes"]])[0] == 0
+        assert _native(["check-conformity", t])[0] == 1
+        assert _native(["check-conformity", str(tmp_path / "missing.vtu")])[0] == 2
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        [],
+        ["--no-freeform-split", "--no-fillets", "--no-threads"],
+        [
+            "--freeform-general",
+            "--max-freeform-poles",
+            "20",
+            "--sew-tolerance",
+            "0",
+            "--extend-surfaces",
+            "--snap-junctions",
+            "--face-deviation",
+            "--refine",
+        ],
+        ["--constrain-primitives"],
+    ],
+)
+def test_to_cad_json_agrees(tmp_path, flags):
+    from meshioplusplus._fit_cad import has_occt
+
+    if not has_occt():
+        pytest.skip("needs a core built with OpenCASCADE")
+    pts = np.array(
+        [[x, y, z] for z in (0.0, 1.0) for y in (0.0, 1.0) for x in (0.0, 1.0)]
+    )
+    quads = np.array(
+        [
+            [0, 2, 3, 1],
+            [4, 5, 7, 6],
+            [0, 1, 5, 4],
+            [2, 6, 7, 3],
+            [0, 4, 6, 2],
+            [1, 3, 7, 5],
+        ]
+    )
+    src = str(tmp_path / "cube.vtu")
+    mio.write(src, mio.Mesh(pts, [("quad", quads)]))
+    code_py, text_py = _python(
+        ["to-cad", src, str(tmp_path / "py.step"), *flags, "--json"]
+    )
+    doc_py = _strict(text_py)
+    assert code_py == 0
+    assert doc_py["num_plane"] == 6
+    for key in (
+        "num_split_patches",
+        "num_fillet",
+        "num_helical",
+        "num_variable_fillet",
+        "num_blend",
+        "num_rounded_thread",
+        "num_vertex_blend",
+        "num_chamfer",
+        "num_conic_blend",
+        "num_tapered_thread",
+        "num_variable_pitch_thread",
+    ):
+        assert doc_py[key] == 0
+    if NATIVE is None:
+        pytest.skip("no native CLI binary built; checked the Python output only")
+    r = subprocess.run(
+        [NATIVE, "to-cad", src, str(tmp_path / "native.step"), *flags, "--json"],
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0 and "MESHIOPLUSPLUS_WITH_OCCT" in r.stderr:
+        pytest.skip("the native CLI was built without OpenCASCADE")
+    assert r.returncode == code_py
+    _same(doc_py, _strict(r.stdout))
+
+
+def test_find_intersections_and_thickness_exit_codes(files, tmp_path):
+    a, b = files["sphere_a"], files["sphere_b"]
+    assert _python(["find-intersections", a])[0] == 0
+    flags = str(tmp_path / "flags.vtu")
+    segs = str(tmp_path / "segs.vtu")
+    assert (
+        _python(["find-intersections", a, flags, "--other", b, "--segments", segs])[0]
+        == 1
+    )
+    assert np.concatenate(mio.read(flags).cell_data["intersections:count"]).sum() > 0
+    assert len(mio.read(segs).cells[0].data) > 0
+    assert _python(["find-intersections", str(tmp_path / "missing.vtu")])[0] == 2
+    assert _python(["thickness", a, "--min", "1.0"])[0] == 0
+    assert _python(["thickness", a, "--min", "3.0"])[0] == 1
+    if NATIVE is not None:
+        assert _native(["find-intersections", a])[0] == 0
+        assert _native(["find-intersections", a, "--other", b])[0] == 1
+        assert _native(["find-intersections", str(tmp_path / "missing.vtu")])[0] == 2
+        assert _native(["thickness", a, "--min", "3.0"])[0] == 1
+
+
+def test_check_tetrahedra_exit_codes(files, tmp_path):
+    # 0 valid, 1 not valid, 2 could not check.
+    assert _python(["check-tetrahedra", files["tets"]])[0] == 0
+    pts = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0.2, 0.2, 0.5]], float)
+    bad = str(tmp_path / "overlap.vtu")
+    mio.write(bad, mio.Mesh(pts, [("tetra", np.array([[0, 1, 2, 3], [0, 1, 2, 4]]))]))
+    missing = str(tmp_path / "missing.vtu")
+    assert _python(["check-tetrahedra", bad])[0] == 1
+    assert _python(["check-tetrahedra", missing])[0] == 2
+    if NATIVE is not None:
+        assert _native(["check-tetrahedra", files["tets"]])[0] == 0
+        assert _native(["check-tetrahedra", bad])[0] == 1
+        assert _native(["check-tetrahedra", missing])[0] == 2

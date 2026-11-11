@@ -82,6 +82,7 @@ from ._error import (
     DBOSWorkflowConflictIDError,
     DBOSWorkflowFunctionNotFoundError,
     DBOSWorkflowIDInUseError,
+    DBOSWorkflowSuspendedError,
     MaxRecoveryAttemptsExceededError,
 )
 from ._event_loop import retrieve_future_exception
@@ -138,6 +139,7 @@ if TYPE_CHECKING:
     from opentelemetry.context import Context as OtelContext
 
     from ._dbos import DBOS, DBOSRegistry, WorkflowHandle, WorkflowHandleAsync
+    from ._enterprise import Suspend
 
 
 P = ParamSpec("P")  # A generic type for workflow parameters
@@ -213,7 +215,11 @@ class WorkflowHandleFuture(Generic[R]):
             try:
                 r = self.future.result()
             # If the handle was cancelled, check the database
-            except (DBOSWorkflowCancelledError, DBOSAwaitedWorkflowCancelledError):
+            except (
+                DBOSWorkflowCancelledError,
+                DBOSAwaitedWorkflowCancelledError,
+                DBOSWorkflowSuspendedError,
+            ):
                 r = self.dbos._sys_db.await_workflow_result(
                     self.workflow_id, polling_interval_sec
                 )
@@ -327,7 +333,11 @@ class WorkflowHandleAsyncTask(Generic[R]):
                 # A cancelled waiter must not cancel the shared result future.
                 r = await asyncio.shield(self.task)
             # If the handle was cancelled, check the database
-            except (DBOSWorkflowCancelledError, DBOSAwaitedWorkflowCancelledError):
+            except (
+                DBOSWorkflowCancelledError,
+                DBOSAwaitedWorkflowCancelledError,
+                DBOSWorkflowSuspendedError,
+            ):
                 r = await self.dbos._sys_db.await_workflow_result_async(
                     self.workflow_id, polling_interval_sec
                 )
@@ -943,6 +953,10 @@ def _get_wf_invoke_func(
             return adopt_recorded_outcome(
                 f"Workflow {status['workflow_uuid']} is no longer owned by this execution. Waiting for the owner's recorded outcome"
             )
+        except DBOSWorkflowSuspendedError:
+            # The workflow is parked in the database; free this slot and exit.
+            release_active()
+            raise
         except DBOSWorkflowCancelledError:
             # The run observed its own cancellation. Park the execution.
             return adopt_recorded_outcome(
@@ -2132,33 +2146,61 @@ def workflow_wrapper(
             """
             try:
                 r = func()
+            except DBOSWorkflowSuspendedError:
+                # The child parked itself in the database. Wait for its outcome, as
+                # handle.get_result() does, instead of letting the error strand the parent.
+                return cast(R, await_suspended_child())
             except Exception as e:
+                record_child_outcome(None, e)
+                raise
+            record_child_outcome(r, None)
+            return r
+
+        def await_suspended_child() -> DeferredResult[Any]:
+            assert workflow_id is not None
+            deferred = _deferred_workflow_result(
+                dbos, workflow_id, shard_key=child_shard_key
+            )
+
+            def wait() -> Any:
+                try:
+                    r = deferred.resolve()
+                except Exception as e:
+                    record_child_outcome(None, e)
+                    raise
+                record_child_outcome(r, None)
+                return r
+
+            async def wait_async() -> Any:
+                try:
+                    r = await deferred.resolve_async()
+                except Exception as e:
+                    await asyncio.to_thread(record_child_outcome, None, e)
+                    raise
+                await asyncio.to_thread(record_child_outcome, r, None)
+                return r
+
+            return DeferredResult(wait, wait_async)
+
+        def record_child_outcome(r: Any, e: Optional[Exception]) -> None:
+            if e is not None:
+                serialized_r = None
                 serialized_e, serialization = serialize_exception(
                     e, None, dbos._serializer
                 )
-                assert workflow_id is not None
-                with bind_shard_keys({workflow_id: child_shard_key}):
-                    dbos._sys_db.record_get_result(
-                        workflow_id,
-                        None,
-                        serialized_e,
-                        serialization,
-                        resctx,
-                        started_at_epoch_ms=get_result_start_time,
-                    )
-                raise
-            serialized_r, serialization = serialize_value(r, None, dbos._serializer)
+            else:
+                serialized_e = None
+                serialized_r, serialization = serialize_value(r, None, dbos._serializer)
             assert workflow_id is not None
             with bind_shard_keys({workflow_id: child_shard_key}):
                 dbos._sys_db.record_get_result(
                     workflow_id,
                     serialized_r,
-                    None,
+                    serialized_e,
                     serialization,
                     resctx,
                     started_at_epoch_ms=get_result_start_time,
                 )
-            return r
 
         outcome = (
             wfOutcome.wrap(get_wf_invoke, dbos=dbos)
@@ -2871,6 +2913,28 @@ def record_sleep(
     else:
         # Cannot call it from outside of a workflow
         raise DBOSException("sleep() must be called from within a workflow")
+
+
+def suspend_hooks(dbos: "DBOS", op: str) -> "Suspend":
+    hooks = dbos._sys_db.suspend
+    if hooks is None:
+        raise DBOSException(
+            f"{op}(suspend=True) requires suspend mode, a Transact Enterprise "
+            "feature: set suspend_mode to True in the DBOS configuration."
+        )
+    return hooks
+
+
+def record_sleep_suspend(
+    dbos: "DBOS", cur_ctx: Optional["DBOSContext"], seconds: float
+) -> float:
+    """Park the workflow for a suspend-mode sleep, or return the seconds to sleep in place."""
+    if cur_ctx is None or not cur_ctx.is_workflow():
+        raise DBOSException("sleep() must be called from within a workflow")
+    hooks = suspend_hooks(dbos, "sleep")
+    attributes: TracedAttributes = {"name": "sleep"}
+    with EnterDBOSStepCtx(attributes, cur_ctx) as ctx:
+        return hooks.sleep_suspend(ctx.workflow_id, ctx.curr_step_function_id, seconds)
 
 
 def write_stream(

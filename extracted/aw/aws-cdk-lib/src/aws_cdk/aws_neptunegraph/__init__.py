@@ -246,6 +246,15 @@ class CfnGraph(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrCreateTime")
+    def attr_create_time(self) -> builtins.str:
+        '''The time at which the graph was created.
+
+        :cloudformationAttribute: CreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreateTime"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrEndpoint")
     def attr_endpoint(self) -> builtins.str:
         '''The connection endpoint for the graph.
@@ -277,6 +286,15 @@ class CfnGraph(
         :cloudformationAttribute: GraphId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrGraphId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the graph.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")

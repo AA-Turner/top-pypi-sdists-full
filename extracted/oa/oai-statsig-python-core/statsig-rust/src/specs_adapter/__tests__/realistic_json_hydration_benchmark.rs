@@ -1,4 +1,3 @@
-// Child module of json_hydration_preparation_tests.rs. Identical on both revisions.
 use super::*;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -8,6 +7,7 @@ use std::time::Instant;
 
 #[derive(Deserialize)]
 struct Manifest {
+    schema_version: Option<u32>,
     scenarios: Vec<Scenario>,
     blobs: Vec<BlobFile>,
 }
@@ -119,6 +119,14 @@ async fn realistic_json_hydration_benchmark() {
     let manifest: Manifest =
         serde_json::from_slice(&std::fs::read(manifest_path).unwrap()).unwrap();
     let case = std::env::var("STATSIG_BENCH_CASE").unwrap();
+    // Older bundles have a dedicated seed. Keep its fixture identity when replaying them.
+    let sequence_seed = if manifest.schema_version == Some(2)
+        && !manifest.scenarios.iter().any(|s| s.name == "sequence_seed")
+    {
+        "remote_observed"
+    } else {
+        "sequence_seed"
+    };
     // Each process measures precisely one case. Growth starts from the changed
     // snapshot, so its new-reference count matches the declared sequence.
     let (phase, target_name, seed_name, shared, capture) = match case.as_str() {
@@ -128,18 +136,18 @@ async fn realistic_json_hydration_benchmark() {
         "prepare_stream" => ("prepare", "remote_observed", None, false, false),
         "prepare_early" => ("prepare", "remote_early", None, true, false),
         "prepare_late" => ("prepare", "remote_late", None, true, false),
-        "cold_shared" => ("snapshot", "sequence_seed", None, true, false),
+        "cold_shared" => ("snapshot", sequence_seed, None, true, false),
         "reuse_shared" => (
             "snapshot",
             "sequence_reuse",
-            Some("sequence_seed"),
+            Some(sequence_seed),
             true,
             false,
         ),
         "reuse_stream" => (
             "snapshot",
             "sequence_reuse",
-            Some("sequence_seed"),
+            Some(sequence_seed),
             false,
             false,
         ),
@@ -160,7 +168,7 @@ async fn realistic_json_hydration_benchmark() {
         "reuse_capture" => (
             "snapshot",
             "sequence_reuse",
-            Some("sequence_seed"),
+            Some(sequence_seed),
             true,
             true,
         ),

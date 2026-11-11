@@ -7186,13 +7186,24 @@ Do What? [rms,rma,edit/e,<ENTER>/next,prev]"""
         batchd=Path('Batch')
         if batchd.exists() == False:
                 batchd.mkdir(parents=True)
+        barcode_or_code=Control(ptext="Barcode [default,True] or Code [False]:",helpText="encode Barcode, if True or default, or Code, if false.",data="boolean")
+        if barcode_or_code in BooleanAnswers.NONE:
+            return
+        if barcode_or_code in ['',' ','d']:
+            barcode_or_code=True
         with Session(ENGINE) as session:
             results=session.query(Entry).filter(Entry.InList==True)
             results=orderQuery(results,Entry.Timestamp)
             results=results.all()
             cta=len(results)
             for num,i in enumerate(results):
-                data=i.Barcode
+                if barcode_or_code == True:
+                    data=i.Barcode
+                elif barcode_or_code == False:
+                    data=i.Code
+                else:
+                    data=i.Barcode
+
                 final_out=str(batchd/Path(f"GENERATED_BCD_{num}"))
                 ct=len(SUPPORTEDOUT)
                 if cp2 is None:
@@ -7225,6 +7236,11 @@ Do What? [rms,rma,edit/e,<ENTER>/next,prev]"""
                         bcd_class=barcode.get_class(cp2)
 
                     cde=bcd_class(data,**options)
+                    readme=Path(str(final_out)+'.txt')
+                    with readme.open("w+") as rdm:
+                        rdm.write(i.seeShortRaw())
+                        print(f"'{readme}' written!")
+
                     cde.save(final_out)
                     print(f"Saved to '{final_out}'!")
                 except Exception as e:

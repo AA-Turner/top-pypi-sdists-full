@@ -1,5 +1,5 @@
 use statsig_rust::{
-    StatsigUser, dyn_value,
+    Statsig, StatsigOptions, StatsigUser, dyn_value,
     evaluation::dynamic_string::DynamicString,
     user::{
         StatsigUserInternal,
@@ -7,6 +7,7 @@ use statsig_rust::{
         user_value::{UserValue, UserValueMap, UserValueRef},
     },
 };
+use std::collections::HashMap;
 
 #[test]
 fn test_get_user_value() {
@@ -19,6 +20,28 @@ fn test_get_user_value() {
         user_value.and_then(UserValueRef::string_value),
         Some("user1@example.com")
     );
+}
+
+#[test]
+fn test_custom_global_and_private_field_fallbacks() {
+    let options = StatsigOptions {
+        global_custom_fields: Some(HashMap::from([("PlanTier".into(), dyn_value!("global"))])),
+        ..StatsigOptions::new()
+    };
+    let sdk = Statsig::new("secret-key", Some(options.into()));
+    let mut user = StatsigUser::with_user_id("user1");
+    user.set_custom(HashMap::from([("plantier", "custom")]));
+    user.set_private_attributes(HashMap::from([("tenant", "private")]));
+    let user = StatsigUserInternal::new(&user, Some(&sdk));
+
+    for (field, expected) in [("PlanTier", "custom"), ("tenant", "private")] {
+        let field = Some(DynamicString::from(field.to_owned()));
+        assert_eq!(
+            user.get_user_value(&field)
+                .and_then(UserValueRef::string_value),
+            Some(expected)
+        );
+    }
 }
 
 #[test]

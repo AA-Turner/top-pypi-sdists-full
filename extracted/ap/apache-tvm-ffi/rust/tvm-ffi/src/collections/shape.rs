@@ -16,8 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+//! [`Shape`], the immutable dimensions of a tensor.
+
 use crate::derive::{Object, ObjectRef};
-use crate::object::{Object, ObjectArc, ObjectCoreWithExtraItems};
+use crate::object::ObjectRefAnyCompatible;
+use crate::object::{Object, ObjectArc, ObjectCoreWithExtraItems, PlainObjectRef};
+use crate::{AnyView, Array};
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::ops::Deref;
 use tvm_ffi_sys::TVMFFIShapeCell;
@@ -26,25 +30,61 @@ use tvm_ffi_sys::TVMFFITypeIndex as TypeIndex;
 //-----------------------------------------------------
 // Shape
 //-----------------------------------------------------
-// ShapeObj for heap-allocated shape
+/// The object behind a [`Shape`].
 #[repr(C)]
 #[derive(Object)]
-#[type_key = "ffi.Shape"]
-#[type_index(TypeIndex::kTVMFFIShape)]
+#[object(type_key = "ffi.Shape", unsafe type_index = TypeIndex::kTVMFFIShape)]
 pub struct ShapeObj {
     object: Object,
     data: TVMFFIShapeCell,
 }
 
-/// ABI stable owned Shape for ffi
+/// An immutable sequence of `i64` dimensions, passed across languages as
+/// `ffi.Shape`. A converting cast, such as a typed function argument, also
+/// takes an `Array` or `List` of integers, as C++ does.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_ffi::Shape;
+///
+/// let shape = Shape::from([2_i64, 3]);
+/// assert_eq!(shape.as_slice(), &[2, 3]);
+/// assert_eq!(shape.len(), 2);
+/// ```
 #[repr(C)]
 #[derive(ObjectRef, Clone)]
+#[object_ref(skip_deref, skip_any_compatible)]
 pub struct Shape {
     data: ObjectArc<ShapeObj>,
 }
 
+// SAFETY: every `ShapeObj` is a `Shape`; the fallback only builds new shapes.
+unsafe impl ObjectRefAnyCompatible for Shape {
+    #[cold]
+    fn convert_fallback(value: AnyView<'_>) -> Option<Self> {
+        let dims = Array::<i64>::try_from(value).ok()?;
+        Some(Self::from(dims.iter().copied().collect::<Vec<_>>()))
+    }
+}
+
+// SAFETY: as for `ObjectRefAnyCompatible`, every `ShapeObj` is a `Shape`.
+unsafe impl PlainObjectRef for Shape {}
+
+// SAFETY: a `Shape` is immutable.
+unsafe impl Send for Shape {}
+unsafe impl Sync for Shape {}
+
+impl Default for Shape {
+    /// The empty shape, like [`Shape::new`].
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Shape {
-    /// Create a new empty Shape
+    /// An empty shape.
     pub fn new() -> Self {
         let shape_obj = ShapeObj {
             object: Object::new(),
@@ -58,13 +98,16 @@ impl Shape {
         }
     }
 
-    /// Get the shape as a slice
+    /// The dimensions as a slice.
     pub fn as_slice(&self) -> &[i64] {
-        unsafe { std::slice::from_raw_parts(self.data.data.data, self.data.data.size) }
+        unsafe {
+            crate::util::slice_from_nullable_raw_parts(self.data.data.data, self.data.data.size)
+        }
     }
 
-    /// Fill the strides from the shape
-    pub fn fill_strides_from_shape<T>(shape: T, strides: &mut [i64])
+    /// Fill `strides` with the row-major strides of `shape`, wrapping on
+    /// overflow as C++ does: only a zero-element tensor gets that far.
+    pub(crate) fn fill_strides_from_shape<T>(shape: T, strides: &mut [i64])
     where
         T: AsRef<[i64]>,
     {
@@ -72,7 +115,7 @@ impl Shape {
         let mut stride = 1;
         for i in (0..shape.len()).rev() {
             strides[i] = stride;
-            stride *= shape[i];
+            stride = stride.wrapping_mul(shape[i]);
         }
     }
 }
@@ -98,10 +141,11 @@ where
                     size: value_slice.len(),
                 },
             });
-            // reset the data ptr correctly after Arc is created
-            obj_arc.data.data = ShapeObj::extra_items(&obj_arc).as_ptr();
-            let extra_items = ShapeObj::extra_items_mut(&mut obj_arc);
-            extra_items.copy_from_slice(value_slice);
+            // The fresh allocation is unique and has not been exposed.
+            let object = ObjectArc::as_mut_ptr(&mut obj_arc);
+            let items = ShapeObj::extra_items_ptr(object);
+            std::ptr::copy_nonoverlapping(value_slice.as_ptr(), items, value_slice.len());
+            (*object).data.data = items;
             Self { data: obj_arc }
         }
     }
@@ -127,7 +171,7 @@ impl Eq for Shape {}
 impl PartialOrd for Shape {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.as_slice().partial_cmp(other.as_slice())
+        Some(self.cmp(other))
     }
 }
 

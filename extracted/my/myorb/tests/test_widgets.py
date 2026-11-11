@@ -1330,6 +1330,24 @@ def test_an_email_keeps_its_light_look_on_a_dark_system():
     assert "dark)" not in document.lower() and document.count("prefers-color-scheme: never") == 2
 
 
+def test_a_picture_in_an_email_opens_to_be_zoomed():
+    from myorb.plugins.gmail.message import link_pictures
+
+    email = (
+        '<img src="cid:Photo@x" width="600"><a href="https://shop.example"><img src="https://x/b.png"></a>'
+        '<img src="https://x/p.jpg"><img src="https://x/pixel.gif" width="1" height="1">'
+    )
+    links = {"cid:photo@x": "/email/1/attachment/m1/2"}
+    linked = link_pictures(email, links, remote=True)
+    # A picture of its own opens whole; a link's stays the link's; a pixel opens nothing.
+    assert '<a href="/email/1/attachment/m1/2"><img src="cid:Photo@x" width="600"></a>' in linked
+    assert '<a href="https://shop.example"><img src="https://x/b.png"></a>' in linked
+    assert '<a href="https://x/p.jpg"><img src="https://x/p.jpg"></a>' in linked
+    assert linked.count("<a ") == 3
+    # Pictures from the web not shown are never asked for, not even by a tap.
+    assert '<a href="https://x/p.jpg"' not in link_pictures(email, links, remote=False)
+
+
 def test_unsubscribe_and_images_in_the_email_header(client: TestClient, fake_google: FakeGoogle):
     from myorb.plugins.gmail.message import unsubscribe_link
 

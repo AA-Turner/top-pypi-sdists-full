@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djvu-rs
-Version: 0.43.0
+Version: 0.44.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: 3
@@ -9,16 +9,16 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Requires-Dist: numpy ; extra == 'numpy'
 Requires-Dist: pillow ; extra == 'pillow'
 Provides-Extra: numpy
 Provides-Extra: pillow
+License-File: THIRD_PARTY_NOTICES
 Summary: Read, render, and extract text from DjVu files — Python bindings for the pure-Rust djvu-rs library
 Keywords: djvu,decoder,render,ocr,document
-License: MIT
+License-Expression: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://github.com/matyushkin/djvu-rs/blob/main/CHANGELOG.md

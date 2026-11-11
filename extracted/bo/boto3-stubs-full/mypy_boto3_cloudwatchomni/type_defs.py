@@ -103,6 +103,7 @@ __all__ = (
     "CreateSpaceOutputTypeDef",
     "CreateViewRequestTypeDef",
     "CreateViewResponseTypeDef",
+    "DataAccessTargetTypeDef",
     "DeleteAccessGrantInputTypeDef",
     "DeleteAccessProfileInputTypeDef",
     "DeleteAlertInputTypeDef",
@@ -144,6 +145,8 @@ __all__ = (
     "GetOmniDashboardOutputTypeDef",
     "GetSpaceCredentialsForOrganizationInputTypeDef",
     "GetSpaceCredentialsForOrganizationOutputTypeDef",
+    "GetSpaceDataAccessInputTypeDef",
+    "GetSpaceDataAccessOutputTypeDef",
     "GetSpaceInputTypeDef",
     "GetSpaceOutputTypeDef",
     "GetTelemetryQueryResultsRequestPaginateTypeDef",
@@ -417,6 +420,10 @@ class CreateViewRequestTypeDef(TypedDict):
     description: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
     clientToken: NotRequired[str]
+
+
+class DataAccessTargetTypeDef(TypedDict):
+    actions: Sequence[str]
 
 
 class DeleteAccessGrantInputTypeDef(TypedDict):
@@ -916,6 +923,11 @@ class GetSpaceCredentialsForOrganizationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetSpaceDataAccessOutputTypeDef(TypedDict):
+    credentials: AwsCredentialsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 GetViewResponseTypeDef = TypedDict(
     "GetViewResponseTypeDef",
     {
@@ -1043,6 +1055,13 @@ class UpdateSpaceInputTypeDef(TypedDict):
     name: NotRequired[str]
     agentCoreEvaluationRoleArn: NotRequired[str]
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+
+
+class GetSpaceDataAccessInputTypeDef(TypedDict):
+    spaceId: str
+    targetScopes: Sequence[DataAccessTargetTypeDef]
+    durationSeconds: NotRequired[int]
+    auditContext: NotRequired[Mapping[str, str]]
 
 
 class DeleteIntegrationInputTypeDef(TypedDict):

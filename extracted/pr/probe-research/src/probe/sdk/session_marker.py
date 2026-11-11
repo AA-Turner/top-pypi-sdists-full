@@ -1451,8 +1451,9 @@ PLUMBING_GROUP_WRITES = frozenset({"workspace set", "session home set", "session
 #: the run's expiry alert tells the agent to `--extend` it.
 #: `pane push` saves a pane, a visual the coding agent writes over its runs' data
 #: (`write-pane`): the agent's own work, which the daemon never writes (R10 of
-#: run-compare-and-panes; daemon-written panes are a later step). `pane rm` stays
-#: out: a removal, the daemon's in the daemon profile.
+#: run-compare-and-panes; daemon-written panes are a later step). `pane rm` removes
+#: the agent's own pane beside it (agent-friendly R11): the daemon never writes one,
+#: so a removal sent its way (the profile's refusal) had nowhere to go.
 DAEMON_AGENT_WRITES = frozenset(
     {
         "exec",
@@ -1486,6 +1487,7 @@ DAEMON_AGENT_WRITES = frozenset(
         "example start",
         "example conclude",
         "pane push",
+        "pane rm",
         # Presentation only: how a chart draws, how a page lays out (team flag chart_layouts).
         "chart set",
         "chart layout",
@@ -1707,11 +1709,11 @@ DAEMON_PROFILE_PANE_READS = frozenset({"pane data", "pane get", "pane list"})
 
 #: ...but not where a flag writes what it read: `run reproduce --materialize`
 #: restores the run's captured tree, as the kept `snapshot-restore` does, and
-#: `--export` writes a file, as `pane get --out` writes two and `run logs
-#: --output` one. A word the shell still expands may be either.
+#: `--export` writes a file, as `run logs --output` does. A word the shell still
+#: expands may be either. `pane get --out` is admitted (agent-friendly B3): it writes
+#: the agent's own pane as the two files `pane push` takes, as `| jq -r .html > f` would.
 DAEMON_PROFILE_READ_WRITES = {
     "run reproduce": frozenset({"--materialize", "--export"}),
-    "pane get": frozenset({"--out"}),
     "run logs": frozenset({"--output"}),
 }
 
@@ -1866,6 +1868,8 @@ def daemon_profile_allows(args: "list[str]", session_id: "str | None" = None) ->
     kind, matched = classify_probe_args(args)
     if kind == "write" and carries_directed(args):
         return (True, matched)
+    if kind is None and two in DAEMON_AGENT_WRITES:
+        return (True, "probe " + two)  # the removal of the agent's own (`pane rm`): cleanup, never classed a write
     if matched[len("probe "):] in DAEMON_PROFILE_ALLOWED:
         return (True, matched)  # `pane push --pin` is `pin add` (WRITES_ALSO): the CLI's gate asks
     return (daemon_allows_agent(matched), matched)
@@ -3862,7 +3866,9 @@ HOOK_STAMP = "hook"
 TEAM_NOTE_DIRNAME = "team-note"
 TEAM_NOTE_DOCUMENT = "probe-team-note.md"
 TEAM_NOTE_CONTEXT_FILE = "context.md"
-_RULES_BEGIN = "<!-- probe-research:begin"
+#: The rules block's begin, under either install names' markers (old, then new): stdlib-only here, so
+#: spelt out; `install_names.get_rules_begin_prefixes()` holds the same (tests/test_install_names.py).
+_RULES_BEGINS = ("<!-- probe-research:begin", "<!-- probe:begin")
 
 
 def get_team_note_document() -> Path:
@@ -3881,9 +3887,10 @@ def has_hook_stamp(instruction: "Path | str") -> bool:
             text = handle.read()
     except (OSError, UnicodeDecodeError):
         return False
-    start = text.find(_RULES_BEGIN)
-    if start < 0:
+    found = [at for at in (text.find(begin) for begin in _RULES_BEGINS) if at >= 0]
+    if not found:
         return False
+    start = min(found)
     stamp = text[start:].split("\n", 2)[1:2]
     words = stamp[0].strip()[4:-3].split() if stamp and stamp[0].strip().startswith("<!-- v") else []
     return HOOK_STAMP in words[1:]

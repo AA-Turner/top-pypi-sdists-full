@@ -37,7 +37,7 @@ import typing
 from collections.abc import Callable, Mapping, Sequence, Set
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 import msgspec
 
@@ -46,10 +46,8 @@ import cozy_runtime.internal.locked_sources as locked
 import cozy_runtime.internal.memo_identity as memo_identity
 import cozy_runtime.internal.package_interface as package_interface
 import cozy_runtime.internal.static_contract as static_contract
-import cozy_runtime.internal.static_invocable as static_invocable
 from cozy_runtime import _interpreter
 from cozy_runtime.author._markers import MODEL_DEFAULT, PREFLIGHT
-from cozy_runtime.author._memo import memo_policy, one_memo
 from cozy_runtime.author._model import Model, component_method, component_set
 from cozy_runtime.author._model_defaults import (
     model_components,
@@ -65,11 +63,15 @@ from cozy_runtime.author._signature import (
     ModelSpec,
     Slot,
     _classify,
+    _wire_default,
+    _wire_type,
     assets_binding,
     assets_payload,
+    check_parameter_markers,
     described,
 )
-from cozy_runtime.author._walker import is_struct
+from cozy_runtime.author._walker import is_struct, strip
+from cozy_runtime.canonical_json import JsonValue
 from cozy_runtime.internal import vocabulary as author
 from cozy_runtime.internal.canonical import Json
 
@@ -175,7 +177,7 @@ _VOCAB_MODULES = {
 _TRUSTED_ROOTS = ("cozy_runtime.derive", "cozy_runtime.vlm")
 
 
-_ARITHMETIC: dict[type[ast.operator], Callable[[Any, Any], object]] = {
+_ARITHMETIC: dict[type[ast.operator], Callable[[float, float], object]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
@@ -201,13 +203,13 @@ class Unfolded(ValueError):
         self.node = node
 
 
-def fold_constant(node: ast.expr, other: Callable[[ast.expr], Any]) -> Any:
+def fold_constant(node: ast.expr, other: Callable[[ast.expr], object]) -> object:
     """A literal/arithmetic expression's value, executing nothing: `other` values names and
     calls."""
     if isinstance(node, ast.Constant):
         return node.value
     if isinstance(node, (ast.Tuple, ast.List)):
-        items: list[Any] = []
+        items: list[object] = []
         for item in node.elts:
             if isinstance(item, ast.Starred):
                 spread = fold_constant(item.value, other)
@@ -218,7 +220,7 @@ def fold_constant(node: ast.expr, other: Callable[[ast.expr], Any]) -> Any:
                 items.append(fold_constant(item, other))
         return tuple(items) if isinstance(node, ast.Tuple) else items
     if isinstance(node, ast.JoinedStr):
-        parts = []
+        parts: list[str] = []
         for value in node.values:
             if isinstance(value, ast.FormattedValue):
                 if value.conversion != -1 or value.format_spec is not None:
@@ -239,11 +241,11 @@ def fold_constant(node: ast.expr, other: Callable[[ast.expr], Any]) -> Any:
         }
     if isinstance(node, ast.Subscript):
         # `STRENGTHS[0]`, `TIERS["2k"]`: one member of a folded tuple, list or dict.
-        value, key = fold_constant(node.value, other), fold_constant(node.slice, other)
-        if not isinstance(value, (tuple, list, dict)) or isinstance(key, (bool, slice)):
+        folded, key = fold_constant(node.value, other), fold_constant(node.slice, other)
+        if not isinstance(folded, (tuple, list, dict)) or isinstance(key, (bool, slice)):
             raise Unfolded(node, "a subscript of something not a folded tuple, list or dict")
         try:
-            return value[key]
+            return folded[key]  # type: ignore[call-overload]  # any folded key: a wrong one raises below
         except (IndexError, KeyError, TypeError) as exc:
             raise Unfolded(node, f"an index its value doesn't have ({exc})") from exc
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd, ast.Invert)):
@@ -257,7 +259,12 @@ def fold_constant(node: ast.expr, other: Callable[[ast.expr], Any]) -> Any:
         left, right = fold_constant(node.left, other), fold_constant(node.right, other)
         if isinstance(node.op, ast.Add) and isinstance(left, str) and isinstance(right, str):
             return left + right
-        if any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in (left, right)):
+        if (
+            not isinstance(left, (int, float))
+            or not isinstance(right, (int, float))
+            or isinstance(left, bool)
+            or isinstance(right, bool)
+        ):
             raise Unfolded(node, "arithmetic on non-numbers")
         if (arithmetic := _ARITHMETIC.get(type(node.op))) is not None:
             return arithmetic(left, right)
@@ -346,7 +353,6 @@ _AUTHOR_VALUES = (
     "WeightsOutput",
     "Bound",
     "Shape",
-    "Memoize",
     "Prompt",
     "Range",
     "Count",
@@ -414,7 +420,6 @@ _APP_KEYWORDS = {
     "entrypoint": _ENTRYPOINT_KEYWORDS,
     "tool": _ENTRYPOINT_KEYWORDS | _TOOL_KEYWORDS,
 }
-_INVOCABLE_KEYWORDS = frozenset({"memoize", "defaults", "components"})
 
 
 # -------------------------------------------------------------------------- the reader
@@ -755,8 +760,6 @@ class Reader:
             found = self.resolve(module, node)
             if isinstance(found, Assigned):
                 return self.fold(found.module, found.value)
-            if isinstance(found, Vocab) and found.key == "author.DEFAULT_DECODE_LIMITS":
-                return author.DEFAULT_DECODE_LIMITS
             if isinstance(found, Vocab) and found.key == "author.MAX_WEIGHTS_NEW_BYTES":
                 return author.MAX_WEIGHTS_NEW_BYTES
             self.refuse(module, node, "not a module-level constant")
@@ -779,7 +782,8 @@ class Reader:
                         module, node, "min/max needs a nonempty literal sequence", "static_computed"
                     )
                 try:
-                    literals = typing.cast(Sequence[typing.Any], values)
+                    # each is an int, float, bool or str (above); a mix raises TypeError below
+                    literals = typing.cast("Sequence[float | str]", values)
                     return min(literals) if callee.key == "builtins.min" else max(literals)
                 except TypeError:
                     self.refuse(
@@ -997,7 +1001,7 @@ class Reader:
                 else self.translate(module, arg)
                 for arg in args
             )
-            return generic[params if len(params) != 1 else params[0]]  # type: ignore[index]
+            return generic[params if len(params) != 1 else params[0]]  # type: ignore[index]  # a vocabulary generic
         self.refuse(module, node, "a subscript of something that is not a generic type")
 
     # --------------------------------------------------------------- classes
@@ -1093,10 +1097,11 @@ class Reader:
         try:
             built = msgspec.defstruct(
                 node.name,
-                typing.cast(list[tuple[str, type, typing.Any]], fields),
+                # translated annotations and folded defaults: msgspec refuses a wrong one below
+                typing.cast("list[tuple[str, type, object]]", fields),
                 bases=tuple(bases) or None,
                 module=module.name,
-                **keywords,  # type: ignore[arg-type]
+                **keywords,  # type: ignore[arg-type]  # folded keywords: msgspec refuses a wrong one
             )
         except (TypeError, ValueError) as exc:
             self.refuse(module, node, f"msgspec refuses the struct: {exc}", "static_unsupported")
@@ -1175,17 +1180,6 @@ class Reader:
                 self.declared(module, call, author.sequence_parallel)
                 folded = self.fold(module, call.keywords[0].value)
                 degrees = tuple(typing.cast(Sequence[int], folded))
-            elif (
-                call
-                and isinstance(found, Vocab)
-                and found.key in ("author.uncaptured", "author.graph_keys")
-            ):
-                # Graph policy is read from the imported Model at execution, not carried
-                # in its interface. Still apply the public factory's declaration rules.
-                factory = (
-                    author.uncaptured if found.key == "author.uncaptured" else author.graph_keys
-                )
-                self.declared(module, call, factory)
             else:
                 self.refuse(module, decorator, "a Model class decorator outside the closed set")
         loads = spec.loads
@@ -1271,17 +1265,20 @@ class Reader:
             try:
                 if value.args:
                     raise TypeError("Serving takes keywords only")
-                facts: dict[str, Any] = {
-                    str(k.arg): self.fold(module, k.value) for k in value.keywords
-                }
-                return author.Serving(**facts)
+                facts = {str(k.arg): self.fold(module, k.value) for k in value.keywords}
+                return author.Serving(**facts)  # type: ignore[arg-type]  # folded: TypeError below
             except author.ConformanceError as exc:
                 self.refuse(module, value, exc.message, exc.code)
             except TypeError as exc:
                 self.refuse(module, value, str(exc), "static_unsupported")
         return None
 
-    def declared(self, module: Module, call: ast.Call, factory: Callable[..., object]) -> None:
+    def declared(
+        self,
+        module: Module,
+        call: ast.Call,
+        factory: Callable[..., object],  # any author factory: its own TypeError judges the call
+    ) -> None:
         """Refuse a declaration its author factory refuses: the import-time rule, applied to
         the folded arguments."""
         try:
@@ -1476,6 +1473,13 @@ def _single_target(stmt: ast.stmt) -> str | None:
 def read_application(project: Path) -> str:
     """pyproject's one `cozy.application` entry point (the one the wheel carries), or the
     zero/ambiguous refusal."""
+    if project.is_file():
+        raise StaticRefusal(
+            f"{project} is a file, not a package directory: pass the directory holding its "
+            f"pyproject.toml (`--dir {project.parent}`), or describe a script with "
+            f"`cozy run {project} --describe`",
+            code="project_is_file",
+        )
     path = project / "pyproject.toml"
     try:
         data = tomllib.loads(path.read_text())
@@ -1512,8 +1516,7 @@ class Registration:
     fn: ast.FunctionDef | ast.AsyncFunctionDef
     name: str
     weights: tuple[author.WeightsOutput, ...]
-    invocable: bool = False
-    memoize: author.Memoize | None = None
+    memoize: bool = False
     model_defaults: Mapping[str, str] = field(default_factory=dict)
     child_task: bool = False
     accelerator: bool = True
@@ -1524,8 +1527,20 @@ class Registration:
     #: `app.tool`'s own options.
     tool: author.Tool | None = None
 
-    def declaration(self, **found: Any) -> Declaration:
-        """Its record, with what its signature declares (`found`)."""
+    def declaration(
+        self,
+        *,
+        payload_type: object,
+        result_type: object,
+        contexts: tuple[str, ...],
+        services: tuple[str, ...],
+        slots: tuple[Slot, ...],
+        assets: AssetsBinding | None,
+        facts: int = 0,
+        parameters: tuple[str, ...] | None = None,
+        parameter_defaults: Mapping[str, object] | None = None,
+    ) -> Declaration:
+        """Its record, with what its signature declares."""
         return Declaration(
             name=self.name,
             module=self.module.name,
@@ -1539,7 +1554,15 @@ class Registration:
             model_defaults=self.model_defaults,
             model_components=self.model_components,
             model_on_demand=self.model_on_demand,
-            **found,
+            payload_type=payload_type,
+            result_type=result_type,
+            contexts=contexts,
+            services=services,
+            facts=facts,
+            slots=slots,
+            assets=assets,
+            parameters=parameters,
+            parameter_defaults={} if parameter_defaults is None else parameter_defaults,
         )
 
 
@@ -1553,7 +1576,7 @@ class StaticRecipe:
     plan: author.QuantizationPlan | author.SelectionPlan | str
     calibrate: str = ""
 
-    def canonical(self) -> dict[str, object]:
+    def canonical(self) -> dict[str, JsonValue]:
         if isinstance(self.plan, str):
             return {"kind": "derivation", "hook": self.plan}
         return canonical(self.plan)
@@ -1768,9 +1791,7 @@ def _build(
             if closure is not None:
                 closures[f"{registration.module.name}:{registration.fn.name}"] = closure
         declared[registration.name] = row
-    body = package_interface.assemble(
-        application, list(declared.values()), installed=installed, recipes=recipes
-    )
+    body = package_interface.assemble(application, list(declared.values()), recipes=recipes)
     _calls(reader, registrations, body, distribution)
     return body
 
@@ -1793,18 +1814,17 @@ def _calls(
     reader: Reader, registrations: Sequence[Registration], body: dict[str, Json], distribution: str
 ) -> None:
     """Each entry's `calls`: the functions it reaches, through its own package's helpers, that
-    run as their own calls. Its package's `@invocable`s, and another package's public functions,
-    read from the release this one locked (decision 5). A branch may never take one."""
+    run as their own calls (`call(fn, ...)`): its package's own, and another package's public
+    functions, read from the release this one locked (decision 5). A branch may never take one."""
     entries = typing.cast(list[dict[str, Json]], body["entrypoints"])
     docs = {str(doc["name"]): doc for doc in entries}
     exported = {_export_of(doc): doc for doc in docs.values()}
-    own = {(r.module.name, r.fn.name): r for r in registrations}
     for registration in registrations:
         doc = docs.get(registration.name)
         if doc is None:
             continue
         rows: dict[tuple[str, str], dict[str, Json]] = {}
-        for found in _callees(reader, registration, own):
+        for found in _callees(reader, registration):
             key = (found.module.name, found.node.name)
             if reader._own(key[0].split(".")[0]):
                 callee, package = exported.get(key), distribution
@@ -1848,12 +1868,9 @@ def _call_row(package: str, doc: Mapping[str, Json]) -> dict[str, Json]:
     return row
 
 
-def _callees(
-    reader: Reader, registration: Registration, own: Mapping[tuple[str, str], Registration]
-) -> list[Definition]:
-    """The functions a registration's body reaches that run as calls: its own package's
-    `@invocable`s, and functions of other cozy packages. Its own package's other functions run
-    inline, so their bodies are read too."""
+def _callees(reader: Reader, registration: Registration) -> list[Definition]:
+    """The functions a registration's body reaches that run as calls: the first argument of each
+    `call(fn, ...)`. Its own package's other functions run inline, so their bodies are read too."""
     found: list[Definition] = []
     pending = [(registration.module, registration.fn)]
     seen: set[tuple[Path, int]] = set()
@@ -1862,19 +1879,38 @@ def _callees(
         if (module.path, fn.lineno) in seen:
             continue
         seen.add((module.path, fn.lineno))
+        named: set[int] = set()  # a callee named to `call` or `prefetch` does not run inline
         for node in (n for stmt in fn.body for n in ast.walk(stmt)):
+            if id(node) in named:
+                continue
+            managed = (
+                _managed(reader, module, node) if isinstance(node, ast.Call) and node.args else ""
+            )
+            if isinstance(node, ast.Call) and managed:
+                named.add(id(node.args[0]))
+                callee = _function(reader, module, node.args[0])
+                runtime = callee is None or callee.module.name.split(".")[0] == "cozy_runtime"
+                if managed == "author.call" and not runtime:
+                    found.append(typing.cast(Definition, callee))
+                continue
             target = _function(reader, module, node)
             if target is None or target.node is fn:
                 continue
-            top = target.module.name.split(".")[0]
-            registered = own.get((target.module.name, target.node.name))
-            if top == "cozy_runtime":
-                continue
-            if not reader._own(top) or (registered is not None and registered.invocable):
-                found.append(target)
-            else:
+            if reader._own(target.module.name.split(".")[0]):
                 pending.append((target.module, typing.cast(ast.FunctionDef, target.node)))
     return found
+
+
+def _managed(reader: Reader, module: Module, node: ast.Call) -> str:
+    """`author.call` or `author.prefetch` when `node` calls one, else ""."""
+    if not isinstance(node.func, (ast.Name, ast.Attribute)):
+        return ""
+    try:
+        found = reader.resolve(module, node.func)
+    except StaticRefusal:
+        return ""
+    keys = ("author.call", "author.prefetch")
+    return found.key if isinstance(found, Vocab) and found.key in keys else ""
 
 
 def _function(reader: Reader, module: Module, node: ast.AST) -> Definition | None:
@@ -2327,16 +2363,6 @@ def _registrations(reader: Reader, modules: Sequence[Module], app: Assigned) -> 
     return found
 
 
-def _is_invocable(reader: Reader, module: Module, target: ast.expr) -> bool:
-    if not isinstance(target, (ast.Name, ast.Attribute)):
-        return False
-    try:
-        found = reader.resolve(module, target)
-    except StaticRefusal:
-        return False
-    return isinstance(found, Vocab) and found.key == "author.invocable"
-
-
 def _app_method(reader: Reader, module: Module, target: ast.expr, app: Assigned) -> str | None:
     if not isinstance(target, ast.Attribute) or target.attr not in _APP_KEYWORDS:
         return None
@@ -2360,52 +2386,9 @@ def _registration(
     decorator: ast.expr | None = None,
 ) -> Registration | None:
     function_module = module
-    invocable = False
-    exported: author.Memoize | None = None
-    memoize: author.Memoize | None = None
+    memoize = False
     default_models: dict[str, str] = {}
     used_components: dict[str, tuple[str, ...]] = {}
-    for index, export in enumerate(fn.decorator_list):
-        target = export.func if isinstance(export, ast.Call) else export
-        if not _is_invocable(reader, function_module, target):
-            continue
-        if invocable or (decorator is not None and index < fn.decorator_list.index(decorator)):
-            reader.refuse(
-                function_module,
-                export,
-                "@invocable must occur once, inside the App decorator",
-                "static_unsupported",
-            )
-        invocable = True
-        if isinstance(export, ast.Call):
-            if export.args or any(
-                keyword.arg not in _INVOCABLE_KEYWORDS for keyword in export.keywords
-            ):
-                reader.refuse(
-                    function_module,
-                    export,
-                    "@invocable accepts memoize, defaults and components",
-                    "static_unsupported",
-                )
-            for keyword in export.keywords:
-                value = reader.fold(function_module, keyword.value)
-                if keyword.arg == "defaults":
-                    default_models = model_defaults(value)
-                    continue
-                if keyword.arg == "components":
-                    used_components = model_components(value)
-                    continue
-                exported = _memoize(reader, function_module, keyword.value, value)
-    if invocable:
-        for export in fn.decorator_list:
-            target = export.func if isinstance(export, ast.Call) else export
-            if export is not decorator and not _is_invocable(reader, function_module, target):
-                reader.refuse(
-                    function_module,
-                    export,
-                    "an invocable decorator outside the closed vocabulary",
-                    "static_unsupported",
-                )
     module = declaration or module
     name = fn.name
     accelerator, private = True, False
@@ -2432,41 +2415,31 @@ def _registration(
             continue
         value = reader.fold(module, keyword.value)
         if keyword.arg == "defaults":
-            declared_defaults = model_defaults(value)
-            if default_models and declared_defaults:
-                reader.refuse(
-                    module, keyword, "declare defaults once, on invocable or App registration"
-                )
-            default_models = declared_defaults or default_models
+            default_models = model_defaults(value)
         elif keyword.arg == "components":
-            declared_components = model_components(value)
-            if used_components and declared_components:
-                reader.refuse(
-                    module, keyword, "declare components once, on invocable or App registration"
-                )
-            used_components = declared_components or used_components
+            used_components = model_components(value)
         elif keyword.arg == "on_demand":
             on_demand = model_on_demand(value)
         elif keyword.arg == "name":
             name = str(value)
         elif keyword.arg in _TOOL_KEYWORDS:
             box[keyword.arg] = value
-        elif keyword.arg in ("accelerator", "private"):
+        elif keyword.arg in ("accelerator", "private", "memoize"):
             if type(value) is not bool:
                 reader.refuse(module, keyword.value, f"{keyword.arg} is True or False")
             if keyword.arg == "private":
                 private = value
+            elif keyword.arg == "memoize":
+                memoize = value
             else:
                 accelerator = value
-        elif keyword.arg == "memoize":
-            memoize = _memoize(reader, module, keyword.value, value)
         elif keyword.arg == "weights":
             assert isinstance(value, tuple)
             weights = tuple(value)
     tool: author.Tool | None = None
     if method == "tool":
         try:
-            tool = author.Tool(**box)  # type: ignore[arg-type]
+            tool = author.Tool(**box)  # type: ignore[arg-type]  # folded: ConformanceError below
         except author.ConformanceError as exc:
             reader.refuse(module, decorator or fn, exc.message, exc.code)
     return Registration(
@@ -2474,8 +2447,7 @@ def _registration(
         fn,
         name,
         weights,
-        invocable,
-        one_memo(exported, memoize),
+        memoize,
         default_models,
         private,
         accelerator,
@@ -2483,14 +2455,6 @@ def _registration(
         model_components=used_components,
         tool=tool,
     )
-
-
-def _memoize(
-    reader: Reader, module: Module, node: ast.expr, value: object
-) -> author.Memoize | None:
-    if isinstance(value, (bool, author.Memoize)):
-        return memo_policy(value)
-    reader.refuse(module, node, "memoize must be a boolean or Memoize")
 
 
 def _parameter_annotation(
@@ -2523,29 +2487,58 @@ def _parameter_annotation(
         module, node = found.module, found.value
 
 
+class _Found(typing.TypedDict):
+    """What a registration's signature declares besides its request (`Registration.declaration`)."""
+
+    result_type: object
+    contexts: tuple[str, ...]
+    services: tuple[str, ...]
+    facts: int
+    slots: tuple[Slot, ...]
+    assets: AssetsBinding | None
+
+
 def _callable(reader: Reader, registration: Registration) -> Declaration:
-    if registration.invocable:
-        return static_invocable.build(reader, registration)
+    """One function's record from its source, by `_signature.analyze`'s rules: its request is its
+    one struct parameter when that is its only parameter the Runtime does not inject, else its
+    plain parameters as fields."""
     module, fn = registration.module, registration.fn
+    where = f"{module.name}:{fn.name}"
     if fn.args.vararg or fn.args.kwarg:
-        reader.refuse(module, fn, "*args/**kwargs on a handler", "static_unsupported")
-    if fn.args.defaults or any(fn.args.kw_defaults):
+        reader.refuse(module, fn, "*args/**kwargs on a registered function", "static_unsupported")
+    if fn.args.posonlyargs:
         reader.refuse(
-            module, fn, "a handler parameter is injected, so it has no default", "injected_default"
+            module, fn, "a positional-only parameter: the Runtime passes arguments by name"
         )
-    payloads: list[object] = []
+    arguments = [*fn.args.args, *fn.args.kwonlyargs]
+    positional = fn.args.args[len(fn.args.args) - len(fn.args.defaults) :]
+    defaults: dict[str, ast.expr] = {
+        arg.arg: value
+        for arg, value in [
+            *zip(positional, fn.args.defaults, strict=True),
+            *zip(fn.args.kwonlyargs, fn.args.kw_defaults, strict=True),
+        ]
+        if value is not None
+    }
+    # Each parameter's role: a model slot, injected, the Files input, or plain (the request).
+    roles: dict[str, object] = {}
     slots: list[Slot] = []
     contexts: list[str] = []
     services: list[str] = []
     facts = 0
     assets: AssetsBinding | None = None
-    for arg in [*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs]:
+    plain: dict[str, object] = {}
+    for arg in arguments:
         if arg.annotation is None:
-            reader.refuse(module, arg, "an unannotated handler parameter")
+            reader.refuse(module, arg, "an unannotated parameter")
+        override = registration.model_classes.get(arg.arg)
         annotation_module, node, found = _parameter_annotation(reader, module, arg.annotation)
-        slot = reader.model_annotation(annotation_module, node)
+        slot = (override, False) if override else reader.model_annotation(annotation_module, node)
         if slot is not None:
+            if arg.arg in defaults:
+                reader.refuse(module, arg, "a model argument is injected, so it has no default")
             slots.append(Slot(arg.arg, *slot))
+            roles[arg.arg] = "model"
             continue
         if isinstance(found, Vocab):
             vocab_name = found.key.partition(".")[2]
@@ -2554,58 +2547,102 @@ def _callable(reader: Reader, registration: Registration) -> Declaration:
                 "Secrets",
                 *(cls.__name__ for cls in SERVICES.values()),
             ):
+                if arg.arg in defaults:
+                    reader.refuse(
+                        module, arg, "an injected parameter has no default", "injected_default"
+                    )
                 if isinstance(node, ast.Subscript):
                     reader.translate(annotation_module, node.slice)
-                parameter = _classify(
-                    arg.arg, reader.translate(module, arg.annotation), f"{module.name}:{fn.name}"
-                )
+                parameter = _classify(arg.arg, reader.translate(module, arg.annotation), where)
                 if parameter.role == "context":
                     contexts.append(arg.arg)
                 facts += parameter.role == "preflight"
                 if parameter.capability:
                     services.append(parameter.capability)
+                roles[arg.arg] = "injected"
                 continue
             if vocab_name in ("Files", "Annotated"):
-                if assets is not None:
-                    reader.refuse(module, arg, "a second Files parameter", "static_unsupported")
+                if assets is not None or arg.arg in defaults:
+                    reader.refuse(
+                        module, arg, "one Files parameter without a default", "static_unsupported"
+                    )
                 assets = assets_binding(arg.arg, reader.translate(module, arg.annotation))
+                roles[arg.arg] = "assets"
                 continue
-            if found.key in _author_structs():
-                payloads.append(reader.translate(module, arg.annotation))
-                continue
-
-        if (
-            isinstance(found, Definition)
-            and isinstance(found.node, ast.ClassDef)
-            and reader.class_kind(found.module, found.node) == "struct"
-        ):
-            payloads.append(reader.translate(module, arg.annotation))
-            continue
-        reader.refuse(module, arg.annotation, f"parameter {arg.arg}: not an author surface type")
-    if len(payloads) != 1:
-        reader.refuse(
-            module, fn, f"exactly one typed request struct is required, found {len(payloads)}"
-        )
+        translated = reader.translate(module, arg.annotation)
+        check_parameter_markers(translated)
+        plain[arg.arg] = translated
+        roles[arg.arg] = "plain"
     if fn.returns is None:
         reader.refuse(module, fn, "no return annotation")
-    result = reader.translate(module, fn.returns)
+    result, _ = strip(reader.translate(module, fn.returns))
     if not is_struct(result):
         reader.refuse(
             module, fn.returns, "the return annotation must be a msgspec.Struct result schema"
         )
-    payload = payloads[0]
-    if assets is not None:
-        payload = assets_payload(
-            typing.cast(type[msgspec.Struct], payload), assets, fn.name, module.name
-        )
+    found_declaration: _Found = {
+        "result_type": result,
+        "contexts": tuple(contexts),
+        "services": tuple(services),
+        "facts": facts,
+        "slots": tuple(slots),
+        "assets": assets,
+    }
+    if len(plain) == 1:
+        ((only, payload),) = plain.items()
+        if only not in defaults and is_struct(strip(payload)[0]):
+            if assets is not None:
+                payload = assets_payload(
+                    typing.cast(type[msgspec.Struct], payload), assets, fn.name, module.name
+                )
+            return registration.declaration(payload_type=payload, **found_declaration)
+    # Its request is its own parameters.
+    fields: list[tuple[str, object] | tuple[str, object, object]] = []
+    parameters: list[str] = []
+    explicit_defaults: dict[str, object] = {}
+    for arg in arguments:
+        role = roles[arg.arg]
+        if role == "model":
+            fields.append((arg.arg, author.ModelArtifact | None, None))
+        elif role == "assets":
+            assert assets is not None
+            fields.append((arg.arg, assets.wire_type))
+        elif role == "plain":
+            translated = plain[arg.arg]
+            _wire_type(translated)
+            if arg.arg in defaults:
+                default = reader.fold(module, defaults[arg.arg])
+                _wire_default(default)
+                try:
+                    msgspec.convert(default, type=translated, strict=True)
+                except (TypeError, ValueError, msgspec.ValidationError) as error:
+                    reader.refuse(
+                        module,
+                        defaults[arg.arg],
+                        f"the default of {arg.arg} differs from its type: {error}",
+                        "request_default",
+                    )
+                fields.append((arg.arg, translated, default))
+                explicit_defaults[arg.arg] = default
+            else:
+                fields.append((arg.arg, translated))
+        else:
+            continue
+        parameters.append(arg.arg)
+    _wire_type(result)
+    payload = msgspec.defstruct(
+        f"{fn.name}Request",
+        fields,
+        module=module.name,
+        kw_only=True,
+        frozen=True,
+        forbid_unknown_fields=True,
+    )
     return registration.declaration(
         payload_type=payload,
-        result_type=result,
-        contexts=tuple(contexts),
-        services=tuple(services),
-        facts=facts,
-        slots=tuple(slots),
-        assets=assets,
+        parameters=tuple(parameters),
+        parameter_defaults=explicit_defaults,
+        **found_declaration,
     )
 
 

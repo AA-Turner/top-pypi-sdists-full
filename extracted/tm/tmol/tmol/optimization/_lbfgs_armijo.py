@@ -8,15 +8,15 @@ import torch
 from torch.optim import Optimizer
 
 from tmol.optimization._armijo_compiled import (
-    armijo_classify,
-    armijo_finalize,
-    armijo_start,
-    armijo_trial,
-    armijo_update,
+    _armijo_classify,
+    _armijo_finalize,
+    _armijo_start,
+    _armijo_trial,
+    _armijo_update,
 )
 
 
-def lbfgs_two_loop(grad, dirs, stps):
+def _lbfgs_two_loop(grad, dirs, stps):
     """L-BFGS search direction -H_k @ grad via the compact
     representation of Byrd, Nocedal & Schnabel, (Math. Prog. 63 (1994)):
         H_0 = I
@@ -29,11 +29,15 @@ def lbfgs_two_loop(grad, dirs, stps):
     grad is (N) or (k, N) and dirs/stps are (m, N) or (m, k, N); in the latter
     case each of the k batches gets its own inverse-Hessian estimate.
     """
-    return _lbfgs_two_loop(grad, dirs, stps)
+    return _lbfgs_two_loop_impl(grad, dirs, stps)
 
 
-def _lbfgs_two_loop(grad, dirs, stps, history_start=0):
-    """Compact solve with histories kept in their physical circular slots."""
+def _lbfgs_two_loop_impl(grad, dirs, stps, history_start=0, double_scratch=None):
+    """Compact solve with histories kept in their physical circular slots.
+
+    double_scratch: optional full-capacity float64 (dirs, stps) buffers that
+    receive the promoted histories instead of fresh allocations.
+    """
     unbatched = grad.dim() == 1
     if unbatched:
         grad = grad.unsqueeze(0)
@@ -45,8 +49,15 @@ def _lbfgs_two_loop(grad, dirs, stps, history_start=0):
     #  a) imprecise on CUDA at float32
     #  b) small matrices (M x M) where M is history length (typically 128)
     # promote to float64
-    S = stps.double()
-    Y = dirs.double()
+    if double_scratch is None or stps.dtype == torch.float64:
+        S = stps.double()
+        Y = dirs.double()
+    else:
+        # The history grows a row per call until full, so a fresh cast never
+        # fits the block the previous call freed and grows the CUDA cache.
+        m = stps.shape[0]
+        Y = double_scratch[0][:m].view_as(dirs).copy_(dirs)
+        S = double_scratch[1][:m].view_as(stps).copy_(stps)
     q = -grad.double()
     # Explicit batched products avoid einsum's repeated layout planning. Keep
     # the single-segment, broadcast, and differentiable paths: their reduction
@@ -133,7 +144,7 @@ def _any_true(mask):
     return bool(mask) if mask.numel() == 1 else bool(mask.any())
 
 
-def armijo_linesearch_segmented(
+def _armijo_linesearch_segmented(
     func,
     derphi0,
     old_fval,
@@ -186,14 +197,14 @@ def armijo_linesearch_segmented(
               * 'factor' corresponds roughly to 'beta' in the text (see point 1)
     """
     phi0 = old_fval
-    alpha = armijo_start(searching, alpha0)
+    alpha = _armijo_start(searching, alpha0)
 
     phi = func(alpha)
     n_evals = 1
 
     # sigma_increase > sigma_decrease, so a linear-looking step also has
     # sufficient decrease; it is the one case where a longer step is tried
-    accepted, phi_accepted, status, active = armijo_classify(
+    accepted, phi_accepted, status, active = _armijo_classify(
         searching,
         alpha,
         phi,
@@ -206,11 +217,11 @@ def armijo_linesearch_segmented(
     combine_cuda_checks = searching.is_cuda and searching.numel() > 1
     any_active = _any_true(active)
     while any_active:
-        trial = armijo_trial(status, alpha, accepted, factor)
+        trial = _armijo_trial(status, alpha, accepted, factor)
         phi_trial = func(trial)
         n_evals += 1
 
-        accepted, phi_accepted, status, failed, active = armijo_update(
+        accepted, phi_accepted, status, failed, active = _armijo_update(
             status,
             trial,
             accepted,
@@ -263,18 +274,17 @@ class LBFGS_Armijo(Optimizer):
     Parameters:
         lr (float): learning rate (default: 1)
         max_iter (int): maximal number of iterations (default: 200)
-        atol (float): an iteration whose energy change is at most atol counts
-            as small (default: 1e-2, energy units)
-        patience (int): a segment converges after this many consecutive small
-            iterations (default: 5)
-        rtol (float): if set, an iteration whose relative energy change is at
-            most rtol also counts as small (default: None)
-        gradtol (float): if set, a segment also converges once
-            max_i |df/dx_i| <= gradtol, in the units of the minimized degrees
-            of freedom (default: None)
-        history_size (int): update history size (default: 128).
+        rtol (float): relative energy-change tolerance (default: None)
+        atol (float): absolute energy-change tolerance (default: 1e-2)
+        patience (int): consecutive small iterations required (default: 5)
+        gradtol (float): max |gradient| required for convergence; a failed
+            line search below it also converges (default: None)
+        history_size (int): update history size (default: 200).
         segment_ids (Tensor): the segment (e.g. pose) each parameter element
             belongs to; each segment is minimized independently (default: one)
+        value_only_line_search (bool): evaluate Armijo trial points with a
+            separate value-only closure and refresh the gradient only at the
+            accepted point (default: False)
         fixed_iterations (bool): run exactly ``max_iter`` iterations instead of
             evaluating convergence criteria (default: False).
     """
@@ -347,13 +357,14 @@ class LBFGS_Armijo(Optimizer):
         rtol=None,
         atol=1e-2,
         gradtol=None,
-        history_size=128,
+        history_size=200,
         minstep=1e-12,
         verbose=False,
         segment_ids=None,
         fixed_iterations=False,
         *,
         patience=5,
+        value_only_line_search: bool = False,
     ):
         defaults = dict(
             lr=lr,
@@ -390,9 +401,13 @@ class LBFGS_Armijo(Optimizer):
         self._params = self.param_groups[0]["params"]
         self._minstep = minstep
         self.verbose = verbose
+        if not isinstance(value_only_line_search, bool):
+            raise TypeError("value_only_line_search must be bool")
+        self.value_only_line_search = value_only_line_search
 
         self._last_loss_vec = None
         self._sum_scratch = None
+        self._double_history_scratch = None
         if segment_ids is None:
             # the whole parameter as one segment: the same code path as a stack
             segment_ids = torch.zeros(
@@ -508,6 +523,23 @@ class LBFGS_Armijo(Optimizer):
                 device=values.device,
             )
         return self._pad(values, out=self._sum_scratch).sum(-1)
+
+    def _double_history(self, hist):
+        """Reused float64 (dirs, stps) buffers shaped like the history matrices."""
+        if hist.dtype == torch.float64:
+            return None
+        scratch = self._double_history_scratch
+        if (
+            scratch is None
+            or scratch[0].shape != hist.shape
+            or scratch[0].device != hist.device
+        ):
+            scratch = tuple(
+                torch.empty(hist.shape, dtype=torch.float64, device=hist.device)
+                for _ in range(2)
+            )
+            self._double_history_scratch = scratch
+        return scratch
 
     def _seg_amax(self, values):
         """Maximum of a parameter-shaped vector within each segment."""
@@ -798,11 +830,12 @@ class LBFGS_Armijo(Optimizer):
                 with torch.inference_mode() if grad_pad.is_cuda else nullcontext():
                     d.copy_(
                         self._unpad(
-                            _lbfgs_two_loop(
+                            _lbfgs_two_loop_impl(
                                 grad_pad,
                                 old_dirs_view,
                                 old_stps_view,
                                 ctx.history_start,
+                                self._double_history(ctx.old_dirs_mat),
                             )
                         )
                     )
@@ -870,35 +903,48 @@ class LBFGS_Armijo(Optimizer):
         # match Rosetta: start at 2x prev accepted step, capped at 1.0
         start_t = (ctx.t / 0.5).clamp(max=1.0)
 
-        accepted, _, ls_evals, status, trial_is_accepted = armijo_linesearch_segmented(
-            linefn_vec,
-            ctx.gtd_seg,
-            ctx.prev_loss_vec,  # energies at x_backup
-            start_t,
-            searching,
-            factor=0.5,
-            sigma_decrease=0.1,
-            sigma_increase=0.8,
-            minstep=self._minstep,
+        accepted, phi_accepted, ls_evals, status, trial_is_accepted = (
+            _armijo_linesearch_segmented(
+                linefn_vec,
+                ctx.gtd_seg,
+                ctx.prev_loss_vec,  # energies at x_backup
+                start_t,
+                searching,
+                factor=0.5,
+                sigma_decrease=0.1,
+                sigma_increase=0.8,
+                minstep=self._minstep,
+            )
         )
         ctx.ls_evals = ls_evals
 
-        if not trial_is_accepted:
+        if self.value_only_line_search:
             torch.addcmul(
                 ctx.x_backup,
                 ctx.d,
                 self._per_element(accepted),
                 out=ctx.x,
             )
+            # Refresh only the gradient; keep Armijo energies on one evaluator.
             ctx.closure()
-        ctx.loss_vec = self._last_loss_vec
+            ctx.loss_vec = phi_accepted
+        else:
+            if not trial_is_accepted:
+                torch.addcmul(
+                    ctx.x_backup,
+                    ctx.d,
+                    self._per_element(accepted),
+                    out=ctx.x,
+                )
+                ctx.closure()
+            ctx.loss_vec = self._last_loss_vec
         # Keep the normal optimization path asynchronous. The scalar total is
         # only needed for human-readable progress output.
         ctx.loss = float(ctx.loss_vec.sum()) if self.verbose else None
 
         # a failed search gets one steepest-descent restart, applied on the next
         # iteration so the other segments are not held up; then it is retired
-        ctx.t, failed = armijo_finalize(
+        ctx.t, failed = _armijo_finalize(
             status,
             ctx.gtd_seg,
             accepted,
@@ -930,8 +976,11 @@ class LBFGS_Armijo(Optimizer):
             return False
 
         newly_converged = torch.zeros_like(ctx.converged)
+        small_grad = None
         if ctx.gradtol is not None:
-            newly_converged |= self._seg_amax(ctx.flat_grad.abs()) <= ctx.gradtol
+            small_grad = self._seg_amax(ctx.flat_grad.abs()) <= ctx.gradtol
+            # a line search that just failed at a low-gradient point is done
+            newly_converged |= ctx.needs_reset & small_grad
         if ctx.prev_loss_vec is not None:
             dE = (ctx.loss_vec - ctx.prev_loss_vec).abs()
             small = torch.zeros_like(ctx.converged)
@@ -947,7 +996,10 @@ class LBFGS_Armijo(Optimizer):
             ctx.small_steps.copy_(
                 torch.where(ctx.needs_reset, ctx.small_steps, counted)
             )
-            newly_converged |= ctx.small_steps >= ctx.patience
+            energy_converged = ctx.small_steps >= ctx.patience
+            if small_grad is not None:
+                energy_converged &= small_grad
+            newly_converged |= energy_converged
         ctx.converged |= newly_converged
         done = self._inactive(ctx)
 
@@ -970,18 +1022,29 @@ class LBFGS_Armijo(Optimizer):
             return True
         return False
 
-    def step(self, closure):
+    def step(self, closure, value_only_closure=None):
         """
         The LBFGS minimization algorithm. Despite the name, this performs the full
         LBFGS minimization trajectory.
 
         Arguments:
-            func (callable): a function that evaluates energy
+            closure (callable): a function that evaluates energy and gradient
+            value_only_closure (callable): a function that evaluates only
+                energy. Required when ``value_only_line_search`` is enabled.
 
         Returns:
             The initial loss, matching the ``Optimizer.step`` convention.
         """
         closure = self._wrap_closure(closure)
+        if self.value_only_line_search:
+            if value_only_closure is None:
+                raise ValueError(
+                    "value_only_closure is required when value_only_line_search "
+                    "is enabled"
+                )
+            line_search_closure = self._wrap_closure(value_only_closure)
+        else:
+            line_search_closure = closure
         ctx = self._step_setup(closure)
 
         x = ctx.x
@@ -998,7 +1061,7 @@ class LBFGS_Armijo(Optimizer):
                 self._per_element(alpha_vec),
                 out=x,
             )
-            closure()
+            line_search_closure()
             return self._last_loss_vec
 
         current_evals = 1
@@ -1044,6 +1107,9 @@ class LBFGS_Armijo(Optimizer):
             # update func eval
             current_evals += self.ls_func_evals
             ctx.state["func_evals"] += self.ls_func_evals
+            if self.value_only_line_search:
+                current_evals += 1
+                ctx.state["func_evals"] += 1
 
             if self._check_segment_convergence(ctx, n_iter):
                 break

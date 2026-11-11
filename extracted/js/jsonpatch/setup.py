@@ -1,10 +1,8 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import re
 from setuptools import setup
 
-src = open('jsonpatch.py', encoding='utf-8').read()
+with open('jsonpatch.py', encoding='utf-8') as f:
+    src = f.read()
 metadata = dict(re.findall("__([a-z]+)__ = '([^']+)'", src))
 docstrings = re.findall('"""([^"]*)"""', src, re.MULTILINE | re.DOTALL)
 
@@ -15,7 +13,11 @@ MODULES = (
         'jsonpatch_cli',
 )
 
-REQUIREMENTS = list(open('requirements.txt'))
+with open('requirements.txt') as f:
+    REQUIREMENTS = [line.strip() for line in f if line.strip()]
+
+with open('README.md', encoding='utf-8') as f:
+    LONG_DESCRIPTION = f.read()
 
 AUTHOR_EMAIL = metadata['author']
 VERSION = metadata['version']
@@ -34,11 +36,11 @@ CLASSIFIERS = [
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3 :: Only',
-    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
     'Programming Language :: Python :: 3.14',
+    'Programming Language :: Python :: 3.15',
     'Programming Language :: Python :: Implementation :: CPython',
     'Programming Language :: Python :: Implementation :: PyPy',
     'Topic :: Software Development :: Libraries',
@@ -50,7 +52,7 @@ CLASSIFIERS = [
 setup(name=PACKAGE,
       version=VERSION,
       description=DESCRIPTION,
-      long_description=open('README.md', encoding='utf-8').read(),
+      long_description=LONG_DESCRIPTION,
       long_description_content_type='text/markdown',
       author=AUTHOR,
       author_email=EMAIL,
@@ -60,7 +62,7 @@ setup(name=PACKAGE,
       # jsonpatch is a single-file module, which can't be marked as typed
       # with py.typed (PEP 561), so its type stubs are a stub-only package
       packages=['jsonpatch-stubs'],
-      package_data={'': ['requirements.txt'], 'jsonpatch-stubs': ['*.pyi']},
+      package_data={'jsonpatch-stubs': ['*.pyi']},
       entry_points={
           'console_scripts': [
               'jsondiff = jsonpatch_cli:jsondiff_main',
@@ -68,14 +70,14 @@ setup(name=PACKAGE,
           ]
       },
       classifiers=CLASSIFIERS,
-      python_requires='>=3.10',
+      python_requires='>=3.11',
       project_urls={
           'Website': 'https://github.com/stefankoegl/python-json-patch',
           'Repository': 'https://github.com/stefankoegl/python-json-patch.git',
-          'Documentation': "https://python-json-patch.readthedocs.org/",
+          'Documentation': 'https://python-json-patch.readthedocs.io/',
           'PyPI': 'https://pypi.org/pypi/jsonpatch',
           'Tests': 'https://github.com/stefankoegl/python-json-patch/actions',
           'Test Coverage': 'https://coveralls.io/github/stefankoegl/python-json-patch',
       },
       install_requires=REQUIREMENTS,
-)
+      )

@@ -123,6 +123,16 @@ pub struct NetworkClient {
 }
 
 impl NetworkClient {
+    pub(crate) fn supports_wire_responses_without_redirects(&self) -> bool {
+        match &self.transport {
+            RequestTransport::Provider(provider) => provider
+                .upgrade()
+                .is_some_and(|p| p.supports_wire_responses_without_redirects()),
+            #[cfg(not(feature = "custom_network_provider"))]
+            _ => false,
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn set_network_provider_for_test(&mut self, provider: Weak<dyn NetworkProvider>) {
         self.transport = RequestTransport::Provider(provider);

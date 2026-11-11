@@ -17,6 +17,7 @@ from __future__ import annotations
 import collections
 import contextlib
 import hashlib
+import importlib.util
 import inspect
 import logging
 import os
@@ -87,7 +88,8 @@ from .vault import (
     post_commit_batch_fanout,
     read_guarded_text,
 )
-from .writer_lease import get_manager
+from .vault_store import mode as store_mode
+from .writer_lease import TRANSIENT_WRITER_CODES, get_manager
 
 log = logging.getLogger(__name__)
 
@@ -121,20 +123,7 @@ _LANGUAGE_ACTION = (
 _COMPUTE_RUNTIME_ACTION = (
     "repair the CUDA/cuBLAS/cuDNN runtime or explicitly select bounded CPU, then retry"
 )
-_TRANSIENT_OPERATION_CODES = frozenset(
-    {
-        "MUTATION_BUSY",
-        "MUTATION_LOCK_UNAVAILABLE",
-        "WRITER_COORDINATOR_UNAVAILABLE",
-        # Deliberately transient too. A misconfigured coordinator URL is not
-        # fixed by asking again, but it IS fixed by an operator without
-        # restarting anything -- so the caller waits rather than crashing. What
-        # changes is only how often it asks; see the recheck cadence below.
-        "WRITER_COORDINATOR_CONTRACT_ABSENT",
-        "WRITER_FENCED",
-        "WRITER_LEASE_REQUIRED",
-    }
-)
+_TRANSIENT_OPERATION_CODES = TRANSIENT_WRITER_CODES
 _FOLLOWER_RECHECK_SECONDS = 5.0
 #: A coordinator URL that answers but does not serve the lease contract returns
 #: the same answer to every request, so the follower cadence buys nothing and
@@ -253,6 +242,16 @@ def _ledger_busy(error: BaseException) -> bool:
     from . import lexstore
 
     return isinstance(error, sqlite3.Error) and lexstore.classify_sqlite_error(error) == "transient"
+
+
+def _module_findable(name: str | None) -> bool:
+    """Whether `name` resolves without importing it; an unnamed wait keeps the old check."""
+    if not name:
+        return True
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
 
 
 def _writer_authority_available() -> bool:
@@ -793,6 +792,7 @@ class MediaWorker:
         except extract.ExtractionUnavailable as e:
             error = f"{type(e).__name__}: {e}"
             log.warning("extraction unavailable for %s: %s", job.binary_path.name, e)
+            module = e.missing_module if media_engines.stage_available(job.media_type) else None
             committed = self._commit_processing_failure(
                 job,
                 expected_sidecar=expected_sidecar,
@@ -800,8 +800,9 @@ class MediaWorker:
                 expected_binary=expected_binary,
                 state=BLOCKED,
                 error=error,
-                next_action=media_engines.unavailable_next_action(),
+                next_action=media_engines.unavailable_next_action(module),
                 blocked_reason=media_jobs.ENGINE_UNAVAILABLE,
+                blocked_context=module,
             )
             return self._publication_outcome(committed, BLOCKED, error)
         except extract.EngineDisabled as e:
@@ -1065,7 +1066,8 @@ class MediaWorker:
         """Converge engine-blocked jobs (`engine_waits`) with this start's engines.
 
         A job whose engine is now available, or whose wait for a disabled engine has
-        ended, returns to pending. A job blocked on an engine the deployment switched
+        ended, returns to pending; one parked for a missing module returns once that
+        module is found. A job blocked on an engine the deployment switched
         off loses that stage: its sidecar is first shown as pending again, so no old
         install instruction stays, and its media waits with no job until the engine
         is enabled.
@@ -1080,7 +1082,7 @@ class MediaWorker:
             elif not media_engines.stage_enabled(job.media_type):
                 if self._present_pending(job):
                     dropped += self._store.drop_extraction_stage(job)
-            elif media_engines.stage_available(job.media_type):
+            elif _module_findable(job.blocked_context) and media_engines.stage_available(job.media_type):
                 requeued += self._store.requeue_engine_wait(job)
         if requeued or dropped:
             log.info(
@@ -1416,7 +1418,7 @@ class MediaWorker:
                 return False
             assert isinstance(handoff, DeferredGraphCompletion)
         self._complete_deferred_graph_completion(handoff, receipts)
-        extraction_parts.retire(self._vault_root, surplus)
+        self._retire_surplus_parts(surplus)
         return True
 
     def _extraction_writes(
@@ -1616,6 +1618,10 @@ class MediaWorker:
         parent_receipted_handoff: bool = False,
     ) -> bool:
         publication_intents = tuple(publication_intents)
+        if token.checkpoint is None:
+            # A store-mode commit: the graph rows committed with the page, so no fan-out is owed.
+            deferred_index.clear_full_receipts(self._vault_root, receipts)
+            return True
         completed = False
         index_reports: list[object] = []
         registered_checkpoint: graph_sync.GraphSyncCheckpoint | None = None
@@ -2342,6 +2348,12 @@ class MediaWorker:
                 job.sidecar_path.relative_to(self._vault_root).as_posix(),
                 result.receipt_revision,
             )
+            if store_mode.store_mode_active(self._vault_root):
+                # A store commit carried the page's graph rows with it, so the prepared sidecar
+                # (a crash between the commit and its finalize) has no fan-out left to run.
+                deferred_index.clear_full_receipts(self._vault_root, [receipt])
+                self._finish_prepared_target(result, expected_sidecar=current_sidecar)
+                return
             coordinator = get_manager()._mutation_coordinator_for(self._vault_root)
             index_reports: list[object] = []
             registered_checkpoint: graph_sync.GraphSyncCheckpoint | None = None
@@ -2384,23 +2396,7 @@ class MediaWorker:
             deferred_index.clear_full_receipts(
                 self._vault_root, [receipt]
             )
-            pending_target = _sidecar_is_pending(job.sidecar_path)
-            current_binary = _binary_identity(job.binary_path)
-            binary_changed = (
-                current_binary is None
-                or _result_binary_identity(current_binary) != result.binary_identity
-            )
-            if binary_changed and not pending_target:
-                if not self._publish_pending_for_changed_binary(
-                    result, expected_sidecar=current_sidecar
-                ):
-                    return
-                return
-            self._store.finalize_result(
-                result,
-                requeue_remaining=result.kind in {"extraction", "pending"},
-                keep_ocr=pending_target,
-            )
+            self._finish_prepared_target(result, expected_sidecar=current_sidecar)
             return
         if binary_changed and replaces is not None:
             # The request named a file that has since been replaced. The sidecar keeps its
@@ -2543,10 +2539,36 @@ class MediaWorker:
             parent_receipted_handoff=True,
         ):
             return
-        extraction_parts.retire(self._vault_root, surplus)
+        self._retire_surplus_parts(surplus)
         self._store.finalize_result(
             result, requeue_remaining=result.kind in {"extraction", "pending"}
         )
+
+    def _finish_prepared_target(
+        self, result: media_jobs.MediaJobResult, *, expected_sidecar: str
+    ) -> None:
+        """End a result whose prepared sidecar is already published and fanned out."""
+        job = result.job
+        pending_target = _sidecar_is_pending(job.sidecar_path)
+        current_binary = _binary_identity(job.binary_path)
+        binary_changed = (
+            current_binary is None
+            or _result_binary_identity(current_binary) != result.binary_identity
+        )
+        if binary_changed and not pending_target:
+            self._publish_pending_for_changed_binary(result, expected_sidecar=expected_sidecar)
+            return
+        self._store.finalize_result(
+            result,
+            requeue_remaining=result.kind in {"extraction", "pending"},
+            keep_ocr=pending_target,
+        )
+
+    def _retire_surplus_parts(self, surplus: tuple[Path, ...]) -> None:
+        """Retire the surplus part pages; a stored part that stays is logged, not raised."""
+        kept = extraction_parts.retire(self._vault_root, surplus)
+        if kept:
+            log.info("%s", extraction_parts.kept_note(kept))
 
     def _publish_pending_for_changed_binary(
         self, result: media_jobs.MediaJobResult, *, expected_sidecar: str | None

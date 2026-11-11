@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: lamindb_setup
-Version: 1.28.0
+Version: 1.29.0
 Summary: Setup & configure LaminDB.
 Author-email: Lamin Labs <open-source@lamin.ai>
 Requires-Python: >=3.10
@@ -18,13 +18,12 @@ Requires-Dist: supabase>=2.20,<=2.24
 Requires-Dist: websockets>=13.0
 Requires-Dist: pyjwt<3.0.0
 Requires-Dist: psutil
-Requires-Dist: psycopg2-binary
+Requires-Dist: psycopg[binary]>=3.1.12,<4
 Requires-Dist: packaging
 Requires-Dist: aiobotocore[boto3]>=2.12.4,<4.0.0 ; extra == "aws"
 Requires-Dist: s3fs>=2023.12.2,<=2026.9.0,!=2024.10.0,!=2026.2.*,!=2026.3.*,!=2026.4.*,!=2026.5.*,!=2026.6.* ; extra == "aws"
 Requires-Dist: boto3 ; extra == "aws"
 Requires-Dist: line_profiler ; extra == "dev"
-Requires-Dist: psycopg2-binary ; extra == "dev"
 Requires-Dist: nox ; extra == "dev"
 Requires-Dist: pytest>=6.0 ; extra == "dev"
 Requires-Dist: pytest-cov<7.0.0 ; extra == "dev"

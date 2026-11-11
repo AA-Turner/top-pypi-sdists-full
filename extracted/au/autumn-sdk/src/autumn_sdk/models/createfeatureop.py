@@ -803,21 +803,6 @@ class CreateFeatureDimensionsResponse6(BaseModel):
 CreateFeatureDimensionsToResponseEnum3 = Literal["inf",]
 
 
-CreateFeatureDimensionsResponseUnion3TypedDict = TypeAliasType(
-    "CreateFeatureDimensionsResponseUnion3TypedDict",
-    Union[
-        CreateFeatureDimensionsResponse6TypedDict,
-        CreateFeatureDimensionsResponse5TypedDict,
-    ],
-)
-
-
-CreateFeatureDimensionsResponseUnion3 = TypeAliasType(
-    "CreateFeatureDimensionsResponseUnion3",
-    Union[CreateFeatureDimensionsResponse6, CreateFeatureDimensionsResponse5],
-)
-
-
 class CreateFeatureMultipliersResponse3TypedDict(TypedDict):
     match: Dict[str, str]
     r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
@@ -1007,6 +992,21 @@ class CreateFeatureDimensionsResponse5(BaseModel):
                     m[k] = val
 
         return m
+
+
+CreateFeatureDimensionsResponseUnion3TypedDict = TypeAliasType(
+    "CreateFeatureDimensionsResponseUnion3TypedDict",
+    Union[
+        CreateFeatureDimensionsResponse6TypedDict,
+        CreateFeatureDimensionsResponse5TypedDict,
+    ],
+)
+
+
+CreateFeatureDimensionsResponseUnion3 = TypeAliasType(
+    "CreateFeatureDimensionsResponseUnion3",
+    Union[CreateFeatureDimensionsResponse6, CreateFeatureDimensionsResponse5],
+)
 
 
 CreateFeatureDimensionsToResponseUnion2TypedDict = TypeAliasType(

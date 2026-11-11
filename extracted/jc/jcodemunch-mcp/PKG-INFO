@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jcodemunch-mcp
-Version: 1.108.432
+Version: 1.108.434
 Summary: MCP server that gives AI coding agents the exact function or class they asked for, not the whole file. Runs on your machine, 70+ languages. Free for non-commercial use; commercial use needs a one-time license.
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp

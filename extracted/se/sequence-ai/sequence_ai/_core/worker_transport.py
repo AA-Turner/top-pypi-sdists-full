@@ -793,7 +793,7 @@ class _WorkerTransport(StreamLink):
         the episode with it, and the worker ends an episode with no act on its own after its TTL."""
         try:
             self._learn(self._client.post("/act/episode_end", json={"episode_id": episode_id}, timeout=_EPISODE_END_S))
-        except (httpx.HTTPError, SequencesError):
+        except (httpx.HTTPError, SequencesError, RuntimeError):
             pass
 
     def post_episode_label(self, episode_id: str, *, success: bool, notes: str = "") -> None:

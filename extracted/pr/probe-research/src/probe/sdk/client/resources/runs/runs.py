@@ -7,8 +7,10 @@ import builtins
 import os
 import sys
 import warnings
+from datetime import datetime
 from typing import Any
 from ....values import values as _coerce
+from ....values.times import to_iso_time
 from .....generated.models import (
     RunBundle,
     RunDetailOut,
@@ -148,6 +150,7 @@ class RunsMixin:
         intent: str | None = None,
         ignore: str | list[str] | tuple[str, ...] | None = None,
         workspace: str | None = None,
+        started_at: str | datetime | None = None,
         **run_kw,
     ) -> Run:
         """Open a run — full resolution/creation/``on_conflict`` semantics in
@@ -155,7 +158,9 @@ class RunsMixin:
         NEW project is filed; without it, this computer's workspace (``probe
         workspace use``, ``PROBE_WORKSPACE``). A team with several workspaces and
         none set files into your home workspace, and raises ``WorkspaceRequired``
-        before anything is created when you have none. ``hw=True`` (or ``PROBE_HW=1``) also
+        before anything is created when you have none. ``started_at`` (ISO 8601 with an
+        offset, or an aware datetime) is a re-logged past run's real start; close it with
+        ``run.set_status(status, ended_at=...)``. ``hw=True`` (or ``PROBE_HW=1``) also
         starts the opt-in hardware collector when this process is the
         node-local leader. Best-effort by contract: a broken collector never
         touches the run (agent/src/probe/sdk/hardware/DESIGN.md). ``snapshot``
@@ -207,6 +212,9 @@ class RunsMixin:
             # `_run_impl` compares the config the server will store, not the
             # Namespace or DictConfig it was built from.
             run_kw["config"] = _coerce.to_config(run_kw["config"])
+        if started_at is not None:
+            # Checked before any request, so a bad time creates no project either.
+            started_at = to_iso_time(started_at, label="started_at")
         if ignore is not None:
             # Checked before the run exists, so a bad value opens nothing.
             from ....recording_rules import recording_rules as _ignore
@@ -230,6 +238,7 @@ class RunsMixin:
             # run look like it declared a null parent.
             **({"parent_run_id": parent_run_id} if parent_run_id is not None else {}),
             **({"parent_relation": parent_relation} if parent_relation is not None else {}),
+            **({"started_at": started_at} if started_at is not None else {}),
             **run_kw,
         )
         from probe.sdk.hardware import wiring as hw_integration

@@ -1,15 +1,17 @@
 Metadata-Version: 2.4
 Name: cybrid-api-organization-python
-Version: 0.129.1567
+Version: 0.129.1581
 Summary: Cybrid Organization API
 Home-page: https://github.com/Cybrid-app/cybrid-api-organization-python/
 Author: Cybrid Support
 Author-email: support@cybrid.app
 License: Apache-2.0
+Project-URL: Source, https://github.com/Cybrid-app/cybrid-api-organization-python/
 Keywords: Cybrid Organization API
-Requires-Python: >=3.6
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Requires-Dist: urllib3>=1.25.3
+License-File: LICENSE
+Requires-Dist: urllib3>=2.2.2
 Requires-Dist: python-dateutil
 Dynamic: author
 Dynamic: author-email
@@ -18,6 +20,8 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

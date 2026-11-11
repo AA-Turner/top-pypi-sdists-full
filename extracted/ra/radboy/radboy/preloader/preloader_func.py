@@ -52,6 +52,7 @@ import holidays
 from pandas.tseries.offsets import BusinessDay,CustomBusinessDay
 from pandas.tseries.holiday import USFederalHolidayCalendar,Holiday
 import pyotp
+from fpdf import FPDF
 
 try:
     import pyperclip
@@ -13456,21 +13457,34 @@ SBX_WTR_DSPLY=Column(Integer,default=0)
         for i in xults:
             for gc in BooleanAnswers.gift_cards:
                 msg=''
-                if gc in i.Name.lower():
-                    msg=checkForWarningsGC_per_card(i,retailer)
-                elif gc in i.Note.lower():
-                    msg=checkForWarningsGC_per_card(i,retailer)
-                elif gc in i.Description.lower():
-                    msg=checkForWarningsGC_per_card(i,retailer)
-                elif gc in i.Barcode.lower():
-                    msg=checkForWarningsGC_per_card(i,retailer)
-                elif gc in i.Code.lower():
-                    msg=checkForWarningsGC_per_card(i,retailer)
+                #print("fixme")
+
+                if i.Name != None:
+                    if gc in i.Name.lower():
+                        msg=checkForWarningsGC_per_card(i,retailer)
+                
+                if i.Note != None:
+                    if gc in i.Note.lower():
+                        msg=checkForWarningsGC_per_card(i,retailer)
+                
+                if i.Description != None:
+                    if gc in i.Description.lower():
+                        msg=checkForWarningsGC_per_card(i,retailer)
+                
+                if i.Barcode != None:
+                    if gc in i.Barcode.lower():
+                        msg=checkForWarningsGC_per_card(i,retailer)
+                
+                if i.Code != None:
+                    if gc in i.Code.lower():
+                        msg=checkForWarningsGC_per_card(i,retailer)
+                
                 if msg != '':
                     store_file.write(strip_colors(msg))
                     print(msg)
                     breakTransaction=True
                     gcmsgs.append(msg)
+                    
         msgXces=checkForWarningsGC_per_transaction(xults,retailer)
         if msgXces != '':
             store_file.write(strip_colors(msgXces))
@@ -25312,5 +25326,62 @@ def kilowatthours_used():
         fb['+kWh used']=f"+{fb['kWh used']}"
         fb['-kWh used']=f"-{fb['kWh used']}"
         return results_def(fb)
+    except Exception as e:
+        print(e)
+
+
+def batch_to_doc():
+    try:
+        input_folder_default="./Batch"
+        output_pdf_default="batch_document.pdf"
+
+
+        input_folder=Control(ptext="What folder contains the files needed to be pdf'd?",helpText=f"default = {input_folder_default}",data="Path")
+        if input_folder in BooleanAnswers.NONE:
+            return
+        elif input_folder in ['d','']:
+            input_folder=input_folder_default
+
+        output_pdf=Control(ptext="What is the document file name?",helpText=f"default = {output_pdf_default}",data="Path")
+        if output_pdf in ['d','']:
+            output_pdf=output_pdf_default
+
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        
+        # Supported extensions
+        image_exts = ('.png', '.jpg', '.jpeg', '.gif', '.bmp')
+        text_exts = ('.txt',)
+
+        # Get and sort all files in the directory
+        files = sorted(os.listdir(input_folder))
+
+        for filename in files:
+            filepath = os.path.join(input_folder, filename)
+            
+            if not os.path.isfile(filepath):
+                continue
+
+            ext = os.path.splitext(filename)[1].lower()
+
+            # Handle Text Files
+            if ext in text_exts:
+                pdf.add_page()
+                pdf.set_font("Helvetica", size=12)
+                
+                with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                    text_content = f.read()
+                
+                # multi_cell automatically wraps long lines of text
+                pdf.multi_cell(0, 10, text=text_content)
+
+            # Handle Image Files
+            elif ext in image_exts:
+                pdf.add_page()
+                # Fit image within page margins (A4 width is 210mm; 10mm margins = 190mm max width)
+                pdf.image(filepath, x=10, y=10, w=190)
+
+        pdf.output(output_pdf)
+        print(f"Successfully created {output_pdf}")
     except Exception as e:
         print(e)

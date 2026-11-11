@@ -29,6 +29,7 @@ use crate::dlpack::DLDevice;
 ///  The index type of the FFI objects
 #[repr(i32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TVMFFITypeIndex {
     /// None/nullptr value
     kTVMFFINone = 0,
@@ -156,18 +157,20 @@ pub const COMBINED_REF_COUNT_WEAK_ONE: u64 = 1u64 << 32;
 pub const COMBINED_REF_COUNT_BOTH_ONE: u64 =
     COMBINED_REF_COUNT_STRONG_ONE | COMBINED_REF_COUNT_WEAK_ONE;
 
-#[repr(C)]
+// `align(8)` pads `deleter` to the 8 bytes of the C union with `int64_t` on
+// 32-bit targets.
+#[repr(C, align(8))]
 pub struct TVMFFIObject {
     pub combined_ref_count: AtomicU64,
     pub type_index: i32,
     pub __padding: u32,
     pub deleter: Option<TVMFFIObjectDeleter>,
-    // private padding to ensure 8 bytes alignment
-    #[cfg(target_pointer_width = "32")]
-    __padding: u32,
 }
 
+const _: () = assert!(size_of::<TVMFFIObject>() == 24 && align_of::<TVMFFIObject>() == 8);
+
 impl TVMFFIObject {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             combined_ref_count: AtomicU64::new(0),
@@ -217,6 +220,7 @@ pub struct TVMFFIAny {
 
 impl TVMFFIAny {
     /// create a new instance of TVMFFIAny that represents None
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             type_index: TVMFFITypeIndex::kTVMFFINone as i32,
@@ -244,7 +248,11 @@ impl TVMFFIByteArray {
     ///
     /// # Returns
     /// * `&str` - The converted str view.
-    pub fn as_str(&self) -> &str {
+    ///
+    /// # Safety
+    /// `data` must be null or point to `size` bytes of UTF-8 text that stay
+    /// valid and unchanged while the result is used.
+    pub unsafe fn as_str(&self) -> &str {
         // An empty array may hold a null pointer, as the type table stores an
         // empty doc string.
         if self.data.is_null() {
@@ -253,14 +261,16 @@ impl TVMFFIByteArray {
         unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(self.data, self.size)) }
     }
     /// Unsafe function to create a TVMFFIByteArray from a string
-    /// This function is unsafe as it does not check lifetime of the string
-    /// the caller must ensure that the string is valid for the lifetime of the TVMFFIByteArray
     ///
     /// # Arguments
     /// * `data` - The string to create the TVMFFIByteArray from.
     ///
     /// # Returns
     /// * `TVMFFIByteArray` - The created TVMFFIByteArray.
+    ///
+    /// # Safety
+    /// The result borrows `data` without a lifetime; the caller must keep the
+    /// string alive for as long as the TVMFFIByteArray is used.
     pub unsafe fn from_str(data: &str) -> Self {
         Self {
             data: data.as_ptr(),
@@ -284,9 +294,6 @@ pub struct TVMFFIFunctionCell {
     pub safe_call: TVMFFISafeCallType,
     pub cxx_call: *mut c_void,
 }
-
-unsafe impl Send for TVMFFIFunctionCell {}
-unsafe impl Sync for TVMFFIFunctionCell {}
 
 #[repr(i32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -482,6 +489,14 @@ unsafe extern "C" {
     pub fn TVMFFITypeRegisterField(type_index: i32, info: *const TVMFFIFieldInfo) -> i32;
     pub fn TVMFFITypeRegisterMethod(type_index: i32, info: *const TVMFFIMethodInfo) -> i32;
     pub fn TVMFFITypeRegisterMetadata(type_index: i32, metadata: *const TVMFFITypeMetadata) -> i32;
+    /// Register a low-level type attribute.
+    ///
+    /// # Safety
+    /// Structural hooks (opaque or Function-valued) require synchronous same-thread
+    /// invocation, borrowed non-escaping runtime/input, no retained
+    /// strong/weak runtime handle or forwarding to unrestricted callbacks/results/storage,
+    /// no out-of-band recursion during a dispatcher borrow, and valid mutation permissions.
+    /// Failures must return through the ABI; unwinding across it is prohibited.
     pub fn TVMFFITypeRegisterAttr(
         type_index: i32,
         attr_name: *const TVMFFIByteArray,
@@ -553,12 +568,16 @@ unsafe extern "C" {
     pub fn TVMFFIBigIntGetContentByteArray(value: *const TVMFFIAny) -> TVMFFIByteArray;
     pub fn TVMFFIDataTypeFromString(str: *const TVMFFIByteArray, out: *mut DLDataType) -> i32;
     pub fn TVMFFIDataTypeToString(dtype: *const DLDataType, out: *mut TVMFFIAny) -> i32;
-    pub fn TVMFFITraceback(
-        filename: *const i8,
-        lineno: i32,
-        func: *const i8,
-        cross_ffi_boundary: i32,
+    pub fn TVMFFIBacktrace(
+        filename: *const std::ffi::c_char,
+        lineno: std::ffi::c_int,
+        func: *const std::ffi::c_char,
+        cross_ffi_boundary: std::ffi::c_int,
     ) -> *const TVMFFIByteArray;
     pub fn TVMFFIGetTypeInfo(type_index: i32) -> *const TVMFFITypeInfo;
+}
+
+#[cfg(feature = "testing")]
+unsafe extern "C" {
     pub fn TVMFFITestingDummyTarget() -> i32;
 }

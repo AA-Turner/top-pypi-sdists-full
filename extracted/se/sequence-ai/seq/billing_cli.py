@@ -148,13 +148,27 @@ def _status_word(row: dict) -> str:
     return "added" if status == "paid" and str(row.get("kind") or "card") not in PAID_KINDS else status
 
 
+def _bill_day(at: Any) -> str:
+    """A day of the bill - a credit's, a plan's end - the UTC day, said so: "2026-12-01 UTC"; '—' for none. Before, a
+    credit's was this machine's day and a plan's end the first ten characters of what the platform sent, neither said
+    which zone.
+"""
+    from seq import clock
+
+    day = clock.day_of(at, utc=True)
+    return f"{day} UTC" if clock.instant(at) else day
+
+
 def _period(start: Any, end: Any) -> str:
-    """A bill's period as the console says one, its last day its end: "Oct 1 – Oct 31, 2026". An invoice keeps the first
-    day after it as period_end."""
-    first = datetime.strptime(str(start)[:10], "%Y-%m-%d")
-    last = datetime.strptime(str(end)[:10], "%Y-%m-%d") - timedelta(days=1)
+    """A bill's period as the console says one, its last day its end, its days the UTC days: "Oct 1 – Oct 31, 2026 UTC".
+    An invoice keeps the first day after it as period_end.
+"""
+    from seq import clock
+
+    first = clock.instant(start, utc=True) or datetime.strptime(str(start)[:10], "%Y-%m-%d")
+    last = (clock.instant(end, utc=True) or datetime.strptime(str(end)[:10], "%Y-%m-%d")) - timedelta(days=1)
     head = f"{first:%b} {first.day}" + ("" if first.year == last.year else f", {first.year}")
-    return f"{head} – {last:%b} {last.day}, {last.year}"
+    return f"{head} – {last:%b} {last.day}, {last.year} UTC"
 
 
 def billing_credits(*, page: int = 1, per_page: int = PER_PAGE, base_url: str | None = None, echo: Echo = None) -> dict:
@@ -165,10 +179,9 @@ def billing_credits(*, page: int = 1, per_page: int = PER_PAGE, base_url: str | 
     out = _call("GET", f"/v1/billing/credits?limit={per_page}&offset={(page - 1) * per_page}", base_url,
                 person=True) or {}
     rows = out.get("data") or []
-    from seq import clock
-
     for r in rows:
-        _say(echo, f"  {clock.day_of(r.get('paid_at') or r.get('created_at')):10}  {_usd(r.get('amount_usd')):>10}  "
+
+        _say(echo, f"  {_bill_day(r.get('paid_at') or r.get('created_at')):14}  {_usd(r.get('amount_usd')):>10}  "
                    f"{_status_word(r):8}  {KIND_WORDS.get(str(r.get('kind') or ''), 'card')}")
     total = int(out.get("total") or len(rows))
     if not rows:
@@ -189,20 +202,33 @@ def billing_plan(plan: str | None = None, *, base_url: str | None = None, echo: 
         mine = out.get("plan")
         sub = out.get("subscription") or {}
         _say(echo, f"plan      {str(mine or '—').capitalize()}"
-                   + (f" - ends {str(sub.get('current_period_end') or '')[:10]}, Starter from then"
+                   + (f" - ends {_bill_day(sub.get('current_period_end'))}, Starter from then"
                       if sub.get("cancel_at_period_end") else ""))
-        for p in out.get("plans") or []:
+
+
+        order = ("starter", "team", "custom")
+        plans = sorted(out.get("plans") or [], key=lambda p: order.index(p.get("plan")) if p.get("plan") in order
+                       else len(order))
+        for p in plans:
             mark = "*" if p.get("plan") == mine else " "
-            _say(echo, f"  {mark} {str(p.get('display_name') or p.get('plan') or ''):10} "
-                       f"{whole(p.get('monthly_fee_usd'))}/month, {whole(p.get('monthly_free_credit_usd'))} free credit "
-                       f"a month, {p.get('max_policies', '—')} policies, {p.get('max_gpus', '—')} GPUs")
+            name = f"  {mark} {str(p.get('display_name') or p.get('plan') or ''):10} "
+            if p.get("plan") == "custom":
+
+
+
+
+
+                _say(echo, name + "agreed per account: volume prices, a monthly limit and limits agreed for your fleet")
+                continue
+            _say(echo, name + f"{whole(p.get('monthly_fee_usd'))}/month, {whole(p.get('monthly_free_credit_usd'))} "
+                              f"free credit a month, {p.get('max_policies', '—')} policies, {p.get('max_gpus', '—')} GPUs")
         return out
     out = _call("POST", "/v1/billing/plan", base_url, {"plan": plan}, person=True) or {}
     if out.get("url"):
         _say(echo, "move to Team on its payment page:")
         _open(out["url"], echo, opener)
     elif out.get("action") == "cancel":
-        _say(echo, f"Team ends {str(out.get('current_period_end') or '')[:10]}: Starter from then")
+        _say(echo, f"Team ends {_bill_day(out.get('current_period_end'))}: Starter from then")
     elif out.get("action") == "resume":
         _say(echo, "Team goes on")
     return out
@@ -227,8 +253,13 @@ def billing_invoices(number: str | None = None, *, page: int = 1, per_page: int 
     if isinstance(month, dict) and month:
         _say(echo, f"this month so far  usage {_usd(month.get('usage_usd'))}")
     rows = out.get("data") or []
+    from seq import clock
+
     for r in rows:
-        _say(echo, f"  {str(r.get('number') or ''):16} {str(r.get('period_start') or '')[:7]}  usage "
+
+        start = clock.instant(r.get("period_start"), utc=True)
+        month = f"{start:%Y-%m} UTC" if start else str(r.get("period_start") or "")[:7]
+        _say(echo, f"  {str(r.get('number') or ''):16} {month}  usage "
                    f"{_usd(r.get('usage_usd'))}  due {_usd(r.get('amount_due_usd'))}")
     total = int(out.get("total") or len(rows))
     if not rows:

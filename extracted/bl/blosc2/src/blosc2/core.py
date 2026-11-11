@@ -8,6 +8,7 @@
 # Avoid checking the name of type annotations at run time
 from __future__ import annotations
 
+import contextlib
 import copy
 import ctypes
 import ctypes.util
@@ -20,11 +21,13 @@ import pickle
 import platform
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import urllib.parse
 import urllib.request
-from dataclasses import asdict
+import uuid
+from dataclasses import asdict, fields
 from functools import cache, lru_cache
 from typing import TYPE_CHECKING, ClassVar
 
@@ -169,7 +172,7 @@ def decompress(
     dst: NumPy object or bytearray
         The destination NumPy object or bytearray to fill,
         the length of which must be greater than 0.
-        The user must ensure it has enough capacity to hold
+        It must be writable and have enough capacity to hold
         the decompressed data.
         Default is None, meaning that a new `bytes` or `bytearray` object
         is created, filled and returned.
@@ -188,6 +191,8 @@ def decompress(
 
     Raises
     ------
+    BufferError
+        Raised if :paramref:`dst` is read-only, like a `bytes` object or a read-only memoryview.
     RuntimeError
         Raised if the compressed data is corrupted or the output buffer is not large enough.
         Also raised if a `bytes` object could not be obtained.
@@ -195,7 +200,7 @@ def decompress(
         Raised if :paramref:`src` does not support the Buffer Protocol.
     ValueError
         Raised if the length of :paramref:`src` is smaller than the minimum required length.
-        Also raised if `dst` is not `None` and its length is 0.
+        Also raised if `dst` is not `None` and its length is 0, or if it is a read-only NumPy array.
 
     Examples
     --------
@@ -689,8 +694,40 @@ def split_h5_url(url: str) -> tuple[str, str | None]:
     return url, None
 
 
+def find_url_separator(url: str) -> int:
+    """Find the first ``::`` outside a bracketed IPv6 URL host, or return -1."""
+    parsed = urllib.parse.urlsplit(url)
+    index = url.find("::")
+    if parsed.netloc and parsed.hostname and ":" in parsed.hostname:
+        start = url.find("//") + 2 + parsed.netloc.rfind("[")
+        end = url.find("]", start) + 1
+        if start <= index < end:
+            index = url.find("::", end)
+    return index
+
+
+def fsspec_filesystem(urlpath: str, storage_options: dict | None = None):
+    """Resolve a filesystem without fsspec mistaking an IPv6 host for a chain."""
+    fsspec = _import_fsspec(urlpath)
+    parsed = urllib.parse.urlsplit(urlpath)
+    if (
+        parsed.scheme in {"http", "https"}
+        and parsed.hostname
+        and ":" in parsed.hostname
+        and find_url_separator(urlpath) == -1
+    ):
+        # fsspec.url_to_fs currently splits on every ::, even inside [::1].
+        # A direct HTTP filesystem preserves the complete URL as its path.
+        options = dict(storage_options or {})
+        protocol_options = dict(options.pop(parsed.scheme, {}))
+        protocol_options.update(options)
+        fs = fsspec.filesystem(parsed.scheme, **protocol_options)
+        return fs, fs._strip_protocol(urlpath)
+    return fsspec.core.url_to_fs(urlpath, **(storage_options or {}))
+
+
 def _parse_b2z_url(urlpath, dataset):
-    if "::" in urlpath:
+    if find_url_separator(urlpath) != -1:
         return None  # A remaining separator belongs to an fsspec protocol chain.
     parsed = urllib.parse.urlsplit(urlpath)
     path_str = f"{parsed.netloc}/{parsed.path}" if parsed.netloc else parsed.path
@@ -740,8 +777,9 @@ def parse_container_url(
     if not isinstance(urlpath, str):
         return urlpath, dataset, None
 
-    if "::" in urlpath:
-        parts = urlpath.split("::", 1)
+    separator = find_url_separator(urlpath)
+    if separator != -1:
+        parts = (urlpath[:separator], urlpath[separator + 2 :])
         if "://" not in parts[1]:
             if dataset is not None:
                 raise ValueError("Cannot specify dataset in both URL path and dataset parameter")
@@ -789,6 +827,12 @@ def _import_fsspec(urlpath: str):
 
 def fsspec_open(urlpath: str, mode: str, storage_options: dict | None = None):
     """`fsspec.open()`, but complaining properly when fsspec is missing."""
+    parsed = urllib.parse.urlsplit(urlpath)
+    if parsed.scheme in {"http", "https"} and parsed.hostname and ":" in parsed.hostname:
+        fs, path = fsspec_filesystem(urlpath, storage_options)
+        from fsspec.core import OpenFile
+
+        return OpenFile(fs, path, mode)
     return _import_fsspec(urlpath).open(urlpath, mode, **(storage_options or {}))
 
 
@@ -892,7 +936,7 @@ def localize_fsspec_url(
     from fsspec.utils import tokenize
 
     cache_storage = str(cache_storage)
-    fs, path = fsspec.url_to_fs(urlpath, **(storage_options or {}))
+    fs, path = fsspec_filesystem(urlpath, storage_options)
 
     if not fs.isdir(path):
         # check_files is off by default in fsspec, which would happily serve a
@@ -903,7 +947,7 @@ def localize_fsspec_url(
             "check_files": True,
             "cache_mapper": _basename_cache_mapper(),
         }
-        with fsspec.open(f"filecache::{urlpath}", "rb", filecache=opts, **(storage_options or {})) as f:
+        with fsspec.filesystem("filecache", fs=fs, **opts).open(path, "rb") as f:
             return f.name
 
     localdir = fsspec_cache_path(urlpath, cache_storage)
@@ -1247,11 +1291,11 @@ def set_nthreads(nthreads: int) -> int:
     Notes
     -----
     The number of threads can also be set via the ``BLOSC_NTHREADS`` environment
-    variable (e.g., ``export BLOSC_NTHREADS=1``). Additionally, you may want to set
-    ``NUMEXPR_NUM_THREADS`` (e.g., ``export NUMEXPR_NUM_THREADS=1``) as well since
-    numexpr is used under the hood when performing some operations.  Note that
-    this function only sets the number of threads used by Blosc, not the number
-    of threads used by numexpr.
+    variable (e.g., ``export BLOSC_NTHREADS=1``), which :attr:`~blosc2.nthreads`
+    then starts from. While it is set, C-Blosc2 uses it for every compression and
+    decompression, over this function and the ``nthreads`` of :class:`CParams` and
+    :class:`DParams`. Expression execution uses native miniexpr scheduling or
+    explicit NumPy fallbacks; NumExpr thread settings do not affect Blosc2.
 
     The maximum number of threads for Blosc is :math:`2^{31} - 1`. In some
     cases, Blosc gets better results if you set the number of threads
@@ -1282,6 +1326,80 @@ def set_nthreads(nthreads: int) -> int:
     rc = blosc2_ext.set_nthreads(nthreads)
     blosc2.nthreads = nthreads
     return rc
+
+
+def set_prefetch(nthreads: int, max_ahead: int = 0, piece_size: int = 0) -> int:
+    """Read ahead when slicing arrays and super-chunks stored as contiguous frames on disk.
+
+    A slice of an on-disk array reads the blocks it needs one after the other, each read at most as large
+    as the kernel's read-ahead window. On a network file system every one of those reads is a round trip,
+    so a cold slice can wait for hundreds of them in a row. With read-ahead, the chunks a slice needs (and
+    that are not in the page cache yet) are read by :paramref:`nthreads` background threads in pieces of
+    at most :paramref:`piece_size` bytes, in the order the slice decompresses them and at most
+    :paramref:`max_ahead` bytes ahead of it, and each chunk is decompressed as soon as it is in. Of a
+    chunk that a slice (``a[...]``, :meth:`NDArray.slice`) covers only in part, only the blocks it needs
+    are read (after the chunk's header). The data goes to the page cache, so ``mmap_mode="r"`` stays
+    zero-copy, and cached pages are not read again.
+
+    It applies to :class:`NDArray` slices (``a[...]``, :meth:`NDArray.slice`), orthogonal selections
+    (``a[[1, 5, 9], ...]``, :meth:`NDArray.get_oselection_numpy`) and :class:`SChunk` slices
+    (``schunk[a:b]``, :meth:`SChunk.get_slice`).
+
+    Which settings to use: reads that are not cached get faster on any storage, most on high-latency
+    ones. The threads mostly wait for the storage, but the kernel spends CPU on every byte they read, and
+    more per byte the more threads read one file at once.
+
+    * 4 threads with the default piece size give most of the speed, on network file systems (NFS,
+      SMB, ...) and on local disks; more threads help a little more on network storage and cost more
+      CPU.
+    * On local disks, fewer threads (1-2) or larger pieces (4-8 MiB) cost less CPU, for some of the
+      speed (how much depends on the disk).
+    * Keep 4 also with many reader processes or threads: in tests on NFS with 24 to 96 reader
+      processes on 64 hardware threads, 4 threads were the fastest setting or within 10% of it. Only
+      when the readers keep all cores busy can fewer threads, or none, be faster.
+
+    How many threads run: each slice being read gets up to :paramref:`nthreads` read-ahead threads, and
+    slices that threads of the process read at the same time get theirs each. So a process runs up to
+    :paramref:`nthreads` times the number of slices it reads at once, at most 256 in all: a program that
+    reads with one thread has :paramref:`nthreads` of them, one that reads with 8 threads at once (each
+    with its own handle) up to 8 x :paramref:`nthreads`, and 8 processes with one reader each have
+    :paramref:`nthreads` each. Decompression threads (``nthreads`` in ``dparams``, ``blosc2.nthreads``)
+    are separate and do not count: they decompress a chunk while the read-ahead threads fetch the next
+    ones, so readers can keep one decompression thread each and still read ahead.
+
+    Parameters
+    ----------
+    nthreads: int
+        Number of read-ahead threads (at most 256); 0 turns read-ahead off (the default).
+    max_ahead: int
+        Most bytes read ahead of the chunk being decompressed; 0 for the default (64 MiB).
+    piece_size: int
+        Largest read handed to one thread, in bytes; 0 for the default (1 MiB), else at least 64 KiB.
+        Each thread keeps a buffer as large as the largest piece it has read.
+
+    Returns
+    -------
+    out: int
+        The previous number of read-ahead threads.
+
+    Notes
+    -----
+    The setting and the threads are per process; a process created with ``fork()`` starts its own threads
+    on first use. Read-ahead threads are started as needed and keep running, each with its buffer. The
+    ``BLOSC_PREFETCH`` environment variable, set to a number of threads, turns read-ahead on when blosc2 is
+    imported. It works with the default and the memory-mapped file I/O on POSIX systems (Linux, macOS); on
+    Windows it has no effect. Skipping cached pages asks the kernel (``cachestat()`` on
+    Linux >= 6.5, else ``mincore()``), which on Linux answers only for files the process owns or may write
+    to (before 6.5: only files it owns); other files are read again even if cached, which is correct but
+    costs a copy.
+
+    Examples
+    --------
+    >>> old = blosc2.set_prefetch(4)  # network storage: 4 threads, 1 MiB pieces, up to 64 MiB ahead
+    >>> _ = blosc2.set_prefetch(2, piece_size=8 << 20)  # less CPU: 2 threads, 8 MiB pieces
+    >>> _ = blosc2.set_prefetch(old)
+    """
+    return blosc2_ext.set_prefetch(nthreads, max_ahead, piece_size)
 
 
 def compressor_list(plugins: bool = False) -> list:
@@ -1410,6 +1528,15 @@ def set_releasegil(gilstate: bool) -> bool:
     small performance penalty with releasing the GIL that will more harshly
     penalize small block sizes.
 
+    Reading slices of an :ref:`NDArray` releases the GIL while decompressing
+    regardless of this setting, unless a Python postfilter, codec or filter
+    could run during the read.
+
+    Compressing keeps the GIL regardless of this setting when a Python callback
+    (a prefilter, a filler, or a codec or filter registered from Python) could
+    run.  :func:`decompress2` keeps it when the chunk uses a codec or filter
+    registered from Python.
+
     Examples
     --------
     >>> oldReleaseState = blosc2.set_releasegil(True)
@@ -1470,11 +1597,8 @@ def print_versions():
     print("Main codec library versions:")
     for clib in sorted(clib_versions.keys()):
         print(f"  {clib}: {clib_versions[clib]}")
+    print(f"miniexpr version: {blosc2_ext.MINIEXPR_VERSION_STRING}")
     print(f"NumPy version: {np.__version__}")
-    if not blosc2.IS_WASM:
-        import numexpr
-
-        print(f"numexpr version: {numexpr.__version__}")
     import httpx
 
     print(f"httpx version: {httpx.__version__}")
@@ -1938,7 +2062,9 @@ def compute_chunks_blocks(  # noqa: C901
 
     cparams = kwargs.get("cparams") or blosc2.CParams()  # just get defaults
     if isinstance(cparams, blosc2.CParams):
-        cparams = asdict(cparams)
+        # Shallow is enough (only keys are set below, filters only on a deep copy), and asdict()
+        # costs more than the rest of this function
+        cparams = {f.name: getattr(cparams, f.name) for f in fields(cparams)}
     # Typesize in dtype always has preference over typesize in cparams
     itemsize = cparams["typesize"] = np.dtype(dtype).itemsize
 
@@ -1946,7 +2072,7 @@ def compute_chunks_blocks(  # noqa: C901
         # Get the default blocksize for the compression params
         # Check if we need STUNE for lossy codecs/filters that have specific blocksize requirements
         codec = cparams.get("codec")
-        filters = cparams.get("filters", None)
+        filters = cparams.get("filters")
         needs_stune = codec in (
             blosc2.Codec.ZFP_RATE,
             blosc2.Codec.ZFP_PREC,
@@ -2125,10 +2251,9 @@ def decompress2(src: object, dst: object | bytearray = None, **kwargs: dict) -> 
         bytearray, memoryview, or numpy.ndarray.
     dst: NumPy object or bytearray, optional
         The destination NumPy object or bytearray to fill. The length
-        must be greater than 0. The user must ensure
-        it has enough capacity for the decompressed
-        data. Default is `None`, meaning a new bytes object
-        is created, filled and returned.
+        must be greater than 0. It must be writable and have enough
+        capacity for the decompressed data. Default is `None`,
+        meaning a new bytes object is created, filled and returned.
 
     kwargs: dict, optional
         Decompression parameters. The default values are in :class:`blosc2.DParams`.
@@ -2150,15 +2275,17 @@ def decompress2(src: object, dst: object | bytearray = None, **kwargs: dict) -> 
 
     Raises
     ------
+    BufferError
+        If :paramref:`dst` is read-only, like a `bytes` object or a read-only memoryview.
     RuntimeError
-        If the data cannot be compressed into :paramref:`dst`.
+        If the data cannot be decompressed into :paramref:`dst`.
         If an internal error occurs, likely due to an invalid parameter
         If :paramref:`dst` is `None` and a bytes object could not be created to store the result.
     TypeError
         If :paramref:`src` does not support the Buffer Protocol.
     ValueError
         If the length of :paramref:`src` is smaller than the minimum.
-        If :paramref:`dst` is not None and its length is 0.
+        If :paramref:`dst` is not None and its length is 0, or if it is a read-only NumPy array.
     """
     if kwargs is not None and "dparams" in kwargs:
         if len(kwargs) > 1:
@@ -2195,6 +2322,39 @@ def remove_urlpath(path: str) -> None:
             path = str(path)
         path = path.encode("utf-8") if isinstance(path, str) else path
         blosc2_ext.remove_urlpath(path)
+
+
+def mkstemp_for_replace(target: str | os.PathLike, *, prefix: str = "", suffix: str = "") -> tuple[int, str]:
+    """Create a temporary file next to *target*, to be ``os.replace()``-d onto it.
+
+    Returns ``(fd, path)`` like ``tempfile.mkstemp()``, but the file gets the
+    permissions that writing *target* in place would leave, not mkstemp's
+    0o600: an existing *target* keeps its permission bits, a new one gets
+    0o666 less the umask (or the directory's default ACL).  The kernel applies
+    the umask at creation, so it is never read: ``os.umask()`` can only be read
+    by setting it, process-wide, which races with other threads.
+    """
+    target = os.path.abspath(target)
+    # 122 random bits: unlike mkstemp's short names, no retry loop is needed.
+    path = os.path.join(os.path.dirname(target), f"{prefix}{uuid.uuid4().hex}{suffix}")
+    mode = None
+    # Windows only has a read-only flag (and a read-only target cannot be replaced).
+    if os.name != "nt":
+        with contextlib.suppress(OSError):  # no target: a new file
+            mode = stat.S_IMODE(os.stat(target).st_mode)
+    # Never more open than the target, not even until the chmod below: whoever
+    # opened the file meanwhile could read what is written to it later.
+    fd = os.open(
+        path,
+        os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0),
+        0o666 if mode is None else mode & 0o666,
+    )
+    if mode is not None:
+        # Through the fd, so a symlink swapped in for path cannot redirect it.
+        # Best effort: some filesystems (e.g. vfat) refuse chmod.
+        with contextlib.suppress(OSError):
+            os.fchmod(fd, mode)
+    return fd, path
 
 
 def schunk_from_cframe(
@@ -2284,12 +2444,9 @@ def ndarray_from_cframe(
     """
     from blosc2.deserialization import set_deserialize
 
+    # copy=False: the array pins `cframe` with its C memory (see blosc2_ext.ndarray_from_cframe)
     arr = blosc2_ext.ndarray_from_cframe(cframe, copy)
     set_deserialize(arr, deserialize)
-    if not copy:
-        # Same zero-copy pin as schunk_from_cframe; on the inner SChunk so
-        # both `arr` and a handed-out `arr.schunk` reach it.
-        arr._schunk._cframe = cframe
     return arr
 
 
@@ -2353,9 +2510,13 @@ def from_cframe(
     if "b2o" in schunk.meta:
         marker = schunk.meta["b2o"]
         kind = marker.get("kind", "b2o") if isinstance(marker, dict) else "b2o"
-        if deserialize is DeserializeMode.SAFE:
+        if kind == "lazyudf":
+            raise blosc2.UnsupportedLegacyRecipeError()
+        if deserialize is DeserializeMode.SAFE and kind not in {"menudet", "lazyexpr"}:
             raise UnsafeDeserializationError(str(kind))
         return blosc2.open_b2object(ndarray_from_cframe(cframe, copy=copy, deserialize=deserialize))
+    if schunk.meta.get("LazyArray") == 1:
+        raise blosc2.UnsupportedLegacyRecipeError()
     if "b2nd" in schunk.meta:
         return ndarray_from_cframe(cframe, copy=copy, deserialize=deserialize)
     return schunk_from_cframe(cframe, copy=copy, deserialize=deserialize)
@@ -2395,7 +2556,9 @@ def register_codec(
 
     Notes
     -----
-    * Cannot use multi-threading when using a user-defined codec.
+    * Cannot use multi-threading when using a user-defined codec. A codec with Python
+      functions cannot be registered while the ``BLOSC_NTHREADS`` environment variable is
+      above 1, since C-Blosc2 would use that many threads for it.
 
     * User-defined codecs can only be used inside an `SChunk` instance.
 
@@ -2473,7 +2636,9 @@ def register_filter(
 
     Notes
     -----
-    * Multi-threading cannot be used with a user-defined filter.
+    * Multi-threading cannot be used with a user-defined filter. A filter with Python
+      functions cannot be registered while the ``BLOSC_NTHREADS`` environment variable is
+      above 1, since C-Blosc2 would use that many threads for it.
 
     * User-defined filters can only be used inside an `SChunk` instance.
 

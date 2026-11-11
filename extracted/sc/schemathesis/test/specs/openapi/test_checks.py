@@ -48,6 +48,7 @@ from schemathesis.specs.openapi.checks import (
     _is_prefix_operation,
     allow_header_conformance,
     content_type_conformance,
+    ensure_resource_availability,
     has_only_additional_properties_in_non_body_parameters,
     missing_required_header,
     negative_data_rejection,
@@ -1425,6 +1426,113 @@ def test_negative_data_rejection_validates_query_and_headers_as_sent(ctx, respon
     _assert_rejection(case, response, reported=reported)
 
 
+DEEP_OBJECT_FIELDS = {"type": "object", "additionalProperties": {"type": "string", "maxLength": 5}}
+DEEP_OBJECT_MEMBERS = pytest.mark.parametrize(
+    ("member", "reported"),
+    [(None, False), (True, False), (12, False), (2.7270633252329124e16, True)],
+    ids=["null", "boolean", "number", "too-long"],
+)
+
+
+def _additional_properties_mutation(location, path, pointer, parameter=None):
+    return Mutation(
+        path=path,
+        parameter_location=location,
+        schema_pointer=pointer,
+        channel=MutationChannel.SCHEMA,
+        operator=OperatorKind.NEGATE_CONSTRAINTS,
+        keywords=("additionalProperties",),
+        parameter=parameter,
+        original_value=None,
+        new_value=None,
+    )
+
+
+@pytest.mark.parametrize(
+    ("parameter", "path", "pointer"),
+    [
+        (
+            {"in": "query", "name": "fields", "style": "deepObject", "explode": True, "schema": DEEP_OBJECT_FIELDS},
+            ("fields",),
+            "/properties/fields",
+        ),
+        (
+            {
+                "in": "querystring",
+                "name": "query",
+                "content": {
+                    "application/x-www-form-urlencoded": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"fields": DEEP_OBJECT_FIELDS},
+                            "additionalProperties": False,
+                        },
+                        "encoding": {"fields": {"style": "deepObject"}},
+                    }
+                },
+            },
+            ("query", "fields"),
+            "/properties/query/properties/fields",
+        ),
+    ],
+    ids=["query", "querystring"],
+)
+@pytest.mark.parametrize(
+    ("member", "reported"),
+    [
+        (None, False),
+        (True, False),
+        (12, False),
+        (2.7270633252329124e16, True),
+        (["far too long", "ok"], False),
+        (["far too long", "also too long"], True),
+    ],
+    ids=["null", "boolean", "number", "too-long", "repeated", "repeated-too-long"],
+)
+def test_negative_data_rejection_reads_deep_object_query_members_as_sent(
+    ctx, response_factory, parameter, path, pointer, member, reported
+):
+    operation = ctx.openapi.load_operation(
+        "GET /items", {"parameters": [parameter], "responses": {"200": {"description": "OK"}}}, version="3.2.0"
+    )
+    query = {"V": member}
+    for name in reversed(path):
+        query = {name: query}
+    case = operation.Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            mutations=(_additional_properties_mutation(ParameterLocation.QUERY, path, pointer, "fields"),),
+        ),
+        query=operation.get_parameter_serializer("query")(query),
+    )
+    response = response_factory.requests()
+    response.request.prepare_url("http://127.0.0.1/items", case.as_transport_kwargs()["params"])
+
+    _assert_rejection(case, response, reported=reported)
+
+
+def test_negative_data_rejection_reports_deep_object_sent_with_plain_value(ctx, response_factory):
+    parameter = {"in": "query", "name": "fields", "style": "deepObject", "explode": True, "schema": DEEP_OBJECT_FIELDS}
+    operation = ctx.openapi.load_operation(
+        "GET /items", {"parameters": [parameter], "responses": {"200": {"description": "OK"}}}, version="3.2.0"
+    )
+    case = operation.Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            mutations=(
+                _additional_properties_mutation(ParameterLocation.QUERY, ("fields",), "/properties/fields", "fields"),
+            ),
+        ),
+        query={"fields": "plain", "fields[V]": "ok"},
+    )
+    response = response_factory.requests()
+    response.request.prepare_url("http://127.0.0.1/items", case.as_transport_kwargs()["params"])
+
+    _assert_rejection(case, response, reported=True)
+
+
 def test_negative_data_rejection_reports_invalid_query_beside_negated_path(ctx, response_factory):
     operation = ctx.openapi.load_operation(
         "GET /items",
@@ -2377,6 +2485,32 @@ def test_body_negation_becomes_valid_after_serialization(
     assert _body_negation_becomes_valid_after_serialization(response_factory.requests(), case) is expected
 
 
+# A non-string body sent as text becomes a valid string on the wire.
+@pytest.mark.parametrize(
+    ("media_type", "reported"),
+    [
+        ("text/plain", False),
+        ("text/csv", False),
+        ("application/jwt", False),
+        ("text/json", True),
+    ],
+)
+def test_negative_data_rejection_string_body_sent_as_text(ctx, response_factory, media_type, reported):
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {"required": True, "content": {media_type: {"schema": {"type": "string"}}}},
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    case = operation.Case(
+        body=118,
+        media_type=media_type,
+        _meta=build_metadata(body=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+    )
+    _assert_rejection(case, response_factory.requests(), reported=reported)
+
+
 @pytest.mark.parametrize(
     ("query", "headers", "expected"),
     [
@@ -2610,6 +2744,50 @@ def test_negative_data_rejection_reports_form_scalars_invalid_when_sent(
     )
     with pytest.raises(AcceptedNegativeData):
         negative_data_rejection(check_context(), case.call(), case)
+
+
+@DEEP_OBJECT_MEMBERS
+def test_negative_data_rejection_reads_deep_object_form_members_as_sent(ctx, app_runner, member, reported):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            URLENCODED: {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"fields": DEEP_OBJECT_FIELDS},
+                                    "additionalProperties": False,
+                                },
+                                "encoding": {"fields": {"style": "deepObject", "explode": True}},
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )
+
+    @app.route("/items", methods=["POST"])
+    def items():
+        return jsonify({})
+
+    operation = schemathesis.openapi.from_url(app_runner.openapi_url(app))["/items"]["POST"]
+    case = operation.Case(
+        _meta=build_metadata(
+            body=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            mutations=(_additional_properties_mutation(ParameterLocation.BODY, (), ""),),
+        ),
+        body={"fields": {"V": member}},
+        media_type=URLENCODED,
+    )
+
+    _assert_rejection(case, case.call(), reported=reported)
 
 
 def test_negative_data_rejection_reports_form_body_with_undeclared_media_type(ctx, app_runner):
@@ -3497,6 +3675,24 @@ def test_response_schema_conformance_with_surrogate_chars_in_response(response_f
     assert failure.position == 1
     assert failure.lineno == 1
     assert failure.colno == 2
+
+
+def test_compact_jwt_response_is_not_parsed_as_json(ctx, response_factory):
+    operation = ctx.openapi.load_operation(
+        "GET /token",
+        {
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {"application/jwt": {"schema": {"type": "string"}}},
+                }
+            }
+        },
+    )
+    response = response_factory.requests(content=b"eyJhbGciOiJIUzI1NiJ9.e30.c2ln", content_type="application/jwt")
+    response = Response.from_requests(response, True)
+
+    assert response_schema_conformance(check_context(), response, operation.Case()) is None
 
 
 def test_response_validation_reports_surrogate_returned_by_deserializer(ctx, response_factory):
@@ -4908,7 +5104,7 @@ _USER_PROFILE_SCHEMA = {
 }
 
 
-def _build_user_profile_chain(ctx, response_factory, *, delete_status: int, get_headers=None):
+def _build_user_profile_chain(ctx, response_factory, *, delete_status: int, post_status: int = 201, get_headers=None):
     schema = ctx.openapi.load_schema(_USER_PROFILE_SCHEMA)
     post_operation = schema["/users"]["POST"]
     delete_operation = schema["/users/{userId}"]["DELETE"]
@@ -4918,7 +5114,7 @@ def _build_user_profile_chain(ctx, response_factory, *, delete_status: int, get_
     delete_case = delete_operation.Case(path_parameters={"userId": "alice"})
     get_case = get_operation.Case(path_parameters={"userId": "alice"})
 
-    post_response = Response.from_requests(response_factory.requests(status_code=201), True)
+    post_response = Response.from_requests(response_factory.requests(status_code=post_status), True)
     delete_response = Response.from_requests(response_factory.requests(status_code=delete_status), True)
     get_response = Response.from_requests(response_factory.requests(status_code=200, headers=get_headers), True)
 
@@ -4933,11 +5129,16 @@ def _build_user_profile_chain(ctx, response_factory, *, delete_status: int, get_
     return check_context(recorder=recorder), get_case, get_response
 
 
-@pytest.mark.parametrize("delete_status", [500, 404], ids=["server-crash", "not-found"])
-def test_use_after_free_skips_when_delete_failed(ctx, response_factory, delete_status):
-    # When DELETE returns 5xx (server crash) or 404 (nothing to free), the resource was never
-    # actually deleted, so a subsequent 2xx read is not a use-after-free.
-    context, get_case, get_response = _build_user_profile_chain(ctx, response_factory, delete_status=delete_status)
+@pytest.mark.parametrize(
+    ("post_status", "delete_status"),
+    [(201, 500), (201, 404), (500, 204)],
+    ids=["server-crash", "not-found", "create-failed"],
+)
+def test_use_after_free_skips_when_create_or_delete_failed(ctx, response_factory, post_status, delete_status):
+    # A failed POST created nothing, and a DELETE returning 5xx or 404 freed nothing, so a later 2xx read is fine.
+    context, get_case, get_response = _build_user_profile_chain(
+        ctx, response_factory, post_status=post_status, delete_status=delete_status
+    )
     assert use_after_free(context, get_response, get_case) is None
 
 
@@ -4945,6 +5146,22 @@ def test_use_after_free_fires_when_delete_succeeded(ctx, response_factory):
     context, get_case, get_response = _build_user_profile_chain(ctx, response_factory, delete_status=204)
     with pytest.raises(UseAfterFree):
         use_after_free(context, get_response, get_case)
+
+
+def test_ensure_resource_availability_skips_when_create_failed(ctx, response_factory):
+    schema = ctx.openapi.load_schema(_USER_PROFILE_SCHEMA)
+    post_case = schema["/users"]["POST"].Case(body={"name": "alice"})
+    get_case = schema["/users/{userId}/profile"]["GET"].Case(path_parameters={"userId": "alice"})
+    post_response = Response.from_requests(response_factory.requests(status_code=500), True)
+    get_response = Response.from_requests(response_factory.requests(status_code=404), True)
+
+    recorder = ScenarioRecorder(label="resource-availability-test")
+    recorder.record_case(parent_id=None, case=post_case, transition=None, is_transition_applied=False)
+    recorder.record_response(case_id=post_case.id, response=post_response)
+    recorder.record_case(parent_id=post_case.id, case=get_case, transition=None, is_transition_applied=False)
+    recorder.record_response(case_id=get_case.id, response=get_response)
+
+    assert ensure_resource_availability(check_context(recorder=recorder), get_response, get_case) is None
 
 
 @pytest.mark.parametrize(
@@ -5503,6 +5720,10 @@ PAGE_SIZE = {"type": "integer", "minimum": 1, "maximum": 100}
             True,
             False,
             id="query_object_mutation_with_numeric_key",
+        ),
+        # A string `"7"` sends the same URL as the integer `7`.
+        pytest.param(
+            ParameterLocation.PATH, {"type": "integer"}, "7", True, False, id="path_numeric_string_for_integer"
         ),
         # Encoded `+1` decodes back to an integer-like value accepted by many servers.
         pytest.param(

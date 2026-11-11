@@ -18,7 +18,7 @@ from pygeodesy.lazily import _ALL_LAZY, _ALL_OTHER, _lazy_import_as, _unLazy0
 # from pygeodesy.triaxials.bases import TriaxialError  # likewise
 
 __all__ = _ALL_LAZY.triaxials  # _triaxial5  # likewise
-__version__ = '26.08.06'
+__version__ = '26.10.28'
 
 if _unLazy0:  # or _isfrozen
     from pygeodesy.triaxials.bases import LLK, TriaxialError
@@ -49,7 +49,7 @@ else:  # lazily import modules and exported attrs
 
 # **) MIT License
 #
-# Copyright (C) 2025-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2025-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

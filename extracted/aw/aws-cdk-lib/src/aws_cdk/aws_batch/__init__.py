@@ -13217,7 +13217,6 @@ class CfnQuotaShare(
             preemption_configuration=batch.CfnQuotaShare.QuotaSharePreemptionConfigurationProperty(
                 in_share_preemption="inSharePreemption"
             ),
-            quota_share_name="quotaShareName",
             resource_sharing_configuration=batch.CfnQuotaShare.QuotaShareResourceSharingConfigurationProperty(
                 strategy="strategy",
         
@@ -13226,6 +13225,7 @@ class CfnQuotaShare(
             ),
         
             # the properties below are optional
+            quota_share_name="quotaShareName",
             state="state",
             tags={
                 "tags_key": "tags"
@@ -13241,8 +13241,8 @@ class CfnQuotaShare(
         capacity_limits: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQuotaShare.QuotaShareCapacityLimitProperty", typing.Dict[builtins.str, typing.Any]]]]],
         job_queue: builtins.str,
         preemption_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQuotaShare.QuotaSharePreemptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        quota_share_name: builtins.str,
         resource_sharing_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQuotaShare.QuotaShareResourceSharingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        quota_share_name: typing.Optional[builtins.str] = None,
         state: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -13253,8 +13253,8 @@ class CfnQuotaShare(
         :param capacity_limits: A list that specifies the quantity and type of compute capacity allocated to the quota share.
         :param job_queue: The AWS Batch job queue associated with the quota share. This can be the job queue name or ARN. A job queue must be in the ``VALID`` state before you can associate it with a quota share.
         :param preemption_configuration: 
-        :param quota_share_name: The name of the quota share. It can be up to 128 characters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
         :param resource_sharing_configuration: 
+        :param quota_share_name: The name of the quota share. It can be up to 128 characters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
         :param state: The state of the quota share. If the quota share is ``ENABLED``, it is able to accept jobs. If the quota share is ``DISABLED``, new jobs won't be accepted but jobs already submitted can finish. The default state is ``ENABLED``.
         :param tags: The tags that you apply to the quota share to help you categorize and organize your resources. Each tag consists of a key and an optional value.
         '''
@@ -13266,8 +13266,8 @@ class CfnQuotaShare(
             capacity_limits=capacity_limits,
             job_queue=job_queue,
             preemption_configuration=preemption_configuration,
-            quota_share_name=quota_share_name,
             resource_sharing_configuration=resource_sharing_configuration,
+            quota_share_name=quota_share_name,
             state=state,
             tags=tags,
         )
@@ -13410,19 +13410,6 @@ class CfnQuotaShare(
         jsii.set(self, "preemptionConfiguration", value)
 
     @builtins.property
-    @jsii.member(jsii_name="quotaShareName")
-    def quota_share_name(self) -> builtins.str:
-        '''The name of the quota share.'''
-        return typing.cast(builtins.str, jsii.get(self, "quotaShareName"))
-
-    @quota_share_name.setter
-    def quota_share_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__29a869a5e022c36247197b379e62af2084ed1d4eb493bbc027ea9b8b88e540e1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "quotaShareName", value)
-
-    @builtins.property
     @jsii.member(jsii_name="resourceSharingConfiguration")
     def resource_sharing_configuration(
         self,
@@ -13438,6 +13425,19 @@ class CfnQuotaShare(
             type_hints = cached_type_hints(_typecheckingstub__b9ff397d1a46798939bbb4183f8764f62f55cba172c2606fc89fdbcc529dc9ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceSharingConfiguration", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="quotaShareName")
+    def quota_share_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the quota share.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "quotaShareName"))
+
+    @quota_share_name.setter
+    def quota_share_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__29a869a5e022c36247197b379e62af2084ed1d4eb493bbc027ea9b8b88e540e1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "quotaShareName", value)
 
     @builtins.property
     @jsii.member(jsii_name="state")
@@ -13677,8 +13677,8 @@ class CfnQuotaShare(
         "capacity_limits": "capacityLimits",
         "job_queue": "jobQueue",
         "preemption_configuration": "preemptionConfiguration",
-        "quota_share_name": "quotaShareName",
         "resource_sharing_configuration": "resourceSharingConfiguration",
+        "quota_share_name": "quotaShareName",
         "state": "state",
         "tags": "tags",
     },
@@ -13690,8 +13690,8 @@ class CfnQuotaShareProps:
         capacity_limits: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQuotaShare.QuotaShareCapacityLimitProperty", typing.Dict[builtins.str, typing.Any]]]]],
         job_queue: builtins.str,
         preemption_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQuotaShare.QuotaSharePreemptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-        quota_share_name: builtins.str,
         resource_sharing_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQuotaShare.QuotaShareResourceSharingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        quota_share_name: typing.Optional[builtins.str] = None,
         state: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -13700,8 +13700,8 @@ class CfnQuotaShareProps:
         :param capacity_limits: A list that specifies the quantity and type of compute capacity allocated to the quota share.
         :param job_queue: The AWS Batch job queue associated with the quota share. This can be the job queue name or ARN. A job queue must be in the ``VALID`` state before you can associate it with a quota share.
         :param preemption_configuration: 
-        :param quota_share_name: The name of the quota share. It can be up to 128 characters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
         :param resource_sharing_configuration: 
+        :param quota_share_name: The name of the quota share. It can be up to 128 characters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
         :param state: The state of the quota share. If the quota share is ``ENABLED``, it is able to accept jobs. If the quota share is ``DISABLED``, new jobs won't be accepted but jobs already submitted can finish. The default state is ``ENABLED``.
         :param tags: The tags that you apply to the quota share to help you categorize and organize your resources. Each tag consists of a key and an optional value.
 
@@ -13723,7 +13723,6 @@ class CfnQuotaShareProps:
                 preemption_configuration=batch.CfnQuotaShare.QuotaSharePreemptionConfigurationProperty(
                     in_share_preemption="inSharePreemption"
                 ),
-                quota_share_name="quotaShareName",
                 resource_sharing_configuration=batch.CfnQuotaShare.QuotaShareResourceSharingConfigurationProperty(
                     strategy="strategy",
             
@@ -13732,6 +13731,7 @@ class CfnQuotaShareProps:
                 ),
             
                 # the properties below are optional
+                quota_share_name="quotaShareName",
                 state="state",
                 tags={
                     "tags_key": "tags"
@@ -13743,17 +13743,18 @@ class CfnQuotaShareProps:
             check_type(argname="argument capacity_limits", value=capacity_limits, expected_type=type_hints["capacity_limits"])
             check_type(argname="argument job_queue", value=job_queue, expected_type=type_hints["job_queue"])
             check_type(argname="argument preemption_configuration", value=preemption_configuration, expected_type=type_hints["preemption_configuration"])
-            check_type(argname="argument quota_share_name", value=quota_share_name, expected_type=type_hints["quota_share_name"])
             check_type(argname="argument resource_sharing_configuration", value=resource_sharing_configuration, expected_type=type_hints["resource_sharing_configuration"])
+            check_type(argname="argument quota_share_name", value=quota_share_name, expected_type=type_hints["quota_share_name"])
             check_type(argname="argument state", value=state, expected_type=type_hints["state"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "capacity_limits": capacity_limits,
             "job_queue": job_queue,
             "preemption_configuration": preemption_configuration,
-            "quota_share_name": quota_share_name,
             "resource_sharing_configuration": resource_sharing_configuration,
         }
+        if quota_share_name is not None:
+            self._values["quota_share_name"] = quota_share_name
         if state is not None:
             self._values["state"] = state
         if tags is not None:
@@ -13795,18 +13796,6 @@ class CfnQuotaShareProps:
         return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQuotaShare.QuotaSharePreemptionConfigurationProperty"], result)
 
     @builtins.property
-    def quota_share_name(self) -> builtins.str:
-        '''The name of the quota share.
-
-        It can be up to 128 characters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-quotashare.html#cfn-batch-quotashare-quotasharename
-        '''
-        result = self._values.get("quota_share_name")
-        assert result is not None, "Required property 'quota_share_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def resource_sharing_configuration(
         self,
     ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQuotaShare.QuotaShareResourceSharingConfigurationProperty"]:
@@ -13816,6 +13805,17 @@ class CfnQuotaShareProps:
         result = self._values.get("resource_sharing_configuration")
         assert result is not None, "Required property 'resource_sharing_configuration' is missing"
         return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQuotaShare.QuotaShareResourceSharingConfigurationProperty"], result)
+
+    @builtins.property
+    def quota_share_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the quota share.
+
+        It can be up to 128 characters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-quotashare.html#cfn-batch-quotashare-quotasharename
+        '''
+        result = self._values.get("quota_share_name")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
@@ -30651,8 +30651,8 @@ def _typecheckingstub__893335fe1e3f100052a259441748213d537fef40673659b507ac4b645
     capacity_limits: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQuotaShare.QuotaShareCapacityLimitProperty, typing.Dict[builtins.str, typing.Any]]]]],
     job_queue: builtins.str,
     preemption_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQuotaShare.QuotaSharePreemptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    quota_share_name: builtins.str,
     resource_sharing_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQuotaShare.QuotaShareResourceSharingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    quota_share_name: typing.Optional[builtins.str] = None,
     state: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -30701,14 +30701,14 @@ def _typecheckingstub__2643f42a32ea915cbce8a89163a556cae69137955af02b992a1acda4e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__29a869a5e022c36247197b379e62af2084ed1d4eb493bbc027ea9b8b88e540e1(
-    value: builtins.str,
+def _typecheckingstub__b9ff397d1a46798939bbb4183f8764f62f55cba172c2606fc89fdbcc529dc9ec(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnQuotaShare.QuotaShareResourceSharingConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b9ff397d1a46798939bbb4183f8764f62f55cba172c2606fc89fdbcc529dc9ec(
-    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnQuotaShare.QuotaShareResourceSharingConfigurationProperty],
+def _typecheckingstub__29a869a5e022c36247197b379e62af2084ed1d4eb493bbc027ea9b8b88e540e1(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30753,8 +30753,8 @@ def _typecheckingstub__79f8c42266bf09f7466a7f10b6faec6bbcea046c722ab722d932f191c
     capacity_limits: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQuotaShare.QuotaShareCapacityLimitProperty, typing.Dict[builtins.str, typing.Any]]]]],
     job_queue: builtins.str,
     preemption_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQuotaShare.QuotaSharePreemptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    quota_share_name: builtins.str,
     resource_sharing_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQuotaShare.QuotaShareResourceSharingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    quota_share_name: typing.Optional[builtins.str] = None,
     state: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:

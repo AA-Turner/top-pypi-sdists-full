@@ -39,23 +39,23 @@ from .utils import (
 from .validators import Unique  # noqa
 
 __all__ = (
-    AttributeTypeException,
-    CountryField,
-    DateRange,
-    InvalidAttributeException,
-    ModelFieldList,
-    ModelFormField,
-    PhoneNumberField,
-    Unique,
-    UnknownTypeException,
-    is_date_column,
-    is_scalar,
-    null_or_int,
-    null_or_unicode,
+    "AttributeTypeException",
+    "CountryField",
+    "DateRange",
+    "InvalidAttributeException",
+    "ModelFieldList",
+    "ModelFormField",
+    "PhoneNumberField",
+    "Unique",
+    "UnknownTypeException",
+    "is_date_column",
+    "is_scalar",
+    "null_or_int",
+    "null_or_unicode",
 )
 
 
-__version__ = "0.19.1"
+__version__ = "0.20.0"
 
 
 def model_form_meta_factory(base=FormMeta):

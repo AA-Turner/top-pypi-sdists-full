@@ -1602,6 +1602,19 @@ class CfnFirewallPolicy(
                         }
                     }
                 ),
+                route53_resolved_ip_validation=networkfirewall.CfnFirewallPolicy.Route53ResolvedIPValidationProperty(
+                    action="action",
+                    dns_expiry_exception_policy="dnsExpiryExceptionPolicy",
+                    dns_firewall_rule_group_id="dnsFirewallRuleGroupId",
+        
+                    # the properties below are optional
+                    bypass_destination_validation_ip_ranges=[networkfirewall.CfnFirewallPolicy.AddressProperty(
+                        address_definition="addressDefinition"
+                    )],
+                    source_ip_ranges=[networkfirewall.CfnFirewallPolicy.AddressProperty(
+                        address_definition="addressDefinition"
+                    )]
+                ),
                 stateful_default_actions=["statefulDefaultActions"],
                 stateful_engine_options=networkfirewall.CfnFirewallPolicy.StatefulEngineOptionsProperty(
                     flow_timeouts=networkfirewall.CfnFirewallPolicy.FlowTimeoutsProperty(
@@ -1904,6 +1917,56 @@ class CfnFirewallPolicy(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewallPolicy.AddressProperty",
+        jsii_struct_bases=[],
+        name_mapping={"address_definition": "addressDefinition"},
+    )
+    class AddressProperty:
+        def __init__(self, *, address_definition: builtins.str) -> None:
+            '''
+            :param address_definition: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-address.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkfirewall as networkfirewall
+                
+                address_property = networkfirewall.CfnFirewallPolicy.AddressProperty(
+                    address_definition="addressDefinition"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8fa13b6089d397c01e1b7f7ea2a3fc3b336878efb5ad7bac54bdfbec35ecb605)
+                check_type(argname="argument address_definition", value=address_definition, expected_type=type_hints["address_definition"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "address_definition": address_definition,
+            }
+
+        @builtins.property
+        def address_definition(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-address.html#cfn-networkfirewall-firewallpolicy-address-addressdefinition
+            '''
+            result = self._values.get("address_definition")
+            assert result is not None, "Required property 'address_definition' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AddressProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewallPolicy.CustomActionProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2062,6 +2125,7 @@ class CfnFirewallPolicy(
             "stateless_fragment_default_actions": "statelessFragmentDefaultActions",
             "enable_tls_session_holding": "enableTlsSessionHolding",
             "policy_variables": "policyVariables",
+            "route53_resolved_ip_validation": "route53ResolvedIpValidation",
             "stateful_default_actions": "statefulDefaultActions",
             "stateful_engine_options": "statefulEngineOptions",
             "stateful_rule_group_references": "statefulRuleGroupReferences",
@@ -2078,6 +2142,7 @@ class CfnFirewallPolicy(
             stateless_fragment_default_actions: typing.Sequence[builtins.str],
             enable_tls_session_holding: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             policy_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.PolicyVariablesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            route53_resolved_ip_validation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.Route53ResolvedIPValidationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             stateful_default_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
             stateful_engine_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.StatefulEngineOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             stateful_rule_group_references: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.StatefulRuleGroupReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -2091,6 +2156,7 @@ class CfnFirewallPolicy(
             :param stateless_fragment_default_actions: The actions to take on a fragmented packet if it doesn't match any of the stateless rules in the policy. If you want non-matching fragmented packets to be forwarded for stateful inspection, specify ``aws:forward_to_sfe`` . You must specify one of the standard actions: ``aws:pass`` , ``aws:drop`` , or ``aws:forward_to_sfe`` . In addition, you can specify custom actions that are compatible with your standard section choice. For example, you could specify ``["aws:pass"]`` or you could specify ``["aws:pass", “customActionName”]`` . For information about compatibility, see the custom action descriptions.
             :param enable_tls_session_holding: When true, prevents TCP and TLS packets from reaching destination servers until TLS Inspection has evaluated Server Name Indication (SNI) rules. Requires an associated TLS Inspection configuration.
             :param policy_variables: Contains variables that you can use to override default Suricata settings in your firewall policy.
+            :param route53_resolved_ip_validation: 
             :param stateful_default_actions: The default actions to take on a packet that doesn't match any stateful rules. The stateful default action is optional, and is only valid when using the strict rule order. Valid values of the stateful default action: - aws:drop_strict - aws:drop_established - aws:alert_strict - aws:alert_established For more information, see `Strict evaluation order <https://docs.aws.amazon.com/network-firewall/latest/developerguide/suricata-rule-evaluation-order.html#suricata-strict-rule-evaluation-order.html>`_ in the *AWS Network Firewall Developer Guide* .
             :param stateful_engine_options: Additional options governing how Network Firewall handles stateful rules. The stateful rule groups that you use in your policy must have stateful rule options settings that are compatible with these settings.
             :param stateful_rule_group_references: References to the stateful rule groups that are used in the policy. These define the inspection criteria in stateful rules.
@@ -2119,6 +2185,19 @@ class CfnFirewallPolicy(
                                 "definition": ["definition"]
                             }
                         }
+                    ),
+                    route53_resolved_ip_validation=networkfirewall.CfnFirewallPolicy.Route53ResolvedIPValidationProperty(
+                        action="action",
+                        dns_expiry_exception_policy="dnsExpiryExceptionPolicy",
+                        dns_firewall_rule_group_id="dnsFirewallRuleGroupId",
+                
+                        # the properties below are optional
+                        bypass_destination_validation_ip_ranges=[networkfirewall.CfnFirewallPolicy.AddressProperty(
+                            address_definition="addressDefinition"
+                        )],
+                        source_ip_ranges=[networkfirewall.CfnFirewallPolicy.AddressProperty(
+                            address_definition="addressDefinition"
+                        )]
                     ),
                     stateful_default_actions=["statefulDefaultActions"],
                     stateful_engine_options=networkfirewall.CfnFirewallPolicy.StatefulEngineOptionsProperty(
@@ -2161,6 +2240,7 @@ class CfnFirewallPolicy(
                 check_type(argname="argument stateless_fragment_default_actions", value=stateless_fragment_default_actions, expected_type=type_hints["stateless_fragment_default_actions"])
                 check_type(argname="argument enable_tls_session_holding", value=enable_tls_session_holding, expected_type=type_hints["enable_tls_session_holding"])
                 check_type(argname="argument policy_variables", value=policy_variables, expected_type=type_hints["policy_variables"])
+                check_type(argname="argument route53_resolved_ip_validation", value=route53_resolved_ip_validation, expected_type=type_hints["route53_resolved_ip_validation"])
                 check_type(argname="argument stateful_default_actions", value=stateful_default_actions, expected_type=type_hints["stateful_default_actions"])
                 check_type(argname="argument stateful_engine_options", value=stateful_engine_options, expected_type=type_hints["stateful_engine_options"])
                 check_type(argname="argument stateful_rule_group_references", value=stateful_rule_group_references, expected_type=type_hints["stateful_rule_group_references"])
@@ -2175,6 +2255,8 @@ class CfnFirewallPolicy(
                 self._values["enable_tls_session_holding"] = enable_tls_session_holding
             if policy_variables is not None:
                 self._values["policy_variables"] = policy_variables
+            if route53_resolved_ip_validation is not None:
+                self._values["route53_resolved_ip_validation"] = route53_resolved_ip_validation
             if stateful_default_actions is not None:
                 self._values["stateful_default_actions"] = stateful_default_actions
             if stateful_engine_options is not None:
@@ -2243,6 +2325,16 @@ class CfnFirewallPolicy(
             '''
             result = self._values.get("policy_variables")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.PolicyVariablesProperty"]], result)
+
+        @builtins.property
+        def route53_resolved_ip_validation(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.Route53ResolvedIPValidationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-firewallpolicy.html#cfn-networkfirewall-firewallpolicy-firewallpolicy-route53resolvedipvalidation
+            '''
+            result = self._values.get("route53_resolved_ip_validation")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.Route53ResolvedIPValidationProperty"]], result)
 
         @builtins.property
         def stateful_default_actions(
@@ -2577,6 +2669,132 @@ class CfnFirewallPolicy(
 
         def __repr__(self) -> str:
             return "PublishMetricActionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewallPolicy.Route53ResolvedIPValidationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "action": "action",
+            "dns_expiry_exception_policy": "dnsExpiryExceptionPolicy",
+            "dns_firewall_rule_group_id": "dnsFirewallRuleGroupId",
+            "bypass_destination_validation_ip_ranges": "bypassDestinationValidationIpRanges",
+            "source_ip_ranges": "sourceIpRanges",
+        },
+    )
+    class Route53ResolvedIPValidationProperty:
+        def __init__(
+            self,
+            *,
+            action: builtins.str,
+            dns_expiry_exception_policy: builtins.str,
+            dns_firewall_rule_group_id: builtins.str,
+            bypass_destination_validation_ip_ranges: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.AddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            source_ip_ranges: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewallPolicy.AddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param action: 
+            :param dns_expiry_exception_policy: 
+            :param dns_firewall_rule_group_id: 
+            :param bypass_destination_validation_ip_ranges: 
+            :param source_ip_ranges: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-route53resolvedipvalidation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkfirewall as networkfirewall
+                
+                route53_resolved_ip_validation_property = networkfirewall.CfnFirewallPolicy.Route53ResolvedIPValidationProperty(
+                    action="action",
+                    dns_expiry_exception_policy="dnsExpiryExceptionPolicy",
+                    dns_firewall_rule_group_id="dnsFirewallRuleGroupId",
+                
+                    # the properties below are optional
+                    bypass_destination_validation_ip_ranges=[networkfirewall.CfnFirewallPolicy.AddressProperty(
+                        address_definition="addressDefinition"
+                    )],
+                    source_ip_ranges=[networkfirewall.CfnFirewallPolicy.AddressProperty(
+                        address_definition="addressDefinition"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fafc6b1d9f92456623ea5cd193ecc8926bde3a3c295d104db8d981d6995ce8e6)
+                check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+                check_type(argname="argument dns_expiry_exception_policy", value=dns_expiry_exception_policy, expected_type=type_hints["dns_expiry_exception_policy"])
+                check_type(argname="argument dns_firewall_rule_group_id", value=dns_firewall_rule_group_id, expected_type=type_hints["dns_firewall_rule_group_id"])
+                check_type(argname="argument bypass_destination_validation_ip_ranges", value=bypass_destination_validation_ip_ranges, expected_type=type_hints["bypass_destination_validation_ip_ranges"])
+                check_type(argname="argument source_ip_ranges", value=source_ip_ranges, expected_type=type_hints["source_ip_ranges"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "action": action,
+                "dns_expiry_exception_policy": dns_expiry_exception_policy,
+                "dns_firewall_rule_group_id": dns_firewall_rule_group_id,
+            }
+            if bypass_destination_validation_ip_ranges is not None:
+                self._values["bypass_destination_validation_ip_ranges"] = bypass_destination_validation_ip_ranges
+            if source_ip_ranges is not None:
+                self._values["source_ip_ranges"] = source_ip_ranges
+
+        @builtins.property
+        def action(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-route53resolvedipvalidation.html#cfn-networkfirewall-firewallpolicy-route53resolvedipvalidation-action
+            '''
+            result = self._values.get("action")
+            assert result is not None, "Required property 'action' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def dns_expiry_exception_policy(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-route53resolvedipvalidation.html#cfn-networkfirewall-firewallpolicy-route53resolvedipvalidation-dnsexpiryexceptionpolicy
+            '''
+            result = self._values.get("dns_expiry_exception_policy")
+            assert result is not None, "Required property 'dns_expiry_exception_policy' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def dns_firewall_rule_group_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-route53resolvedipvalidation.html#cfn-networkfirewall-firewallpolicy-route53resolvedipvalidation-dnsfirewallrulegroupid
+            '''
+            result = self._values.get("dns_firewall_rule_group_id")
+            assert result is not None, "Required property 'dns_firewall_rule_group_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def bypass_destination_validation_ip_ranges(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.AddressProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-route53resolvedipvalidation.html#cfn-networkfirewall-firewallpolicy-route53resolvedipvalidation-bypassdestinationvalidationipranges
+            '''
+            result = self._values.get("bypass_destination_validation_ip_ranges")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.AddressProperty"]]]], result)
+
+        @builtins.property
+        def source_ip_ranges(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.AddressProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-route53resolvedipvalidation.html#cfn-networkfirewall-firewallpolicy-route53resolvedipvalidation-sourceipranges
+            '''
+            result = self._values.get("source_ip_ranges")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewallPolicy.AddressProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "Route53ResolvedIPValidationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2982,6 +3200,19 @@ class CfnFirewallPolicyProps:
                                 "definition": ["definition"]
                             }
                         }
+                    ),
+                    route53_resolved_ip_validation=networkfirewall.CfnFirewallPolicy.Route53ResolvedIPValidationProperty(
+                        action="action",
+                        dns_expiry_exception_policy="dnsExpiryExceptionPolicy",
+                        dns_firewall_rule_group_id="dnsFirewallRuleGroupId",
+            
+                        # the properties below are optional
+                        bypass_destination_validation_ip_ranges=[networkfirewall.CfnFirewallPolicy.AddressProperty(
+                            address_definition="addressDefinition"
+                        )],
+                        source_ip_ranges=[networkfirewall.CfnFirewallPolicy.AddressProperty(
+                            address_definition="addressDefinition"
+                        )]
                     ),
                     stateful_default_actions=["statefulDefaultActions"],
                     stateful_engine_options=networkfirewall.CfnFirewallPolicy.StatefulEngineOptionsProperty(
@@ -8914,6 +9145,13 @@ def _typecheckingstub__85467f041a9b94df26a26630991c0c22b625a860b01ccf1dafa4f6c43
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8fa13b6089d397c01e1b7f7ea2a3fc3b336878efb5ad7bac54bdfbec35ecb605(
+    *,
+    address_definition: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1aea5034d17a5ca042ab3479dcb09b74cc8b32425872aa94df5c552a5d6c7fa1(
     *,
     action_definition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.ActionDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -8935,6 +9173,7 @@ def _typecheckingstub__1b6a6014864b81482e4c4a383921c58673d84e8e882dc4fb7cea71a2d
     stateless_fragment_default_actions: typing.Sequence[builtins.str],
     enable_tls_session_holding: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     policy_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.PolicyVariablesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    route53_resolved_ip_validation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.Route53ResolvedIPValidationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stateful_default_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
     stateful_engine_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.StatefulEngineOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stateful_rule_group_references: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.StatefulRuleGroupReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -8969,6 +9208,17 @@ def _typecheckingstub__9e866a0377e767391b6cb1e114ddc7eed91f1e04c8ab4203b0af3b09a
 def _typecheckingstub__eab9540ab80b4dd980d8dda17b30755d1e15a920591be54fdd8184a0a4e4eb42(
     *,
     dimensions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fafc6b1d9f92456623ea5cd193ecc8926bde3a3c295d104db8d981d6995ce8e6(
+    *,
+    action: builtins.str,
+    dns_expiry_exception_policy: builtins.str,
+    dns_firewall_rule_group_id: builtins.str,
+    bypass_destination_validation_ip_ranges: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.AddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    source_ip_ranges: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewallPolicy.AddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

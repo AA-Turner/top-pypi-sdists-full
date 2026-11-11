@@ -20,6 +20,7 @@ import shutil
 import stat
 import sys
 import uuid
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -111,6 +112,33 @@ def _journal_dir() -> Path:
     directory = Path(user_state_dir("exomem")) / JOURNAL_DIR
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     return directory
+
+
+def recorded_files(vault: Path) -> Iterator[tuple[Path, str, int]]:
+    """Each outside file that an import into `vault` recorded, with the SHA-256 and size it had then.
+
+    The file may have changed or gone since, so a caller hashes it before trusting it. This reads the
+    journals without creating their folder, and skips a journal it cannot read.
+    """
+    directory = Path(user_state_dir("exomem")) / JOURNAL_DIR
+    vaults = {str(vault), str(Path(vault).resolve())}
+    try:
+        journals = sorted(directory.glob(f"*{_DONE_SUFFIX}"))  # finished and unfinished journals both end so
+    except OSError:
+        return
+    for journal in journals:
+        try:
+            records, _length = _Journal.read(journal)
+        except OSError:
+            continue
+        header = records[0] if records else None
+        if not (isinstance(header, dict) and header.get("kind") == "header" and header.get("vault") in vaults
+                and isinstance(header.get("source"), str)):
+            continue
+        for record in records[1:]:
+            if (isinstance(record, dict) and record.get("kind") == "file" and isinstance(record.get("path"), str)
+                    and isinstance(record.get("sha256"), str) and type(record.get("size")) is int):
+                yield Path(header["source"]) / record["path"], record["sha256"], record["size"]
 
 
 @dataclass(frozen=True)
@@ -519,9 +547,9 @@ def stage(folder: Path, vault: Path, *, include_hidden: bool = False, use_gitign
 
 def _closing_lines(result: dict) -> list[str]:
     staged = result["staged"]
-    start = f'import_memory with operation kind "file" and path "{result["start_path"]}"'
+    start = f'manage_memory with operation "imports.file" and arguments {{"path": "{result["start_path"]}"}}'
     # `file` scans as `start` does by default, so a hidden file that the person staged stays staged and is reported.
-    hidden = (' Hidden files stay staged: to file them, call import_memory with operation kind "start" and include_hidden=true on that path.'
+    hidden = (' Hidden files stay staged: to file them, call manage_memory with operation "imports.start" and arguments {"path": that path, "include_hidden": true}.'
               if result["include_hidden"] else "")
     lines = [f"Staged {files_phrase(staged['files'])}, {human_bytes(staged['bytes'])}, in {result['staged_folder']}.",
              "This is a second copy of the folder on this disk. No Exomem command discards it: "

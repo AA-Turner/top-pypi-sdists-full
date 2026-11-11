@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: linkml-map
-Version: 0.5.4
+Version: 0.6.0
 Summary: a framework for specifying and executing mappings between data models
 Author-email: cmungall <cjm@berkeleybop.org>
 License-File: LICENSE
@@ -23,6 +23,8 @@ Requires-Dist: pydantic<3,>=2
 Requires-Dist: python-slugify>=8.0.4
 Requires-Dist: pyyaml
 Requires-Dist: simpleeval>=1.0.3
+Requires-Dist: simplejson>=4.2.0
+Requires-Dist: typing-extensions>=4.5
 Requires-Dist: ucumvert>=0.2
 Description-Content-Type: text/markdown
 
@@ -80,7 +82,7 @@ linkml-map map-data --unrestricted-eval \
   data/Container-001.yaml
 ```
 
-See the [Quick Start guide](https://linkml.io/linkml-map/#quick-start) for the expected output and next steps.
+See the [Quick Start guide](https://linkml.io/linkml-map/quickstart/) for the expected output and next steps.
 
 ## More
 

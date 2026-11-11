@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "1.88.1"
+__version__ = "1.90.2"
 
 
 from .allele_interpretations import reconcile_allele_interpretations
@@ -53,6 +53,7 @@ from .rna_feature_support import (
     effective_rna_feature_lengths, measure_rna_feature, validate_rna_feature_support, normalize_rna_feature_support,
 )
 from .rna_feature_measurement import measure_rna_path_features
+from .rna_origin import RNAOriginHypothesis, RNAOriginPolicy, assess_rna_origin
 from .transcript_assembly_edit import TranscriptAssemblyEdit
 from .variant_orf import VariantORF
 from .variant_read_assessment import VariantRNAAssembly, VariantReadAssessment
@@ -78,6 +79,7 @@ from .isoform_quantification import quantify_antigen_isoforms, add_isoform_abund
 
 
 __all__ = [
+    "RNAOriginHypothesis", "RNAOriginPolicy", "assess_rna_origin",
     "RNAFeature", "RNASamplingGeometry", "RNASamplingProfile",
     "effective_rna_feature_lengths", "measure_rna_feature", "validate_rna_feature_support",
     "measure_rna_path_features", "normalize_rna_feature_support",
@@ -163,6 +165,7 @@ __all__ = [
     "VariantSequence",
     "VariantSequenceCreator",
     "reconstruct_variant_orfs",
+    "variant_orf_translation_table",
     "reconstruct_variant_rna_paths",
     "variant_rna_path_input_from_dict",
     "prepare_rna_library",
@@ -183,7 +186,7 @@ from .uorf_annotation import annotate_sv_uorf_evidence
 
 from .orf_annotation import annotate_sv_orf_evidence
 
-from .variant_rna_orfs import reconstruct_variant_orfs
+from .variant_rna_orfs import reconstruct_variant_orfs, variant_orf_translation_table
 from .rna_library import prepare_rna_library, PreparedRnaLibrary, RnaLibraryIndex
 from .sv_path_routing import PathEvidenceQuery, PathEvidenceIndex, route_path_evidence
 

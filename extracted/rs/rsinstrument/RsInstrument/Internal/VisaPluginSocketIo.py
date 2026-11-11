@@ -94,25 +94,28 @@ class SocketIo:
 		"""Writes command as bytes to the instrument"""
 		self.session.send(cmd)
 
-	# noinspection PyUnusedLocal
 	def read_bytes(self, count: int, **kwargs) -> bytes:
 		"""Reads count bytes"""
-		data, status = self.visalib.read(self.session, count)
+		# kwargs matches pyvisa read_bytes (for example break_on_termchar). A socket read ignores them.
+		_ = kwargs
+		data, _ = self.visalib.read(self.session, count)
 		return data
 
-	# noinspection PyUnusedLocal
 	def go_to_local(self, mixed_mode: bool) -> None:
 		"""Puts the instrument into local state."""
+		# Same signature as VisaSession.go_to_local. A socket has no mixed local mode.
+		_ = mixed_mode
 		self.write("&GTL")
 
 	def go_to_remote(self) -> None:
 		"""Puts the instrument into remote state."""
 		self.write("&GTR")
 
-	# noinspection PyUnusedLocal
 	@contextmanager
 	def ignore_warning(self, filter_value: int) -> Iterator[None]:
 		"""Context property with no effect for the socket connection"""
+		# Same signature as pyvisa ignore_warning. A socket read has no status-code warnings to filter.
+		_ = filter_value
 		try:
 			yield None
 		finally:
@@ -125,7 +128,7 @@ class SocketIo:
 
 
 class VisaLib:
-	"""Implementation of the pyvisa's VisaLib providing the method read()"""
+	"""Implementation of the pyvisa VisaLib providing the method read()"""
 	def __init__(self, socket_io: SocketIo):
 		self._socket_io = socket_io
 
@@ -170,6 +173,7 @@ class VisaLib:
 			more_data_available = False
 		else:
 			# MaxCount data arrived, possibly more data available
+			# noinspection unreachable-code
 			if self._socket_io.read_termination is not None:
 				more_data_available = not term_char_detected
 			else:
@@ -185,9 +189,9 @@ class ResourceManager:
 		self.VisaManufacturerName = "SocketIO"
 		self.connection = None
 
-	# noinspection PyUnusedLocal
 	def open_resource(self, resource_name: str, access_mode: Any = None, open_timeout: Any = None) -> SocketIo:
 		"""Creates new Socket connection. access_mode and open_timeout are here for compatibility reasons with the pyvisa rm.open_resource()"""
+		_ = access_mode, open_timeout
 		self.connection = SocketIo(resource_name)
 		self.connection.connect()
 		return self.connection

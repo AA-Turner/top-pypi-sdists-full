@@ -2,13 +2,15 @@ use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::Sub;
 
-use jiff::civil::{Date, Weekday};
+use jiff::civil::{DateTime, Weekday};
 use jiff::tz::TimeZone;
 use jiff::{Zoned, ZonedArithmetic, ZonedDifference, ZonedRound};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
 use pyo3::{BoundObject, IntoPyObjectExt};
-use ryo3_core::{PyAsciiString, map_py_overflow_err, map_py_value_err};
+use ryo3_core::{
+    PyAsciiString, PyNotImplementedOr, PyOperandArg, map_py_overflow_err, map_py_value_err,
+};
 use ryo3_jiff_core::{
     JiffDate, JiffEra, JiffEraYear, JiffRoundMode, JiffTime, JiffTimeZoneRef, JiffTzDisambiguation,
     JiffTzOffsetConflict, JiffUnit, JiffWeekday, JiffZoned, JiffZonedRef, bundled_tzdb,
@@ -43,6 +45,22 @@ impl RyZoned {
     }
 }
 
+impl RyZoned {
+    fn try_add(&self, other: Spanish<'_, '_>) -> PyResult<Self> {
+        self.0
+            .checked_add(other)
+            .map(Self::from)
+            .map_err(map_py_overflow_err)
+    }
+
+    fn try_sub_temporal(&self, other: TemporalSubInput<'_, '_, Self>) -> TemporalSubOutput<Self> {
+        match other {
+            TemporalSubInput::Temporal(ob) => (&self.0).sub(&ob.get().0).into(),
+            TemporalSubInput::Spanish(spanish) => self.checked_sub(spanish).into(),
+        }
+    }
+}
+
 #[pymethods]
 impl RyZoned {
     #[new]
@@ -59,7 +77,7 @@ impl RyZoned {
         )
     )]
     #[expect(clippy::too_many_arguments, reason = "python kwargs")]
-    fn py_new(
+    pub(crate) fn py_new(
         year: i16,
         month: i8,
         day: i8,
@@ -69,23 +87,16 @@ impl RyZoned {
         nanosecond: i32,
         tz: Option<&str>,
     ) -> PyResult<Self> {
-        if let Some(tz) = tz {
-            let tz = ryo3_jiff_core::get_time_zone(tz).map_err(map_py_value_err)?;
-            Date::new(year, month, day)
-                .map_err(map_py_value_err)?
-                .at(hour, minute, second, nanosecond)
-                .to_zoned(tz)
-                .map(Self::from)
-                .map_err(map_py_value_err)
-        } else {
-            let tz_system = TimeZone::try_system().map_err(map_py_value_err)?;
-            Date::new(year, month, day)
-                .map_err(map_py_value_err)?
-                .at(hour, minute, second, nanosecond)
-                .to_zoned(tz_system)
-                .map(Self::from)
-                .map_err(map_py_value_err)
+        let tz = match tz {
+            Some(tz) => ryo3_jiff_core::get_time_zone(tz),
+            None => TimeZone::try_system(),
         }
+        .map_err(map_py_value_err)?;
+        DateTime::new(year, month, day, hour, minute, second, nanosecond)
+            .map_err(map_py_value_err)?
+            .to_zoned(tz)
+            .map(Self::from)
+            .map_err(map_py_value_err)
     }
 
     #[classattr]
@@ -299,15 +310,15 @@ impl RyZoned {
         Self::from(self.0.with_time_zone(TimeZone::UTC))
     }
 
-    fn __add__(&self, other: Spanish) -> PyResult<Self> {
-        self.0
-            .checked_add(other)
-            .map(Self::from)
-            .map_err(map_py_overflow_err)
+    fn __add__(&self, other: PyOperandArg<Spanish<'_, '_>>) -> PyResult<PyNotImplementedOr<Self>> {
+        other.try_map(|rhs| self.try_add(rhs))
     }
 
-    fn __radd__(&self, other: DurationLike) -> PyResult<Self> {
-        self.__add__(other.into())
+    fn __radd__(
+        &self,
+        other: PyOperandArg<DurationLike<'_, '_>>,
+    ) -> PyResult<PyNotImplementedOr<Self>> {
+        other.try_map(|lhs| self.try_add(lhs.into()))
     }
 
     #[expect(clippy::too_many_arguments, reason = "python kwargs")]
@@ -354,7 +365,7 @@ impl RyZoned {
             .nanoseconds(nanoseconds);
 
         match (other, !spkw.is_zero()) {
-            (Some(o), false) => self.__add__(o),
+            (Some(o), false) => self.try_add(o),
             (None, true) => {
                 let span = spkw.build_span()?;
                 self.0
@@ -369,11 +380,11 @@ impl RyZoned {
         }
     }
 
-    fn __sub__(&self, other: TemporalSubInput<Self>) -> TemporalSubOutput<Self> {
-        match other {
-            TemporalSubInput::Temporal(ob) => (&self.0).sub(&ob.get().0).into(),
-            TemporalSubInput::Spanish(spanish) => self.checked_sub(spanish).into(),
-        }
+    fn __sub__(
+        &self,
+        other: PyOperandArg<TemporalSubInput<'_, '_, Self>>,
+    ) -> PyNotImplementedOr<TemporalSubOutput<Self>> {
+        other.map(|rhs| self.try_sub_temporal(rhs))
     }
 
     #[expect(clippy::too_many_arguments, reason = "python kwargs")]
@@ -420,7 +431,7 @@ impl RyZoned {
             .nanoseconds(nanoseconds);
 
         match (other, !spkw.is_zero()) {
-            (Some(o), false) => Ok(self.__sub__(o)),
+            (Some(o), false) => Ok(self.try_sub_temporal(o)),
             (None, true) => {
                 let span = spkw.build_span()?;
                 Ok(self.checked_sub(span).into())

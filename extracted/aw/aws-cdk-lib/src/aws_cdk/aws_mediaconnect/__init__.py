@@ -2613,6 +2613,1915 @@ class CfnBridgeSourceProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IDestinationEndpointRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnDestinationEndpoint(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint",
+):
+    '''Represents a destination endpoint in AWS Elemental MediaConnect that can be connected to a router output.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-destinationendpoint.html
+    :cloudformationResource: AWS::MediaConnect::DestinationEndpoint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_mediaconnect as mediaconnect
+        
+        cfn_destination_endpoint = mediaconnect.CfnDestinationEndpoint(self, "MyCfnDestinationEndpoint",
+            configuration=mediaconnect.CfnDestinationEndpoint.DestinationEndpointConfigurationProperty(
+                router_input=mediaconnect.CfnDestinationEndpoint.RouterInputDestinationEndpointConfigurationProperty(
+                    router_input_arn="routerInputArn"
+                ),
+                standard=mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointConfigurationProperty(
+                    destination_networking_configuration=mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointNetworkingConfigurationProperty(
+                        public=mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationProperty(
+                            destination_allow_rules=[mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty(
+                                cidr="cidr"
+                            )]
+                        ),
+                        vpc=mediaconnect.CfnDestinationEndpoint.VpcDestinationEndpointNetworkingConfigurationProperty(
+                            security_group_ids=["securityGroupIds"],
+                            subnet_id="subnetId"
+                        )
+                    ),
+                    name="name",
+                    protocol_configuration=mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointProtocolConfigurationProperty(
+                        rist=mediaconnect.CfnDestinationEndpoint.RistStandardDestinationEndpointConfigurationProperty(
+                            destination_address="destinationAddress",
+                            destination_ingest_port=123
+                        ),
+                        rtp=mediaconnect.CfnDestinationEndpoint.RtpStandardDestinationEndpointConfigurationProperty(
+                            destination_address="destinationAddress",
+                            destination_ingest_port=123,
+                            forward_error_correction_state="forwardErrorCorrectionState"
+                        ),
+                        srt_caller=mediaconnect.CfnDestinationEndpoint.SrtCallerStandardDestinationEndpointConfigurationProperty(
+                            minimum_latency_milliseconds=123,
+                            source_listener_port=123,
+        
+                            # the properties below are optional
+                            encryption_passphrase=mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                secret_arn="secretArn"
+                            )
+                        ),
+                        srt_listener=mediaconnect.CfnDestinationEndpoint.SrtListenerStandardDestinationEndpointConfigurationProperty(
+                            destination_address="destinationAddress",
+                            destination_ingest_port=123,
+                            minimum_latency_milliseconds=123,
+        
+                            # the properties below are optional
+                            encryption_passphrase=mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                secret_arn="secretArn"
+                            ),
+                            stream_id="streamId"
+                        )
+                    ),
+        
+                    # the properties below are optional
+                    destination_networking_type="destinationNetworkingType",
+                    protocol="protocol"
+                )
+            ),
+        
+            # the properties below are optional
+            description="description",
+            region_name="regionName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.DestinationEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        region_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::MediaConnect::DestinationEndpoint``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param configuration: The configuration settings for a destination endpoint. This is a union type, so exactly one of its members is set, depending on the type of the destination endpoint.
+        :param description: The description of the destination endpoint.
+        :param region_name: The name of the Amazon Web Services Region in which the destination endpoint is located.
+        :param tags: The tags associated with the destination endpoint. Each tag is a key-value pair.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__767b3d6794837049e04c02e5836d8918b5a15c667c7124ef55086c57e2f36f4f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDestinationEndpointProps(
+            configuration=configuration,
+            description=description,
+            region_name=region_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDestinationEndpoint")
+    @builtins.classmethod
+    def arn_for_destination_endpoint(
+        cls,
+        resource: "_aws_mediaconnect_6374326e.IDestinationEndpointRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__419ac394e655fef659181f347f49577be6f7b2da7e1c52bb047d082aa8788e6e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDestinationEndpoint", [resource]))
+
+    @jsii.member(jsii_name="isCfnDestinationEndpoint")
+    @builtins.classmethod
+    def is_cfn_destination_endpoint(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDestinationEndpoint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__92c6679f5d62b997f57573f234ef7df10496a1434e20fa993d4345458185e752)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDestinationEndpoint", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a7bfdf1fadd1f8fadb1b17abc13a19a13a5d66d60a7dc3d87f5b845fd7dd28fb)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aa4ce1a70bc50c9cc99701147b039c52daf3a77ba6bb8f0021edbec7131d2787)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssociatedResourceDetails")
+    def attr_associated_resource_details(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The details of the resource that is associated with a destination endpoint.
+
+        This is a union type, so exactly one of its members is set, depending on the type of the destination endpoint.
+
+        :cloudformationAttribute: AssociatedResourceDetails
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrAssociatedResourceDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAvailabilityZone")
+    def attr_availability_zone(self) -> builtins.str:
+        '''The Availability Zone in which the destination endpoint is located.
+
+        :cloudformationAttribute: AvailabilityZone
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAvailabilityZone"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAvailabilityZoneId")
+    def attr_availability_zone_id(self) -> builtins.str:
+        '''The ID of the Availability Zone in which the destination endpoint is located.
+
+        :cloudformationAttribute: AvailabilityZoneId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAvailabilityZoneId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConnectionState")
+    def attr_connection_state(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ConnectionState
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConnectionState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The date and time when the destination endpoint was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDestinationType")
+    def attr_destination_type(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: DestinationType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDestinationType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The unique identifier of the destination endpoint.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLifecycleManagement")
+    def attr_lifecycle_management(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: LifecycleManagement
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLifecycleManagement"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrName")
+    def attr_name(self) -> builtins.str:
+        '''The name of the destination endpoint.
+
+        :cloudformationAttribute: Name
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegistrationState")
+    def attr_registration_state(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: RegistrationState
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegistrationState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The date and time when the destination endpoint was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="destinationEndpointRef")
+    def destination_endpoint_ref(
+        self,
+    ) -> "_aws_mediaconnect_6374326e.DestinationEndpointReference":
+        '''A reference to a DestinationEndpoint resource.'''
+        return typing.cast("_aws_mediaconnect_6374326e.DestinationEndpointReference", jsii.get(self, "destinationEndpointRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configuration")
+    def configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.DestinationEndpointConfigurationProperty"]:
+        '''The configuration settings for a destination endpoint.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.DestinationEndpointConfigurationProperty"], jsii.get(self, "configuration"))
+
+    @configuration.setter
+    def configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.DestinationEndpointConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__30faa86c87aa05e197f09560c8e830fab01c26997af7965a9dfa65ecaad2ab12)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configuration", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the destination endpoint.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__394c3f4c3b9e3556f0ff8dad33e613ef0869bfecc93a67a9c55ee9b1b1012f15)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="regionName")
+    def region_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Amazon Web Services Region in which the destination endpoint is located.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionName"))
+
+    @region_name.setter
+    def region_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7a268961fd261289cb63956f77b24dde8e160d5dc80bc80a855135d4806c3663)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regionName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the destination endpoint.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__535178fd44c494dd0e6b4863ac2fbb54dd2184c741ae90920e89ffe0682f8bd4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.DestinationEndpointAssociatedResourceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"router_input": "routerInput", "standard": "standard"},
+    )
+    class DestinationEndpointAssociatedResourceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            router_input: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.RouterInputDestinationEndpointAssociatedResourceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            standard: typing.Any = None,
+        ) -> None:
+            '''
+            :param router_input: The details of the router input that is associated with a destination endpoint.
+            :param standard: The associated resource details for a standard destination endpoint. This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-destinationendpointassociatedresourcedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # standard: Any
+                
+                destination_endpoint_associated_resource_details_property = mediaconnect.CfnDestinationEndpoint.DestinationEndpointAssociatedResourceDetailsProperty(
+                    router_input=mediaconnect.CfnDestinationEndpoint.RouterInputDestinationEndpointAssociatedResourceDetailsProperty(
+                        maximum_bitrate=123,
+                        name="name",
+                        state="state"
+                    ),
+                    standard=standard
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__59d4344cc6cc061cfd8501a576e425767a1baf5dabf44f775d38af1252445de0)
+                check_type(argname="argument router_input", value=router_input, expected_type=type_hints["router_input"])
+                check_type(argname="argument standard", value=standard, expected_type=type_hints["standard"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if router_input is not None:
+                self._values["router_input"] = router_input
+            if standard is not None:
+                self._values["standard"] = standard
+
+        @builtins.property
+        def router_input(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.RouterInputDestinationEndpointAssociatedResourceDetailsProperty"]]:
+            '''The details of the router input that is associated with a destination endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-destinationendpointassociatedresourcedetails.html#cfn-mediaconnect-destinationendpoint-destinationendpointassociatedresourcedetails-routerinput
+            '''
+            result = self._values.get("router_input")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.RouterInputDestinationEndpointAssociatedResourceDetailsProperty"]], result)
+
+        @builtins.property
+        def standard(self) -> typing.Any:
+            '''The associated resource details for a standard destination endpoint.
+
+            This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-destinationendpointassociatedresourcedetails.html#cfn-mediaconnect-destinationendpoint-destinationendpointassociatedresourcedetails-standard
+            '''
+            result = self._values.get("standard")
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DestinationEndpointAssociatedResourceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.DestinationEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"router_input": "routerInput", "standard": "standard"},
+    )
+    class DestinationEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            router_input: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.RouterInputDestinationEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            standard: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.StandardDestinationEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param router_input: The configuration settings for a destination endpoint that represents a router input.
+            :param standard: The configuration settings for a standard destination endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-destinationendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                destination_endpoint_configuration_property = mediaconnect.CfnDestinationEndpoint.DestinationEndpointConfigurationProperty(
+                    router_input=mediaconnect.CfnDestinationEndpoint.RouterInputDestinationEndpointConfigurationProperty(
+                        router_input_arn="routerInputArn"
+                    ),
+                    standard=mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointConfigurationProperty(
+                        destination_networking_configuration=mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointNetworkingConfigurationProperty(
+                            public=mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationProperty(
+                                destination_allow_rules=[mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty(
+                                    cidr="cidr"
+                                )]
+                            ),
+                            vpc=mediaconnect.CfnDestinationEndpoint.VpcDestinationEndpointNetworkingConfigurationProperty(
+                                security_group_ids=["securityGroupIds"],
+                                subnet_id="subnetId"
+                            )
+                        ),
+                        name="name",
+                        protocol_configuration=mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointProtocolConfigurationProperty(
+                            rist=mediaconnect.CfnDestinationEndpoint.RistStandardDestinationEndpointConfigurationProperty(
+                                destination_address="destinationAddress",
+                                destination_ingest_port=123
+                            ),
+                            rtp=mediaconnect.CfnDestinationEndpoint.RtpStandardDestinationEndpointConfigurationProperty(
+                                destination_address="destinationAddress",
+                                destination_ingest_port=123,
+                                forward_error_correction_state="forwardErrorCorrectionState"
+                            ),
+                            srt_caller=mediaconnect.CfnDestinationEndpoint.SrtCallerStandardDestinationEndpointConfigurationProperty(
+                                minimum_latency_milliseconds=123,
+                                source_listener_port=123,
+                
+                                # the properties below are optional
+                                encryption_passphrase=mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                    secret_arn="secretArn"
+                                )
+                            ),
+                            srt_listener=mediaconnect.CfnDestinationEndpoint.SrtListenerStandardDestinationEndpointConfigurationProperty(
+                                destination_address="destinationAddress",
+                                destination_ingest_port=123,
+                                minimum_latency_milliseconds=123,
+                
+                                # the properties below are optional
+                                encryption_passphrase=mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                    secret_arn="secretArn"
+                                ),
+                                stream_id="streamId"
+                            )
+                        ),
+                
+                        # the properties below are optional
+                        destination_networking_type="destinationNetworkingType",
+                        protocol="protocol"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9e401ac990f7a4ee13f4c7b638764d6cf19d337d7b932daef90e5e6148ca70b1)
+                check_type(argname="argument router_input", value=router_input, expected_type=type_hints["router_input"])
+                check_type(argname="argument standard", value=standard, expected_type=type_hints["standard"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if router_input is not None:
+                self._values["router_input"] = router_input
+            if standard is not None:
+                self._values["standard"] = standard
+
+        @builtins.property
+        def router_input(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.RouterInputDestinationEndpointConfigurationProperty"]]:
+            '''The configuration settings for a destination endpoint that represents a router input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-destinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-destinationendpointconfiguration-routerinput
+            '''
+            result = self._values.get("router_input")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.RouterInputDestinationEndpointConfigurationProperty"]], result)
+
+        @builtins.property
+        def standard(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.StandardDestinationEndpointConfigurationProperty"]]:
+            '''The configuration settings for a standard destination endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-destinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-destinationendpointconfiguration-standard
+            '''
+            result = self._values.get("standard")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.StandardDestinationEndpointConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DestinationEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"secret_arn": "secretArn"},
+    )
+    class EndpointEncryptionSecretConfigurationProperty:
+        def __init__(self, *, secret_arn: builtins.str) -> None:
+            '''The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+
+            :param secret_arn: The ARN of the Secrets Manager secret that holds the key or passphrase. The secret must be encrypted with a customer managed Amazon Web Services KMS key that is enabled and symmetric; it cannot use the Amazon Web Services managed key aws/secretsmanager. The secret must be in the same Amazon Web Services account and Region as the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-endpointencryptionsecretconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                endpoint_encryption_secret_configuration_property = mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6c9c95543b24df62b820ddb53bb9b40ccee934ed0ade0dee8d981929a6e4e158)
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''The ARN of the Secrets Manager secret that holds the key or passphrase.
+
+            The secret must be encrypted with a customer managed Amazon Web Services KMS key that is enabled and symmetric; it cannot use the Amazon Web Services managed key aws/secretsmanager. The secret must be in the same Amazon Web Services account and Region as the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-endpointencryptionsecretconfiguration.html#cfn-mediaconnect-destinationendpoint-endpointencryptionsecretconfiguration-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EndpointEncryptionSecretConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"cidr": "cidr"},
+    )
+    class PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty:
+        def __init__(self, *, cidr: builtins.str) -> None:
+            '''A rule that allows a specific CIDR block to connect to the public destination endpoint.
+
+            :param cidr: The CIDR block that is allowed to connect to the destination endpoint, in CIDR notation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-publicdestinationendpointnetworkingconfigurationallowrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                public_destination_endpoint_networking_configuration_allow_rule_property = mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty(
+                    cidr="cidr"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f81af6ed2b4c8043c1e4fc03cfe8e829b3e2e141a4348a788de8da94279c3013)
+                check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cidr": cidr,
+            }
+
+        @builtins.property
+        def cidr(self) -> builtins.str:
+            '''The CIDR block that is allowed to connect to the destination endpoint, in CIDR notation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-publicdestinationendpointnetworkingconfigurationallowrule.html#cfn-mediaconnect-destinationendpoint-publicdestinationendpointnetworkingconfigurationallowrule-cidr
+            '''
+            result = self._values.get("cidr")
+            assert result is not None, "Required property 'cidr' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"destination_allow_rules": "destinationAllowRules"},
+    )
+    class PublicDestinationEndpointNetworkingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination_allow_rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''The networking configuration for a publicly accessible destination endpoint, including the CIDR blocks that are allowed to connect.
+
+            :param destination_allow_rules: The rules that specify which CIDR blocks can connect to the destination endpoint. You can specify up to 10 rules.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-publicdestinationendpointnetworkingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                public_destination_endpoint_networking_configuration_property = mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationProperty(
+                    destination_allow_rules=[mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty(
+                        cidr="cidr"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__86d09c069eb2bd5ea72a5ccd1132cc4ac4f510aa924abde874ee75adf0cdb3b8)
+                check_type(argname="argument destination_allow_rules", value=destination_allow_rules, expected_type=type_hints["destination_allow_rules"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_allow_rules": destination_allow_rules,
+            }
+
+        @builtins.property
+        def destination_allow_rules(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty"]]]:
+            '''The rules that specify which CIDR blocks can connect to the destination endpoint.
+
+            You can specify up to 10 rules.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-publicdestinationendpointnetworkingconfiguration.html#cfn-mediaconnect-destinationendpoint-publicdestinationendpointnetworkingconfiguration-destinationallowrules
+            '''
+            result = self._values.get("destination_allow_rules")
+            assert result is not None, "Required property 'destination_allow_rules' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PublicDestinationEndpointNetworkingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.RistStandardDestinationEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_address": "destinationAddress",
+            "destination_ingest_port": "destinationIngestPort",
+        },
+    )
+    class RistStandardDestinationEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination_address: builtins.str,
+            destination_ingest_port: jsii.Number,
+        ) -> None:
+            '''The configuration settings for a destination endpoint that uses the RIST protocol.
+
+            :param destination_address: The IP address on which the destination endpoint receives content.
+            :param destination_ingest_port: The port on which the destination endpoint receives content. The valid range is 1024 to 65531.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-riststandarddestinationendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                rist_standard_destination_endpoint_configuration_property = mediaconnect.CfnDestinationEndpoint.RistStandardDestinationEndpointConfigurationProperty(
+                    destination_address="destinationAddress",
+                    destination_ingest_port=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__47c83786d2791f145e764287f4bf75cd09d20361b162203ac4d2d2d8d94b1b04)
+                check_type(argname="argument destination_address", value=destination_address, expected_type=type_hints["destination_address"])
+                check_type(argname="argument destination_ingest_port", value=destination_ingest_port, expected_type=type_hints["destination_ingest_port"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_address": destination_address,
+                "destination_ingest_port": destination_ingest_port,
+            }
+
+        @builtins.property
+        def destination_address(self) -> builtins.str:
+            '''The IP address on which the destination endpoint receives content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-riststandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-riststandarddestinationendpointconfiguration-destinationaddress
+            '''
+            result = self._values.get("destination_address")
+            assert result is not None, "Required property 'destination_address' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def destination_ingest_port(self) -> jsii.Number:
+            '''The port on which the destination endpoint receives content.
+
+            The valid range is 1024 to 65531.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-riststandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-riststandarddestinationendpointconfiguration-destinationingestport
+            '''
+            result = self._values.get("destination_ingest_port")
+            assert result is not None, "Required property 'destination_ingest_port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RistStandardDestinationEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.RouterInputDestinationEndpointAssociatedResourceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "maximum_bitrate": "maximumBitrate",
+            "name": "name",
+            "state": "state",
+        },
+    )
+    class RouterInputDestinationEndpointAssociatedResourceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            maximum_bitrate: jsii.Number,
+            name: builtins.str,
+            state: builtins.str,
+        ) -> None:
+            '''The details of the router input that is associated with a destination endpoint.
+
+            :param maximum_bitrate: The maximum bitrate of the router input, in bits per second.
+            :param name: The name of the router input.
+            :param state: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-routerinputdestinationendpointassociatedresourcedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                router_input_destination_endpoint_associated_resource_details_property = mediaconnect.CfnDestinationEndpoint.RouterInputDestinationEndpointAssociatedResourceDetailsProperty(
+                    maximum_bitrate=123,
+                    name="name",
+                    state="state"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c5fa276fc92149c0d654d9e273caf426753fc984e3c71e6c1b94a2267308f0df)
+                check_type(argname="argument maximum_bitrate", value=maximum_bitrate, expected_type=type_hints["maximum_bitrate"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "maximum_bitrate": maximum_bitrate,
+                "name": name,
+                "state": state,
+            }
+
+        @builtins.property
+        def maximum_bitrate(self) -> jsii.Number:
+            '''The maximum bitrate of the router input, in bits per second.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-routerinputdestinationendpointassociatedresourcedetails.html#cfn-mediaconnect-destinationendpoint-routerinputdestinationendpointassociatedresourcedetails-maximumbitrate
+            '''
+            result = self._values.get("maximum_bitrate")
+            assert result is not None, "Required property 'maximum_bitrate' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the router input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-routerinputdestinationendpointassociatedresourcedetails.html#cfn-mediaconnect-destinationendpoint-routerinputdestinationendpointassociatedresourcedetails-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def state(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-routerinputdestinationendpointassociatedresourcedetails.html#cfn-mediaconnect-destinationendpoint-routerinputdestinationendpointassociatedresourcedetails-state
+            '''
+            result = self._values.get("state")
+            assert result is not None, "Required property 'state' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RouterInputDestinationEndpointAssociatedResourceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.RouterInputDestinationEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"router_input_arn": "routerInputArn"},
+    )
+    class RouterInputDestinationEndpointConfigurationProperty:
+        def __init__(self, *, router_input_arn: builtins.str) -> None:
+            '''The configuration settings for a destination endpoint that represents a router input.
+
+            :param router_input_arn: The Amazon Resource Name (ARN) of the router input that the destination endpoint represents.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-routerinputdestinationendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                router_input_destination_endpoint_configuration_property = mediaconnect.CfnDestinationEndpoint.RouterInputDestinationEndpointConfigurationProperty(
+                    router_input_arn="routerInputArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__84a31c8b68ed8b558bdbf1fc9183bf3292805f3f81a3312da68533c368b24444)
+                check_type(argname="argument router_input_arn", value=router_input_arn, expected_type=type_hints["router_input_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "router_input_arn": router_input_arn,
+            }
+
+        @builtins.property
+        def router_input_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the router input that the destination endpoint represents.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-routerinputdestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-routerinputdestinationendpointconfiguration-routerinputarn
+            '''
+            result = self._values.get("router_input_arn")
+            assert result is not None, "Required property 'router_input_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RouterInputDestinationEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.RtpStandardDestinationEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_address": "destinationAddress",
+            "destination_ingest_port": "destinationIngestPort",
+            "forward_error_correction_state": "forwardErrorCorrectionState",
+        },
+    )
+    class RtpStandardDestinationEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination_address: builtins.str,
+            destination_ingest_port: jsii.Number,
+            forward_error_correction_state: builtins.str,
+        ) -> None:
+            '''The configuration settings for a destination endpoint that uses the RTP protocol.
+
+            :param destination_address: The IP address on which the destination endpoint receives content.
+            :param destination_ingest_port: The port on which the destination endpoint receives content. The valid range is 1024 to 65531.
+            :param forward_error_correction_state: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-rtpstandarddestinationendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                rtp_standard_destination_endpoint_configuration_property = mediaconnect.CfnDestinationEndpoint.RtpStandardDestinationEndpointConfigurationProperty(
+                    destination_address="destinationAddress",
+                    destination_ingest_port=123,
+                    forward_error_correction_state="forwardErrorCorrectionState"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4e20091272f292722314aabc4191ba8a6a39231345350618b2ec076e85bf9614)
+                check_type(argname="argument destination_address", value=destination_address, expected_type=type_hints["destination_address"])
+                check_type(argname="argument destination_ingest_port", value=destination_ingest_port, expected_type=type_hints["destination_ingest_port"])
+                check_type(argname="argument forward_error_correction_state", value=forward_error_correction_state, expected_type=type_hints["forward_error_correction_state"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_address": destination_address,
+                "destination_ingest_port": destination_ingest_port,
+                "forward_error_correction_state": forward_error_correction_state,
+            }
+
+        @builtins.property
+        def destination_address(self) -> builtins.str:
+            '''The IP address on which the destination endpoint receives content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-rtpstandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-rtpstandarddestinationendpointconfiguration-destinationaddress
+            '''
+            result = self._values.get("destination_address")
+            assert result is not None, "Required property 'destination_address' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def destination_ingest_port(self) -> jsii.Number:
+            '''The port on which the destination endpoint receives content.
+
+            The valid range is 1024 to 65531.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-rtpstandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-rtpstandarddestinationendpointconfiguration-destinationingestport
+            '''
+            result = self._values.get("destination_ingest_port")
+            assert result is not None, "Required property 'destination_ingest_port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def forward_error_correction_state(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-rtpstandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-rtpstandarddestinationendpointconfiguration-forwarderrorcorrectionstate
+            '''
+            result = self._values.get("forward_error_correction_state")
+            assert result is not None, "Required property 'forward_error_correction_state' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtpStandardDestinationEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.SrtCallerStandardDestinationEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "minimum_latency_milliseconds": "minimumLatencyMilliseconds",
+            "source_listener_port": "sourceListenerPort",
+            "encryption_passphrase": "encryptionPassphrase",
+        },
+    )
+    class SrtCallerStandardDestinationEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            minimum_latency_milliseconds: jsii.Number,
+            source_listener_port: jsii.Number,
+            encryption_passphrase: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration settings for a destination endpoint that uses SRT in caller mode.
+
+            :param minimum_latency_milliseconds: The minimum latency, in milliseconds, for the SRT connection. The valid range is 10 to 10000.
+            :param source_listener_port: The port on which the source listens for the connection. The valid range is 3000 to 30000.
+            :param encryption_passphrase: The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-srtcallerstandarddestinationendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                srt_caller_standard_destination_endpoint_configuration_property = mediaconnect.CfnDestinationEndpoint.SrtCallerStandardDestinationEndpointConfigurationProperty(
+                    minimum_latency_milliseconds=123,
+                    source_listener_port=123,
+                
+                    # the properties below are optional
+                    encryption_passphrase=mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                        secret_arn="secretArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__30f22f6fbd030f696c25c62a95032ba1f032d12a845693634ca811841f93d671)
+                check_type(argname="argument minimum_latency_milliseconds", value=minimum_latency_milliseconds, expected_type=type_hints["minimum_latency_milliseconds"])
+                check_type(argname="argument source_listener_port", value=source_listener_port, expected_type=type_hints["source_listener_port"])
+                check_type(argname="argument encryption_passphrase", value=encryption_passphrase, expected_type=type_hints["encryption_passphrase"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "minimum_latency_milliseconds": minimum_latency_milliseconds,
+                "source_listener_port": source_listener_port,
+            }
+            if encryption_passphrase is not None:
+                self._values["encryption_passphrase"] = encryption_passphrase
+
+        @builtins.property
+        def minimum_latency_milliseconds(self) -> jsii.Number:
+            '''The minimum latency, in milliseconds, for the SRT connection.
+
+            The valid range is 10 to 10000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-srtcallerstandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-srtcallerstandarddestinationendpointconfiguration-minimumlatencymilliseconds
+            '''
+            result = self._values.get("minimum_latency_milliseconds")
+            assert result is not None, "Required property 'minimum_latency_milliseconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def source_listener_port(self) -> jsii.Number:
+            '''The port on which the source listens for the connection.
+
+            The valid range is 3000 to 30000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-srtcallerstandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-srtcallerstandarddestinationendpointconfiguration-sourcelistenerport
+            '''
+            result = self._values.get("source_listener_port")
+            assert result is not None, "Required property 'source_listener_port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def encryption_passphrase(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty"]]:
+            '''The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-srtcallerstandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-srtcallerstandarddestinationendpointconfiguration-encryptionpassphrase
+            '''
+            result = self._values.get("encryption_passphrase")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SrtCallerStandardDestinationEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.SrtListenerStandardDestinationEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_address": "destinationAddress",
+            "destination_ingest_port": "destinationIngestPort",
+            "minimum_latency_milliseconds": "minimumLatencyMilliseconds",
+            "encryption_passphrase": "encryptionPassphrase",
+            "stream_id": "streamId",
+        },
+    )
+    class SrtListenerStandardDestinationEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination_address: builtins.str,
+            destination_ingest_port: jsii.Number,
+            minimum_latency_milliseconds: jsii.Number,
+            encryption_passphrase: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            stream_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration settings for a destination endpoint that uses SRT in listener mode.
+
+            :param destination_address: The IP address on which the destination endpoint listens for incoming connections.
+            :param destination_ingest_port: The port on which the destination endpoint listens for incoming connections. The valid range is 0 to 65531.
+            :param minimum_latency_milliseconds: The minimum latency, in milliseconds, for the SRT connection. The valid range is 10 to 10000.
+            :param encryption_passphrase: The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+            :param stream_id: The stream ID that identifies the content for the SRT connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-srtlistenerstandarddestinationendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                srt_listener_standard_destination_endpoint_configuration_property = mediaconnect.CfnDestinationEndpoint.SrtListenerStandardDestinationEndpointConfigurationProperty(
+                    destination_address="destinationAddress",
+                    destination_ingest_port=123,
+                    minimum_latency_milliseconds=123,
+                
+                    # the properties below are optional
+                    encryption_passphrase=mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                        secret_arn="secretArn"
+                    ),
+                    stream_id="streamId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__075fb89f625f6154944c949a5903dab2d6d738cd10862240665c0ca135d4af50)
+                check_type(argname="argument destination_address", value=destination_address, expected_type=type_hints["destination_address"])
+                check_type(argname="argument destination_ingest_port", value=destination_ingest_port, expected_type=type_hints["destination_ingest_port"])
+                check_type(argname="argument minimum_latency_milliseconds", value=minimum_latency_milliseconds, expected_type=type_hints["minimum_latency_milliseconds"])
+                check_type(argname="argument encryption_passphrase", value=encryption_passphrase, expected_type=type_hints["encryption_passphrase"])
+                check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_address": destination_address,
+                "destination_ingest_port": destination_ingest_port,
+                "minimum_latency_milliseconds": minimum_latency_milliseconds,
+            }
+            if encryption_passphrase is not None:
+                self._values["encryption_passphrase"] = encryption_passphrase
+            if stream_id is not None:
+                self._values["stream_id"] = stream_id
+
+        @builtins.property
+        def destination_address(self) -> builtins.str:
+            '''The IP address on which the destination endpoint listens for incoming connections.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-srtlistenerstandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-srtlistenerstandarddestinationendpointconfiguration-destinationaddress
+            '''
+            result = self._values.get("destination_address")
+            assert result is not None, "Required property 'destination_address' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def destination_ingest_port(self) -> jsii.Number:
+            '''The port on which the destination endpoint listens for incoming connections.
+
+            The valid range is 0 to 65531.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-srtlistenerstandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-srtlistenerstandarddestinationendpointconfiguration-destinationingestport
+            '''
+            result = self._values.get("destination_ingest_port")
+            assert result is not None, "Required property 'destination_ingest_port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def minimum_latency_milliseconds(self) -> jsii.Number:
+            '''The minimum latency, in milliseconds, for the SRT connection.
+
+            The valid range is 10 to 10000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-srtlistenerstandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-srtlistenerstandarddestinationendpointconfiguration-minimumlatencymilliseconds
+            '''
+            result = self._values.get("minimum_latency_milliseconds")
+            assert result is not None, "Required property 'minimum_latency_milliseconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def encryption_passphrase(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty"]]:
+            '''The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-srtlistenerstandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-srtlistenerstandarddestinationendpointconfiguration-encryptionpassphrase
+            '''
+            result = self._values.get("encryption_passphrase")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty"]], result)
+
+        @builtins.property
+        def stream_id(self) -> typing.Optional[builtins.str]:
+            '''The stream ID that identifies the content for the SRT connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-srtlistenerstandarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-srtlistenerstandarddestinationendpointconfiguration-streamid
+            '''
+            result = self._values.get("stream_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SrtListenerStandardDestinationEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_networking_configuration": "destinationNetworkingConfiguration",
+            "name": "name",
+            "protocol_configuration": "protocolConfiguration",
+            "destination_networking_type": "destinationNetworkingType",
+            "protocol": "protocol",
+        },
+    )
+    class StandardDestinationEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination_networking_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.StandardDestinationEndpointNetworkingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            name: builtins.str,
+            protocol_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.StandardDestinationEndpointProtocolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            destination_networking_type: typing.Optional[builtins.str] = None,
+            protocol: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration settings for a standard destination endpoint.
+
+            :param destination_networking_configuration: The networking configuration for a standard destination endpoint. This is a union type, so exactly one of its members is set: public for a publicly accessible endpoint, or vpc for an endpoint in a virtual private cloud (VPC).
+            :param name: The name of the destination endpoint.
+            :param protocol_configuration: The protocol configuration for a standard destination endpoint. This is a union type, so exactly one of its members is set, depending on the protocol that the destination endpoint uses.
+            :param destination_networking_type: 
+            :param protocol: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                standard_destination_endpoint_configuration_property = mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointConfigurationProperty(
+                    destination_networking_configuration=mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointNetworkingConfigurationProperty(
+                        public=mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationProperty(
+                            destination_allow_rules=[mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty(
+                                cidr="cidr"
+                            )]
+                        ),
+                        vpc=mediaconnect.CfnDestinationEndpoint.VpcDestinationEndpointNetworkingConfigurationProperty(
+                            security_group_ids=["securityGroupIds"],
+                            subnet_id="subnetId"
+                        )
+                    ),
+                    name="name",
+                    protocol_configuration=mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointProtocolConfigurationProperty(
+                        rist=mediaconnect.CfnDestinationEndpoint.RistStandardDestinationEndpointConfigurationProperty(
+                            destination_address="destinationAddress",
+                            destination_ingest_port=123
+                        ),
+                        rtp=mediaconnect.CfnDestinationEndpoint.RtpStandardDestinationEndpointConfigurationProperty(
+                            destination_address="destinationAddress",
+                            destination_ingest_port=123,
+                            forward_error_correction_state="forwardErrorCorrectionState"
+                        ),
+                        srt_caller=mediaconnect.CfnDestinationEndpoint.SrtCallerStandardDestinationEndpointConfigurationProperty(
+                            minimum_latency_milliseconds=123,
+                            source_listener_port=123,
+                
+                            # the properties below are optional
+                            encryption_passphrase=mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                secret_arn="secretArn"
+                            )
+                        ),
+                        srt_listener=mediaconnect.CfnDestinationEndpoint.SrtListenerStandardDestinationEndpointConfigurationProperty(
+                            destination_address="destinationAddress",
+                            destination_ingest_port=123,
+                            minimum_latency_milliseconds=123,
+                
+                            # the properties below are optional
+                            encryption_passphrase=mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                secret_arn="secretArn"
+                            ),
+                            stream_id="streamId"
+                        )
+                    ),
+                
+                    # the properties below are optional
+                    destination_networking_type="destinationNetworkingType",
+                    protocol="protocol"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__afe0b32fa0a51f4d728377e9de5655774b95743f2910103d4e8a266d337ef425)
+                check_type(argname="argument destination_networking_configuration", value=destination_networking_configuration, expected_type=type_hints["destination_networking_configuration"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument protocol_configuration", value=protocol_configuration, expected_type=type_hints["protocol_configuration"])
+                check_type(argname="argument destination_networking_type", value=destination_networking_type, expected_type=type_hints["destination_networking_type"])
+                check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_networking_configuration": destination_networking_configuration,
+                "name": name,
+                "protocol_configuration": protocol_configuration,
+            }
+            if destination_networking_type is not None:
+                self._values["destination_networking_type"] = destination_networking_type
+            if protocol is not None:
+                self._values["protocol"] = protocol
+
+        @builtins.property
+        def destination_networking_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.StandardDestinationEndpointNetworkingConfigurationProperty"]:
+            '''The networking configuration for a standard destination endpoint.
+
+            This is a union type, so exactly one of its members is set: public for a publicly accessible endpoint, or vpc for an endpoint in a virtual private cloud (VPC).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-standarddestinationendpointconfiguration-destinationnetworkingconfiguration
+            '''
+            result = self._values.get("destination_networking_configuration")
+            assert result is not None, "Required property 'destination_networking_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.StandardDestinationEndpointNetworkingConfigurationProperty"], result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the destination endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-standarddestinationendpointconfiguration-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def protocol_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.StandardDestinationEndpointProtocolConfigurationProperty"]:
+            '''The protocol configuration for a standard destination endpoint.
+
+            This is a union type, so exactly one of its members is set, depending on the protocol that the destination endpoint uses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-standarddestinationendpointconfiguration-protocolconfiguration
+            '''
+            result = self._values.get("protocol_configuration")
+            assert result is not None, "Required property 'protocol_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.StandardDestinationEndpointProtocolConfigurationProperty"], result)
+
+        @builtins.property
+        def destination_networking_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-standarddestinationendpointconfiguration-destinationnetworkingtype
+            '''
+            result = self._values.get("destination_networking_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def protocol(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointconfiguration.html#cfn-mediaconnect-destinationendpoint-standarddestinationendpointconfiguration-protocol
+            '''
+            result = self._values.get("protocol")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StandardDestinationEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointNetworkingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"public": "public", "vpc": "vpc"},
+    )
+    class StandardDestinationEndpointNetworkingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            public: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.VpcDestinationEndpointNetworkingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param public: The networking configuration for a publicly accessible destination endpoint, including the CIDR blocks that are allowed to connect.
+            :param vpc: The networking configuration for a destination endpoint in a virtual private cloud (VPC).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointnetworkingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                standard_destination_endpoint_networking_configuration_property = mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointNetworkingConfigurationProperty(
+                    public=mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationProperty(
+                        destination_allow_rules=[mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty(
+                            cidr="cidr"
+                        )]
+                    ),
+                    vpc=mediaconnect.CfnDestinationEndpoint.VpcDestinationEndpointNetworkingConfigurationProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnet_id="subnetId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__55fd887d493e764584c678b6d043172db0e57537a7e38e112b3f3d9926979644)
+                check_type(argname="argument public", value=public, expected_type=type_hints["public"])
+                check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if public is not None:
+                self._values["public"] = public
+            if vpc is not None:
+                self._values["vpc"] = vpc
+
+        @builtins.property
+        def public(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationProperty"]]:
+            '''The networking configuration for a publicly accessible destination endpoint, including the CIDR blocks that are allowed to connect.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointnetworkingconfiguration.html#cfn-mediaconnect-destinationendpoint-standarddestinationendpointnetworkingconfiguration-public
+            '''
+            result = self._values.get("public")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationProperty"]], result)
+
+        @builtins.property
+        def vpc(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.VpcDestinationEndpointNetworkingConfigurationProperty"]]:
+            '''The networking configuration for a destination endpoint in a virtual private cloud (VPC).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointnetworkingconfiguration.html#cfn-mediaconnect-destinationendpoint-standarddestinationendpointnetworkingconfiguration-vpc
+            '''
+            result = self._values.get("vpc")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.VpcDestinationEndpointNetworkingConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StandardDestinationEndpointNetworkingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointProtocolConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "rist": "rist",
+            "rtp": "rtp",
+            "srt_caller": "srtCaller",
+            "srt_listener": "srtListener",
+        },
+    )
+    class StandardDestinationEndpointProtocolConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            rist: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.RistStandardDestinationEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.RtpStandardDestinationEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_caller: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.SrtCallerStandardDestinationEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_listener: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.SrtListenerStandardDestinationEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param rist: The configuration settings for a destination endpoint that uses the RIST protocol.
+            :param rtp: The configuration settings for a destination endpoint that uses the RTP protocol.
+            :param srt_caller: The configuration settings for a destination endpoint that uses SRT in caller mode.
+            :param srt_listener: The configuration settings for a destination endpoint that uses SRT in listener mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointprotocolconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                standard_destination_endpoint_protocol_configuration_property = mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointProtocolConfigurationProperty(
+                    rist=mediaconnect.CfnDestinationEndpoint.RistStandardDestinationEndpointConfigurationProperty(
+                        destination_address="destinationAddress",
+                        destination_ingest_port=123
+                    ),
+                    rtp=mediaconnect.CfnDestinationEndpoint.RtpStandardDestinationEndpointConfigurationProperty(
+                        destination_address="destinationAddress",
+                        destination_ingest_port=123,
+                        forward_error_correction_state="forwardErrorCorrectionState"
+                    ),
+                    srt_caller=mediaconnect.CfnDestinationEndpoint.SrtCallerStandardDestinationEndpointConfigurationProperty(
+                        minimum_latency_milliseconds=123,
+                        source_listener_port=123,
+                
+                        # the properties below are optional
+                        encryption_passphrase=mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                            secret_arn="secretArn"
+                        )
+                    ),
+                    srt_listener=mediaconnect.CfnDestinationEndpoint.SrtListenerStandardDestinationEndpointConfigurationProperty(
+                        destination_address="destinationAddress",
+                        destination_ingest_port=123,
+                        minimum_latency_milliseconds=123,
+                
+                        # the properties below are optional
+                        encryption_passphrase=mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                            secret_arn="secretArn"
+                        ),
+                        stream_id="streamId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__60bc57255852fd877600cb4e68088d5f53a3094557cef671103d1fc90348ea04)
+                check_type(argname="argument rist", value=rist, expected_type=type_hints["rist"])
+                check_type(argname="argument rtp", value=rtp, expected_type=type_hints["rtp"])
+                check_type(argname="argument srt_caller", value=srt_caller, expected_type=type_hints["srt_caller"])
+                check_type(argname="argument srt_listener", value=srt_listener, expected_type=type_hints["srt_listener"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if rist is not None:
+                self._values["rist"] = rist
+            if rtp is not None:
+                self._values["rtp"] = rtp
+            if srt_caller is not None:
+                self._values["srt_caller"] = srt_caller
+            if srt_listener is not None:
+                self._values["srt_listener"] = srt_listener
+
+        @builtins.property
+        def rist(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.RistStandardDestinationEndpointConfigurationProperty"]]:
+            '''The configuration settings for a destination endpoint that uses the RIST protocol.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointprotocolconfiguration.html#cfn-mediaconnect-destinationendpoint-standarddestinationendpointprotocolconfiguration-rist
+            '''
+            result = self._values.get("rist")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.RistStandardDestinationEndpointConfigurationProperty"]], result)
+
+        @builtins.property
+        def rtp(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.RtpStandardDestinationEndpointConfigurationProperty"]]:
+            '''The configuration settings for a destination endpoint that uses the RTP protocol.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointprotocolconfiguration.html#cfn-mediaconnect-destinationendpoint-standarddestinationendpointprotocolconfiguration-rtp
+            '''
+            result = self._values.get("rtp")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.RtpStandardDestinationEndpointConfigurationProperty"]], result)
+
+        @builtins.property
+        def srt_caller(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.SrtCallerStandardDestinationEndpointConfigurationProperty"]]:
+            '''The configuration settings for a destination endpoint that uses SRT in caller mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointprotocolconfiguration.html#cfn-mediaconnect-destinationendpoint-standarddestinationendpointprotocolconfiguration-srtcaller
+            '''
+            result = self._values.get("srt_caller")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.SrtCallerStandardDestinationEndpointConfigurationProperty"]], result)
+
+        @builtins.property
+        def srt_listener(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.SrtListenerStandardDestinationEndpointConfigurationProperty"]]:
+            '''The configuration settings for a destination endpoint that uses SRT in listener mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-standarddestinationendpointprotocolconfiguration.html#cfn-mediaconnect-destinationendpoint-standarddestinationendpointprotocolconfiguration-srtlistener
+            '''
+            result = self._values.get("srt_listener")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.SrtListenerStandardDestinationEndpointConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StandardDestinationEndpointProtocolConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpoint.VpcDestinationEndpointNetworkingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "security_group_ids": "securityGroupIds",
+            "subnet_id": "subnetId",
+        },
+    )
+    class VpcDestinationEndpointNetworkingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            security_group_ids: typing.Sequence[builtins.str],
+            subnet_id: builtins.str,
+        ) -> None:
+            '''The networking configuration for a destination endpoint in a virtual private cloud (VPC).
+
+            :param security_group_ids: The IDs of the security groups to associate with the destination endpoint. You can specify from 1 to 5 security groups.
+            :param subnet_id: The ID of the subnet to use for the destination endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-vpcdestinationendpointnetworkingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                vpc_destination_endpoint_networking_configuration_property = mediaconnect.CfnDestinationEndpoint.VpcDestinationEndpointNetworkingConfigurationProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_id="subnetId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4c13ea77e8976ad2021526f063bfa3fdd3c61d7b61ceb0cc990fc70f7130f982)
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "security_group_ids": security_group_ids,
+                "subnet_id": subnet_id,
+            }
+
+        @builtins.property
+        def security_group_ids(self) -> typing.List[builtins.str]:
+            '''The IDs of the security groups to associate with the destination endpoint.
+
+            You can specify from 1 to 5 security groups.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-vpcdestinationendpointnetworkingconfiguration.html#cfn-mediaconnect-destinationendpoint-vpcdestinationendpointnetworkingconfiguration-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            assert result is not None, "Required property 'security_group_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def subnet_id(self) -> builtins.str:
+            '''The ID of the subnet to use for the destination endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-destinationendpoint-vpcdestinationendpointnetworkingconfiguration.html#cfn-mediaconnect-destinationendpoint-vpcdestinationendpointnetworkingconfiguration-subnetid
+            '''
+            result = self._values.get("subnet_id")
+            assert result is not None, "Required property 'subnet_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcDestinationEndpointNetworkingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnDestinationEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration": "configuration",
+        "description": "description",
+        "region_name": "regionName",
+        "tags": "tags",
+    },
+)
+class CfnDestinationEndpointProps:
+    def __init__(
+        self,
+        *,
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDestinationEndpoint.DestinationEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        region_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDestinationEndpoint``.
+
+        :param configuration: The configuration settings for a destination endpoint. This is a union type, so exactly one of its members is set, depending on the type of the destination endpoint.
+        :param description: The description of the destination endpoint.
+        :param region_name: The name of the Amazon Web Services Region in which the destination endpoint is located.
+        :param tags: The tags associated with the destination endpoint. Each tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-destinationendpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            cfn_destination_endpoint_props = mediaconnect.CfnDestinationEndpointProps(
+                configuration=mediaconnect.CfnDestinationEndpoint.DestinationEndpointConfigurationProperty(
+                    router_input=mediaconnect.CfnDestinationEndpoint.RouterInputDestinationEndpointConfigurationProperty(
+                        router_input_arn="routerInputArn"
+                    ),
+                    standard=mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointConfigurationProperty(
+                        destination_networking_configuration=mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointNetworkingConfigurationProperty(
+                            public=mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationProperty(
+                                destination_allow_rules=[mediaconnect.CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty(
+                                    cidr="cidr"
+                                )]
+                            ),
+                            vpc=mediaconnect.CfnDestinationEndpoint.VpcDestinationEndpointNetworkingConfigurationProperty(
+                                security_group_ids=["securityGroupIds"],
+                                subnet_id="subnetId"
+                            )
+                        ),
+                        name="name",
+                        protocol_configuration=mediaconnect.CfnDestinationEndpoint.StandardDestinationEndpointProtocolConfigurationProperty(
+                            rist=mediaconnect.CfnDestinationEndpoint.RistStandardDestinationEndpointConfigurationProperty(
+                                destination_address="destinationAddress",
+                                destination_ingest_port=123
+                            ),
+                            rtp=mediaconnect.CfnDestinationEndpoint.RtpStandardDestinationEndpointConfigurationProperty(
+                                destination_address="destinationAddress",
+                                destination_ingest_port=123,
+                                forward_error_correction_state="forwardErrorCorrectionState"
+                            ),
+                            srt_caller=mediaconnect.CfnDestinationEndpoint.SrtCallerStandardDestinationEndpointConfigurationProperty(
+                                minimum_latency_milliseconds=123,
+                                source_listener_port=123,
+            
+                                # the properties below are optional
+                                encryption_passphrase=mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                    secret_arn="secretArn"
+                                )
+                            ),
+                            srt_listener=mediaconnect.CfnDestinationEndpoint.SrtListenerStandardDestinationEndpointConfigurationProperty(
+                                destination_address="destinationAddress",
+                                destination_ingest_port=123,
+                                minimum_latency_milliseconds=123,
+            
+                                # the properties below are optional
+                                encryption_passphrase=mediaconnect.CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                    secret_arn="secretArn"
+                                ),
+                                stream_id="streamId"
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        destination_networking_type="destinationNetworkingType",
+                        protocol="protocol"
+                    )
+                ),
+            
+                # the properties below are optional
+                description="description",
+                region_name="regionName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d63ba99f05eef7238c349582c5b3954e922828bbac26663fef450f0f98a173d6)
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument region_name", value=region_name, expected_type=type_hints["region_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration": configuration,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if region_name is not None:
+            self._values["region_name"] = region_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.DestinationEndpointConfigurationProperty"]:
+        '''The configuration settings for a destination endpoint.
+
+        This is a union type, so exactly one of its members is set, depending on the type of the destination endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-destinationendpoint.html#cfn-mediaconnect-destinationendpoint-configuration
+        '''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDestinationEndpoint.DestinationEndpointConfigurationProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the destination endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-destinationendpoint.html#cfn-mediaconnect-destinationendpoint-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Amazon Web Services Region in which the destination endpoint is located.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-destinationendpoint.html#cfn-mediaconnect-destinationendpoint-regionname
+        '''
+        result = self._values.get("region_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the destination endpoint.
+
+        Each tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-destinationendpoint.html#cfn-mediaconnect-destinationendpoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDestinationEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IFlowRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFlow(
     _aws_cdk_0cae9daa.CfnResource,
@@ -11982,6 +13891,23 @@ class CfnRouterInput(
         
         cfn_router_input = mediaconnect.CfnRouterInput(self, "MyCfnRouterInput",
             configuration=mediaconnect.CfnRouterInput.RouterInputConfigurationProperty(
+                destination_endpoint=mediaconnect.CfnRouterInput.DestinationEndpointRouterInputConfigurationProperty(
+                    endpoint_lifecycle_management="endpointLifecycleManagement",
+                    source_transit_decryption=mediaconnect.CfnRouterInput.EndpointEncryptionConfigurationProperty(
+                        automatic=automatic,
+                        secrets_manager=mediaconnect.CfnRouterInput.SecretsManagerEndpointEncryptionConfigurationProperty(
+                            encryption_secret=mediaconnect.CfnRouterInput.EndpointEncryptionSecretConfigurationProperty(
+                                secret_arn="secretArn"
+                            ),
+        
+                            # the properties below are optional
+                            encryption_secret_type="encryptionSecretType"
+                        )
+                    ),
+        
+                    # the properties below are optional
+                    source_transit_decryption_type="sourceTransitDecryptionType"
+                ),
                 failover=mediaconnect.CfnRouterInput.FailoverRouterInputConfigurationProperty(
                     network_interface_arn="networkInterfaceArn",
                     protocol_configurations=[mediaconnect.CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty(
@@ -12293,6 +14219,15 @@ class CfnRouterInput(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssociatedDestinationEndpointArns")
+    def attr_associated_destination_endpoint_arns(self) -> typing.List[builtins.str]:
+        '''The Amazon Resource Names (ARNs) of one or more destination endpoints that are associated with this router input.
+
+        :cloudformationAttribute: AssociatedDestinationEndpointArns
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrAssociatedDestinationEndpointArns"))
 
     @builtins.property
     @jsii.member(jsii_name="attrContentQualityAnalysisType")
@@ -12733,6 +14668,248 @@ class CfnRouterInput(
 
         def __repr__(self) -> str:
             return "ContentQualityAnalysisFeatureConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.DestinationEndpointRouterInputConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "endpoint_lifecycle_management": "endpointLifecycleManagement",
+            "source_transit_decryption": "sourceTransitDecryption",
+            "source_transit_decryption_type": "sourceTransitDecryptionType",
+        },
+    )
+    class DestinationEndpointRouterInputConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            endpoint_lifecycle_management: builtins.str,
+            source_transit_decryption: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.EndpointEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            source_transit_decryption_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration settings for a router input that is represented by a destination endpoint.
+
+            :param endpoint_lifecycle_management: 
+            :param source_transit_decryption: The encryption settings for an endpoint connection. This is a union type, so exactly one of its members is set: secretsManager when you store the encryption key or passphrase in Secrets Manager, or automatic when you let MediaConnect determine the encryption key when the endpoint connects.
+            :param source_transit_decryption_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-destinationendpointrouterinputconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                destination_endpoint_router_input_configuration_property = mediaconnect.CfnRouterInput.DestinationEndpointRouterInputConfigurationProperty(
+                    endpoint_lifecycle_management="endpointLifecycleManagement",
+                    source_transit_decryption=mediaconnect.CfnRouterInput.EndpointEncryptionConfigurationProperty(
+                        automatic=automatic,
+                        secrets_manager=mediaconnect.CfnRouterInput.SecretsManagerEndpointEncryptionConfigurationProperty(
+                            encryption_secret=mediaconnect.CfnRouterInput.EndpointEncryptionSecretConfigurationProperty(
+                                secret_arn="secretArn"
+                            ),
+                
+                            # the properties below are optional
+                            encryption_secret_type="encryptionSecretType"
+                        )
+                    ),
+                
+                    # the properties below are optional
+                    source_transit_decryption_type="sourceTransitDecryptionType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e168b7e41f1282d098419310602cd269b43ed3e9aa0b42ce6fe1a069fc112e75)
+                check_type(argname="argument endpoint_lifecycle_management", value=endpoint_lifecycle_management, expected_type=type_hints["endpoint_lifecycle_management"])
+                check_type(argname="argument source_transit_decryption", value=source_transit_decryption, expected_type=type_hints["source_transit_decryption"])
+                check_type(argname="argument source_transit_decryption_type", value=source_transit_decryption_type, expected_type=type_hints["source_transit_decryption_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "endpoint_lifecycle_management": endpoint_lifecycle_management,
+                "source_transit_decryption": source_transit_decryption,
+            }
+            if source_transit_decryption_type is not None:
+                self._values["source_transit_decryption_type"] = source_transit_decryption_type
+
+        @builtins.property
+        def endpoint_lifecycle_management(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-destinationendpointrouterinputconfiguration.html#cfn-mediaconnect-routerinput-destinationendpointrouterinputconfiguration-endpointlifecyclemanagement
+            '''
+            result = self._values.get("endpoint_lifecycle_management")
+            assert result is not None, "Required property 'endpoint_lifecycle_management' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def source_transit_decryption(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.EndpointEncryptionConfigurationProperty"]:
+            '''The encryption settings for an endpoint connection.
+
+            This is a union type, so exactly one of its members is set: secretsManager when you store the encryption key or passphrase in Secrets Manager, or automatic when you let MediaConnect determine the encryption key when the endpoint connects.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-destinationendpointrouterinputconfiguration.html#cfn-mediaconnect-routerinput-destinationendpointrouterinputconfiguration-sourcetransitdecryption
+            '''
+            result = self._values.get("source_transit_decryption")
+            assert result is not None, "Required property 'source_transit_decryption' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.EndpointEncryptionConfigurationProperty"], result)
+
+        @builtins.property
+        def source_transit_decryption_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-destinationendpointrouterinputconfiguration.html#cfn-mediaconnect-routerinput-destinationendpointrouterinputconfiguration-sourcetransitdecryptiontype
+            '''
+            result = self._values.get("source_transit_decryption_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DestinationEndpointRouterInputConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.EndpointEncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"automatic": "automatic", "secrets_manager": "secretsManager"},
+    )
+    class EndpointEncryptionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            automatic: typing.Any = None,
+            secrets_manager: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SecretsManagerEndpointEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param automatic: The configuration for automatic endpoint encryption. In this mode, MediaConnect determines the encryption key when the endpoint connects. This type does not require any additional settings.
+            :param secrets_manager: The endpoint encryption configuration for connections that use a key or passphrase that you store in Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-endpointencryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                endpoint_encryption_configuration_property = mediaconnect.CfnRouterInput.EndpointEncryptionConfigurationProperty(
+                    automatic=automatic,
+                    secrets_manager=mediaconnect.CfnRouterInput.SecretsManagerEndpointEncryptionConfigurationProperty(
+                        encryption_secret=mediaconnect.CfnRouterInput.EndpointEncryptionSecretConfigurationProperty(
+                            secret_arn="secretArn"
+                        ),
+                
+                        # the properties below are optional
+                        encryption_secret_type="encryptionSecretType"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f09afe6b5f9876f17380eaabb6a7ab92bfc0037c15ee95517082ad0b2e9e67da)
+                check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
+                check_type(argname="argument secrets_manager", value=secrets_manager, expected_type=type_hints["secrets_manager"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if automatic is not None:
+                self._values["automatic"] = automatic
+            if secrets_manager is not None:
+                self._values["secrets_manager"] = secrets_manager
+
+        @builtins.property
+        def automatic(self) -> typing.Any:
+            '''The configuration for automatic endpoint encryption.
+
+            In this mode, MediaConnect determines the encryption key when the endpoint connects. This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-endpointencryptionconfiguration.html#cfn-mediaconnect-routerinput-endpointencryptionconfiguration-automatic
+            '''
+            result = self._values.get("automatic")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def secrets_manager(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SecretsManagerEndpointEncryptionConfigurationProperty"]]:
+            '''The endpoint encryption configuration for connections that use a key or passphrase that you store in Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-endpointencryptionconfiguration.html#cfn-mediaconnect-routerinput-endpointencryptionconfiguration-secretsmanager
+            '''
+            result = self._values.get("secrets_manager")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SecretsManagerEndpointEncryptionConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EndpointEncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.EndpointEncryptionSecretConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"secret_arn": "secretArn"},
+    )
+    class EndpointEncryptionSecretConfigurationProperty:
+        def __init__(self, *, secret_arn: builtins.str) -> None:
+            '''The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+
+            :param secret_arn: The ARN of the Secrets Manager secret that holds the key or passphrase. The secret must be encrypted with a customer managed Amazon Web Services KMS key that is enabled and symmetric; it cannot use the Amazon Web Services managed key aws/secretsmanager. The secret must be in the same Amazon Web Services account and Region as the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-endpointencryptionsecretconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                endpoint_encryption_secret_configuration_property = mediaconnect.CfnRouterInput.EndpointEncryptionSecretConfigurationProperty(
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__357dd5a40add80a6e64dfbdc20d4f9ed321f12c4d08c3e5b9ddb00dfa7f61119)
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''The ARN of the Secrets Manager secret that holds the key or passphrase.
+
+            The secret must be encrypted with a customer managed Amazon Web Services KMS key that is enabled and symmetric; it cannot use the Amazon Web Services managed key aws/secretsmanager. The secret must be in the same Amazon Web Services account and Region as the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-endpointencryptionsecretconfiguration.html#cfn-mediaconnect-routerinput-endpointencryptionsecretconfiguration-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EndpointEncryptionSecretConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -13356,6 +15533,8 @@ class CfnRouterInput(
         ) -> None:
             '''Configuration settings for connecting a router input to a flow output.
 
+            To connect the router input to the flow output, provide both flowArn and flowOutputArn. To disconnect it, call the update operation and omit both fields while keeping this configuration object. You can't change sourceTransitDecryption while the router input is connected to a flow output. To change it, first disconnect the router input, then update the decryption.
+
             :param source_transit_decryption: The configuration that defines how content is encrypted during transit between the MediaConnect router and a MediaConnect flow.
             :param flow_arn: The ARN of the flow to connect to.
             :param flow_output_arn: The ARN of the flow output to connect to this router input.
@@ -13464,6 +15643,8 @@ class CfnRouterInput(
             media_live_pipeline_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration settings for connecting a router input to a MediaLive channel output.
+
+            To connect the router input to the MediaLive channel output, provide all three of mediaLiveChannelArn, mediaLivePipelineId, and mediaLiveChannelOutputName. To disconnect it, call the update operation and omit all three fields while keeping this configuration object. You can't change sourceTransitDecryption while the router input is connected to a MediaLive channel output. To change it, first disconnect the router input, then update the decryption.
 
             :param source_transit_decryption: The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive. This configuration determines whether encryption keys are automatically managed by the service or manually managed through Secrets Manager.
             :param media_live_channel_arn: The ARN of the MediaLive channel to connect to this router input.
@@ -14133,6 +16314,7 @@ class CfnRouterInput(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.RouterInputConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "destination_endpoint": "destinationEndpoint",
             "failover": "failover",
             "media_connect_flow": "mediaConnectFlow",
             "media_live_channel": "mediaLiveChannel",
@@ -14144,6 +16326,7 @@ class CfnRouterInput(
         def __init__(
             self,
             *,
+            destination_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.DestinationEndpointRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             failover: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.FailoverRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             media_connect_flow: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             media_live_channel: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -14151,9 +16334,10 @@ class CfnRouterInput(
             standard: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.StandardRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
+            :param destination_endpoint: Configuration settings for a router input that is represented by a destination endpoint.
             :param failover: Configuration settings for a failover router input that allows switching between two input sources.
-            :param media_connect_flow: Configuration settings for connecting a router input to a flow output.
-            :param media_live_channel: Configuration settings for connecting a router input to a MediaLive channel output.
+            :param media_connect_flow: Configuration settings for connecting a router input to a flow output. To connect the router input to the flow output, provide both flowArn and flowOutputArn. To disconnect it, call the update operation and omit both fields while keeping this configuration object. You can't change sourceTransitDecryption while the router input is connected to a flow output. To change it, first disconnect the router input, then update the decryption.
+            :param media_live_channel: Configuration settings for connecting a router input to a MediaLive channel output. To connect the router input to the MediaLive channel output, provide all three of mediaLiveChannelArn, mediaLivePipelineId, and mediaLiveChannelOutputName. To disconnect it, call the update operation and omit all three fields while keeping this configuration object. You can't change sourceTransitDecryption while the router input is connected to a MediaLive channel output. To change it, first disconnect the router input, then update the decryption.
             :param merge: Configuration settings for a merge router input that combines two input sources.
             :param standard: The configuration settings for a standard router input, including the protocol, protocol-specific configuration, network interface, and availability zone.
 
@@ -14169,6 +16353,23 @@ class CfnRouterInput(
                 # automatic: Any
                 
                 router_input_configuration_property = mediaconnect.CfnRouterInput.RouterInputConfigurationProperty(
+                    destination_endpoint=mediaconnect.CfnRouterInput.DestinationEndpointRouterInputConfigurationProperty(
+                        endpoint_lifecycle_management="endpointLifecycleManagement",
+                        source_transit_decryption=mediaconnect.CfnRouterInput.EndpointEncryptionConfigurationProperty(
+                            automatic=automatic,
+                            secrets_manager=mediaconnect.CfnRouterInput.SecretsManagerEndpointEncryptionConfigurationProperty(
+                                encryption_secret=mediaconnect.CfnRouterInput.EndpointEncryptionSecretConfigurationProperty(
+                                    secret_arn="secretArn"
+                                ),
+                
+                                # the properties below are optional
+                                encryption_secret_type="encryptionSecretType"
+                            )
+                        ),
+                
+                        # the properties below are optional
+                        source_transit_decryption_type="sourceTransitDecryptionType"
+                    ),
                     failover=mediaconnect.CfnRouterInput.FailoverRouterInputConfigurationProperty(
                         network_interface_arn="networkInterfaceArn",
                         protocol_configurations=[mediaconnect.CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty(
@@ -14315,12 +16516,15 @@ class CfnRouterInput(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__367935140f8b2e56d02ff3e2c05252a68073eace6c0eeda3b7abeeeac1209e1b)
+                check_type(argname="argument destination_endpoint", value=destination_endpoint, expected_type=type_hints["destination_endpoint"])
                 check_type(argname="argument failover", value=failover, expected_type=type_hints["failover"])
                 check_type(argname="argument media_connect_flow", value=media_connect_flow, expected_type=type_hints["media_connect_flow"])
                 check_type(argname="argument media_live_channel", value=media_live_channel, expected_type=type_hints["media_live_channel"])
                 check_type(argname="argument merge", value=merge, expected_type=type_hints["merge"])
                 check_type(argname="argument standard", value=standard, expected_type=type_hints["standard"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if destination_endpoint is not None:
+                self._values["destination_endpoint"] = destination_endpoint
             if failover is not None:
                 self._values["failover"] = failover
             if media_connect_flow is not None:
@@ -14331,6 +16535,17 @@ class CfnRouterInput(
                 self._values["merge"] = merge
             if standard is not None:
                 self._values["standard"] = standard
+
+        @builtins.property
+        def destination_endpoint(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.DestinationEndpointRouterInputConfigurationProperty"]]:
+            '''Configuration settings for a router input that is represented by a destination endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputconfiguration.html#cfn-mediaconnect-routerinput-routerinputconfiguration-destinationendpoint
+            '''
+            result = self._values.get("destination_endpoint")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.DestinationEndpointRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def failover(
@@ -14349,6 +16564,8 @@ class CfnRouterInput(
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty"]]:
             '''Configuration settings for connecting a router input to a flow output.
 
+            To connect the router input to the flow output, provide both flowArn and flowOutputArn. To disconnect it, call the update operation and omit both fields while keeping this configuration object. You can't change sourceTransitDecryption while the router input is connected to a flow output. To change it, first disconnect the router input, then update the decryption.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputconfiguration.html#cfn-mediaconnect-routerinput-routerinputconfiguration-mediaconnectflow
             '''
             result = self._values.get("media_connect_flow")
@@ -14359,6 +16576,8 @@ class CfnRouterInput(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty"]]:
             '''Configuration settings for connecting a router input to a MediaLive channel output.
+
+            To connect the router input to the MediaLive channel output, provide all three of mediaLiveChannelArn, mediaLivePipelineId, and mediaLiveChannelOutputName. To disconnect it, call the update operation and omit all three fields while keeping this configuration object. You can't change sourceTransitDecryption while the router input is connected to a MediaLive channel output. To change it, first disconnect the router input, then update the decryption.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputconfiguration.html#cfn-mediaconnect-routerinput-routerinputconfiguration-medialivechannel
             '''
@@ -14841,6 +17060,85 @@ class CfnRouterInput(
 
         def __repr__(self) -> str:
             return "SecretsManagerEncryptionKeyConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.SecretsManagerEndpointEncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "encryption_secret": "encryptionSecret",
+            "encryption_secret_type": "encryptionSecretType",
+        },
+    )
+    class SecretsManagerEndpointEncryptionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            encryption_secret: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.EndpointEncryptionSecretConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_secret_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The endpoint encryption configuration for connections that use a key or passphrase that you store in Secrets Manager.
+
+            :param encryption_secret: The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+            :param encryption_secret_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-secretsmanagerendpointencryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                secrets_manager_endpoint_encryption_configuration_property = mediaconnect.CfnRouterInput.SecretsManagerEndpointEncryptionConfigurationProperty(
+                    encryption_secret=mediaconnect.CfnRouterInput.EndpointEncryptionSecretConfigurationProperty(
+                        secret_arn="secretArn"
+                    ),
+                
+                    # the properties below are optional
+                    encryption_secret_type="encryptionSecretType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4d9bdb0f843f97bf02da9ec36bc7ed6744e963c0e6f1622f6eb9f24ab12ceae5)
+                check_type(argname="argument encryption_secret", value=encryption_secret, expected_type=type_hints["encryption_secret"])
+                check_type(argname="argument encryption_secret_type", value=encryption_secret_type, expected_type=type_hints["encryption_secret_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "encryption_secret": encryption_secret,
+            }
+            if encryption_secret_type is not None:
+                self._values["encryption_secret_type"] = encryption_secret_type
+
+        @builtins.property
+        def encryption_secret(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.EndpointEncryptionSecretConfigurationProperty"]:
+            '''The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-secretsmanagerendpointencryptionconfiguration.html#cfn-mediaconnect-routerinput-secretsmanagerendpointencryptionconfiguration-encryptionsecret
+            '''
+            result = self._values.get("encryption_secret")
+            assert result is not None, "Required property 'encryption_secret' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.EndpointEncryptionSecretConfigurationProperty"], result)
+
+        @builtins.property
+        def encryption_secret_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-secretsmanagerendpointencryptionconfiguration.html#cfn-mediaconnect-routerinput-secretsmanagerendpointencryptionconfiguration-encryptionsecrettype
+            '''
+            result = self._values.get("encryption_secret_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SecretsManagerEndpointEncryptionConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -15398,6 +17696,23 @@ class CfnRouterInputProps:
             
             cfn_router_input_props = mediaconnect.CfnRouterInputProps(
                 configuration=mediaconnect.CfnRouterInput.RouterInputConfigurationProperty(
+                    destination_endpoint=mediaconnect.CfnRouterInput.DestinationEndpointRouterInputConfigurationProperty(
+                        endpoint_lifecycle_management="endpointLifecycleManagement",
+                        source_transit_decryption=mediaconnect.CfnRouterInput.EndpointEncryptionConfigurationProperty(
+                            automatic=automatic,
+                            secrets_manager=mediaconnect.CfnRouterInput.SecretsManagerEndpointEncryptionConfigurationProperty(
+                                encryption_secret=mediaconnect.CfnRouterInput.EndpointEncryptionSecretConfigurationProperty(
+                                    secret_arn="secretArn"
+                                ),
+            
+                                # the properties below are optional
+                                encryption_secret_type="encryptionSecretType"
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        source_transit_decryption_type="sourceTransitDecryptionType"
+                    ),
                     failover=mediaconnect.CfnRouterInput.FailoverRouterInputConfigurationProperty(
                         network_interface_arn="networkInterfaceArn",
                         protocol_configurations=[mediaconnect.CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty(
@@ -16486,6 +18801,23 @@ class CfnRouterOutput(
                     media_live_input_arn="mediaLiveInputArn",
                     media_live_pipeline_id="mediaLivePipelineId"
                 ),
+                source_endpoint=mediaconnect.CfnRouterOutput.SourceEndpointRouterOutputConfigurationProperty(
+                    destination_transit_encryption=mediaconnect.CfnRouterOutput.EndpointEncryptionConfigurationProperty(
+                        automatic=automatic,
+                        secrets_manager=mediaconnect.CfnRouterOutput.SecretsManagerEndpointEncryptionConfigurationProperty(
+                            encryption_secret=mediaconnect.CfnRouterOutput.EndpointEncryptionSecretConfigurationProperty(
+                                secret_arn="secretArn"
+                            ),
+        
+                            # the properties below are optional
+                            encryption_secret_type="encryptionSecretType"
+                        )
+                    ),
+                    endpoint_lifecycle_management="endpointLifecycleManagement",
+        
+                    # the properties below are optional
+                    destination_transit_encryption_type="destinationTransitEncryptionType"
+                ),
                 standard=mediaconnect.CfnRouterOutput.StandardRouterOutputConfigurationProperty(
                     network_interface_arn="networkInterfaceArn",
                     protocol_configuration=mediaconnect.CfnRouterOutput.RouterOutputProtocolConfigurationProperty(
@@ -16688,6 +19020,15 @@ class CfnRouterOutput(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssociatedSourceEndpointArns")
+    def attr_associated_source_endpoint_arns(self) -> typing.List[builtins.str]:
+        '''The Amazon Resource Names (ARNs) of one or more source endpoints that are associated with this router output.
+
+        :cloudformationAttribute: AssociatedSourceEndpointArns
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrAssociatedSourceEndpointArns"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
@@ -16930,6 +19271,142 @@ class CfnRouterOutput(
             type_hints = cached_type_hints(_typecheckingstub__cb6937ae740be264a96755b4785a6121ef85f3be99b91fb48ef0d32ab567b808)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutput.EndpointEncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"automatic": "automatic", "secrets_manager": "secretsManager"},
+    )
+    class EndpointEncryptionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            automatic: typing.Any = None,
+            secrets_manager: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.SecretsManagerEndpointEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param automatic: The configuration for automatic endpoint encryption. In this mode, MediaConnect determines the encryption key when the endpoint connects. This type does not require any additional settings.
+            :param secrets_manager: The endpoint encryption configuration for connections that use a key or passphrase that you store in Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-endpointencryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                endpoint_encryption_configuration_property = mediaconnect.CfnRouterOutput.EndpointEncryptionConfigurationProperty(
+                    automatic=automatic,
+                    secrets_manager=mediaconnect.CfnRouterOutput.SecretsManagerEndpointEncryptionConfigurationProperty(
+                        encryption_secret=mediaconnect.CfnRouterOutput.EndpointEncryptionSecretConfigurationProperty(
+                            secret_arn="secretArn"
+                        ),
+                
+                        # the properties below are optional
+                        encryption_secret_type="encryptionSecretType"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__83f9c236e6be20491d1fcd8c3c690e748f332adfd83ecc24669ed00e644af39c)
+                check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
+                check_type(argname="argument secrets_manager", value=secrets_manager, expected_type=type_hints["secrets_manager"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if automatic is not None:
+                self._values["automatic"] = automatic
+            if secrets_manager is not None:
+                self._values["secrets_manager"] = secrets_manager
+
+        @builtins.property
+        def automatic(self) -> typing.Any:
+            '''The configuration for automatic endpoint encryption.
+
+            In this mode, MediaConnect determines the encryption key when the endpoint connects. This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-endpointencryptionconfiguration.html#cfn-mediaconnect-routeroutput-endpointencryptionconfiguration-automatic
+            '''
+            result = self._values.get("automatic")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def secrets_manager(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SecretsManagerEndpointEncryptionConfigurationProperty"]]:
+            '''The endpoint encryption configuration for connections that use a key or passphrase that you store in Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-endpointencryptionconfiguration.html#cfn-mediaconnect-routeroutput-endpointencryptionconfiguration-secretsmanager
+            '''
+            result = self._values.get("secrets_manager")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SecretsManagerEndpointEncryptionConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EndpointEncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutput.EndpointEncryptionSecretConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"secret_arn": "secretArn"},
+    )
+    class EndpointEncryptionSecretConfigurationProperty:
+        def __init__(self, *, secret_arn: builtins.str) -> None:
+            '''The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+
+            :param secret_arn: The ARN of the Secrets Manager secret that holds the key or passphrase. The secret must be encrypted with a customer managed Amazon Web Services KMS key that is enabled and symmetric; it cannot use the Amazon Web Services managed key aws/secretsmanager. The secret must be in the same Amazon Web Services account and Region as the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-endpointencryptionsecretconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                endpoint_encryption_secret_configuration_property = mediaconnect.CfnRouterOutput.EndpointEncryptionSecretConfigurationProperty(
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d12603b6abd29a568d694c941b437e367c229f135f7582d2d2b5c872850f5a03)
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''The ARN of the Secrets Manager secret that holds the key or passphrase.
+
+            The secret must be encrypted with a customer managed Amazon Web Services KMS key that is enabled and symmetric; it cannot use the Amazon Web Services managed key aws/secretsmanager. The secret must be in the same Amazon Web Services account and Region as the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-endpointencryptionsecretconfiguration.html#cfn-mediaconnect-routeroutput-endpointencryptionsecretconfiguration-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EndpointEncryptionSecretConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutput.FabricConfigurationProperty",
@@ -17238,6 +19715,8 @@ class CfnRouterOutput(
         ) -> None:
             '''Configuration settings for connecting a router output to a MediaConnect flow source.
 
+            To connect the router output to the flow source, provide both flowArn and flowSourceArn. To disconnect it, call the update operation and omit both fields while keeping this configuration object. You can't change destinationTransitEncryption while the router output is connected to a flow source. To change it, first disconnect the router output, then update the encryption.
+
             :param destination_transit_encryption: The configuration that defines how content is encrypted during transit between the MediaConnect router and a MediaConnect flow.
             :param flow_arn: The ARN of the flow to connect to this router output.
             :param flow_source_arn: The ARN of the flow source to connect to this router output.
@@ -17344,6 +19823,8 @@ class CfnRouterOutput(
             media_live_pipeline_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration settings for connecting a router output to a MediaLive input.
+
+            To connect the router output to the MediaLive input, provide both mediaLiveInputArn and mediaLivePipelineId. To disconnect it, call the update operation and omit both fields while keeping this configuration object. You can't change destinationTransitEncryption while the router output is connected to a MediaLive input. To change it, first disconnect the router output, then update the encryption.
 
             :param destination_transit_encryption: The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive. This configuration determines whether encryption keys are automatically managed by the service or manually managed through Secrets Manager.
             :param media_live_input_arn: The ARN of the MediaLive input to connect to this router output.
@@ -17742,6 +20223,7 @@ class CfnRouterOutput(
         name_mapping={
             "media_connect_flow": "mediaConnectFlow",
             "media_live_input": "mediaLiveInput",
+            "source_endpoint": "sourceEndpoint",
             "standard": "standard",
         },
     )
@@ -17751,11 +20233,13 @@ class CfnRouterOutput(
             *,
             media_connect_flow: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.MediaConnectFlowRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             media_live_input: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.MediaLiveInputRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.SourceEndpointRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             standard: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.StandardRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
-            :param media_connect_flow: Configuration settings for connecting a router output to a MediaConnect flow source.
-            :param media_live_input: Configuration settings for connecting a router output to a MediaLive input.
+            :param media_connect_flow: Configuration settings for connecting a router output to a MediaConnect flow source. To connect the router output to the flow source, provide both flowArn and flowSourceArn. To disconnect it, call the update operation and omit both fields while keeping this configuration object. You can't change destinationTransitEncryption while the router output is connected to a flow source. To change it, first disconnect the router output, then update the encryption.
+            :param media_live_input: Configuration settings for connecting a router output to a MediaLive input. To connect the router output to the MediaLive input, provide both mediaLiveInputArn and mediaLivePipelineId. To disconnect it, call the update operation and omit both fields while keeping this configuration object. You can't change destinationTransitEncryption while the router output is connected to a MediaLive input. To change it, first disconnect the router output, then update the encryption.
+            :param source_endpoint: Configuration settings for a router output that is represented by a source endpoint.
             :param standard: The configuration settings for a standard router output, including the protocol, protocol-specific configuration, network interface, and availability zone.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-routeroutputconfiguration.html
@@ -17806,6 +20290,23 @@ class CfnRouterOutput(
                         # the properties below are optional
                         media_live_input_arn="mediaLiveInputArn",
                         media_live_pipeline_id="mediaLivePipelineId"
+                    ),
+                    source_endpoint=mediaconnect.CfnRouterOutput.SourceEndpointRouterOutputConfigurationProperty(
+                        destination_transit_encryption=mediaconnect.CfnRouterOutput.EndpointEncryptionConfigurationProperty(
+                            automatic=automatic,
+                            secrets_manager=mediaconnect.CfnRouterOutput.SecretsManagerEndpointEncryptionConfigurationProperty(
+                                encryption_secret=mediaconnect.CfnRouterOutput.EndpointEncryptionSecretConfigurationProperty(
+                                    secret_arn="secretArn"
+                                ),
+                
+                                # the properties below are optional
+                                encryption_secret_type="encryptionSecretType"
+                            )
+                        ),
+                        endpoint_lifecycle_management="endpointLifecycleManagement",
+                
+                        # the properties below are optional
+                        destination_transit_encryption_type="destinationTransitEncryptionType"
                     ),
                     standard=mediaconnect.CfnRouterOutput.StandardRouterOutputConfigurationProperty(
                         network_interface_arn="networkInterfaceArn",
@@ -17874,12 +20375,15 @@ class CfnRouterOutput(
                 type_hints = cached_type_hints(_typecheckingstub__195e2aba5e342493ec27f8f63f43810db21ee1b303be1cfa962c7f9a490a7d3d)
                 check_type(argname="argument media_connect_flow", value=media_connect_flow, expected_type=type_hints["media_connect_flow"])
                 check_type(argname="argument media_live_input", value=media_live_input, expected_type=type_hints["media_live_input"])
+                check_type(argname="argument source_endpoint", value=source_endpoint, expected_type=type_hints["source_endpoint"])
                 check_type(argname="argument standard", value=standard, expected_type=type_hints["standard"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if media_connect_flow is not None:
                 self._values["media_connect_flow"] = media_connect_flow
             if media_live_input is not None:
                 self._values["media_live_input"] = media_live_input
+            if source_endpoint is not None:
+                self._values["source_endpoint"] = source_endpoint
             if standard is not None:
                 self._values["standard"] = standard
 
@@ -17888,6 +20392,8 @@ class CfnRouterOutput(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MediaConnectFlowRouterOutputConfigurationProperty"]]:
             '''Configuration settings for connecting a router output to a MediaConnect flow source.
+
+            To connect the router output to the flow source, provide both flowArn and flowSourceArn. To disconnect it, call the update operation and omit both fields while keeping this configuration object. You can't change destinationTransitEncryption while the router output is connected to a flow source. To change it, first disconnect the router output, then update the encryption.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-routeroutputconfiguration.html#cfn-mediaconnect-routeroutput-routeroutputconfiguration-mediaconnectflow
             '''
@@ -17900,10 +20406,23 @@ class CfnRouterOutput(
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MediaLiveInputRouterOutputConfigurationProperty"]]:
             '''Configuration settings for connecting a router output to a MediaLive input.
 
+            To connect the router output to the MediaLive input, provide both mediaLiveInputArn and mediaLivePipelineId. To disconnect it, call the update operation and omit both fields while keeping this configuration object. You can't change destinationTransitEncryption while the router output is connected to a MediaLive input. To change it, first disconnect the router output, then update the encryption.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-routeroutputconfiguration.html#cfn-mediaconnect-routeroutput-routeroutputconfiguration-medialiveinput
             '''
             result = self._values.get("media_live_input")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.MediaLiveInputRouterOutputConfigurationProperty"]], result)
+
+        @builtins.property
+        def source_endpoint(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SourceEndpointRouterOutputConfigurationProperty"]]:
+            '''Configuration settings for a router output that is represented by a source endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-routeroutputconfiguration.html#cfn-mediaconnect-routeroutput-routeroutputconfiguration-sourceendpoint
+            '''
+            result = self._values.get("source_endpoint")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.SourceEndpointRouterOutputConfigurationProperty"]], result)
 
         @builtins.property
         def standard(
@@ -18408,6 +20927,191 @@ class CfnRouterOutput(
 
         def __repr__(self) -> str:
             return "SecretsManagerEncryptionKeyConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutput.SecretsManagerEndpointEncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "encryption_secret": "encryptionSecret",
+            "encryption_secret_type": "encryptionSecretType",
+        },
+    )
+    class SecretsManagerEndpointEncryptionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            encryption_secret: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.EndpointEncryptionSecretConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_secret_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The endpoint encryption configuration for connections that use a key or passphrase that you store in Secrets Manager.
+
+            :param encryption_secret: The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+            :param encryption_secret_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-secretsmanagerendpointencryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                secrets_manager_endpoint_encryption_configuration_property = mediaconnect.CfnRouterOutput.SecretsManagerEndpointEncryptionConfigurationProperty(
+                    encryption_secret=mediaconnect.CfnRouterOutput.EndpointEncryptionSecretConfigurationProperty(
+                        secret_arn="secretArn"
+                    ),
+                
+                    # the properties below are optional
+                    encryption_secret_type="encryptionSecretType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1b5f989507d41759f01cfaa97684d962438ba17e4b000e21daf4759941e32794)
+                check_type(argname="argument encryption_secret", value=encryption_secret, expected_type=type_hints["encryption_secret"])
+                check_type(argname="argument encryption_secret_type", value=encryption_secret_type, expected_type=type_hints["encryption_secret_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "encryption_secret": encryption_secret,
+            }
+            if encryption_secret_type is not None:
+                self._values["encryption_secret_type"] = encryption_secret_type
+
+        @builtins.property
+        def encryption_secret(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.EndpointEncryptionSecretConfigurationProperty"]:
+            '''The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-secretsmanagerendpointencryptionconfiguration.html#cfn-mediaconnect-routeroutput-secretsmanagerendpointencryptionconfiguration-encryptionsecret
+            '''
+            result = self._values.get("encryption_secret")
+            assert result is not None, "Required property 'encryption_secret' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.EndpointEncryptionSecretConfigurationProperty"], result)
+
+        @builtins.property
+        def encryption_secret_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-secretsmanagerendpointencryptionconfiguration.html#cfn-mediaconnect-routeroutput-secretsmanagerendpointencryptionconfiguration-encryptionsecrettype
+            '''
+            result = self._values.get("encryption_secret_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SecretsManagerEndpointEncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutput.SourceEndpointRouterOutputConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_transit_encryption": "destinationTransitEncryption",
+            "endpoint_lifecycle_management": "endpointLifecycleManagement",
+            "destination_transit_encryption_type": "destinationTransitEncryptionType",
+        },
+    )
+    class SourceEndpointRouterOutputConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination_transit_encryption: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.EndpointEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            endpoint_lifecycle_management: builtins.str,
+            destination_transit_encryption_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration settings for a router output that is represented by a source endpoint.
+
+            :param destination_transit_encryption: The encryption settings for an endpoint connection. This is a union type, so exactly one of its members is set: secretsManager when you store the encryption key or passphrase in Secrets Manager, or automatic when you let MediaConnect determine the encryption key when the endpoint connects.
+            :param endpoint_lifecycle_management: 
+            :param destination_transit_encryption_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-sourceendpointrouteroutputconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                source_endpoint_router_output_configuration_property = mediaconnect.CfnRouterOutput.SourceEndpointRouterOutputConfigurationProperty(
+                    destination_transit_encryption=mediaconnect.CfnRouterOutput.EndpointEncryptionConfigurationProperty(
+                        automatic=automatic,
+                        secrets_manager=mediaconnect.CfnRouterOutput.SecretsManagerEndpointEncryptionConfigurationProperty(
+                            encryption_secret=mediaconnect.CfnRouterOutput.EndpointEncryptionSecretConfigurationProperty(
+                                secret_arn="secretArn"
+                            ),
+                
+                            # the properties below are optional
+                            encryption_secret_type="encryptionSecretType"
+                        )
+                    ),
+                    endpoint_lifecycle_management="endpointLifecycleManagement",
+                
+                    # the properties below are optional
+                    destination_transit_encryption_type="destinationTransitEncryptionType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__74a4cf8267946b41676f13ef2ce88c9461453c5e38ce35324883a3444425951e)
+                check_type(argname="argument destination_transit_encryption", value=destination_transit_encryption, expected_type=type_hints["destination_transit_encryption"])
+                check_type(argname="argument endpoint_lifecycle_management", value=endpoint_lifecycle_management, expected_type=type_hints["endpoint_lifecycle_management"])
+                check_type(argname="argument destination_transit_encryption_type", value=destination_transit_encryption_type, expected_type=type_hints["destination_transit_encryption_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_transit_encryption": destination_transit_encryption,
+                "endpoint_lifecycle_management": endpoint_lifecycle_management,
+            }
+            if destination_transit_encryption_type is not None:
+                self._values["destination_transit_encryption_type"] = destination_transit_encryption_type
+
+        @builtins.property
+        def destination_transit_encryption(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.EndpointEncryptionConfigurationProperty"]:
+            '''The encryption settings for an endpoint connection.
+
+            This is a union type, so exactly one of its members is set: secretsManager when you store the encryption key or passphrase in Secrets Manager, or automatic when you let MediaConnect determine the encryption key when the endpoint connects.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-sourceendpointrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-sourceendpointrouteroutputconfiguration-destinationtransitencryption
+            '''
+            result = self._values.get("destination_transit_encryption")
+            assert result is not None, "Required property 'destination_transit_encryption' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.EndpointEncryptionConfigurationProperty"], result)
+
+        @builtins.property
+        def endpoint_lifecycle_management(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-sourceendpointrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-sourceendpointrouteroutputconfiguration-endpointlifecyclemanagement
+            '''
+            result = self._values.get("endpoint_lifecycle_management")
+            assert result is not None, "Required property 'endpoint_lifecycle_management' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def destination_transit_encryption_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-sourceendpointrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-sourceendpointrouteroutputconfiguration-destinationtransitencryptiontype
+            '''
+            result = self._values.get("destination_transit_encryption_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceEndpointRouterOutputConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -19085,6 +21789,23 @@ class CfnRouterOutputProps:
                         media_live_input_arn="mediaLiveInputArn",
                         media_live_pipeline_id="mediaLivePipelineId"
                     ),
+                    source_endpoint=mediaconnect.CfnRouterOutput.SourceEndpointRouterOutputConfigurationProperty(
+                        destination_transit_encryption=mediaconnect.CfnRouterOutput.EndpointEncryptionConfigurationProperty(
+                            automatic=automatic,
+                            secrets_manager=mediaconnect.CfnRouterOutput.SecretsManagerEndpointEncryptionConfigurationProperty(
+                                encryption_secret=mediaconnect.CfnRouterOutput.EndpointEncryptionSecretConfigurationProperty(
+                                    secret_arn="secretArn"
+                                ),
+            
+                                # the properties below are optional
+                                encryption_secret_type="encryptionSecretType"
+                            )
+                        ),
+                        endpoint_lifecycle_management="endpointLifecycleManagement",
+            
+                        # the properties below are optional
+                        destination_transit_encryption_type="destinationTransitEncryptionType"
+                    ),
                     standard=mediaconnect.CfnRouterOutput.StandardRouterOutputConfigurationProperty(
                         network_interface_arn="networkInterfaceArn",
                         protocol_configuration=mediaconnect.CfnRouterOutput.RouterOutputProtocolConfigurationProperty(
@@ -19314,6 +22035,1896 @@ class CfnRouterOutputProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.ISourceEndpointRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnSourceEndpoint(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint",
+):
+    '''Represents a source endpoint in AWS Elemental MediaConnect that can be connected to an input.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-sourceendpoint.html
+    :cloudformationResource: AWS::MediaConnect::SourceEndpoint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_mediaconnect as mediaconnect
+        
+        cfn_source_endpoint = mediaconnect.CfnSourceEndpoint(self, "MyCfnSourceEndpoint",
+            configuration=mediaconnect.CfnSourceEndpoint.SourceEndpointConfigurationProperty(
+                router_output=mediaconnect.CfnSourceEndpoint.RouterOutputSourceEndpointConfigurationProperty(
+                    router_output_arn="routerOutputArn"
+                ),
+                standard=mediaconnect.CfnSourceEndpoint.StandardSourceEndpointConfigurationProperty(
+                    name="name",
+                    protocol_configuration=mediaconnect.CfnSourceEndpoint.StandardSourceEndpointProtocolConfigurationProperty(
+                        rist=mediaconnect.CfnSourceEndpoint.RistStandardSourceEndpointConfigurationProperty(
+                            destination_ingest_port=123,
+                            recovery_latency_milliseconds=123
+                        ),
+                        rtp=mediaconnect.CfnSourceEndpoint.RtpStandardSourceEndpointConfigurationProperty(
+                            destination_ingest_port=123,
+                            forward_error_correction_state="forwardErrorCorrectionState"
+                        ),
+                        srt_caller=mediaconnect.CfnSourceEndpoint.SrtCallerStandardSourceEndpointConfigurationProperty(
+                            destination_ingest_port=123,
+                            minimum_latency_milliseconds=123,
+        
+                            # the properties below are optional
+                            encryption_passphrase=mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                secret_arn="secretArn"
+                            )
+                        ),
+                        srt_listener=mediaconnect.CfnSourceEndpoint.SrtListenerStandardSourceEndpointConfigurationProperty(
+                            minimum_latency_milliseconds=123,
+                            source_address="sourceAddress",
+                            source_listener_port=123,
+        
+                            # the properties below are optional
+                            encryption_passphrase=mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                secret_arn="secretArn"
+                            ),
+                            stream_id="streamId"
+                        )
+                    ),
+                    source_networking_configuration=mediaconnect.CfnSourceEndpoint.StandardSourceEndpointNetworkingConfigurationProperty(
+                        public=mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationProperty(
+                            source_allow_rules=[mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationAllowRuleProperty(
+                                cidr="cidr"
+                            )]
+                        ),
+                        vpc=mediaconnect.CfnSourceEndpoint.VpcSourceEndpointNetworkingConfigurationProperty(
+                            security_group_ids=["securityGroupIds"],
+                            subnet_id="subnetId"
+                        )
+                    ),
+        
+                    # the properties below are optional
+                    protocol="protocol",
+                    source_networking_type="sourceNetworkingType"
+                )
+            ),
+        
+            # the properties below are optional
+            description="description",
+            region_name="regionName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.SourceEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        region_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::MediaConnect::SourceEndpoint``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param configuration: The configuration settings for a source endpoint. This is a union type, so exactly one of its members is set, depending on the type of the source endpoint.
+        :param description: The description of the source endpoint.
+        :param region_name: The name of the Amazon Web Services Region in which the source endpoint is located.
+        :param tags: The tags associated with the source endpoint. Each tag is a key-value pair.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1fcd36d9cbd080d420a0922ab77c4a13cfcc3d668ad69073a58c2becf8aebfbc)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSourceEndpointProps(
+            configuration=configuration,
+            description=description,
+            region_name=region_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSourceEndpoint")
+    @builtins.classmethod
+    def arn_for_source_endpoint(
+        cls,
+        resource: "_aws_mediaconnect_6374326e.ISourceEndpointRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d55d2dbb666f7d88ef22ae4f81646c6367de8ad729a3a566fdc73018c20a90c9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSourceEndpoint", [resource]))
+
+    @jsii.member(jsii_name="isCfnSourceEndpoint")
+    @builtins.classmethod
+    def is_cfn_source_endpoint(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSourceEndpoint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__59f0e7ce2411602e8c2769a16eceaa2da9b6d74c6254ac54ac550cfdfd207428)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSourceEndpoint", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e8663a1330abfa1ce4e55278d950bf3a593998af45f7511ad5b9a5bdb5ad28d8)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__be564d930e9f03ba0d1402e800b414f86f968f1ae8d4195ac5d4f7b9a57a8bd7)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssociatedResourceDetails")
+    def attr_associated_resource_details(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The details of the resource that is associated with a source endpoint.
+
+        This is a union type, so exactly one of its members is set, depending on the type of the source endpoint.
+
+        :cloudformationAttribute: AssociatedResourceDetails
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrAssociatedResourceDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAvailabilityZone")
+    def attr_availability_zone(self) -> builtins.str:
+        '''The Availability Zone in which the source endpoint is located.
+
+        :cloudformationAttribute: AvailabilityZone
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAvailabilityZone"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAvailabilityZoneId")
+    def attr_availability_zone_id(self) -> builtins.str:
+        '''The ID of the Availability Zone in which the source endpoint is located.
+
+        :cloudformationAttribute: AvailabilityZoneId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAvailabilityZoneId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConnectionState")
+    def attr_connection_state(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ConnectionState
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConnectionState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The date and time when the source endpoint was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The unique identifier of the source endpoint.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLifecycleManagement")
+    def attr_lifecycle_management(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: LifecycleManagement
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLifecycleManagement"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrName")
+    def attr_name(self) -> builtins.str:
+        '''The name of the source endpoint.
+
+        :cloudformationAttribute: Name
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegistrationState")
+    def attr_registration_state(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: RegistrationState
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegistrationState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSourceType")
+    def attr_source_type(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: SourceType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSourceType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The date and time when the source endpoint was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceEndpointRef")
+    def source_endpoint_ref(
+        self,
+    ) -> "_aws_mediaconnect_6374326e.SourceEndpointReference":
+        '''A reference to a SourceEndpoint resource.'''
+        return typing.cast("_aws_mediaconnect_6374326e.SourceEndpointReference", jsii.get(self, "sourceEndpointRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configuration")
+    def configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.SourceEndpointConfigurationProperty"]:
+        '''The configuration settings for a source endpoint.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.SourceEndpointConfigurationProperty"], jsii.get(self, "configuration"))
+
+    @configuration.setter
+    def configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.SourceEndpointConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e18ab9ae9f158bccb6e6fc3708e450ecd88a21197d0b9f173b7e169b1ee6aa4f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configuration", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the source endpoint.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__26a87b43a4dfde70466d5b83caec34b87a1bc14e7b845c6e1b5ea76eca474b65)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="regionName")
+    def region_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Amazon Web Services Region in which the source endpoint is located.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionName"))
+
+    @region_name.setter
+    def region_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__db8b5ef09b8f7ffa75f91902f51c27a98bebf7ebc3940e3d096b9ab6e1fe8501)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regionName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the source endpoint.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1cc6bea2b9724a3c6ce9ae2cf671f0cf0ef5c684ec628ec4adfe9e14677ce7b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"secret_arn": "secretArn"},
+    )
+    class EndpointEncryptionSecretConfigurationProperty:
+        def __init__(self, *, secret_arn: builtins.str) -> None:
+            '''The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+
+            :param secret_arn: The ARN of the Secrets Manager secret that holds the key or passphrase. The secret must be encrypted with a customer managed Amazon Web Services KMS key that is enabled and symmetric; it cannot use the Amazon Web Services managed key aws/secretsmanager. The secret must be in the same Amazon Web Services account and Region as the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-endpointencryptionsecretconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                endpoint_encryption_secret_configuration_property = mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__06afb7a57a916a7ea70222aaf859866e738bc94f65d09499c0c146585818abbb)
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''The ARN of the Secrets Manager secret that holds the key or passphrase.
+
+            The secret must be encrypted with a customer managed Amazon Web Services KMS key that is enabled and symmetric; it cannot use the Amazon Web Services managed key aws/secretsmanager. The secret must be in the same Amazon Web Services account and Region as the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-endpointencryptionsecretconfiguration.html#cfn-mediaconnect-sourceendpoint-endpointencryptionsecretconfiguration-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EndpointEncryptionSecretConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationAllowRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"cidr": "cidr"},
+    )
+    class PublicSourceEndpointNetworkingConfigurationAllowRuleProperty:
+        def __init__(self, *, cidr: builtins.str) -> None:
+            '''A rule that allows a specific CIDR block to connect to the public source endpoint.
+
+            :param cidr: The CIDR block that is allowed to connect to the source endpoint, in CIDR notation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-publicsourceendpointnetworkingconfigurationallowrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                public_source_endpoint_networking_configuration_allow_rule_property = mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationAllowRuleProperty(
+                    cidr="cidr"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b6ecb9038e38fa41074643ac2a27dc4d95f4ac47ab76a87b5c7cb7b9306a7943)
+                check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cidr": cidr,
+            }
+
+        @builtins.property
+        def cidr(self) -> builtins.str:
+            '''The CIDR block that is allowed to connect to the source endpoint, in CIDR notation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-publicsourceendpointnetworkingconfigurationallowrule.html#cfn-mediaconnect-sourceendpoint-publicsourceendpointnetworkingconfigurationallowrule-cidr
+            '''
+            result = self._values.get("cidr")
+            assert result is not None, "Required property 'cidr' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PublicSourceEndpointNetworkingConfigurationAllowRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source_allow_rules": "sourceAllowRules"},
+    )
+    class PublicSourceEndpointNetworkingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            source_allow_rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationAllowRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''The networking configuration for a publicly accessible source endpoint, including the CIDR blocks that are allowed to connect.
+
+            :param source_allow_rules: The rules that specify which CIDR blocks can connect to the source endpoint. You can specify up to 10 rules.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-publicsourceendpointnetworkingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                public_source_endpoint_networking_configuration_property = mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationProperty(
+                    source_allow_rules=[mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationAllowRuleProperty(
+                        cidr="cidr"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9376a8ee9ca4a808ed5f3ca0ed3ebaf249b9e1ea7d955eb4aae86622b6b850be)
+                check_type(argname="argument source_allow_rules", value=source_allow_rules, expected_type=type_hints["source_allow_rules"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source_allow_rules": source_allow_rules,
+            }
+
+        @builtins.property
+        def source_allow_rules(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationAllowRuleProperty"]]]:
+            '''The rules that specify which CIDR blocks can connect to the source endpoint.
+
+            You can specify up to 10 rules.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-publicsourceendpointnetworkingconfiguration.html#cfn-mediaconnect-sourceendpoint-publicsourceendpointnetworkingconfiguration-sourceallowrules
+            '''
+            result = self._values.get("source_allow_rules")
+            assert result is not None, "Required property 'source_allow_rules' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationAllowRuleProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PublicSourceEndpointNetworkingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.RistStandardSourceEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_ingest_port": "destinationIngestPort",
+            "recovery_latency_milliseconds": "recoveryLatencyMilliseconds",
+        },
+    )
+    class RistStandardSourceEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination_ingest_port: jsii.Number,
+            recovery_latency_milliseconds: jsii.Number,
+        ) -> None:
+            '''The configuration settings for a source endpoint that uses the RIST protocol.
+
+            :param destination_ingest_port: The port on the destination that receives the content. The valid range is 3000 to 30000.
+            :param recovery_latency_milliseconds: The amount of time, in milliseconds, that the source endpoint allows for recovering lost packets. The valid range is 10 to 10000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-riststandardsourceendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                rist_standard_source_endpoint_configuration_property = mediaconnect.CfnSourceEndpoint.RistStandardSourceEndpointConfigurationProperty(
+                    destination_ingest_port=123,
+                    recovery_latency_milliseconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e49d2129b357d2f9ff129d54dd0d0d4e63d5b2ce1b5df9da519e76b0780b513e)
+                check_type(argname="argument destination_ingest_port", value=destination_ingest_port, expected_type=type_hints["destination_ingest_port"])
+                check_type(argname="argument recovery_latency_milliseconds", value=recovery_latency_milliseconds, expected_type=type_hints["recovery_latency_milliseconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_ingest_port": destination_ingest_port,
+                "recovery_latency_milliseconds": recovery_latency_milliseconds,
+            }
+
+        @builtins.property
+        def destination_ingest_port(self) -> jsii.Number:
+            '''The port on the destination that receives the content.
+
+            The valid range is 3000 to 30000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-riststandardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-riststandardsourceendpointconfiguration-destinationingestport
+            '''
+            result = self._values.get("destination_ingest_port")
+            assert result is not None, "Required property 'destination_ingest_port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def recovery_latency_milliseconds(self) -> jsii.Number:
+            '''The amount of time, in milliseconds, that the source endpoint allows for recovering lost packets.
+
+            The valid range is 10 to 10000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-riststandardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-riststandardsourceendpointconfiguration-recoverylatencymilliseconds
+            '''
+            result = self._values.get("recovery_latency_milliseconds")
+            assert result is not None, "Required property 'recovery_latency_milliseconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RistStandardSourceEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.RouterOutputSourceEndpointAssociatedResourceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "maximum_bitrate": "maximumBitrate",
+            "name": "name",
+            "state": "state",
+        },
+    )
+    class RouterOutputSourceEndpointAssociatedResourceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            maximum_bitrate: jsii.Number,
+            name: builtins.str,
+            state: builtins.str,
+        ) -> None:
+            '''The details of the router output that is associated with a source endpoint.
+
+            :param maximum_bitrate: The maximum bitrate of the router output, in bits per second.
+            :param name: The name of the router output.
+            :param state: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-routeroutputsourceendpointassociatedresourcedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                router_output_source_endpoint_associated_resource_details_property = mediaconnect.CfnSourceEndpoint.RouterOutputSourceEndpointAssociatedResourceDetailsProperty(
+                    maximum_bitrate=123,
+                    name="name",
+                    state="state"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__eb16955fcde7127baa90d1e1e5916ac7a49530d3445e2be8e98b7d80446507aa)
+                check_type(argname="argument maximum_bitrate", value=maximum_bitrate, expected_type=type_hints["maximum_bitrate"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "maximum_bitrate": maximum_bitrate,
+                "name": name,
+                "state": state,
+            }
+
+        @builtins.property
+        def maximum_bitrate(self) -> jsii.Number:
+            '''The maximum bitrate of the router output, in bits per second.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-routeroutputsourceendpointassociatedresourcedetails.html#cfn-mediaconnect-sourceendpoint-routeroutputsourceendpointassociatedresourcedetails-maximumbitrate
+            '''
+            result = self._values.get("maximum_bitrate")
+            assert result is not None, "Required property 'maximum_bitrate' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the router output.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-routeroutputsourceendpointassociatedresourcedetails.html#cfn-mediaconnect-sourceendpoint-routeroutputsourceendpointassociatedresourcedetails-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def state(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-routeroutputsourceendpointassociatedresourcedetails.html#cfn-mediaconnect-sourceendpoint-routeroutputsourceendpointassociatedresourcedetails-state
+            '''
+            result = self._values.get("state")
+            assert result is not None, "Required property 'state' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RouterOutputSourceEndpointAssociatedResourceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.RouterOutputSourceEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"router_output_arn": "routerOutputArn"},
+    )
+    class RouterOutputSourceEndpointConfigurationProperty:
+        def __init__(self, *, router_output_arn: builtins.str) -> None:
+            '''The configuration settings for a source endpoint that represents a router output.
+
+            :param router_output_arn: The Amazon Resource Name (ARN) of the router output that the source endpoint represents.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-routeroutputsourceendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                router_output_source_endpoint_configuration_property = mediaconnect.CfnSourceEndpoint.RouterOutputSourceEndpointConfigurationProperty(
+                    router_output_arn="routerOutputArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b4001815a1cd1fc062e82a2ded451a5b277eccf9bba87453bb365b181377e851)
+                check_type(argname="argument router_output_arn", value=router_output_arn, expected_type=type_hints["router_output_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "router_output_arn": router_output_arn,
+            }
+
+        @builtins.property
+        def router_output_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the router output that the source endpoint represents.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-routeroutputsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-routeroutputsourceendpointconfiguration-routeroutputarn
+            '''
+            result = self._values.get("router_output_arn")
+            assert result is not None, "Required property 'router_output_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RouterOutputSourceEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.RtpStandardSourceEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_ingest_port": "destinationIngestPort",
+            "forward_error_correction_state": "forwardErrorCorrectionState",
+        },
+    )
+    class RtpStandardSourceEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination_ingest_port: jsii.Number,
+            forward_error_correction_state: builtins.str,
+        ) -> None:
+            '''The configuration settings for a source endpoint that uses the RTP protocol.
+
+            :param destination_ingest_port: The port on the destination that receives the content. The valid range is 3000 to 30000.
+            :param forward_error_correction_state: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-rtpstandardsourceendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                rtp_standard_source_endpoint_configuration_property = mediaconnect.CfnSourceEndpoint.RtpStandardSourceEndpointConfigurationProperty(
+                    destination_ingest_port=123,
+                    forward_error_correction_state="forwardErrorCorrectionState"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e9d4952406eabdf1ba5d95c176fa1bd96159d01354acaaaacd151f6e7fc53201)
+                check_type(argname="argument destination_ingest_port", value=destination_ingest_port, expected_type=type_hints["destination_ingest_port"])
+                check_type(argname="argument forward_error_correction_state", value=forward_error_correction_state, expected_type=type_hints["forward_error_correction_state"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_ingest_port": destination_ingest_port,
+                "forward_error_correction_state": forward_error_correction_state,
+            }
+
+        @builtins.property
+        def destination_ingest_port(self) -> jsii.Number:
+            '''The port on the destination that receives the content.
+
+            The valid range is 3000 to 30000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-rtpstandardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-rtpstandardsourceendpointconfiguration-destinationingestport
+            '''
+            result = self._values.get("destination_ingest_port")
+            assert result is not None, "Required property 'destination_ingest_port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def forward_error_correction_state(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-rtpstandardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-rtpstandardsourceendpointconfiguration-forwarderrorcorrectionstate
+            '''
+            result = self._values.get("forward_error_correction_state")
+            assert result is not None, "Required property 'forward_error_correction_state' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtpStandardSourceEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.SourceEndpointAssociatedResourceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"router_output": "routerOutput", "standard": "standard"},
+    )
+    class SourceEndpointAssociatedResourceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            router_output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.RouterOutputSourceEndpointAssociatedResourceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            standard: typing.Any = None,
+        ) -> None:
+            '''
+            :param router_output: The details of the router output that is associated with a source endpoint.
+            :param standard: The associated resource details for a standard source endpoint. This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-sourceendpointassociatedresourcedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # standard: Any
+                
+                source_endpoint_associated_resource_details_property = mediaconnect.CfnSourceEndpoint.SourceEndpointAssociatedResourceDetailsProperty(
+                    router_output=mediaconnect.CfnSourceEndpoint.RouterOutputSourceEndpointAssociatedResourceDetailsProperty(
+                        maximum_bitrate=123,
+                        name="name",
+                        state="state"
+                    ),
+                    standard=standard
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a2141ae34d732060debce7f6d48885559c023e557498e57b5875961416f1d7da)
+                check_type(argname="argument router_output", value=router_output, expected_type=type_hints["router_output"])
+                check_type(argname="argument standard", value=standard, expected_type=type_hints["standard"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if router_output is not None:
+                self._values["router_output"] = router_output
+            if standard is not None:
+                self._values["standard"] = standard
+
+        @builtins.property
+        def router_output(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.RouterOutputSourceEndpointAssociatedResourceDetailsProperty"]]:
+            '''The details of the router output that is associated with a source endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-sourceendpointassociatedresourcedetails.html#cfn-mediaconnect-sourceendpoint-sourceendpointassociatedresourcedetails-routeroutput
+            '''
+            result = self._values.get("router_output")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.RouterOutputSourceEndpointAssociatedResourceDetailsProperty"]], result)
+
+        @builtins.property
+        def standard(self) -> typing.Any:
+            '''The associated resource details for a standard source endpoint.
+
+            This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-sourceendpointassociatedresourcedetails.html#cfn-mediaconnect-sourceendpoint-sourceendpointassociatedresourcedetails-standard
+            '''
+            result = self._values.get("standard")
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceEndpointAssociatedResourceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.SourceEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"router_output": "routerOutput", "standard": "standard"},
+    )
+    class SourceEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            router_output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.RouterOutputSourceEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            standard: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.StandardSourceEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param router_output: The configuration settings for a source endpoint that represents a router output.
+            :param standard: The configuration settings for a standard source endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-sourceendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                source_endpoint_configuration_property = mediaconnect.CfnSourceEndpoint.SourceEndpointConfigurationProperty(
+                    router_output=mediaconnect.CfnSourceEndpoint.RouterOutputSourceEndpointConfigurationProperty(
+                        router_output_arn="routerOutputArn"
+                    ),
+                    standard=mediaconnect.CfnSourceEndpoint.StandardSourceEndpointConfigurationProperty(
+                        name="name",
+                        protocol_configuration=mediaconnect.CfnSourceEndpoint.StandardSourceEndpointProtocolConfigurationProperty(
+                            rist=mediaconnect.CfnSourceEndpoint.RistStandardSourceEndpointConfigurationProperty(
+                                destination_ingest_port=123,
+                                recovery_latency_milliseconds=123
+                            ),
+                            rtp=mediaconnect.CfnSourceEndpoint.RtpStandardSourceEndpointConfigurationProperty(
+                                destination_ingest_port=123,
+                                forward_error_correction_state="forwardErrorCorrectionState"
+                            ),
+                            srt_caller=mediaconnect.CfnSourceEndpoint.SrtCallerStandardSourceEndpointConfigurationProperty(
+                                destination_ingest_port=123,
+                                minimum_latency_milliseconds=123,
+                
+                                # the properties below are optional
+                                encryption_passphrase=mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                    secret_arn="secretArn"
+                                )
+                            ),
+                            srt_listener=mediaconnect.CfnSourceEndpoint.SrtListenerStandardSourceEndpointConfigurationProperty(
+                                minimum_latency_milliseconds=123,
+                                source_address="sourceAddress",
+                                source_listener_port=123,
+                
+                                # the properties below are optional
+                                encryption_passphrase=mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                    secret_arn="secretArn"
+                                ),
+                                stream_id="streamId"
+                            )
+                        ),
+                        source_networking_configuration=mediaconnect.CfnSourceEndpoint.StandardSourceEndpointNetworkingConfigurationProperty(
+                            public=mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationProperty(
+                                source_allow_rules=[mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationAllowRuleProperty(
+                                    cidr="cidr"
+                                )]
+                            ),
+                            vpc=mediaconnect.CfnSourceEndpoint.VpcSourceEndpointNetworkingConfigurationProperty(
+                                security_group_ids=["securityGroupIds"],
+                                subnet_id="subnetId"
+                            )
+                        ),
+                
+                        # the properties below are optional
+                        protocol="protocol",
+                        source_networking_type="sourceNetworkingType"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__727745d7e11f10f4e1d8abb079b1f608f706acda9a8d1b5fc6c18327e0970fd6)
+                check_type(argname="argument router_output", value=router_output, expected_type=type_hints["router_output"])
+                check_type(argname="argument standard", value=standard, expected_type=type_hints["standard"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if router_output is not None:
+                self._values["router_output"] = router_output
+            if standard is not None:
+                self._values["standard"] = standard
+
+        @builtins.property
+        def router_output(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.RouterOutputSourceEndpointConfigurationProperty"]]:
+            '''The configuration settings for a source endpoint that represents a router output.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-sourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-sourceendpointconfiguration-routeroutput
+            '''
+            result = self._values.get("router_output")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.RouterOutputSourceEndpointConfigurationProperty"]], result)
+
+        @builtins.property
+        def standard(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.StandardSourceEndpointConfigurationProperty"]]:
+            '''The configuration settings for a standard source endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-sourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-sourceendpointconfiguration-standard
+            '''
+            result = self._values.get("standard")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.StandardSourceEndpointConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.SrtCallerStandardSourceEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_ingest_port": "destinationIngestPort",
+            "minimum_latency_milliseconds": "minimumLatencyMilliseconds",
+            "encryption_passphrase": "encryptionPassphrase",
+        },
+    )
+    class SrtCallerStandardSourceEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination_ingest_port: jsii.Number,
+            minimum_latency_milliseconds: jsii.Number,
+            encryption_passphrase: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration settings for a source endpoint that uses SRT in caller mode.
+
+            :param destination_ingest_port: The port on which the destination listens for the connection. The valid range is 3000 to 30000.
+            :param minimum_latency_milliseconds: The minimum latency, in milliseconds, for the SRT connection. The valid range is 10 to 10000.
+            :param encryption_passphrase: The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-srtcallerstandardsourceendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                srt_caller_standard_source_endpoint_configuration_property = mediaconnect.CfnSourceEndpoint.SrtCallerStandardSourceEndpointConfigurationProperty(
+                    destination_ingest_port=123,
+                    minimum_latency_milliseconds=123,
+                
+                    # the properties below are optional
+                    encryption_passphrase=mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                        secret_arn="secretArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__163094429274ea07b5b1a6febcac52da7bc61ceaf0d127fd54cd0cd6a31c51de)
+                check_type(argname="argument destination_ingest_port", value=destination_ingest_port, expected_type=type_hints["destination_ingest_port"])
+                check_type(argname="argument minimum_latency_milliseconds", value=minimum_latency_milliseconds, expected_type=type_hints["minimum_latency_milliseconds"])
+                check_type(argname="argument encryption_passphrase", value=encryption_passphrase, expected_type=type_hints["encryption_passphrase"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_ingest_port": destination_ingest_port,
+                "minimum_latency_milliseconds": minimum_latency_milliseconds,
+            }
+            if encryption_passphrase is not None:
+                self._values["encryption_passphrase"] = encryption_passphrase
+
+        @builtins.property
+        def destination_ingest_port(self) -> jsii.Number:
+            '''The port on which the destination listens for the connection.
+
+            The valid range is 3000 to 30000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-srtcallerstandardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-srtcallerstandardsourceendpointconfiguration-destinationingestport
+            '''
+            result = self._values.get("destination_ingest_port")
+            assert result is not None, "Required property 'destination_ingest_port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def minimum_latency_milliseconds(self) -> jsii.Number:
+            '''The minimum latency, in milliseconds, for the SRT connection.
+
+            The valid range is 10 to 10000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-srtcallerstandardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-srtcallerstandardsourceendpointconfiguration-minimumlatencymilliseconds
+            '''
+            result = self._values.get("minimum_latency_milliseconds")
+            assert result is not None, "Required property 'minimum_latency_milliseconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def encryption_passphrase(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty"]]:
+            '''The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-srtcallerstandardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-srtcallerstandardsourceendpointconfiguration-encryptionpassphrase
+            '''
+            result = self._values.get("encryption_passphrase")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SrtCallerStandardSourceEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.SrtListenerStandardSourceEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "minimum_latency_milliseconds": "minimumLatencyMilliseconds",
+            "source_address": "sourceAddress",
+            "source_listener_port": "sourceListenerPort",
+            "encryption_passphrase": "encryptionPassphrase",
+            "stream_id": "streamId",
+        },
+    )
+    class SrtListenerStandardSourceEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            minimum_latency_milliseconds: jsii.Number,
+            source_address: builtins.str,
+            source_listener_port: jsii.Number,
+            encryption_passphrase: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            stream_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration settings for a source endpoint that uses SRT in listener mode.
+
+            :param minimum_latency_milliseconds: The minimum latency, in milliseconds, for the SRT connection. The valid range is 10 to 10000.
+            :param source_address: The IP address that the source endpoint listens on for incoming connections.
+            :param source_listener_port: The port that the source endpoint listens on for incoming connections. The valid range is 1024 to 65535.
+            :param encryption_passphrase: The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+            :param stream_id: The stream ID that identifies the content for the SRT connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-srtlistenerstandardsourceendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                srt_listener_standard_source_endpoint_configuration_property = mediaconnect.CfnSourceEndpoint.SrtListenerStandardSourceEndpointConfigurationProperty(
+                    minimum_latency_milliseconds=123,
+                    source_address="sourceAddress",
+                    source_listener_port=123,
+                
+                    # the properties below are optional
+                    encryption_passphrase=mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                        secret_arn="secretArn"
+                    ),
+                    stream_id="streamId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2fa451afce73f70c96c38a7b6119dc8d476f4f86a8ab6765faacfa1b89e0400a)
+                check_type(argname="argument minimum_latency_milliseconds", value=minimum_latency_milliseconds, expected_type=type_hints["minimum_latency_milliseconds"])
+                check_type(argname="argument source_address", value=source_address, expected_type=type_hints["source_address"])
+                check_type(argname="argument source_listener_port", value=source_listener_port, expected_type=type_hints["source_listener_port"])
+                check_type(argname="argument encryption_passphrase", value=encryption_passphrase, expected_type=type_hints["encryption_passphrase"])
+                check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "minimum_latency_milliseconds": minimum_latency_milliseconds,
+                "source_address": source_address,
+                "source_listener_port": source_listener_port,
+            }
+            if encryption_passphrase is not None:
+                self._values["encryption_passphrase"] = encryption_passphrase
+            if stream_id is not None:
+                self._values["stream_id"] = stream_id
+
+        @builtins.property
+        def minimum_latency_milliseconds(self) -> jsii.Number:
+            '''The minimum latency, in milliseconds, for the SRT connection.
+
+            The valid range is 10 to 10000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-srtlistenerstandardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-srtlistenerstandardsourceendpointconfiguration-minimumlatencymilliseconds
+            '''
+            result = self._values.get("minimum_latency_milliseconds")
+            assert result is not None, "Required property 'minimum_latency_milliseconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def source_address(self) -> builtins.str:
+            '''The IP address that the source endpoint listens on for incoming connections.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-srtlistenerstandardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-srtlistenerstandardsourceendpointconfiguration-sourceaddress
+            '''
+            result = self._values.get("source_address")
+            assert result is not None, "Required property 'source_address' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def source_listener_port(self) -> jsii.Number:
+            '''The port that the source endpoint listens on for incoming connections.
+
+            The valid range is 1024 to 65535.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-srtlistenerstandardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-srtlistenerstandardsourceendpointconfiguration-sourcelistenerport
+            '''
+            result = self._values.get("source_listener_port")
+            assert result is not None, "Required property 'source_listener_port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def encryption_passphrase(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty"]]:
+            '''The configuration for the Secrets Manager secret that holds the key or passphrase used to encrypt an endpoint connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-srtlistenerstandardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-srtlistenerstandardsourceendpointconfiguration-encryptionpassphrase
+            '''
+            result = self._values.get("encryption_passphrase")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty"]], result)
+
+        @builtins.property
+        def stream_id(self) -> typing.Optional[builtins.str]:
+            '''The stream ID that identifies the content for the SRT connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-srtlistenerstandardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-srtlistenerstandardsourceendpointconfiguration-streamid
+            '''
+            result = self._values.get("stream_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SrtListenerStandardSourceEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.StandardSourceEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "protocol_configuration": "protocolConfiguration",
+            "source_networking_configuration": "sourceNetworkingConfiguration",
+            "protocol": "protocol",
+            "source_networking_type": "sourceNetworkingType",
+        },
+    )
+    class StandardSourceEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            protocol_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.StandardSourceEndpointProtocolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            source_networking_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.StandardSourceEndpointNetworkingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            protocol: typing.Optional[builtins.str] = None,
+            source_networking_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration settings for a standard source endpoint.
+
+            :param name: The name of the source endpoint.
+            :param protocol_configuration: The protocol configuration for a standard source endpoint. This is a union type, so exactly one of its members is set, depending on the protocol that the source endpoint uses.
+            :param source_networking_configuration: The networking configuration for a standard source endpoint. This is a union type, so exactly one of its members is set: public for a publicly accessible endpoint, or vpc for an endpoint in a virtual private cloud (VPC).
+            :param protocol: 
+            :param source_networking_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                standard_source_endpoint_configuration_property = mediaconnect.CfnSourceEndpoint.StandardSourceEndpointConfigurationProperty(
+                    name="name",
+                    protocol_configuration=mediaconnect.CfnSourceEndpoint.StandardSourceEndpointProtocolConfigurationProperty(
+                        rist=mediaconnect.CfnSourceEndpoint.RistStandardSourceEndpointConfigurationProperty(
+                            destination_ingest_port=123,
+                            recovery_latency_milliseconds=123
+                        ),
+                        rtp=mediaconnect.CfnSourceEndpoint.RtpStandardSourceEndpointConfigurationProperty(
+                            destination_ingest_port=123,
+                            forward_error_correction_state="forwardErrorCorrectionState"
+                        ),
+                        srt_caller=mediaconnect.CfnSourceEndpoint.SrtCallerStandardSourceEndpointConfigurationProperty(
+                            destination_ingest_port=123,
+                            minimum_latency_milliseconds=123,
+                
+                            # the properties below are optional
+                            encryption_passphrase=mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                secret_arn="secretArn"
+                            )
+                        ),
+                        srt_listener=mediaconnect.CfnSourceEndpoint.SrtListenerStandardSourceEndpointConfigurationProperty(
+                            minimum_latency_milliseconds=123,
+                            source_address="sourceAddress",
+                            source_listener_port=123,
+                
+                            # the properties below are optional
+                            encryption_passphrase=mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                secret_arn="secretArn"
+                            ),
+                            stream_id="streamId"
+                        )
+                    ),
+                    source_networking_configuration=mediaconnect.CfnSourceEndpoint.StandardSourceEndpointNetworkingConfigurationProperty(
+                        public=mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationProperty(
+                            source_allow_rules=[mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationAllowRuleProperty(
+                                cidr="cidr"
+                            )]
+                        ),
+                        vpc=mediaconnect.CfnSourceEndpoint.VpcSourceEndpointNetworkingConfigurationProperty(
+                            security_group_ids=["securityGroupIds"],
+                            subnet_id="subnetId"
+                        )
+                    ),
+                
+                    # the properties below are optional
+                    protocol="protocol",
+                    source_networking_type="sourceNetworkingType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__361aa16ca5cd8b7cd78e1fe1b757ff0b9c31e55df93dbb9c4def7abecdd321bc)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument protocol_configuration", value=protocol_configuration, expected_type=type_hints["protocol_configuration"])
+                check_type(argname="argument source_networking_configuration", value=source_networking_configuration, expected_type=type_hints["source_networking_configuration"])
+                check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+                check_type(argname="argument source_networking_type", value=source_networking_type, expected_type=type_hints["source_networking_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "protocol_configuration": protocol_configuration,
+                "source_networking_configuration": source_networking_configuration,
+            }
+            if protocol is not None:
+                self._values["protocol"] = protocol
+            if source_networking_type is not None:
+                self._values["source_networking_type"] = source_networking_type
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the source endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-standardsourceendpointconfiguration-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def protocol_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.StandardSourceEndpointProtocolConfigurationProperty"]:
+            '''The protocol configuration for a standard source endpoint.
+
+            This is a union type, so exactly one of its members is set, depending on the protocol that the source endpoint uses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-standardsourceendpointconfiguration-protocolconfiguration
+            '''
+            result = self._values.get("protocol_configuration")
+            assert result is not None, "Required property 'protocol_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.StandardSourceEndpointProtocolConfigurationProperty"], result)
+
+        @builtins.property
+        def source_networking_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.StandardSourceEndpointNetworkingConfigurationProperty"]:
+            '''The networking configuration for a standard source endpoint.
+
+            This is a union type, so exactly one of its members is set: public for a publicly accessible endpoint, or vpc for an endpoint in a virtual private cloud (VPC).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-standardsourceendpointconfiguration-sourcenetworkingconfiguration
+            '''
+            result = self._values.get("source_networking_configuration")
+            assert result is not None, "Required property 'source_networking_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.StandardSourceEndpointNetworkingConfigurationProperty"], result)
+
+        @builtins.property
+        def protocol(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-standardsourceendpointconfiguration-protocol
+            '''
+            result = self._values.get("protocol")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def source_networking_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointconfiguration.html#cfn-mediaconnect-sourceendpoint-standardsourceendpointconfiguration-sourcenetworkingtype
+            '''
+            result = self._values.get("source_networking_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StandardSourceEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.StandardSourceEndpointNetworkingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"public": "public", "vpc": "vpc"},
+    )
+    class StandardSourceEndpointNetworkingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            public: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.VpcSourceEndpointNetworkingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param public: The networking configuration for a publicly accessible source endpoint, including the CIDR blocks that are allowed to connect.
+            :param vpc: The networking configuration for a source endpoint in a virtual private cloud (VPC).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointnetworkingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                standard_source_endpoint_networking_configuration_property = mediaconnect.CfnSourceEndpoint.StandardSourceEndpointNetworkingConfigurationProperty(
+                    public=mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationProperty(
+                        source_allow_rules=[mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationAllowRuleProperty(
+                            cidr="cidr"
+                        )]
+                    ),
+                    vpc=mediaconnect.CfnSourceEndpoint.VpcSourceEndpointNetworkingConfigurationProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnet_id="subnetId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__44a979afc140e50157dac054f84143424f38043596fab125c42723ea247c4a12)
+                check_type(argname="argument public", value=public, expected_type=type_hints["public"])
+                check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if public is not None:
+                self._values["public"] = public
+            if vpc is not None:
+                self._values["vpc"] = vpc
+
+        @builtins.property
+        def public(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationProperty"]]:
+            '''The networking configuration for a publicly accessible source endpoint, including the CIDR blocks that are allowed to connect.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointnetworkingconfiguration.html#cfn-mediaconnect-sourceendpoint-standardsourceendpointnetworkingconfiguration-public
+            '''
+            result = self._values.get("public")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationProperty"]], result)
+
+        @builtins.property
+        def vpc(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.VpcSourceEndpointNetworkingConfigurationProperty"]]:
+            '''The networking configuration for a source endpoint in a virtual private cloud (VPC).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointnetworkingconfiguration.html#cfn-mediaconnect-sourceendpoint-standardsourceendpointnetworkingconfiguration-vpc
+            '''
+            result = self._values.get("vpc")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.VpcSourceEndpointNetworkingConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StandardSourceEndpointNetworkingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.StandardSourceEndpointProtocolConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "rist": "rist",
+            "rtp": "rtp",
+            "srt_caller": "srtCaller",
+            "srt_listener": "srtListener",
+        },
+    )
+    class StandardSourceEndpointProtocolConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            rist: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.RistStandardSourceEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.RtpStandardSourceEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_caller: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.SrtCallerStandardSourceEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_listener: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.SrtListenerStandardSourceEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param rist: The configuration settings for a source endpoint that uses the RIST protocol.
+            :param rtp: The configuration settings for a source endpoint that uses the RTP protocol.
+            :param srt_caller: The configuration settings for a source endpoint that uses SRT in caller mode.
+            :param srt_listener: The configuration settings for a source endpoint that uses SRT in listener mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointprotocolconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                standard_source_endpoint_protocol_configuration_property = mediaconnect.CfnSourceEndpoint.StandardSourceEndpointProtocolConfigurationProperty(
+                    rist=mediaconnect.CfnSourceEndpoint.RistStandardSourceEndpointConfigurationProperty(
+                        destination_ingest_port=123,
+                        recovery_latency_milliseconds=123
+                    ),
+                    rtp=mediaconnect.CfnSourceEndpoint.RtpStandardSourceEndpointConfigurationProperty(
+                        destination_ingest_port=123,
+                        forward_error_correction_state="forwardErrorCorrectionState"
+                    ),
+                    srt_caller=mediaconnect.CfnSourceEndpoint.SrtCallerStandardSourceEndpointConfigurationProperty(
+                        destination_ingest_port=123,
+                        minimum_latency_milliseconds=123,
+                
+                        # the properties below are optional
+                        encryption_passphrase=mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                            secret_arn="secretArn"
+                        )
+                    ),
+                    srt_listener=mediaconnect.CfnSourceEndpoint.SrtListenerStandardSourceEndpointConfigurationProperty(
+                        minimum_latency_milliseconds=123,
+                        source_address="sourceAddress",
+                        source_listener_port=123,
+                
+                        # the properties below are optional
+                        encryption_passphrase=mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                            secret_arn="secretArn"
+                        ),
+                        stream_id="streamId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__476ac4c079881c014eb4073ecd86053d6fca8b1831f3fe7422c42f7c6fac7514)
+                check_type(argname="argument rist", value=rist, expected_type=type_hints["rist"])
+                check_type(argname="argument rtp", value=rtp, expected_type=type_hints["rtp"])
+                check_type(argname="argument srt_caller", value=srt_caller, expected_type=type_hints["srt_caller"])
+                check_type(argname="argument srt_listener", value=srt_listener, expected_type=type_hints["srt_listener"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if rist is not None:
+                self._values["rist"] = rist
+            if rtp is not None:
+                self._values["rtp"] = rtp
+            if srt_caller is not None:
+                self._values["srt_caller"] = srt_caller
+            if srt_listener is not None:
+                self._values["srt_listener"] = srt_listener
+
+        @builtins.property
+        def rist(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.RistStandardSourceEndpointConfigurationProperty"]]:
+            '''The configuration settings for a source endpoint that uses the RIST protocol.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointprotocolconfiguration.html#cfn-mediaconnect-sourceendpoint-standardsourceendpointprotocolconfiguration-rist
+            '''
+            result = self._values.get("rist")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.RistStandardSourceEndpointConfigurationProperty"]], result)
+
+        @builtins.property
+        def rtp(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.RtpStandardSourceEndpointConfigurationProperty"]]:
+            '''The configuration settings for a source endpoint that uses the RTP protocol.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointprotocolconfiguration.html#cfn-mediaconnect-sourceendpoint-standardsourceendpointprotocolconfiguration-rtp
+            '''
+            result = self._values.get("rtp")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.RtpStandardSourceEndpointConfigurationProperty"]], result)
+
+        @builtins.property
+        def srt_caller(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.SrtCallerStandardSourceEndpointConfigurationProperty"]]:
+            '''The configuration settings for a source endpoint that uses SRT in caller mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointprotocolconfiguration.html#cfn-mediaconnect-sourceendpoint-standardsourceendpointprotocolconfiguration-srtcaller
+            '''
+            result = self._values.get("srt_caller")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.SrtCallerStandardSourceEndpointConfigurationProperty"]], result)
+
+        @builtins.property
+        def srt_listener(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.SrtListenerStandardSourceEndpointConfigurationProperty"]]:
+            '''The configuration settings for a source endpoint that uses SRT in listener mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-standardsourceendpointprotocolconfiguration.html#cfn-mediaconnect-sourceendpoint-standardsourceendpointprotocolconfiguration-srtlistener
+            '''
+            result = self._values.get("srt_listener")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.SrtListenerStandardSourceEndpointConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StandardSourceEndpointProtocolConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpoint.VpcSourceEndpointNetworkingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "security_group_ids": "securityGroupIds",
+            "subnet_id": "subnetId",
+        },
+    )
+    class VpcSourceEndpointNetworkingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            security_group_ids: typing.Sequence[builtins.str],
+            subnet_id: builtins.str,
+        ) -> None:
+            '''The networking configuration for a source endpoint in a virtual private cloud (VPC).
+
+            :param security_group_ids: The IDs of the security groups to associate with the source endpoint. You can specify from 1 to 5 security groups.
+            :param subnet_id: The ID of the subnet to use for the source endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-vpcsourceendpointnetworkingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                vpc_source_endpoint_networking_configuration_property = mediaconnect.CfnSourceEndpoint.VpcSourceEndpointNetworkingConfigurationProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_id="subnetId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__97a19751a09866a0cff859f285560bdc6f7ff27a5fde3198ba3151b77e694043)
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "security_group_ids": security_group_ids,
+                "subnet_id": subnet_id,
+            }
+
+        @builtins.property
+        def security_group_ids(self) -> typing.List[builtins.str]:
+            '''The IDs of the security groups to associate with the source endpoint.
+
+            You can specify from 1 to 5 security groups.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-vpcsourceendpointnetworkingconfiguration.html#cfn-mediaconnect-sourceendpoint-vpcsourceendpointnetworkingconfiguration-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            assert result is not None, "Required property 'security_group_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def subnet_id(self) -> builtins.str:
+            '''The ID of the subnet to use for the source endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-sourceendpoint-vpcsourceendpointnetworkingconfiguration.html#cfn-mediaconnect-sourceendpoint-vpcsourceendpointnetworkingconfiguration-subnetid
+            '''
+            result = self._values.get("subnet_id")
+            assert result is not None, "Required property 'subnet_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcSourceEndpointNetworkingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnSourceEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration": "configuration",
+        "description": "description",
+        "region_name": "regionName",
+        "tags": "tags",
+    },
+)
+class CfnSourceEndpointProps:
+    def __init__(
+        self,
+        *,
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceEndpoint.SourceEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        region_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSourceEndpoint``.
+
+        :param configuration: The configuration settings for a source endpoint. This is a union type, so exactly one of its members is set, depending on the type of the source endpoint.
+        :param description: The description of the source endpoint.
+        :param region_name: The name of the Amazon Web Services Region in which the source endpoint is located.
+        :param tags: The tags associated with the source endpoint. Each tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-sourceendpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            cfn_source_endpoint_props = mediaconnect.CfnSourceEndpointProps(
+                configuration=mediaconnect.CfnSourceEndpoint.SourceEndpointConfigurationProperty(
+                    router_output=mediaconnect.CfnSourceEndpoint.RouterOutputSourceEndpointConfigurationProperty(
+                        router_output_arn="routerOutputArn"
+                    ),
+                    standard=mediaconnect.CfnSourceEndpoint.StandardSourceEndpointConfigurationProperty(
+                        name="name",
+                        protocol_configuration=mediaconnect.CfnSourceEndpoint.StandardSourceEndpointProtocolConfigurationProperty(
+                            rist=mediaconnect.CfnSourceEndpoint.RistStandardSourceEndpointConfigurationProperty(
+                                destination_ingest_port=123,
+                                recovery_latency_milliseconds=123
+                            ),
+                            rtp=mediaconnect.CfnSourceEndpoint.RtpStandardSourceEndpointConfigurationProperty(
+                                destination_ingest_port=123,
+                                forward_error_correction_state="forwardErrorCorrectionState"
+                            ),
+                            srt_caller=mediaconnect.CfnSourceEndpoint.SrtCallerStandardSourceEndpointConfigurationProperty(
+                                destination_ingest_port=123,
+                                minimum_latency_milliseconds=123,
+            
+                                # the properties below are optional
+                                encryption_passphrase=mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                    secret_arn="secretArn"
+                                )
+                            ),
+                            srt_listener=mediaconnect.CfnSourceEndpoint.SrtListenerStandardSourceEndpointConfigurationProperty(
+                                minimum_latency_milliseconds=123,
+                                source_address="sourceAddress",
+                                source_listener_port=123,
+            
+                                # the properties below are optional
+                                encryption_passphrase=mediaconnect.CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty(
+                                    secret_arn="secretArn"
+                                ),
+                                stream_id="streamId"
+                            )
+                        ),
+                        source_networking_configuration=mediaconnect.CfnSourceEndpoint.StandardSourceEndpointNetworkingConfigurationProperty(
+                            public=mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationProperty(
+                                source_allow_rules=[mediaconnect.CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationAllowRuleProperty(
+                                    cidr="cidr"
+                                )]
+                            ),
+                            vpc=mediaconnect.CfnSourceEndpoint.VpcSourceEndpointNetworkingConfigurationProperty(
+                                security_group_ids=["securityGroupIds"],
+                                subnet_id="subnetId"
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        protocol="protocol",
+                        source_networking_type="sourceNetworkingType"
+                    )
+                ),
+            
+                # the properties below are optional
+                description="description",
+                region_name="regionName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__23d29fcbd8d6fc40587e594b5f03e70036e709f1de97d72f9c5dd1747811dbf0)
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument region_name", value=region_name, expected_type=type_hints["region_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration": configuration,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if region_name is not None:
+            self._values["region_name"] = region_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.SourceEndpointConfigurationProperty"]:
+        '''The configuration settings for a source endpoint.
+
+        This is a union type, so exactly one of its members is set, depending on the type of the source endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-sourceendpoint.html#cfn-mediaconnect-sourceendpoint-configuration
+        '''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceEndpoint.SourceEndpointConfigurationProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the source endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-sourceendpoint.html#cfn-mediaconnect-sourceendpoint-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Amazon Web Services Region in which the source endpoint is located.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-sourceendpoint.html#cfn-mediaconnect-sourceendpoint-regionname
+        '''
+        result = self._values.get("region_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the source endpoint.
+
+        Each tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-sourceendpoint.html#cfn-mediaconnect-sourceendpoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSourceEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnBridge",
     "CfnBridgeOutput",
@@ -19321,6 +23932,8 @@ __all__ = [
     "CfnBridgeProps",
     "CfnBridgeSource",
     "CfnBridgeSourceProps",
+    "CfnDestinationEndpoint",
+    "CfnDestinationEndpointProps",
     "CfnFlow",
     "CfnFlowEntitlement",
     "CfnFlowEntitlementProps",
@@ -19341,6 +23954,8 @@ __all__ = [
     "CfnRouterNetworkInterfaceProps",
     "CfnRouterOutput",
     "CfnRouterOutputProps",
+    "CfnSourceEndpoint",
+    "CfnSourceEndpointProps",
 ]
 
 publication.publish()
@@ -19692,6 +24307,203 @@ def _typecheckingstub__5f2a15e5c2c97898000fd91706ed5ee02d0a7d5d31640d04f545d4db3
     name: builtins.str,
     flow_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridgeSource.BridgeFlowSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBridgeSource.BridgeNetworkSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__767b3d6794837049e04c02e5836d8918b5a15c667c7124ef55086c57e2f36f4f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.DestinationEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    region_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__419ac394e655fef659181f347f49577be6f7b2da7e1c52bb047d082aa8788e6e(
+    resource: _aws_mediaconnect_6374326e.IDestinationEndpointRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92c6679f5d62b997f57573f234ef7df10496a1434e20fa993d4345458185e752(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7bfdf1fadd1f8fadb1b17abc13a19a13a5d66d60a7dc3d87f5b845fd7dd28fb(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa4ce1a70bc50c9cc99701147b039c52daf3a77ba6bb8f0021edbec7131d2787(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30faa86c87aa05e197f09560c8e830fab01c26997af7965a9dfa65ecaad2ab12(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDestinationEndpoint.DestinationEndpointConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__394c3f4c3b9e3556f0ff8dad33e613ef0869bfecc93a67a9c55ee9b1b1012f15(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a268961fd261289cb63956f77b24dde8e160d5dc80bc80a855135d4806c3663(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__535178fd44c494dd0e6b4863ac2fbb54dd2184c741ae90920e89ffe0682f8bd4(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59d4344cc6cc061cfd8501a576e425767a1baf5dabf44f775d38af1252445de0(
+    *,
+    router_input: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.RouterInputDestinationEndpointAssociatedResourceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    standard: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e401ac990f7a4ee13f4c7b638764d6cf19d337d7b932daef90e5e6148ca70b1(
+    *,
+    router_input: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.RouterInputDestinationEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    standard: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.StandardDestinationEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c9c95543b24df62b820ddb53bb9b40ccee934ed0ade0dee8d981929a6e4e158(
+    *,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f81af6ed2b4c8043c1e4fc03cfe8e829b3e2e141a4348a788de8da94279c3013(
+    *,
+    cidr: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86d09c069eb2bd5ea72a5ccd1132cc4ac4f510aa924abde874ee75adf0cdb3b8(
+    *,
+    destination_allow_rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationAllowRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47c83786d2791f145e764287f4bf75cd09d20361b162203ac4d2d2d8d94b1b04(
+    *,
+    destination_address: builtins.str,
+    destination_ingest_port: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5fa276fc92149c0d654d9e273caf426753fc984e3c71e6c1b94a2267308f0df(
+    *,
+    maximum_bitrate: jsii.Number,
+    name: builtins.str,
+    state: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84a31c8b68ed8b558bdbf1fc9183bf3292805f3f81a3312da68533c368b24444(
+    *,
+    router_input_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4e20091272f292722314aabc4191ba8a6a39231345350618b2ec076e85bf9614(
+    *,
+    destination_address: builtins.str,
+    destination_ingest_port: jsii.Number,
+    forward_error_correction_state: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30f22f6fbd030f696c25c62a95032ba1f032d12a845693634ca811841f93d671(
+    *,
+    minimum_latency_milliseconds: jsii.Number,
+    source_listener_port: jsii.Number,
+    encryption_passphrase: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__075fb89f625f6154944c949a5903dab2d6d738cd10862240665c0ca135d4af50(
+    *,
+    destination_address: builtins.str,
+    destination_ingest_port: jsii.Number,
+    minimum_latency_milliseconds: jsii.Number,
+    encryption_passphrase: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.EndpointEncryptionSecretConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stream_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__afe0b32fa0a51f4d728377e9de5655774b95743f2910103d4e8a266d337ef425(
+    *,
+    destination_networking_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.StandardDestinationEndpointNetworkingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    protocol_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.StandardDestinationEndpointProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    destination_networking_type: typing.Optional[builtins.str] = None,
+    protocol: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55fd887d493e764584c678b6d043172db0e57537a7e38e112b3f3d9926979644(
+    *,
+    public: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.PublicDestinationEndpointNetworkingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.VpcDestinationEndpointNetworkingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60bc57255852fd877600cb4e68088d5f53a3094557cef671103d1fc90348ea04(
+    *,
+    rist: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.RistStandardDestinationEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.RtpStandardDestinationEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    srt_caller: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.SrtCallerStandardDestinationEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    srt_listener: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.SrtListenerStandardDestinationEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c13ea77e8976ad2021526f063bfa3fdd3c61d7b61ceb0cc990fc70f7130f982(
+    *,
+    security_group_ids: typing.Sequence[builtins.str],
+    subnet_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d63ba99f05eef7238c349582c5b3954e922828bbac26663fef450f0f98a173d6(
+    *,
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDestinationEndpoint.DestinationEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    region_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21120,6 +25932,30 @@ def _typecheckingstub__8d53a483665d52f231cb569ee34ca6378bdf20b1bffcfa05c2ee10315
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e168b7e41f1282d098419310602cd269b43ed3e9aa0b42ce6fe1a069fc112e75(
+    *,
+    endpoint_lifecycle_management: builtins.str,
+    source_transit_decryption: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.EndpointEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_transit_decryption_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f09afe6b5f9876f17380eaabb6a7ab92bfc0037c15ee95517082ad0b2e9e67da(
+    *,
+    automatic: typing.Any = None,
+    secrets_manager: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SecretsManagerEndpointEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__357dd5a40add80a6e64dfbdc20d4f9ed321f12c4d08c3e5b9ddb00dfa7f61119(
+    *,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0b915443cb98891bf89e968e2338dbbd48e7fc3e6389d7cf5425707945361655(
     *,
     network_interface_arn: builtins.str,
@@ -21249,6 +26085,7 @@ def _typecheckingstub__1d424854eca5818145479db8807f8033d93ec2fba52d4a1c87fabb497
 
 def _typecheckingstub__367935140f8b2e56d02ff3e2c05252a68073eace6c0eeda3b7abeeeac1209e1b(
     *,
+    destination_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.DestinationEndpointRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     failover: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.FailoverRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     media_connect_flow: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     media_live_channel: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -21296,6 +26133,14 @@ def _typecheckingstub__656ecf17b2aa0c4612970c8eb2678158214e80be3a6040146c524608d
     *,
     role_arn: builtins.str,
     secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d9bdb0f843f97bf02da9ec36bc7ed6744e963c0e6f1622f6eb9f24ab12ceae5(
+    *,
+    encryption_secret: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.EndpointEncryptionSecretConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_secret_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21563,6 +26408,21 @@ def _typecheckingstub__cb6937ae740be264a96755b4785a6121ef85f3be99b91fb48ef0d32ab
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__83f9c236e6be20491d1fcd8c3c690e748f332adfd83ecc24669ed00e644af39c(
+    *,
+    automatic: typing.Any = None,
+    secrets_manager: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.SecretsManagerEndpointEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d12603b6abd29a568d694c941b437e367c229f135f7582d2d2b5c872850f5a03(
+    *,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8d72d674b29d325a3cef4ccd5dad6d51e59a38d24abd5ba54a5ec52ffbabf377(
     *,
     recovery_latency_mode: builtins.str,
@@ -21648,6 +26508,7 @@ def _typecheckingstub__195e2aba5e342493ec27f8f63f43810db21ee1b303be1cfa962c7f9a4
     *,
     media_connect_flow: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.MediaConnectFlowRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     media_live_input: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.MediaLiveInputRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.SourceEndpointRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     standard: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.StandardRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -21688,6 +26549,23 @@ def _typecheckingstub__066db337f47042a13b7d50a298df594df0a3bcbe095ae9b4f093e6805
     *,
     role_arn: builtins.str,
     secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b5f989507d41759f01cfaa97684d962438ba17e4b000e21daf4759941e32794(
+    *,
+    encryption_secret: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.EndpointEncryptionSecretConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_secret_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74a4cf8267946b41676f13ef2ce88c9461453c5e38ce35324883a3444425951e(
+    *,
+    destination_transit_encryption: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.EndpointEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    endpoint_lifecycle_management: builtins.str,
+    destination_transit_encryption_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21753,6 +26631,202 @@ def _typecheckingstub__47e40b68b394725a4935bfc1b6ffcf51630ed2e6a0f1075f0c8289595
     availability_zone: typing.Optional[builtins.str] = None,
     fabric_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.FabricConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maintenance_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.MaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    region_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1fcd36d9cbd080d420a0922ab77c4a13cfcc3d668ad69073a58c2becf8aebfbc(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.SourceEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    region_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d55d2dbb666f7d88ef22ae4f81646c6367de8ad729a3a566fdc73018c20a90c9(
+    resource: _aws_mediaconnect_6374326e.ISourceEndpointRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59f0e7ce2411602e8c2769a16eceaa2da9b6d74c6254ac54ac550cfdfd207428(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8663a1330abfa1ce4e55278d950bf3a593998af45f7511ad5b9a5bdb5ad28d8(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be564d930e9f03ba0d1402e800b414f86f968f1ae8d4195ac5d4f7b9a57a8bd7(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e18ab9ae9f158bccb6e6fc3708e450ecd88a21197d0b9f173b7e169b1ee6aa4f(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSourceEndpoint.SourceEndpointConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26a87b43a4dfde70466d5b83caec34b87a1bc14e7b845c6e1b5ea76eca474b65(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db8b5ef09b8f7ffa75f91902f51c27a98bebf7ebc3940e3d096b9ab6e1fe8501(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1cc6bea2b9724a3c6ce9ae2cf671f0cf0ef5c684ec628ec4adfe9e14677ce7b8(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06afb7a57a916a7ea70222aaf859866e738bc94f65d09499c0c146585818abbb(
+    *,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6ecb9038e38fa41074643ac2a27dc4d95f4ac47ab76a87b5c7cb7b9306a7943(
+    *,
+    cidr: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9376a8ee9ca4a808ed5f3ca0ed3ebaf249b9e1ea7d955eb4aae86622b6b850be(
+    *,
+    source_allow_rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationAllowRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e49d2129b357d2f9ff129d54dd0d0d4e63d5b2ce1b5df9da519e76b0780b513e(
+    *,
+    destination_ingest_port: jsii.Number,
+    recovery_latency_milliseconds: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb16955fcde7127baa90d1e1e5916ac7a49530d3445e2be8e98b7d80446507aa(
+    *,
+    maximum_bitrate: jsii.Number,
+    name: builtins.str,
+    state: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4001815a1cd1fc062e82a2ded451a5b277eccf9bba87453bb365b181377e851(
+    *,
+    router_output_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9d4952406eabdf1ba5d95c176fa1bd96159d01354acaaaacd151f6e7fc53201(
+    *,
+    destination_ingest_port: jsii.Number,
+    forward_error_correction_state: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2141ae34d732060debce7f6d48885559c023e557498e57b5875961416f1d7da(
+    *,
+    router_output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.RouterOutputSourceEndpointAssociatedResourceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    standard: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__727745d7e11f10f4e1d8abb079b1f608f706acda9a8d1b5fc6c18327e0970fd6(
+    *,
+    router_output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.RouterOutputSourceEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    standard: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.StandardSourceEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__163094429274ea07b5b1a6febcac52da7bc61ceaf0d127fd54cd0cd6a31c51de(
+    *,
+    destination_ingest_port: jsii.Number,
+    minimum_latency_milliseconds: jsii.Number,
+    encryption_passphrase: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2fa451afce73f70c96c38a7b6119dc8d476f4f86a8ab6765faacfa1b89e0400a(
+    *,
+    minimum_latency_milliseconds: jsii.Number,
+    source_address: builtins.str,
+    source_listener_port: jsii.Number,
+    encryption_passphrase: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.EndpointEncryptionSecretConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stream_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__361aa16ca5cd8b7cd78e1fe1b757ff0b9c31e55df93dbb9c4def7abecdd321bc(
+    *,
+    name: builtins.str,
+    protocol_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.StandardSourceEndpointProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_networking_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.StandardSourceEndpointNetworkingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    protocol: typing.Optional[builtins.str] = None,
+    source_networking_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44a979afc140e50157dac054f84143424f38043596fab125c42723ea247c4a12(
+    *,
+    public: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.PublicSourceEndpointNetworkingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.VpcSourceEndpointNetworkingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__476ac4c079881c014eb4073ecd86053d6fca8b1831f3fe7422c42f7c6fac7514(
+    *,
+    rist: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.RistStandardSourceEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.RtpStandardSourceEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    srt_caller: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.SrtCallerStandardSourceEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    srt_listener: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.SrtListenerStandardSourceEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97a19751a09866a0cff859f285560bdc6f7ff27a5fde3198ba3151b77e694043(
+    *,
+    security_group_ids: typing.Sequence[builtins.str],
+    subnet_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23d29fcbd8d6fc40587e594b5f03e70036e709f1de97d72f9c5dd1747811dbf0(
+    *,
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceEndpoint.SourceEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
     region_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

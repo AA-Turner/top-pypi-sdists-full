@@ -574,6 +574,17 @@ SandboxRestrictions.invalid_module_members_default = SandboxMatcher(
         ),
         "asyncio": SandboxMatcher(
             children={
+                "TaskGroup": SandboxMatcher(
+                    children={
+                        "__call__": SandboxMatcher(
+                            match_self=True,
+                            leaf_warning=UserWarning,
+                            leaf_message=(
+                                "asyncio.TaskGroup() has non-deterministic task cancellation order"
+                            ),
+                        )
+                    },
+                ),
                 "as_completed": SandboxMatcher(
                     children={
                         "__call__": SandboxMatcher(
@@ -643,16 +654,17 @@ SandboxRestrictions.invalid_module_members_default = SandboxMatcher(
         "os": SandboxMatcher(
             # As of https://github.com/python/cpython/pull/132662 in python 3.14 we have to allow os.path calls
             # which may occur during exception tracing. See https://github.com/python/cpython/issues/140228.
+            # The linecache change behind it was backported to python 3.13.12.
             children={
                 "path": SandboxMatcher.none
-                if sys.version_info >= (3, 14)
+                if sys.version_info >= (3, 13, 12)
                 else SandboxMatcher.all
             },
             access={"name"},
             use={"*"},
             # As of https://github.com/python/cpython/pull/112097, os.stat
             # calls are now made when displaying errors
-            exclude={"stat", "path"} if sys.version_info >= (3, 14) else {"stat"},
+            exclude={"stat", "path"} if sys.version_info >= (3, 13, 12) else {"stat"},
             # Only restricted at runtime
             only_runtime=True,
         ),
@@ -724,7 +736,9 @@ SandboxRestrictions.invalid_module_members_default = SandboxMatcher(
                 "token_urlsafe",
             }
         ),
-        "select": SandboxMatcher.all_uses_runtime,
+        # Python 3.15 probes kqueue while importing subprocess on macOS.
+        # kevent is an inert value that kqueue.control must receive unproxied.
+        "select": SandboxMatcher(use={"*"}, exclude={"kevent"}, only_runtime=True),
         "selectors": SandboxMatcher.all_uses_runtime,
         "shelve": SandboxMatcher.all_uses,
         "shutil": SandboxMatcher.all_uses,
@@ -742,6 +756,10 @@ SandboxRestrictions.invalid_module_members_default = SandboxMatcher(
             use={
                 "pthread_getcpuclockid",
                 "get_clock_info",
+                # Not available on every platform (e.g. Windows); matching a
+                # nonexistent attribute is harmless
+                "clock_gettime",
+                "clock_gettime_ns",
                 "localtime",
                 "monotonic",
                 "monotonic_ns",

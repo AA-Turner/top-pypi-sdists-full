@@ -100,7 +100,7 @@ def test_the_page_namespace_is_free_of_internal_callbacks() -> None:
         ("refs", ["add_bookmark", "add_hyperlink"]),
         ("tracking", ["insert", "delete", "replace", "add_change", "change", "author"]),
         ("styles", ["resolve", "ensure_run", "apply_paragraph_format"]),
-        ("text", ["plain", "markdown", "html", "runs", "find_runs", "replace", "highlight", "highlights"]),
+        ("text", ["plain", "markdown", "html", "runs", "find_runs", "replace", "highlight", "highlights", "blocks", "outline", "apply_changes"]),
     ],
 )
 def test_every_namespace_exposes_its_verbs(namespace: str, verbs: list[str]) -> None:
@@ -132,6 +132,7 @@ AREA_NAMESPACES = {
     "drop-cap": "shapes",
     "redline": "tracking",
     "highlight": "text",
+    "text-blocks": "text",
     "border-fill-image-gradient": "styles",
     "memo": "notes",
     "footnote-endnote": "notes",
@@ -158,6 +159,8 @@ AREA_NAMESPACES = {
     "mail-merge": None,  # 루트도 아니고 doc.* 네임스페이스도 아님(모듈 함수)
     # 6.9 트레인㉝ — 편집기 표면 인벤토리(트레인㉙)가 찾은 "문서 끼워 넣기" 갭.
     "document-merge": None,  # mail-merge와 같은 이유, 순수 hwpx.tools 모듈 함수
+    # Markdown 가져오기 — 진입점은 모듈 함수(기존 문서는 doc.text.append_markdown).
+    "markdown-import": None,
     # 6.9 트레인㉞ — 덧말·글자 겹치기 저작.
     "dutmal-compose": "shapes",
     # 6.12 트레인㊸ — 편집기 메뉴 표면 역매핑(트레인㊷)이 찾은 "문서 정보" 갭.

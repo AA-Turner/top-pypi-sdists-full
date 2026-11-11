@@ -37,7 +37,7 @@ from pygeodesy.utily import degrees90, degrees180
 from math import atan, atanh, exp, radians, sin, tanh
 
 __all__ = _ALL_LAZY.webmercator
-__version__ = '25.05.12'
+__version__ = '26.10.30'
 
 # _FalseEasting  = 0   # false Easting (C{meter})
 # _FalseNorthing = 0   # false Northing (C{meter})
@@ -136,7 +136,7 @@ class Wm(_NamedBase):
             # <https://Web.Archive.org/web/20141009142830/http://earth-info.nga.mil/
             #        GandG/wgs84/web_mercator/(U)%20NGA_SIG_0011_1.0.0_WEBMERC.pdf>
             y  = y / R  # /= chokes PyChecker
-            y -= E.es_atanh(tanh(y))
+            y -= E.es_eatanhe(tanh(y))
             y *= E.a
             x *= E.a / R
 
@@ -344,7 +344,7 @@ def toWm(latlon, lon=None, earth=R_MA, Wm=Wm, **name_Wm_kwds_radius):
     s = sin(radians(y))
     y = atanh(s)  # == log(tand((90 + lat) / 2)) == log(tanPI_2_2(radians(lat)))
     if E.es:
-        y -= E.es_atanh(s)  # strictly, WGS84 only
+        y -= E.es_eatanhe(s)  # strictly, WGS84 only
     y *= R
     x  = R * radians(x)
     r  = EasNorRadius3Tuple(x, y, R, name=n) if Wm is None else \
@@ -353,7 +353,7 @@ def toWm(latlon, lon=None, earth=R_MA, Wm=Wm, **name_Wm_kwds_radius):
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

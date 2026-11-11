@@ -3944,7 +3944,7 @@ fn test_reference_image_in_a_markdown_attribute_block_is_still_parsed() {
 #[test]
 fn test_reference_link_after_an_html_block_is_still_parsed() {
     // The suppression is per line, not "everything below the first tag".
-    let content = "<details>\n<summary>[dead][ref]</summary>\n</details>\n\n[live][ref]\n";
+    let content = "<details>\n<summary>[dead][ref]</summary>\n</details>\n\n[live][ref]\n\n[ref]: /x\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
     assert_eq!(ctx.links().len(), 1, "unexpected links: {:?}", ctx.links());
     assert_eq!(ctx.links()[0].text, "live");
@@ -6389,24 +6389,21 @@ fn test_definitions_sharing_a_label_all_count_as_definitions() {
 fn rendered_link_range_index_matches_exhaustive_containment() {
     let mut ctx = LintContext::new("[link](target.md)", MarkdownFlavor::Standard, None);
     let template = ctx.links()[0].clone();
-    ctx.links = [(0, 40, false), (5, 20, false), (15, 50, true), (40, 60, false)]
+    ctx.links = [(0, 40), (5, 20), (15, 50), (40, 60)]
         .into_iter()
-        .map(|(start, end, undefined)| {
+        .map(|(start, end)| {
             let mut link = template.clone();
             link.byte_offset = start;
             link.byte_end = end;
-            link.is_reference = undefined;
-            if undefined {
-                link.url = "".into();
-            }
             link
         })
         .collect();
     for start in 0..=65 {
         for end in start..=65 {
-            let expected = ctx.links().iter().any(|link| {
-                !(link.is_reference && link.url.is_empty()) && start >= link.byte_offset && end <= link.byte_end
-            });
+            let expected = ctx
+                .links()
+                .iter()
+                .any(|link| start >= link.byte_offset && end <= link.byte_end);
             assert_eq!(ctx.is_range_in_rendered_link(&(start..end)), expected, "{start}..{end}");
         }
     }
@@ -6824,5 +6821,297 @@ fn html_block_byte_ranges_are_half_open_and_flavor_aware() {
     ] {
         let ctx = LintContext::new(content, flavor, None);
         assert_eq!(ctx.html_block_range_at(content.find("<div>").unwrap()), None);
+    }
+}
+
+mod unresolved_reference_candidates {
+    use super::*;
+
+    fn ctx(content: &str) -> LintContext<'_> {
+        LintContext::new(content, MarkdownFlavor::Standard, None)
+    }
+
+    fn texts(links: &[ParsedLink<'_>]) -> Vec<String> {
+        links.iter().map(|l| l.text.to_string()).collect()
+    }
+
+    #[test]
+    fn undefined_forms_are_candidates_and_never_links() {
+        let c = ctx("[a] [b][] [c][missing] ![d][nope]\n");
+        assert_eq!(texts(c.links()), Vec::<String>::new());
+        assert!(c.images().is_empty());
+        assert_eq!(texts(c.unresolved_links()), ["a", "b", "c"]);
+        assert_eq!(c.unresolved_images().len(), 1);
+        assert_eq!(c.unresolved_images()[0].alt_text, "d");
+        assert!(c.unresolved_link_starting_at(0).is_some());
+        assert!(
+            c.unresolved_image_starting_at(c.unresolved_images()[0].byte_offset)
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn defined_forms_are_links_and_never_candidates() {
+        let c = ctx("[a] [b][] [c][r] ![d][r]\n\n[a]: /1\n[b]: /2\n[r]: /3\n");
+        assert_eq!(texts(c.links()), ["a", "b", "c"]);
+        assert_eq!(c.images().len(), 1);
+        assert!(c.unresolved_links().is_empty());
+        assert!(c.unresolved_images().is_empty());
+    }
+
+    #[test]
+    fn empty_destination_definition_defines_the_label() {
+        let c = ctx("[a][r]\n\n[r]: <>\n");
+        assert_eq!(texts(c.links()), ["a"]);
+        assert!(c.unresolved_links().is_empty());
+    }
+
+    #[test]
+    fn labels_match_by_whitespace_collapse_and_unicode_fold_inside_containers() {
+        for (reference, definition) in [("a  b", "a b"), ("STRASSE", "straße"), ("R", "r")] {
+            let content = format!("<div markdown=\"1\">\n[t][{reference}]\n</div>\n\n[{definition}]: /x\n");
+            for flavor in [MarkdownFlavor::Standard, MarkdownFlavor::MkDocs] {
+                let c = LintContext::new(&content, flavor, None);
+                assert_eq!(texts(c.links()), ["t"], "{flavor:?} {content}");
+                assert!(c.unresolved_links().is_empty(), "{flavor:?} {content}");
+            }
+        }
+    }
+
+    #[test]
+    fn labels_defined_inside_a_container_match_by_unicode_fold() {
+        let content = "<div markdown=\"1\">\n[t][STRASSE]\n[u][a  b]\n[straße]: /x\n[a b]: /y\n</div>\n";
+        let c = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+        assert_eq!(texts(c.links()), ["t", "u"], "{:?}", c.unresolved_links());
+        assert!(c.unresolved_links().is_empty());
+    }
+
+    #[test]
+    fn container_matches_without_a_definition_are_candidates() {
+        let content = "<div markdown=\"1\">\n[t][missing]\n</div>\n\n[r]: /x\n";
+        let c = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+        assert!(c.links().is_empty());
+        assert_eq!(texts(c.unresolved_links()), ["t"]);
+    }
+
+    #[test]
+    fn nested_real_link_survives_an_unresolved_outer_image() {
+        let c = ctx("![[link](missing.md)][absent]\n");
+        assert_eq!(texts(c.links()), ["link"]);
+        assert_eq!(c.unresolved_images().len(), 1);
+    }
+
+    #[test]
+    fn code_comments_escapes_and_footnotes_are_not_candidates() {
+        let c = ctx(
+            "`[a]` \\[b] <!-- [c] -->\n\n```\n[d]\n```\n\n- [ ] task\n\n> [!NOTE]\n> x\n\n[[wiki]] ![[embed.png]]\n\nnote[^1]\n\n[^1]: text\n",
+        );
+        assert_eq!(texts(c.unresolved_links()), Vec::<String>::new());
+        assert!(c.unresolved_images().is_empty());
+    }
+
+    #[test]
+    fn headings_keep_defined_links_and_demote_undefined_ones() {
+        let c = ctx("# A [d] and [u]\n\nSetext [d] [u]\n===\n\n[go](#a-d-and-u)\n\n[d]: /x\n");
+        assert_eq!(texts(c.links()), ["d", "d", "go"]);
+        assert_eq!(texts(c.unresolved_links()), ["u", "u"]);
+    }
+
+    #[test]
+    fn kramdown_filtering_applies_to_candidates() {
+        let c = LintContext::new("{::comment}\n[u]\n{:/comment}\n\n[v]\n", MarkdownFlavor::Kramdown, None);
+        assert_eq!(texts(c.unresolved_links()), ["v"]);
+    }
+}
+
+mod reference_definitions {
+    use super::*;
+    use MarkdownFlavor::*;
+
+    fn labels(content: &str, flavor: MarkdownFlavor) -> Vec<String> {
+        LintContext::new(content, flavor, None)
+            .reference_definitions()
+            .iter()
+            .map(|definition| definition.id.clone())
+            .collect()
+    }
+
+    #[test]
+    fn a_definition_shaped_line_continuing_a_block_is_text() {
+        for content in [
+            "Some text\n[r]: t.md\n",
+            "- item\n  [r]: t.md\n",
+            "- item\n[r]: t.md\n",
+            "> quoted\n> [r]: t.md\n",
+            "Term\n: definition\n[r]: t.md\n",
+            "# Heading\n\n| a |\n|---|\n[r]: t.md\n",
+        ] {
+            for flavor in crate::format_proof::ALL_FLAVORS {
+                assert_eq!(labels(content, flavor), Vec::<String>::new(), "{flavor:?} {content:?}");
+            }
+        }
+        // MDX has no indented code blocks.
+        for flavor in crate::format_proof::ALL_FLAVORS {
+            let expected: &[&str] = if flavor == MDX { &["r"] } else { &[] };
+            assert_eq!(labels("    [r]: t.md\n", flavor), expected, "{flavor:?}");
+        }
+    }
+
+    #[test]
+    fn a_definition_starting_a_block_is_one() {
+        for content in [
+            "[r]: t.md\n",
+            "Some text\n\n[r]: t.md\n",
+            "- item\n\n  [r]: t.md\n",
+            "> quoted\n>\n> [r]: t.md\n",
+            "> [r]: t.md\n",
+            "# Heading\n[r]: t.md\n",
+        ] {
+            assert_eq!(labels(content, Standard), ["r"], "{content:?}");
+        }
+    }
+
+    #[test]
+    fn a_repeated_label_is_listed_and_resolves_to_its_first_definition() {
+        let ctx = LintContext::new("[r]: first.md\n[r]: second.md\n", Standard, None);
+        let urls: Vec<_> = ctx.reference_definitions().iter().map(|d| d.url.as_str()).collect();
+        assert_eq!(urls, ["first.md", "second.md"]);
+        assert_eq!(ctx.get_reference_url("R"), Some("first.md"));
+    }
+
+    #[test]
+    fn the_destination_is_read_as_the_parser_decodes_it() {
+        let ctx = LintContext::new("[r]: a&amp;b\\*c.md\n[s]: <x&#32;y.md>\n", Standard, None);
+        let read: Vec<_> = ctx
+            .reference_definitions()
+            .iter()
+            .map(|d| (d.url.as_str(), d.destination.as_str()))
+            .collect();
+        assert_eq!(read, [("a&amp;b*c.md", "a&b*c.md"), ("x&#32;y.md", "x y.md")]);
+    }
+
+    /// Flavors end a block at a line the CommonMark parse reads as paragraph
+    /// text, so a definition directly after it is one in that flavor only.
+    #[test]
+    fn a_definition_after_a_flavor_block_boundary_is_one_in_that_flavor() {
+        let cases: &[(&str, &[&str], &[MarkdownFlavor])] = &[
+            ("::: {.note}\n[q]: t.md\n:::\n", &["q"], &[Quarto, Pandoc]),
+            (
+                "::: {.note}\n[q]: t.md\n[p]: u.md\n:::\n",
+                &["q", "p"],
+                &[Quarto, Pandoc],
+            ),
+            (
+                ":::: {.outer}\n::: {.inner}\n[q]: t.md\n:::\n::::\n",
+                &["q"],
+                &[Quarto, Pandoc],
+            ),
+            (":::{note}\n[q]: t.md\n:::\n", &["q"], &[MyST, Quarto, Pandoc]),
+            ("/// note\n[q]: t.md\n///\n", &["q"], &[MkDocs]),
+            ("Text\n{: .c}\n[q]: t.md\n", &["q"], &[Kramdown]),
+        ];
+        for &(content, defined, reading) in cases {
+            for flavor in crate::format_proof::ALL_FLAVORS {
+                let expected: &[&str] = if reading.contains(&flavor) { defined } else { &[] };
+                assert_eq!(labels(content, flavor), expected, "{flavor:?} {content:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_definition_before_a_closing_fence_is_one_in_every_flavor() {
+        for flavor in crate::format_proof::ALL_FLAVORS {
+            // Azure DevOps reads `:::` as a code fence.
+            let expected: &[&str] = if flavor == AzureDevOps { &[] } else { &["q"] };
+            assert_eq!(
+                labels("::: {.note}\n\n[q]: t.md\n:::\n", flavor),
+                expected,
+                "{flavor:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn footnotes_and_abbreviations_are_not_link_definitions() {
+        for flavor in crate::format_proof::ALL_FLAVORS {
+            assert_eq!(
+                labels("Text[^1].\n\n[^1]: note\n\n*[HTML]: markup\n", flavor),
+                Vec::<String>::new(),
+                "{flavor:?}"
+            );
+        }
+    }
+
+    /// The Markdown parser reads a definition's title up to its closing
+    /// delimiter, across lines, and consumes blocks such as HTML whole, so a
+    /// line shaped like a definition inside them is text: it is not listed,
+    /// references do not resolve to it, MD053 does not call it unused and
+    /// MD057 does not check its destination. The controls are definitions,
+    /// a repeated label included, which the parser reads but does not list.
+    #[test]
+    fn a_definition_shaped_line_the_parser_reads_as_text_is_not_a_definition() {
+        use crate::rule::Rule;
+        const B: &str = "[b]: missing-b.md";
+        let cases: Vec<(String, &[&str])> = vec![
+            (format!("[a]: real.md \"t\n{B}\n\""), &[]),
+            (format!("[a]: real.md 't\n{B}\n'"), &[]),
+            (format!("[a]: real.md (t\n{B}\n)"), &[]),
+            (format!("[a]: real.md \"t\nmore\n{B}\nmore\n\""), &[]),
+            (format!("[a]: real.md\n\"t\n{B}\n\""), &[]),
+            (format!("[a]: real.md \"t \\\"\n{B}\n\""), &[]),
+            (format!("> [a]: real.md \"t\n> {B}\n> \""), &[]),
+            (format!("> > [a]: real.md \"t\n> > {B}\n> > \""), &[]),
+            (format!("> [a]: real.md \"t\n{B}\n> \""), &[]),
+            (format!("- item\n\n  [a]: real.md \"t\n  {B}\n  \""), &[]),
+            (format!("- [a]: real.md \"t\n  {B}\n  \""), &[]),
+            (format!("- > [a]: real.md \"t\n  > {B}\n  > \""), &[]),
+            (format!("[a]: real.md\n\n[a]: real.md \"t\n{B}\n\""), &[]),
+            (format!("[a]: real.md\n[a]: real.md \"t\n{B}\n\""), &[]),
+            (format!("[a]: real.md \"t\n{B}\n\nmore"), &[]),
+            (format!("<!--\n{B}\n-->"), &[]),
+            (format!("<div>\n{B}\n</div>"), &[]),
+            (format!("<span class=\"x\">\n{B}"), &[]),
+            (format!("| h |\n| - |\n{B}"), &[]),
+            (format!("text\n{B}"), &[]),
+            (format!("[a]: real.md \"t\"\n{B}"), &["missing-b.md"]),
+            (format!("[a]: real.md \"t\nx\"\n{B}"), &["missing-b.md"]),
+            (format!("[b]: first.md\n\n{B}"), &["first.md", "missing-b.md"]),
+            (format!("> [b]: first.md\n> {B}"), &["first.md", "missing-b.md"]),
+        ];
+        let dir = tempfile::tempdir().unwrap();
+        let mut wrong = Vec::new();
+        for (case, defined) in &cases {
+            let content = format!("# Real\n\n{case}\n\n[x][a]\n");
+            let ctx = LintContext::new(&content, Standard, None);
+            let listed: Vec<_> = ctx
+                .reference_definitions()
+                .iter()
+                .filter(|d| d.id == "b")
+                .map(|d| d.url.as_str())
+                .collect();
+            let resolved = ctx.get_reference_url("b");
+            let unused = crate::rules::MD053LinkImageReferenceDefinitions::default()
+                .check(&ctx)
+                .unwrap()
+                .iter()
+                .any(|w| w.message.contains("[b]"));
+            // MD057 checks the definition references resolve to.
+            let checked = crate::rules::MD057ExistingRelativeLinks::default()
+                .with_path(dir.path())
+                .check(&ctx)
+                .unwrap()
+                .iter()
+                .any(|w| w.message.contains("'missing-b.md'"));
+            if listed != *defined
+                || resolved != defined.first().copied()
+                || unused == defined.is_empty()
+                || checked != (defined.first() == Some(&"missing-b.md"))
+            {
+                wrong.push(format!(
+                    "{content:?}: listed {listed:?}, resolved {resolved:?}, MD053 {unused}, MD057 {checked}"
+                ));
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
     }
 }

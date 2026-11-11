@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Union, Iterable, cast
+from typing import Dict, List, Union, Iterable
 from datetime import datetime
 from typing_extensions import Literal, overload
 
@@ -30,7 +30,7 @@ from ...types import (
     session_replace_metadata_params,
 )
 from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from ..._utils import path_template, required_args, maybe_transform, strip_not_given, async_maybe_transform
+from ..._utils import is_given, path_template, required_args, maybe_transform, strip_not_given, async_maybe_transform
 from .captchas import (
     CaptchasResource,
     AsyncCaptchasResource,
@@ -58,6 +58,14 @@ from ..._response import (
 from ...pagination import SyncSessionsCursor, AsyncSessionsCursor
 from ..._base_client import AsyncPaginator, make_request_options
 from ...types.session import Session as TypesSession
+from .command_executions import (
+    CommandExecutionsResource,
+    AsyncCommandExecutionsResource,
+    CommandExecutionsResourceWithRawResponse,
+    AsyncCommandExecutionsResourceWithRawResponse,
+    CommandExecutionsResourceWithStreamingResponse,
+    AsyncCommandExecutionsResourceWithStreamingResponse,
+)
 from ...types.sessionslist import Session as SessionslistSession
 from ...types.session_context import SessionContext
 from ...types.session_cost_response import SessionCostResponse
@@ -80,6 +88,10 @@ class SessionsResource(SyncAPIResource):
     @cached_property
     def captchas(self) -> CaptchasResource:
         return CaptchasResource(self._client)
+
+    @cached_property
+    def command_executions(self) -> CommandExecutionsResource:
+        return CommandExecutionsResource(self._client)
 
     @cached_property
     def files(self) -> FilesResource:
@@ -482,7 +494,6 @@ class SessionsResource(SyncAPIResource):
         *,
         commands: session_commands_params.Commands,
         after: str | Omit = omit,
-        events_after: str | Omit = omit,
         observe: session_commands_params.Observe | Omit = omit,
         idempotency_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -504,8 +515,6 @@ class SessionsResource(SyncAPIResource):
           after: The next value from your last response. A retry with the same after and commands
               runs only once.
 
-          events_after: c-0 the first time, then the last events.cursor.
-
           observe: Returns a snapshot, or a diff against the last one, after the commands.
 
           extra_headers: Send extra headers
@@ -518,27 +527,24 @@ class SessionsResource(SyncAPIResource):
         """
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
-        extra_headers = {**strip_not_given({"idempotency-key": idempotency_key}), **(extra_headers or {})}
-        return cast(
-            SessionCommandsResponse,
-            self._post(
-                path_template("/v1/sessions/{session_id}/commands", session_id=session_id),
-                body=maybe_transform(
-                    {
-                        "commands": commands,
-                        "after": after,
-                        "events_after": events_after,
-                        "observe": observe,
-                    },
-                    session_commands_params.SessionCommandsParams,
-                ),
-                options=make_request_options(
-                    extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-                ),
-                cast_to=cast(
-                    Any, SessionCommandsResponse
-                ),  # Union types cannot be passed in as arguments in the type system
+        extra_headers = {
+            **strip_not_given({"idempotency-key": idempotency_key if is_given(idempotency_key) else not_given}),
+            **(extra_headers or {}),
+        }
+        return self._post(
+            path_template("/v1/sessions/{session_id}/commands", session_id=session_id),
+            body=maybe_transform(
+                {
+                    "commands": commands,
+                    "after": after,
+                    "observe": observe,
+                },
+                session_commands_params.SessionCommandsParams,
             ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=SessionCommandsResponse,
         )
 
     @overload
@@ -1357,6 +1363,10 @@ class AsyncSessionsResource(AsyncAPIResource):
         return AsyncCaptchasResource(self._client)
 
     @cached_property
+    def command_executions(self) -> AsyncCommandExecutionsResource:
+        return AsyncCommandExecutionsResource(self._client)
+
+    @cached_property
     def files(self) -> AsyncFilesResource:
         return AsyncFilesResource(self._client)
 
@@ -1757,7 +1767,6 @@ class AsyncSessionsResource(AsyncAPIResource):
         *,
         commands: session_commands_params.Commands,
         after: str | Omit = omit,
-        events_after: str | Omit = omit,
         observe: session_commands_params.Observe | Omit = omit,
         idempotency_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -1779,8 +1788,6 @@ class AsyncSessionsResource(AsyncAPIResource):
           after: The next value from your last response. A retry with the same after and commands
               runs only once.
 
-          events_after: c-0 the first time, then the last events.cursor.
-
           observe: Returns a snapshot, or a diff against the last one, after the commands.
 
           extra_headers: Send extra headers
@@ -1793,27 +1800,24 @@ class AsyncSessionsResource(AsyncAPIResource):
         """
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
-        extra_headers = {**strip_not_given({"idempotency-key": idempotency_key}), **(extra_headers or {})}
-        return cast(
-            SessionCommandsResponse,
-            await self._post(
-                path_template("/v1/sessions/{session_id}/commands", session_id=session_id),
-                body=await async_maybe_transform(
-                    {
-                        "commands": commands,
-                        "after": after,
-                        "events_after": events_after,
-                        "observe": observe,
-                    },
-                    session_commands_params.SessionCommandsParams,
-                ),
-                options=make_request_options(
-                    extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-                ),
-                cast_to=cast(
-                    Any, SessionCommandsResponse
-                ),  # Union types cannot be passed in as arguments in the type system
+        extra_headers = {
+            **strip_not_given({"idempotency-key": idempotency_key if is_given(idempotency_key) else not_given}),
+            **(extra_headers or {}),
+        }
+        return await self._post(
+            path_template("/v1/sessions/{session_id}/commands", session_id=session_id),
+            body=await async_maybe_transform(
+                {
+                    "commands": commands,
+                    "after": after,
+                    "observe": observe,
+                },
+                session_commands_params.SessionCommandsParams,
             ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=SessionCommandsResponse,
         )
 
     @overload
@@ -2694,6 +2698,10 @@ class SessionsResourceWithRawResponse:
         return CaptchasResourceWithRawResponse(self._sessions.captchas)
 
     @cached_property
+    def command_executions(self) -> CommandExecutionsResourceWithRawResponse:
+        return CommandExecutionsResourceWithRawResponse(self._sessions.command_executions)
+
+    @cached_property
     def files(self) -> FilesResourceWithRawResponse:
         return FilesResourceWithRawResponse(self._sessions.files)
 
@@ -2758,6 +2766,10 @@ class AsyncSessionsResourceWithRawResponse:
     @cached_property
     def captchas(self) -> AsyncCaptchasResourceWithRawResponse:
         return AsyncCaptchasResourceWithRawResponse(self._sessions.captchas)
+
+    @cached_property
+    def command_executions(self) -> AsyncCommandExecutionsResourceWithRawResponse:
+        return AsyncCommandExecutionsResourceWithRawResponse(self._sessions.command_executions)
 
     @cached_property
     def files(self) -> AsyncFilesResourceWithRawResponse:
@@ -2826,6 +2838,10 @@ class SessionsResourceWithStreamingResponse:
         return CaptchasResourceWithStreamingResponse(self._sessions.captchas)
 
     @cached_property
+    def command_executions(self) -> CommandExecutionsResourceWithStreamingResponse:
+        return CommandExecutionsResourceWithStreamingResponse(self._sessions.command_executions)
+
+    @cached_property
     def files(self) -> FilesResourceWithStreamingResponse:
         return FilesResourceWithStreamingResponse(self._sessions.files)
 
@@ -2890,6 +2906,10 @@ class AsyncSessionsResourceWithStreamingResponse:
     @cached_property
     def captchas(self) -> AsyncCaptchasResourceWithStreamingResponse:
         return AsyncCaptchasResourceWithStreamingResponse(self._sessions.captchas)
+
+    @cached_property
+    def command_executions(self) -> AsyncCommandExecutionsResourceWithStreamingResponse:
+        return AsyncCommandExecutionsResourceWithStreamingResponse(self._sessions.command_executions)
 
     @cached_property
     def files(self) -> AsyncFilesResourceWithStreamingResponse:

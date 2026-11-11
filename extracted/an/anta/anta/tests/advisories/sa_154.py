@@ -6,13 +6,13 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, ClassVar, cast
+from typing import ClassVar
 
 from anta._advisory.base import _PREVIEW_WARNING, _AntaAdvisoryTest
 from anta._advisory.eos_versions import VersionRule
+from anta._advisory.facts.bfd import BfdAuthenticationFact, BfdAuthenticationUnavailableFact
 from anta._advisory.facts.eos import EosVersionFact
-from anta._advisory.facts.models import AvailableFact, Fact, FactDefinition, FeatureState, FeatureValue, UnavailableFact
-from anta._advisory.facts.routing import BfdAuthenticationFact
+from anta._advisory.facts.models import Fact, FactsBase, FeatureState, UnavailableFact, fact_field, facts_dataclass
 from anta._advisory.findings.assessment import assess_eos_scope
 from anta._advisory.findings.models import AffectedResult, EosReleaseAssessment, ErrorResult, NotAffectedResult, VulnerabilityResult
 from anta._advisory.findings.projection import project_vulnerability_result
@@ -58,7 +58,7 @@ ADVISORY = _AdvisoryMetadata(
 VULNERABILITY_ID = ADVISORY.vulnerabilities[0].id
 
 
-def _assess_sa154(version: Fact[EOSVersion], bfd: Fact[FeatureValue]) -> VulnerabilityResult:
+def _assess_sa154(version: Fact[EosVersionFact], bfd: Fact[BfdAuthenticationFact]) -> VulnerabilityResult:
     """Assess EOS applicability and configured BFD authentication exposure."""
     if not isinstance(bfd, UnavailableFact) and bfd.value.state is not FeatureState.ENABLED:
         return NotAffectedResult(vulnerability_id=VULNERABILITY_ID, decisive=(bfd,))
@@ -66,11 +66,11 @@ def _assess_sa154(version: Fact[EOSVersion], bfd: Fact[FeatureValue]) -> Vulnera
     if not isinstance(eos_release, EosReleaseAssessment):
         return eos_release
     if isinstance(bfd, UnavailableFact):
-        return ErrorResult(vulnerability_id=VULNERABILITY_ID, problems=(bfd,))
+        return ErrorResult(vulnerability_id=VULNERABILITY_ID, problems=bfd.problems if isinstance(bfd, BfdAuthenticationUnavailableFact) else (bfd,))
     return AffectedResult(
         vulnerability_id=VULNERABILITY_ID,
         context=(eos_release,),
-        conditions=(cast("AvailableFact[FeatureValue]", bfd),),
+        conditions=(bfd,),
         remediation=software_version_plan(FIXED_RELEASES, current_version=eos_release.fact.value),
     )
 
@@ -79,15 +79,17 @@ def _assess_sa154(version: Fact[EOSVersion], bfd: Fact[FeatureValue]) -> Vulnera
 class SA154(OptionalCommandsMixin, _AntaAdvisoryTest):
     """Verify whether the device is impacted by Security Advisory 0154.
 
+    Expected Results
+    ----------------
+    * Not Affected: EOS is outside scope, BFD is shut down, or BFD authentication is not configured.
+    * Affected: An affected EOS release has BFD enabled with authentication configured.
+    * Error: Required EOS or BFD state cannot be determined.
+
+    Notes
+    -----
     BFD is exposed when it is enabled and authentication is configured. Active peers are not
     required because peer state is transient and a configured interface or peer may establish
     a session after the test runs.
-
-    Expected Results
-    ----------------
-    * Success: EOS is outside scope, BFD is shut down, or BFD authentication is not configured.
-    * Failure: An affected EOS release has BFD enabled with authentication configured.
-    * Error: Required EOS or BFD state cannot be determined.
 
     Examples
     --------
@@ -97,14 +99,25 @@ class SA154(OptionalCommandsMixin, _AntaAdvisoryTest):
     ```
     """
 
+    @facts_dataclass
+    class Facts(FactsBase):
+        """Collected facts required to assess the advisory.
+
+        ``fact_field`` statically couples each field value to its definition and
+        retains the runtime declaration consumed by ``FactsBase.collect``.
+        """
+
+        version: Fact[EosVersionFact] = fact_field(EosVersionFact)
+        bfd_authentication: Fact[BfdAuthenticationFact] = fact_field(BfdAuthenticationFact)
+
     advisory: ClassVar[_AdvisoryMetadata] = ADVISORY
-    required_facts: ClassVar[tuple[type[FactDefinition[Any]], ...]] = (EosVersionFact, BfdAuthenticationFact)
     description = "Verify whether the device is impacted by Security Advisory 0154."
     _atomic_support = True
 
     @_AntaAdvisoryTest.anta_test
     def test(self) -> None:
         """Derive the declared facts, assess the vulnerability, and project it."""
-        finding = _assess_sa154(self.fact(EosVersionFact), self.fact(BfdAuthenticationFact))
+        facts = self.Facts.collect(self)
+        finding = _assess_sa154(facts.version, facts.bfd_authentication)
         atomic = self.result.add(f"Verify {VULNERABILITY_ID}.", vulnerability_ids=(VULNERABILITY_ID,))
         project_vulnerability_result(atomic, finding)

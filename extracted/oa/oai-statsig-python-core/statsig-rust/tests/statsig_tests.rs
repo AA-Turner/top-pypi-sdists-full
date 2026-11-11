@@ -40,6 +40,7 @@ async fn test_check_gate_id_list() {
         .build();
 
     let mut opts = StatsigOptions::new();
+    opts.download_id_list_file_api = Some("https://statsigcdn.openai.com".into());
 
     let adapter = Arc::new(StatsigHttpIdListsAdapter::new(&get_sdk_key(), &opts));
     opts.id_lists_adapter = Some(adapter);
@@ -293,43 +294,3 @@ async fn test_identify() {
     let user_obj = first_event.get("user").unwrap();
     assert_eq!(user_obj.get("userID").unwrap(), "test-user-for-identify");
 }
-
-// Todo: rewrite this test such that it isn't reaching into internal implementation details
-// #[tokio::test]
-// async fn do_not_double_start_background_tasks() {
-//     let statsig_rt = StatsigRuntime::get_runtime();
-//     let adapter = Arc::new(MockAdapter::new());
-//     let logger = Arc::new(EventLogger::new(
-//         "secret-key",
-//         adapter.clone(),
-//         &StatsigOptions::new(),
-//         &statsig_rt,
-//     ));
-//     let specs_adapter = Arc::new(MockSpecsAdapter::new());
-//     let ops_stats = OPS_STATS.get_for_instance("secret-key");
-//     let background_tasks_started = Arc::new(AtomicBool::new(false));
-
-//     let success = Statsig::start_background_tasks(
-//         logger.clone(),
-//         statsig_rt.clone(),
-//         None,
-//         specs_adapter.clone(),
-//         ops_stats.clone(),
-//         background_tasks_started.clone(),
-//     )
-//     .await;
-
-//     assert!(success);
-
-//     Statsig::start_background_tasks(
-//         logger.clone(),
-//         statsig_rt.clone(),
-//         None,
-//         specs_adapter.clone(),
-//         ops_stats.clone(),
-//         background_tasks_started.clone(),
-//     )
-//     .await;
-
-//     assert!(specs_adapter.get_schedule_call_count() == 1);
-// }

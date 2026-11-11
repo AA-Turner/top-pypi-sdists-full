@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: Apache-2.0
+
+name: Feature Request
+description: Propose an SDK feature with a user story and API design. Not a "please build this" request.
+type: Feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Design-First Feature Proposals
+
+        Describe who needs the feature, the problem it solves, why the current gap matters, the API you would like to use, and the observable criteria for success. Leave implementation choices to the people building the feature.
+
+        The SDK wraps the OpenShell gateway's API. A feature that needs a new gateway capability starts in [NVIDIA/OpenShell](https://github.com/NVIDIA/OpenShell/issues); link that issue here.
+
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User Story
+      description: Describe the specific use case and behavior you directly encountered or need.
+      placeholder: |
+        I use the OpenShell Python SDK for <specific use case>.
+        I directly encountered or need <specific behavior>.
+        This affects <outcome>.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Summarize the capability missing from the SDK today. Describe its consequences and current workarounds in Impact / Why This Matters.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact / Why This Matters
+      description: |
+        Explain what users must do today and why that is insufficient, for example calling `openshell._proto` stubs directly. Include concrete evidence where available, but do not prescribe the implementation.
+      placeholder: |
+        Without this feature, users must...
+        This results in...
+        This matters because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: design
+    attributes:
+      label: Proposed API
+      description: |
+        How should this look to an SDK user? Show a notional Python example and describe the externally observable behavior.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: List specific, observable outcomes that would make this feature complete without prescribing how implementers achieve them.
+      placeholder: |
+        - [ ] <observable outcome>
+        - [ ] <observable outcome>
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Explain what you tried with the current SDK, including the generated `openshell._proto` stubs, and why the proposal serves your use case better.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I've reviewed existing issues and the README
+          required: true
+        - label: This is a design proposal, not a "please build this" request
+          required: true

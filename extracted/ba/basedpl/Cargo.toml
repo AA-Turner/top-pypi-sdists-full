@@ -5,15 +5,15 @@ members = ["image", "jit", "py", "testkit"]
 join_comments = true
 
 [workspace.package]
-version = "0.1.85"
+version = "0.1.86"
 edition = "2024"
 rust-version = "1.98"
 license = "Apache-2.0"
 
 [workspace.dependencies]
-rustymath = { version = ">=0.1.59, <1", default-features = false }
-rustymath-buffer = ">=0.1.55, <1"
-rustymath-timing = ">=0.1.56, <1"
+rustymath = { version = ">=0.1.60, <1", default-features = false }
+rustymath-buffer = ">=0.1.60, <1"
+rustymath-timing = ">=0.1.60, <1"
 pyo3 = ">=0.29.2, <1"
 pyo3-build-config = ">=0.29.2, <1"
 ctrlc = ">=3.5.2, <4"

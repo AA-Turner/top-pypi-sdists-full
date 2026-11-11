@@ -22,6 +22,14 @@ class Core(object):
 
 		Version history:
 
+		1.116.0 (06.11.2026)
+		- Added ArgSingle.compose_cmd_string() for composing one optional or mandatory argument.
+		- Small changes and warning ignores in PyCharm 2026.2.4.
+		- Changed behaviour: when the instrument does not support *OPT?, this results in empty options array.
+
+		1.115.1 (25.08.2026)
+		- Fixed 0-based Repeated Capabilities replacements in SCPI commands.
+
 		1.115.0 (12.08.2026)
 		- Added boolean flag optimize_opc_execute - used in the execute() user method.
 
@@ -156,7 +164,7 @@ class Core(object):
 			- Added query list methods:  query_bool_list, query_bool_list_with_opc.
 
 		1.21.0 (07.01.2022)
-			- Added logging to UDP port (49200) to integrate with new R&S Instrument Control plugin for Pycharm.
+			- Added logging to UDP port (49200) to integrate with new R&S Instrument Control plugin for PyCharm.
 
 		1.20.0 (19.11.2021)
 			- Fixed logging strings when device name was a substring of the resource name.
@@ -285,7 +293,7 @@ class Core(object):
 		"""Initializes new driver session. For cleaner code, use the class methods: \n
 		- Core.from_existing_session() - initializes a new Core with an existing pyvisa session."""
 
-		self.core_version = '1.115.0'
+		self.core_version = '1.116.0'
 		self.resource_name = resource_name
 		self.called_from_driver = called_from_driver
 
@@ -371,11 +379,13 @@ class Core(object):
 		"""Adds / Updates link handler for the entered link_name.
 		Handler API: handler(event_args: ArgLinkedEventArgs)
 		Returns the previous registered handler, or None if no handler was registered before."""
+		# noinspection bad-return
 		return self.io.set_link_handler(link_name, handler)  # ty: ignore[invalid-return-type]
 
 	def del_link_handler(self, link_name: str) -> Callable:
 		"""Deletes link handler for the link_name.
 		Returns the deleted handler, or None if none existed."""
+		# noinspection bad-return
 		return self.io.del_link_handler(link_name)  # ty: ignore[invalid-return-type]
 
 	def del_all_link_handlers(self) -> int:
@@ -431,4 +441,5 @@ class Core(object):
 	def close(self):
 		"""Closes the Core session."""
 		self.io.close()
+		# noinspection bad-assignment
 		self.io = None  # ty: ignore[invalid-assignment]

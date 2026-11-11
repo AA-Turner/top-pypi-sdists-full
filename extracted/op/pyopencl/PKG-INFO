@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyopencl
-Version: 2026.1.4
+Version: 2026.1.5
 Summary: Python wrapper for OpenCL
 Author-Email: Andreas Kloeckner <inform@tiker.net>
 License-Expression: MIT
@@ -20,9 +20,8 @@ Project-URL: Documentation, https://documen.tician.de/pyopencl
 Project-URL: Homepage, https://mathema.tician.de/software/pyopencl
 Project-URL: Repository, https://github.com/inducer/pyopencl
 Requires-Python: <4,>=3.10
-Requires-Dist: importlib-resources; python_version < "3.9"
 Requires-Dist: numpy
-Requires-Dist: platformdirs>=2.2
+Requires-Dist: platformdirs>=4.6
 Requires-Dist: pytools>=2025.1.6
 Requires-Dist: typing_extensions>=4.6
 Provides-Extra: oclgrind

@@ -29,6 +29,7 @@ from typing import Annotated, Any, Optional, Union
 from pydantic import BaseModel, Field, Tag, field_validator, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
+from letschatty.models.chat.quality_scoring import QualityScore
 from letschatty.models.utils.types.identifier import StrObjectId
 
 from .acciones_basicas import (
@@ -221,7 +222,7 @@ class SiVuelve(BaseModel):
 # con la forma combinable.
 _CLAVES_VIEJAS = frozenset({"que", "target_funnel_id", "target_stage_id"})
 _CLAVES_NUEVAS = frozenset({"etiquetas", "archivar", "dejar_esperando", "mover_a", "si_vuelve", "despues_de_minutos",
-                            "workflow_ids"})
+                            "workflow_ids", "quality_score"})
 
 #: El cierre sale 24 h después del último paso, salvo que el bloque diga otra cosa (`AlTerminar.despues_de_minutos`).
 ESPERA_DEL_CIERRE_POR_DEFECTO_MINUTOS = 24 * 60
@@ -236,7 +237,8 @@ class AlTerminar(BaseModel):
       (`Chat.seguimiento_estado`) y se registra la etapa del funnel en la que se cayó.
     - **Además, combinables:** etiquetar (agregar/sacar), archivar, dejar esperando (sacarle el
       agente), crear un pendiente (`pendiente_titulo`), mover a una etapa (`mover_a`) y, desde 0.6.57,
-      enganchar workflows (`workflow_ids`; como en `AccionesFijas`: uno que ya estaba no se duplica).
+      enganchar workflows (`workflow_ids`; como en `AccionesFijas`: uno que ya estaba no se duplica) y, desde
+      0.6.57.2, calificar el lead (`quality_score`, p. ej. «no respondió → mala»).
     - **Si vuelve a escribir** (`si_vuelve`): vuelve a la etapa donde estaba (default), va a una etapa
       fija o pasa de nuevo por el flujo; y opcionalmente se le sacan las etiquetas del cierre.
 
@@ -247,6 +249,10 @@ class AlTerminar(BaseModel):
     ⚠️ Orden de despliegue: un lector en 0.4.562 o antes lee la forma nueva como «nada» (ignora las
     claves que no conoce y `que` falta) y, si vuelve a guardar, la pierde. api-chatty tiene que estar
     en esta versión ANTES de que el frontend escriba la forma nueva.
+
+    ⚠️ `quality_score` (0.6.57.2) tiene el mismo orden: letschatty → api-chatty → frontend. Un lector en un
+    pin anterior descarta el campo al leer y, si vuelve a guardar, lo pierde (acá no lanza: el cierre sólo
+    queda sin esa acción; en `AccionesFijas`, un `si_responde` con SÓLO la calificación sí deja de leerse).
     """
 
     etiquetas: AccionesDeEtiquetas = Field(default_factory=AccionesDeEtiquetas)
@@ -274,6 +280,10 @@ class AlTerminar(BaseModel):
     workflow_ids: list[StrObjectId] = Field(
         default_factory=list,
         description="Workflows (de la empresa) que se enganchan al chat al pasar a «Sin respuesta»",
+    )
+    quality_score: Optional[QualityScore] = Field(
+        default=None,
+        description="«Calificar lead» al pasar a «Sin respuesta» (p. ej. mala). None = no califica",
     )
 
     @model_validator(mode="before")
@@ -327,7 +337,7 @@ class AlTerminar(BaseModel):
         """¿Hace algo además de pasar a «Sin respuesta»?"""
         return bool(
             not self.etiquetas.vacio or self.archivar or self.dejar_esperando or self.pendiente_titulo or self.mover_a
-            or self.workflow_ids
+            or self.workflow_ids or self.quality_score
         )
 
 

@@ -1255,6 +1255,7 @@ class CfnInfluxDBCluster(
             db_storage_type="dbStorageType",
             deployment_type="deploymentType",
             failover_mode="failoverMode",
+            kms_key_id="kmsKeyId",
             log_delivery_configuration=timestream.CfnInfluxDBCluster.LogDeliveryConfigurationProperty(
                 s3_configuration=timestream.CfnInfluxDBCluster.S3ConfigurationProperty(
                     bucket_name="bucketName",
@@ -1293,6 +1294,7 @@ class CfnInfluxDBCluster(
         db_storage_type: typing.Optional[builtins.str] = None,
         deployment_type: typing.Optional[builtins.str] = None,
         failover_mode: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
         log_delivery_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfluxDBCluster.LogDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         maintenance_schedule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfluxDBCluster.MaintenanceScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
@@ -1317,6 +1319,7 @@ class CfnInfluxDBCluster(
         :param db_storage_type: The storage type of the InfluxDB cluster.
         :param deployment_type: Deployment type of the InfluxDB cluster.
         :param failover_mode: Failover mode of the InfluxDB cluster.
+        :param kms_key_id: The customer managed key used to encrypt data in the InfluxDB cluster.
         :param log_delivery_configuration: Configuration for sending logs to customer account from the InfluxDB cluster.
         :param maintenance_schedule: The maintenance schedule for the InfluxDB cluster.
         :param name: The unique name that is associated with the InfluxDB cluster.
@@ -1342,6 +1345,7 @@ class CfnInfluxDBCluster(
             db_storage_type=db_storage_type,
             deployment_type=deployment_type,
             failover_mode=failover_mode,
+            kms_key_id=kms_key_id,
             log_delivery_configuration=log_delivery_configuration,
             maintenance_schedule=maintenance_schedule,
             name=name,
@@ -1425,6 +1429,17 @@ class CfnInfluxDBCluster(
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrEffectiveDbParameterGroupIdentifier")
+    def attr_effective_db_parameter_group_identifier(self) -> builtins.str:
+        '''The parameter group actually applied to the InfluxDB cluster.
+
+        When the service applies optimized defaults it creates a system-managed parameter group and this field reflects that effective parameter group, while DbParameterGroupIdentifier continues to reflect the customer-provided parameter group. When no service-managed parameter group is applied, this equals DbParameterGroupIdentifier.
+
+        :cloudformationAttribute: EffectiveDbParameterGroupIdentifier
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEffectiveDbParameterGroupIdentifier"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrEndpoint")
     def attr_endpoint(self) -> builtins.str:
         '''The connection endpoint for the InfluxDB cluster.
@@ -1459,6 +1474,24 @@ class CfnInfluxDBCluster(
         :cloudformationAttribute: InfluxAuthParametersSecretArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrInfluxAuthParametersSecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMemberCount")
+    def attr_member_count(self) -> jsii.Number:
+        '''The number of DB instances that belong to the InfluxDB cluster.
+
+        :cloudformationAttribute: MemberCount
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrMemberCount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMemberModeCounts")
+    def attr_member_mode_counts(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''DB cluster member counts grouped by instance mode.
+
+        :cloudformationAttribute: MemberModeCounts
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrMemberModeCounts"))
 
     @builtins.property
     @jsii.member(jsii_name="attrNextMaintenanceTime")
@@ -1604,6 +1637,19 @@ class CfnInfluxDBCluster(
             type_hints = cached_type_hints(_typecheckingstub__e8db63d23c673fdd93e19005fa2c6e862e6f0719dda9e9d9805b313db11a2575)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "failoverMode", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The customer managed key used to encrypt data in the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b00a69c8942ee5e68f56114b388e66882bb80b8f4999a66b4f5ed4c6eb9bfb74)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="logDeliveryConfiguration")
@@ -1918,6 +1964,72 @@ class CfnInfluxDBCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBCluster.MemberModeCountProperty",
+        jsii_struct_bases=[],
+        name_mapping={"count": "count", "mode": "mode"},
+    )
+    class MemberModeCountProperty:
+        def __init__(self, *, count: jsii.Number, mode: builtins.str) -> None:
+            '''The number of DB cluster members reporting one instance mode.
+
+            :param count: The number of DB cluster members reporting this instance mode.
+            :param mode: The instance mode reported by DB cluster members.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbcluster-membermodecount.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_timestream as timestream
+                
+                member_mode_count_property = timestream.CfnInfluxDBCluster.MemberModeCountProperty(
+                    count=123,
+                    mode="mode"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7a21fdb42e728772a67f633bb43aff24669aa83e10d7425f79b3295f743b9d3a)
+                check_type(argname="argument count", value=count, expected_type=type_hints["count"])
+                check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "count": count,
+                "mode": mode,
+            }
+
+        @builtins.property
+        def count(self) -> jsii.Number:
+            '''The number of DB cluster members reporting this instance mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbcluster-membermodecount.html#cfn-timestream-influxdbcluster-membermodecount-count
+            '''
+            result = self._values.get("count")
+            assert result is not None, "Required property 'count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def mode(self) -> builtins.str:
+            '''The instance mode reported by DB cluster members.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbcluster-membermodecount.html#cfn-timestream-influxdbcluster-membermodecount-mode
+            '''
+            result = self._values.get("mode")
+            assert result is not None, "Required property 'mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MemberModeCountProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBCluster.S3ConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"bucket_name": "bucketName", "enabled": "enabled"},
@@ -2002,6 +2114,7 @@ class CfnInfluxDBCluster(
         "db_storage_type": "dbStorageType",
         "deployment_type": "deploymentType",
         "failover_mode": "failoverMode",
+        "kms_key_id": "kmsKeyId",
         "log_delivery_configuration": "logDeliveryConfiguration",
         "maintenance_schedule": "maintenanceSchedule",
         "name": "name",
@@ -2027,6 +2140,7 @@ class CfnInfluxDBClusterProps:
         db_storage_type: typing.Optional[builtins.str] = None,
         deployment_type: typing.Optional[builtins.str] = None,
         failover_mode: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
         log_delivery_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfluxDBCluster.LogDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         maintenance_schedule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfluxDBCluster.MaintenanceScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
@@ -2049,6 +2163,7 @@ class CfnInfluxDBClusterProps:
         :param db_storage_type: The storage type of the InfluxDB cluster.
         :param deployment_type: Deployment type of the InfluxDB cluster.
         :param failover_mode: Failover mode of the InfluxDB cluster.
+        :param kms_key_id: The customer managed key used to encrypt data in the InfluxDB cluster.
         :param log_delivery_configuration: Configuration for sending logs to customer account from the InfluxDB cluster.
         :param maintenance_schedule: The maintenance schedule for the InfluxDB cluster.
         :param name: The unique name that is associated with the InfluxDB cluster.
@@ -2080,6 +2195,7 @@ class CfnInfluxDBClusterProps:
                 db_storage_type="dbStorageType",
                 deployment_type="deploymentType",
                 failover_mode="failoverMode",
+                kms_key_id="kmsKeyId",
                 log_delivery_configuration=timestream.CfnInfluxDBCluster.LogDeliveryConfigurationProperty(
                     s3_configuration=timestream.CfnInfluxDBCluster.S3ConfigurationProperty(
                         bucket_name="bucketName",
@@ -2114,6 +2230,7 @@ class CfnInfluxDBClusterProps:
             check_type(argname="argument db_storage_type", value=db_storage_type, expected_type=type_hints["db_storage_type"])
             check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
             check_type(argname="argument failover_mode", value=failover_mode, expected_type=type_hints["failover_mode"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             check_type(argname="argument log_delivery_configuration", value=log_delivery_configuration, expected_type=type_hints["log_delivery_configuration"])
             check_type(argname="argument maintenance_schedule", value=maintenance_schedule, expected_type=type_hints["maintenance_schedule"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -2141,6 +2258,8 @@ class CfnInfluxDBClusterProps:
             self._values["deployment_type"] = deployment_type
         if failover_mode is not None:
             self._values["failover_mode"] = failover_mode
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
         if log_delivery_configuration is not None:
             self._values["log_delivery_configuration"] = log_delivery_configuration
         if maintenance_schedule is not None:
@@ -2227,6 +2346,15 @@ class CfnInfluxDBClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-failovermode
         '''
         result = self._values.get("failover_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The customer managed key used to encrypt data in the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -2385,6 +2513,7 @@ class CfnInfluxDBInstance(
             db_parameter_group_identifier="dbParameterGroupIdentifier",
             db_storage_type="dbStorageType",
             deployment_type="deploymentType",
+            kms_key_id="kmsKeyId",
             log_delivery_configuration=timestream.CfnInfluxDBInstance.LogDeliveryConfigurationProperty(
                 s3_configuration=timestream.CfnInfluxDBInstance.S3ConfigurationProperty(
                     bucket_name="bucketName",
@@ -2422,6 +2551,7 @@ class CfnInfluxDBInstance(
         db_parameter_group_identifier: typing.Optional[builtins.str] = None,
         db_storage_type: typing.Optional[builtins.str] = None,
         deployment_type: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
         log_delivery_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfluxDBInstance.LogDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         maintenance_schedule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfluxDBInstance.MaintenanceScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
@@ -2445,6 +2575,7 @@ class CfnInfluxDBInstance(
         :param db_parameter_group_identifier: The name or id of the DB parameter group to assign to your DB instance. DB parameter groups specify how the database is configured. For example, DB parameter groups can specify the limit for query concurrency.
         :param db_storage_type: The Timestream for InfluxDB DB storage type to read and write InfluxDB data. You can choose between 3 different types of provisioned Influx IOPS included storage according to your workloads requirements: - Influx IO Included 3000 IOPS - Influx IO Included 12000 IOPS - Influx IO Included 16000 IOPS
         :param deployment_type: Specifies whether the Timestream for InfluxDB is deployed as Single-AZ or with a MultiAZ Standby for High availability.
+        :param kms_key_id: The customer managed key used to encrypt data in the InfluxDB instance.
         :param log_delivery_configuration: Configuration for sending InfluxDB engine logs to a specified S3 bucket.
         :param maintenance_schedule: The maintenance schedule for the InfluxDB instance.
         :param name: The name that uniquely identifies the DB instance when interacting with the Amazon Timestream for InfluxDB API and CLI commands. This name will also be a prefix included in the endpoint. DB instance names must be unique per customer and per region.
@@ -2469,6 +2600,7 @@ class CfnInfluxDBInstance(
             db_parameter_group_identifier=db_parameter_group_identifier,
             db_storage_type=db_storage_type,
             deployment_type=deployment_type,
+            kms_key_id=kms_key_id,
             log_delivery_configuration=log_delivery_configuration,
             maintenance_schedule=maintenance_schedule,
             name=name,
@@ -2559,6 +2691,15 @@ class CfnInfluxDBInstance(
         :cloudformationAttribute: AvailabilityZone
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrAvailabilityZone"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbClusterId")
+    def attr_db_cluster_id(self) -> builtins.str:
+        '''The service generated unique identifier of the InfluxDB cluster containing this instance.
+
+        :cloudformationAttribute: DbClusterId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbClusterId"))
 
     @builtins.property
     @jsii.member(jsii_name="attrEndpoint")
@@ -2724,6 +2865,19 @@ class CfnInfluxDBInstance(
             type_hints = cached_type_hints(_typecheckingstub__dac0663b012220243058f546574e79cb08c511efe9044e387e944759cb8b6c7f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deploymentType", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The customer managed key used to encrypt data in the InfluxDB instance.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fff4ee2dc43cf6ef0a898c8f9ba29b15adfc35a8005e3e893c1218d57a24c1a8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="logDeliveryConfiguration")
@@ -3121,6 +3275,7 @@ class CfnInfluxDBInstance(
         "db_parameter_group_identifier": "dbParameterGroupIdentifier",
         "db_storage_type": "dbStorageType",
         "deployment_type": "deploymentType",
+        "kms_key_id": "kmsKeyId",
         "log_delivery_configuration": "logDeliveryConfiguration",
         "maintenance_schedule": "maintenanceSchedule",
         "name": "name",
@@ -3145,6 +3300,7 @@ class CfnInfluxDBInstanceProps:
         db_parameter_group_identifier: typing.Optional[builtins.str] = None,
         db_storage_type: typing.Optional[builtins.str] = None,
         deployment_type: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
         log_delivery_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfluxDBInstance.LogDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         maintenance_schedule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfluxDBInstance.MaintenanceScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
@@ -3166,6 +3322,7 @@ class CfnInfluxDBInstanceProps:
         :param db_parameter_group_identifier: The name or id of the DB parameter group to assign to your DB instance. DB parameter groups specify how the database is configured. For example, DB parameter groups can specify the limit for query concurrency.
         :param db_storage_type: The Timestream for InfluxDB DB storage type to read and write InfluxDB data. You can choose between 3 different types of provisioned Influx IOPS included storage according to your workloads requirements: - Influx IO Included 3000 IOPS - Influx IO Included 12000 IOPS - Influx IO Included 16000 IOPS
         :param deployment_type: Specifies whether the Timestream for InfluxDB is deployed as Single-AZ or with a MultiAZ Standby for High availability.
+        :param kms_key_id: The customer managed key used to encrypt data in the InfluxDB instance.
         :param log_delivery_configuration: Configuration for sending InfluxDB engine logs to a specified S3 bucket.
         :param maintenance_schedule: The maintenance schedule for the InfluxDB instance.
         :param name: The name that uniquely identifies the DB instance when interacting with the Amazon Timestream for InfluxDB API and CLI commands. This name will also be a prefix included in the endpoint. DB instance names must be unique per customer and per region.
@@ -3196,6 +3353,7 @@ class CfnInfluxDBInstanceProps:
                 db_parameter_group_identifier="dbParameterGroupIdentifier",
                 db_storage_type="dbStorageType",
                 deployment_type="deploymentType",
+                kms_key_id="kmsKeyId",
                 log_delivery_configuration=timestream.CfnInfluxDBInstance.LogDeliveryConfigurationProperty(
                     s3_configuration=timestream.CfnInfluxDBInstance.S3ConfigurationProperty(
                         bucket_name="bucketName",
@@ -3229,6 +3387,7 @@ class CfnInfluxDBInstanceProps:
             check_type(argname="argument db_parameter_group_identifier", value=db_parameter_group_identifier, expected_type=type_hints["db_parameter_group_identifier"])
             check_type(argname="argument db_storage_type", value=db_storage_type, expected_type=type_hints["db_storage_type"])
             check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             check_type(argname="argument log_delivery_configuration", value=log_delivery_configuration, expected_type=type_hints["log_delivery_configuration"])
             check_type(argname="argument maintenance_schedule", value=maintenance_schedule, expected_type=type_hints["maintenance_schedule"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -3254,6 +3413,8 @@ class CfnInfluxDBInstanceProps:
             self._values["db_storage_type"] = db_storage_type
         if deployment_type is not None:
             self._values["deployment_type"] = deployment_type
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
         if log_delivery_configuration is not None:
             self._values["log_delivery_configuration"] = log_delivery_configuration
         if maintenance_schedule is not None:
@@ -3341,6 +3502,15 @@ class CfnInfluxDBInstanceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-deploymenttype
         '''
         result = self._values.get("deployment_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The customer managed key used to encrypt data in the InfluxDB instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -6440,6 +6610,7 @@ def _typecheckingstub__be8ecc5b7ea47ffefaf63209143e2288844fffe44ea992cf74c71a11f
     db_storage_type: typing.Optional[builtins.str] = None,
     deployment_type: typing.Optional[builtins.str] = None,
     failover_mode: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
     log_delivery_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfluxDBCluster.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maintenance_schedule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfluxDBCluster.MaintenanceScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
@@ -6517,6 +6688,12 @@ def _typecheckingstub__2109d480d931ad54e375735a13460e83d3ff947fac621effd55f1284b
     pass
 
 def _typecheckingstub__e8db63d23c673fdd93e19005fa2c6e862e6f0719dda9e9d9805b313db11a2575(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b00a69c8942ee5e68f56114b388e66882bb80b8f4999a66b4f5ed4c6eb9bfb74(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -6609,6 +6786,14 @@ def _typecheckingstub__ec60feb1ae535b423873bf5c1c4ebeefb7eb823796b3918c6e7a382a3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7a21fdb42e728772a67f633bb43aff24669aa83e10d7425f79b3295f743b9d3a(
+    *,
+    count: jsii.Number,
+    mode: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8bbe9d14170f24c0bc2829837e1b538aebc3b8946a62ba268befb9cf1f2440b5(
     *,
     bucket_name: builtins.str,
@@ -6626,6 +6811,7 @@ def _typecheckingstub__814531a2e78a843f44fa3e4ebd14e42a7a13b1c44ad04cd38cf33c032
     db_storage_type: typing.Optional[builtins.str] = None,
     deployment_type: typing.Optional[builtins.str] = None,
     failover_mode: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
     log_delivery_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfluxDBCluster.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maintenance_schedule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfluxDBCluster.MaintenanceScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
@@ -6652,6 +6838,7 @@ def _typecheckingstub__261e4a43f1d3c329e317698aa3b0f0428b7e7d3646c4c536f48fd191f
     db_parameter_group_identifier: typing.Optional[builtins.str] = None,
     db_storage_type: typing.Optional[builtins.str] = None,
     deployment_type: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
     log_delivery_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfluxDBInstance.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maintenance_schedule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfluxDBInstance.MaintenanceScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
@@ -6723,6 +6910,12 @@ def _typecheckingstub__82a77601407a22b185b040520ff63d954800f462813b7884892bbc788
     pass
 
 def _typecheckingstub__dac0663b012220243058f546574e79cb08c511efe9044e387e944759cb8b6c7f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fff4ee2dc43cf6ef0a898c8f9ba29b15adfc35a8005e3e893c1218d57a24c1a8(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -6831,6 +7024,7 @@ def _typecheckingstub__d0e1a256f4abdadd4b29eda8fd45f16d71b49061c796d179f90eb728f
     db_parameter_group_identifier: typing.Optional[builtins.str] = None,
     db_storage_type: typing.Optional[builtins.str] = None,
     deployment_type: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
     log_delivery_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfluxDBInstance.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maintenance_schedule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfluxDBInstance.MaintenanceScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,

@@ -181,7 +181,7 @@ class LogEntry:
             break
         return content
 
-    # noinspection PyTypeChecker
+    # noinspection PyTypeChecker,unreachable-code
     def _get_log_string_variable_values(self, name: str) -> str:
         """Returns the required variable value.
         Recognised names: START_TIME, END_TIME, DURATION, DEVICE_NAME, LOG_STRING_INFO, LOG_STRING, SCPI_COMMAND"""

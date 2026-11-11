@@ -19,6 +19,9 @@ from snowflake.core._operation import PollingOperation, PollingOperations
 from snowflake.core._utils import replace_function_name_in_name_with_args
 from snowflake.core.code_bundle_execution._generated.models.code_bundle_execution import CodeBundleExecution
 from snowflake.core.code_bundle_execution._generated.models.execute_code_bundle_request import ExecuteCodeBundleRequest
+from snowflake.core.code_bundle_execution._generated.models.execute_code_bundle_response import (
+    ExecuteCodeBundleResponse,
+)
 
 from .code_bundle_execution_api import CodeBundleExecutionApi
 
@@ -189,7 +192,7 @@ class CodeBundleExecutionResourceBase(ObjectReferenceMixin["CodeBundleExecutionC
         self,
         execute_code_bundle_request: ExecuteCodeBundleRequest,
         async_exec: Optional[bool] = None,
-    ) -> None:
+    ) -> ExecuteCodeBundleResponse:
         """Execute a code bundle.
 
         Parameters
@@ -199,19 +202,20 @@ class CodeBundleExecutionResourceBase(ObjectReferenceMixin["CodeBundleExecutionC
         async_exec: bool
              Asynchronous execution enable/disable. Default is disable.
         """
-        self.collection._api.execute_code_bundle(
+        result = self.collection._api.execute_code_bundle(
             self._identifier,
             execute_code_bundle_request=execute_code_bundle_request,
             async_exec=async_exec,
             async_req=False,
         )
+        return result
 
     @api_telemetry
     def execute_code_bundle_async(
         self,
         execute_code_bundle_request: ExecuteCodeBundleRequest,
         async_exec: Optional[bool] = None,
-    ) -> PollingOperation[None]:
+    ) -> PollingOperation[ExecuteCodeBundleResponse]:
         """An asynchronous version of :func:`execute_code_bundle`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
@@ -223,7 +227,8 @@ class CodeBundleExecutionResourceBase(ObjectReferenceMixin["CodeBundleExecutionC
             async_exec=async_exec,
             async_req=True,
         )
-        return PollingOperations.empty(future)
+
+        return PollingOperations.identity(future)
 
     @api_telemetry
     def fetch_status(

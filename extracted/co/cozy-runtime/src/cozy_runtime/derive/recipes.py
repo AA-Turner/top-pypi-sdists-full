@@ -29,7 +29,6 @@ from cozy_runtime.author import (
     Recipe,
     Telemetry,
     Weights,
-    invocable,
 )
 from cozy_runtime.author._errors import ConformanceError
 from cozy_runtime.author._recipes import (
@@ -43,11 +42,10 @@ from cozy_runtime.author._recipes import (
 
 
 # The code that decides a lane's bytes: its replay key changes with any of it.
-@invocable
 async def quantize(
     ctx: Context,
     *,
-    source: Weights[Any],
+    source: Weights,
     lane: str,
     package: str,
     release: str,
@@ -59,12 +57,11 @@ async def quantize(
     return _run(ctx, tel, source, None, lane=lane, package=package, release=release, recipe=recipe)
 
 
-@invocable
 async def quantize_calibrated(
     ctx: Context,
     *,
-    source: Weights[Any],
-    model: Model[Any],
+    source: Weights,
+    model: Model[object],
     lane: str,
     package: str,
     release: str,
@@ -83,8 +80,8 @@ class Runner(Protocol):
         self,
         ctx: Context,
         tel: Telemetry,
-        source: Weights[Any],
-        model: Model[Any] | None,
+        source: Weights[Model[object]],
+        model: Model[object] | None,
         *,
         lane: str,
         package: str,
@@ -104,8 +101,8 @@ def install(runner: Runner | None) -> None:
 def _run(
     ctx: Context,
     tel: Telemetry,
-    source: Weights[Any],
-    model: Model[Any] | None,
+    source: Weights[Model[object]],
+    model: Model[object] | None,
     *,
     lane: str,
     package: str,
@@ -143,12 +140,12 @@ def declared_plan(row: DeclaredRecipe) -> Plan:
     return declared_recipe(row).plan
 
 
-def declared_recipe(row: DeclaredRecipe) -> Recipe:
+def declared_recipe(row: DeclaredRecipe) -> Recipe[Model[object], Plan]:
     """The `Recipe` bound at the row's module and export, as the interface records it."""
     return _recipe(row, sys.modules.get(row.module))
 
 
-def _recipe(row: DeclaredRecipe, module: object) -> Recipe:
+def _recipe(row: DeclaredRecipe, module: object) -> Recipe[Model[object], Plan]:
     value = getattr(module, row.export, None)
     calibrate = value.calibrate if isinstance(value, Recipe) else None
     if (

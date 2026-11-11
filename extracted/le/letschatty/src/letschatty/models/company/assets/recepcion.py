@@ -497,7 +497,9 @@ class Recepcion(CompanyAssetModel):
         ge=1,
         description=(
             "Un chat que vuelve después de estos días sin actividad se reclasifica (motivo nuevo, "
-            "sin bienvenida). Nunca se reclasifica una conversación activa."
+            "sin bienvenida). Una conversación activa no se reclasifica, salvo que el mensaje entre por "
+            "una fuente (contact point: anuncio, smart message, texto literal): eso es una conversación "
+            "nueva aunque no hayan pasado estos días."
         ),
     )
 

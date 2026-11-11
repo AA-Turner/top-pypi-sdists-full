@@ -23,6 +23,8 @@ from pydantic.json_schema import SkipJsonSchema
 
 from letschatty.models.utils.types.identifier import StrObjectId
 
+from .turno import RecordatoriosDelTurno
+
 DESCONOCIDA = "desconocida"
 
 TIPOS_DE_ACCION = frozenset(
@@ -212,6 +214,12 @@ class AccionAgendar(_AccionBase):
     mensaje_al_derivar: Optional[str] = campo_mensaje_al_derivar()
     # 0.6.16: «Pasar a otro motivo» (ver `CambiarMotivo`).
     cambiar_motivo: Optional[CambiarMotivo] = campo_cambiar_motivo()
+    # 0.6.57.1: «Recordatorios del turno» del motivo (ver `turno.RecordatoriosDelTurno`). None = vale la
+    # config del agente (`pgp_configs.avisos_de_reunion`), como hasta ahora; con valor, gana la del motivo.
+    recordatorios: Optional[RecordatoriosDelTurno] = Field(
+        default=None,
+        description="Recordatorios del turno de este motivo. None = los del agente (pgp_configs.avisos_de_reunion)",
+    )
 
     @field_validator("derivar_cuando")
     @classmethod

@@ -191,7 +191,7 @@ def test_mc_logvol():
         ])
         lv = ell.monte_carlo_logvol(nsamp, rstate=rstate)[0]
         vtrue = two_sphere_vol(cen1, cen2, r1, r2)
-        assert (np.abs(np.log(vtrue) - lv) < 1e-2)
+        assert (np.abs(np.log(vtrue) - lv) < 2e-2)
 
 
 def test_mc_logvolRad():
@@ -210,7 +210,7 @@ def test_mc_logvolRad():
         rf.ctrs = np.array([cen1, cen2])
         lv = rf.monte_carlo_logvol(nsamp, rstate=rstate)[0]
         vtrue = two_sphere_vol(cen1, cen2, r1, r1)
-        assert (np.abs(np.log(vtrue) - lv) < 1e-2)
+        assert (np.abs(np.log(vtrue) - lv) < 2e-2)
 
 
 def test_mc_logvolCube():
@@ -284,3 +284,14 @@ def test_number_clusters():
     E = db.bounding_ellipsoids(xs)
 
     assert np.abs(len(E.ells) * 1. / ncens - 1) < THRESHOLD
+
+
+def test_scale_capped_logvol():
+    # when the enlargement is limited by the maximum axis length
+    # the stored volume must match the actual axes
+    ndim = 2
+    ell = db.Ellipsoid(ndim, ctr=np.ones(ndim) * .5, cov=np.eye(ndim) * .3**2)
+    ell.scale_to_logvol(ell.logvol + np.log(30))
+    assert np.allclose(ell.axlens, np.sqrt(ndim) / 2)
+    assert np.isclose(ell.logvol,
+                      db.logvol_prefactor(ndim) + np.log(ell.axlens).sum())

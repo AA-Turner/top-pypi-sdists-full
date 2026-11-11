@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sarj-sql-lint
-Version: 0.45.1
+Version: 0.47.0
 Summary: Deterministic PostgreSQL migration rules for safe, repeatable schema changes.
 Project-URL: Homepage, https://code-standards.sarj.ai/rules/sql/
 Project-URL: Documentation, https://code-standards.sarj.ai/rules/sql/

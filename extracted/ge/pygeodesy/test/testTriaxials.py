@@ -6,7 +6,7 @@
 from __future__ import division as _; del _  # noqa: E702 ;
 
 __all__ = ('Tests',)
-__version__ = '26.10.25'
+__version__ = '26.10.28'
 
 from bases import Geod3Solve, numpy, random, startswith, TestsBase
 
@@ -458,7 +458,10 @@ class Tests(TestsBase):
                     r    = T.reversePhiLamZet(ct, dir3d=d3, llk=llk)
                     f, d = T.forwardPhiLamZet2(r.phi, r.lam, r.zet, llk=llk)
                 self.test(n, r, r)
-                self.test(n, f, ct, known=fabs(f.x - ct.x) < 0.001)  # llk in (LLK.GEODETIC_LON0, LLK.PLANETOCENTRIC))
+                k = 7e-4 if llk is LLK.GEODETIC_X else 2e-9
+                self.test(n, f, ct, known=max(fabs(f.x - ct.x),
+                                              fabs(f.y - ct.y),
+                                              fabs(f.z - ct.z)) < k)
                 self.test(n, d, d3, known=True)
                 _ = T.normed2(ct, d3)  # PYCHOK coverage
 

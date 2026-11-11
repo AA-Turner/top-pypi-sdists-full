@@ -1,38 +1,26 @@
-"""Install Ulysses hooks and guard collectives on declared sharded components.
+"""Install Ulysses hooks on declared sharded components.
 
-Runtime mirrors each component call before torch and diffusers hooks execute.
-Every rank enters the same call gate and owning component scope. Sampling, text
-encoding and VAE work remain on the leader. Select the attention backend before
-installing CP; existing accelerate wrappers on sharded components are refused.
+Every GPU of the group calls the component itself (`spmd`); Diffusers' hooks split its inputs and
+gather its outputs inside the call. Select the attention backend before installing CP; existing
+accelerate wrappers on sharded components are refused.
 """
 
 from __future__ import annotations
 
-import contextlib
 import re
-import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, cast
 
 from cozy_runtime.author._model import _declared_state
+from cozy_runtime.internal.parallel import spmd
 from cozy_runtime.internal.parallel.plan import GroupRefusal
 
-_tls = threading.local()
-
-
-class gated_call:
-    """Mark the dynamic extent in which collectives have participants on every rank."""
-
-    def __enter__(self) -> None:
-        _tls.active = getattr(_tls, "active", 0) + 1
-
-    def __exit__(self, *exc: object) -> None:
-        _tls.active = max(0, getattr(_tls, "active", 1) - 1)
-
-
-def in_gated_call() -> bool:
-    return bool(getattr(_tls, "active", 0))
+if TYPE_CHECKING:
+    import torch
+    from torch import nn
+    from torch.distributed import ProcessGroup
+    from torch.distributed.device_mesh import DeviceMesh
 
 
 class ContextParallelUnavailable(GroupRefusal):
@@ -41,21 +29,15 @@ class ContextParallelUnavailable(GroupRefusal):
     default_code = "context_parallel_unavailable"
 
 
-class UngatedShardedForward(GroupRefusal):
-    """A forward through a CP-sharded module outside the group's call gate."""
-
-    default_code = "ungated_sharded_forward"
-
-
 @dataclass(slots=True)
 class CpComms:
     """The GROUP's communication facts, passed explicitly - never the default group read
     ambiently (pgw#773's cross-group corruption). `pg` is replaced when the group forms
     again; every installed component reads it per collective."""
 
-    pg: Any
+    pg: ProcessGroup | None
     rank: int
-    device: Any
+    device: torch.device | str
 
 
 class _GroupMesh:
@@ -73,7 +55,7 @@ class _GroupMesh:
     def size(self) -> int:
         return self._size
 
-    def get_group(self) -> Any:
+    def get_group(self) -> ProcessGroup | None:
         if self._axis == "ring":
             raise ContextParallelUnavailable(
                 "ring attention is not supported: the runtime installs Ulysses sequence "
@@ -96,10 +78,9 @@ class _GroupMesh:
 
 
 _CP_PLAN_ATTR = "_cp_plan"
-_GUARD_ATTR = "_cozy_cp_gate_guard"
 
 
-def _modules_of(model: Any) -> Iterator[tuple[str, Any]]:
+def _modules_of(model: object) -> Iterator[tuple[str, nn.Module]]:
     """Every torch module reachable from the model's DECLARED state, and the components
     of any pipeline among them. Declared state is the author's statement of what the
     model holds (§1.1); nothing else is walked."""
@@ -122,8 +103,12 @@ def _modules_of(model: Any) -> Iterator[tuple[str, Any]]:
             yield label, module
 
 
-def sharding_candidates(model: Any) -> list[tuple[str, Any]]:
+def sharding_candidates(model: object) -> Sequence[tuple[str, object]]:
     """The components that DECLARE a context-parallel plan and can be told to shard."""
+    return _candidates(model)
+
+
+def _candidates(model: object) -> list[tuple[str, nn.Module]]:
     return [
         (name, module)
         for name, module in _modules_of(model)
@@ -131,11 +116,13 @@ def sharding_candidates(model: Any) -> list[tuple[str, Any]]:
     ]
 
 
-def install_context_parallel(model: Any, *, degree: int, comms: CpComms | None) -> tuple[str, ...]:
+def install_context_parallel(
+    model: object, *, degree: int, comms: CpComms | None
+) -> tuple[str, ...]:
     """Install Ulysses sequence parallelism at `degree` on every declaring component."""
     if int(degree) <= 1:
         return ()
-    components = sharding_candidates(model)
+    components = _candidates(model)
     if not components:
         raise ContextParallelUnavailable(
             "no declared component carries a `_cp_plan`; this model has not been adapted "
@@ -152,29 +139,12 @@ def install_context_parallel(model: Any, *, degree: int, comms: CpComms | None) 
     for name, component in components:
         refuse_unless_heads_divisible(heads=_declared_heads(component), degree=int(degree))
         _install_on_component(component, degree=int(degree), comms=comms)
-        _install_gate_guard(component, name)
+        spmd.install_call_check(component, name)
         installed.append(name)
     return tuple(installed)
 
 
-def _install_gate_guard(component: Any, name: str) -> None:
-    if getattr(component, _GUARD_ATTR, None) is not None:
-        return
-
-    def guard(module: Any, args: Any, kwargs: Any = None) -> None:
-        if in_gated_call():
-            return
-        raise UngatedShardedForward(
-            f"sharded component {name!r} needs the Runtime call gate inside an active "
-            "component scope, so every rank participates in its collectives"
-        )
-
-    handle = component.register_forward_pre_hook(guard, with_kwargs=True)
-    with contextlib.suppress(Exception):  # a frozen module keeps the hook anyway
-        setattr(component, _GUARD_ATTR, handle)
-
-
-def _install_on_component(component: Any, *, degree: int, comms: CpComms) -> None:
+def _install_on_component(component: nn.Module, *, degree: int, comms: CpComms) -> None:
     import torch
 
     try:
@@ -211,7 +181,11 @@ def _install_on_component(component: Any, *, degree: int, comms: CpComms) -> Non
             continue
         backend = processor._attention_backend
         if backend is None:
-            backend, _ = _AttentionBackendRegistry.get_active_backend()
+            # Diffusers leaves it unannotated: the active backend and its keyword arguments.
+            active: Callable[[], tuple[AttentionBackendName, object]] = (
+                _AttentionBackendRegistry.get_active_backend
+            )
+            backend, _ = active()
         else:
             backend = AttentionBackendName(backend)
         if not _AttentionBackendRegistry._is_context_parallel_available(backend):
@@ -225,8 +199,9 @@ def _install_on_component(component: Any, *, degree: int, comms: CpComms) -> Non
         comms.device if isinstance(comms.device, torch.device) else torch.device(str(comms.device))
     )
     mesh = _GroupMesh(comms, int(degree), int(comms.rank))
-    config.setup(int(comms.rank), int(degree), device, mesh=mesh)
-    component._parallel_config = config
+    # A stand-in with the members `setup` and Diffusers' hooks read (`_GroupMesh`).
+    config.setup(int(comms.rank), int(degree), device, mesh=cast("DeviceMesh", mesh))
+    vars(component)["_parallel_config"] = config  # as Module.__setattr__ stores a plain value
     for module in attention_modules:
         if not isinstance(module, attention_classes):
             continue
@@ -236,7 +211,7 @@ def _install_on_component(component: Any, *, degree: int, comms: CpComms) -> Non
     apply_context_parallel(component, cp_config, getattr(component, _CP_PLAN_ATTR))
 
 
-def _sharded_modules(component: Any) -> list[Any]:
+def _sharded_modules(component: nn.Module) -> list[nn.Module]:
     """The modules that run on sharded tensors: those under each `_cp_plan` entry that splits
     a module's INPUTS (`blocks.0`/`blocks.*` name the list), or the whole component when the
     plan splits its own. A module before the split sees the replicated sequence: H3 shards
@@ -244,7 +219,7 @@ def _sharded_modules(component: Any) -> list[Any]:
     a CP config would concatenate degree copies of its text."""
     from diffusers.models._modeling_parallel import ContextParallelInput
 
-    roots: dict[int, Any] = {}
+    roots: dict[int, nn.Module] = {}
     for key, inputs in getattr(component, _CP_PLAN_ATTR).items():
         if isinstance(inputs, dict) and any(
             isinstance(value, ContextParallelInput) and not value.split_output
@@ -253,13 +228,13 @@ def _sharded_modules(component: Any) -> list[Any]:
             path = re.sub(r"(^|\.)(0|\*)$", "", key)
             root = component.get_submodule(path) if path else component
             roots[id(root)] = root
-    modules: dict[int, Any] = {}
+    modules: dict[int, nn.Module] = {}
     for root in roots.values() or (component,):
         modules.update((id(module), module) for module in root.modules())
     return list(modules.values())
 
 
-def _refuse_if_forward_wrapped(components: list[tuple[str, Any]]) -> None:
+def _refuse_if_forward_wrapped(components: list[tuple[str, nn.Module]]) -> None:
     """Accelerate can restore a saved forward and remove CP's subsequently installed hooks.
 
     Only the sharded components matter. Runtime staging and paging keep their forwards;
@@ -274,7 +249,7 @@ def _refuse_if_forward_wrapped(components: list[tuple[str, Any]]) -> None:
                 )
 
 
-def _declared_heads(component: Any) -> int:
+def _declared_heads(component: nn.Module) -> int:
     config = getattr(component, "config", None)
     for attr in ("num_attention_heads", "num_heads", "attention_heads"):
         for holder in (config, component):

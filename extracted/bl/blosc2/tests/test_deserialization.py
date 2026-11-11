@@ -34,6 +34,30 @@ def test_objectarray_cframe_defaults_safe(durable_ref):
     assert trusted[0] == durable_ref
 
 
+@pytest.mark.parametrize(
+    ("constructor", "mode"),
+    [
+        ("arange(4, dtype='i2')", "safe"),
+        ("fromiter(range(4), shape=(4,), dtype='int32')", "full"),
+    ],
+)
+def test_saved_constructor_expression_policy(tmp_path, constructor, mode):
+    values = np.arange(4, dtype="int32")
+    operand = blosc2.asarray(values, urlpath=tmp_path / "operand.b2nd", mode="w")
+    expression = f"a + {constructor}"
+    if mode == "full":
+        with pytest.raises(blosc2.UnsafeDeserializationError, match="'range'"):
+            blosc2.lazyexpr(expression, {"a": operand}, evaluation="safe")
+    expr = blosc2.lazyexpr(expression, {"a": operand}, evaluation=mode)
+    path = tmp_path / "expression.b2nd"
+    expr.save(path)
+    if mode == "full":
+        with pytest.raises(blosc2.UnsafeDeserializationError, match="'range'"):
+            blosc2.open(path)
+    restored = blosc2.open(path, deserialize=mode)
+    np.testing.assert_array_equal(restored[:], values * 2)
+
+
 def test_batcharray_cframe_defaults_safe(durable_ref):
     source = blosc2.BatchArray(items_per_block=1)
     source.append([durable_ref])
@@ -180,11 +204,21 @@ def test_active_top_level_object_requires_full(tmp_path):
     path = tmp_path / "expression.b2nd"
     expression.save(path)
 
-    with pytest.raises(blosc2.UnsafeDeserializationError, match="lazyexpr"):
-        blosc2.open(path)
+    np.testing.assert_array_equal(blosc2.open(path)[:], np.arange(4) + 1)
 
     trusted = blosc2.open(path, deserialize="full")
     np.testing.assert_array_equal(trusted[:], np.arange(4) + 1)
+
+
+@pytest.mark.parametrize("expression", ["sqrt(x)", "sum(x)", "x.mean()", "x[0]"])
+def test_ordinary_lazyexpr_roundtrip_defaults_safe(tmp_path, expression):
+    values = np.arange(1, 5, dtype="float64")
+    operand = blosc2.asarray(values, urlpath=tmp_path / "operand.b2nd", mode="w")
+    lazy = blosc2.lazyexpr(expression, operands={"x": operand})
+    expected = lazy[()]
+    path = tmp_path / "expression.b2nd"
+    lazy.save(path)
+    np.testing.assert_allclose(blosc2.open(path)[()], expected)
 
 
 @pytest.mark.parametrize("value", [True, False, "unknown", None])

@@ -23,6 +23,7 @@ from .generated.client import (
     DocOpenResult as GeneratedDocOpenResult,
 )
 from .introspection import describe_contract, describe_contract_operation
+from .notifications import DEFAULT_NOTIFICATION_CAPACITY, AsyncNotifications, Notifications
 from .runtime import SuperDocAsyncRuntime, SuperDocSyncRuntime
 from .transport import DEFAULT_STDOUT_BUFFER_LIMIT_BYTES, DEFAULT_WATCHDOG_TIMEOUT_MS
 
@@ -269,6 +270,9 @@ class SuperDocClient:
         """
         self._runtime.connect()
 
+    def subscribe(self, capacity: int = DEFAULT_NOTIFICATION_CAPACITY) -> Notifications:
+        return self._runtime.subscribe(capacity)
+
     def open(
         self,
         params: GeneratedDocOpenParams,
@@ -276,6 +280,7 @@ class SuperDocClient:
         timeout_ms: Optional[int] = None,
         stdin_bytes: Optional[bytes] = None,
         collaboration_auth: Optional[CollaborationAuth] = None,
+        identity_claim: Optional[str] = None,
     ) -> SuperDocDocument:
         """Open a document and return a bound document handle.
 
@@ -295,7 +300,7 @@ class SuperDocClient:
                 self._pending_session_ids.add(explicit_session_id)
 
         try:
-            if collaboration_auth is None:
+            if collaboration_auth is None and identity_claim is None:
                 result = self._raw_api.open(params, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
             else:
                 result = self._runtime.invoke(
@@ -304,6 +309,7 @@ class SuperDocClient:
                     timeout_ms=timeout_ms,
                     stdin_bytes=stdin_bytes,
                     collaboration_auth=collaboration_auth,
+                    identity_claim=identity_claim,
                 )
             context_id = result.get('contextId', '')
 
@@ -400,6 +406,9 @@ class AsyncSuperDocClient:
         """
         await self._runtime.connect()
 
+    def subscribe(self, capacity: int = DEFAULT_NOTIFICATION_CAPACITY) -> AsyncNotifications:
+        return self._runtime.subscribe(capacity)
+
     async def open(
         self,
         params: GeneratedDocOpenParams,
@@ -407,6 +416,7 @@ class AsyncSuperDocClient:
         timeout_ms: Optional[int] = None,
         stdin_bytes: Optional[bytes] = None,
         collaboration_auth: Optional[CollaborationAuth] = None,
+        identity_claim: Optional[str] = None,
     ) -> AsyncSuperDocDocument:
         """Open a document and return a bound document handle.
 
@@ -425,7 +435,7 @@ class AsyncSuperDocClient:
             self._pending_session_ids.add(explicit_session_id)
 
         try:
-            if collaboration_auth is None:
+            if collaboration_auth is None and identity_claim is None:
                 result = await self._raw_api.open(params, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
             else:
                 result = await self._runtime.invoke(
@@ -434,6 +444,7 @@ class AsyncSuperDocClient:
                     timeout_ms=timeout_ms,
                     stdin_bytes=stdin_bytes,
                     collaboration_auth=collaboration_auth,
+                    identity_claim=identity_claim,
                 )
             context_id = result.get('contextId', '')
 

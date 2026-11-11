@@ -48,6 +48,9 @@ class UnderscoreDefinitionLocation:
     file: str
     line: int
     column: int
+    end_line: Optional[int] = None
+    """Where the source of the expression ends, when the precise AST node is known."""
+    end_column: Optional[int] = None
 
 
 def convert_value_to_proto_expr(value: Any) -> expr_pb2.LogicalExprNode:
@@ -91,6 +94,10 @@ class Underscore:
                         definition_location.line = source_node.lineno  # pyright: ignore
                     if hasattr(source_node, "col_offset") and source_node.col_offset is not None:  # pyright: ignore
                         definition_location.column = source_node.col_offset  # pyright: ignore
+                    if getattr(source_node, "end_lineno", None) is not None:
+                        definition_location.end_line = source_node.end_lineno  # pyright: ignore
+                    if getattr(source_node, "end_col_offset", None) is not None:
+                        definition_location.end_column = source_node.end_col_offset  # pyright: ignore
                 del current_frame
 
         self._chalk_definition_location: Optional[UnderscoreDefinitionLocation] = definition_location
@@ -546,6 +553,31 @@ def is_history_fold_expression(expr: "Underscore | None") -> bool:
         and isinstance(expr._chalk__parent, UnderscoreAttr)  # pyright: ignore[reportPrivateUsage]
         and expr._chalk__parent._chalk__attr == "history_fold"  # pyright: ignore[reportPrivateUsage]
     )
+
+
+def materialize_bucket_on_resolution(expr: "Underscore | None") -> Any:
+    """The raw `resolution=` passed to `.materialize_bucket_on(...)` in an aggregation expression, else `None`.
+
+    Recognizes `<source>.where(...)*.materialize_bucket_on(..., resolution=...).where(...)*.<agg>(...)`. It
+    lives here rather than in the importer so `windowed(..., materialization=True)` can size its
+    default buckets without importing the importer; the importer validates the value.
+    """
+    if not isinstance(expr, UnderscoreCall):
+        return None
+    aggregation = expr._chalk__parent  # pyright: ignore[reportPrivateUsage]
+    if not isinstance(aggregation, UnderscoreAttr):
+        return None
+    receiver: Any = aggregation._chalk__parent  # pyright: ignore[reportPrivateUsage]
+    while isinstance(receiver, UnderscoreCall):
+        method = receiver._chalk__parent  # pyright: ignore[reportPrivateUsage]
+        if not isinstance(method, UnderscoreAttr):
+            return None
+        if method._chalk__attr == "materialize_bucket_on":  # pyright: ignore[reportPrivateUsage]
+            return receiver._chalk__kwargs.get("resolution")  # pyright: ignore[reportPrivateUsage]
+        if method._chalk__attr != "where":  # pyright: ignore[reportPrivateUsage]
+            return None
+        receiver = method._chalk__parent  # pyright: ignore[reportPrivateUsage]
+    return None
 
 
 def _normalize_lambda_argument(value: Any) -> Any:

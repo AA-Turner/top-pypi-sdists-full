@@ -5546,6 +5546,9 @@ class ChalkGRPCClient:
         Looking up the volume validates that it still exists and lets the volume object
         produce the canonical mount specification.
         """
+        snapshot_id = spec.model_volume_version_id if spec.HasField("model_volume_version_id") else None
+        if snapshot_id is not None and not spec.model_volume:
+            raise ValueError("model_volume_version_id requires model_volume")
         if not (spec.HasField("model_volume") and spec.model_volume):
             return None
         volume_name = spec.model_volume
@@ -5555,6 +5558,8 @@ class ChalkGRPCClient:
                 f"Model '{model_name}' v{model_version} references volume '{volume_name}', which no longer "
                 + "exists. Restore the volume or re-register the model version before deploying."
             )
+        if snapshot_id is not None:
+            mount["version_id"] = snapshot_id
         return mount
 
     def _ensure_model_image(
@@ -5576,6 +5581,13 @@ class ChalkGRPCClient:
         spec = model_version_resp.model_version.model_artifact.spec
         has_model_image = spec.HasField("model_image") and bool(spec.model_image)
         has_build_spec = spec.HasField("image_spec") and bool(spec.image_spec)
+        if spec.HasField("model_volume_version_id"):
+            if not spec.model_volume:
+                raise ValueError("model_volume_version_id requires model_volume")
+            if not (has_model_image or has_build_spec):
+                raise ValueError(
+                    "model_volume_version_id requires a persisted model_image or image_spec for deployment"
+                )
         if has_build_spec:
             serving_handler = "model_handler.handler" if image_spec_bakes_handler_shim(spec.image_spec) else None
         elif has_model_image:

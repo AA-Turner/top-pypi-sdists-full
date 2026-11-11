@@ -42,9 +42,6 @@ __all__ = [
     "ScrollCommand",
     "FindCommand",
     "TabCommand",
-    "StatusCommand",
-    "CancelCommand",
-    "DialogCommand",
 ]
 
 
@@ -543,21 +540,18 @@ class ScrollCommand(TypedDict, total=False):
 
 
 class FindCommand(TypedDict, total=False):
-    """Finds elements and returns refs for up to 50 matches."""
+    """Finds elements and returns refs for up to 50 matches.
 
-    by: Required[Literal["role", "text", "label", "placeholder", "alt", "title", "testid", "css"]]
+    With nth, it returns that one match.
+    """
 
     command: Required[Literal["find"]]
 
-    value: Required[str]
-
-    exact: bool
+    target: Required[CommandTargetParam]
+    """A CSS selector or a locator, not a ref."""
 
     frame: CommandFrameParam
     """The iframe to look in. List nested iframes from the outside in."""
-
-    name: str
-    """The accessible name. Works only with by role."""
 
     tab: str
     """A tab id such as t2. A command on a ref does not need it."""
@@ -574,35 +568,6 @@ class TabCommand(TypedDict, total=False):
     """A tab id such as t2. A command on a ref does not need it."""
 
     url: str
-
-
-class StatusCommand(TypedDict, total=False):
-    """Waits for an execution and returns it. Send it alone."""
-
-    command: Required[Literal["status"]]
-
-    execution: Required[str]
-
-
-class CancelCommand(TypedDict, total=False):
-    """Stops an execution. Send it alone."""
-
-    command: Required[Literal["cancel"]]
-
-    execution: Required[str]
-
-
-class DialogCommand(TypedDict, total=False):
-    """Answers an open dialog. Send it alone."""
-
-    action: Required[Literal["accept", "dismiss"]]
-
-    command: Required[Literal["dialog"]]
-
-    dialog: Required[str]
-
-    text: str
-    """The answer to a prompt."""
 
 
 CommandParam: TypeAlias = Union[
@@ -635,7 +600,4 @@ CommandParam: TypeAlias = Union[
     ScrollCommand,
     FindCommand,
     TabCommand,
-    StatusCommand,
-    CancelCommand,
-    DialogCommand,
 ]

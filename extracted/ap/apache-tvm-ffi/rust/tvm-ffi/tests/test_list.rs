@@ -18,12 +18,27 @@
  */
 use tvm_ffi::*;
 
-/// Address of the element buffer and of its deleter.
-fn buffer_identity<T>(list: &List<T>) -> (usize, usize) {
-    let obj = <List<T> as ObjectRefCore>::data(list);
+/// Address of the element buffer and of its deleter, read through the C ABI
+/// layout of C++ `ListObj`: the object header, then its sequence cell.
+fn buffer_identity<T: tvm_ffi::type_traits::ContainerElement>(list: &List<T>) -> (usize, usize) {
+    #[repr(C)]
+    struct SeqCell {
+        data: *mut core::ffi::c_void,
+        size: i64,
+        capacity: i64,
+        data_deleter: Option<unsafe extern "C" fn(*mut core::ffi::c_void)>,
+    }
+    #[repr(C)]
+    struct Layout {
+        header: tvm_ffi::tvm_ffi_sys::TVMFFIObject,
+        cell: SeqCell,
+    }
+    let object = ObjectArc::as_ptr(<List<T> as ObjectRefCore>::data(list)) as *const Layout;
+    // SAFETY: a `List` object is laid out as C++ `ListObj`, and `list` keeps it alive.
+    let cell = unsafe { &(*object).cell };
     (
-        obj.data as usize,
-        obj.data_deleter.map(|f| f as usize).unwrap_or(0),
+        cell.data as usize,
+        cell.data_deleter.map(|f| f as usize).unwrap_or(0),
     )
 }
 
@@ -63,9 +78,8 @@ fn test_list_mutation() {
     assert!(list.capacity() >= 100);
     assert_eq!(list.get(99).unwrap(), 99);
 
-    list.set(0, -1).unwrap();
+    list.set(0, -1);
     assert_eq!(list.get(0).unwrap(), -1);
-    assert!(list.set(100, 0).is_err());
 
     list.insert(1, 7).unwrap();
     assert_eq!(list.get(1).unwrap(), 7);
@@ -122,7 +136,7 @@ fn test_list_growth_stays_with_runtime() {
 
 #[test]
 fn test_list_releases_elements() {
-    let array = Array::new(vec![1i64]);
+    let array = Array::from_vec(vec![1i64]);
     let probe = Any::from(array.clone());
     let base = probe.debug_strong_count().unwrap();
 
@@ -132,7 +146,7 @@ fn test_list_releases_elements() {
     list.insert(0, array.clone()).unwrap();
     assert_eq!(probe.debug_strong_count().unwrap(), base + 3);
 
-    list.set(0, Array::new(vec![2i64])).unwrap();
+    list.set(0, Array::from_vec(vec![2i64]));
     assert_eq!(probe.debug_strong_count().unwrap(), base + 2);
     drop(list.remove(1).unwrap());
     assert_eq!(probe.debug_strong_count().unwrap(), base + 1);
@@ -143,7 +157,7 @@ fn test_list_releases_elements() {
     list.extend([array.clone(), array.clone(), array.clone()])
         .unwrap();
     assert_eq!(probe.debug_strong_count().unwrap(), base + 3);
-    list.remove_range(0, 2).unwrap();
+    list.remove_range(0..2);
     assert_eq!(probe.debug_strong_count().unwrap(), base + 1);
     list.reverse();
     list.truncate(0);
@@ -211,14 +225,14 @@ fn test_list_reserve() {
 #[test]
 fn test_list_ends() {
     let list: List<i64> = List::new();
-    assert!(list.first().is_err());
-    assert!(list.last().is_err());
-    assert!(list.pop().is_err());
+    assert_eq!(list.first().unwrap(), None);
+    assert_eq!(list.last().unwrap(), None);
+    assert_eq!(list.pop().unwrap(), None);
     list.extend([1i64, 2, 3]).unwrap();
-    assert_eq!(list.first().unwrap(), 1);
-    assert_eq!(list.last().unwrap(), 3);
-    assert_eq!(list.pop().unwrap(), 3);
-    assert_eq!(list.pop().unwrap(), 2);
+    assert_eq!(list.first().unwrap(), Some(1));
+    assert_eq!(list.last().unwrap(), Some(3));
+    assert_eq!(list.pop().unwrap(), Some(3));
+    assert_eq!(list.pop().unwrap(), Some(2));
     assert_eq!(list.len(), 1);
 }
 
@@ -253,12 +267,10 @@ fn test_list_bulk_edits() {
     list.extend(std::iter::empty()).unwrap();
     assert!(list.insert_many(list.len() + 1, [0i64]).is_err());
 
-    list.remove_range(2, 4).unwrap();
+    list.remove_range(2..4);
     assert_eq!(list.len(), len);
     assert_eq!(list.get(2).unwrap(), 2);
-    list.remove_range(1, 1).unwrap();
-    assert!(list.remove_range(3, 2).is_err());
-    assert!(list.remove_range(0, list.len() + 1).is_err());
+    list.remove_range(1..1);
 
     list.truncate(3);
     assert_eq!(
@@ -291,9 +303,8 @@ fn test_list_insert_many_with_self_mutating_iterator() {
     list.push(0).unwrap();
     list.insert_many(
         0,
-        (1..=3).map(|i| {
+        (1..=3).inspect(|&i| {
             list.push(100 + i).unwrap();
-            i
         }),
     )
     .unwrap();
@@ -305,9 +316,8 @@ fn test_list_insert_many_with_self_mutating_iterator() {
     );
 
     // `extend` appends after whatever the iterator added.
-    list.extend((1..=2).map(|i| {
+    list.extend((1..=2).inspect(|&i| {
         list.push(200 + i).unwrap();
-        i
     }))
     .unwrap();
     assert_eq!(
@@ -357,7 +367,7 @@ fn test_list_of_any_and_objects() {
     let list: List<Any> = List::new();
     list.push(Any::from(1i64)).unwrap();
     list.push(Any::from(String::from("two"))).unwrap();
-    list.push(Any::from(Array::new(vec![3i64]))).unwrap();
+    list.push(Any::from(Array::from_vec(vec![3i64]))).unwrap();
     assert_eq!(list.len(), 3);
     assert_eq!(i64::try_from(list.get(0).unwrap()).unwrap(), 1);
     let nested: Array<i64> = list.get(2).unwrap().try_into().unwrap();
@@ -377,7 +387,7 @@ fn test_list_mismatched_element_is_reported() {
     // Another handle to the same object puts a `String` where an `i64` is expected.
     let ints: List<i64> = [1i64, 2, 3].into_iter().collect();
     let as_any: List<Any> = Any::from(ints.clone()).try_into().unwrap();
-    as_any.set(1, Any::from(String::from("x"))).unwrap();
+    as_any.set(1, Any::from(String::from("x")));
 
     // `get` and the iterator report that element instead of truncating.
     assert!(ints.get(1).is_err());
@@ -409,7 +419,7 @@ fn test_list_mismatched_element_is_reported() {
 #[test]
 fn test_list_conversion_copies() {
     // An `ffi.Array` converts into a new list.
-    let array = Array::new(vec![1i64, 2]);
+    let array = Array::from_vec(vec![1i64, 2]);
     let list: List<i64> = Any::from(array.clone()).try_into().unwrap();
     list.push(3).unwrap();
     assert_eq!(list.len(), 3);

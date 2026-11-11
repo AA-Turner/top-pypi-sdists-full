@@ -970,37 +970,8 @@ def api_schema():
 
 
 def test_no_false_no_matches_on_repeated_runs_with_config(testdir):
-    # When a schemathesis.toml disables one operation, repeated runs must NOT fail with
-    # "does not match any API operations" for the remaining enabled operations.
-    testdir.makefile(
-        ".toml",
-        schemathesis="""
-[[operations]]
-include-name = "GET /admin"
-enabled = false
-""",
-    )
-    testdir.makepyfile(
-        _NO_MATCHES_PREAMBLE
-        + """
-lazy_schema = schemathesis.pytest.from_fixture("api_schema")
-
-@lazy_schema.parametrize()
-@settings(max_examples=1, phases=[Phase.generate])
-def test_api(case):
-    pass
-"""
-    )
-
-    testdir.runpytest("--tb=short")  # populate caches
-    result = testdir.runpytest("--tb=short")
-    assert "does not match any API operations" not in result.stdout.str()
-    result.assert_outcomes(passed=1)
-
-
-def test_no_false_no_matches_with_multiple_lazy_schema_tests(testdir):
-    # When multiple test functions share the same lazy schema instance and a config disables
-    # one operation, all test functions must still find the remaining enabled operations.
+    # When a schemathesis.toml disables one operation, repeated runs and every test function sharing the lazy
+    # schema must NOT fail with "does not match any API operations" for the remaining enabled operations.
     testdir.makefile(
         ".toml",
         schemathesis="""
@@ -1026,6 +997,7 @@ def test_api_second(case):
 """
     )
 
+    testdir.runpytest("--tb=short")  # populate caches
     result = testdir.runpytest("--tb=short")
     assert "does not match any API operations" not in result.stdout.str()
     result.assert_outcomes(passed=2)
@@ -1086,17 +1058,18 @@ def test_api(case):
     result.assert_outcomes(failed=1)
 
 
-@pytest.mark.usefixtures("reload_profile")
+@pytest.mark.usefixtures("restore_hypothesis_profile")
 def test_hypothesis_settings_database_from_profile_lazy(testdir):
     # When a hypothesis profile with a custom database is loaded
     # And lazy schema parametrize is used
     testdir.make_test(
         """
+import os
 import tempfile
 from hypothesis import settings as hyp_settings, database
 
-# Create a custom database in a temporary directory
-custom_db_path = tempfile.mkdtemp()
+# Create a custom database in a temporary directory inside the test's own directory
+custom_db_path = tempfile.mkdtemp(dir=os.getcwd())
 custom_db = database.DirectoryBasedExampleDatabase(custom_db_path)
 
 # Register and load the profile (derandomize=False is required when using a database)
@@ -1122,17 +1095,18 @@ def test_(case):
     result.assert_outcomes(passed=1)
 
 
-@pytest.mark.usefixtures("reload_profile")
+@pytest.mark.usefixtures("restore_hypothesis_profile")
 def test_hypothesis_settings_decorator_database_lazy(testdir):
     # When @settings decorator with a custom database is applied to a test
     # And lazy schema parametrize is used
     testdir.make_test(
         """
+import os
 import tempfile
 from hypothesis import settings as hyp_settings, database
 
-# Create a custom database in a temporary directory
-custom_db_path = tempfile.mkdtemp()
+# Create a custom database in a temporary directory inside the test's own directory
+custom_db_path = tempfile.mkdtemp(dir=os.getcwd())
 custom_db = database.DirectoryBasedExampleDatabase(custom_db_path)
 
 lazy_schema = schemathesis.pytest.from_fixture("simple_schema")

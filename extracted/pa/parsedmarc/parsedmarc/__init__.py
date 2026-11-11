@@ -10,6 +10,8 @@ import email.errors
 import email.message
 import email.utils
 import functools
+import hashlib
+import ipaddress
 import json
 import logging
 import mailbox
@@ -18,6 +20,7 @@ import quopri
 import re
 import shutil
 import tempfile
+import time
 import traceback
 import xml.parsers.expat as expat
 import zipfile
@@ -26,6 +29,7 @@ from base64 import b64decode
 from collections import deque
 from collections.abc import Callable, Sequence
 from csv import DictWriter
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from io import BytesIO, StringIO
 from typing import (
@@ -52,7 +56,12 @@ from parsedmarc.config import (
 from parsedmarc.constants import (
     DEFAULT_DNS_MAX_RETRIES,
     DEFAULT_DNS_TIMEOUT,
+    MAX_FAILED_REVERSE_DNS_SECONDS_PER_REPORT,
+    MAX_REVERSE_DNS_SECONDS_PER_REPORT,
+    SLOW_REVERSE_DNS_SECONDS,
+    MAX_MESSAGE_COUNT,
     MAX_NORMALIZED_RECORDS,
+    MAX_REPORT_FUTURE_DAYS,
     MAX_REPORT_SPAN_DAYS,
     MAX_XML_DEPTH,
     MAX_XML_NODES,
@@ -77,6 +86,7 @@ from parsedmarc.types import (
     SMTPTLSReport,
 )
 from parsedmarc.utils import (
+    IPAddressInfo,
     convert_outlook_msg,
     get_base_domain,
     get_filename_safe_string,
@@ -750,11 +760,143 @@ def _scalarize_report(report: dict[str, Any]) -> None:
         _scalar_fields(policy, _POLICY_PUBLISHED_SCALARS)
 
 
+def _strip_zone_id(value: str, field_name: str) -> str:
+    """Return an IP address without its IPv6 zone ID, if it has one.
+
+    A zone ID (``fe80::1%eth0``) is local to the reporting host, and the
+    PostgreSQL ``inet`` type cannot hold one (GHSA-fxr7-7h9q-v949). ``%``
+    appears in no other form of an IP address, so everything from the
+    first ``%`` is removed (``fe80::1%25eth0`` and ``fe80::1%`` also give
+    ``fe80::1``), and a warning naming the field is logged. The remaining
+    text is not checked here; the caller's own handling of an invalid IP
+    address applies to it.
+
+    Args:
+        value: The address, as the report gives it
+        field_name: The report field that gave it, for the warning
+
+    Returns:
+        str: ``value`` up to its first ``%``
+    """
+    address, sep, _zone = value.partition("%")
+    if sep:
+        logger.warning(
+            f"Removed the IPv6 zone ID from {field_name}: {sanitize_for_log(value)}"
+        )
+    return address
+
+
+@dataclass
+class _ReverseDNSBudget:
+    """Per-report state that bounds the time an aggregate report spends in
+    reverse DNS lookups (GHSA-rwfh-ww9c-jm9m).
+
+    Attributes:
+        seconds_left: Seconds of failed or slow lookups the report may still
+            spend (``MAX_FAILED_REVERSE_DNS_SECONDS_PER_REPORT``)
+        total_seconds_left: Seconds of lookups of any kind the report may
+            still spend (``MAX_REVERSE_DNS_SECONDS_PER_REPORT``)
+        memo: Source information already produced in this report, by
+            lowercase IP address, so each distinct IP is looked up at most
+            once per report
+        exhausted: Whether either budget is spent; the report's remaining
+            IPs are then enriched from the local IP database and reverse
+            DNS map only
+    """
+
+    seconds_left: float = field(
+        default_factory=lambda: MAX_FAILED_REVERSE_DNS_SECONDS_PER_REPORT
+    )
+    total_seconds_left: float = field(
+        default_factory=lambda: MAX_REVERSE_DNS_SECONDS_PER_REPORT
+    )
+    memo: dict[str, IPAddressInfo] = field(default_factory=dict)
+    exhausted: bool = False
+
+
+_REVERSE_DNS_BUDGET_FALLBACK = (
+    "; the remaining records are enriched from the local IP database and "
+    "reverse DNS map only"
+)
+
+
+def _enrich_record_source(
+    source_ip: str, config: ParserConfig, budget: _ReverseDNSBudget
+) -> IPAddressInfo:
+    """Return the source information for one record's ``source_ip``.
+
+    A record's source IP is chosen by the report's sender, and a reverse
+    zone that never answers costs the whole DNS lifetime (8 s with the
+    default nameservers), so the time of every online lookup is charged to
+    ``budget``. The time of a lookup that returns no PTR, or that takes at
+    least ``SLOW_REVERSE_DNS_SECONDS`` even though it found one (the sender
+    may control the reverse zone and answer every query just before the
+    timeout), is charged to the failed-or-slow budget; the time of every
+    lookup, however fast, is charged to the total budget as well, because a
+    zone that answers just under the slow threshold is otherwise never
+    charged and the number of records is not bounded. A lookup answered
+    from the IP address cache is charged too, but takes microseconds. Once
+    either budget is spent, one warning names the limit reached, and the
+    remaining IPs are enriched from the local IP database and reverse DNS
+    map only; those results are not cached, because the IP may well have a
+    PTR. An IP already seen in this report is answered from ``budget.memo``
+    and not charged.
+    """
+    ip = source_ip.lower()
+    if ip in budget.memo:
+        return budget.memo[ip]
+    common: dict[str, Any] = dict(
+        ip_db_path=config.ip_db_path,
+        always_use_local_files=config.always_use_local_files,
+        reverse_dns_map_path=config.reverse_dns_map_path,
+        reverse_dns_map_url=config.reverse_dns_map_url,
+        reverse_dns_map=config.reverse_dns_map,
+        nameservers=config.nameservers,
+        timeout=config.dns_timeout,
+        retries=config.dns_retries,
+        psl_overrides_path=config.psl_overrides_path,
+        psl_overrides_url=config.psl_overrides_url,
+    )
+    if budget.exhausted or config.offline:
+        result = get_ip_address_info(
+            ip,
+            offline=True,
+            cache=None if budget.exhausted else config.ip_address_cache,
+            **common,
+        )
+    else:
+        start = time.monotonic()
+        result = get_ip_address_info(
+            ip, offline=False, cache=config.ip_address_cache, **common
+        )
+        elapsed = time.monotonic() - start
+        budget.total_seconds_left -= elapsed
+        if result["reverse_dns"] is None or elapsed >= SLOW_REVERSE_DNS_SECONDS:
+            budget.seconds_left -= elapsed
+        if budget.seconds_left <= 0:
+            budget.exhausted = True
+            logger.warning(
+                "Reverse DNS lookups for this report failed or were slow for "
+                f"{MAX_FAILED_REVERSE_DNS_SECONDS_PER_REPORT:.0f} seconds"
+                + _REVERSE_DNS_BUDGET_FALLBACK
+            )
+        elif budget.total_seconds_left <= 0:
+            budget.exhausted = True
+            logger.warning(
+                "Reverse DNS lookups for this report took more than "
+                f"{MAX_REVERSE_DNS_SECONDS_PER_REPORT:.0f} seconds"
+                + _REVERSE_DNS_BUDGET_FALLBACK
+            )
+    budget.memo[ip] = result
+    return result
+
+
 def _parse_report_record(
     record: dict[str, Any],
     *,
     config: ParserConfig,
     is_rfc_9990: bool = False,
+    dns_budget: _ReverseDNSBudget | None = None,
 ) -> dict[str, Any]:
     """
     Converts a record from a DMARC aggregate report into a more consistent
@@ -765,9 +907,16 @@ def _parse_report_record(
         config (ParserConfig): Parsing and enrichment options, plus caches
         is_rfc_9990 (bool): Whether the enclosing report was detected as
             RFC 9990-shaped, for RFC 9990-aware validation warnings
+        dns_budget (_ReverseDNSBudget | None): The enclosing report's
+            reverse DNS budget; ``None`` gives the record a budget of its own
 
     Returns:
         dict: The converted record
+
+    Raises:
+        ValueError: If the source IP is empty or not an IP address (after
+            its IPv6 zone ID, if any, is removed), or the count is not an
+            integer between 0 and ``MAX_MESSAGE_COUNT``
     """
     record = record.copy()
     new_record: dict[str, Any] = {}
@@ -776,25 +925,19 @@ def _parse_report_record(
     _scalar_fields(record["row"], ("source_ip",))
     if record["row"]["source_ip"] is None:
         raise ValueError("Source IP address is empty")
-    new_record_source = get_ip_address_info(
-        record["row"]["source_ip"],
-        cache=config.ip_address_cache,
-        ip_db_path=config.ip_db_path,
-        always_use_local_files=config.always_use_local_files,
-        reverse_dns_map_path=config.reverse_dns_map_path,
-        reverse_dns_map_url=config.reverse_dns_map_url,
-        reverse_dns_map=config.reverse_dns_map,
-        offline=config.offline,
-        nameservers=config.nameservers,
-        timeout=config.dns_timeout,
-        retries=config.dns_retries,
-        psl_overrides_path=config.psl_overrides_path,
-        psl_overrides_url=config.psl_overrides_url,
-    )
-    new_record["source"] = new_record_source
+    source_ip = _strip_zone_id(record["row"]["source_ip"], "source_ip")
     # A <count> with no text of its own (child elements only, or repeated)
     # becomes "", so int() raises the ValueError of a non-numeric count.
-    new_record["count"] = int(_scalar(record["row"]["count"]) or "")
+    count = int(_scalar(record["row"]["count"]) or "")
+    # A count no output's 32-bit integer column can hold is rejected here,
+    # not by the output (GHSA-fxr7-7h9q-v949), and before the reverse DNS
+    # lookup, which a record that is dropped anyway should not wait on.
+    if not 0 <= count <= MAX_MESSAGE_COUNT:
+        raise ValueError(f"count {count} is outside 0..{MAX_MESSAGE_COUNT}")
+    if dns_budget is None:
+        dns_budget = _ReverseDNSBudget()
+    new_record["source"] = _enrich_record_source(source_ip, config, dns_budget)
+    new_record["count"] = count
     policy_evaluated = record["row"]["policy_evaluated"].copy()
     _scalar_fields(policy_evaluated, ("disposition", "dkim", "spf"))
     new_policy_evaluated: dict[str, Any] = {
@@ -829,14 +972,16 @@ def _parse_report_record(
             reasons = policy_evaluated["reason"]
         else:
             reasons = [policy_evaluated["reason"]]
+    normalized_reasons = []
     for reason in reasons:
         # `comment` and `type` are strings in both schemas, but a sender can
         # give them child elements (a dict) or repeat them (a list), and the
         # CSV writer joins them as strings (GHSA-4272-4r8g-6c5h). They follow
         # the rule of every other string field: see _scalar().
-        reason["comment"] = _scalar(reason.get("comment"))
-        reason["type"] = _scalar(reason.get("type"))
-        reason_type = reason["type"]
+        reason_type = _scalar(reason.get("type"))
+        normalized_reasons.append(
+            {"type": reason_type, "comment": _scalar(reason.get("comment"))}
+        )
         if is_rfc_9990 and reason_type in RFC_7489_REMOVED_POLICY_OVERRIDE_TYPES:
             logger.warning(
                 "Policy override reason type %r was removed in RFC 9990; "
@@ -855,15 +1000,16 @@ def _parse_report_record(
                 reason_type,
                 sorted(RFC_9990_POLICY_OVERRIDE_TYPES),
             )
-    new_policy_evaluated["policy_override_reasons"] = reasons
+    new_policy_evaluated["policy_override_reasons"] = normalized_reasons
     new_record["policy_evaluated"] = new_policy_evaluated
-    if "identities" in record:
-        new_record["identifiers"] = record["identities"].copy()
-    else:
-        new_record["identifiers"] = record["identifiers"].copy()
-    _scalar_fields(
-        new_record["identifiers"], ("header_from", "envelope_from", "envelope_to")
+    raw_identifiers = (
+        record["identities"] if "identities" in record else record["identifiers"]
     )
+    new_record["identifiers"] = {
+        key: _scalar(value)
+        for key, value in raw_identifiers.items()
+        if key in ("header_from", "envelope_from", "envelope_to")
+    }
     new_record["auth_results"] = {"dkim": [], "spf": []}
     if type(new_record["identifiers"]["header_from"]) is str:
         lowered_from = new_record["identifiers"]["header_from"].lower()
@@ -1015,17 +1161,25 @@ def _smtp_tls_mx_host_patterns(value: Any, field: str) -> list[str]:
 
 
 def _smtp_tls_count(value: Any, field: str) -> int | None:
-    """Return ``value`` if it is an integer or null.
+    """Return ``value`` if it is null or an integer from 0 to
+    ``MAX_MESSAGE_COUNT``.
 
     RFC 8460 §4.4 encodes each session count as "an integer, encoded as a
     JSON number". ``null`` is tolerated as an unreported count. A JSON
     ``true``/``false`` is rejected even though ``bool`` subclasses ``int``.
+    A count outside ``0..MAX_MESSAGE_COUNT`` is rejected because the
+    PostgreSQL output stores counts as 32-bit integers
+    (GHSA-fxr7-7h9q-v949). Raises ``InvalidSMTPTLSReport`` otherwise.
     """
-    if value is None or (isinstance(value, int) and not isinstance(value, bool)):
+    if value is None:
         return value
-    raise InvalidSMTPTLSReport(
-        f"{field} must be an integer, not {type(value).__name__}"
-    )
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise InvalidSMTPTLSReport(
+            f"{field} must be an integer, not {type(value).__name__}"
+        )
+    if not 0 <= value <= MAX_MESSAGE_COUNT:
+        raise InvalidSMTPTLSReport(f"{field} must be between 0 and {MAX_MESSAGE_COUNT}")
+    return value
 
 
 def _smtp_tls_datetime(value: Any, field: str) -> str:
@@ -1036,8 +1190,12 @@ def _smtp_tls_datetime(value: Any, field: str) -> str:
     Elasticsearch, OpenSearch and S3 outputs (a UTC ``datetime``) and the
     Splunk output (a UNIX timestamp) make later. dateutil also accepts a
     partial date such as ``"2016"``, which PostgreSQL may still reject; that
-    failure is raised as ``PostgreSQLError`` and recorded as an output
-    error. Raises ``InvalidSMTPTLSReport`` otherwise.
+    failure is raised as ``PostgreSQLRejectedReport``, which skips the
+    report in the PostgreSQL output only (an output error with
+    ``fail_on_output_error``). A ``start-datetime`` more than
+    ``MAX_REPORT_FUTURE_DAYS`` days in the future is also rejected, because
+    it names the dated index (#947); ``end-datetime`` is not checked. Raises
+    ``InvalidSMTPTLSReport`` otherwise.
     """
     value = _smtp_tls_string(value, field)
     if len(value) > _SMTP_TLS_MAX_DATETIME_LENGTH:
@@ -1045,12 +1203,17 @@ def _smtp_tls_datetime(value: Any, field: str) -> str:
             f"{field} is longer than {_SMTP_TLS_MAX_DATETIME_LENGTH} characters"
         )
     try:
-        human_timestamp_to_datetime(value, to_utc=True)
+        moment = human_timestamp_to_datetime(value, to_utc=True)
         human_timestamp_to_unix_timestamp(value)
     except (ValueError, OverflowError) as e:
         raise InvalidSMTPTLSReport(
             f"{field} is not a valid date-time: {sanitize_for_log(value)}"
         ) from e
+    if field == "start-datetime":
+        try:
+            _check_not_future(moment, field)
+        except ValueError as error:
+            raise InvalidSMTPTLSReport(str(error)) from error
     return value
 
 
@@ -1076,6 +1239,34 @@ def _parse_smtp_tls_failure_details(failure_details: dict[str, Any]):
             value = _non_blank(failure_details.get(src_key))
             if value is not None:
                 new_failure_details[dest_key] = _smtp_tls_string(value, src_key)
+
+        # RFC 8460 §4.4 defines both as the IP address of the sending or
+        # receiving MTA, and both are optional. Drop a value that is not an
+        # IP address, which the PostgreSQL inet column and the
+        # Elasticsearch/OpenSearch ip mappings reject (GHSA-fxr7-7h9q-v949).
+        # An IPv6 zone ID (fe80::1%eth0) is local to the reporting host and
+        # the inet type cannot hold one, and ipaddress.ip_address() accepts
+        # it, so such a value is dropped as well. The aggregate and failure
+        # paths strip the zone ID instead (_strip_zone_id()), because the
+        # source IP is required there; these fields are optional, so
+        # dropping one loses nothing a report needs.
+        for src_key, dest_key in (
+            ("sending-mta-ip", "sending_mta_ip"),
+            ("receiving-ip", "receiving_ip"),
+        ):
+            value = new_failure_details.get(dest_key)
+            if value is None:
+                continue
+            try:
+                if "%" in value:
+                    raise ValueError("zone ID")
+                ipaddress.ip_address(value)
+            except ValueError:
+                logger.warning(
+                    f"Ignoring {src_key} that is not an IP address: "
+                    f"{sanitize_for_log(value)}"
+                )
+                del new_failure_details[dest_key]
 
         # RFC 8460 §4.4 names the JSON key "additional-information" (its
         # value is described as an "additional-info-uri"). Some reporters
@@ -1229,10 +1420,11 @@ def _csv_safe(value: Any) -> Any:
 
     Two things happen to a string, in this order:
 
-    1. NUL characters are stripped. Python 3.10's ``csv`` writer raises
+    1. NUL characters are stripped. Python 3.10's ``csv`` writer raised
        ``_csv.Error: need to escape, but no escapechar set`` on any field
-       containing NUL (CPython issue 97503, fixed in 3.11), and the
-       character is dropped to match ``get_filename_safe_string``.
+       containing NUL (CPython issue 97503, fixed in 3.11; the floor is now
+       3.11), and NUL is still dropped to match
+       ``get_filename_safe_string``.
     2. A string starting with ``=``, ``+``, ``-``, ``@``, tab, or carriage
        return gets a leading ``'``. Spreadsheet applications evaluate such
        a cell as a formula, and report text fields come from untrusted
@@ -1512,6 +1704,19 @@ def _check_report_span(span_seconds: int) -> None:
         )
 
 
+def _check_not_future(moment: datetime, what: str) -> None:
+    """Raise ``ValueError`` when ``moment`` is more than
+    ``MAX_REPORT_FUTURE_DAYS`` days ahead of the current time, because the
+    date that names a report's dated index would then create an index for a
+    date far in the future (#947). ``moment`` must be an aware UTC datetime;
+    each parser converts the error to its own ``Invalid*Report``."""
+    if moment > datetime.now(timezone.utc) + timedelta(days=MAX_REPORT_FUTURE_DAYS):
+        raise ValueError(
+            f"{what} {moment.isoformat()} is more than "
+            f"{MAX_REPORT_FUTURE_DAYS} days in the future"
+        )
+
+
 def _days_touched(begin: datetime, end: datetime) -> int:
     """Return how many calendar days of ``begin``'s timezone the interval
     [begin, end) touches: the number of buckets ``_bucket_interval_by_day()``
@@ -1557,10 +1762,15 @@ def _parse_report_records(
     end_dt: datetime,
     normalize: bool,
     keep_alive: Callable | None,
+    dns_budget: _ReverseDNSBudget | None = None,
 ) -> list[dict[str, Any]]:
     """Parse an aggregate report's ``<record>`` elements (a list, or one
     record) into output records, split per day when ``normalize`` is set.
-    A record of a list that fails to parse is skipped with a warning."""
+    A record of a list that fails to parse is skipped with a warning.
+    ``dns_budget`` is shared by every record (``None`` creates one); see
+    :class:`_ReverseDNSBudget`."""
+    if dns_budget is None:
+        dns_budget = _ReverseDNSBudget()
     records: list[dict[str, Any]] = []
     if type(xml_records) is list:
         for i in range(len(xml_records)):
@@ -1573,6 +1783,7 @@ def _parse_report_records(
                     xml_records[i],
                     config=config,
                     is_rfc_9990=is_rfc_9990,
+                    dns_budget=dns_budget,
                 )
                 _append_parsed_record(
                     parsed_record=report_record,
@@ -1589,6 +1800,7 @@ def _parse_report_records(
             xml_records,
             config=config,
             is_rfc_9990=is_rfc_9990,
+            dns_budget=dns_budget,
         )
         _append_parsed_record(
             parsed_record=report_record,
@@ -1743,6 +1955,17 @@ def parse_aggregate_report_xml(
         end_ts = int(date_range["end"].split(".")[0])
         span_seconds = end_ts - begin_ts
         _check_report_span(span_seconds)
+        # The end is checked as well as the begin: a normalized report's
+        # per-day records each name an index from their own interval start,
+        # and every interval start lies at or before the report's end.
+        try:
+            for stamp, what in (
+                (begin_ts, "Report begin date"),
+                (end_ts, "Report end date"),
+            ):
+                _check_not_future(datetime.fromtimestamp(stamp, timezone.utc), what)
+        except ValueError as error:
+            raise InvalidAggregateReport(str(error)) from error
 
         normalize_timespan = (
             span_seconds > cfg.normalize_timespan_threshold_hours * 3600
@@ -1861,6 +2084,7 @@ def parse_aggregate_report_xml(
             end_dt=end_dt,
             normalize=normalize_timespan,
             keep_alive=keep_alive,
+            dns_budget=_ReverseDNSBudget(),
         )
 
         new_report["records"] = records
@@ -2428,10 +2652,16 @@ def parse_failure_report(
             raise InvalidFailureReport(
                 f"Invalid Arrival-Date: {sanitize_for_log(str(error))}"
             ) from error
+        try:
+            _check_not_future(arrival_utc, "Arrival-Date")
+        except ValueError as error:
+            raise InvalidFailureReport(str(error)) from error
         arrival_utc = arrival_utc.strftime("%Y-%m-%d %H:%M:%S")
         parsed_report["arrival_date_utc"] = arrival_utc
 
-        ip_address = re.split(r"\s", parsed_report["source_ip"]).pop(0)
+        ip_address = _strip_zone_id(
+            re.split(r"\s", parsed_report["source_ip"]).pop(0), "Source-IP"
+        )
         parsed_report_source = get_ip_address_info(
             ip_address,
             cache=cfg.ip_address_cache,
@@ -2793,6 +3023,11 @@ def parse_report_email(
     Raises:
         ParserError: If the message is not a valid report. Whatever the
             input, only ``ParserError`` subclasses are raised.
+            A message that is not a valid report, or whose attachment is
+            not one, raises ``InvalidDMARCReport``, or
+            ``InvalidSMTPTLSReport`` for an SMTP TLS attachment (both are
+            ``ParserError`` subclasses). Any other failure to parse the
+            message raises a plain ``ParserError``.
     """
     cfg = _resolve_config(
         config,
@@ -2995,11 +3230,21 @@ def parse_report_email(
 
                 except InvalidDMARCReport as e:
                     error = f'Message with subject "{subject_text}" is not a valid DMARC report: {e}'
-                    raise ParserError(error) from e
+                    raise InvalidDMARCReport(error) from e
+
+                except InvalidSMTPTLSReport:
+                    # Named with the message's subject by the handler below.
+                    raise
 
                 except Exception as e:
                     error = f'Unable to parse message with subject "{subject_text}": {e}{_exc_origin(e)}'
                     raise ParserError(error) from e
+    except InvalidSMTPTLSReport as e:
+        # From either the tlsrpt content-type branches or a JSON attachment.
+        error = (
+            f'Message with subject "{subject_text}" is not a valid SMTP TLS report: {e}'
+        )
+        raise InvalidSMTPTLSReport(error) from e
     except ParserError:
         raise
     except Exception as e:
@@ -3085,6 +3330,22 @@ def _describe_parse_failure(
     )
 
 
+def _read_up_to(file_object: BinaryIO, limit: int) -> bytes:
+    """Read from ``file_object`` until end of file or ``limit`` bytes,
+    whichever comes first. A raw or unbuffered stream (a socket file, a
+    pipe) may return fewer bytes than asked for without being at its end, so
+    one sized ``read()`` could hand the parser a truncated report."""
+    # One growing buffer, not a list of chunks: a stream that returns a byte
+    # at a time would otherwise cost one bytes object per byte read.
+    content = bytearray()
+    while len(content) < limit:
+        chunk = file_object.read(limit - len(content))
+        if not chunk:
+            break
+        content += chunk
+    return bytes(content)
+
+
 def parse_report_file(
     input_: bytes | str | os.PathLike[str] | os.PathLike[bytes] | BinaryIO,
     *,
@@ -3108,6 +3369,8 @@ def parse_report_file(
     object is read from but never closed, on either the success or the
     exception path; it is left open and positioned wherever its own
     ``read()`` left it, so the caller is free to ``seek(0)`` and reuse it.
+    When the input is over the size cap, that is one byte past the cap: no
+    more is read.
 
     Args:
         input_ (str | os.PathLike | bytes | BinaryIO): A path to a file,
@@ -3134,6 +3397,11 @@ def parse_report_file(
 
     Returns:
         dict: The parsed DMARC report
+
+    Raises:
+        ParserError: if the input is not a valid report, or is larger than
+            ``MAX_DECOMPRESSED_REPORT_SIZE`` (refused before it is read into
+            memory)
     """
     cfg = _resolve_config(
         config,
@@ -3149,15 +3417,23 @@ def parse_report_file(
         normalize_timespan_threshold_hours=normalize_timespan_threshold_hours,
     )
     file_object: BinaryIO
+    # An input over the cap is refused before it is held in memory (#949). A
+    # valid compressed report is smaller than its decompressed form, so the
+    # one cap serves both; the message is the one the content check gives.
+    too_large = ParserError(_size_cap_text(b""))
     if isinstance(input_, (str, os.PathLike)):
         file_path = os.fspath(input_)
         logger.debug(f"Parsing {file_path}")
+        if os.path.getsize(file_path) > MAX_DECOMPRESSED_REPORT_SIZE:
+            raise too_large
         # A path is a handle we opened ourselves, so it must be closed on
         # both the success and exception paths.
         with open(file_path, "rb") as file_object:
-            content = file_object.read()
+            content = _read_up_to(file_object, MAX_DECOMPRESSED_REPORT_SIZE + 1)
     else:
         if isinstance(input_, (bytes, bytearray, memoryview)):
+            if memoryview(input_).nbytes > MAX_DECOMPRESSED_REPORT_SIZE:
+                raise too_large
             # The BytesIO wrapper is created here, so this function owns
             # it and closes it once the bytes have been read out.
             file_object = BytesIO(bytes(input_))
@@ -3169,7 +3445,9 @@ def parse_report_file(
             # seek(0) and retry, inspect tell(), or otherwise reuse the
             # handle afterward.
             file_object = input_
-            content = file_object.read()
+            content = _read_up_to(file_object, MAX_DECOMPRESSED_REPORT_SIZE + 1)
+    if len(content) > MAX_DECOMPRESSED_REPORT_SIZE:
+        raise too_large
     if content.startswith(MAGIC_ZIP) or content.startswith(MAGIC_GZIP):
         content = extract_report(content)
 
@@ -3238,7 +3516,10 @@ def _aggregate_report_dedup_key(report: AggregateReport) -> str:
     domain. ASCII domain letters are compared without case per RFC 4343 §3,
     without changing the domain in the report itself. A JSON array encodes
     the three fields without the ambiguity of a delimiter that a field could
-    contain.
+    contain, and the key is the SHA-256 hex digest of that JSON, so it is 64
+    characters long whatever the sender puts in the three fields
+    (GHSA-9fw6-mwqr-p43m: the JSON itself was the key, so a report with a
+    multi-megabyte Report-ID cost that much memory in the cache).
 
     Every writer of the shared cache must build its key here -- the mbox and
     mailbox classifier and the CLI's direct-file path -- or a report read
@@ -3251,7 +3532,8 @@ def _aggregate_report_dedup_key(report: AggregateReport) -> str:
     # The existing XML parser returns None for an empty <domain/>.
     if isinstance(report_domain, str):
         report_domain = report_domain.translate(_ASCII_UPPER_TO_LOWER)
-    return json.dumps((report_org, report_id, report_domain))
+    encoded = json.dumps((report_org, report_id, report_domain))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _classify_parsed_email(
@@ -3554,7 +3836,7 @@ def get_dmarc_reports_from_mbox(
                 total=total_messages,
                 disable=None,
             ):
-                if isinstance(result, InvalidDMARCReport):
+                if isinstance(result, (InvalidDMARCReport, InvalidSMTPTLSReport)):
                     logger.warning(str(result))
                 elif isinstance(result, ParserError):
                     raise result
@@ -3580,7 +3862,7 @@ def get_dmarc_reports_from_mbox(
                         smtp_tls_reports,
                         seen_aggregate_report_ids=cfg.seen_aggregate_report_ids,
                     )
-                except InvalidDMARCReport as error:
+                except (InvalidDMARCReport, InvalidSMTPTLSReport) as error:
                     logger.warning(error.__str__())
     except mailbox.NoSuchMailboxError:
         raise InvalidDMARCReport(f"Mailbox {input_} does not exist")

@@ -10,6 +10,11 @@ from RsInstrument.mcp._common import safe_tool
 from RsInstrument.mcp.scpi_write_policy import ScpiWritePolicy
 from RsInstrument.mcp.write_elicitation import _authorize_write
 
+try:
+    from fastmcp import Context
+except ImportError:
+    Context = None  # type: ignore[assignment,misc]
+
 _SLOT_MIN = 0
 _SLOT_MAX = 9
 
@@ -29,12 +34,11 @@ def make_instrument_save_recall(
 
     @safe_tool
     async def instrument_save_recall(
-        ctx: typing.Any,
+        ctx: Context,
         action: typing.Literal["save", "recall"],
         slot: int,
         resource: str,
         opc_timeout: int = 5000,
-        confirm: bool = False,
     ) -> typing.Any:
         """Save or recall instrument state via ``*SAV`` / ``*RCL`` (slots 0..9)."""
         _validate_slot(slot)
@@ -49,20 +53,24 @@ def make_instrument_save_recall(
             ctx,
             command=command,
             resource=resource,
-            confirm=confirm,
             policy=policy,
         )
         if decision is not None:
             return decision
 
-        def _run() -> str:
+        def _run() -> dict[str, typing.Any]:
             with RsInstrument(resource) as inst:
                 if action == "recall":
                     inst.write_with_opc(command, timeout=opc_timeout)
                 else:
                     inst.opc_timeout = opc_timeout
                     inst.write(command)
-            return f"{action.capitalize()} slot {slot} completed."
+            return {
+                "status": "ok",
+                "action": action,
+                "slot": slot,
+                "message": f"{action.capitalize()} slot {slot} completed.",
+            }
 
         return await asyncio.to_thread(_run)
 

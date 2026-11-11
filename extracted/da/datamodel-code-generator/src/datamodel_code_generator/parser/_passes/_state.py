@@ -86,7 +86,23 @@ class Forwarder:
 ForwarderMap: TypeAlias = dict[ModulePath, Forwarder]
 
 
-class ModuleContextView(Protocol):
+class ModuleImportsView(Protocol):
+    """What naming the models of other modules in a module reads of it: its imports and the names it binds."""
+
+    @property
+    def is_init(self) -> bool:
+        """Whether the module is a package ``__init__``."""
+
+    @property
+    def imports(self) -> Imports:
+        """The imports of the module."""
+
+    @property
+    def scoped_model_resolver(self) -> ModelResolver:
+        """The resolver of the names the module binds."""
+
+
+class ModuleContextView(ModuleImportsView, Protocol):
     """What the passes read of a processed module: ``parser/base.py:ModuleContext``, whose module is public."""
 
     @property
@@ -100,18 +116,6 @@ class ModuleContextView(Protocol):
     @property
     def models(self) -> list[DataModel]:
         """The models the module writes."""
-
-    @property
-    def is_init(self) -> bool:
-        """Whether the module is a package ``__init__``."""
-
-    @property
-    def imports(self) -> Imports:
-        """The imports of the module."""
-
-    @property
-    def scoped_model_resolver(self) -> ModelResolver:
-        """The resolver of the names the module binds."""
 
     def _replace(self, *, module: ModulePath) -> Self:
         """Return the context with another file path."""
@@ -303,24 +307,33 @@ class _StructureState:
 
 @final
 class PydanticFloors:
-    """The Pydantic floor that each parse of a generation records, so that the generation states its kept parse's."""
+    """The Pydantic floor that each parse of a generation records, so that the generation states its kept parse's.
 
-    __slots__ = ("_floors",)
+    Each parse also records the owners of the ``bytes`` patterns that Pydantic 2.14 refuses at import (#6673).
+    """
+
+    __slots__ = ("_floors", "_refused_bytes_patterns")
 
     def __init__(self) -> None:
         """Start with no parse recorded."""
         self._floors: WeakKeyDictionary[object, PydanticFloor] = WeakKeyDictionary()
+        self._refused_bytes_patterns: WeakKeyDictionary[object, tuple[str, ...]] = WeakKeyDictionary()
 
-    def record(self, parser: object, floor: PydanticFloor | None) -> None:
+    def record(self, parser: object, floor: PydanticFloor | None, refused_bytes_patterns: tuple[str, ...]) -> None:
         """Record the floor of the models that ``parser`` emitted, None when they need nothing above the target."""
         if floor is None:
             self._floors.pop(parser, None)
         else:
             self._floors[parser] = floor
+        self._refused_bytes_patterns[parser] = refused_bytes_patterns
 
     def of(self, parser: object) -> PydanticFloor | None:
         """Return the floor that ``parser`` recorded, or None."""
         return self._floors.get(parser)
+
+    def refused_bytes_patterns_of(self, parser: object) -> tuple[str, ...]:
+        """Return the owners of the ``bytes`` patterns Pydantic 2.14 refuses that ``parser`` recorded."""
+        return self._refused_bytes_patterns.get(parser, ())
 
 
 _PYDANTIC_FLOORS: ContextVar[PydanticFloors | None] = ContextVar("pydantic_floors", default=None)

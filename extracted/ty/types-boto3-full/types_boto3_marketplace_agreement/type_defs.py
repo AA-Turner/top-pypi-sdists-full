@@ -95,6 +95,7 @@ __all__ = (
     "FixedPercentageTypeDef",
     "FixedUpfrontPricingTermTypeDef",
     "FreeTrialPricingTermTypeDef",
+    "FreeTrialSummaryTypeDef",
     "GetAgreementCancellationRequestInputTypeDef",
     "GetAgreementCancellationRequestOutputTypeDef",
     "GetAgreementEntitlementsInputPaginateTypeDef",
@@ -402,6 +403,10 @@ class DescribeAgreementInputTypeDef(TypedDict):
 class EstimatedChargesTypeDef(TypedDict):
     currencyCode: NotRequired[str]
     agreementValue: NotRequired[str]
+
+
+class FreeTrialSummaryTypeDef(TypedDict):
+    trialEndTime: NotRequired[datetime]
 
 
 DocumentItemTypeDef = TypedDict(
@@ -1006,6 +1011,7 @@ class AgreementViewSummaryTypeDef(TypedDict):
     initialAgreementId: NotRequired[str]
     endTimeBehaviorType: NotRequired[EndTimeBehaviorTypeType]
     endTimeBehaviorReasonCode: NotRequired[EndTimeBehaviorReasonCodeType]
+    freeTrialEndTime: NotRequired[datetime]
 
 
 class ListAgreementInvoiceLineItemsOutputTypeDef(TypedDict):
@@ -1052,6 +1058,7 @@ class DescribeAgreementOutputTypeDef(TypedDict):
     status: AgreementStatusType
     initialAgreementId: str
     endTimeBehavior: EndTimeBehaviorTypeDef
+    freeTrialSummary: FreeTrialSummaryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

@@ -23,7 +23,7 @@ use crate::evaluation::evaluator_context::{
 use crate::evaluation::evaluator_value::{EvaluatorValue, EvaluatorValueRef};
 use crate::evaluation::get_unit_id::get_unit_id;
 use crate::evaluation::user_agent_parsing::UserAgentParser;
-use crate::hashing::hash_one;
+use crate::hashing::{IdListFingerprintWidth, hash_one};
 use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
 use crate::specs_response::spec_types::{Condition, ConditionOperator, ConditionType};
@@ -398,10 +398,10 @@ fn update_parameter_values(
         None => return,
     };
     for (k, v) in json_map {
-        let parameter_name = InternedString::from_string_uninterned(k.clone());
         if let std::collections::hash_map::Entry::Vacant(e) = value.entry(k) {
+            let parameter_name = InternedString::from_string_uninterned(e.key().clone());
             e.insert(v);
-            rule_ids.insert(parameter_name.clone(), rule_id.to_interned());
+            rule_ids.insert(parameter_name, rule_id.to_interned());
         }
     }
 }
@@ -759,9 +759,9 @@ fn is_in_id_list(
     let Some(dyn_str) = value.string_value() else {
         return Some(false);
     };
-    // SHA-256 output (including the error sentinel) is ASCII.
-    let mut lookup_id = ctx.hashing.sha256(dyn_str);
-    lookup_id.truncate(8);
+    let lookup_id = ctx
+        .hashing
+        .id_list_key(dyn_str, IdListFingerprintWidth::Bits48);
 
     match ctx.id_list_resolver {
         IdListResolution::MapLookup(id_lists) => {
@@ -939,21 +939,21 @@ fn evaluate_nested_gate<'a>(
             rule_id: res.rule_id.clone().unwrap_or_default(),
         };
 
-        let nested_spec = ctx
-            .specs_data
-            .feature_gates
-            .get(gate_name)
-            .map(|spec| spec.view());
-        let uses_special_case_sampling_rate = nested_spec.is_some_and(|spec| {
-            spec.entity().as_str() == "feature_gate"
-                && spec.forward_all_exposures() != Some(true)
-                && res
-                    .rule_id
-                    .as_ref()
-                    .is_some_and(|id| matches!(id.as_str(), "default" | "disabled"))
-        });
-        if res.sampling_rate.is_none() && !uses_special_case_sampling_rate {
-            ctx.result.has_seen_analytical_gates = Option::from(true);
+        if res.sampling_rate.is_none() {
+            let uses_special_case_sampling_rate =
+                matches!(expo.rule_id.as_str(), "default" | "disabled")
+                    && ctx
+                        .specs_data
+                        .feature_gates
+                        .get(gate_name)
+                        .is_some_and(|spec| {
+                            let spec = spec.view();
+                            spec.forward_all_exposures() != Some(true)
+                                && spec.entity().as_str() == "feature_gate"
+                        });
+            if !uses_special_case_sampling_rate {
+                ctx.result.has_seen_analytical_gates = Some(true);
+            }
         }
 
         ctx.result.secondary_exposures.push(expo);

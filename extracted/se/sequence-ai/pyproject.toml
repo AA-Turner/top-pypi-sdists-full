@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sequence-ai"
-version = "0.58.0"
+version = "0.58.3"
 description = "The inference and benchmark platform for physical AI: deploy a robot policy, run it on your robot, score it."
 readme = "README.md"
 requires-python = ">=3.9"

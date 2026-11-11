@@ -24,6 +24,7 @@ from solana.rpc.jsonrpc import SolanaJsonRpcError
 from solana.rpc.websocket_api import (
     ConnectionState,
     OverflowPolicy,
+    SignatureReceivedNotification,
     SolanaWsClient,
     Subscription,
     SubscriptionKind,
@@ -256,6 +257,23 @@ async def test_program_subscribe_builds_configured_request(monkeypatch):
     assert '"params"' in captured[0][1].to_json()
 
 
+async def test_account_and_program_subscribe_default_to_base64(monkeypatch):
+    """The server's base58 default replaces data over 128 bytes with a string solders can't parse."""
+    client = SolanaWsClient.__new__(SolanaWsClient)
+    client._request_counter = itertools.count(1)
+    captured = []
+
+    async def fake_subscribe(kind, request):
+        captured.append(json.loads(request.to_json()))
+        return Subscription(42, kind)
+
+    monkeypatch.setattr(client, "_subscribe", fake_subscribe)
+    await client.account_subscribe(pubkey=Pubkey.default())
+    await client.program_subscribe(program_id=Pubkey.default())
+
+    assert [request["params"][1]["encoding"] for request in captured] == ["base64", "base64"]
+
+
 async def test_block_subscribe_accepts_both_filter_variants(monkeypatch):
     """``blockSubscribe`` takes ``all`` or a mentions filter, like ``logsSubscribe``."""
     client = SolanaWsClient.__new__(SolanaWsClient)
@@ -469,6 +487,31 @@ async def test_notification_right_after_confirmation_finds_the_handle(monkeypatc
 
     # The one-shot notification consumed the handle, so it must be gone.
     assert subscription.subscription_id not in client._subscriptions
+    await client.close()
+
+
+async def test_received_signature_notification_is_delivered(monkeypatch):
+    """The "receivedSignature" notification, which solders can't parse, must not end the connection."""
+    fake_ws = _FakeWebSocket('{"jsonrpc":"2.0","result":1,"id":{request_id}}')
+    client = await _connected(monkeypatch, fake_ws)
+
+    subscription = await client.signature_subscribe(signature=Signature.default(), enable_received_notification=True)
+
+    await fake_ws._messages.put(
+        '{"jsonrpc":"2.0","method":"signatureNotification","params":'
+        '{"result":{"context":{"slot":5},"value":"receivedSignature"},"subscription":1}}'
+    )
+    assert await client.recv() == SignatureReceivedNotification(subscription=1, slot=5)
+    # The server keeps the subscription until the processed notification.
+    assert subscription.subscription_id in client._subscriptions
+
+    await fake_ws._messages.put(
+        '{"jsonrpc":"2.0","method":"signatureNotification","params":'
+        '{"result":{"context":{"slot":6},"value":{"err":null}},"subscription":1}}'
+    )
+    assert isinstance(await client.recv(), SignatureNotification)
+    assert subscription.subscription_id not in client._subscriptions
+    assert client.connection_state is ConnectionState.OPEN
     await client.close()
 
 

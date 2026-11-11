@@ -10,12 +10,12 @@ ENDPOINT = Endpoint(
     http=ClusterUrls(
         devnet="http://api.devnet.solana.com",
         testnet="http://api.testnet.solana.com",
-        mainnet_beta="http://api.mainnet.solana.com/",
+        mainnet="http://api.mainnet.solana.com/",
     ),
     https=ClusterUrls(
         devnet="https://api.devnet.solana.com",
         testnet="https://api.testnet.solana.com",
-        mainnet_beta="https://api.mainnet.solana.com/",
+        mainnet="https://api.mainnet.solana.com/",
     ),
 )
 
@@ -32,4 +32,7 @@ def cluster_api_url(cluster: Cluster | None = None, tls: bool = True) -> str:
     urls = ENDPOINT.https if tls else ENDPOINT.http
     if cluster is None:
         return urls.devnet
+    if cluster == "mainnet":
+        # The cluster was renamed to "mainnet"; the ClusterUrls field kept its old name.
+        return urls.mainnet
     return getattr(urls, cluster)

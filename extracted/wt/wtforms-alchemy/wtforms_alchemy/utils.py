@@ -38,7 +38,7 @@ def strip_string(value):
 
 
 def is_scalar(value):
-    return isinstance(value, (type(None), str, int, float, bool))
+    return isinstance(value, type(None) | str | int | float | bool)
 
 
 def null_or_unicode(value):
@@ -63,7 +63,7 @@ def flatten(list_):
 
 
 def is_number(type):
-    return isinstance(type, types.Integer) or isinstance(type, types.Numeric)
+    return isinstance(type, types.Integer | types.Numeric | types.Float)
 
 
 def is_number_range(type):

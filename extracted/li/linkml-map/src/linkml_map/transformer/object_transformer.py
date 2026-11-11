@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import logging
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from functools import cache
 from typing import Any
 
 import yaml
@@ -25,6 +27,7 @@ from linkml_map.datamodel.transformer_model import (
     SlotDerivation,
 )
 from linkml_map.functions.unit_conversion import perform_unit_conversion
+from linkml_map.transformer.content_id import ContentIdSynthesizer, mints_ids, missing_identifier_message
 from linkml_map.transformer.errors import TransformationError
 from linkml_map.transformer.pivot import perform_melt, perform_pivot_operation
 from linkml_map.transformer.transformer import OBJECT_TYPE, Transformer
@@ -32,6 +35,7 @@ from linkml_map.utils.dynamic_object import DynObj, dynamic_object
 from linkml_map.utils.eval_utils import _uuid5, eval_expr_with_mapping
 from linkml_map.utils.fk_utils import FKResolution, resolve_fk_path
 from linkml_map.utils.join_utils import join_keys
+from linkml_map.utils.serialization import dump_yaml, dumps_json
 
 DICT_OBJ = dict[str, Any]
 
@@ -249,6 +253,22 @@ class Bindings(Mapping):
         raise RuntimeError(msg)
 
 
+@cache
+def _is_statement_block(expr: str) -> bool:
+    """Whether an expression is Python statements, which only the unrestricted evaluator runs.
+
+    >>> _is_statement_block("{age} * 12")
+    False
+    >>> _is_statement_block("if {age}:\\n    target = 1")
+    True
+    """
+    try:
+        ast.parse(expr.strip(), mode="eval")
+    except SyntaxError:
+        return True
+    return False
+
+
 @dataclass(frozen=True)
 class DerivationContext:
     """Immutable context for slot derivation within a single map_object call."""
@@ -280,6 +300,17 @@ class ObjectTransformer(Transformer):
     precedence; built-in functions are precedence-checked at load time via
     :func:`~linkml_map.utils.extensions.load_extensions`.
     """
+
+    emit_without_identifiers: bool = False
+    """Emit records whose identifier is neither derived nor minted, instead of raising.
+
+    For ``--continue-on-error`` runs, whose purpose is to surface every problem even at
+    the cost of bad output; the caller reports the missing identifiers once, up front
+    (see :meth:`missing_identifiers`).
+    """
+
+    _content_ids: ContentIdSynthesizer | None = field(default=None, repr=False)
+    """Synthesizer for identifiers the spec doesn't derive, rebuilt if the target schema changes."""
 
     _warned_unbound_names: set[str] = field(default_factory=set, repr=False)
     """Names already warned about in non-strict mode.
@@ -381,6 +412,9 @@ class ObjectTransformer(Transformer):
                     return self.compress_uri(source_obj)
             return source_obj
         if source_type in sv.all_enums():
+            # With no enum derivation, the value is resolved against the target enum like any string.
+            if not self._enum_derivations_from(source_type):
+                return source_obj
             return self.transform_enum(source_obj, [source_type], source_obj)
 
         source_obj_typed = None
@@ -389,7 +423,9 @@ class ObjectTransformer(Transformer):
             source_obj_typed = source_obj
             source_obj = vars(source_obj)
         if not isinstance(source_obj, dict):
-            logger.warning(f"Unexpected: {source_obj} for type {source_type}")
+            # A scalar for a class with an identifier is a reference to an object, kept as is.
+            if source_type in sv.all_classes() and sv.get_identifier_slot(source_type) is None:
+                logger.warning(f"Expected an object for {source_type}, which has no identifier, got: {source_obj!r}")
             return source_obj
         class_deriv = class_derivation or self._get_class_derivation(source_type)
 
@@ -416,7 +452,73 @@ class ObjectTransformer(Transformer):
         for slot_deriv in class_deriv.slot_derivations.values():
             if slot_deriv.hide:
                 tgt_attrs.pop(str(slot_deriv.name), None)
-        return tgt_attrs
+        return self._with_synthesized_id(tgt_attrs, class_deriv)
+
+    def _with_synthesized_id(self, record: dict[str, Any], class_deriv: ClassDerivation) -> dict[str, Any]:
+        """Prepend a content-hash id when the target identifier is minted rather than derived.
+
+        See :mod:`linkml_map.transformer.content_id`.
+
+        :raises TransformationError: If the identifier is neither derived nor minted.
+        """
+        id_slot = self._underived_identifier(class_deriv)
+        if id_slot is None:
+            return record
+        if not self._mints_ids(class_deriv):
+            if self.emit_without_identifiers:
+                return record
+            raise TransformationError(
+                message=missing_identifier_message(class_deriv.name, id_slot),
+                class_derivation_name=class_deriv.name,
+                class_populated_from=class_deriv.populated_from,
+            )
+        return {id_slot: self._content_ids.content_id(record, class_deriv.name), **record}
+
+    def _mints_ids(self, class_deriv: ClassDerivation) -> bool:
+        """Whether *class_deriv* mints ids, per :func:`~linkml_map.transformer.content_id.mints_ids`."""
+        spec = self.specification
+        default = spec.class_defaults.get(class_deriv.name) if spec.class_defaults else None
+        # A spec built directly in Python keeps the compact ``Class: true`` form as a bare bool.
+        default_mint_ids = default if isinstance(default, bool) or default is None else default.mint_ids
+        return mints_ids(spec.mint_ids, default_mint_ids, class_deriv.mint_ids)
+
+    def _underived_identifier(self, class_deriv: ClassDerivation) -> str | None:
+        """The target class's identifier slot when *class_deriv* doesn't derive it, else ``None``.
+
+        Always ``None`` without a target schema, since there is no identifier slot to know of.
+        """
+        if self.target_schemaview is None:
+            return None
+        if self._content_ids is None or self._content_ids.schemaview is not self.target_schemaview:
+            self._content_ids = ContentIdSynthesizer(self.target_schemaview)
+        id_slot = self._content_ids.identifier_slot(class_deriv.name)
+        if id_slot is None or id_slot in class_deriv.slot_derivations:
+            return None
+        return id_slot
+
+    def missing_identifiers(self) -> list[str]:
+        """Describe every class derivation that would emit records without their identifier.
+
+        Checks the whole specification, nested class derivations included: each target
+        identifier slot must be derived explicitly or minted (``mint_ids: true``).
+
+        :return: One message per offending class derivation; empty when all are covered.
+        """
+        top_level = [self._with_inherited_fields(cd) for cd in self.specification.class_derivations]
+        return [
+            missing_identifier_message(cd.name, id_slot)
+            for cd in _all_class_derivations(top_level)
+            if (id_slot := self._underived_identifier(cd)) is not None and not self._mints_ids(cd)
+        ]
+
+    def check_identifiers(self) -> None:
+        """Fail before any output if a class derivation would emit records without their identifier.
+
+        :raises ValueError: Listing every problem from :meth:`missing_identifiers`.
+        """
+        problems = self.missing_identifiers()
+        if problems:
+            raise ValueError("\n".join(problems))
 
     @contextmanager
     def _slot_error_context(
@@ -542,8 +644,18 @@ class ObjectTransformer(Transformer):
             target_range = slot_derivation.range
             v = self._map_value_by_range(v, source_class_slot, target_range, context.source_obj)
             v = self._coerce_cardinality(v, slot_derivation, context.class_deriv)
-            v = self._coerce_datatype(v, target_range)
+            v = self._coerce_datatype(
+                v, target_range or self._target_slot_datatype(context.class_deriv.name, slot_derivation.name)
+            )
+            v = self._resolve_enum_value(v, self._target_enum_index(context.class_deriv.name, slot_derivation))
             v = self._reshape_collection(v, slot_derivation, source_class_slot)
+        elif (slot_derivation.value is not None or slot_derivation.expr) and v is not None and not slot_derivation.hide:
+            v = self._coerce_cardinality(v, slot_derivation, context.class_deriv)
+            v = self._coerce_datatype(
+                v,
+                slot_derivation.range or self._target_slot_datatype(context.class_deriv.name, slot_derivation.name),
+            )
+            v = self._resolve_enum_value(v, self._target_enum_index(context.class_deriv.name, slot_derivation))
         return v
 
     @staticmethod
@@ -579,6 +691,9 @@ class ObjectTransformer(Transformer):
         :param functions: Extra functions injected into the evaluator
             (e.g. ``slot`` for referencing previously derived target slots).
         """
+        if self.unrestricted_eval and _is_statement_block(expr):
+            ctxt_obj, _ = bindings.get_ctxt_obj_and_dict()
+            return self._unrestricted_eval(expr, ctxt_obj, functions=functions, raise_undefined=True)
         try:
             return eval_expr_with_mapping(
                 expr,
@@ -598,6 +713,7 @@ class ObjectTransformer(Transformer):
         expr: str,
         src: Any,
         functions: dict[str, Any] | None = None,
+        raise_undefined: bool = False,
     ) -> Any:
         """Evaluate *expr* with the unrestricted asteval interpreter.
 
@@ -608,12 +724,20 @@ class ObjectTransformer(Transformer):
         :param expr: The expression string to evaluate.
         :param src: Object exposed to the expression as ``src``.
         :param functions: Extra functions injected into the interpreter.
+        :param raise_undefined: Raise when the expression uses an undefined name, such as a
+            ``{slot}`` reference, which asteval can't resolve. Other errors, such as iterating
+            a missing value, still yield ``None``.
+        :raises ValueError: If ``raise_undefined`` and the expression uses an undefined name.
         """
         usersyms = {"src": src, "target": None, "uuid5": _uuid5}
         if functions:
             usersyms.update(functions)
         aeval = Interpreter(usersyms=usersyms)
         aeval(expr)
+        if raise_undefined and aeval.error and aeval.error[0].exc is NameError:
+            _, detail = aeval.error[0].get_error()
+            msg = f"Unrestricted expression uses an undefined name: {detail}. Statements read slots as src.<slot>."
+            raise ValueError(msg)
         return aeval.symtable["target"]
 
     def _apply_mappings(
@@ -853,7 +977,7 @@ class ObjectTransformer(Transformer):
         joined_class = context.class_deriv.joins[table_name].class_named or table_name
         source_class_slot = None
         if joined_class in context.sv.all_classes():
-            if field_path in context.sv.class_induced_slots(joined_class):
+            if field_path in context.sv.class_slots(joined_class):
                 source_class_slot = context.sv.induced_slot(field_path, joined_class)
         return v, source_class_slot
 
@@ -959,6 +1083,9 @@ class ObjectTransformer(Transformer):
         synthesized during normalization), this method resolves the joined row
         and merges it with the parent row before passing it to ``map_object``.
 
+        A nested object whose slots all come out None is omitted. With no objects
+        left, a single-valued slot is None and a multivalued slot is ``[]``.
+
         :param slot_derivation: The slot derivation that declares nested class_derivations.
         :param source_obj: The current (parent) source row.
         :param target_type: Target class name for cardinality decisions.
@@ -1020,10 +1147,16 @@ class ObjectTransformer(Transformer):
 
             nested_result = self.map_object(
                 effective_obj,
-                source_type=cls_derivation.populated_from,
+                source_type=cls_derivation.populated_from or parent_source,
                 target_type=cls_derivation.name,
                 class_derivation=cls_derivation,
             )
+            # An object with every slot None has no content; leave it out as None slot values are.
+            # A minted id hashes that content rather than adding to it, so it doesn't count.
+            minted_id = self._underived_identifier(cls_derivation)
+            if isinstance(nested_result, dict) and all(v is None for k, v in nested_result.items() if k != minted_id):
+                logger.debug("Nested %r derived no values; emitting no object", cls_derivation.name)
+                continue
             derived_objs.append(nested_result)
 
         # If the slot is multivalued, we assign the whole list
@@ -1124,9 +1257,9 @@ class ObjectTransformer(Transformer):
                 return delimiter.join(vs)
             if stringification.syntax:
                 if stringification.syntax == SerializationSyntaxType.JSON:
-                    return json.dumps(vs)
+                    return dumps_json(vs, ensure_ascii=True)
                 if stringification.syntax == SerializationSyntaxType.YAML:
-                    return yaml.dump(vs, default_flow_style=True).strip()
+                    return dump_yaml(vs, default_flow_style=True, allow_unicode=False).strip()
                 msg = f"Unknown syntax: {stringification.syntax}"
                 raise ValueError(msg)
             msg = f"Cannot convert multivalued to single valued: {vs}; no delimiter"
@@ -1240,3 +1373,12 @@ class ObjectTransformer(Transformer):
             if enum_deriv.mirror_source:
                 return str(source_value)
         return None
+
+
+def _all_class_derivations(class_derivations: list[ClassDerivation]) -> Iterator[ClassDerivation]:
+    """Yield *class_derivations* and every class derivation nested under their slots."""
+    for cd in class_derivations:
+        yield cd
+        for sd in cd.slot_derivations.values():
+            if sd.class_derivations:
+                yield from _all_class_derivations(sd.class_derivations)

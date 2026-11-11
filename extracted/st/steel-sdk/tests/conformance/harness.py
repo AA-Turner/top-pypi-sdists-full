@@ -9,6 +9,7 @@ from urllib.parse import unquote, unquote_plus
 
 import httpx
 import respx
+import pydantic
 
 FIXTURE: Dict[str, Any] = json.loads((Path(__file__).parent / "cases.json").read_text(encoding="utf-8"))
 BASE_URL = "http://conformance.test"
@@ -52,11 +53,13 @@ def normalize(value: Any) -> Any:
     return value
 
 
-def dump(value: Any) -> Any:
+def dump(value: Any, lenient: bool = False) -> Any:
     if hasattr(value, "to_dict"):
-        return value.to_dict(mode="json")
+        if pydantic.VERSION.startswith("1."):
+            return value.to_dict(mode="json")
+        return value.to_dict(mode="json", warnings=not lenient)
     if isinstance(value, list):
-        return [dump(item) for item in cast(List[Any], value)]
+        return [dump(item, lenient) for item in cast(List[Any], value)]
     return value
 
 
@@ -109,6 +112,8 @@ def check(id: str, request: httpx.Request, expected: Dict[str, Any]) -> None:
     assert query(search) == sorted(f"{key}={scalar(value)}" for key, value in expected["query"]), f"{id} query"
     for name, value in expected["headers"].items():
         assert request.headers.get(name) == value, f"{id} header {name}"
+    if request.method != "GET":
+        assert request.headers.get("idempotency-key"), f"{id} sends no Idempotency-Key"
     content_type = request.headers.get("content-type", "")
     body = expected["body"]
     content = request.read()
@@ -153,8 +158,10 @@ def conform(id: str, make: Callable[[str, str, bool], Any], call: Callable[[Any]
 
     with respx.mock(base_url=BASE_URL, assert_all_called=False) as router:
         router.route().mock(side_effect=respond)
-        result = dump(call(make(BASE_URL, FIXTURE["apiKey"], not case["lenient"])))
+        result = dump(call(make(BASE_URL, FIXTURE["apiKey"], not case["lenient"])), case["lenient"])
     assert len(requests) == len(exchanges), f"{id} requests"
+    keys = {request.headers.get("idempotency-key") for request in requests if request.method != "GET"}
+    assert len(keys) <= 1, f"{id} changes its Idempotency-Key between retries"
     for request, exchange in zip(requests, exchanges):
         check(id, request, exchange["request"])
     expected = case["result"]

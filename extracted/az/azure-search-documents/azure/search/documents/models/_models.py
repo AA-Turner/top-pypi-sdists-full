@@ -49,10 +49,6 @@ class AutocompleteResult(_Model):
     """The list of returned Autocompleted items. Required."""
 
 
-class DebugInfo(_Model):
-    """Contains debugging information that can be used to further explore your search results."""
-
-
 class DocumentDebugInfo(_Model):
     """Contains debugging information that can be used to further explore your search results.
 
@@ -108,7 +104,7 @@ class ErrorDetail(_Model):
     """The error additional info."""
 
 
-class ErrorResponse(_Model):
+class ErrorResponse(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Common error response for all Azure Resource Manager APIs to return error details for failed
     operations. (This also follows the OData error response format.).
 
@@ -150,7 +146,7 @@ class FacetResult(_Model):
     """The approximate count of documents falling within the bucket described by this facet."""
 
 
-class IndexAction(_Model):
+class IndexAction(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Represents an index action that operates on a document.
 
     :ivar action_type: The operation to perform on a document in an indexing batch. Known values
@@ -182,7 +178,7 @@ class IndexAction(_Model):
         super().__init__(*args, **kwargs)
 
 
-class IndexDocumentsBatch(_Model):
+class IndexDocumentsBatch(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Contains a batch of document write actions to send to the index.
 
     :ivar actions: The actions in the batch. Required.
@@ -406,7 +402,7 @@ class SearchDocumentsResult(_Model):
      \"baseResults\" and \"rerankedResults\"."""
 
 
-class SearchRequest(_Model):
+class SearchRequest(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Parameters for filtering, sorting, faceting, paging, and other search query behaviors.
 
     :ivar include_total_count: A value that specifies whether to fetch the total count of results.
@@ -432,6 +428,9 @@ class SearchRequest(_Model):
      parameter can be useful for ensuring search availability even for services with only one
      replica. The default is 100.
     :vartype minimum_coverage: float
+    :ivar more_like_this: The key of the document to use as the basis for finding similar
+     documents. This parameter cannot be used together with search text.
+    :vartype more_like_this: str
     :ivar order_by: The comma-separated list of OData $orderby expressions by which to sort the
      results. Each expression can be either a field name or a call to either the geo.distance() or
      the search.score() functions. Each expression can be followed by asc to indicate ascending, or
@@ -516,7 +515,7 @@ class SearchRequest(_Model):
     :vartype vector_queries: list[~azure.search.documents.models.VectorQuery]
     :ivar vector_filter_mode: Determines whether or not filters are applied before or after the
      vector search is performed. Default is 'preFilter' for new indexes. Known values are:
-     "postFilter", "preFilter", and "strictPostFilter".
+     "postFilter" and "preFilter".
     :vartype vector_filter_mode: str or ~azure.search.documents.models.VectorFilterMode
     """
 
@@ -552,6 +551,11 @@ class SearchRequest(_Model):
     """A number between 0 and 100 indicating the percentage of the index that must be covered by a
      search query in order for the query to be reported as a success. This parameter can be useful
      for ensuring search availability even for services with only one replica. The default is 100."""
+    more_like_this: Optional[str] = rest_field(
+        name="moreLikeThis", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The key of the document to use as the basis for finding similar documents. This parameter
+     cannot be used together with search text."""
     order_by: Optional[list[str]] = rest_field(
         name="orderby", visibility=["read", "create", "update", "delete", "query"], format="commaDelimited"
     )
@@ -665,8 +669,7 @@ class SearchRequest(_Model):
         name="vectorFilterMode", visibility=["read", "create", "update", "delete", "query"]
     )
     """Determines whether or not filters are applied before or after the vector search is performed.
-     Default is 'preFilter' for new indexes. Known values are: \"postFilter\", \"preFilter\", and
-     \"strictPostFilter\"."""
+     Default is 'preFilter' for new indexes. Known values are: \"postFilter\" and \"preFilter\"."""
 
     @overload
     def __init__(  # pylint: disable=too-many-locals
@@ -679,6 +682,7 @@ class SearchRequest(_Model):
         highlight_post_tag: Optional[str] = None,
         highlight_pre_tag: Optional[str] = None,
         minimum_coverage: Optional[float] = None,
+        more_like_this: Optional[str] = None,
         order_by: Optional[list[str]] = None,
         query_type: Optional[Union[str, "_models.QueryType"]] = None,
         scoring_statistics: Optional[Union[str, "_models.ScoringStatistics"]] = None,
@@ -822,11 +826,11 @@ class TextResult(_Model):
     """The BM25 or Classic score for the text portion of the query."""
 
 
-class VectorQuery(_Model):
+class VectorQuery(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The query parameters for vector and hybrid search queries.
 
     You probably want to use the sub-classes and not this class directly. Known sub-classes are:
-    VectorizableImageBinaryQuery, VectorizableImageUrlQuery, VectorizableTextQuery, VectorizedQuery
+    VectorizableTextQuery, VectorizedQuery
 
     :ivar k_nearest_neighbors: Number of nearest neighbors to return as top hits.
     :vartype k_nearest_neighbors: int
@@ -849,8 +853,7 @@ class VectorQuery(_Model):
      will be in the final ranking. Default is 1.0 and the value needs to be a positive number larger
      than zero.
     :vartype weight: float
-    :ivar kind: Type of query. Required. Known values are: "vector", "text", "imageUrl", and
-     "imageBinary".
+    :ivar kind: Type of query. Required. Known values are: "vector" and "text".
     :vartype kind: str or ~azure.search.documents.models.VectorQueryKind
     """
 
@@ -877,8 +880,7 @@ class VectorQuery(_Model):
      text query. The higher the weight, the higher the documents that matched that query will be in
      the final ranking. Default is 1.0 and the value needs to be a positive number larger than zero."""
     kind: str = rest_discriminator(name="kind", visibility=["read", "create", "update", "delete", "query"])
-    """Type of query. Required. Known values are: \"vector\", \"text\", \"imageUrl\", and
-     \"imageBinary\"."""
+    """Type of query. Required. Known values are: \"vector\" and \"text\"."""
 
     @overload
     def __init__(
@@ -903,134 +905,9 @@ class VectorQuery(_Model):
         super().__init__(*args, **kwargs)
 
 
-class VectorizableImageBinaryQuery(VectorQuery, discriminator="imageBinary"):
-    """The query parameters to use for vector search when a base 64 encoded binary of an image that
-    needs to be vectorized is provided.
-
-    :ivar k_nearest_neighbors: Number of nearest neighbors to return as top hits.
-    :vartype k_nearest_neighbors: int
-    :ivar fields: Vector Fields of type Collection(Edm.Single) to be included in the vector
-     searched.
-    :vartype fields: str
-    :ivar exhaustive: When true, triggers an exhaustive k-nearest neighbor search across all
-     vectors within the vector index. Useful for scenarios where exact matches are critical, such as
-     determining ground truth values.
-    :vartype exhaustive: bool
-    :ivar oversampling: Oversampling factor. Minimum value is 1. It overrides the
-     'defaultOversampling' parameter configured in the index definition. It can be set only when
-     'rerankWithOriginalVectors' is true. This parameter is only permitted when a compression method
-     is used on the underlying vector field.
-    :vartype oversampling: float
-    :ivar weight: Relative weight of the vector query when compared to other vector query and/or
-     the text query within the same search request. This value is used when combining the results of
-     multiple ranking lists produced by the different vector queries and/or the results retrieved
-     through the text query. The higher the weight, the higher the documents that matched that query
-     will be in the final ranking. Default is 1.0 and the value needs to be a positive number larger
-     than zero.
-    :vartype weight: float
-    :ivar base64_image: The base 64 encoded binary of an image to be vectorized to perform a vector
-     search query.
-    :vartype base64_image: str
-    :ivar kind: The kind of vector query being performed. Required. Vector query where a base 64
-     encoded binary of an image that needs to be vectorized is provided.
-    :vartype kind: str or ~azure.search.documents.models.IMAGE_BINARY
-    """
-
-    base64_image: Optional[str] = rest_field(
-        name="base64Image", visibility=["read", "create", "update", "delete", "query"]
-    )
-    """The base 64 encoded binary of an image to be vectorized to perform a vector search query."""
-    kind: Literal[VectorQueryKind.IMAGE_BINARY] = rest_discriminator(name="kind", visibility=["read", "create", "update", "delete", "query"])  # type: ignore
-    """The kind of vector query being performed. Required. Vector query where a base 64 encoded binary
-     of an image that needs to be vectorized is provided."""
-
-    @overload
-    def __init__(
-        self,
-        *,
-        k_nearest_neighbors: Optional[int] = None,
-        fields: Optional[str] = None,
-        exhaustive: Optional[bool] = None,
-        oversampling: Optional[float] = None,
-        weight: Optional[float] = None,
-        base64_image: Optional[str] = None,
-    ) -> None: ...
-
-    @overload
-    def __init__(self, mapping: Mapping[str, Any]) -> None:
-        """
-        :param mapping: raw JSON to initialize the model.
-        :type mapping: Mapping[str, Any]
-        """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.kind = VectorQueryKind.IMAGE_BINARY  # type: ignore
-
-
-class VectorizableImageUrlQuery(VectorQuery, discriminator="imageUrl"):
-    """The query parameters to use for vector search when an url that represents an image value that
-    needs to be vectorized is provided.
-
-    :ivar k_nearest_neighbors: Number of nearest neighbors to return as top hits.
-    :vartype k_nearest_neighbors: int
-    :ivar fields: Vector Fields of type Collection(Edm.Single) to be included in the vector
-     searched.
-    :vartype fields: str
-    :ivar exhaustive: When true, triggers an exhaustive k-nearest neighbor search across all
-     vectors within the vector index. Useful for scenarios where exact matches are critical, such as
-     determining ground truth values.
-    :vartype exhaustive: bool
-    :ivar oversampling: Oversampling factor. Minimum value is 1. It overrides the
-     'defaultOversampling' parameter configured in the index definition. It can be set only when
-     'rerankWithOriginalVectors' is true. This parameter is only permitted when a compression method
-     is used on the underlying vector field.
-    :vartype oversampling: float
-    :ivar weight: Relative weight of the vector query when compared to other vector query and/or
-     the text query within the same search request. This value is used when combining the results of
-     multiple ranking lists produced by the different vector queries and/or the results retrieved
-     through the text query. The higher the weight, the higher the documents that matched that query
-     will be in the final ranking. Default is 1.0 and the value needs to be a positive number larger
-     than zero.
-    :vartype weight: float
-    :ivar url: The URL of an image to be vectorized to perform a vector search query.
-    :vartype url: str
-    :ivar kind: The kind of vector query being performed. Required. Vector query where an url that
-     represents an image value that needs to be vectorized is provided.
-    :vartype kind: str or ~azure.search.documents.models.IMAGE_URL
-    """
-
-    url: Optional[str] = rest_field(visibility=["read", "create", "update", "delete", "query"])
-    """The URL of an image to be vectorized to perform a vector search query."""
-    kind: Literal[VectorQueryKind.IMAGE_URL] = rest_discriminator(name="kind", visibility=["read", "create", "update", "delete", "query"])  # type: ignore
-    """The kind of vector query being performed. Required. Vector query where an url that represents
-     an image value that needs to be vectorized is provided."""
-
-    @overload
-    def __init__(
-        self,
-        *,
-        k_nearest_neighbors: Optional[int] = None,
-        fields: Optional[str] = None,
-        exhaustive: Optional[bool] = None,
-        oversampling: Optional[float] = None,
-        weight: Optional[float] = None,
-        url: Optional[str] = None,
-    ) -> None: ...
-
-    @overload
-    def __init__(self, mapping: Mapping[str, Any]) -> None:
-        """
-        :param mapping: raw JSON to initialize the model.
-        :type mapping: Mapping[str, Any]
-        """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.kind = VectorQueryKind.IMAGE_URL  # type: ignore
-
-
-class VectorizableTextQuery(VectorQuery, discriminator="text"):
+class VectorizableTextQuery(
+    VectorQuery, discriminator="text"
+):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The query parameters to use for vector search when a text value that needs to be vectorized is
     provided.
 
@@ -1092,7 +969,9 @@ class VectorizableTextQuery(VectorQuery, discriminator="text"):
         self.kind = VectorQueryKind.TEXT  # type: ignore
 
 
-class VectorizedQuery(VectorQuery, discriminator="vector"):
+class VectorizedQuery(
+    VectorQuery, discriminator="vector"
+):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The query parameters to use for vector search when a raw vector value is provided.
 
     :ivar k_nearest_neighbors: Number of nearest neighbors to return as top hits.

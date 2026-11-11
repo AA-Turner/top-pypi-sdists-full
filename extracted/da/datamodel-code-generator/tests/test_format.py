@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import inspect
 import pickle
 import shutil
 import subprocess
@@ -28,7 +29,6 @@ CodeFormatter = format_module.CodeFormatter
 Formatter = format_module.Formatter
 PythonVersion = format_module.PythonVersion
 PythonVersionMin = format_module.PythonVersionMin
-_format_import_node = format_module._format_import_node
 _format_import_node_without_reordering = format_module._format_import_node_without_reordering
 _get_builtin_line_length = format_module._get_builtin_line_length
 _get_builtin_known_first_party = format_module._get_builtin_known_first_party
@@ -65,6 +65,9 @@ BUILTIN_FORMATTER_LOCAL_CONSTANTS = {
 BUILTIN_FORMATTER_EXPECTED_PATH = Path(__file__).parent / "data" / "expected" / "builtin_formatter"
 BUILTIN_STRING_NORMALIZATION_INPUT_PATH = (
     Path(__file__).parent / "data" / "python" / "builtin_formatter_string_normalization.txt"
+)
+BUILTIN_WRAP_STRING_LITERAL_INPUT_PATH = (
+    Path(__file__).parent / "data" / "python" / "builtin_formatter_wrap_string_literal.txt"
 )
 BUILTIN_PEP695_INVALID_INPUT_PATH = Path(__file__).parent / "data" / "python" / "builtin_formatter_pep695_invalid.txt"
 BUILTIN_PEP695_INVALID_EXPECTED_PATH = BUILTIN_FORMATTER_EXPECTED_PATH / (
@@ -708,15 +711,740 @@ def test_apply_builtin_formatter_keeps_case_only_import_ties_in_order_like_isort
     )
 
 
-def test_format_import_node_formats_from_import_aliases() -> None:
-    """Test direct import node formatting for aliased from-imports."""
-    node = ast.parse("from pydantic import Field as PydanticField, BaseModel as Model\n").body[0]
-
-    assert isinstance(node, ast.ImportFrom)
-    assert _format_import_node(node, line_length=88) == (
-        2,
-        "from pydantic import BaseModel as Model\nfrom pydantic import Field as PydanticField",
+@pytest.mark.parametrize(
+    "code",
+    [
+        "from .b import Y\nfrom .a import X\nfrom . import b\nfrom . import a\n\nprint(X, Y, a, b)\n",
+        (
+            "def f():\n"
+            "    from .resources.detailed_zip_code_information._sync import DetailedZipCodeInformationResource\n"
+            "    return DetailedZipCodeInformationResource\n"
+        ),
+        (
+            "class A:\n"
+            "    def f(self):\n"
+            "        from .b import Y\n"
+            "\n"
+            "        from .a import X\n"
+            "        import sys\n"
+            "\n"
+            "        return X, Y, sys\n"
+        ),
+        (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from .protocols._async_helpers import AsyncRootWebsocket\n"
+            "    from .protocols._async_helpers import AsyncProtocolHelpers\n"
+            "else:\n"
+            "    AsyncRootWebsocket = AsyncProtocolHelpers = None\n"
+        ),
+        "import typing\n\nif typing.TYPE_CHECKING:\n    import b\n    import a\n    VALUE = a.b\n",
+        "class A:\n    import b\n\n\n    import a\n    x = 1\n",
+        "from termios import *\n\nprint(TCSANOW)\n",
+        "def f():\n    from termios import *\n    from os import path\n    return path\n",
+        "from tkinter import *\nfrom tkinter import messagebox\nfrom tkinter import _get_temp_root, _destroy_root\n",
+        "try:\n    from _etree import *\n    from _etree import _set_factories\nexcept ImportError:\n    x = 1\n",
+        "from b import x\nfrom a import *\nfrom a import y as z\nfrom a import w\n",
+    ],
+)
+def test_apply_builtin_formatter_sorts_nested_import_runs_like_isort(code: str) -> None:
+    """Sort, merge and wrap each run of imports in a nested body as isort and Black lay it out."""
+    assert apply_builtin_formatter(code) == black.format_str(
+        isort.code(code, config=isort.Config(profile="black")), mode=black.FileMode(string_normalization=False)
     )
+
+
+def test_apply_builtin_formatter_keeps_commented_nested_imports_at_their_indent() -> None:
+    """Keep a commented import of a nested run as written, at the indent of the run.
+
+    A comment line ends a run, after the blank line black puts after an import, and imports that share a line stay as
+    they are.
+    """
+    code = (
+        "def g():\n"
+        "    import b\n"
+        "    # a comment ends the run\n"
+        "    import a\n"
+        "    import a; import b\n"
+        "\n"
+        "\n"
+        "def f():\n"
+        "    try:\n"
+        "        import b  # noqa: F401\n"
+        "        from .b import (Y,  # first\n"
+        "            Z)\n"
+        "        import a\n"
+        "    except ImportError:\n"
+        "        pass\n"
+    )
+
+    assert apply_builtin_formatter(code) == (
+        "def g():\n"
+        "    import b\n"
+        "\n"
+        "    # a comment ends the run\n"
+        "    import a\n"
+        "    import a; import b\n"
+        "\n"
+        "\n"
+        "def f():\n"
+        "    try:\n"
+        "        import b  # noqa: F401\n"
+        "        import a\n"
+        "\n"
+        "        from .b import (Y,  # first\n"
+        "            Z)\n"
+        "    except ImportError:\n"
+        "        pass\n"
+    )
+
+
+_LONG_CALL = "foo(aaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbbb, cccccccccccccccccc, dddddddddddddddddd, eeeeeeeeeeeee)"
+_LONG_SET = "{'ProtocolDataError', 'SessionLimitError', 'StreamInterruptedError', 'WebSocketClosedError'}"
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        f"def f():\n    x = {_LONG_CALL}\n",
+        *(
+            f"x = value_aaaaaaaaaaaaaaaaaaaaaaa {operator} collection_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            " if flag_cccccccccccc else False\n"
+            for operator in ("not in", "in", "is not")
+        ),
+        (
+            "def f():\n"
+            "    call(value_aaaaaaaaaaaaaaaaaaa not in collection_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            " if flag else False)\n"
+            "    if value_aaaaaaaaaaaaaaaaaaa not in collection_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            " if flag else False:\n"
+            "        return value_aaaaaaaaaaaaaaaa not in collection_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            " if flag else False\n"
+            "    for item in value_aaaaaaaaaaaaaaaaaaaaaaaaaaa if flag_cccccccccccccccccccccc"
+            " else other_ddddddddddddd:\n"
+            "        pass\n"
+        ),
+        (
+            "async def f(self):\n"
+            "    return (await self._core.execute(_operations.OPERATION_0, (license, zip), options=options)).data\n"
+        ),
+        (
+            "async def f(self):\n"
+            "    return (await self._core.execute(\n"
+            "        _operations.OPERATION_4,\n"
+            "        (id,),\n"
+            "        options=options,\n"
+            "    )).data\n"
+        ),
+        f"def f(name):\n    if name in {_LONG_SET}:\n        pass\n    elif name in {_LONG_SET}:\n        pass\n",
+        f"def f(name):\n    while name not in {_LONG_SET}:\n        name = next_name()\n",
+        (
+            "def f():\n"
+            "    for aaaaaaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbbbbbbbb in some_function_name(argument_one, argument_2):\n"
+            "        pass\n"
+            "    for name in first_collection_with_a_long_name not in second_collection_with_a_long_name_x:\n"
+            "        pass\n"
+        ),
+        (
+            "async def f():\n"
+            "    async for aaaaaaaaaaaaaaaaaaaa in some_function_name(argument_number_one, argument_number_2):\n"
+            "        pass\n"
+            "    async with open_a_connection(some_very_long_host_name_argument) as connection, lock as held:\n"
+            "        pass\n"
+        ),
+        (
+            "def f():\n"
+            "    with open(some_very_long_file_name_variable, encoding='utf-8') as handle, open(other) as other:\n"
+            "        pass\n"
+        ),
+        (
+            "def f():\n"
+            "    try:\n"
+            "        pass\n"
+            "    except (ProtocolDataError, SessionLimitError, StreamInterruptedError, WebSocketClosedError) as e:\n"
+            "        raise SomeVeryLongExceptionName(f'some message {e}', another_argument, yet_another_arg) from e\n"
+        ),
+        (
+            "def f():\n"
+            "    assert isinstance(value_number_one, SomeVeryLongClassName), 'the value must be an instance of it'\n"
+            "    del some_dictionary_with_a_long_name[some_key_with_a_long_name][another_key_with_a_long_name]\n"
+            "    return some_function_name(argument_number_one, argument_two) + another_function_name(argument)\n"
+        ),
+        (
+            "def f(self, *, response_media_type: Literal['application/cbor', 'application/vnd.kubernetes.protobuf', "
+            "'application/yaml']) -> bytes:\n"
+            "    def inner(namespace: Annotated[str, Path(alias='namespace', description='object name and auth scope, "
+            "such as for teams')], limit: int = 10) -> None:\n"
+            "        return dispatch(\n"
+            "            circuits.circuits_circuit_terminations_list,\n"
+            "            ('principal', 'term_side', 'port_speed', 'upstream_speed', 'xconnect_id', 'circuit_id'),\n"
+            "        )\n"
+            "\n"
+            "    def g(self) -> Response[DeleteAutoscalingV1CollectionNamespacedHorizontalPodAutoscalerResponseXXXX]:\n"
+            "        return 1\n"
+            "\n"
+            "    return inner, g\n"
+        ),
+        (
+            "def g():\n"
+            "    if aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb or cccccccccccccccc:\n"
+            "        # a comment before the body\n"
+            "        return\n"
+            "    if not (aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb or ccccccccccc):\n"
+            "        return\n"
+            "    self._core = ClientCore.create(\n"
+            "        _DEFAULTS,\n"
+            "        credentials=SchemeCredentials({\n"
+            "            'Bearer': bearer,\n"
+            "        }),\n"
+            "    )\n"
+        ),
+        (
+            "class R:\n"
+            "    @overload\n"
+            "    async def delete(self, *, response_media_type: Literal['application/cbor', "
+            "'application/vnd.kubernetes.protobuf', 'application/yaml'], options: RequestOptions | None = None"
+            ") -> bytes: ...\n"
+            "    @overload\n"
+            "    async def delete_admissionregistration_v1alpha1(self, *, response_media_type: None = None) -> "
+            "DeleteAdmissionregistrationV1alpha1CollectionMutatingAdmissionPolicyResponse: ...\n"
+            "    def short(self) -> None: ...\n"
+            "\n"
+            "\n"
+            "class SomeVeryLongClassNameForTestingPurposes(SomeBaseClassWithALongName, AnotherMixinClassNameX): ...\n"
+        ),
+        (
+            "def f(index, rule):\n"
+            "    return Adapter(\n"
+            "        config={'regex_engine': 'python-re'} if index in rule.get('python_regex_types', ()) else None,\n"
+            "        other=first_value_with_long_name if condition_number_one else second_value if other else third,\n"
+            "    )\n"
+        ),
+        (
+            "def f(name, value):\n"
+            "    match value:\n"
+            "        case ('__json_schema_mapping_additional_values__', tuple() as declared, tuple() as patterns):\n"
+            "            pass\n"
+            "        case SomeClassName(first_attribute=first_value, second_attribute=second_value) if first_value:\n"
+            "            pass\n"
+            "        case first_capture_name if first_capture_name.some_attribute if flag else another_long_value_x:\n"
+            "            pass\n"
+            "    match -some_very_long_subject_expression_name.another_long_subject_expression_name.third_one:\n"
+            "        case -100000000000000000000000000000000000000000000000000000000000000000000000000000000:\n"
+            "            pass\n"
+            "    match (some_very_long_subject_expression_name, another_long_subject_expression_name, third_one):\n"
+            "        case _:\n"
+            "            pass\n"
+        ),
+        (
+            "@overload\n"
+            "def decode_markdown_render_header(info: ResponseInfo, name: Literal['Content-Length']) -> X | UNSET: ...\n"
+            "@overload\n"
+            "def decode_markdown_render_header(info: ResponseInfo, name: str) -> object: ...\n"
+            "def decode_markdown_render_header(info, name):\n"
+            "    return name\n"
+        ),
+        (
+            "def f():\n"
+            "    do_this_first_thing(argument_one, argument_two) if condition_value else do_that_thing(other)\n"
+        ),
+        (
+            "def f():\n"
+            "    x = case if some_condition_with_a_long_name_here else some_other_value_with_a_long_name\n"
+            "    y = obj.case if some_condition_with_a_long_name_here else some_other_value_with_long_name\n"
+            "    case if some_condition_with_a_long_name_here_and_more else some_other_value_with_long_name\n"
+        ),
+        (
+            "def f():\n"
+            '    """Return the value.\n'
+            "\n"
+            '    Configure the tree column heading by calling this method with columns set to "#0" """\n'
+            "    return 1\n"
+        ),
+    ],
+)
+def test_apply_builtin_formatter_lays_out_function_bodies_like_black(code: str) -> None:
+    """Lay out the statements of function bodies, clause headers and nested definition headers as Black does."""
+    assert apply_builtin_formatter(code) == black.format_str(
+        code, mode=black.FileMode(string_normalization=False, target_versions={black.TargetVersion.PY310})
+    )
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        f"def f():\n    if aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: return {'b' * 73}\n",
+        "def f():\n    del first_dictionary_with_a_long_name[some_key_name], second_dictionary_with_a_long_name[key]\n",
+        (
+            "def f():\n"
+            "    try:\n"
+            "        pass\n"
+            "    except* (ProtocolDataError, SessionLimitError, StreamInterruptedError, WebSocketClosedError):\n"
+            "        pass\n"
+        ),
+        (
+            "def f(value):\n"
+            "    x = function(value if condition else lambda: default_value_with_a_long_name, another_argument_x)\n"
+            "    match value:\n"
+            "        case \\\n"
+            "                {'first_key_with_a_long_name': first_value, 'second_key_with_a_long_name': second}:\n"
+            "            pass\n"
+        ),
+    ],
+)
+def test_apply_builtin_formatter_keeps_statements_it_does_not_lay_out(code: str) -> None:
+    """Keep statements the port does not lay out as written.
+
+    They are a one-line clause body, a ``del`` of several targets, ``except*``, a lambda in a conditional expression and
+    a ``case`` pattern after a backslash.
+    """
+    assert apply_builtin_formatter(code) == code
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        pytest.param(
+            "from pydantic import BaseModel\n"
+            "\n"
+            "\n"
+            "class Pet(BaseModel):\n"
+            '    """A pet."""\n'
+            "\n"
+            "    # Pydantic v2 configuration\n"
+            "    name: str\n"
+            "\n"
+            "    # Custom helpers\n"
+            "    def describe(self) -> str:\n"
+            "        return repr(self)\n",
+            id="class-body-comments",
+        ),
+        pytest.param(
+            "class Pet(BaseModel):\n"
+            "    name: str\n"
+            "    def to_dict(self) -> dict:\n"
+            "        return {}\n"
+            "    @property\n"
+            "    def upper(self) -> str:\n"
+            "        return self.name.upper()\n"
+            "\n"
+            "    class Meta:\n"
+            "        a = 1\n"
+            "\n"
+            "\n"
+            "        b = 2\n",
+            id="class-body-blank-lines",
+        ),
+        pytest.param(
+            "class A:\n"
+            "    def f(self):\n"
+            "        if x:\n"
+            "            y = 1\n"
+            "\n"
+            "\n"
+            "            # stays in the if body\n"
+            "        # in f\n"
+            "      # also in f\n"
+            "    # in A\n"
+            "  # top level\n"
+            "x = 1\n"
+            "def g():\n"
+            "    pass\n"
+            "    # last in g\n",
+            id="comments-closing-blocks",
+        ),
+        pytest.param(
+            "if x:\n"
+            "    def f():\n"
+            "        pass\n"
+            "else:\n"
+            "    pass\n"
+            "try:\n"
+            "    a = 1\n"
+            "\n"
+            "\n"
+            "    # before except\n"
+            "except E:\n"
+            "    pass\n"
+            "# before finally\n"
+            "finally:\n"
+            "    pass\n"
+            "for a in b:\n"
+            "    pass\n"
+            "\n"
+            "# before else\n"
+            "else:\n"
+            "    pass\n"
+            "while x:\n"
+            "    pass\n"
+            "elif_ = 1\n"
+            "if x:\n"
+            "    pass\n"
+            "\n"
+            "\n"
+            "elif y:\n"
+            "    pass\n",
+            id="clause-headers",
+        ),
+        pytest.param(
+            "def f(v):\n"
+            "    match v:\n"
+            "        # first\n"
+            "        case 1:\n"
+            "\n"
+            "            return 1\n"
+            "\n"
+            "\n"
+            "\n"
+            "        case _:\n"
+            "            return 2\n",
+            id="match-cases",
+        ),
+        pytest.param(
+            "import os\n"
+            "# leads A\n"
+            "class A:\n"
+            "    # first in A\n"
+            "    def f(self): ...\n"
+            "    def g(self): ...\n"
+            "    x: int\n"
+            "    # leads h\n"
+            "    @property\n"
+            "    # after the decorator\n"
+            "    def h(self):\n"
+            "        pass\n"
+            "\n"
+            "\n"
+            "# two lines before\n"
+            "\n"
+            "# leads B\n"
+            "@dec\n"
+            "class B:\n"
+            "    pass\n",
+            id="leading-comments",
+        ),
+        pytest.param(
+            "class A:\n"
+            "\n"
+            '    """Doc."""\n'
+            "    x = 1\n"
+            "    def f(self):\n"
+            "\n"
+            '        """Doc."""\n'
+            "        if x:\n"
+            "\n"
+            "            'doc'\n",
+            id="docstrings",
+        ),
+        pytest.param(
+            '"""Module."""\n# comment\n\n\n\nimport os\n\n\n\nx = 1\n',
+            id="module-docstring-and-imports",
+        ),
+        pytest.param(
+            "def f():\n    import os\n    x = 1\n    import sys\n    # after an import\n    y = 2\n",
+            id="imports-in-a-body",
+        ),
+        pytest.param(
+            "# first line\ndef f():\n    pass\n",
+            id="first-line-comment",
+        ),
+    ],
+)
+def test_apply_builtin_formatter_keeps_comments_between_statements_with_black_blank_lines(code: str) -> None:
+    """Keep every comment between statements, in the block black reads it in, and put black's blank lines around it.
+
+    The cases are comments in class bodies and before methods, comments that close blocks at each depth and at the end
+    of the file, comments before clause headers and cases, comment blocks that lead a definition, docstrings, the
+    module docstring before imports and imports in a body.
+    """
+    formatted = apply_builtin_formatter(code)
+    assert formatted == black.format_str(
+        isort.code(code, config=isort.Config(profile="black")), mode=black.FileMode(string_normalization=False)
+    )
+    assert ast.dump(ast.parse(formatted)) == ast.dump(ast.parse(code))
+    assert apply_builtin_formatter(formatted) == formatted
+
+
+def test_apply_builtin_formatter_puts_blank_lines_around_one_line_bodies() -> None:
+    """Put the blank lines black puts once it splits a body off its header, keeping the body on the header's line."""
+    code = "if x: y = 1\nelse: y = 2\n# c\ndef f(): return 1\nclass A: pass\ntry: pass\nfinally: pass\n"
+
+    formatted = apply_builtin_formatter(code)
+
+    assert formatted == (
+        "if x: y = 1\nelse: y = 2\n\n\n# c\ndef f(): return 1\n\n\nclass A: pass\n\n\ntry: pass\nfinally: pass\n"
+    )
+    assert apply_builtin_formatter(formatted) == formatted
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        pytest.param(
+            "class Pet(BaseModel):\n    name: str #note\n    kind: str | None = None# End of class\n",
+            id="inline",
+        ),
+        pytest.param(
+            "#!/usr/bin/env python\n#c\n#!x\n#:x\n##x\n#'x\n#  two\n#\nx = 1 #i\ny = [  #a\n    1,#b\n    #c\n]\n",
+            id="exceptions-and-brackets",
+        ),
+        pytest.param(
+            "y = 2  #type: ignore[x]  # noqa\nz = f'{x}' #f\n#\u00a0nbsp\nw = 3 #\u00a0type: int\n",
+            id="directives-type-comments-no-break-spaces",
+        ),
+        pytest.param("def f():\n    #c\n    return 1 #r\n", id="function-body"),
+    ],
+)
+def test_apply_builtin_formatter_writes_comments_like_black(code: str) -> None:
+    """Write two spaces before an inline comment and one after the hash, with black's exceptions.
+
+    ``#!``, ``#:``, ``##`` and ``#'`` stay, type comments are spelled ``# type: <value>``, a leading no-break space
+    becomes a space.
+    """
+    formatted = apply_builtin_formatter(code)
+    assert formatted == black.format_str(code, mode=black.FileMode(string_normalization=False))
+    assert ast.dump(ast.parse(formatted)) == ast.dump(ast.parse(code))
+    assert apply_builtin_formatter(formatted) == formatted
+
+
+def test_apply_builtin_formatter_spaces_type_comments_like_the_pinned_black() -> None:
+    """Write ``# type: <value>`` for a type comment, as the pinned black does (black 24 keeps ``# type:int``)."""
+    assert apply_builtin_formatter("x = 1 #type:int\n") == "x = 1  # type: int\n"
+
+
+def test_apply_builtin_formatter_keeps_fmt_skip_lines_like_the_pinned_black() -> None:
+    """Keep a ``# fmt: skip`` line as written, as the pinned black does (black 24 respaces its comment)."""
+    assert apply_builtin_formatter("x = 1 # fmt: skip\n") == "x = 1 # fmt: skip\n"
+
+
+def test_apply_builtin_formatter_keeps_comments_of_code_it_cannot_tokenize() -> None:
+    """Keep the comments of code the tokenizer rejects as written, as the code stays as it is."""
+    assert apply_builtin_formatter("x = (\n#c\n") == "x = (\n#c\n"
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="a comment in an f-string's replacement field needs Python 3.12")
+def test_apply_builtin_formatter_keeps_comments_in_f_string_fields() -> None:
+    """Keep a comment in a multi-line f-string's replacement field as written, as black leaves the f-string."""
+    code = 'x = 1\ny = f"""{x  #c\n}""" #d\n'
+
+    assert apply_builtin_formatter(code) == 'x = 1\ny = f"""{x  #c\n}"""  # d\n'
+
+
+def _statements_and_imported_names(code: str) -> tuple[str, list[tuple[str, int, str, str]]]:
+    """Return the module without its imports, and the names it imports, which isort reorders and merges."""
+    tree = ast.parse(code)
+    imported: set[tuple[str, int, str, str]] = set()
+    for node in ast.walk(tree):
+        for field in ("body", "orelse", "finalbody"):
+            if isinstance(body := getattr(node, field, None), list):
+                imports = [statement for statement in body if isinstance(statement, (ast.Import, ast.ImportFrom))]
+                imported.update(
+                    (
+                        getattr(statement, "module", None) or "",
+                        getattr(statement, "level", 0),
+                        name.name,
+                        name.asname or "",
+                    )
+                    for statement in imports
+                    for name in statement.names
+                )
+                setattr(node, field, [statement for statement in body if statement not in imports])
+    return ast.dump(tree), sorted(imported)
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        pytest.param(
+            "from __future__ import annotations\n"
+            "\n"
+            "# Needed by the validator\n"
+            "import re  # noqa: F401\n"
+            "\n"
+            "from pydantic import BaseModel\n",
+            id="comment-above-import",
+        ),
+        pytest.param(
+            "from enum import Enum\n"
+            "\n"
+            "\n"
+            "class Kind(Enum):\n"
+            "    dog = 'dog'\n"
+            "\n"
+            "\n"
+            "import mypkg.types as ct\n"
+            "from datetime import date\n"
+            "\n"
+            "\n"
+            "class Pet:\n"
+            "    pass\n",
+            id="run-after-first-statement",
+        ),
+        pytest.param(
+            "import sys\n# about os\nimport os\nx = 1\n",
+            id="comment-moves-with-import",
+        ),
+        pytest.param(
+            "from x import b\n# c2\nfrom x import a\n",
+            id="comment-above-merged-import",
+        ),
+        pytest.param(
+            "# c1\nfrom x import b\n\n# c2\n\nfrom x import a\nimport os\n",
+            id="comment-before-blank-moves-below",
+        ),
+        pytest.param(
+            "import os\n\n# trailing in block\n\nimport sys\n",
+            id="comment-between-blank-lines",
+        ),
+        pytest.param(
+            "import zz\n# c\n# d\nimport aa\n",
+            id="comment-run-above-import",
+        ),
+        pytest.param(
+            "import zz\nimport aa  # inline\n# above yy\nimport yy\n",
+            id="comment-after-inline-commented-import",
+        ),
+        pytest.param(
+            "from pydantic import BaseModel\n# typing\nfrom typing import Any\n",
+            id="comment-above-first-of-section",
+        ),
+        pytest.param(
+            "import zz\n# a\n\n\n# b\n\nimport x\n\n\nclass A:\n    pass\n",
+            id="comments-before-blank-lines-and-class",
+        ),
+        pytest.param(
+            "import zz\n# a\n\n# b\n\nimport x\n# c\nx = 1\n",
+            id="comments-before-blank-lines-and-comment",
+        ),
+        pytest.param(
+            "import os\n"
+            "# above sys\n"
+            "import sys as system\n"
+            "from typing import Any as A\n"
+            "# above typing\n"
+            "from typing import Any\n",
+            id="comments-above-aliased-imports",
+        ),
+        pytest.param(
+            "from x import a\n# again\nfrom x import a\n",
+            id="comment-above-duplicate-import",
+        ),
+        pytest.param(
+            "from __future__ import annotations\n# c\nfrom x import a, b\nimport os\n",
+            id="comment-after-future-import",
+        ),
+        pytest.param(
+            "import b, a\n# above c\nimport c\n",
+            id="comment-above-import-of-several-names",
+        ),
+    ],
+)
+def test_apply_builtin_formatter_sorts_template_imports_with_their_comments_like_isort(code: str) -> None:
+    """Sort imports with the comments right above them and move other comments below the import block, as isort does.
+
+    A run of imports after the first statement of the module is sorted too. The module keeps its statements and the
+    names it imports.
+    """
+    formatted = apply_builtin_formatter(code)
+    assert formatted == black.format_str(
+        isort.code(code, config=isort.Config(profile="black")), mode=black.FileMode(string_normalization=False)
+    )
+    assert _statements_and_imported_names(formatted) == _statements_and_imported_names(code)
+    assert apply_builtin_formatter(formatted) == formatted
+
+
+@pytest.mark.parametrize(
+    "code", ["import x; y = 1\nz = 2\n", "import b\nimport a; y = 1\n"], ids=["only-import", "after-imports"]
+)
+def test_apply_builtin_formatter_keeps_statement_after_leading_import_on_its_line(code: str) -> None:
+    """Keep an import that shares its line with the statement after it, and that statement, as written."""
+    assert apply_builtin_formatter(code) == code
+
+
+def _ast_with_clean_docstrings(code: str) -> str:
+    """Return the AST of ``code`` with each docstring cleaned as ``inspect.cleandoc`` does, as black re-indents them."""
+    tree = ast.parse(code)
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.body
+            and isinstance(first := node.body[0], ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            first.value.value = inspect.cleandoc(first.value.value)
+    return ast.dump(tree)
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        pytest.param(
+            "class Pet(BaseModel):\n"
+            "  name: str = Field(..., description='The name of the pet, which can be fairly long so that the line"
+            " overflows')\n",
+            id="two-spaces-long-field",
+        ),
+        pytest.param(
+            "class A:\n"
+            '  """Doc.\n'
+            "\n"
+            "  More.\n"
+            '  """\n'
+            "\n"
+            "  x = '''keep\n"
+            "  this\n"
+            "    as is'''\n"
+            "  w = f'''{x}\n"
+            "  line'''\n"
+            "  y = call(\n"
+            "      a,\n"
+            "    b,\n"
+            "  )\n"
+            "  def f(self):\n"
+            "      if self:\n"
+            "          return 1\n"
+            "      else:\n"
+            "        # odd\n"
+            "        return 2\n",
+            id="docstring-string-call-clauses",
+        ),
+        pytest.param(
+            "def f():\n\tif x:\n\t\treturn 1\n\t# tab comment\n\treturn 2\n",
+            id="tabs",
+        ),
+        pytest.param(
+            "class A:\n"
+            "        x = 1\n"
+            "        class B:\n"
+            "                y = 2\n"
+            "                # deep\n"
+            "        # back in A\n",
+            id="eight-spaces",
+        ),
+    ],
+)
+def test_apply_builtin_formatter_indents_by_four_spaces_like_black(code: str) -> None:
+    """Indent each block by four spaces and lay out its lines at that indent, as black does.
+
+    Docstrings are re-indented, other strings keep their lines, and comment lines take the indent of their block.
+    """
+    formatted = apply_builtin_formatter(code)
+    assert formatted == black.format_str(code, mode=black.FileMode(string_normalization=False))
+    assert _ast_with_clean_docstrings(formatted) == _ast_with_clean_docstrings(code)
+    assert apply_builtin_formatter(formatted) == formatted
+
+
+def test_apply_builtin_formatter_moves_continuation_lines_with_their_statement() -> None:
+    """Move the lines that continue a statement the port keeps as written by as much as its first line moves."""
+    code = "class A:\n  y = call(\n      a,  # first\n    b,\n  )\n  z = 1 + \\\n      2\n"
+
+    formatted = apply_builtin_formatter(code)
+
+    assert formatted == "class A:\n    y = call(\n        a,  # first\n      b,\n    )\n    z = 1 + \\\n        2\n"
+    assert ast.dump(ast.parse(formatted)) == ast.dump(ast.parse(code))
+    assert apply_builtin_formatter(formatted) == formatted
 
 
 def test_format_import_node_rejects_unsupported_nodes() -> None:
@@ -725,8 +1453,6 @@ def test_format_import_node_rejects_unsupported_nodes() -> None:
 
     with pytest.raises(TypeError, match="Unsupported import node: Pass"):
         _format_import_node_without_reordering(unsupported_node, ["pass"])
-    with pytest.raises(TypeError, match="Unsupported import node: Pass"):
-        _format_import_node(unsupported_node, line_length=88)
 
 
 def test_apply_builtin_formatter_adds_blank_after_module_docstring() -> None:
@@ -863,11 +1589,13 @@ def test_apply_builtin_formatter_wraps_module_subscript_union_element() -> None:
     )
 
 
-def test_apply_builtin_formatter_keeps_one_line_class_annotation_spacing() -> None:
-    """Test post-class annotation spacing ignores one-line classes."""
+def test_apply_builtin_formatter_puts_blank_lines_after_one_line_class() -> None:
+    """Put black's two blank lines after a class whose body stays on its header line."""
     code = "class Model: pass\nModel.__annotations__['__pydantic_extra__'] = Dict[str, int]\n"
 
-    assert apply_builtin_formatter(code) == code
+    assert apply_builtin_formatter(code) == (
+        "class Model: pass\n\n\nModel.__annotations__['__pydantic_extra__'] = Dict[str, int]\n"
+    )
 
 
 def test_apply_builtin_formatter_normalizes_simple_string_quotes() -> None:
@@ -907,6 +1635,26 @@ def test_builtin_formatter_string_normalization_fixture() -> None:
     assert_output("\n".join(formatted_cases))
 
 
+def test_builtin_formatter_wrap_string_literal_fixture() -> None:
+    r"""Wrap and split strings as black's preview string processing does, for each case at its own line length.
+
+    The cases are strings after operators, with trailers, in joined groups black does not merge, in parentheses,
+    dictionary entries and values, list, set and tuple elements, f-strings and ``\\N{...}`` escapes. Every case keeps
+    its meaning, also where black's output would not: a tuple after ``yield`` that ends in a comma, and a statement
+    that is a string and a comma.
+    """
+    formatted_cases: list[str] = []
+    corpus = BUILTIN_WRAP_STRING_LITERAL_INPUT_PATH.read_text(encoding="utf-8")
+    for case in corpus.split("\n---CASE---\n"):
+        header, source = case.split("\n", 1)
+        name, line_length = header.split()
+        formatted = apply_builtin_formatter(source, line_length=int(line_length), wrap_string_literal=True)
+        assert formatted == source or ast.dump(ast.parse(formatted)) == ast.dump(ast.parse(source)), name
+        formatted_cases.append(f"[{name}]\n{formatted}")
+
+    assert_output("\n".join(formatted_cases))
+
+
 def test_builtin_formatter_string_normalization_preserves_pep695_invalid_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -937,8 +1685,8 @@ def test_builtin_formatter_keeps_target_identifiers_and_joiners_alike_on_every_p
     """Format code the running Python cannot parse alike on every Python.
 
     Letters the running Python lacks are lent away while formatting and given back, never as a letter the NFKC form
-    of the code uses. Joiners, which Python 3.13 lets identifiers hold, are lent in names and keep their escapes when
-    strings are rewrapped.
+    of the code uses. Joiners, which Python 3.13 lets identifiers hold, are lent in names and stay as written when
+    strings are rewrapped, as black writes them.
     """
     description = "joined\u200dword " * 12
     joiners = (
@@ -1757,7 +2505,7 @@ def test_apply_builtin_formatter_wraps_string_default_with_single_quote() -> Non
 
 
 def test_apply_builtin_formatter_wrap_string_literal_joins_implicitly_concatenated_strings() -> None:
-    """Wrap implicitly joined strings as one, and leave a parameter's default and an f-string's neighbour whole.
+    """Wrap implicitly joined strings as one, as black's string processing does, and leave a parameter's default whole.
 
     The first string of a joined value was wrapped alone, which left the next string after the parentheses.
     """
@@ -1779,8 +2527,10 @@ def test_apply_builtin_formatter_wrap_string_literal_joins_implicitly_concatenat
         "):\n"
         "    x: str = Field(\n"
         "        None,\n"
-        "        description='a generated description text'\n"
-        "        f' {done}',\n"
+        "        description=(\n"
+        "            'a generated description'\n"
+        "            f' text {done}'\n"
+        "        ),\n"
         "    )\n"
         "\n"
         "    def f(\n"
@@ -1791,10 +2541,10 @@ def test_apply_builtin_formatter_wrap_string_literal_joins_implicitly_concatenat
     )
 
 
-def test_apply_builtin_formatter_wrap_string_literal_keeps_bytes_and_f_strings_whole() -> None:
-    """Leave a long bytes literal or f-string argument whole when string literals are wrapped.
+def test_apply_builtin_formatter_wrap_string_literal_splits_bytes_and_f_strings_like_black() -> None:
+    """Split a long bytes literal or f-string argument as black's string processing does, keeping each value.
 
-    Wrapping read a bytes literal back as text, which changed its value, and raised ValueError on an f-string.
+    Wrapping used to read a bytes literal back as text, which changed its value, and raised ValueError on an f-string.
     """
     code = (
         "class Model:\n"
@@ -1806,11 +2556,19 @@ def test_apply_builtin_formatter_wrap_string_literal_keeps_bytes_and_f_strings_w
         "class Model:\n"
         "    x: str = Field(\n"
         "        None,\n"
-        "        description=f'{prefix} a long description text that goes on and on',\n"
+        "        description=(\n"
+        "            f'{prefix} a long'\n"
+        "            ' description text that'\n"
+        "            ' goes on and on'\n"
+        "        ),\n"
         "    )\n"
         "    y: bytes = Field(\n"
         "        None,\n"
-        "        default=b'a long bytes literal text that goes on and on and on',\n"
+        "        default=(\n"
+        "            b'a long bytes literal text'\n"
+        "            b' that goes on and on'\n"
+        "            b' and on'\n"
+        "        ),\n"
         "    )\n"
     )
 
@@ -2190,7 +2948,7 @@ def test_builtin_formatter_private_edge_helpers(tmp_path: Path) -> None:
     )
     assert _get_builtin_known_first_party(tmp_path) == DEFAULT_KNOWN_FIRST_PARTY
     assert _normalize_string_quotes("a = \"ok\"\nb = 'has \" quote'\nc = 'abc\\\\'\nd = 'ok'\n") == (
-        'a = "ok"\nb = \'has " quote\'\nc = \'abc\\\\\'\nd = "ok"\n'
+        'a = "ok"\nb = \'has " quote\'\nc = "abc\\\\"\nd = "ok"\n'
     )
 
 
@@ -3123,7 +3881,6 @@ UNSUPPORTED_LAYOUT_CASES: tuple[tuple[str, int], ...] = (
     ("value = lambda argument: argument + first_value_with_a_long_name_here_more\n", 30),
     ("def function_name[T](argument: T) -> T:\n    pass\n", 20),
     ('x = """unterminated\n', 88),
-    ("class A:\n  value = function_name(first_argument, second_argument)\n", 20),
     ("value = t'{first_value} and {second_value} in a long template string'\n", 30),
     ("@(\n    decorator_name)\ndef f():\n    pass\n", 10),
     ("value = function_name(1 .real, first_argument_value, second_argument_value)\n", 30),
@@ -3148,3 +3905,31 @@ def test_builtin_formatter_lays_out_statements_as_black_does() -> None:
 def test_builtin_formatter_leaves_unsupported_statements_as_they_are(code: str, line_length: int) -> None:
     """Leave a statement whose constructs the line splitter does not lay out as it is."""
     assert apply_builtin_formatter(code, line_length=line_length) == code
+
+
+def test_builtin_formatter_keeps_a_line_not_indented_by_fours_as_it_is() -> None:
+    """Lay out no logical line whose indent is not a multiple of four; the formatter re-indents a module before."""
+    line = "  value = function_name(first_argument, second_argument)"
+    assert (
+        builtin_formatter.format_logical_line(line, line_length=20, wrap_string_literal=False, assignment=True) is None
+    )
+
+
+def test_builtin_formatter_keeps_indentation_it_cannot_rewrite_validly() -> None:
+    """Keep the indentation when re-indenting would break the code, as with a backslash-only continuation line."""
+    code = "class A:\n  x = 1\n  \\\n  y = 2\n"
+    assert apply_builtin_formatter(code) == code
+
+
+def test_builtin_formatter_keeps_comments_of_newer_target_code_as_written() -> None:
+    """Keep the comments of code the running Python cannot parse, such as a PEP 701 f-string on Python 3.11."""
+    code = 'x = f"{d["#key"]}"\n'
+    assert apply_builtin_formatter(code, python_version=PythonVersion.PY_312) == code
+
+
+def test_builtin_formatter_places_blank_lines_after_a_decorator_split_in_a_class() -> None:
+    """Start a decorated method at its ``@`` line when the decorator's expression starts on a later line."""
+    code = "class A:\n    @(\n        d)\n    def f(self):\n        pass\n    x = 1\n"
+    assert (
+        apply_builtin_formatter(code) == "class A:\n    @(\n        d)\n    def f(self):\n        pass\n\n    x = 1\n"
+    )

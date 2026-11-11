@@ -60,6 +60,7 @@ class View(StrEnum):
     PICKS = "picks"
     EDITS = "edits"
     COMMANDS = "commands"
+    PANES = "panes"
 
 
 #: What a view MEANS on a kind -- the union across both agent
@@ -81,6 +82,7 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.LINEAGE,
             View.NOTES,
             View.OVERVIEW,
+            View.PANES,
             View.RECORD,
             View.REPRODUCE,
             View.SESSIONS,
@@ -100,6 +102,7 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.LINEAGE,
             View.NOTES,
             View.OVERVIEW,
+            View.PANES,
             View.PAPERS,
             View.PICKS,
             View.README,
@@ -145,7 +148,7 @@ VIEW_PURPOSE: dict[View, str] = {
     View.BRANCHES: "lines of work: best value, effort, state; view_options.branch for one in full",
     View.CARD: "identity, status, and this kind's available_views",
     View.CODE: "the GitHub resolution at this grain; diff with view_options.compare_to",
-    View.COMMANDS: "what was asked of the running script (checkpoint, config, stop, ...): who, its state, why, result",
+    View.COMMANDS: "what was asked of the running script (checkpoint, config, stop...), what happened, what it accepts (first page)",
     View.CONTENT: "the artifact's own bytes",
     View.DIFF: "what changed, against the comparison this kind defines",
     View.EDITS: "the run's data edits, newest first: who changed what, how, why, and whether it was undone",
@@ -157,6 +160,7 @@ VIEW_PURPOSE: dict[View, str] = {
     View.METRICS: "series summaries; view_options.key drills to raw points",
     View.NOTES: "hidden operational notes: decisions, caveats, handoffs",
     View.OVERVIEW: "the same Summary page as saved HTML, with its chart data",
+    View.PANES: "the visuals an agent wrote on its page: slug, title, place, what each reads; no HTML",
     View.PAPERS: "the literature attached to this project",
     View.PICKS: "the best pick's history, newest first: who picked or cleared what, and why",
     View.README: "the repository's README at this grain",

@@ -3,10 +3,12 @@ it declared), list a run's commands, and the producer's claim and answer (twin: 
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from .... import errors
 from .....generated.records import CommandKind
+from ....values.run_command_words import CommandListPart
 
 
 class RunCommandsMixin:
@@ -24,9 +26,16 @@ class RunCommandsMixin:
             body["note"] = note
         return self.transport.post(f"/v1/runs/{run_id}/commands", body)
 
-    def list_run_commands(self, run_id: str, *, after: int | None = None, limit: int | None = None) -> dict:
-        """``GET /v1/runs/{id}/commands``: ``{commands, seq, next_after}``, by seq after ``after``."""
-        query = {key: value for key, value in (("after", after), ("limit", limit)) if value is not None}
+    def list_run_commands(self, run_id: str, *, after: int | None = None, limit: int | None = None,
+                          parts: Sequence[CommandListPart] = ()) -> dict:  # fmt: skip
+        """``GET /v1/runs/{id}/commands``: ``{commands, seq, next_after}``, by seq after ``after``. ``parts``
+        (``?with=``): ``(CommandListPart.WRITER,)`` adds ``accepts``, ``writer``, ``writer_seen_at``,
+        ``writer_role`` and ``run_status``; each part is a server read, so a poll passes none. A server older than them leaves them out."""
+        query: dict[str, Any] = {key: value for key, value in (("after", after), ("limit", limit)) if value is not None}
+        if isinstance(parts, str):
+            raise TypeError(f"parts is a list of CommandListPart (CommandListPart.WRITER, ...), not {parts!r}")
+        if parts:
+            query["with"] = [CommandListPart(part).value for part in parts]
         return self.transport.get(f"/v1/runs/{run_id}/commands", params=query or None)
 
     def claim_run_command(self, run_id: str, command_id: str, session_id: str) -> dict | None:

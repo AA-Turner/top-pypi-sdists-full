@@ -124,8 +124,9 @@ def eval(
 
     Returns the `EvalReport` once the eval completes or fails (with `wait=True`; past `timeout_s` the last, still-running
     report), the eval id with `wait=False`, or an `EvalEstimate` with `dry_run=True`. A refusal raises the platform's
-    one error hierarchy (`sequence_ai.errors`): an unknown policy or benchmark is NotFound, no balance OutOfCredit, no
-    GPU free Conflict."""
+    one error hierarchy (`sequence_ai.errors`): an unknown policy or benchmark is NotFound, an account with nothing left
+    to spend this month - at its plan's monthly limit, past its credits with no payment method, or its key's own limit -
+    OutOfCredit, no GPU free Conflict."""
     from seq import selection
     from seq._eval_gateway import EVAL_WAIT_S, EvalGatewayClient
     at_least_one(("policy_machines=", policy_machines), ("benchmark_machines=", benchmark_machines))

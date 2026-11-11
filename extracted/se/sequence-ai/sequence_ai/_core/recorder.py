@@ -12,7 +12,10 @@ episode's end, one a gap; the platform is asked again every refresh_s, so a work
 let go.
 
 What a worker keeps for you is in its memory alone, its newest minute (60 s, 32 MiB at most): a recorder away longer
-loses the oldest and is told how many (a "gap" item). One that must have no gap keeps capture on as well.
+loses the oldest and is told how many (a "gap" item). One that must have no gap keeps capture on as well. A worker
+hears record=on within a minute: the steps of an episode it served before then were never kept, and that episode's
+first item comes after a gap that says which. Each item names its robot by its key's name and last four, as `seq usage`
+does.
 
 
 """
@@ -64,6 +67,7 @@ class Recorder:
         self._raw: queue.Queue = queue.Queue()
         self._feeds: dict[str, _Feed] = {}
         self._robots: dict[str, str] = {}
+        self._tails: dict[str, str] = {}
         self._asked: set = set()
         self._opening = threading.Lock()
         self._closed = threading.Event()
@@ -86,6 +90,7 @@ class Recorder:
         listed = {str(w.get("worker")): w for w in answer.get("workers") or [] if w.get("worker")}
         with self._lock:
             self._robots.update(answer.get("robots") or {})
+            self._tails.update(answer.get("last_four") or {})
             self._refresh_s = float(answer.get("refresh_s") or _REFRESH_S)
             for label, entry in listed.items():
                 feed = self._feeds.get(label)
@@ -170,11 +175,13 @@ class Recorder:
     def steps(self) -> Iterator[dict]:
         """Every step of the policy's robots as it comes, one dict an item, `kind` saying which:
 
-            "step"   one act: {"robot", "robot_key", "session", "episode", "step", "observations": [[step,
-                     observation], ...] - each its robot sent since its last act, as it sent it (a Video, Depth or
-                     Tactile item as its map, never decoded) - "action" (what the act answered), "params" (the inference
-                     parameters it ran with), "driver" ("model", or "human" through teleop, with "operator"), "at"
-                     (the epoch second its worker had it), "worker", "n" (the worker's number of it)}
+            "step"   one act: {"robot" (the name of the key its robot connected with), "robot_key" (that key's
+                     last four as `seq robot list` prints them, "…ab12"), "session", "episode", "step",
+                     "observations": [[step, observation], ...] - each its robot sent since its last act, as it sent
+                     it (a Video, Depth or Tactile item as its map, never decoded) - "action" (what the act answered),
+                     "params" (the inference parameters it ran with), "driver" ("model", or "human" through teleop,
+                     with "operator"), "at" (the epoch second its worker had it), "worker", "n" (the worker's number
+                     of it)}
             "label"  how a robot said its episode went (policy.label): {"robot", "episode", "success", "notes", "at"}
             "end"    a robot ended its episode: {"robot", "episode", "at", "observations": those after its last act}
             "driver" who drives a robot from now, through teleop: {"robot", "episode", "driver" ("model", "human" or
@@ -182,11 +189,15 @@ class Recorder:
             "help"   a robot's plan asked for a person (seq.ask_human): {"robot", "episode", "id", "reason", "hold",
                      "asked_at", "frame" (its newest frame as a JPEG, or None)}
             "gap"    a worker let records go before this recorder read them: {"worker", "count" (None when it cannot be
-                     told: the worker ended), "why"}
+                     told: the worker ended), "why"} - or, its "count" None, steps of an episode that came to its worker
+                     while record was not on there yet (it comes on within a minute of `seq policy set <name>
+                     record=on`), never recorded: {"robot", "robot_key", "session", "episode", "observations" and "acts"
+                     (the [first, last] steps of each that came then, None for none), "at", "worker", "n", "why"},
+                     before that episode's first item
 
-        Every item but a gap says its worker and that worker's number of it ("worker", "n"): a recorder started again
-        reads what each worker still keeps - its newest minute - again, and those two tell which it had. Ends at close();
-        raises what the platform refused it with (record turned off, the key revoked)."""
+        Every item but a worker's gap says its worker and that worker's number of it ("worker", "n"): a recorder
+        started again reads what each worker still keeps - its newest minute - again, and those two tell which it had.
+        Ends at close(); raises what the platform refused it with (record turned off, the key revoked)."""
         pending: dict = {}
         robots_of: dict = {}
         while True:
@@ -203,9 +214,18 @@ class Recorder:
             if kind == "gap":
                 if isinstance(record.get("count"), int):
                     self.dropped += record["count"]
-                yield {"kind": "gap", "worker": label, "count": record.get("count"),
-                       "why": record.get("why") or "the worker let them go before this recorder read them: it keeps "
-                                                   "its newest minute"}
+                item = {"kind": "gap", "worker": label, "count": record.get("count"),
+                        "why": record.get("why") or "the worker let them go before this recorder read them: it keeps "
+                                                    "its newest minute"}
+                if "episode" in record:
+                    session = record.get("session")
+                    if record.get("robot"):
+                        robots_of[session] = record["robot"]
+                    name, tail = self._who(record.get("robot") or robots_of.get(session))
+                    item.update({"robot": name, "robot_key": tail, "session": session, "episode": record["episode"],
+                                 "observations": record.get("observations"), "acts": record.get("acts"),
+                                 "at": record.get("at"), "n": record.get("n")})
+                yield item
                 continue
             if kind == "hello":
                 feed = self._feeds.get(label)
@@ -225,7 +245,8 @@ class Recorder:
             if kind == "observe":
                 pending.setdefault(episode, []).append([record.get("step"), record.get("observation")])
                 continue
-            base = {"robot": self._name(key), "robot_key": key, "session": session, "episode": episode,
+            name, tail = self._who(key)
+            base = {"robot": name, "robot_key": tail, "session": session, "episode": episode,
                     "at": record.get("at"), "worker": label, "n": record.get("n")}
             if kind == "act":
                 seen = pending.pop(episode, []) if record.get("driver") != "human" else []
@@ -246,20 +267,23 @@ class Recorder:
             else:
                 yield {"kind": "end", **base, "observations": pending.pop(episode, [])}
 
-    def _name(self, key: Optional[str]) -> Optional[str]:
+    def _who(self, key: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+        """A robot by the key its records name (its short name, never the key): (the key's name, "…" and its last four)
+        as the platform's answer gives them - the row `seq usage` names a robot by. A key made since is asked for once;
+        (None, None) for one the platform does not name."""
         if not key:
-            return None
+            return None, None
         with self._lock:
-            name = self._robots.get(key)
-        if name is None and key not in self._asked:
+            name, tail = self._robots.get(key), self._tails.get(key)
+        if name is None and tail is None and key not in self._asked:
             self._asked.add(key)
             try:
                 self._take(self._ask())
             except Exception:
                 pass
             with self._lock:
-                name = self._robots.get(key)
-        return name
+                name, tail = self._robots.get(key), self._tails.get(key)
+        return name, (f"…{tail}" if tail else None)
 
     @property
     def workers(self) -> list[str]:

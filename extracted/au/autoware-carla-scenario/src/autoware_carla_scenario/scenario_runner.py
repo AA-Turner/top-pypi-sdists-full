@@ -57,6 +57,7 @@ from .metrics import (
 from .odd import OddCase, OddDefinition, reset_probes, resolve_odd
 from .coordinate.transform import to_opendrive
 from .entity.vehicle_entity import _clear_entry_speeds, _set_warmup_done
+from .entity_role import canonical_role_name
 from .ego_base_link import clear_ego_base_link
 from .scenario_base import BaseScenario
 from .signals.registry import clear_signal_controllers
@@ -810,6 +811,23 @@ def _run_file_stem(output_dir: Path, scenario_name: str) -> str:
     return stem
 
 
+def _kept_by_role(actor: "carla.Actor", keep_role_names: "frozenset[str]") -> bool:
+    """Whether *actor*'s role name, as :func:`canonical_role_name` reads it,
+    is one of *keep_role_names*, read the same way: an ego spawned as ``ego``
+    or ``hero`` for CARLA's native Autoware interface is kept as ``"Ego"``,
+    and a keep set naming the ego ``ego`` or ``hero`` keeps it too (#2046)."""
+    # Not attributes.get(): Codon's dict.get() requires a default of the
+    # value type, and no string means "absent".
+    attributes = actor.attributes
+    if "role_name" not in attributes:
+        return False
+    role = canonical_role_name(attributes["role_name"])
+    for kept in keep_role_names:
+        if canonical_role_name(kept) == role:
+            return True
+    return False
+
+
 def _destroy_all_dynamic_actors(
     world: "carla.World",
     scenario_name: str,
@@ -832,7 +850,7 @@ def _destroy_all_dynamic_actors(
     kept_ids = {
         actor.id
         for actor in actors.filter("vehicle.*")
-        if actor.attributes.get("role_name") in keep_role_names
+        if _kept_by_role(actor, keep_role_names)
     }
     destroyed = 0
     for actor in [

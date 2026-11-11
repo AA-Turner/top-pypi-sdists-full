@@ -21,8 +21,8 @@ from typing import TYPE_CHECKING
 from .. import vault
 from ..cli_ops import OpError
 from ..collection_store import connection
-from . import derive, mode, ownership
-from .read import NOT_ACTIVE
+from . import derive, mode, ownership, rederive
+from .read import NOT_ACTIVE, inbound_sources_many
 
 if TYPE_CHECKING:
     from ..collection_store.writer import CollectionWriter
@@ -51,16 +51,24 @@ class Expect:
     ``absent`` says the store holds nothing at the path. Otherwise each field that is set must
     match the stored page or binary record. ``projected`` says that the file on disk is the stored
     page: the projection manifest records the page's own revision, no projection intent is queued
-    for the path and no outside change is held for it.
+    for the path and no outside change is held for it. ``linked_from`` names every page that may
+    link to the path: a link from a page outside it, in the graph rows at commit time, refuses the
+    commit. A delete reads its inbound links and commits on that reading through it.
     """
 
     revision: int | None = None
     sha256: str | None = None
     absent: bool = False
     projected: bool = False
+    linked_from: frozenset[str] | None = None
 
     def __post_init__(self) -> None:
-        if self.absent and (self.revision, self.sha256, self.projected) != (None, None, False):
+        if self.absent and (self.revision, self.sha256, self.projected, self.linked_from) != (
+            None,
+            None,
+            False,
+            None,
+        ):
             raise ValueError("an expectation of absence names nothing else")
 
 
@@ -97,12 +105,19 @@ class PageDelete:
 class PageMove:
     """A page's bytes moved to a path the store does not hold.
 
-    ``on_disk`` says that the file already moved there.
+    ``on_disk`` says that the file already moved there. ``body`` gives the page new bytes at its new
+    path, as a move that rewrites the page's own links does; the move is still one life that the
+    trail follows from the old path, and the projector writes the new bytes there.
     """
 
     src: str
     dst: str
     on_disk: bool = False
+    body: bytes | None = None
+
+    def __post_init__(self) -> None:
+        if self.on_disk and self.body is not None:
+            raise ValueError("a file that already moved holds the stored bytes, not new ones")
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,9 +131,14 @@ class BinaryRecord:
 
 @dataclass(frozen=True, slots=True)
 class BinaryDelete:
-    """Drop a binary's record and queue the removal of its file."""
+    """Drop a binary's record and queue the removal of its file.
+
+    ``on_disk`` says that the file is already gone, so the commit queues no removal: a file that a
+    person restores before the projector runs is then never taken away.
+    """
 
     rel: str
+    on_disk: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,8 +292,10 @@ def commit(writer: CollectionWriter, change: StoreChange) -> CommitResult:
         for record in change.binaries:
             _record_binary(tx, record, revision, audit)
         for binary in change.binary_deletes:
-            _delete_binary(tx, binary.rel, audit)
+            _delete_binary(tx, binary, audit)
         derive.apply(tx, writer.root, change, existing)
+        # The pages above derived with the overlay that the disk still holds; the job settles them.
+        rederive.record_overlay_change(tx, writer.root, change.paths, revision)
         _enqueue(tx, audit.intents, revision, now)
         for held in change.resolves_held:
             _drop_held(tx, held)
@@ -369,6 +391,10 @@ def _stored(tx: Connection, rel: str) -> tuple[int, str] | None:
 
 def check(tx: Connection, expect: Mapping[str, Expect]) -> None:
     """Raise ``StoreConflict`` for the first path that does not hold what ``expect`` says."""
+    # One graph read binds the linking pages of every path: a folder's delete binds hundreds.
+    linked = inbound_sources_many(
+        tx, [rel for rel, want in expect.items() if want.linked_from is not None]
+    )
     for rel, want in expect.items():
         have = _stored(tx, rel)
         if want.absent:
@@ -383,6 +409,11 @@ def check(tx: Connection, expect: Mapping[str, Expect]) -> None:
             raise StoreConflict(rel, "its bytes are not the expected bytes")
         if want.projected and not _projected(tx, rel, *have):
             raise StoreConflict(rel, "its file on disk is not the stored page")
+        if want.linked_from is not None:
+            gained = linked[rel] - want.linked_from
+            if gained:
+                # No name: the page that linked may be one the caller is not allowed to see.
+                raise StoreConflict(rel, "a page now links to it")
 
 
 def _projected(tx: Connection, rel: str, revision: int, sha256: str) -> bool:
@@ -448,11 +479,11 @@ class _Trail:
         if queue:
             self.intents[rel] = ("delete", None)
 
-    def moved(self, move: PageMove, sha256: str) -> None:
+    def moved(self, move: PageMove, old_sha256: str, new_sha256: str) -> None:
         # Each side has its own row, so a read of either path's trail meets the move; the new path's
-        # row names the old path.
-        self.record(move.src, "move", sha256)
-        self.record(move.dst, "move", sha256, from_path=move.src)
+        # row names the old path. Each row holds the bytes that its path held or now holds.
+        self.record(move.src, "move", old_sha256)
+        self.record(move.dst, "move", new_sha256, from_path=move.src)
         self.deleted.append(move.src)
         self.written.append(move.dst)
         if not move.on_disk:
@@ -507,6 +538,14 @@ def _move_page(tx: Connection, move: PageMove, revision: int, audit: _Trail) -> 
     if _stored(tx, move.dst) is not None:
         raise StoreConflict(move.dst, "the store already holds it")
     *content, stored_revision = page
+    if move.body is not None:
+        content = [
+            move.body,
+            hashlib.sha256(move.body).hexdigest(),
+            len(move.body),
+            frontmatter_json(move.body),
+            time.time_ns(),
+        ]
     if move.on_disk:
         # The file kept its bytes and mtime through the rename, so it must have been the stored page.
         if not _projected(tx, move.src, stored_revision, page[1]):
@@ -527,7 +566,7 @@ def _move_page(tx: Connection, move: PageMove, revision: int, audit: _Trail) -> 
         # Nothing is left to project at either path; a queued intent at the destination named a file
         # that this rename replaced.
         _clear_queued(tx, move.src, move.dst)
-    audit.moved(move, page[1])
+    audit.moved(move, page[1], content[1])
 
 
 def _record_binary(tx: Connection, record: BinaryRecord, revision: int, audit: _Trail) -> None:
@@ -542,12 +581,12 @@ def _record_binary(tx: Connection, record: BinaryRecord, revision: int, audit: _
     audit.wrote(record.rel, record.sha256, queue=False)
 
 
-def _delete_binary(tx: Connection, rel: str, audit: _Trail) -> None:
-    row = tx.execute("SELECT sha256 FROM store_binaries WHERE path = ?", (rel,)).fetchone()
+def _delete_binary(tx: Connection, binary: BinaryDelete, audit: _Trail) -> None:
+    row = tx.execute("SELECT sha256 FROM store_binaries WHERE path = ?", (binary.rel,)).fetchone()
     if row is None:
-        raise StoreConflict(rel, "the store records no binary to delete")
-    tx.execute("DELETE FROM store_binaries WHERE path = ?", (rel,))
-    audit.removed(rel, row[0])
+        raise StoreConflict(binary.rel, "the store records no binary to delete")
+    tx.execute("DELETE FROM store_binaries WHERE path = ?", (binary.rel,))
+    audit.removed(binary.rel, row[0], queue=not binary.on_disk)
 
 
 def _degrade_moves(tx: Connection, paths: tuple[str, ...]) -> None:

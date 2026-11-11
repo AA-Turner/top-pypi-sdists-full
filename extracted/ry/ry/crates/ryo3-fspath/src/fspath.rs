@@ -7,20 +7,19 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use pyo3::BoundObject;
-use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyFileExistsError, PyFileNotFoundError, PyNotADirectoryError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyTuple};
 use ryo3_bytes::{ReadableBuffer, RyBytes};
-use ryo3_core::PyCastExactOpt;
 use ryo3_core::sync::RyMutex;
 use ryo3_core::types::{PathLike, PyUtf8Bytes};
+use ryo3_core::{FromPyOperand, PyCastExactOpt, PyNotImplementedOr, PyOperandArg};
 use ryo3_macro_rules::{py_type_err, py_value_error, pytodo};
 
 // separator
 const MAIN_SEPARATOR: char = std::path::MAIN_SEPARATOR;
 
-#[pyclass(name = "FsPath", frozen, immutable_type)]
+#[pyclass(name = "FsPath", frozen, immutable_type, eq, ord)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PyFsPath(PathBuf);
@@ -131,17 +130,6 @@ impl PyFsPath {
         }
     }
 
-    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
-        match op {
-            CompareOp::Eq => self == other,
-            CompareOp::Ne => self != other,
-            CompareOp::Lt => self < other,
-            CompareOp::Le => self <= other,
-            CompareOp::Gt => self > other,
-            CompareOp::Ge => self >= other,
-        }
-    }
-
     fn absolute(&self, py: Python<'_>) -> PyResult<Self> {
         let p = py.detach(|| self.path().canonicalize())?;
         Ok(Self::from(p))
@@ -160,14 +148,12 @@ impl PyFsPath {
         Clone::clone(self)
     }
 
-    fn __truediv__(&self, other: FsPathLike) -> Self {
-        Self::from(self.path().join(other))
+    fn __truediv__(&self, other: PyOperandArg<FsPathLike<'_, '_>>) -> PyNotImplementedOr<Self> {
+        other.map(|rhs| Self::from(self.path().join(rhs)))
     }
 
-    #[expect(clippy::needless_pass_by_value, reason = "python arg extract")]
-    fn __rtruediv__(&self, other: FsPathLike) -> Self {
-        let p = other.as_ref().join(self.path());
-        Self::from(p)
+    fn __rtruediv__(&self, other: PyOperandArg<FsPathLike<'_, '_>>) -> PyNotImplementedOr<Self> {
+        other.map(|lhs| Self::from(lhs.as_ref().join(self.path())))
     }
 
     fn __bytes__<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
@@ -1104,6 +1090,13 @@ where
 enum FsPathLike<'a, 'py> {
     FsPath(Borrowed<'a, 'py, PyFsPath>),
     Path(PathLike),
+}
+
+impl<'a, 'py> FromPyOperand<'a, 'py> for FsPathLike<'a, 'py> {
+    fn from_py_operand(obj: Borrowed<'a, 'py, PyAny>) -> Option<Self> {
+        use ryo3_core::PyOperandExt;
+        obj.operand_match().or(Self::FsPath).or(Self::Path).ok()
+    }
 }
 
 impl<'a, 'py> FromPyObject<'a, 'py> for FsPathLike<'a, 'py> {

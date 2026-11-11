@@ -32,6 +32,8 @@ from exp.runtime.gateway.request_policy import GatewayRequestPolicy
 from exp.runtime.gateway.sampling_extras import SamplingExtraFields
 from exp.runtime.gateway.service_tiers import ServiceTier
 from exp.runtime.models.providers.openrouter_routing import ProviderRoutingPreferences
+from exp.runtime.openai_protocol import litellm_carriers as _litellm
+from exp.runtime.openai_protocol import responses_input_items as _extra_items
 from exp.runtime.openai_protocol.cache_control import EphemeralCacheControl
 from exp.runtime.openai_protocol.custom_tool_wire import ChatCustomTool, ChatCustomToolCall
 from exp.runtime.openai_protocol.custom_tool_wire import CustomToolCallItem as _CustomToolCall
@@ -316,12 +318,11 @@ class _Message(_WireModel):
 
     LiteLLM's ``Message.model_dump()`` adds ``provider_specific_fields``,
     ``thinking_blocks``, ``reasoning_items``, and ``images`` to every
-    assistant message, and agent loops built on it (a Terminus-2 port that
-    keeps the LiteLLM message object) echo the whole dump back each turn.
-    ``provider_specific_fields`` is accepted with any object value and never
-    forwarded (a populated one is disclosed as dropped: it is LiteLLM's own
-    bookkeeping, not model input); the other three are accepted only empty,
-    exactly like the SDK keys above.
+    assistant message, and agent loops that keep the message object echo the
+    whole dump each turn. ``provider_specific_fields`` (any object) and
+    ``thinking_blocks`` / ``reasoning_items`` (LiteLLM's documented shapes, see
+    ``litellm_carriers``) are accepted, never forwarded, and disclosed as
+    dropped when populated; ``images`` is accepted only empty.
     """
 
     role: Literal["system", "developer", "user", "assistant", "tool"]
@@ -345,8 +346,8 @@ class _Message(_WireModel):
     audio: None = None
     function_call: None = None
     provider_specific_fields: JsonObject | None = None
-    thinking_blocks: tuple[()] | None = None
-    reasoning_items: tuple[()] | None = None
+    thinking_blocks: tuple[_litellm.LiteLLMThinkingBlockItem, ...] | None = None
+    reasoning_items: tuple[_litellm.LiteLLMReasoningItem, ...] | None = None
     images: tuple[()] | None = None
     reasoning_content: str | None = Field(
         default=None,
@@ -400,10 +401,12 @@ class _Message(_WireModel):
             self.reasoning_content is not None
             or self.reasoning is not None
             or self.reasoning_details is not None
+            or self.thinking_blocks
+            or self.reasoning_items
         ):
             raise ValueError(
-                "reasoning_content, reasoning, and reasoning_details are valid only "
-                "for assistant messages"
+                "reasoning_content, reasoning, reasoning_details, thinking_blocks, and "
+                "reasoning_items are valid only for assistant messages"
             )
         # User input, tool screenshots, and generated assistant images retain their parts.
         media = {type(part) for part in self.image_capable_parts} - {_TextPart}
@@ -721,7 +724,7 @@ class _ResponseFunctionOutput(_WireModel):
 
     Attributes:
         type: Required function-result discriminator.
-        call_id: Required bounded linkage to the corresponding assistant tool call.
+        call_id: Bounded linkage to the assistant call; absent on an unpaired output.
         name: Optional nonempty tool name, at most 256 characters and preserved verbatim.
         namespace: Optional nonempty tool-tree owner, at most 256 characters and retained on replay.
         caller: Optional opaque programmatic-call attribution, preserved verbatim.
@@ -731,7 +734,9 @@ class _ResponseFunctionOutput(_WireModel):
     """
 
     type: Literal["function_call_output"]
-    call_id: str = Field(min_length=1, max_length=MAXIMUM_TOOL_CALL_ID_CHARACTERS)
+    call_id: str | None = Field(
+        default=None, min_length=1, max_length=MAXIMUM_TOOL_CALL_ID_CHARACTERS
+    )
     name: str | None = Field(default=None, min_length=1, max_length=256)
     namespace: str | None = Field(default=None, min_length=1, max_length=256)
     caller: JsonObject | None = None
@@ -935,7 +940,12 @@ _ResponsesOutputItem = Annotated[
     | _AdditionalToolsItem
     | _CustomToolCall
     | _CustomToolCallOutput
-    | _HostedToolItemEcho,
+    | _HostedToolItemEcho
+    | _extra_items.AgentMessageItem
+    | _extra_items.CompactionTriggerItem
+    | _extra_items.ContextCompactionItem
+    | _extra_items.ConfigurationUpdateItem
+    | _extra_items.ItemReferenceItem,
     Field(discriminator="type"),
 ]
 _ResponsesInputItem = _ResponseMessage | _ResponsesOutputItem

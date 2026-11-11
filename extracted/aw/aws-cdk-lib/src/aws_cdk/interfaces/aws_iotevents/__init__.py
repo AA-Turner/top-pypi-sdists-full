@@ -41,13 +41,11 @@ else:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_iotevents.AlarmModelReference",
     jsii_struct_bases=[],
-    name_mapping={"alarm_model_id": "alarmModelId"},
+    name_mapping={},
 )
 class AlarmModelReference:
-    def __init__(self, *, alarm_model_id: builtins.str) -> None:
+    def __init__(self) -> None:
         '''A reference to a AlarmModel resource.
-
-        :param alarm_model_id: The Id of the AlarmModel resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -57,23 +55,9 @@ class AlarmModelReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_iotevents as interfaces_iotevents
             
-            alarm_model_reference = interfaces_iotevents.AlarmModelReference(
-                alarm_model_id="alarmModelId"
-            )
+            alarm_model_reference = interfaces_iotevents.AlarmModelReference()
         '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__d3f5fb40489a6692b5219544b6e9b6f22fb245be10dcaf37b5d5df5a1624c951)
-            check_type(argname="argument alarm_model_id", value=alarm_model_id, expected_type=type_hints["alarm_model_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "alarm_model_id": alarm_model_id,
-        }
-
-    @builtins.property
-    def alarm_model_id(self) -> builtins.str:
-        '''The Id of the AlarmModel resource.'''
-        result = self._values.get("alarm_model_id")
-        assert result is not None, "Required property 'alarm_model_id' is missing"
-        return typing.cast(builtins.str, result)
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -90,13 +74,11 @@ class AlarmModelReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_iotevents.DetectorModelReference",
     jsii_struct_bases=[],
-    name_mapping={"detector_model_name": "detectorModelName"},
+    name_mapping={},
 )
 class DetectorModelReference:
-    def __init__(self, *, detector_model_name: builtins.str) -> None:
+    def __init__(self) -> None:
         '''A reference to a DetectorModel resource.
-
-        :param detector_model_name: The DetectorModelName of the DetectorModel resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -106,23 +88,9 @@ class DetectorModelReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_iotevents as interfaces_iotevents
             
-            detector_model_reference = interfaces_iotevents.DetectorModelReference(
-                detector_model_name="detectorModelName"
-            )
+            detector_model_reference = interfaces_iotevents.DetectorModelReference()
         '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__1a8998b12acad1694c766801dbc029eb3ebb0dd5fc872d69134a88ce04fc4b18)
-            check_type(argname="argument detector_model_name", value=detector_model_name, expected_type=type_hints["detector_model_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "detector_model_name": detector_model_name,
-        }
-
-    @builtins.property
-    def detector_model_name(self) -> builtins.str:
-        '''The DetectorModelName of the DetectorModel resource.'''
-        result = self._values.get("detector_model_name")
-        assert result is not None, "Required property 'detector_model_name' is missing"
-        return typing.cast(builtins.str, result)
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -274,13 +242,11 @@ typing.cast(typing.Any, IInputRef).__jsii_proxy_class__ = lambda : _IInputRefPro
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_iotevents.InputReference",
     jsii_struct_bases=[],
-    name_mapping={"input_name": "inputName"},
+    name_mapping={},
 )
 class InputReference:
-    def __init__(self, *, input_name: builtins.str) -> None:
+    def __init__(self) -> None:
         '''A reference to a Input resource.
-
-        :param input_name: The InputName of the Input resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -290,23 +256,9 @@ class InputReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_iotevents as interfaces_iotevents
             
-            input_reference = interfaces_iotevents.InputReference(
-                input_name="inputName"
-            )
+            input_reference = interfaces_iotevents.InputReference()
         '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__92d11322c255495c3c986a6caebfb9f15d4066a0a881da36bca49fb7931f84aa)
-            check_type(argname="argument input_name", value=input_name, expected_type=type_hints["input_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "input_name": input_name,
-        }
-
-    @builtins.property
-    def input_name(self) -> builtins.str:
-        '''The InputName of the Input resource.'''
-        result = self._values.get("input_name")
-        assert result is not None, "Required property 'input_name' is missing"
-        return typing.cast(builtins.str, result)
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -330,27 +282,6 @@ __all__ = [
 ]
 
 publication.publish()
-
-def _typecheckingstub__d3f5fb40489a6692b5219544b6e9b6f22fb245be10dcaf37b5d5df5a1624c951(
-    *,
-    alarm_model_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1a8998b12acad1694c766801dbc029eb3ebb0dd5fc872d69134a88ce04fc4b18(
-    *,
-    detector_model_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__92d11322c255495c3c986a6caebfb9f15d4066a0a881da36bca49fb7931f84aa(
-    *,
-    input_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 for cls in [IAlarmModelRef, IDetectorModelRef, IInputRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

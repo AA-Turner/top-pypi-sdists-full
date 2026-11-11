@@ -214,12 +214,9 @@ def _reconcile_under_guard(
 
 def _source_session_destination(vault_root: Path, target: dict, *, size: int, sha256: str) -> str:
     """Use the canonical Source validation before byte receipt and again before publication."""
-    from . import add, schema, temporal, vocabulary_gate
+    from . import add, schema, temporal
 
     safe_name = add.source_artifact_name(target["filename"])
-    vocabulary_gate.artifact_admission(
-        vault_root, size=size, is_markdown=add.source_artifact_suffix(target["filename"]).endswith(".md"),
-    )
     prepared = add.prepare_source_metadata(
         vault_root, schema.load_source_schema(vault_root),
         content=add._describe_artifact(safe_name, sha256, size),
@@ -747,6 +744,9 @@ async def _receive_ticket_upload(vault_root: Path, request: Request, ticket: dic
                     filename=filename,
                     content_type=upload.content_type, max_bytes=maximum,
                     expected_sha256=ticket["expected_sha256"],
+                    # An import upload is named again by `imports.file` from the ticket token alone.
+                    secret=(upload_handoff.hold_secret(ticket["nonce"])
+                            if ticket["lane"] == held_uploads.IMPORT_LANE else None),
                 )
         return JSONResponse(held, status_code=201)
     except (MultiPartException, HTTPException, ClientDisconnect, ValueError):

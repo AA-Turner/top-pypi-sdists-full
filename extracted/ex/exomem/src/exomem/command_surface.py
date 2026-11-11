@@ -7,6 +7,7 @@ import hashlib
 import inspect
 import json
 import logging
+import sys
 import threading
 import time
 import types
@@ -17,13 +18,13 @@ from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 
-from mcp.types import ToolAnnotations
 from pydantic import Field, TypeAdapter, ValidationError, WithJsonSchema
 
 from . import (
     activation_result,
     call_spans,
     capabilities,
+    fastmcp_types,
     operation_entries,
     request_budget,
     reserved_paths,
@@ -301,9 +302,9 @@ OPEN_WORLD_OPS: frozenset[str] = frozenset({"capture_source", "preserve_artifact
 def mcp_tool_annotations(
     name: str, *, read_only: bool, open_world: bool = False, idempotent: bool = False,
     public_title: str | None = None,
-) -> ToolAnnotations:
+) -> fastmcp_types.ToolAnnotations:
     """Discovery hints for the whole tool; invocation authorization stays separate."""
-    return ToolAnnotations(
+    return fastmcp_types.ToolAnnotations(
         title=public_title or name.replace("_", " ").title(),
         readOnlyHint=read_only,
         destructiveHint=False if read_only else (name in DESTRUCTIVE_OPS),
@@ -378,6 +379,10 @@ class Command:
     #: A write declares one; a grouped command declares it on each operation row instead, and a
     #: read declares none. A write that declares none gets no summary.
     outcome_verb: OutcomeVerb | None = None
+    #: Over MCP the reply names each page it reports by `title` and short `id`, not by vault path,
+    #: because every page parameter takes those. A command whose subject is a file keeps `path`:
+    #: a file tool takes no title or id.
+    names_pages: bool = False
 
     def __post_init__(self) -> None:
         if self.renderings and self.argument_rules is None:
@@ -419,10 +424,10 @@ class Command:
         return not self.cli_writes
 
     @property
-    def mcp_annotations(self) -> ToolAnnotations:
+    def mcp_annotations(self) -> fastmcp_types.ToolAnnotations:
         """MCP behaviour hints for this command's generated tool."""
         if self.mcp_annotation_pin is not None:
-            return ToolAnnotations(**dict(self.mcp_annotation_pin))
+            return fastmcp_types.ToolAnnotations(**dict(self.mcp_annotation_pin))
         return mcp_tool_annotations(
             self.name, read_only=self.read_only, open_world=self.name in OPEN_WORLD_OPS,
             public_title=self.public_title or self.public_name.replace("_", " ").title(),
@@ -466,12 +471,11 @@ DEFAULT_TOOL_SHAPE = operation_entries.DEFAULT_TOOL_SHAPE
 def listed_names(command: Command, shape: str) -> tuple[str, ...]:
     """The names MCP discovery lists for a command on a surface of this shape.
 
-    A command with renderings is listed by them, and its own name stays callable but
-    hidden; every other command, and every command on the `grouped` shape, is listed
-    under its public name.
+    On the `public` shape these are the typed tools and doors that carry the command; on the
+    `grouped` shape the command is listed under its public name.
     """
-    if command.renderings and shape != "grouped":
-        return tuple(rendering.name for rendering in command.renderings)
+    if shape == "public":
+        return operation_entries.listed_tools(command.name, shape)
     return (command.public_name,)
 
 
@@ -501,6 +505,7 @@ def resolve_invocation(
     shape: str = DEFAULT_TOOL_SHAPE,
     passthrough: frozenset[str] = frozenset(),
     strict: bool = True,
+    subject: str | None = None,
 ) -> tuple[Command, dict[str, typing.Any]]:
     """Resolve one public call to its command and the arguments a direct call would carry.
 
@@ -511,6 +516,7 @@ def resolve_invocation(
     The caller then dispatches the command exactly as if it had been called directly.
     `passthrough` names transport-owned top-level keys that cross untouched. `strict`
     is the server's `strict_input_validation`, which FastMCP applies to the grouped call.
+    `subject` is how a type refusal names the call, for a caller whose tool is not the rendering.
 
     Raises the command's own refusal for arguments the rendering does not carry, and
     `UnresolvedInvocation` for a name nothing resolves: a name that routes no call
@@ -546,8 +552,8 @@ def resolve_invocation(
                         if rendering.name == public_name]
         if len(contributors) == 1:
             # One source owns the refusal format, but an invalid kind still owns no execution target.
-            contributors[0][0].argument_rules.refuse(f"{public_name} needs a valid operation.kind")
-        raise OpError("INVALID_OPERATION", f"{public_name} needs a valid operation.kind")
+            contributors[0][0].argument_rules.refuse(f"{subject or public_name} needs a valid operation.kind")
+        raise OpError("INVALID_OPERATION", f"{subject or public_name} needs a valid operation.kind")
     command, rendering = selected
     rules = command.argument_rules
     if rules is None:
@@ -570,7 +576,7 @@ def resolve_invocation(
                     flat.setdefault(constraint.path[0], constraint.value)
     try:
         return _resolve_rendered(command, rendering, arguments, carried, tool_arguments,
-                                 parsed, strict=strict)
+                                 parsed, strict=strict, subject=subject)
     except OpError as error:
         error.command = command
         error.arguments = flat
@@ -578,11 +584,11 @@ def resolve_invocation(
         raise
 
 
-def _resolve_rendered(command, rendering, arguments, carried, tool_arguments, parsed, *, strict):
+def _resolve_rendered(command, rendering, arguments, carried, tool_arguments, parsed, *, strict, subject=None):
     """Validate business fields after the public discriminator selects its command."""
     rules = command.argument_rules
     if parsed is None:
-        rules.refuse(f"{rendering.name} takes an operation object and nothing else")
+        rules.refuse(f"{subject or rendering.name} takes an operation object and nothing else")
     kind, fields = parsed
     try:
         fields = rendering.leaf_fields(fields)
@@ -593,7 +599,9 @@ def _resolve_rendered(command, rendering, arguments, carried, tool_arguments, pa
     if variant is None:
         sibling = next(
             (
-                other.name
+                # The tool that serves the other side on this surface; a grouped call names the rendering.
+                (capabilities.active_tools_text(command.name, other.effect)
+                 if capabilities.current_tool_shape() != "grouped" else "") or other.name
                 for other in command.renderings
                 if other is not rendering and other.variant_for(kind, fields) is not None
             ),
@@ -603,7 +611,7 @@ def _resolve_rendered(command, rendering, arguments, carried, tool_arguments, pa
             rules.refuse(f"{kind} is not a {rendering.effect} operation: send it to {sibling}")
         if hint := rendering.constraint_hint(kind):
             rules.refuse(hint)
-        rules.refuse(f"{rendering.name} takes {label} as one of: {', '.join(rendering.kinds)}")
+        rules.refuse(f"{subject or rendering.name} takes {label} as one of: {', '.join(rendering.kinds)}")
     fields = rendering.selected_arguments(variant, fields)
     fields.pop(rendering.selector, None)
     rules.validate(variant.action, fields)
@@ -616,7 +624,7 @@ def _resolve_rendered(command, rendering, arguments, carried, tool_arguments, pa
     wrong = _type_errors(command, {**fields, **tool_arguments}, skip=rendering.selector, strict=strict)
     if wrong:
         # FastMCP's own error for the grouped call would name a tool the host cannot call.
-        rules.refuse(f"wrong type in {rendering.name} {kind}: {'; '.join(wrong)}")
+        rules.refuse(f"wrong type in {subject or f'{rendering.name} {kind}'}: {'; '.join(wrong)}")
     # The selector goes last: a field spelt like it must not replace the variant's action.
     return command, {**fields, **tool_arguments, **carried,
                      **({rendering.selector: variant.action} if rendering.selector else {})}
@@ -744,9 +752,9 @@ def pending_rendering_refusal_writes() -> bool:
     return _MCP_RENDERING_REFUSAL_WRITES.get()
 
 
-def rendering_annotations(rendering: operation_entries.Rendering) -> ToolAnnotations:
+def rendering_annotations(rendering: operation_entries.Rendering) -> fastmcp_types.ToolAnnotations:
     """Discovery hints for one rendering, from its own variants rather than its command's name."""
-    return ToolAnnotations(
+    return fastmcp_types.ToolAnnotations(
         title=rendering.title,
         readOnlyHint=rendering.read_only,
         destructiveHint=False if rendering.read_only else rendering.destructive,
@@ -1038,6 +1046,16 @@ def bind_vault(
                             observation.capture(result)
                     except Exception:  # noqa: BLE001 - telemetry must not change the response
                         pass
+                if isinstance(result, dict):
+                    # The leaves author a route as a grouped call; the host calls the tool its surface lists.
+                    result = capabilities.project_call_routes(result, strict=False)
+                if getattr(command, "names_pages", False) and isinstance(result, dict):
+                    from . import page_names
+
+                    # After the dispatcher's release, so the filter judged the paths it names.
+                    result = page_names.name_released_reply(
+                        injected[0], result, keep_paths=kwargs.get("detail") == "full"
+                    )
                 call_spans.record_span_since("command.postfilter", "command.leaf_done")
                 _log_tool_success(
                     tool=tool_name,
@@ -1100,12 +1118,27 @@ def bind_vault(
     return wrapper
 
 
+def _request_dependencies() -> types.ModuleType | None:
+    """FastMCP's request-context accessors, or None where no MCP call can be active.
+
+    Only FastMCP or the MCP SDK sets a request context, and a process imports them before it
+    serves. A process that imported neither, such as a CLI command, has no MCP call;
+    importing FastMCP to find that out cost each CLI start about half a second.
+    """
+    if "fastmcp" not in sys.modules and "mcp" not in sys.modules:
+        return None
+    from fastmcp.server import dependencies
+
+    return dependencies
+
+
 def mcp_idempotency_key() -> str | None:
     """Consume an explicit key without enlarging advertised tool schemas."""
-    from fastmcp.server.dependencies import get_context
-
+    dependencies = _request_dependencies()
+    if dependencies is None:
+        return None
     try:
-        request_context = get_context().request_context
+        request_context = dependencies.get_context().request_context
     except (LookupError, RuntimeError):
         return None
     metadata = request_context.meta if request_context is not None else None
@@ -1144,29 +1177,28 @@ def mcp_session_id() -> str | None:
     runner) and no request headers; any other combination keeps the per-call id, so
     an unexpected transport shares nothing.
     """
+    dependencies = _request_dependencies()
+    if dependencies is None:
+        return None
     try:
-        from fastmcp.server.dependencies import get_context, get_http_headers
-
-        context = get_context()
+        context = dependencies.get_context()
         if (
             getattr(context, "transport", None) == "stdio"
-            and _mcp_transport(get_http_headers(include_all=True)) == "stdio"
+            and _mcp_transport(dependencies.get_http_headers(include_all=True)) == "stdio"
         ):
             return _STDIO_SESSION_ID
         return str(context.session_id)
-    except (AttributeError, ImportError, LookupError, RuntimeError, ValueError):
+    except (AttributeError, LookupError, RuntimeError, ValueError):
         return None
 
 
 def mcp_retry_scope() -> str | None:
     """Return a stable, privacy-safe principal scope for bounded MCP replay."""
+    dependencies = _request_dependencies()
+    if dependencies is None:
+        return None
     try:
-        from fastmcp.server.dependencies import (
-            get_access_token,
-            get_http_headers,
-        )
-
-        access_token = get_access_token()
+        access_token = dependencies.get_access_token()
         claims = getattr(access_token, "claims", None) or {}
         subject = str(claims.get("sub") or "").strip()
         if subject:
@@ -1174,7 +1206,7 @@ def mcp_retry_scope() -> str | None:
             digest = hashlib.sha256(f"{issuer}\0{subject}".encode()).hexdigest()
             return f"principal:{digest}"
 
-        headers = get_http_headers(include={"authorization"})
+        headers = dependencies.get_http_headers(include={"authorization"})
         authorization = headers.get("authorization", "").strip()
         scheme, separator, credential = authorization.partition(" ")
         if separator and scheme.lower() == "bearer" and credential.strip():
@@ -1191,10 +1223,11 @@ def mcp_request_id() -> str:
     active = _MCP_REQUEST_ID.get()
     if active is not None:
         return active
+    dependencies = _request_dependencies()
+    if dependencies is None:
+        return str(uuid.uuid4())
     try:
-        from fastmcp.server.dependencies import get_http_headers
-
-        value = get_http_headers(include={"x-exomem-request-id"}).get(
+        value = dependencies.get_http_headers(include={"x-exomem-request-id"}).get(
             "x-exomem-request-id", ""
         )
         canonical = canonical_request_id(value)
@@ -1234,12 +1267,11 @@ def mcp_caller_identity() -> dict[str, str | None]:
         "session_id": None,
         "app_id": None,
     }
-    try:
-        from fastmcp.server.dependencies import get_context, get_http_headers
-    except ImportError:
+    dependencies = _request_dependencies()
+    if dependencies is None:
         return identity
     try:
-        context = get_context()
+        context = dependencies.get_context()
     except (LookupError, RuntimeError):
         return identity
     try:
@@ -1252,7 +1284,7 @@ def mcp_caller_identity() -> dict[str, str | None]:
         pass
     identity["session_id"] = mcp_session_id()
     try:
-        headers = get_http_headers(include_all=True)
+        headers = dependencies.get_http_headers(include_all=True)
         identity["transport"] = _mcp_transport(headers)
         from . import cloud_cell
 
@@ -1285,11 +1317,12 @@ def gateway_client_context() -> str | None:
 
     if not cloud_cell.cloud_mode_enabled():
         return None
+    dependencies = _request_dependencies()
+    if dependencies is None:
+        return None
     try:
-        from fastmcp.server.dependencies import get_http_headers
-
-        value = get_http_headers().get(cloud_cell.GATEWAY_CONTEXT_HEADER)
-    except (ImportError, LookupError, RuntimeError):
+        value = dependencies.get_http_headers().get(cloud_cell.GATEWAY_CONTEXT_HEADER)
+    except (LookupError, RuntimeError):
         return None
     return value if value in prominence.CONTEXTS else None
 
@@ -1546,13 +1579,30 @@ def _is_nullable_dict(annotation: object) -> bool:
     return type(None) in args and len(non_none) == 1 and type_tag(non_none[0]) == "dict"
 
 
+_EMPTY_CODE = (lambda: None).__code__
+
+
+def _parameter_hints(leaf: Callable) -> dict[str, typing.Any]:
+    """A leaf's resolved annotations without its return annotation.
+
+    The command table resolves every leaf when `commands` is imported, which every CLI start
+    does. A return annotation can name a FastMCP class (`fastmcp_types.ToolResult`), and
+    resolving it would import FastMCP into each start; no parameter needs it.
+    """
+    stand_in = types.FunctionType(_EMPTY_CODE, inspect.unwrap(leaf).__globals__)
+    stand_in.__annotations__ = {
+        name: value for name, value in getattr(leaf, "__annotations__", {}).items() if name != "return"
+    }
+    return typing.get_type_hints(stand_in, include_extras=True)
+
+
 def derive_params(
     leaf: Callable, *, skip: int, positional: str | None = None
 ) -> tuple[Param, ...]:
     """Derive the declarative `Param` tuple from a leaf signature + docstring."""
     sig = inspect.signature(leaf)
     try:
-        hints = typing.get_type_hints(leaf, include_extras=True)
+        hints = _parameter_hints(leaf)
     except Exception:  # noqa: BLE001
         hints = {}
     helps = parse_args_help(leaf.__doc__)

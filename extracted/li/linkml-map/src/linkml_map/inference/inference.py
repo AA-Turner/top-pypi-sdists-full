@@ -16,8 +16,9 @@ def induce_missing_values(specification: TransformationSpecification, source_sch
     :param source_schemaview:
     :return:
     """
+    source_classes = source_schemaview.all_classes()
     for cd in specification.class_derivations:
-        if not cd.populated_from:
+        if not cd.populated_from and cd.name in source_classes:
             cd.populated_from = cd.name
 
     for cd in specification.class_derivations:
@@ -28,10 +29,8 @@ def induce_missing_values(specification: TransformationSpecification, source_sch
                 continue
             # for null mappings, assume that the slot is copied from the same slot in the source
             # TODO: decide if this is the desired behavior
-            if sd.populated_from is None and sd.expr is None:
+            if sd.populated_from is None and sd.expr is None and sd.value is None:
                 sd.populated_from = sd.name
-            if sd.range is None and sd.value is not None:
-                sd.range = "string"
             if not sd.range and sd.populated_from:
                 # auto-populate range field
                 if cd.populated_from not in source_schemaview.all_classes():

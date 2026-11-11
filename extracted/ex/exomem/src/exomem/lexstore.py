@@ -187,6 +187,36 @@ def admitted_catalog_scope(vault_root: Path):
         _ADMITTED_CATALOG.reset(token)
 
 
+#: Set while one request reads a vault whose pages the store holds.
+_CATALOGUE_RETIRED: ContextVar[bool] = ContextVar("catalogue_retired_for_store", default=False)
+
+
+@contextlib.contextmanager
+def catalogue_retired_scope(vault_root: Path):
+    """Retire the catalogue for one request that reads a store-mode vault.
+
+    The catalogue is built from files, so it never covers pages that only the store holds, and a
+    repair of it never converges. Inside this scope ``backend()`` answers ``python``, the documented
+    rung that reads the corpus and not the catalogue, and the corpus of a store-mode vault is the
+    store's. A vault that is not in store mode changes nothing.
+    """
+    from . import find_corpus
+
+    if not find_corpus.store_serves(vault_root):
+        yield
+        return
+    token = _CATALOGUE_RETIRED.set(True)
+    try:
+        yield
+    finally:
+        _CATALOGUE_RETIRED.reset(token)
+
+
+def catalogue_retired() -> bool:
+    """Whether the request in this context reads a store-mode vault, so no catalogue serves it."""
+    return _CATALOGUE_RETIRED.get()
+
+
 def bind_admitted_catalog(vault_root: Path, checkpoints: Mapping[str, object]) -> None:
     """Bind only checkpoints already admitted by this recall's policy proof."""
     root = Path(vault_root).resolve()
@@ -203,9 +233,12 @@ def bind_admitted_catalog(vault_root: Path, checkpoints: Mapping[str, object]) -
 
 #: `CatalogReadiness.status` of a query that the request budget stopped; see `stopping_at_budget`.
 DEADLINE_STATUS = "deadline"
-#: SQLite calls the budget check once per this many VM instructions: the stop lands within a few
-#: milliseconds, and the check is a clock read.
-_BUDGET_CHECK_INSTRUCTIONS = 1000
+#: SQLite calls the budget check once per this many VM instructions. Each call re-takes the GIL,
+#: which another busy thread holds for up to one 5 ms switch interval, so a check every 1000 made a
+#: contended query several times slower. The count is SQLite's alone, per statement: a streamed
+#: read that works through each batch in Python (`_SelectedUnits.contributions`) runs about 40 per
+#: one-unit page, so a much larger interval lets a small build run past its deadline.
+_BUDGET_CHECK_INSTRUCTIONS = 10_000
 
 
 class BudgetStop:
@@ -552,7 +585,8 @@ def _eligibility_view_json(page: Any) -> str:
             "view": {
                 key: _encode_filter_value(value)
                 for key, value in view.items()
-                if key != "frontmatter"
+                # `path` names the page for a dimension filter; the catalogue row has its own path.
+                if key != "frontmatter" and key != "path"
             },
             "media_file": page.media_file,
             "frame_ts": page.frame_ts,
@@ -1633,7 +1667,12 @@ def backend() -> str:
 
     Unrecognized values fall back to `auto` — a typo must not silently disable
     the in-process escape hatch someone reached for, nor hard-fail search.
+
+    A request that reads a store-mode vault gets ``python`` whatever the variable says
+    (``catalogue_retired_scope``).
     """
+    if _CATALOGUE_RETIRED.get():
+        return "python"
     raw = (os.environ.get("EXOMEM_LEXICAL_BACKEND") or "").strip().lower()
     return raw if raw in ("fts5", "python") else "auto"
 
@@ -2333,6 +2372,20 @@ def _mark_runtime_retrieval_unavailable_if_current(vault_root: Path) -> None:
     from . import readiness
 
     readiness.mark_unready("retrieval_catalog")
+
+
+def _file_repair_is_moot(vault_root: Path) -> bool:
+    """Whether a repair of the lexical catalogue cannot help this vault.
+
+    The repair rebuilds from files, so it never converges in a store-mode vault, whose pages are in
+    the store. A mode that cannot be read counts as moot: no repair is scheduled on a guess.
+    """
+    from . import find_corpus
+
+    try:
+        return find_corpus.store_serves(vault_root)
+    except (RuntimeError, OSError, sqlite3.Error):
+        return True
 
 
 def _schedule_runtime_catalog_repair(
@@ -3100,8 +3153,9 @@ def _catalog_usable() -> bool:
     The catalog (pages + semantic_units metadata) lives in ordinary SQLite
     tables and needs neither FTS5 nor the trigram tokenizer, so — unlike the
     content-ranking lanes gated by ``_usable`` — only the explicit ``python``
-    kill switch retires it. Exact category/kind metadata therefore survives an
-    FTS5-less SQLite build.
+    kill switch, or a request that reads a store-mode vault (``backend()`` then
+    answers ``python``), retires it. Exact category/kind metadata therefore
+    survives an FTS5-less SQLite build.
     """
     return backend() != "python"
 
@@ -5347,6 +5401,16 @@ def derive_catalogue_rows(vault_root: Path, conn: sqlite3.Connection) -> None:
     store = LexicalStore(vault_root)
     members, signatures = store._walk_entries()
     store._insert_members(conn, members, signatures)
+
+
+def corpus_paths(vault_root: Path) -> list[Path]:
+    """The Markdown files that file mode's lexical corpus holds, by the walk a cold rebuild makes.
+
+    Store mode's importer asks which unowned files should have rows. It reuses this walk so that the
+    corpus rule (both walks and the recall policy) lives in ``_walk_entries`` alone.
+    """
+    members, _signatures = LexicalStore(vault_root)._walk_entries()
+    return list(members)
 
 
 class LexicalStore:
@@ -11204,11 +11268,18 @@ class LexicalStore:
         ``schedule_repair=False`` makes an ``allow_delta=False`` call a pure
         proof, so repeated health probes cannot create sequential rebuilds.
         Every non-`available` outcome is reported (never raised); raw SQLite is
-        classified here and never escapes this seam.
+        classified here and never escapes this seam. The one exception is a
+        vault whose state manifest cannot be read: the mode lookup raises, as it
+        does for every reader that asks the mode, and this seam does not catch it.
         """
         from . import freshness as freshness_module
 
         backend_name = backend()
+
+        def repair_wanted() -> bool:
+            # Asked only where an outcome is incomplete, so a vault that is ready reads no mode.
+            return schedule_repair and not _file_repair_is_moot(self.vault_root)
+
         # Explicit checkpoints belong to strict proofs or independent callers.
         # Only an ambient request query may borrow its selection transaction.
         view = _admitted_catalog_view(self.vault_root)
@@ -11221,7 +11292,7 @@ class LexicalStore:
                 return CatalogReadiness("definitions_unavailable", False, backend_name)
             except sqlite3.Error as error:
                 return self._catalog_readiness_error(
-                    error, backend_name, schedule_repair=schedule_repair
+                    error, backend_name, schedule_repair=repair_wanted()
                 )
         if recall_checkpoint is None:
             recall_checkpoint = _admitted_catalog_checkpoint(self.vault_root, scope)
@@ -11232,7 +11303,7 @@ class LexicalStore:
         )
         target_state = checkpoint_state(target_checkpoint)
         if not _checkpoint_policy_current(self.vault_root, target_checkpoint):
-            if schedule_repair:
+            if repair_wanted():
                 _schedule_runtime_catalog_repair(self.vault_root)
             return CatalogReadiness("stale", False, backend_name)
         if backend_name == "python":
@@ -11247,11 +11318,11 @@ class LexicalStore:
             # single failed attempt would strand the store as fatal for the
             # process. `_schedule_repair` is itself single-flight, so this cannot
             # storm.
-            if schedule_repair:
+            if repair_wanted():
                 _schedule_runtime_catalog_repair(self.vault_root)
             return CatalogReadiness("fatal_failure", False, backend_name)
         if not self.path.exists():
-            if schedule_repair:
+            if repair_wanted():
                 _schedule_runtime_catalog_repair(self.vault_root)
             return CatalogReadiness("stale", False, backend_name)
         try:
@@ -11260,12 +11331,12 @@ class LexicalStore:
                 if not self._schema_is_current(conn):
                     # Read-only probe: an absent/old-shape (v4) or version-stale
                     # sidecar defers to the atomic rebuild — this seam emits no DDL.
-                    if schedule_repair:
+                    if repair_wanted():
                         _schedule_runtime_catalog_repair(self.vault_root)
                     return CatalogReadiness("stale", False, backend_name)
                 checkpoint = self._meta_checkpoint(conn, scope)
                 if checkpoint is None:
-                    if schedule_repair:
+                    if repair_wanted():
                         _schedule_runtime_catalog_repair(self.vault_root)
                     return CatalogReadiness("stale", False, backend_name)
                 if checkpoint_state(checkpoint) == target_state:
@@ -11274,7 +11345,7 @@ class LexicalStore:
                         != catalog_semantic_identity(self.vault_root)
                         or not _checkpoint_policy_current(self.vault_root, target_checkpoint)
                     ):
-                        if schedule_repair:
+                        if repair_wanted():
                             _schedule_runtime_catalog_repair(self.vault_root)
                         return CatalogReadiness("stale", False, backend_name)
                     return CatalogReadiness("available", True, backend_name)
@@ -11300,7 +11371,7 @@ class LexicalStore:
                             # from under this delta (no longer bound), so it could
                             # not be applied. Defer to the repair worker rather than
                             # letting the mismatch escape this seam.
-                            if schedule_repair:
+                            if repair_wanted():
                                 _schedule_runtime_catalog_repair(
                                     self.vault_root,
                                     lag_only=True,
@@ -11314,7 +11385,7 @@ class LexicalStore:
                             schedule_repair=schedule_repair,
                             recall_checkpoint=target_checkpoint,
                         )
-            if schedule_repair:
+            if repair_wanted():
                 # The stored checkpoint differs from the target; the worker's catch-up
                 # must prove it exactly current, or the full pass runs.
                 _schedule_runtime_catalog_repair(
@@ -11325,7 +11396,7 @@ class LexicalStore:
             return self._catalog_readiness_error(
                 e,
                 backend_name,
-                schedule_repair=schedule_repair,
+                schedule_repair=repair_wanted(),
             )
 
     def holds_content_identities(
@@ -11662,6 +11733,48 @@ class LexicalStore:
 
         result = self._serve_from_ready_catalog_result(
             "kb", checkpoint.triple, read, "lexical axis-count probe declined (%s)",
+            recall_checkpoint=checkpoint, allow_delta=False,
+        )
+        return result.value if result.readiness.complete else None
+
+    def heading_unit_counts(self, forms: Iterable[str]) -> dict[str, tuple[int, int, int]] | None:
+        """Stored rich headings per heading form among `forms`, across the vault.
+
+        Each value is (headings, pages, compact observations inside those headings). The
+        `kind` column of a rich row holds its heading in the language registry's normal form
+        whatever the heading names, so a form counts every heading in that spelling. Each count
+        is an upper bound on the units a label in that form makes: a heading nested in another
+        unit, or on a page outside a scoped kind's scope, stays no unit of its own, and an
+        observation under a nested heading counts once for each heading around it. A form no
+        stored heading spells is absent. None when the vault catalogue is absent or stale, so
+        a caller reports the count unknown, never zero.
+        """
+        wanted = sorted({str(form) for form in forms if str(form)})
+        if not wanted:
+            return {}
+        from . import freshness as freshness_module
+
+        checkpoint = freshness_module.live_recall_checkpoint(self.vault_root, "vault")
+        if checkpoint is None:
+            return None
+
+        def read(conn: sqlite3.Connection) -> dict[str, tuple[int, int, int]]:
+            rows = conn.execute(
+                "SELECT r.kind, COUNT(*), COUNT(DISTINCT r.parent_path), "
+                "COALESCE(SUM((SELECT COUNT(*) FROM semantic_units c "
+                "WHERE c.parent_path = r.parent_path AND c.form = 'compact' AND c.in_vault = 1 "
+                "AND c.line > r.line AND c.line <= r.end_line)), 0) "
+                "FROM semantic_units r WHERE r.form = 'rich' AND r.in_vault = 1 "
+                "AND r.kind IN (SELECT value FROM json_each(?)) GROUP BY r.kind",
+                (json.dumps(wanted, ensure_ascii=False),),
+            ).fetchall()
+            return {
+                str(form): (int(headings), int(pages), int(inside))
+                for form, headings, pages, inside in rows
+            }
+
+        result = self._serve_from_ready_catalog_result(
+            "vault", checkpoint.triple, read, "lexical heading-count probe declined (%s)",
             recall_checkpoint=checkpoint, allow_delta=False,
         )
         return result.value if result.readiness.complete else None

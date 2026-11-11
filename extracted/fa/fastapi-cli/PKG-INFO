@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: fastapi-cli
-Version: 0.0.32
+Version: 0.0.33
 Summary: Run and manage FastAPI apps from the command line with FastAPI CLI. 🚀
-Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
+Author-Email: Sebastián Ramírez <tiangolo@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
 Classifier: Intended Audience :: Information Technology
@@ -24,13 +24,14 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Project-URL: Homepage, https://github.com/fastapi/fastapi-cli
 Project-URL: Documentation, https://fastapi.tiangolo.com/fastapi-cli/
 Project-URL: Repository, https://github.com/fastapi/fastapi-cli
 Project-URL: Issues, https://github.com/fastapi/fastapi-cli/issues
 Project-URL: Changelog, https://github.com/fastapi/fastapi-cli/blob/main/release-notes.md
 Requires-Python: >=3.10
-Requires-Dist: typer>=0.16.0
+Requires-Dist: typer>=0.26.1
 Requires-Dist: uvicorn[standard]>=0.15.0
 Requires-Dist: rich-toolkit>=0.14.8
 Requires-Dist: tomli>=2.0.0; python_version < "3.11"

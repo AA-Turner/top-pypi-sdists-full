@@ -77,6 +77,322 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mgn_7f0ba49e.IApplicationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnApplication(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_mgn.CfnApplication",
+):
+    '''An MGN Application is a logical grouping of source servers being migrated together using AWS Application Migration Service.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-application.html
+    :cloudformationResource: AWS::MGN::Application
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_mgn as mgn
+        
+        cfn_application = mgn.CfnApplication(self, "MyCfnApplication",
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::MGN::Application``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the application.
+        :param description: The description of the application.
+        :param tags: A set of tags to associate with the application.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3dda22f820c3748889315357f7f8d8808142d4bbe6e78fa2169f112bb0f1aab4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnApplicationProps(name=name, description=description, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForApplication")
+    @builtins.classmethod
+    def arn_for_application(
+        cls,
+        resource: "_aws_mgn_7f0ba49e.IApplicationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bda45874557c2da2d1cb406c9e553d28f4a4f0bce1860372b45e0a67699cdd2d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplication", [resource]))
+
+    @jsii.member(jsii_name="isCfnApplication")
+    @builtins.classmethod
+    def is_cfn_application(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnApplication.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__499dd71a3d3df5437f9a4e19a080f3b5db107fd9b022a77e34e59bf0caf6eff1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplication", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ee867837d27bb3d1e190e3a8ed61c22c3cccbfcc32ab5a63dece4b96783fe1b9)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__89d7bb6250ea5535971502f33ae78665bfc5b20337d5bdf66f16a0438bf00472)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> "_aws_mgn_7f0ba49e.ApplicationReference":
+        '''A reference to a Application resource.'''
+        return typing.cast("_aws_mgn_7f0ba49e.ApplicationReference", jsii.get(self, "applicationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrApplicationId")
+    def attr_application_id(self) -> builtins.str:
+        '''The ID of the application.
+
+        :cloudformationAttribute: ApplicationID
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrApplicationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the application.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationDateTime")
+    def attr_creation_date_time(self) -> builtins.str:
+        '''The date and time the application was created.
+
+        :cloudformationAttribute: CreationDateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationDateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIsArchived")
+    def attr_is_archived(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Whether the application is archived.
+
+        :cloudformationAttribute: IsArchived
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIsArchived"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedDateTime")
+    def attr_last_modified_date_time(self) -> builtins.str:
+        '''The date and time the application was last modified.
+
+        :cloudformationAttribute: LastModifiedDateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedDateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the application.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9eca8e4ce863fae79d00a7dd6e50472226240b48abaee7eef8b8c78512ac2cbc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the application.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1e666f8444740767b11735b73024aa0a6477f77e2eececae78a7318ab87ca0ce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A set of tags to associate with the application.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8dff4ca7b322d329ac080906ceecb610d62b9f6784d7997eb261041c910a0e85)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mgn.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "description": "description", "tags": "tags"},
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param name: The name of the application.
+        :param description: The description of the application.
+        :param tags: A set of tags to associate with the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mgn as mgn
+            
+            cfn_application_props = mgn.CfnApplicationProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6f1a40f46582952499bc335293aa0de7470b33b01b5ce361f3cdb38bab496e97)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-application.html#cfn-mgn-application-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-application.html#cfn-mgn-application-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A set of tags to associate with the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-application.html#cfn-mgn-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mgn_7f0ba49e.IConnectorRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnConnector(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2873,16 +3189,1274 @@ class CfnNetworkMigrationDefinitionProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mgn_7f0ba49e.IReplicationConfigurationTemplateRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnReplicationConfigurationTemplate(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_mgn.CfnReplicationConfigurationTemplate",
+):
+    '''Account level Replication Configuration Template for AWS Application Migration Service.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html
+    :cloudformationResource: AWS::MGN::ReplicationConfigurationTemplate
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_mgn as mgn
+        
+        cfn_replication_configuration_template = mgn.CfnReplicationConfigurationTemplate(self, "MyCfnReplicationConfigurationTemplate",
+            associate_default_security_group=False,
+            bandwidth_throttling=123,
+            create_public_ip=False,
+            data_plane_routing="dataPlaneRouting",
+            default_large_staging_disk_type="defaultLargeStagingDiskType",
+            ebs_encryption="ebsEncryption",
+            replication_server_instance_type="replicationServerInstanceType",
+            replication_servers_security_groups_i_ds=["replicationServersSecurityGroupsIDs"],
+            staging_area_subnet_id="stagingAreaSubnetId",
+            staging_area_tags={
+                "staging_area_tags_key": "stagingAreaTags"
+            },
+            use_dedicated_replication_server=False,
+        
+            # the properties below are optional
+            ebs_encryption_key_arn="ebsEncryptionKeyArn",
+            internet_protocol="internetProtocol",
+            store_snapshot_on_local_zone=False,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            use_fips_endpoint=False
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        associate_default_security_group: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        bandwidth_throttling: jsii.Number,
+        create_public_ip: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        data_plane_routing: builtins.str,
+        default_large_staging_disk_type: builtins.str,
+        ebs_encryption: builtins.str,
+        replication_server_instance_type: builtins.str,
+        replication_servers_security_groups_i_ds: typing.Sequence[builtins.str],
+        staging_area_subnet_id: builtins.str,
+        staging_area_tags: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
+        use_dedicated_replication_server: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        ebs_encryption_key_arn: typing.Optional[builtins.str] = None,
+        internet_protocol: typing.Optional[builtins.str] = None,
+        store_snapshot_on_local_zone: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_fips_endpoint: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+    ) -> None:
+        '''Create a new ``AWS::MGN::ReplicationConfigurationTemplate``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param associate_default_security_group: Whether to associate the default Application Migration Service Security Group with the Replication Configuration Template.
+        :param bandwidth_throttling: Configure bandwidth throttling for the outbound data transfer rate of the Source Server in Mbps.
+        :param create_public_ip: Whether to create a Public IP for the Recovery Instance by default.
+        :param data_plane_routing: The data plane routing mechanism that will be used for replication.
+        :param default_large_staging_disk_type: The Staging Disk EBS volume type to be used during replication.
+        :param ebs_encryption: The type of EBS encryption to be used during replication.
+        :param replication_server_instance_type: The instance type to be used for the replication server.
+        :param replication_servers_security_groups_i_ds: The security group IDs that will be used by the replication server.
+        :param staging_area_subnet_id: The subnet to be used by the replication staging area.
+        :param staging_area_tags: A set of tags to be associated with all resources created in the replication staging area: EC2 replication server, EBS volumes, EBS snapshots, etc.
+        :param use_dedicated_replication_server: Whether to use a dedicated Replication Server in the replication staging area.
+        :param ebs_encryption_key_arn: The ARN of the EBS encryption key to be used during replication.
+        :param internet_protocol: Which internet protocol to use for replication of data.
+        :param store_snapshot_on_local_zone: Whether to store the Snapshot in the Local Zone of the replication staging area subnet.
+        :param tags: A set of tags to be associated with the Replication Configuration Template resource.
+        :param use_fips_endpoint: Whether to use a FIPS endpoint when initiating the agent connection to the Application Migration Service service.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__32781f2f14c2c8d78bf4abf6a87ecc6d75bdddae1b176c9dad46570e16b33554)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnReplicationConfigurationTemplateProps(
+            associate_default_security_group=associate_default_security_group,
+            bandwidth_throttling=bandwidth_throttling,
+            create_public_ip=create_public_ip,
+            data_plane_routing=data_plane_routing,
+            default_large_staging_disk_type=default_large_staging_disk_type,
+            ebs_encryption=ebs_encryption,
+            replication_server_instance_type=replication_server_instance_type,
+            replication_servers_security_groups_i_ds=replication_servers_security_groups_i_ds,
+            staging_area_subnet_id=staging_area_subnet_id,
+            staging_area_tags=staging_area_tags,
+            use_dedicated_replication_server=use_dedicated_replication_server,
+            ebs_encryption_key_arn=ebs_encryption_key_arn,
+            internet_protocol=internet_protocol,
+            store_snapshot_on_local_zone=store_snapshot_on_local_zone,
+            tags=tags,
+            use_fips_endpoint=use_fips_endpoint,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForReplicationConfigurationTemplate")
+    @builtins.classmethod
+    def arn_for_replication_configuration_template(
+        cls,
+        resource: "_aws_mgn_7f0ba49e.IReplicationConfigurationTemplateRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ce02e2e66678132e4b85bde22953af2748eeef1a1e29d5089f014b0e45314d1)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReplicationConfigurationTemplate", [resource]))
+
+    @jsii.member(jsii_name="isCfnReplicationConfigurationTemplate")
+    @builtins.classmethod
+    def is_cfn_replication_configuration_template(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnReplicationConfigurationTemplate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2e3ea8c3b6b49ef0aaa70705290180af97287bde7698aad469382d3659bd7baa)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReplicationConfigurationTemplate", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__92ba19201ca3be736cb2cd473ef0360b28a0144aac66f932fbf8d3e4ff1eeb45)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__55ff7d01d178f0a65b3f089922c8b9f27155d901a6fb80057dd8fc2be0eae63b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Replication Configuration Template ARN.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReplicationConfigurationTemplateId")
+    def attr_replication_configuration_template_id(self) -> builtins.str:
+        '''The Replication Configuration Template ID.
+
+        :cloudformationAttribute: ReplicationConfigurationTemplateID
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReplicationConfigurationTemplateId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="replicationConfigurationTemplateRef")
+    def replication_configuration_template_ref(
+        self,
+    ) -> "_aws_mgn_7f0ba49e.ReplicationConfigurationTemplateReference":
+        '''A reference to a ReplicationConfigurationTemplate resource.'''
+        return typing.cast("_aws_mgn_7f0ba49e.ReplicationConfigurationTemplateReference", jsii.get(self, "replicationConfigurationTemplateRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="associateDefaultSecurityGroup")
+    def associate_default_security_group(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+        '''Whether to associate the default Application Migration Service Security Group with the Replication Configuration Template.'''
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], jsii.get(self, "associateDefaultSecurityGroup"))
+
+    @associate_default_security_group.setter
+    def associate_default_security_group(
+        self,
+        value: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4a55a312add5ea1721846ac96c6979bd7df2cbb9d83fa93c5dfcbdbf58930dcc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "associateDefaultSecurityGroup", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="bandwidthThrottling")
+    def bandwidth_throttling(self) -> jsii.Number:
+        '''Configure bandwidth throttling for the outbound data transfer rate of the Source Server in Mbps.'''
+        return typing.cast(jsii.Number, jsii.get(self, "bandwidthThrottling"))
+
+    @bandwidth_throttling.setter
+    def bandwidth_throttling(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bc06316b5649417905f9b57846849e0aaa1269d3630aff4c13953561835a25cc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bandwidthThrottling", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="createPublicIp")
+    def create_public_ip(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+        '''Whether to create a Public IP for the Recovery Instance by default.'''
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], jsii.get(self, "createPublicIp"))
+
+    @create_public_ip.setter
+    def create_public_ip(
+        self,
+        value: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__211b56ab254fa8ef4afb7a2dbff296a15ac8d2cf107513874ca73d4307dea17d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "createPublicIp", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="dataPlaneRouting")
+    def data_plane_routing(self) -> builtins.str:
+        '''The data plane routing mechanism that will be used for replication.'''
+        return typing.cast(builtins.str, jsii.get(self, "dataPlaneRouting"))
+
+    @data_plane_routing.setter
+    def data_plane_routing(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6877e5d1200a4f43704b5b44c71a2cfc89de1f5ae1bd0989e6589b770431e329)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dataPlaneRouting", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultLargeStagingDiskType")
+    def default_large_staging_disk_type(self) -> builtins.str:
+        '''The Staging Disk EBS volume type to be used during replication.'''
+        return typing.cast(builtins.str, jsii.get(self, "defaultLargeStagingDiskType"))
+
+    @default_large_staging_disk_type.setter
+    def default_large_staging_disk_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__08cf51473da8d81e72be572ec79fbe911d8b3c6403e1ea79f5cabb9ba5643cc1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "defaultLargeStagingDiskType", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="ebsEncryption")
+    def ebs_encryption(self) -> builtins.str:
+        '''The type of EBS encryption to be used during replication.'''
+        return typing.cast(builtins.str, jsii.get(self, "ebsEncryption"))
+
+    @ebs_encryption.setter
+    def ebs_encryption(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4e6b181e2afd8523796a1c0dc8443f9849298c251e7964a5c1bedc21ee55de88)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ebsEncryption", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="replicationServerInstanceType")
+    def replication_server_instance_type(self) -> builtins.str:
+        '''The instance type to be used for the replication server.'''
+        return typing.cast(builtins.str, jsii.get(self, "replicationServerInstanceType"))
+
+    @replication_server_instance_type.setter
+    def replication_server_instance_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e97289041da4c1488dce37170b0c27c277b3c8f68a2e9864ffbb35846ca21fea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replicationServerInstanceType", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="replicationServersSecurityGroupsIDs")
+    def replication_servers_security_groups_i_ds(self) -> typing.List[builtins.str]:
+        '''The security group IDs that will be used by the replication server.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "replicationServersSecurityGroupsIDs"))
+
+    @replication_servers_security_groups_i_ds.setter
+    def replication_servers_security_groups_i_ds(
+        self,
+        value: typing.List[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__434ca76c12e7dfbc3d2ce3e607dae750c93b082c986f74085b27a7af357c9c29)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replicationServersSecurityGroupsIDs", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="stagingAreaSubnetId")
+    def staging_area_subnet_id(self) -> builtins.str:
+        '''The subnet to be used by the replication staging area.'''
+        return typing.cast(builtins.str, jsii.get(self, "stagingAreaSubnetId"))
+
+    @staging_area_subnet_id.setter
+    def staging_area_subnet_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__080cf09c8d82c8e3639c95e1c8ba7990a7e214a9e9d6a9cd072f2eac7b993898)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stagingAreaSubnetId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="stagingAreaTags")
+    def staging_area_tags(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
+        '''A set of tags to be associated with all resources created in the replication staging area: EC2 replication server, EBS volumes, EBS snapshots, etc.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "stagingAreaTags"))
+
+    @staging_area_tags.setter
+    def staging_area_tags(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__22073edbb351ba0a52e2970959f907982c21731f202bb57e0e8a7c954e99de5b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stagingAreaTags", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="useDedicatedReplicationServer")
+    def use_dedicated_replication_server(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+        '''Whether to use a dedicated Replication Server in the replication staging area.'''
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], jsii.get(self, "useDedicatedReplicationServer"))
+
+    @use_dedicated_replication_server.setter
+    def use_dedicated_replication_server(
+        self,
+        value: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0a3b2e27a1397fe936891f77b2ce8a3ab9a417c7410c1f4174e1a25be12e9333)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "useDedicatedReplicationServer", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="ebsEncryptionKeyArn")
+    def ebs_encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the EBS encryption key to be used during replication.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ebsEncryptionKeyArn"))
+
+    @ebs_encryption_key_arn.setter
+    def ebs_encryption_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9d6ef3ac289c132d986af48a46eccc060ede11b30ec8001b93fa0711cf8ac3bd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ebsEncryptionKeyArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="internetProtocol")
+    def internet_protocol(self) -> typing.Optional[builtins.str]:
+        '''Which internet protocol to use for replication of data.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "internetProtocol"))
+
+    @internet_protocol.setter
+    def internet_protocol(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__749fb38fd993044faf9648334266aad28bbe9a6beba7c27bd7df1012b3a22c55)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internetProtocol", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="storeSnapshotOnLocalZone")
+    def store_snapshot_on_local_zone(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether to store the Snapshot in the Local Zone of the replication staging area subnet.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "storeSnapshotOnLocalZone"))
+
+    @store_snapshot_on_local_zone.setter
+    def store_snapshot_on_local_zone(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aead1c6d5757434932bae9edfc4409ceefa91a40ce545c6ebde335cc21b5899e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "storeSnapshotOnLocalZone", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A set of tags to be associated with the Replication Configuration Template resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6aac53cd61c0cb107d4cac5f134cbbe611ef811d92ae056f3b7a560a36e92e18)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="useFipsEndpoint")
+    def use_fips_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether to use a FIPS endpoint when initiating the agent connection to the Application Migration Service service.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "useFipsEndpoint"))
+
+    @use_fips_endpoint.setter
+    def use_fips_endpoint(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1dec32218d9ce20c2a207e4f2bc3c2f7c4e6a2015566a72f4f6304d21e838483)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "useFipsEndpoint", value)
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mgn.CfnReplicationConfigurationTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "associate_default_security_group": "associateDefaultSecurityGroup",
+        "bandwidth_throttling": "bandwidthThrottling",
+        "create_public_ip": "createPublicIp",
+        "data_plane_routing": "dataPlaneRouting",
+        "default_large_staging_disk_type": "defaultLargeStagingDiskType",
+        "ebs_encryption": "ebsEncryption",
+        "replication_server_instance_type": "replicationServerInstanceType",
+        "replication_servers_security_groups_i_ds": "replicationServersSecurityGroupsIDs",
+        "staging_area_subnet_id": "stagingAreaSubnetId",
+        "staging_area_tags": "stagingAreaTags",
+        "use_dedicated_replication_server": "useDedicatedReplicationServer",
+        "ebs_encryption_key_arn": "ebsEncryptionKeyArn",
+        "internet_protocol": "internetProtocol",
+        "store_snapshot_on_local_zone": "storeSnapshotOnLocalZone",
+        "tags": "tags",
+        "use_fips_endpoint": "useFipsEndpoint",
+    },
+)
+class CfnReplicationConfigurationTemplateProps:
+    def __init__(
+        self,
+        *,
+        associate_default_security_group: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        bandwidth_throttling: jsii.Number,
+        create_public_ip: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        data_plane_routing: builtins.str,
+        default_large_staging_disk_type: builtins.str,
+        ebs_encryption: builtins.str,
+        replication_server_instance_type: builtins.str,
+        replication_servers_security_groups_i_ds: typing.Sequence[builtins.str],
+        staging_area_subnet_id: builtins.str,
+        staging_area_tags: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
+        use_dedicated_replication_server: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        ebs_encryption_key_arn: typing.Optional[builtins.str] = None,
+        internet_protocol: typing.Optional[builtins.str] = None,
+        store_snapshot_on_local_zone: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_fips_endpoint: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnReplicationConfigurationTemplate``.
+
+        :param associate_default_security_group: Whether to associate the default Application Migration Service Security Group with the Replication Configuration Template.
+        :param bandwidth_throttling: Configure bandwidth throttling for the outbound data transfer rate of the Source Server in Mbps.
+        :param create_public_ip: Whether to create a Public IP for the Recovery Instance by default.
+        :param data_plane_routing: The data plane routing mechanism that will be used for replication.
+        :param default_large_staging_disk_type: The Staging Disk EBS volume type to be used during replication.
+        :param ebs_encryption: The type of EBS encryption to be used during replication.
+        :param replication_server_instance_type: The instance type to be used for the replication server.
+        :param replication_servers_security_groups_i_ds: The security group IDs that will be used by the replication server.
+        :param staging_area_subnet_id: The subnet to be used by the replication staging area.
+        :param staging_area_tags: A set of tags to be associated with all resources created in the replication staging area: EC2 replication server, EBS volumes, EBS snapshots, etc.
+        :param use_dedicated_replication_server: Whether to use a dedicated Replication Server in the replication staging area.
+        :param ebs_encryption_key_arn: The ARN of the EBS encryption key to be used during replication.
+        :param internet_protocol: Which internet protocol to use for replication of data.
+        :param store_snapshot_on_local_zone: Whether to store the Snapshot in the Local Zone of the replication staging area subnet.
+        :param tags: A set of tags to be associated with the Replication Configuration Template resource.
+        :param use_fips_endpoint: Whether to use a FIPS endpoint when initiating the agent connection to the Application Migration Service service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mgn as mgn
+            
+            cfn_replication_configuration_template_props = mgn.CfnReplicationConfigurationTemplateProps(
+                associate_default_security_group=False,
+                bandwidth_throttling=123,
+                create_public_ip=False,
+                data_plane_routing="dataPlaneRouting",
+                default_large_staging_disk_type="defaultLargeStagingDiskType",
+                ebs_encryption="ebsEncryption",
+                replication_server_instance_type="replicationServerInstanceType",
+                replication_servers_security_groups_i_ds=["replicationServersSecurityGroupsIDs"],
+                staging_area_subnet_id="stagingAreaSubnetId",
+                staging_area_tags={
+                    "staging_area_tags_key": "stagingAreaTags"
+                },
+                use_dedicated_replication_server=False,
+            
+                # the properties below are optional
+                ebs_encryption_key_arn="ebsEncryptionKeyArn",
+                internet_protocol="internetProtocol",
+                store_snapshot_on_local_zone=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                use_fips_endpoint=False
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5b57e63d8f29aa082c5b0b13e008f60fbc91e8012065b7e95c46e52799f7c90a)
+            check_type(argname="argument associate_default_security_group", value=associate_default_security_group, expected_type=type_hints["associate_default_security_group"])
+            check_type(argname="argument bandwidth_throttling", value=bandwidth_throttling, expected_type=type_hints["bandwidth_throttling"])
+            check_type(argname="argument create_public_ip", value=create_public_ip, expected_type=type_hints["create_public_ip"])
+            check_type(argname="argument data_plane_routing", value=data_plane_routing, expected_type=type_hints["data_plane_routing"])
+            check_type(argname="argument default_large_staging_disk_type", value=default_large_staging_disk_type, expected_type=type_hints["default_large_staging_disk_type"])
+            check_type(argname="argument ebs_encryption", value=ebs_encryption, expected_type=type_hints["ebs_encryption"])
+            check_type(argname="argument replication_server_instance_type", value=replication_server_instance_type, expected_type=type_hints["replication_server_instance_type"])
+            check_type(argname="argument replication_servers_security_groups_i_ds", value=replication_servers_security_groups_i_ds, expected_type=type_hints["replication_servers_security_groups_i_ds"])
+            check_type(argname="argument staging_area_subnet_id", value=staging_area_subnet_id, expected_type=type_hints["staging_area_subnet_id"])
+            check_type(argname="argument staging_area_tags", value=staging_area_tags, expected_type=type_hints["staging_area_tags"])
+            check_type(argname="argument use_dedicated_replication_server", value=use_dedicated_replication_server, expected_type=type_hints["use_dedicated_replication_server"])
+            check_type(argname="argument ebs_encryption_key_arn", value=ebs_encryption_key_arn, expected_type=type_hints["ebs_encryption_key_arn"])
+            check_type(argname="argument internet_protocol", value=internet_protocol, expected_type=type_hints["internet_protocol"])
+            check_type(argname="argument store_snapshot_on_local_zone", value=store_snapshot_on_local_zone, expected_type=type_hints["store_snapshot_on_local_zone"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument use_fips_endpoint", value=use_fips_endpoint, expected_type=type_hints["use_fips_endpoint"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "associate_default_security_group": associate_default_security_group,
+            "bandwidth_throttling": bandwidth_throttling,
+            "create_public_ip": create_public_ip,
+            "data_plane_routing": data_plane_routing,
+            "default_large_staging_disk_type": default_large_staging_disk_type,
+            "ebs_encryption": ebs_encryption,
+            "replication_server_instance_type": replication_server_instance_type,
+            "replication_servers_security_groups_i_ds": replication_servers_security_groups_i_ds,
+            "staging_area_subnet_id": staging_area_subnet_id,
+            "staging_area_tags": staging_area_tags,
+            "use_dedicated_replication_server": use_dedicated_replication_server,
+        }
+        if ebs_encryption_key_arn is not None:
+            self._values["ebs_encryption_key_arn"] = ebs_encryption_key_arn
+        if internet_protocol is not None:
+            self._values["internet_protocol"] = internet_protocol
+        if store_snapshot_on_local_zone is not None:
+            self._values["store_snapshot_on_local_zone"] = store_snapshot_on_local_zone
+        if tags is not None:
+            self._values["tags"] = tags
+        if use_fips_endpoint is not None:
+            self._values["use_fips_endpoint"] = use_fips_endpoint
+
+    @builtins.property
+    def associate_default_security_group(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+        '''Whether to associate the default Application Migration Service Security Group with the Replication Configuration Template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-associatedefaultsecuritygroup
+        '''
+        result = self._values.get("associate_default_security_group")
+        assert result is not None, "Required property 'associate_default_security_group' is missing"
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+    @builtins.property
+    def bandwidth_throttling(self) -> jsii.Number:
+        '''Configure bandwidth throttling for the outbound data transfer rate of the Source Server in Mbps.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-bandwidththrottling
+        '''
+        result = self._values.get("bandwidth_throttling")
+        assert result is not None, "Required property 'bandwidth_throttling' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def create_public_ip(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+        '''Whether to create a Public IP for the Recovery Instance by default.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-createpublicip
+        '''
+        result = self._values.get("create_public_ip")
+        assert result is not None, "Required property 'create_public_ip' is missing"
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+    @builtins.property
+    def data_plane_routing(self) -> builtins.str:
+        '''The data plane routing mechanism that will be used for replication.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-dataplanerouting
+        '''
+        result = self._values.get("data_plane_routing")
+        assert result is not None, "Required property 'data_plane_routing' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_large_staging_disk_type(self) -> builtins.str:
+        '''The Staging Disk EBS volume type to be used during replication.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-defaultlargestagingdisktype
+        '''
+        result = self._values.get("default_large_staging_disk_type")
+        assert result is not None, "Required property 'default_large_staging_disk_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ebs_encryption(self) -> builtins.str:
+        '''The type of EBS encryption to be used during replication.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-ebsencryption
+        '''
+        result = self._values.get("ebs_encryption")
+        assert result is not None, "Required property 'ebs_encryption' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def replication_server_instance_type(self) -> builtins.str:
+        '''The instance type to be used for the replication server.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-replicationserverinstancetype
+        '''
+        result = self._values.get("replication_server_instance_type")
+        assert result is not None, "Required property 'replication_server_instance_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def replication_servers_security_groups_i_ds(self) -> typing.List[builtins.str]:
+        '''The security group IDs that will be used by the replication server.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-replicationserverssecuritygroupsids
+        '''
+        result = self._values.get("replication_servers_security_groups_i_ds")
+        assert result is not None, "Required property 'replication_servers_security_groups_i_ds' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def staging_area_subnet_id(self) -> builtins.str:
+        '''The subnet to be used by the replication staging area.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-stagingareasubnetid
+        '''
+        result = self._values.get("staging_area_subnet_id")
+        assert result is not None, "Required property 'staging_area_subnet_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def staging_area_tags(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
+        '''A set of tags to be associated with all resources created in the replication staging area: EC2 replication server, EBS volumes, EBS snapshots, etc.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-stagingareatags
+        '''
+        result = self._values.get("staging_area_tags")
+        assert result is not None, "Required property 'staging_area_tags' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def use_dedicated_replication_server(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+        '''Whether to use a dedicated Replication Server in the replication staging area.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-usededicatedreplicationserver
+        '''
+        result = self._values.get("use_dedicated_replication_server")
+        assert result is not None, "Required property 'use_dedicated_replication_server' is missing"
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+    @builtins.property
+    def ebs_encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the EBS encryption key to be used during replication.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-ebsencryptionkeyarn
+        '''
+        result = self._values.get("ebs_encryption_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def internet_protocol(self) -> typing.Optional[builtins.str]:
+        '''Which internet protocol to use for replication of data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-internetprotocol
+        '''
+        result = self._values.get("internet_protocol")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def store_snapshot_on_local_zone(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether to store the Snapshot in the Local Zone of the replication staging area subnet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-storesnapshotonlocalzone
+        '''
+        result = self._values.get("store_snapshot_on_local_zone")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A set of tags to be associated with the Replication Configuration Template resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def use_fips_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether to use a FIPS endpoint when initiating the agent connection to the Application Migration Service service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-replicationconfigurationtemplate.html#cfn-mgn-replicationconfigurationtemplate-usefipsendpoint
+        '''
+        result = self._values.get("use_fips_endpoint")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReplicationConfigurationTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mgn_7f0ba49e.IWaveRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnWave(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_mgn.CfnWave",
+):
+    '''Resource schema for AWS::MGN::Wave.
+
+    A Wave is a logical grouping used in Application Migration Service to organize and manage the migration of applications.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-wave.html
+    :cloudformationResource: AWS::MGN::Wave
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_mgn as mgn
+        
+        cfn_wave = mgn.CfnWave(self, "MyCfnWave",
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::MGN::Wave``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the wave.
+        :param description: A description of the wave.
+        :param tags: Tags to assign to the wave.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1590471d8db8f7f297f18abcb280be0d6095ac004e7b789cc90367527db059f2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnWaveProps(name=name, description=description, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForWave")
+    @builtins.classmethod
+    def arn_for_wave(cls, resource: "_aws_mgn_7f0ba49e.IWaveRef") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2b32cd2dcb853be5ea0d24d79674138f2c7b64139d9367f640784777533c362a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWave", [resource]))
+
+    @jsii.member(jsii_name="isCfnWave")
+    @builtins.classmethod
+    def is_cfn_wave(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWave.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c43beb17d137546057a6d0c8e47963d0c516425b5e80eec8110014b54d5a72f1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWave", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ab6a4c6fdb22694cafc6881ef37ce5ed10f3a9b99e52a5a81cf970300bcfd830)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8fc9d8fc03707b068c3e9c53bb4b96dab2a58d188d19944aaaddd06599245815)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the wave.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationDateTime")
+    def attr_creation_date_time(self) -> builtins.str:
+        '''The timestamp when the wave was created.
+
+        :cloudformationAttribute: CreationDateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationDateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIsArchived")
+    def attr_is_archived(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Whether the wave is archived.
+
+        :cloudformationAttribute: IsArchived
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIsArchived"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedDateTime")
+    def attr_last_modified_date_time(self) -> builtins.str:
+        '''The timestamp when the wave was last modified.
+
+        :cloudformationAttribute: LastModifiedDateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedDateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrWaveAggregatedStatus")
+    def attr_wave_aggregated_status(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The aggregated migration status of the wave.
+
+        :cloudformationAttribute: WaveAggregatedStatus
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrWaveAggregatedStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrWaveId")
+    def attr_wave_id(self) -> builtins.str:
+        '''The unique identifier of the wave.
+
+        :cloudformationAttribute: WaveID
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrWaveId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="waveRef")
+    def wave_ref(self) -> "_aws_mgn_7f0ba49e.WaveReference":
+        '''A reference to a Wave resource.'''
+        return typing.cast("_aws_mgn_7f0ba49e.WaveReference", jsii.get(self, "waveRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the wave.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ffa1dfc40562bada1a2343392a53725ce5001079945064c1d398dc125540f65b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the wave.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__37d9976edfcbf92c898e2fec40cc39475b9665ea8f2addf01ba95e256ee70a69)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to assign to the wave.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b6c237acb5b1c135957b67915b5c8da7a6fe1c008a169f51e6dee951c03da970)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mgn.CfnWave.WaveAggregatedStatusProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "health_status": "healthStatus",
+            "progress_status": "progressStatus",
+            "total_applications": "totalApplications",
+        },
+    )
+    class WaveAggregatedStatusProperty:
+        def __init__(
+            self,
+            *,
+            health_status: typing.Optional[builtins.str] = None,
+            progress_status: typing.Optional[builtins.str] = None,
+            total_applications: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The aggregated migration status of the wave.
+
+            :param health_status: The health status of the wave.
+            :param progress_status: The progress status of the wave.
+            :param total_applications: The total number of applications in the wave.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mgn-wave-waveaggregatedstatus.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mgn as mgn
+                
+                wave_aggregated_status_property = mgn.CfnWave.WaveAggregatedStatusProperty(
+                    health_status="healthStatus",
+                    progress_status="progressStatus",
+                    total_applications=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e306721fd72b0a018a7dc6c2fb77110be58a4234b0bd0f229da2f720ed5e3a40)
+                check_type(argname="argument health_status", value=health_status, expected_type=type_hints["health_status"])
+                check_type(argname="argument progress_status", value=progress_status, expected_type=type_hints["progress_status"])
+                check_type(argname="argument total_applications", value=total_applications, expected_type=type_hints["total_applications"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if health_status is not None:
+                self._values["health_status"] = health_status
+            if progress_status is not None:
+                self._values["progress_status"] = progress_status
+            if total_applications is not None:
+                self._values["total_applications"] = total_applications
+
+        @builtins.property
+        def health_status(self) -> typing.Optional[builtins.str]:
+            '''The health status of the wave.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mgn-wave-waveaggregatedstatus.html#cfn-mgn-wave-waveaggregatedstatus-healthstatus
+            '''
+            result = self._values.get("health_status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def progress_status(self) -> typing.Optional[builtins.str]:
+            '''The progress status of the wave.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mgn-wave-waveaggregatedstatus.html#cfn-mgn-wave-waveaggregatedstatus-progressstatus
+            '''
+            result = self._values.get("progress_status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def total_applications(self) -> typing.Optional[jsii.Number]:
+            '''The total number of applications in the wave.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mgn-wave-waveaggregatedstatus.html#cfn-mgn-wave-waveaggregatedstatus-totalapplications
+            '''
+            result = self._values.get("total_applications")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WaveAggregatedStatusProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mgn.CfnWaveProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "description": "description", "tags": "tags"},
+)
+class CfnWaveProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWave``.
+
+        :param name: The name of the wave.
+        :param description: A description of the wave.
+        :param tags: Tags to assign to the wave.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-wave.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mgn as mgn
+            
+            cfn_wave_props = mgn.CfnWaveProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__68968c8c0cb4c03172bfd9d3608c9b579d5042521a8611cb30247839f57f6b05)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the wave.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-wave.html#cfn-mgn-wave-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the wave.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-wave.html#cfn-mgn-wave-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to assign to the wave.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mgn-wave.html#cfn-mgn-wave-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWaveProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
+    "CfnApplication",
+    "CfnApplicationProps",
     "CfnConnector",
     "CfnConnectorProps",
     "CfnLaunchConfigurationTemplate",
     "CfnLaunchConfigurationTemplateProps",
     "CfnNetworkMigrationDefinition",
     "CfnNetworkMigrationDefinitionProps",
+    "CfnReplicationConfigurationTemplate",
+    "CfnReplicationConfigurationTemplateProps",
+    "CfnWave",
+    "CfnWaveProps",
 ]
 
 publication.publish()
+
+def _typecheckingstub__3dda22f820c3748889315357f7f8d8808142d4bbe6e78fa2169f112bb0f1aab4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bda45874557c2da2d1cb406c9e553d28f4a4f0bce1860372b45e0a67699cdd2d(
+    resource: _aws_mgn_7f0ba49e.IApplicationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__499dd71a3d3df5437f9a4e19a080f3b5db107fd9b022a77e34e59bf0caf6eff1(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee867837d27bb3d1e190e3a8ed61c22c3cccbfcc32ab5a63dece4b96783fe1b9(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89d7bb6250ea5535971502f33ae78665bfc5b20337d5bdf66f16a0438bf00472(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9eca8e4ce863fae79d00a7dd6e50472226240b48abaee7eef8b8c78512ac2cbc(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e666f8444740767b11735b73024aa0a6477f77e2eececae78a7318ab87ca0ce(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8dff4ca7b322d329ac080906ceecb610d62b9f6784d7997eb261041c910a0e85(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f1a40f46582952499bc335293aa0de7470b33b01b5ce361f3cdb38bab496e97(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__1009ba5960ab3691b98cd0782c80f689e21000b6c903683a2672ab7ba794a126(
     scope: _constructs_77d1e7e8.Construct,
@@ -3317,6 +4891,243 @@ def _typecheckingstub__e818ac919a41cc3b4e605f6633f673a768f2462b9a4b3d1966d51ea45
     scope_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_deployment: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32781f2f14c2c8d78bf4abf6a87ecc6d75bdddae1b176c9dad46570e16b33554(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    associate_default_security_group: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    bandwidth_throttling: jsii.Number,
+    create_public_ip: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    data_plane_routing: builtins.str,
+    default_large_staging_disk_type: builtins.str,
+    ebs_encryption: builtins.str,
+    replication_server_instance_type: builtins.str,
+    replication_servers_security_groups_i_ds: typing.Sequence[builtins.str],
+    staging_area_subnet_id: builtins.str,
+    staging_area_tags: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
+    use_dedicated_replication_server: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    ebs_encryption_key_arn: typing.Optional[builtins.str] = None,
+    internet_protocol: typing.Optional[builtins.str] = None,
+    store_snapshot_on_local_zone: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_fips_endpoint: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ce02e2e66678132e4b85bde22953af2748eeef1a1e29d5089f014b0e45314d1(
+    resource: _aws_mgn_7f0ba49e.IReplicationConfigurationTemplateRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e3ea8c3b6b49ef0aaa70705290180af97287bde7698aad469382d3659bd7baa(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92ba19201ca3be736cb2cd473ef0360b28a0144aac66f932fbf8d3e4ff1eeb45(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55ff7d01d178f0a65b3f089922c8b9f27155d901a6fb80057dd8fc2be0eae63b(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a55a312add5ea1721846ac96c6979bd7df2cbb9d83fa93c5dfcbdbf58930dcc(
+    value: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc06316b5649417905f9b57846849e0aaa1269d3630aff4c13953561835a25cc(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__211b56ab254fa8ef4afb7a2dbff296a15ac8d2cf107513874ca73d4307dea17d(
+    value: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6877e5d1200a4f43704b5b44c71a2cfc89de1f5ae1bd0989e6589b770431e329(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08cf51473da8d81e72be572ec79fbe911d8b3c6403e1ea79f5cabb9ba5643cc1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4e6b181e2afd8523796a1c0dc8443f9849298c251e7964a5c1bedc21ee55de88(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e97289041da4c1488dce37170b0c27c277b3c8f68a2e9864ffbb35846ca21fea(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__434ca76c12e7dfbc3d2ce3e607dae750c93b082c986f74085b27a7af357c9c29(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__080cf09c8d82c8e3639c95e1c8ba7990a7e214a9e9d6a9cd072f2eac7b993898(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22073edbb351ba0a52e2970959f907982c21731f202bb57e0e8a7c954e99de5b(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a3b2e27a1397fe936891f77b2ce8a3ab9a417c7410c1f4174e1a25be12e9333(
+    value: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d6ef3ac289c132d986af48a46eccc060ede11b30ec8001b93fa0711cf8ac3bd(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__749fb38fd993044faf9648334266aad28bbe9a6beba7c27bd7df1012b3a22c55(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aead1c6d5757434932bae9edfc4409ceefa91a40ce545c6ebde335cc21b5899e(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6aac53cd61c0cb107d4cac5f134cbbe611ef811d92ae056f3b7a560a36e92e18(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1dec32218d9ce20c2a207e4f2bc3c2f7c4e6a2015566a72f4f6304d21e838483(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b57e63d8f29aa082c5b0b13e008f60fbc91e8012065b7e95c46e52799f7c90a(
+    *,
+    associate_default_security_group: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    bandwidth_throttling: jsii.Number,
+    create_public_ip: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    data_plane_routing: builtins.str,
+    default_large_staging_disk_type: builtins.str,
+    ebs_encryption: builtins.str,
+    replication_server_instance_type: builtins.str,
+    replication_servers_security_groups_i_ds: typing.Sequence[builtins.str],
+    staging_area_subnet_id: builtins.str,
+    staging_area_tags: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
+    use_dedicated_replication_server: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    ebs_encryption_key_arn: typing.Optional[builtins.str] = None,
+    internet_protocol: typing.Optional[builtins.str] = None,
+    store_snapshot_on_local_zone: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_fips_endpoint: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1590471d8db8f7f297f18abcb280be0d6095ac004e7b789cc90367527db059f2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b32cd2dcb853be5ea0d24d79674138f2c7b64139d9367f640784777533c362a(
+    resource: _aws_mgn_7f0ba49e.IWaveRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c43beb17d137546057a6d0c8e47963d0c516425b5e80eec8110014b54d5a72f1(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab6a4c6fdb22694cafc6881ef37ce5ed10f3a9b99e52a5a81cf970300bcfd830(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8fc9d8fc03707b068c3e9c53bb4b96dab2a58d188d19944aaaddd06599245815(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ffa1dfc40562bada1a2343392a53725ce5001079945064c1d398dc125540f65b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__37d9976edfcbf92c898e2fec40cc39475b9665ea8f2addf01ba95e256ee70a69(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6c237acb5b1c135957b67915b5c8da7a6fe1c008a169f51e6dee951c03da970(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e306721fd72b0a018a7dc6c2fb77110be58a4234b0bd0f229da2f720ed5e3a40(
+    *,
+    health_status: typing.Optional[builtins.str] = None,
+    progress_status: typing.Optional[builtins.str] = None,
+    total_applications: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68968c8c0cb4c03172bfd9d3608c9b579d5042521a8611cb30247839f57f6b05(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -86,19 +86,13 @@ typing.cast(typing.Any, IProjectRef).__jsii_proxy_class__ = lambda : _IProjectRe
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_lookoutvision.ProjectReference",
     jsii_struct_bases=[],
-    name_mapping={"project_arn": "projectArn", "project_name": "projectName"},
+    name_mapping={"project_arn": "projectArn"},
 )
 class ProjectReference:
-    def __init__(
-        self,
-        *,
-        project_arn: builtins.str,
-        project_name: builtins.str,
-    ) -> None:
+    def __init__(self, *, project_arn: builtins.str) -> None:
         '''A reference to a Project resource.
 
         :param project_arn: The ARN of the Project resource.
-        :param project_name: The ProjectName of the Project resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -109,17 +103,14 @@ class ProjectReference:
             from aws_cdk.interfaces import aws_lookoutvision as interfaces_lookoutvision
             
             project_reference = interfaces_lookoutvision.ProjectReference(
-                project_arn="projectArn",
-                project_name="projectName"
+                project_arn="projectArn"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a82f69c4f82fc07358474e691f44b14218e0f66fb5292b63b27d6ecc767a7414)
             check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
-            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "project_arn": project_arn,
-            "project_name": project_name,
         }
 
     @builtins.property
@@ -127,13 +118,6 @@ class ProjectReference:
         '''The ARN of the Project resource.'''
         result = self._values.get("project_arn")
         assert result is not None, "Required property 'project_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def project_name(self) -> builtins.str:
-        '''The ProjectName of the Project resource.'''
-        result = self._values.get("project_name")
-        assert result is not None, "Required property 'project_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -158,7 +142,6 @@ publication.publish()
 def _typecheckingstub__a82f69c4f82fc07358474e691f44b14218e0f66fb5292b63b27d6ecc767a7414(
     *,
     project_arn: builtins.str,
-    project_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

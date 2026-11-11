@@ -16,7 +16,10 @@ use crate::hashing::opt_bool_to_hashable;
 use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
 use crate::specs_response::parse_options::{SpecsResponseParseOptions, with_parse_options};
-use crate::specs_response::specs_hash_map::{SpecsHashMap, deserialize_dynamic_configs};
+use crate::specs_response::specs_hash_map::{
+    SpecsHashMap, deserialize_dynamic_configs, deserialize_inline_only_map,
+    raw_rules_have_remote_metadata,
+};
 use crate::{DynamicValue, hashing};
 
 use super::{cmab_types::CMABConfig, param_store_types::ParameterStore};
@@ -365,6 +368,7 @@ macro_rules! response_struct {
                 pub experiment_to_layer: HashMap<String, String>,
                 pub hashed_sdk_keys_to_app_ids: Option<HashMap<String, DynamicValue>>,
                 pub id_lists: Option<HashMap<String, bool>>,
+                #[serde(default, deserialize_with = "deserialize_inline_only_map")]
                 pub override_rules: Option<HashMap<String, Rule>>,
                 pub overrides: Option<HashMap<String, Vec<ConfigMapping>>>,
                 pub sdk_configs: Option<HashMap<String, DynamicValue>>,
@@ -384,12 +388,14 @@ response_struct!(SpecsResponseFull, {
     // Special Case Proto Fields
     pub checksum: Option<String>,
     pub company_id: Option<String>,
+    #[serde(deserialize_with = "deserialize_condition_map")]
     pub condition_map: AHashMap<InternedString, Condition>,
     #[serde(deserialize_with = "deserialize_dynamic_configs")]
     pub dynamic_configs: SpecsHashMap,
     pub feature_gates: SpecsHashMap,
     pub has_updates: bool,
     pub layer_configs: SpecsHashMap,
+    #[serde(default, deserialize_with = "deserialize_inline_only_map")]
     pub param_stores: Option<HashMap<InternedString, ParameterStore>>,
     pub response_format: Option<String>,
     pub time: u64,
@@ -448,7 +454,67 @@ impl Condition {
     }
 }
 
+// Keep the marker on the wire only: ordinary conditions are decoded once, and
+// a later entry with the same ID can replace an earlier invalid declaration.
+struct WireCondition(Condition, bool);
+
+fn deserialize_condition_map<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<AHashMap<InternedString, Condition>, D::Error> {
+    use serde::de::{Error, MapAccess, Visitor};
+
+    struct Conditions;
+    impl<'de> Visitor<'de> for Conditions {
+        type Value = AHashMap<InternedString, Condition>;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a condition map")
+        }
+
+        fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+            let mut conditions = AHashMap::default();
+            let mut invalid = std::collections::HashSet::new();
+            while let Some((id, WireCondition(condition, has_remote))) =
+                map.next_entry::<InternedString, WireCondition>()?
+            {
+                if has_remote {
+                    invalid.insert(id);
+                } else {
+                    if !invalid.is_empty() {
+                        invalid.remove(&id);
+                    }
+                    conditions.insert(id, condition);
+                }
+            }
+            if !invalid.is_empty() {
+                return Err(A::Error::custom(
+                    crate::specs_adapter::remote_config_value_hydrator::unsupported_entity_error(),
+                ));
+            }
+            Ok(conditions)
+        }
+    }
+    deserializer.deserialize_map(Conditions)
+}
+
 impl<'de> Deserialize<'de> for Condition {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let WireCondition(condition, has_remote) = WireCondition::deserialize(deserializer)?;
+        if has_remote {
+            return Err(serde::de::Error::custom(
+                crate::specs_adapter::remote_config_value_hydrator::unsupported_entity_error(),
+            ));
+        }
+        Ok(condition)
+    }
+}
+
+fn declared_metadata<'de, D: Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
+    serde::de::IgnoredAny::deserialize(deserializer)?;
+    Ok(true)
+}
+
+impl<'de> Deserialize<'de> for WireCondition {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -456,6 +522,13 @@ impl<'de> Deserialize<'de> for Condition {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct ConditionInternal {
+            #[serde(
+                rename = "remoteConfigMetadata",
+                default,
+                deserialize_with = "declared_metadata"
+            )]
+            has_remote_metadata: bool,
+            rules: Option<Box<RawValue>>,
             #[serde(rename = "type")]
             condition_type: InternedString,
             target_value: Option<Box<RawValue>>,
@@ -499,7 +572,12 @@ impl<'de> Deserialize<'de> for Condition {
             checksum: internal.checksum,
         };
         condition.compile_cron_window();
-        Ok(condition)
+        let has_remote = internal.has_remote_metadata
+            || internal
+                .rules
+                .as_deref()
+                .is_some_and(raw_rules_have_remote_metadata);
+        Ok(WireCondition(condition, has_remote))
     }
 }
 

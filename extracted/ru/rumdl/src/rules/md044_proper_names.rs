@@ -347,6 +347,12 @@ impl MD044ProperNames {
                 continue;
             }
 
+            // Skip MyST comments, targets and block breaks. A target's label is an
+            // identifier that `{ref}` roles spell exactly, and a block break holds metadata.
+            if line_info.is_myst_structural_line() {
+                continue;
+            }
+
             // For frontmatter lines, determine offset where checkable value content starts.
             // YAML keys should not be checked against proper names - only values.
             let fm_value_offset = if line_info.in_front_matter {
@@ -452,6 +458,12 @@ impl MD044ProperNames {
 
                 // Skip if in link URL or reference definition
                 if Self::is_in_link(ctx, byte_pos) {
+                    continue;
+                }
+
+                // MkDocs resolves `[text][identifier]` as an autoref whose identifier is
+                // case-sensitive, so the label of an undefined full reference is a name.
+                if ctx.is_in_unresolved_autoref_identifier(byte_pos) {
                     continue;
                 }
 

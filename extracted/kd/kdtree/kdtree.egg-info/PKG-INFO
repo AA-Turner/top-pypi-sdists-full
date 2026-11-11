@@ -1,9 +1,8 @@
 Metadata-Version: 2.4
 Name: kdtree
-Version: 1.0
+Version: 1.1.1
 Summary: A Python implementation of a kd-tree
 Home-page: https://github.com/stefankoegl/kdtree
-Download-URL: http://pypi.python.org/packages/source/k/kdtree/kdtree-1.0.tar.gz
 Author: Stefan Kögl
 Author-email: stefan@skoegl.net
 License: ISC license
@@ -25,18 +24,216 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
+Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
-Dynamic: download-url
+Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
 Dynamic: requires-python
 Dynamic: summary
 
-This package provides a simple implementation of a kd-tree in Python.
-https://en.wikipedia.org/wiki/K-d_tree
+A simple kd-tree in Python [![Tests](https://github.com/stefankoegl/kdtree/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/stefankoegl/kdtree/actions/workflows/tests.yml)
+==========================
+
+The kdtree package can construct, modify and search
+[kd-trees](https://en.wikipedia.org/wiki/K-d_tree).
+
+* Website: https://github.com/stefankoegl/kdtree
+* Repository: https://github.com/stefankoegl/kdtree.git
+* Documentation: https://python-kdtree.readthedocs.io/
+* PyPI: https://pypi.org/project/kdtree/
+* GitHub Actions: https://github.com/stefankoegl/kdtree/actions
+* Coveralls: https://coveralls.io/github/stefankoegl/kdtree
+
+
+Usage
+-----
+
+<!-- usage-start: this example is run as a doctest by test.py -->
+
+    >>> import kdtree
+
+    # Create an empty tree by specifying the number of
+    # dimensions its points will have
+    >>> emptyTree = kdtree.create(dimensions=3)
+
+    # A kd-tree can contain different kinds of points, for example tuples
+    >>> point1 = (2, 3, 4)
+
+    # Lists can also be used as points
+    >>> point2 = [4, 5, 6]
+
+    # Other objects that support indexing can be used, too
+    >>> import collections
+    >>> Point = collections.namedtuple('Point', 'x y z')
+    >>> point3 = Point(5, 3, 2)
+
+    # A tree is created from a list of points
+    >>> tree = kdtree.create([point1, point2, point3])
+
+    # Each (sub)tree is represented by its root node
+    >>> tree
+    <KDNode - [4, 5, 6]>
+
+    # Adds a tuple to the tree and returns its node
+    >>> tree.add( (5, 4, 3) )
+    <KDNode - (5, 4, 3)>
+
+    # Removes the previously added point and returns the new root
+    >>> tree = tree.remove( (5, 4, 3) )
+
+    # Retrieving the Tree in inorder
+    >>> list(tree.inorder())
+    [<KDNode - (2, 3, 4)>, <KDNode - [4, 5, 6]>, <KDNode - Point(x=5, y=3, z=2)>]
+
+    # Retrieving the Tree in level order
+    >>> list(kdtree.level_order(tree))
+    [<KDNode - [4, 5, 6]>, <KDNode - (2, 3, 4)>, <KDNode - Point(x=5, y=3, z=2)>]
+
+    # Find the nearest node to the location (1, 2, 3)
+    >>> tree.search_nn( (1, 2, 3) )
+    (<KDNode - (2, 3, 4)>, 3.0)
+
+    # Add a point to make the tree more interesting
+    >>> tree.add( (10, 2, 1) )
+    <KDNode - (10, 2, 1)>
+
+    # Visualize the Tree
+    >>> kdtree.visualize(tree)
+
+
+                         [4, 5, 6]
+
+               (2, 3, 4)       Point(x=5, y=3, z=2)
+
+                                (10, 2, 1)
+
+    # Take the right subtree of the root
+    >>> subtree = tree.right
+
+    # and detach it
+    >>> tree.right = None
+    >>> kdtree.visualize(tree)
+
+               [4, 5, 6]
+
+          (2, 3, 4)
+
+    >>> kdtree.visualize(subtree)
+
+          Point(x=5, y=3, z=2)
+
+          (10, 2, 1)
+
+    # and re-attach it
+    >>> tree.right = subtree
+    >>> kdtree.visualize(tree)
+
+                         [4, 5, 6]
+
+               (2, 3, 4)       Point(x=5, y=3, z=2)
+
+                                (10, 2, 1)
+
+    # Add a node to make the tree unbalanced
+    >>> tree.is_balanced
+    True
+    >>> tree.add( (6, 1, 5) )
+    <KDNode - (6, 1, 5)>
+    >>> tree.is_balanced
+    False
+    >>> kdtree.visualize(tree)
+
+                                             [4, 5, 6]
+
+                         (2, 3, 4)                           Point(x=5, y=3, z=2)
+
+                                                         (10, 2, 1)
+
+                                                                 (6, 1, 5)
+
+    # rebalance the tree
+    >>> tree = tree.rebalance()
+    >>> tree.is_balanced
+    True
+    >>> kdtree.visualize(tree)
+
+                    Point(x=5, y=3, z=2)
+
+               [4, 5, 6]            (10, 2, 1)
+
+          (2, 3, 4)             (6, 1, 5)
+
+<!-- usage-end -->
+
+### Type hints
+
+Type information is provided in the stub file `kdtree.pyi`, which is installed
+next to `kdtree.py` and, for mypy, as the stub-only package `kdtree-stubs`.
+Trees are generic in the type of their points:
+
+```python
+tree = kdtree.create([(1, 2), (3, 4)])  # KDNode[tuple[int, int]]
+node, dist = tree.search_nn((1, 1))     # KDNode[tuple[int, int]], float
+```
+
+The classes are only generic for type checkers; at runtime write
+annotations like `kdtree.KDNode[tuple[int, int]]` as strings or use
+`from __future__ import annotations`.
+
+### Adding a payload
+
+Indexing a dict by a pair of floats is not a good idea, since there might be unexpected precision errors.
+Since KDTree expects a tuple-looking objects for nodes, you can make a class that looks like a tuple, but
+contains more data. This way you can store all your data in a kdtree, without using an additional
+indexed structure.
+
+```python
+import kdtree
+
+# This class emulates a tuple, but contains a useful payload
+class Item(object):
+    def __init__(self, x, y, data):
+        self.coords = (x, y)
+        self.data = data
+
+    def __len__(self):
+        return len(self.coords)
+
+    def __getitem__(self, i):
+        return self.coords[i]
+
+    def __repr__(self):
+        return 'Item({}, {}, {})'.format(self.coords[0], self.coords[1], self.data)
+
+# Now we can add Items to the tree, which look like tuples to it
+point1 = Item(2, 3, 'First')
+point2 = Item(3, 4, 'Second')
+point3 = Item(5, 2, ['some', 'list'])
+
+# Again, from a list of points
+tree = kdtree.create([point1, point2, point3])
+
+#  The root node
+print(tree)
+
+# ...contains "data" field with an Item, which contains the payload in "data" field
+print(tree.data.data)
+
+# All functions work as intended, a payload is never lost
+print(tree.search_nn([1, 2]))
+```
+
+Prints:
+
+```
+<KDNode - Item(3, 4, Second)>
+Second
+(<KDNode - Item(2, 3, First)>, 2.0)
+```

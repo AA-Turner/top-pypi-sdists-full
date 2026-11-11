@@ -61,7 +61,7 @@ class TmolExtensionIncompatibleError(Exception):
         )
 
 
-def extension_load_error_details(exc: OSError) -> str:
+def _extension_load_error_details(exc: OSError) -> str:
     """Turn a dynamic-loader failure into actionable guidance."""
     msg = str(exc).strip()
     lower = msg.lower()
@@ -172,7 +172,7 @@ def _ensure_loaded() -> None:
                 _libraries.extend((library, negative))
         except (ImportError, OSError) as exc:
             raise TmolExtensionIncompatibleError(
-                extension_load_error_details(exc)
+                _extension_load_error_details(exc)
             ) from exc
         _native = native
         _loaded = True
@@ -183,3 +183,9 @@ def has_cuda() -> bool:
     """Whether the loaded TMol backend includes CUDA kernels (independent of GPU availability)."""
     _ensure_loaded()
     return _native.has_cuda
+
+
+def has_mps() -> bool:
+    """Whether the loaded TMol backend includes Metal kernels (independent of GPU availability)."""
+    _ensure_loaded()
+    return getattr(_native, "has_mps", False)

@@ -39,7 +39,7 @@ extern "C" {
 /* The version of the ABI. */
 #define SIP_ABI_MAJOR_VERSION       12
 #define SIP_ABI_MINOR_VERSION       20
-#define SIP_MODULE_PATCH_VERSION    0
+#define SIP_MODULE_PATCH_VERSION    1
 
 
 /*
@@ -112,8 +112,8 @@ extern "C" {
 
 
 /* The version of the code generator. */
-#define SIP_VERSION                 0x61100
-#define SIP_VERSION_STR             "6.17.0"
+#define SIP_VERSION                 0x61103
+#define SIP_VERSION_STR             "6.17.3"
 
 /* These are all dependent on the user-specified name of the sip module. */
 #define _SIP_MODULE_FQ_NAME         "PyQt5.sip"

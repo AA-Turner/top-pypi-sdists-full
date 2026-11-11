@@ -153,7 +153,8 @@ class CfnPlan(
                             lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
                                 arn="arn",
                                 cross_account_role="crossAccountRole",
-                                external_id="externalId"
+                                external_id="externalId",
+                                payload="payload"
                             )],
                             region_to_run="regionToRun",
                             retry_interval_minutes=123,
@@ -1529,7 +1530,8 @@ class CfnPlan(
                     lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
                         arn="arn",
                         cross_account_role="crossAccountRole",
-                        external_id="externalId"
+                        external_id="externalId",
+                        payload="payload"
                     )],
                     region_to_run="regionToRun",
                     retry_interval_minutes=123,
@@ -2876,7 +2878,8 @@ class CfnPlan(
                         lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
                             arn="arn",
                             cross_account_role="crossAccountRole",
-                            external_id="externalId"
+                            external_id="externalId",
+                            payload="payload"
                         )],
                         region_to_run="regionToRun",
                         retry_interval_minutes=123,
@@ -4042,6 +4045,7 @@ class CfnPlan(
             "arn": "arn",
             "cross_account_role": "crossAccountRole",
             "external_id": "externalId",
+            "payload": "payload",
         },
     )
     class LambdasProperty:
@@ -4051,12 +4055,14 @@ class CfnPlan(
             arn: typing.Optional[builtins.str] = None,
             cross_account_role: typing.Optional[builtins.str] = None,
             external_id: typing.Optional[builtins.str] = None,
+            payload: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration for AWS Lambda functions used in a Region switch plan.
 
             :param arn: The Amazon Resource Name (ARN) of the Lambda function.
             :param cross_account_role: The cross account role for the configuration.
             :param external_id: The external ID (secret key) for the configuration.
+            :param payload: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-lambdas.html
             :exampleMetadata: fixture=_generated
@@ -4070,7 +4076,8 @@ class CfnPlan(
                 lambdas_property = arcregionswitch.CfnPlan.LambdasProperty(
                     arn="arn",
                     cross_account_role="crossAccountRole",
-                    external_id="externalId"
+                    external_id="externalId",
+                    payload="payload"
                 )
             '''
             if __debug__:
@@ -4078,6 +4085,7 @@ class CfnPlan(
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument cross_account_role", value=cross_account_role, expected_type=type_hints["cross_account_role"])
                 check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
+                check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if arn is not None:
                 self._values["arn"] = arn
@@ -4085,6 +4093,8 @@ class CfnPlan(
                 self._values["cross_account_role"] = cross_account_role
             if external_id is not None:
                 self._values["external_id"] = external_id
+            if payload is not None:
+                self._values["payload"] = payload
 
         @builtins.property
         def arn(self) -> typing.Optional[builtins.str]:
@@ -4111,6 +4121,14 @@ class CfnPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-lambdas.html#cfn-arcregionswitch-plan-lambdas-externalid
             '''
             result = self._values.get("external_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def payload(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-lambdas.html#cfn-arcregionswitch-plan-lambdas-payload
+            '''
+            result = self._values.get("payload")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -4403,7 +4421,8 @@ class CfnPlan(
                                 lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
                                     arn="arn",
                                     cross_account_role="crossAccountRole",
-                                    external_id="externalId"
+                                    external_id="externalId",
+                                    payload="payload"
                                 )],
                                 region_to_run="regionToRun",
                                 retry_interval_minutes=123,
@@ -6246,7 +6265,8 @@ class CfnPlan(
                             lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
                                 arn="arn",
                                 cross_account_role="crossAccountRole",
-                                external_id="externalId"
+                                external_id="externalId",
+                                payload="payload"
                             )],
                             region_to_run="regionToRun",
                             retry_interval_minutes=123,
@@ -6838,7 +6858,8 @@ class CfnPlan(
                                 lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
                                     arn="arn",
                                     cross_account_role="crossAccountRole",
-                                    external_id="externalId"
+                                    external_id="externalId",
+                                    payload="payload"
                                 )],
                                 region_to_run="regionToRun",
                                 retry_interval_minutes=123,
@@ -7259,7 +7280,8 @@ class CfnPlanProps:
                                 lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
                                     arn="arn",
                                     cross_account_role="crossAccountRole",
-                                    external_id="externalId"
+                                    external_id="externalId",
+                                    payload="payload"
                                 )],
                                 region_to_run="regionToRun",
                                 retry_interval_minutes=123,
@@ -8119,6 +8141,7 @@ def _typecheckingstub__382b21febb492930836b8663cd8745c59e5e805caa04c745c3509c5be
     arn: typing.Optional[builtins.str] = None,
     cross_account_role: typing.Optional[builtins.str] = None,
     external_id: typing.Optional[builtins.str] = None,
+    payload: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

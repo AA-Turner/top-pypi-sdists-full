@@ -12,7 +12,7 @@ from .sessionslist import Sessionslist as Sessionslist
 from .command_param import CommandParam as CommandParam
 from .projects_list import ProjectsList as ProjectsList
 from .command_dialog import CommandDialog as CommandDialog
-from .command_events import CommandEvents as CommandEvents
+from .command_result import CommandResult as CommandResult
 from .scrape_response import ScrapeResponse as ScrapeResponse
 from .session_context import SessionContext as SessionContext
 from .client_pdf_params import ClientPdfParams as ClientPdfParams

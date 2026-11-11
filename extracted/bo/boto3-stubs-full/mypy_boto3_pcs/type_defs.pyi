@@ -27,6 +27,7 @@ from .literals import (
     ComputeNodeGroupStatusType,
     EndpointTypeType,
     ExecutionPolicyType,
+    LaunchTemplateModeType,
     NetworkTypeType,
     OnErrorType,
     PurchaseOptionType,
@@ -562,12 +563,15 @@ ComputeNodeGroupTypeDef = TypedDict(
         "modifiedAt": datetime,
         "status": ComputeNodeGroupStatusType,
         "subnetIds": list[str],
-        "customLaunchTemplate": CustomLaunchTemplateTypeDef,
         "iamInstanceProfileArn": str,
         "scalingConfiguration": ScalingConfigurationTypeDef,
         "instanceConfigs": list[InstanceConfigTypeDef],
         "amiId": NotRequired[str],
+        "securityGroupIds": NotRequired[list[str]],
+        "sshKeyName": NotRequired[str],
         "purchaseOption": NotRequired[PurchaseOptionType],
+        "launchTemplateMode": NotRequired[LaunchTemplateModeType],
+        "customLaunchTemplate": NotRequired[CustomLaunchTemplateTypeDef],
         "spotOptions": NotRequired[SpotOptionsTypeDef],
         "slurmConfiguration": NotRequired[ComputeNodeGroupSlurmConfigurationTypeDef],
         "nodeLifecycleActions": NotRequired[NodeLifecycleActionsTypeDef],
@@ -614,12 +618,15 @@ class CreateComputeNodeGroupRequestTypeDef(TypedDict):
     clusterIdentifier: str
     computeNodeGroupName: str
     subnetIds: Sequence[str]
-    customLaunchTemplate: CustomLaunchTemplateTypeDef
     iamInstanceProfileArn: str
     scalingConfiguration: ScalingConfigurationRequestTypeDef
     instanceConfigs: Sequence[InstanceConfigTypeDef]
     amiId: NotRequired[str]
+    securityGroupIds: NotRequired[Sequence[str]]
+    sshKeyName: NotRequired[str]
     purchaseOption: NotRequired[PurchaseOptionType]
+    launchTemplateMode: NotRequired[LaunchTemplateModeType]
+    customLaunchTemplate: NotRequired[CustomLaunchTemplateTypeDef]
     spotOptions: NotRequired[SpotOptionsTypeDef]
     slurmConfiguration: NotRequired[ComputeNodeGroupSlurmConfigurationRequestTypeDef]
     nodeLifecycleActions: NotRequired[NodeLifecycleActionsRequestTypeDef]
@@ -630,7 +637,10 @@ class UpdateComputeNodeGroupRequestTypeDef(TypedDict):
     clusterIdentifier: str
     computeNodeGroupIdentifier: str
     amiId: NotRequired[str]
+    securityGroupIds: NotRequired[Sequence[str]]
+    sshKeyName: NotRequired[str]
     subnetIds: NotRequired[Sequence[str]]
+    launchTemplateMode: NotRequired[LaunchTemplateModeType]
     customLaunchTemplate: NotRequired[CustomLaunchTemplateTypeDef]
     purchaseOption: NotRequired[PurchaseOptionType]
     spotOptions: NotRequired[SpotOptionsTypeDef]

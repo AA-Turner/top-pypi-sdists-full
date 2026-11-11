@@ -7,6 +7,7 @@ import enum
 import inspect
 import typing
 import warnings
+import weakref
 
 from urwid.canvas import CompositeCanvas
 from urwid.command_map import Command
@@ -16,12 +17,15 @@ from .constants import Sizing, WHSettings
 from .widget import AbstractWidget, Widget, WidgetWarning, _select_enter_child
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Hashable, Iterable, Iterator, MutableSequence, Sequence
+    from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSequence, Sequence
 
     from urwid.canvas import Canvas
     from urwid.command_map import CommandMap
 
     from .attr_map import _AttrMapLike
+
+    # A function that gives the map marking a container's focus child while the container renders without focus.
+    _UnfocusedFocusAttrFunc: typing.TypeAlias = Callable[[AbstractWidget], _AttrMapLike | None]
 
     _KT_contra = typing.TypeVar("_KT_contra", contravariant=True)
 
@@ -223,10 +227,47 @@ class WidgetContainerListContentsMixin(typing.Generic[_ContentsItem]):
         """Index of child widget in focus."""
 
 
+class _WeakCallback:
+    """Callback that calls ``function(owner, *bound_args, *args)`` while *owner* is alive.
+
+    It holds *owner* through a weak reference, so a contents list that holds it does not keep its container alive.
+    Once *owner* is gone, it calls nothing and returns ``None``.
+    A deep copy calls the copy of *owner* made in the same copy.
+    """
+
+    __slots__ = ("__weakref__", "_bound_args", "_function", "_owner_ref")
+
+    def __init__(self, owner: object, function: Callable[..., typing.Any], *bound_args: typing.Any) -> None:
+        """Hold *owner* weakly, and *function* and *bound_args* strongly.
+
+        ``None`` as *owner* stands for an owner that is already gone, as in the copy of such a callback.
+        """
+        self._owner_ref = None if owner is None else weakref.ref(owner)
+        self._function = function
+        self._bound_args = bound_args
+
+    def __call__(self, *args: typing.Any) -> typing.Any:
+        """Return ``function(owner, *bound_args, *args)``, or ``None`` once *owner* is gone."""
+        if self._owner_ref is None or (owner := self._owner_ref()) is None:
+            return None
+        return self._function(owner, *self._bound_args, *args)
+
+    def __reduce__(self) -> tuple[type[_WeakCallback], tuple[typing.Any, ...]]:
+        """Reduce to the owner itself, so that a deep copy refers to the copy of the owner."""
+        owner = None if self._owner_ref is None else self._owner_ref()
+        return type(self), (owner, self._function, *self._bound_args)
+
+
+def _invalidate_on_focus_change(container: Widget, _focus: int) -> None:
+    """Invalidate *container*, whatever the new focus position *_focus* is."""
+    container._invalidate()
+
+
 class _UnfocusedFocusAttrMixin:
     """Mixin for containers that keep their focus child marked while they render without focus."""
 
     _unfocused_focus_attr: dict[Hashable, Hashable] | None
+    _unfocused_focus_attr_func: _UnfocusedFocusAttrFunc | None
 
     if typing.TYPE_CHECKING:
 
@@ -240,6 +281,7 @@ class _UnfocusedFocusAttrMixin:
         It is set from what :class:`AttrMap` takes as its attribute map.
         A single attribute is stored as ``{None: attribute}``, so the child's own attributes are placed over it.
         A copy is returned.
+        :attr:`unfocused_focus_attr_func` takes precedence over it for a child the function gives a map for.
         """
         return None if self._unfocused_focus_attr is None else self._unfocused_focus_attr.copy()
 
@@ -258,12 +300,45 @@ class _UnfocusedFocusAttrMixin:
         self._unfocused_focus_attr = None if attr_map is None else _attr_map_dict(attr_map)
         self._invalidate()
 
-    def _mark_unfocused_focus(self, canvas: Canvas) -> Canvas:
-        """Return the focus child's *canvas*, with :attr:`unfocused_focus_attr` applied when it is set."""
-        if self._unfocused_focus_attr is None:
+    @property
+    def unfocused_focus_attr_func(self) -> _UnfocusedFocusAttrFunc | None:
+        """Function that gives the map applied to the focus child while the container renders without focus.
+
+        It is called with the focus child, and returns a map in any form :class:`AttrMap` takes, or ``None``.
+        A map it returns is applied instead of :attr:`unfocused_focus_attr`.
+        On ``None``, or while the function is ``None``, :attr:`unfocused_focus_attr` applies.
+
+        The function is called on each render the canvas cache does not serve.
+        A result that depends on state outside the widget tree is certain to show only after the container
+        is invalidated.
+        A function that refers to the container, such as its bound method, is a reference cycle,
+        as for any callback.
+        """
+        return self._unfocused_focus_attr_func
+
+    @unfocused_focus_attr_func.setter
+    def unfocused_focus_attr_func(self, func: _UnfocusedFocusAttrFunc | None) -> None:
+        self._unfocused_focus_attr_func = func
+        self._invalidate()
+
+    def _unfocused_focus_map_for(self, focus_widget: AbstractWidget) -> dict[Hashable, Hashable] | None:
+        """Return the map that marks *focus_widget* while the container renders without focus, or ``None``.
+
+        :raises AttrMapError: a key or value of the map :attr:`unfocused_focus_attr_func` returned is not hashable.
+        """
+        if self._unfocused_focus_attr_func is not None:
+            attr_map = self._unfocused_focus_attr_func(focus_widget)
+            if attr_map is not None:
+                return _attr_map_dict(attr_map)
+        return self._unfocused_focus_attr
+
+    @staticmethod
+    def _mark_unfocused_focus(canvas: Canvas, attr_map: dict[Hashable, Hashable] | None) -> Canvas:
+        """Return the focus child's *canvas*, with *attr_map* applied when it is not ``None``."""
+        if attr_map is None:
             return canvas
         marked = CompositeCanvas(canvas)
-        marked.fill_attr_apply(self._unfocused_focus_attr)
+        marked.fill_attr_apply(attr_map)
         return marked
 
 

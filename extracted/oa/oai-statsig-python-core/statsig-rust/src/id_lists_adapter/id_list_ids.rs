@@ -402,6 +402,16 @@ impl IdListIds {
                 }
                 return;
             }
+            Storage::Pending(p) if p.requires_full_base && p.changes.other.is_empty() => {
+                if let Some(image) = p.base.delta_base_image().try_merge_heap(
+                    name,
+                    p.counts.0,
+                    p.changes.inline.iter().map(|(key, &op)| (key, op)),
+                ) {
+                    *self = Arc::new(Self::from_image(image));
+                    return;
+                }
+            }
             _ => {}
         }
         // Initial load, dense compaction, or the first private update after a

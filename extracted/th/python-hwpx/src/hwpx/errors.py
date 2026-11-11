@@ -5,9 +5,11 @@ The structured contract covers the safe-write and preservation path, the
 moved-surface guidance, and the failures documented on an individual API: those
 raise a :class:`HwpxError` (or a subclass). It is not a blanket wrapper around
 every call. Operating-system and container-level failures keep the exception
-Python already raises — ``FileNotFoundError`` for a missing path,
-:class:`zipfile.BadZipFile` for a payload that is not an HWPX package — and the
-support matrix documents them in that form.
+Python already raises — ``FileNotFoundError`` for a missing path. A damaged
+package raises a :class:`hwpx.opc.package.HwpxStructureError` subclass that is
+also the exception Python or lxml raised (:class:`zipfile.BadZipFile`,
+``zlib.error``, ``lxml.etree.XMLSyntaxError``); that family does not derive
+from :class:`HwpxError`.
 
 The base carries three machine-readable fields on top of the human-readable
 message, so a caller can branch on a stable ``code``, read the measured
@@ -150,11 +152,13 @@ ERROR_CODE_DOMAINS = frozenset(
         "cell",
         "contract",
         "document",
+        "equation",
         "field",
         "header",
         "heading",
         "hwp5",
         "hwpx",
+        "ingest",
         "master",
         "media",
         "note",
@@ -166,6 +170,7 @@ ERROR_CODE_DOMAINS = frozenset(
         "plan",
         "preservation",
         "quality",
+        "recover",
         "ref",
         "save",
         "section",
@@ -174,6 +179,7 @@ ERROR_CODE_DOMAINS = frozenset(
         "style",
         "table",
         "text",
+        "toc",
         "track",
     }
 )
@@ -401,6 +407,9 @@ ERROR_CODES: dict[str, str] = {
     "text-highlight-match-not-found": "문단에서 형광펜으로 감쌀 문자열을 찾지 못했다.",
     "text-highlight-match-crosses-markup": "찾은 구간이 인라인 마크업을 가로질러 안전하게 감쌀 수 없다.",
     "text-highlight-color-invalid": "형광펜 색이 #RRGGBB 6자리 16진 형식이 아니다.",
+    "text-markdown-style-invalid": "MarkdownStyle 의 제목·본문 글자 크기가 양수가 아니거나 제목 크기가 네 개가 아니다.",
+    "text-outline-budget": "outline 의 글자·항목 예산이 1보다 작다.",
+    "text-block-unknown": "outline 의 after 에 준 글 덩어리 id 가 문서에 없다.",
     # -- 저장·패키지 -----------------------------------------------------
     "save-failed": "저장 경로가 아무것도 쓰기 전에 fail-closed 했다.",
     "save-package-contract-violated": "package.save(None) 이 bytes 를 돌려주지 않았다.",
@@ -417,6 +426,14 @@ ERROR_CODES: dict[str, str] = {
     "hwp5-version-unsupported": "FileHeader의 주 버전이 5가 아니다.",
     "hwp5-limit-exceeded": "HWP 5.0 입력이 파싱 상한(스트림 크기·레코드 수·디렉터리 수)을 넘는다.",
     "hwp5-write-unsupported": "HWP 5.0 작성기가 표현할 수 없는 내용이다.",
+    # -- 수식·ingest·복구·차례 (기존 builtin 부모를 유지한 채 편입) ------
+    "equation-conversion": "한글 수식 스크립트와 LaTeX 사이의 변환에 실패했다.",
+    "equation-latex-unsupported": "LaTeX 조각이 검증된 명령 집합 밖의 명령을 쓴다.",
+    "equation-mathml-unavailable": "MathML 변환에 필요한 latex2mathml이 설치돼 있지 않다.",
+    "ingest-failed": "문서를 Markdown으로 들여오지 못했다(시도한 변환기는 attempts).",
+    "ingest-format-unsupported": "이 입력을 받는 변환기가 등록돼 있지 않다.",
+    "recover-unsafe": "로컬 헤더 항목이 있지만 안전하게 복구할 수 없다.",
+    "toc-word-box-extractor-required": "PDF에서 글자 상자를 읽을 방법 없이 차례 쪽 대조를 불렀다.",
     # -- 계획 실행기 -----------------------------------------------------
     "plan-invalid": "편집 계획이 v1 계약을 위반한다.",
 }

@@ -57,7 +57,7 @@ class Program(System.Object):
     """This class has no documentation."""
 
     @staticmethod
-    def main(args: typing.List[str]) -> None:
+    def main(args: typing.List[str]) -> int:
         ...
 
 

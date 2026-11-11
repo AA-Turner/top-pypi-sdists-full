@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 from typing import Any
 from ...sdk.reads import nonfinite
+from ...sdk.values.run_command_words import CommandListPart
 from ...sdk.client.resources.runs.metrics import SOURCE_READ_CONTRACT
 from ...sdk.values.tags import canonical_tags
 
@@ -105,10 +106,11 @@ class RunReadsMixin:
     def run_events(self, run_id: str) -> list[dict]:
         return self.client.events.for_run(run_id)
 
-    def run_commands(self, run_id: str, *, after: int | None = None, limit: int | None = None) -> dict:
+    def run_commands(self, run_id: str, *, after: int | None = None, limit: int | None = None,
+                     parts: tuple[CommandListPart, ...] = ()) -> dict:  # fmt: skip
         """``GET /v1/runs/{ref}/commands``: one page of what was asked of the run, by seq after ``after``
-        (``{commands, seq, next_after}``)."""
-        return self.client.list_run_commands(run_id, after=after, limit=limit)
+        (``{commands, seq, next_after}``); ``parts=(CommandListPart.WRITER,)`` adds what it accepts and its writer's check-in."""
+        return self.client.list_run_commands(run_id, after=after, limit=limit, parts=parts)
 
     def run_edits(self, run_id: str) -> list[dict]:
         """``GET /v1/runs/{ref}/edits``: the run's edits, newest first."""

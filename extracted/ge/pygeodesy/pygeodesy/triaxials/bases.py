@@ -63,7 +63,7 @@ from pygeodesy.vector3d import _otherV3d, Vector3d
 # from math import fabs, sqrt  # from .fmath
 
 __all__ = _ALL_LAZY.triaxials_bases
-__version__ = '26.08.08'
+__version__ = '26.10.28'
 
 _bet_         = 'bet'  # PYCHOK shared
 _llk_         = 'llk'  # PYCHOK shared
@@ -929,7 +929,7 @@ class _Triaxial3Base(_OrderedTriaxialBase):
 
     @Property_RO
     def k2(self):
-        '''(INTERNAL) Get the oblate C{k2} parameter I{squared}.
+        '''Get the oblate C{k2} parameter I{squared}.
         '''
         k2, _ = self._k2_kp2
         return k2
@@ -948,7 +948,7 @@ class _Triaxial3Base(_OrderedTriaxialBase):
 
     @Property_RO
     def kp2(self):
-        '''(INTERNAL) Get the prolate C{kp2} parameter I{squared}.
+        '''Get the prolate C{kp2} parameter I{squared}.
         '''
         _, kp2 = self._k2_kp2
         return kp2
@@ -1084,7 +1084,7 @@ __all__ += _ALL_DOCS(_OrderedTriaxialBase, _Triaxial3Base, _UnOrderedTriaxialBas
 
 # **) MIT License
 #
-# Copyright (C) 2025-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2025-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

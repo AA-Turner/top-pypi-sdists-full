@@ -2705,6 +2705,8 @@ class CfnHostKey(
             # the properties below are optional
             description="description",
             host_key_body="hostKeyBody",
+            kms_key="kmsKey",
+            storage_type="storageType",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -2720,6 +2722,8 @@ class CfnHostKey(
         server_id: builtins.str,
         description: typing.Optional[builtins.str] = None,
         host_key_body: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[builtins.str] = None,
+        storage_type: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Transfer::HostKey``.
@@ -2729,6 +2733,8 @@ class CfnHostKey(
         :param server_id: The identifier of the server that contains the host key.
         :param description: The text description for this host key.
         :param host_key_body: The private key portion of an SSH key pair. Transfer Family accepts RSA, ECDSA, and ED25519 keys.
+        :param kms_key: The Amazon Resource Name (ARN) of a customer managed key used to encrypt the Secrets Manager secret that holds the host key. Applies only when StorageType is SECRETS_MANAGER. If omitted, the AWS managed key is used.
+        :param storage_type: The type of storage used for the host key. SERVICE_MANAGED keys are stored within the Transfer Family service. SECRETS_MANAGER keys are stored in an AWS Secrets Manager secret in your account.
         :param tags: Key-value pairs that can be used to group and search for host keys.
         '''
         if __debug__:
@@ -2739,6 +2745,8 @@ class CfnHostKey(
             server_id=server_id,
             description=description,
             host_key_body=host_key_body,
+            kms_key=kms_key,
+            storage_type=storage_type,
             tags=tags,
         )
 
@@ -2838,6 +2846,17 @@ class CfnHostKey(
         return typing.cast(builtins.str, jsii.get(self, "attrHostKeyId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrSecretId")
+    def attr_secret_id(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Secrets Manager secret that holds the host key.
+
+        Returned only when StorageType is SECRETS_MANAGER.
+
+        :cloudformationAttribute: SecretId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSecretId"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrType")
     def attr_type(self) -> builtins.str:
         '''The encryption algorithm that is used for the host key.
@@ -2908,6 +2927,32 @@ class CfnHostKey(
         jsii.set(self, "hostKeyBody", value)
 
     @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of a customer managed key used to encrypt the Secrets Manager secret that holds the host key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKey"))
+
+    @kms_key.setter
+    def kms_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__19b75a5af314b353ad5b61893084a63973a71a8cec89d7f6c69cea1bab2d7e5e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKey", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="storageType")
+    def storage_type(self) -> typing.Optional[builtins.str]:
+        '''The type of storage used for the host key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "storageType"))
+
+    @storage_type.setter
+    def storage_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9bc2b9e2012c7ca2097b5854d41251d080e46a12ed3258b490fa30e88e1826de)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "storageType", value)
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs that can be used to group and search for host keys.'''
@@ -2931,6 +2976,8 @@ class CfnHostKey(
         "server_id": "serverId",
         "description": "description",
         "host_key_body": "hostKeyBody",
+        "kms_key": "kmsKey",
+        "storage_type": "storageType",
         "tags": "tags",
     },
 )
@@ -2941,6 +2988,8 @@ class CfnHostKeyProps:
         server_id: builtins.str,
         description: typing.Optional[builtins.str] = None,
         host_key_body: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[builtins.str] = None,
+        storage_type: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnHostKey``.
@@ -2948,6 +2997,8 @@ class CfnHostKeyProps:
         :param server_id: The identifier of the server that contains the host key.
         :param description: The text description for this host key.
         :param host_key_body: The private key portion of an SSH key pair. Transfer Family accepts RSA, ECDSA, and ED25519 keys.
+        :param kms_key: The Amazon Resource Name (ARN) of a customer managed key used to encrypt the Secrets Manager secret that holds the host key. Applies only when StorageType is SECRETS_MANAGER. If omitted, the AWS managed key is used.
+        :param storage_type: The type of storage used for the host key. SERVICE_MANAGED keys are stored within the Transfer Family service. SECRETS_MANAGER keys are stored in an AWS Secrets Manager secret in your account.
         :param tags: Key-value pairs that can be used to group and search for host keys.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-hostkey.html
@@ -2966,6 +3017,8 @@ class CfnHostKeyProps:
                 # the properties below are optional
                 description="description",
                 host_key_body="hostKeyBody",
+                kms_key="kmsKey",
+                storage_type="storageType",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -2977,6 +3030,8 @@ class CfnHostKeyProps:
             check_type(argname="argument server_id", value=server_id, expected_type=type_hints["server_id"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument host_key_body", value=host_key_body, expected_type=type_hints["host_key_body"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "server_id": server_id,
@@ -2985,6 +3040,10 @@ class CfnHostKeyProps:
             self._values["description"] = description
         if host_key_body is not None:
             self._values["host_key_body"] = host_key_body
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+        if storage_type is not None:
+            self._values["storage_type"] = storage_type
         if tags is not None:
             self._values["tags"] = tags
 
@@ -3016,6 +3075,28 @@ class CfnHostKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-hostkey.html#cfn-transfer-hostkey-hostkeybody
         '''
         result = self._values.get("host_key_body")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of a customer managed key used to encrypt the Secrets Manager secret that holds the host key.
+
+        Applies only when StorageType is SECRETS_MANAGER. If omitted, the AWS managed key is used.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-hostkey.html#cfn-transfer-hostkey-kmskey
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def storage_type(self) -> typing.Optional[builtins.str]:
+        '''The type of storage used for the host key.
+
+        SERVICE_MANAGED keys are stored within the Transfer Family service. SECRETS_MANAGER keys are stored in an AWS Secrets Manager secret in your account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-hostkey.html#cfn-transfer-hostkey-storagetype
+        '''
+        result = self._values.get("storage_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -3470,6 +3551,12 @@ class CfnServer(
                     sftp_mode="sftpMode"
                 ),
                 set_stat_option="setStatOption",
+                sftp_ports=[transfer.CfnServer.SftpPortWithOptionsProperty(
+                    sftp_port=123,
+        
+                    # the properties below are optional
+                    communication_mode="communicationMode"
+                )],
                 tls_session_resumption_mode="tlsSessionResumptionMode"
             ),
             protocols=["protocols"],
@@ -4270,6 +4357,7 @@ class CfnServer(
             "passive_ip": "passiveIp",
             "proxy_config": "proxyConfig",
             "set_stat_option": "setStatOption",
+            "sftp_ports": "sftpPorts",
             "tls_session_resumption_mode": "tlsSessionResumptionMode",
         },
     )
@@ -4281,6 +4369,7 @@ class CfnServer(
             passive_ip: typing.Optional[builtins.str] = None,
             proxy_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServer.ProxyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             set_stat_option: typing.Optional[builtins.str] = None,
+            sftp_ports: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServer.SftpPortWithOptionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             tls_session_resumption_mode: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The protocol settings that are configured for your server.
@@ -4298,6 +4387,7 @@ class CfnServer(
             :param passive_ip: Indicates passive mode, for FTP and FTPS protocols. Enter a single IPv4 address, such as the public IP address of a firewall, router, or load balancer. For example: ``aws transfer update-server --protocol-details PassiveIp=0.0.0.0`` Replace ``0.0.0.0`` in the example above with the actual IP address you want to use. .. epigraph:: If you change the ``PassiveIp`` value, you must stop and then restart your Transfer Family server for the change to take effect. For details on using passive mode (PASV) in a NAT environment, see `Configuring your FTPS server behind a firewall or NAT with AWS Transfer Family <https://docs.aws.amazon.com/storage/configuring-your-ftps-server-behind-a-firewall-or-nat-with-aws-transfer-family/>`_ . Additionally, avoid placing Network Load Balancers (NLBs) or NAT gateways in front of AWS Transfer Family servers. This configuration increases costs and can cause performance issues. When NLBs or NATs are in the communication path, Transfer Family cannot accurately recognize client IP addresses, which impacts connection sharding and limits FTPS servers to only 300 simultaneous connections instead of 10,000. If you must use an NLB, use port 21 for health checks and enable TLS session resumption by setting ``TlsSessionResumptionMode = ENFORCED`` . For optimal performance, migrate to VPC endpoints with Elastic IP addresses instead of using NLBs. For more details, see `Avoid placing NLBs and NATs in front of AWS Transfer Family <https://docs.aws.amazon.com/transfer/latest/userguide/infrastructure-security.html#nlb-considerations>`_ . *Special values* The ``AUTO`` and ``0.0.0.0`` are special values for the ``PassiveIp`` parameter. The value ``PassiveIp=AUTO`` is assigned by default to FTP and FTPS type servers. In this case, the server automatically responds with one of the endpoint IPs within the PASV response. ``PassiveIp=0.0.0.0`` has a more unique application for its usage. For example, if you have a High Availability (HA) Network Load Balancer (NLB) environment, where you have 3 subnets, you can only specify a single IP address using the ``PassiveIp`` parameter. This reduces the effectiveness of having High Availability. In this case, you can specify ``PassiveIp=0.0.0.0`` . This tells the client to use the same IP address as the Control connection and utilize all AZs for their connections. Note, however, that not all FTP clients support the ``PassiveIp=0.0.0.0`` response. FileZilla and WinSCP do support it. If you are using other clients, check to see if your client supports the ``PassiveIp=0.0.0.0`` response.
             :param proxy_config: 
             :param set_stat_option: Use the ``SetStatOption`` to ignore the error that is generated when the client attempts to use ``SETSTAT`` on a file you are uploading to an S3 bucket. Some SFTP file transfer clients can attempt to change the attributes of remote files, including timestamp and permissions, using commands, such as ``SETSTAT`` when uploading the file. However, these commands are not compatible with object storage systems, such as Amazon S3. Due to this incompatibility, file uploads from these clients can result in errors even when the file is otherwise successfully uploaded. Set the value to ``ENABLE_NO_OP`` to have the Transfer Family server ignore the ``SETSTAT`` command, and upload files without needing to make any changes to your SFTP client. While the ``SetStatOption`` ``ENABLE_NO_OP`` setting ignores the error, it does generate a log entry in Amazon CloudWatch Logs, so you can determine when the client is making a ``SETSTAT`` call. .. epigraph:: If you want to preserve the original timestamp for your file, and modify other file attributes using ``SETSTAT`` , you can use Amazon EFS as backend storage with Transfer Family.
+            :param sftp_ports: 
             :param tls_session_resumption_mode: A property used with Transfer Family servers that use the FTPS protocol. TLS Session Resumption provides a mechanism to resume or share a negotiated secret key between the control and data connection for an FTPS session. ``TlsSessionResumptionMode`` determines whether or not the server resumes recent, negotiated sessions through a unique session ID. This property is available during ``CreateServer`` and ``UpdateServer`` calls. If a ``TlsSessionResumptionMode`` value is not specified during ``CreateServer`` , it is set to ``ENFORCED`` by default. - ``DISABLED`` : the server does not process TLS session resumption client requests and creates a new TLS session for each request. - ``ENABLED`` : the server processes and accepts clients that are performing TLS session resumption. The server doesn't reject client data connections that do not perform the TLS session resumption client processing. - ``ENFORCED`` : the server processes and accepts clients that are performing TLS session resumption. The server rejects client data connections that do not perform the TLS session resumption client processing. Before you set the value to ``ENFORCED`` , test your clients. .. epigraph:: Not all FTPS clients perform TLS session resumption. So, if you choose to enforce TLS session resumption, you prevent any connections from FTPS clients that don't perform the protocol negotiation. To determine whether or not you can use the ``ENFORCED`` value, you need to test your clients.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-protocoldetails.html
@@ -4316,6 +4406,12 @@ class CfnServer(
                         sftp_mode="sftpMode"
                     ),
                     set_stat_option="setStatOption",
+                    sftp_ports=[transfer.CfnServer.SftpPortWithOptionsProperty(
+                        sftp_port=123,
+                
+                        # the properties below are optional
+                        communication_mode="communicationMode"
+                    )],
                     tls_session_resumption_mode="tlsSessionResumptionMode"
                 )
             '''
@@ -4325,6 +4421,7 @@ class CfnServer(
                 check_type(argname="argument passive_ip", value=passive_ip, expected_type=type_hints["passive_ip"])
                 check_type(argname="argument proxy_config", value=proxy_config, expected_type=type_hints["proxy_config"])
                 check_type(argname="argument set_stat_option", value=set_stat_option, expected_type=type_hints["set_stat_option"])
+                check_type(argname="argument sftp_ports", value=sftp_ports, expected_type=type_hints["sftp_ports"])
                 check_type(argname="argument tls_session_resumption_mode", value=tls_session_resumption_mode, expected_type=type_hints["tls_session_resumption_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if as2_transports is not None:
@@ -4335,6 +4432,8 @@ class CfnServer(
                 self._values["proxy_config"] = proxy_config
             if set_stat_option is not None:
                 self._values["set_stat_option"] = set_stat_option
+            if sftp_ports is not None:
+                self._values["sftp_ports"] = sftp_ports
             if tls_session_resumption_mode is not None:
                 self._values["tls_session_resumption_mode"] = tls_session_resumption_mode
 
@@ -4396,6 +4495,16 @@ class CfnServer(
             '''
             result = self._values.get("set_stat_option")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def sftp_ports(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServer.SftpPortWithOptionsProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-protocoldetails.html#cfn-transfer-server-protocoldetails-sftpports
+            '''
+            result = self._values.get("sftp_ports")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServer.SftpPortWithOptionsProperty"]]]], result)
 
         @builtins.property
         def tls_session_resumption_mode(self) -> typing.Optional[builtins.str]:
@@ -4535,6 +4644,79 @@ class CfnServer(
 
         def __repr__(self) -> str:
             return "S3StorageOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_transfer.CfnServer.SftpPortWithOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "sftp_port": "sftpPort",
+            "communication_mode": "communicationMode",
+        },
+    )
+    class SftpPortWithOptionsProperty:
+        def __init__(
+            self,
+            *,
+            sftp_port: jsii.Number,
+            communication_mode: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param sftp_port: 
+            :param communication_mode: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-sftpportwithoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_transfer as transfer
+                
+                sftp_port_with_options_property = transfer.CfnServer.SftpPortWithOptionsProperty(
+                    sftp_port=123,
+                
+                    # the properties below are optional
+                    communication_mode="communicationMode"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b0fc9f338dc6efaea35f91c8ee8bef39cea5d84e554523f8701f93298c609932)
+                check_type(argname="argument sftp_port", value=sftp_port, expected_type=type_hints["sftp_port"])
+                check_type(argname="argument communication_mode", value=communication_mode, expected_type=type_hints["communication_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "sftp_port": sftp_port,
+            }
+            if communication_mode is not None:
+                self._values["communication_mode"] = communication_mode
+
+        @builtins.property
+        def sftp_port(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-sftpportwithoptions.html#cfn-transfer-server-sftpportwithoptions-sftpport
+            '''
+            result = self._values.get("sftp_port")
+            assert result is not None, "Required property 'sftp_port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def communication_mode(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-sftpportwithoptions.html#cfn-transfer-server-sftpportwithoptions-communicationmode
+            '''
+            result = self._values.get("communication_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SftpPortWithOptionsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4817,6 +4999,12 @@ class CfnServerProps:
                         sftp_mode="sftpMode"
                     ),
                     set_stat_option="setStatOption",
+                    sftp_ports=[transfer.CfnServer.SftpPortWithOptionsProperty(
+                        sftp_port=123,
+            
+                        # the properties below are optional
+                        communication_mode="communicationMode"
+                    )],
                     tls_session_resumption_mode="tlsSessionResumptionMode"
                 ),
                 protocols=["protocols"],
@@ -7008,6 +7196,7 @@ class CfnWorkflow(
                 tag_step_details=tag_step_details,
                 type="type"
             )],
+            structured_log_destinations=["structuredLogDestinations"],
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -7023,6 +7212,7 @@ class CfnWorkflow(
         steps: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.WorkflowStepProperty", typing.Dict[builtins.str, typing.Any]]]]],
         description: typing.Optional[builtins.str] = None,
         on_exception_steps: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.WorkflowStepProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        structured_log_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Transfer::Workflow``.
@@ -7032,6 +7222,7 @@ class CfnWorkflow(
         :param steps: Specifies the details for the steps that are in the specified workflow.
         :param description: Specifies the text description for the workflow.
         :param on_exception_steps: Specifies the steps (actions) to take if errors are encountered during execution of the workflow.
+        :param structured_log_destinations: Specifies the log destinations for the workflow.
         :param tags: Key-value pairs that can be used to group and search for workflows. Tags are metadata attached to workflows for any purpose.
         '''
         if __debug__:
@@ -7042,6 +7233,7 @@ class CfnWorkflow(
             steps=steps,
             description=description,
             on_exception_steps=on_exception_steps,
+            structured_log_destinations=structured_log_destinations,
             tags=tags,
         )
 
@@ -7234,6 +7426,22 @@ class CfnWorkflow(
             type_hints = cached_type_hints(_typecheckingstub__dbe5eec53a115ade4f8181ac2122f17276111f9d5675380186d596e738cbb4c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "onExceptionSteps", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="structuredLogDestinations")
+    def structured_log_destinations(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specifies the log destinations for the workflow.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "structuredLogDestinations"))
+
+    @structured_log_destinations.setter
+    def structured_log_destinations(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6617e8468ff8733079e7c08c4d5495a950edf0f6fc71d54ba3bda4785e890366)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "structuredLogDestinations", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -8374,6 +8582,7 @@ class CfnWorkflow(
         "steps": "steps",
         "description": "description",
         "on_exception_steps": "onExceptionSteps",
+        "structured_log_destinations": "structuredLogDestinations",
         "tags": "tags",
     },
 )
@@ -8384,6 +8593,7 @@ class CfnWorkflowProps:
         steps: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.WorkflowStepProperty", typing.Dict[builtins.str, typing.Any]]]]],
         description: typing.Optional[builtins.str] = None,
         on_exception_steps: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.WorkflowStepProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        structured_log_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnWorkflow``.
@@ -8391,6 +8601,7 @@ class CfnWorkflowProps:
         :param steps: Specifies the details for the steps that are in the specified workflow.
         :param description: Specifies the text description for the workflow.
         :param on_exception_steps: Specifies the steps (actions) to take if errors are encountered during execution of the workflow.
+        :param structured_log_destinations: Specifies the log destinations for the workflow.
         :param tags: Key-value pairs that can be used to group and search for workflows. Tags are metadata attached to workflows for any purpose.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-workflow.html
@@ -8462,6 +8673,7 @@ class CfnWorkflowProps:
                     tag_step_details=tag_step_details,
                     type="type"
                 )],
+                structured_log_destinations=["structuredLogDestinations"],
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -8473,6 +8685,7 @@ class CfnWorkflowProps:
             check_type(argname="argument steps", value=steps, expected_type=type_hints["steps"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument on_exception_steps", value=on_exception_steps, expected_type=type_hints["on_exception_steps"])
+            check_type(argname="argument structured_log_destinations", value=structured_log_destinations, expected_type=type_hints["structured_log_destinations"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "steps": steps,
@@ -8481,6 +8694,8 @@ class CfnWorkflowProps:
             self._values["description"] = description
         if on_exception_steps is not None:
             self._values["on_exception_steps"] = on_exception_steps
+        if structured_log_destinations is not None:
+            self._values["structured_log_destinations"] = structured_log_destinations
         if tags is not None:
             self._values["tags"] = tags
 
@@ -8515,6 +8730,15 @@ class CfnWorkflowProps:
         '''
         result = self._values.get("on_exception_steps")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.WorkflowStepProperty"]]]], result)
+
+    @builtins.property
+    def structured_log_destinations(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specifies the log destinations for the workflow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-workflow.html#cfn-transfer-workflow-structuredlogdestinations
+        '''
+        result = self._values.get("structured_log_destinations")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -9008,6 +9232,8 @@ def _typecheckingstub__e8c40cb000ec1669a89ac6f627539375983e177d19601aa7dc6b72024
     server_id: builtins.str,
     description: typing.Optional[builtins.str] = None,
     host_key_body: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[builtins.str] = None,
+    storage_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9055,6 +9281,18 @@ def _typecheckingstub__c9747da967f9a273e4c0e11514747ca02033991eefc7596354a5ec42c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__19b75a5af314b353ad5b61893084a63973a71a8cec89d7f6c69cea1bab2d7e5e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bc2b9e2012c7ca2097b5854d41251d080e46a12ed3258b490fa30e88e1826de(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0c92aeca3e4225b036676ac654229ebe34a6b5b6a040e8caa12986d5ac5e5b7c(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
@@ -9066,6 +9304,8 @@ def _typecheckingstub__89032b7f45bd36f24d1c21701bf012f9af0b4dc69618b3c88f06de0a7
     server_id: builtins.str,
     description: typing.Optional[builtins.str] = None,
     host_key_body: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[builtins.str] = None,
+    storage_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9343,6 +9583,7 @@ def _typecheckingstub__0b1af46c3c18a62e5483e3be74497e66aaecc076ccfe0d473686a4e4b
     passive_ip: typing.Optional[builtins.str] = None,
     proxy_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServer.ProxyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     set_stat_option: typing.Optional[builtins.str] = None,
+    sftp_ports: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServer.SftpPortWithOptionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tls_session_resumption_mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9358,6 +9599,14 @@ def _typecheckingstub__bc0fceb521a85155beedd3a0637eb4627db16007d3597dff82f05b07c
 def _typecheckingstub__b7f2be4894cf62db2547a5d072c4de8c6e51d04c741195403ed629be98852110(
     *,
     directory_listing_optimization: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0fc9f338dc6efaea35f91c8ee8bef39cea5d84e554523f8701f93298c609932(
+    *,
+    sftp_port: jsii.Number,
+    communication_mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9681,6 +9930,7 @@ def _typecheckingstub__9a86ecf6f123d228f6edf61149bc2542f6ce02d9365ac8986ec7c6468
     steps: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.WorkflowStepProperty, typing.Dict[builtins.str, typing.Any]]]]],
     description: typing.Optional[builtins.str] = None,
     on_exception_steps: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.WorkflowStepProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    structured_log_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9740,6 +9990,12 @@ def _typecheckingstub__210eb2eb8f359d51c087a422da2997dfbca2c3a02ef0f5b0023c485ae
 
 def _typecheckingstub__dbe5eec53a115ade4f8181ac2122f17276111f9d5675380186d596e738cbb4c7(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflow.WorkflowStepProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6617e8468ff8733079e7c08c4d5495a950edf0f6fc71d54ba3bda4785e890366(
+    value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9854,6 +10110,7 @@ def _typecheckingstub__3204d3f05faa7a2fceeb6ac7adbf97f5ede342d5c8c3228d5aa0cfb4e
     steps: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.WorkflowStepProperty, typing.Dict[builtins.str, typing.Any]]]]],
     description: typing.Optional[builtins.str] = None,
     on_exception_steps: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.WorkflowStepProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    structured_log_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

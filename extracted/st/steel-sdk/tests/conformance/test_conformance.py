@@ -930,7 +930,6 @@ def test_sessions_commands_full() -> None:
                 "tab": "t321669910225",
             },
             after="x",
-            events_after="c-321669910225",
             observe={
                 "mode": "none",
                 "base": "x",
@@ -994,6 +993,357 @@ def test_sessions_commands_variant_0_1() -> None:
         )
 
     conform("sessions.commands/variant-0-1", make, call)
+
+
+def test_sessions_commands_variant_0_2() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-2", make, call)
+
+
+def test_sessions_commands_variant_0_3() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-3", make, call)
+
+
+def test_sessions_commands_variant_0_4() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-4", make, call)
+
+
+def test_sessions_commands_variant_0_5() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-5", make, call)
+
+
+def test_sessions_commands_variant_0_6() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-6", make, call)
+
+
+def test_sessions_commands_variant_0_7() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-7", make, call)
+
+
+def test_sessions_commands_variant_0_8() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-8", make, call)
+
+
+def test_sessions_commands_variant_0_9() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-9", make, call)
+
+
+def test_sessions_commands_variant_0_10() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-10", make, call)
+
+
+def test_sessions_commands_variant_0_11() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-11", make, call)
+
+
+def test_sessions_commands_variant_0_12() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-12", make, call)
+
+
+def test_sessions_commands_variant_0_13() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-13", make, call)
+
+
+def test_sessions_commands_variant_0_14() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-14", make, call)
+
+
+def test_sessions_commands_variant_0_15() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-15", make, call)
+
+
+def test_sessions_commands_variant_0_16() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-16", make, call)
+
+
+def test_sessions_commands_variant_0_17() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-17", make, call)
+
+
+def test_sessions_commands_variant_0_18() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-18", make, call)
+
+
+def test_sessions_commands_variant_0_19() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-19", make, call)
+
+
+def test_sessions_commands_variant_0_20() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-20", make, call)
+
+
+def test_sessions_commands_variant_0_21() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-21", make, call)
+
+
+def test_sessions_commands_variant_0_22() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-22", make, call)
+
+
+def test_sessions_commands_variant_0_23() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-23", make, call)
+
+
+def test_sessions_commands_variant_0_24() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-24", make, call)
+
+
+def test_sessions_commands_variant_0_25() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-25", make, call)
+
+
+def test_sessions_commands_variant_0_26() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-26", make, call)
+
+
+def test_sessions_commands_variant_0_27() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-27", make, call)
+
+
+def test_sessions_commands_variant_0_28() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.commands(
+            "sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+    conform("sessions.commands/variant-0-28", make, call)
 
 
 def test_sessions_commands_escaped() -> None:
@@ -1456,6 +1806,468 @@ def test_sessions_captchas_status_escaped() -> None:
         return client.sessions.captchas.status("a b/c?d#e%f+g&h=i é")
 
     conform("sessions.captchas.status/escaped", make, call)
+
+
+def test_sessions_command_executions_retrieve_full() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/full", make, call)
+
+
+def test_sessions_command_executions_retrieve_required() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/required", make, call)
+
+
+def test_sessions_command_executions_retrieve_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/nulls", make, call)
+
+
+def test_sessions_command_executions_retrieve_unknown() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/unknown", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_1() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-1", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_2() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-2", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_3() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-3", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_4() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-4", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_5() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-5", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_6() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-6", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_7() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-7", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_8() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-8", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_9() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-9", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_10() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-10", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_11() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-11", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_12() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-12", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_13() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-13", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_14() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-14", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_15() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-15", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_16() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-16", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_17() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-17", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_18() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-18", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_19() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-19", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_20() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-20", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_21() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-21", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_22() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-22", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_23() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-23", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_24() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-24", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_25() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-25", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_26() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-26", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_27() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-27", make, call)
+
+
+def test_sessions_command_executions_retrieve_variant_0_28() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.retrieve/variant-0-28", make, call)
+
+
+def test_sessions_command_executions_retrieve_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.retrieve("a b/c?d#e%f+g&h=i é", session_id="a b/c?d#e%f+g&h=i é")
+
+    conform("sessions.command_executions.retrieve/escaped", make, call)
+
+
+def test_sessions_command_executions_cancel_full() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/full", make, call)
+
+
+def test_sessions_command_executions_cancel_required() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/required", make, call)
+
+
+def test_sessions_command_executions_cancel_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/nulls", make, call)
+
+
+def test_sessions_command_executions_cancel_unknown() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/unknown", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_1() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-1", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_2() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-2", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_3() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-3", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_4() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-4", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_5() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-5", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_6() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-6", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_7() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-7", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_8() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-8", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_9() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-9", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_10() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-10", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_11() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-11", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_12() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-12", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_13() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-13", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_14() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-14", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_15() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-15", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_16() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-16", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_17() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-17", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_18() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-18", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_19() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-19", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_20() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-20", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_21() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-21", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_22() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-22", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_23() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-23", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_24() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-24", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_25() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-25", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_26() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-26", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_27() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-27", make, call)
+
+
+def test_sessions_command_executions_cancel_variant_0_28() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("executionId", session_id="sessionId")
+
+    conform("sessions.command_executions.cancel/variant-0-28", make, call)
+
+
+def test_sessions_command_executions_cancel_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.command_executions.cancel("a b/c?d#e%f+g&h=i é", session_id="a b/c?d#e%f+g&h=i é")
+
+    conform("sessions.command_executions.cancel/escaped", make, call)
 
 
 def test_sessions_files_list_full() -> None:

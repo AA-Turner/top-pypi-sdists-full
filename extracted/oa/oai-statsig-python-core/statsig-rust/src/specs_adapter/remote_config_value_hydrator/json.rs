@@ -19,11 +19,14 @@ use crate::specs_response::parse_options::{SpecsResponseParseOptions, with_parse
 use crate::specs_response::proto_specs::VerifiedRemoteConfigValues;
 use crate::specs_response::spec_types::{Spec, SpecsResponseFull, SpecsResponseNoUpdates};
 use crate::specs_response::specs_hash_map::{
-    SpecDecodeStats, SpecPointer, decode_raw_dynamic_configs, track_spec_decodes,
+    INLINE_ONLY_ENTITY_MAPS, SpecDecodeStats, SpecPointer, decode_raw_dynamic_configs,
+    may_mention_remote_metadata, raw_map_has_unhydrated_remote_config_metadata, track_spec_decodes,
 };
 use crate::{StatsigErr, log_e};
 
-use super::errors::{HydrationFailureReason, HydrationTimeoutStep, hydration_error};
+use super::errors::{
+    HydrationFailureReason, HydrationTimeoutStep, hydration_error, unsupported_entity_error,
+};
 use super::metadata::{
     RemoteConfigValueMetadata, RemoteConfigValueMetadataWire, RemoteValueReference,
     add_raw_value_reference, hydrated_value, validate_reference_limits,
@@ -631,6 +634,19 @@ fn collect_json_references(
     source_url: &str,
     hydration_result: &mut HydrationResult<'_>,
 ) -> Result<(Vec<RemoteValueReference>, Vec<JsonConfigEntry>), StatsigErr> {
+    // A metadata key nested in a user-authored value is ordinary JSON. Only
+    // declarations on an entity or its rules violate the producer contract.
+    for key in INLINE_ONLY_ENTITY_MAPS {
+        let Some(raw_map) = payload.get(key) else {
+            continue;
+        };
+        if raw_map_has_unhydrated_remote_config_metadata(raw_map.get())
+            .map_err(|e| StatsigErr::JsonParseError(TAG.to_owned(), e.to_string()))?
+        {
+            hydration_result.mark_remote_metadata();
+            return Err(unsupported_entity_error());
+        }
+    }
     let Some((_, raw_configs)) = payload
         .0
         .iter_mut()
@@ -650,8 +666,7 @@ fn collect_json_references(
     for (name, raw_spec) in configs.0 {
         // An escaped metadata key must contain a Unicode escape. Configs with
         // neither spelling cannot have remote references; keep their raw text.
-        let raw = raw_spec.get();
-        let config = if raw.contains("remoteConfigMetadata") || raw.contains("\\u") {
+        let config = if may_mention_remote_metadata(raw_spec.get().as_bytes()) {
             parse_optional_raw_json_object(&raw_spec)?
         } else {
             None
@@ -683,12 +698,10 @@ fn collect_json_references(
             .map(parse_optional_raw_json_array)
             .transpose()?
             .flatten();
-        let mut all_rules_are_objects = true;
         let mut has_remote_rule = false;
         if let Some(rules) = rules {
             for rule in rules {
                 let Some(rule) = parse_optional_raw_json_object(rule.as_ref())? else {
-                    all_rules_are_objects = false;
                     continue;
                 };
                 let Some(metadata_value) = rule.get("remoteConfigMetadata") else {
@@ -705,12 +718,10 @@ fn collect_json_references(
                 )?;
             }
         }
-        // Match the decoder's existing metadata guard: a rule-only remote spec
-        // with a non-object rule stays on the tolerant ordinary-spec path.
         entries.push(JsonConfigEntry {
             name,
             raw_spec,
-            use_remote_decoder: has_remote_default || (all_rules_are_objects && has_remote_rule),
+            use_remote_decoder: has_remote_default || has_remote_rule,
         });
     }
 

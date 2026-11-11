@@ -15,14 +15,13 @@ under the MIT/X11 License.  For more information, see the U{GeographicLib 2.7
 from __future__ import division as _; del _  # noqa: E702 ;
 
 from pygeodesy.basics import _copysign, map1, signBit, _signOf
-from pygeodesy.constants import EPS, EPS0, NAN, PI2, _0_0, _N_0_0, \
-                               _0_25, _1_0, _N_1_0, _4_0, _360_0, \
-                               _copysign_0_0, _copysign_1_0, \
-                               _flipsign, float_, _isfinite, \
-                               _over, _pos_self, remainder
+from pygeodesy.constants import EPS, EPS0, NAN, PI2, _0_0, _N_0_0, _0_25, _1_0, \
+                               _N_1_0, _4_0, _360_0, _copysign_0_0, _over, \
+                               _copysign_1_0, _flipsign, _isfinite, _pos_self
 from pygeodesy.errors import _xkwds, _xkwds_get, _xkwds_pop2
-from pygeodesy.fmath import hypot,  _ALL_LAZY, _MODS
+from pygeodesy.fmath import ftruncate as _fint, hypot,  _ALL_LAZY, _MODS
 # from pygeodesy.interns import NN, _COMMASPACE_  # from .streprs
+from pygeodesy.karney import _remainder
 # from pygeodesy.lazily import _ALL_LAZY, _ALL_MODS as _MODS  # from .fmath
 from pygeodesy.named import _Named, _NamedTuple, _Pass
 from pygeodesy.props import Property_RO, property_doc_, property_RO, \
@@ -35,7 +34,7 @@ from math import asinh, ceil as _ceil, fabs, floor as _floor, \
                  isinf, isnan, sinh
 
 __all__ = _ALL_LAZY.angles
-__version__ = '26.08.06'
+__version__ = '26.10.28'
 
 _EPS03 = EPS / (1 << 20)
 # _HD = _180_0
@@ -49,12 +48,6 @@ _CARDINAL2 = {-2: (_N_0_0, _N_1_0),
               -1: (_N_1_0,   _0_0),
                1: (  _1_0,   _0_0),
                2: (  _0_0, _N_1_0)}.get
-
-
-def _fint(f):
-    # float of C{int(f)} preserving signed C{0}.
-    i = int(f)
-    return float_(i) if i else _copysign_0_0(f)
 
 
 def _ncardinal(s, c, n):
@@ -399,7 +392,7 @@ class Ang(_Named):
         if _isfinite(q):
             if q:
                 q = _fint(q)
-                i =  int(remainder(q, _4_0))  # i is in [-2, 2]
+                i =  int(_remainder(q, _4_0))  # i is in [-2, 2]
                 n = _fint((q - i) * _0_25)
                 s, c = _CARDINAL2(i, ((_0_0 if q else q), _1_0))
                 t = s is not q
@@ -940,7 +933,7 @@ def _SinCos2(ang, *unit):
 
 # **) MIT License
 #
-# Copyright (C) 2025-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2025-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

@@ -16,30 +16,39 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-//! Mutable [`List`] container sharing the `ffi.List` object layout with C++.
+//! [`List`], a mutable sequence whose handles all see each change.
 //!
-//! `ListObj` mirrors C++ `ListObj` (`Object` followed by `TVMFFISeqCell`), so
-//! Rust reads and edits the element cells in place: reads, [`List::set`],
-//! [`List::insert`], [`List::remove`], [`List::remove_range`],
-//! [`List::truncate`], [`List::reverse`], [`List::clear`] and iteration touch
-//! the buffer directly, with no FFI call. The object and its element buffer
-//! are allocated by the C++ runtime (`ffi.List`), because the buffer is a
-//! separate allocation that `data_deleter` has to free with the allocator that
-//! produced it. For the same reason, growing a full buffer is left to C++
-//! (`ffi.ListReserve`), which the mutators call only when there is no spare
-//! capacity; the elements themselves are then written in place.
+//! A `List` is a shared handle, like `Rc<RefCell<Vec<T>>>`: cloning it bumps
+//! the reference count, and a mutation through one handle is seen through all
+//! of them. That is why the mutating methods take `&self`, and why elements
+//! are returned by value rather than by reference. It is not synchronized, so
+//! it is neither `Send` nor `Sync`.
 //!
-//! A `List` is a shared handle, as in C++ and Python: cloning it bumps the
-//! refcount, and a mutation through one handle is seen through all of them.
-//! That is why the mutating methods take `&self`, and why elements are
-//! returned by value rather than by reference. Like its C++ counterpart it is
-//! not synchronized; the raw buffer pointer keeps it `!Send` and `!Sync`.
+//! Converting an `Any` into a `List<T>` shares an `ffi.List` whose elements
+//! are all `T`; an `ffi.Array`, or a list whose elements need converting, is
+//! copied into a new list.
 //!
-//! `Any` conversions follow C++ `SeqTypeTraitsBase` (seq_base.h): an `ffi.List`
-//! whose elements all match `T` is shared; an `ffi.Array`, or a list whose
-//! elements need converting, is copied into a new list.
+//! A read checks and converts an element in its cell, in place. While it
+//! does, the element type's
+//! [`extra_check`](crate::object::ObjectRefAnyCompatible::extra_check) and
+//! [`convert_fallback`](crate::object::ObjectRefAnyCompatible::convert_fallback),
+//! and the `Drop` of a value the read releases, must not modify that list.
+
+// `ListObj` mirrors C++ `ListObj` (`Object` followed by `TVMFFISeqCell`), so
+// Rust reads and edits the element cells in place: reads, `List::set`,
+// `List::insert`, `List::remove`, `List::remove_range`,
+// `List::truncate`, `List::reverse`, `List::clear` and iteration touch
+// the buffer directly, with no FFI call. The object and its element buffer
+// are allocated by the C++ runtime (`ffi.List`), because the buffer is a
+// separate allocation that `data_deleter` has to free with the allocator that
+// produced it. For the same reason, growing a full buffer is left to C++
+// (`ffi.ListReserve`), which the mutators call only when there is no spare
+// capacity; the elements themselves are then written in place.
+
+use std::cell::UnsafeCell;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::ops::{Bound, RangeBounds};
 use std::ptr;
 
 use crate::any::TryFromTemp;
@@ -51,35 +60,58 @@ use crate::{Any, AnyCompatible, AnyView, Error, ObjectRefCore, Result};
 use tvm_ffi_sys::TVMFFITypeIndex as TypeIndex;
 use tvm_ffi_sys::{TVMFFIAny, TVMFFIObject};
 
-/// Container object for [`List`], laid out as C++ `ListObj`. Unlike
+/// The object behind a [`List`], laid out as the C++ `ListObj`. Unlike
 /// `ffi.Array`, the element buffer `data` is a separate allocation that the
-/// C++ runtime replaces when the list grows.
+/// runtime replaces when the list grows.
 #[repr(C)]
 #[derive(Object)]
-#[type_key = "ffi.List"]
-#[type_index(TypeIndex::kTVMFFIList)]
+#[object(type_key = "ffi.List", unsafe type_index = TypeIndex::kTVMFFIList)]
 pub struct ListObj {
-    pub object: Object,
+    pub(crate) object: Object,
+    // `List` mutates these through `&self` (`push`, `set`, growth), so they are
+    // `UnsafeCell`s: a `&ListObj` borrowed by `downcast_ref` stays sound while
+    // the list changes. `UnsafeCell` is `repr(transparent)`, so the layout is
+    // C++ `ListObj`'s.
     /// Pointer to the start of the element buffer.
-    pub data: *mut core::ffi::c_void,
-    pub size: i64,
-    pub capacity: i64,
+    data: UnsafeCell<*mut core::ffi::c_void>,
+    size: UnsafeCell<i64>,
+    capacity: UnsafeCell<i64>,
     /// Deleter for the element buffer.
     pub data_deleter: Option<unsafe extern "C" fn(*mut core::ffi::c_void)>,
 }
 
 impl ListObj {
+    /// The number of elements.
+    #[inline]
+    pub fn len(&self) -> usize {
+        // SAFETY: a read of the length, which no call mutates concurrently.
+        unsafe { *self.size.get() as usize }
+    }
+
+    /// Whether the list has no elements.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The number of elements the buffer holds before it is reallocated.
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        // SAFETY: as for `len`.
+        unsafe { *self.capacity.get() as usize }
+    }
+
     /// Cell `index` of the buffer; the caller keeps `index` below `capacity`.
     #[inline]
     unsafe fn cell(this: *mut ListObj, index: usize) -> *mut TVMFFIAny {
-        ((*this).data as *mut TVMFFIAny).add(index)
+        unsafe { ((*(*this).data.get()) as *mut TVMFFIAny).add(index) }
     }
 
-    /// Drops the elements from the back down to `len`, like C++ `ShrinkBy`.
+    /// Drops the elements from the back down to `len`.
     unsafe fn truncate(this: *mut ListObj, len: usize) {
-        while (*this).size as usize > len {
-            (*this).size -= 1;
-            drop(take_cell(Self::cell(this, (*this).size as usize)));
+        while unsafe { (*(*this).size.get()) as usize } > len {
+            unsafe { (*(*this).size.get()) -= 1 };
+            unsafe { drop(take_cell(Self::cell(this, (*(*this).size.get()) as usize))) };
         }
     }
 }
@@ -88,15 +120,18 @@ impl ListObj {
 /// it from the list's accounting.
 #[inline]
 unsafe fn take_cell(cell: *mut TVMFFIAny) -> Any {
-    Any::from_raw_ffi_any(ptr::read(cell))
+    unsafe { Any::from_raw_ffi_any(ptr::read(cell)) }
 }
 
 #[inline]
 unsafe fn write_cell<T: ContainerElement>(cell: *mut TVMFFIAny, value: T) {
     let mut raw = TVMFFIAny::new();
-    T::container_move_to_any(value, &mut raw);
-    ptr::write(cell, raw);
+    unsafe { T::container_move_to_any(value, &mut raw) };
+    unsafe { ptr::write(cell, raw) };
 }
+
+/// The most elements a list buffer can hold: its byte size must fit in `isize`.
+const MAX_CAPACITY: usize = isize::MAX as usize / std::mem::size_of::<TVMFFIAny>();
 
 // The error paths stay out of line so the hot paths are small enough to inline.
 #[cold]
@@ -120,9 +155,24 @@ fn type_error<T: ContainerElement>(index: usize) -> Result<T> {
     )
 }
 
-/// Mutable, reference-counted sequence of `T`, sharing its underlying
-/// `ListObj` with C++. Cloning is cheap (it bumps the refcount) and yields a
-/// handle to the same list.
+/// A mutable, reference-counted sequence of `T`, passed across languages as
+/// `ffi.List`.
+///
+/// Cloning a `List` is cheap and yields a handle to the same list, so a change
+/// through one handle is seen through every other. Methods take `&self`.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_ffi::List;
+///
+/// let list = List::<i64>::new();
+/// list.push(1)?;
+/// list.push(2)?;
+/// assert_eq!(list.get(1)?, 2);
+/// assert_eq!(list.len(), 2);
+/// # Ok::<(), tvm_ffi::Error>(())
+/// ```
 #[repr(C)]
 pub struct List<T> {
     data: ObjectArc<ListObj>,
@@ -138,7 +188,32 @@ impl<T> Clone for List<T> {
     }
 }
 
-unsafe impl<T> ObjectRefCore for List<T> {
+/// A list upcasts to the root [`ObjectRef`](crate::object::ObjectRef).
+impl<T: ContainerElement> From<List<T>> for crate::object::ObjectRef {
+    #[inline]
+    fn from(value: List<T>) -> Self {
+        crate::object::into_root_object_ref(value)
+    }
+}
+
+/// The strict downcast from the root [`ObjectRef`](crate::object::ObjectRef).
+impl<T: ContainerElement> TryFrom<crate::object::ObjectRef> for List<T> {
+    type Error = crate::error::Error;
+    #[inline]
+    fn try_from(value: crate::object::ObjectRef) -> crate::error::Result<Self> {
+        crate::object::root_try_into(value)
+    }
+}
+
+impl<T: ContainerElement> TryFrom<&crate::object::ObjectRef> for List<T> {
+    type Error = crate::error::Error;
+    #[inline]
+    fn try_from(value: &crate::object::ObjectRef) -> crate::error::Result<Self> {
+        crate::object::root_try_into_ref(value)
+    }
+}
+
+unsafe impl<T: ContainerElement> ObjectRefCore for List<T> {
     type ContainerType = ListObj;
 
     fn data(this: &Self) -> &ObjectArc<ListObj> {
@@ -164,20 +239,22 @@ unsafe impl<T> ObjectRefCore for List<T> {
 /// `data` must hold one of those two objects, and the list must not be
 /// mutated while the slice is alive.
 pub(crate) unsafe fn seq_cells(data: &TVMFFIAny) -> &[TVMFFIAny] {
-    let seq = &*(data.data_union.v_obj as *const ListObj);
-    if seq.size == 0 {
-        return &[];
+    let seq = unsafe { &*(data.data_union.v_obj as *const ListObj) };
+    unsafe {
+        crate::util::slice_from_nullable_raw_parts(
+            *seq.data.get() as *const TVMFFIAny,
+            *seq.size.get() as usize,
+        )
     }
-    std::slice::from_raw_parts(seq.data as *const TVMFFIAny, seq.size as usize)
 }
 
 impl<T: ContainerElement> List<T> {
-    /// Creates a new, empty list (via an `ffi.List()` call to the C++ runtime).
+    /// Creates an empty list.
     pub fn new() -> Self {
         Self::from_items(&[]).expect("ffi.List() failed to construct an empty list")
     }
 
-    /// Builds a list by calling the C++ `ffi.List` constructor.
+    /// Builds a list by calling the runtime's `ffi.List` constructor.
     fn from_items(items: &[T]) -> Result<Self> {
         let args: Vec<AnyView<'_>> = items.iter().map(element_view).collect();
         let result = crate::cached_global_func!("ffi.List").call_packed(&args)?;
@@ -189,20 +266,22 @@ impl<T: ContainerElement> List<T> {
                 TypeIndex::kTVMFFIList as i32
             );
             let mut result = std::mem::ManuallyDrop::new(result);
-            Ok(Self::move_from_any_after_check(&mut *result.as_data_ptr()))
+            Ok(Self::move_from_any_after_check(
+                &mut *result.as_raw_ffi_any_mut(),
+            ))
         }
     }
 
     #[inline]
     fn obj(&self) -> *mut ListObj {
-        // SAFETY: `self.data` keeps the object alive for as long as the pointer is used.
-        unsafe { ObjectArc::as_raw(&self.data) as *mut ListObj }
+        ObjectArc::as_ptr(&self.data) as *mut ListObj
     }
 
     /// Returns the number of elements.
     #[inline]
     pub fn len(&self) -> usize {
-        self.data.size as usize
+        // SAFETY: a read of the length; nothing mutates it during the call.
+        unsafe { *self.data.size.get() as usize }
     }
 
     /// Returns `true` if the list contains no elements.
@@ -213,15 +292,17 @@ impl<T: ContainerElement> List<T> {
 
     /// Returns the number of elements the buffer holds before it is reallocated.
     pub fn capacity(&self) -> usize {
-        self.data.capacity as usize
+        unsafe { *self.data.capacity.get() as usize }
     }
 
     /// Returns the element at `index`.
     #[inline]
     pub fn get(&self, index: usize) -> Result<T> {
         let obj = self.obj();
+        // SAFETY: `index` is in bounds, and the conversion leaves the list
+        // unchanged while it reads the cell (see the module docs).
         unsafe {
-            if index >= (*obj).size as usize {
+            if index >= (*(*obj).size.get()) as usize {
                 return index_error("get");
             }
             match T::container_try_cast_from_any_view(&*ListObj::cell(obj, index)) {
@@ -231,20 +312,24 @@ impl<T: ContainerElement> List<T> {
         }
     }
 
-    /// Replaces the element at `index`.
+    /// Replaces the element at `index`, as `vec[index] = value`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index >= len`.
     #[inline]
-    pub fn set(&self, index: usize, value: T) -> Result<()> {
+    pub fn set(&self, index: usize, value: T) {
         let obj = self.obj();
         unsafe {
-            if index >= (*obj).size as usize {
-                return index_error("set");
+            let size = (*(*obj).size.get()) as usize;
+            if index >= size {
+                panic!("Index out of bounds: the len is {size} but the index is {index}");
             }
             let cell = ListObj::cell(obj, index);
             let old = take_cell(cell);
             write_cell(cell, value);
             drop(old);
         }
-        Ok(())
     }
 
     /// Appends `value` to the end of the list.
@@ -253,8 +338,8 @@ impl<T: ContainerElement> List<T> {
         self.reserve_for(1)?;
         let obj = self.obj();
         unsafe {
-            write_cell(ListObj::cell(obj, (*obj).size as usize), value);
-            (*obj).size += 1;
+            write_cell(ListObj::cell(obj, (*(*obj).size.get()) as usize), value);
+            (*(*obj).size.get()) += 1;
         }
         Ok(())
     }
@@ -271,7 +356,7 @@ impl<T: ContainerElement> List<T> {
             let cell = ListObj::cell(obj, index);
             ptr::copy(cell, cell.add(1), size - index);
             write_cell(cell, value);
-            (*obj).size += 1;
+            (*(*obj).size.get()) += 1;
         }
         Ok(())
     }
@@ -282,28 +367,29 @@ impl<T: ContainerElement> List<T> {
     pub fn remove(&self, index: usize) -> Result<T> {
         let obj = self.obj();
         unsafe {
-            let size = (*obj).size as usize;
+            let size = (*(*obj).size.get()) as usize;
             if index >= size {
                 return index_error("remove");
             }
             let cell = ListObj::cell(obj, index);
-            // Convert first, so that a mismatch leaves the list untouched.
-            let value = if T::container_check_any_strict(&*cell) {
+            // Convert first, so that a mismatch leaves the list untouched; the
+            // conversion leaves the list unchanged (see the module docs).
+            let (value, old) = if T::container_check_any_strict(&*cell) {
                 let mut raw = ptr::read(cell);
-                T::container_move_from_any_after_check(&mut raw)
+                (T::container_move_from_any_after_check(&mut raw), None)
             } else {
                 match T::container_try_cast_from_any_view(&*cell) {
-                    Ok(value) => {
-                        drop(take_cell(cell));
-                        value
-                    }
+                    Ok(value) => (value, Some(take_cell(cell))),
                     Err(()) => return type_error(index),
                 }
             };
             if index + 1 < size {
                 ptr::copy(cell.add(1), cell, size - index - 1);
             }
-            (*obj).size -= 1;
+            (*(*obj).size.get()) -= 1;
+            // The list is consistent again before the old element's `Drop`
+            // runs, which may modify it.
+            drop(old);
             Ok(value)
         }
     }
@@ -314,47 +400,71 @@ impl<T: ContainerElement> List<T> {
         unsafe { ListObj::truncate(self.obj(), 0) }
     }
 
-    /// Returns the first element, or an `INDEX_ERROR` if the list is empty.
-    pub fn first(&self) -> Result<T> {
-        if self.is_empty() {
-            return index_error("first");
-        }
-        self.get(0)
-    }
-
-    /// Returns the last element, or an `INDEX_ERROR` if the list is empty.
-    pub fn last(&self) -> Result<T> {
+    /// Returns the first element, or `None` if the list is empty; a
+    /// `TYPE_ERROR` as [`get`](Self::get) gives it.
+    pub fn first(&self) -> Result<Option<T>> {
         match self.len() {
-            0 => index_error("last"),
-            len => self.get(len - 1),
+            0 => Ok(None),
+            _ => self.get(0).map(Some),
         }
     }
 
-    /// Removes and returns the last element, or an `INDEX_ERROR` if the list
-    /// is empty.
-    pub fn pop(&self) -> Result<T> {
+    /// Returns the last element, or `None` if the list is empty; a
+    /// `TYPE_ERROR` as [`get`](Self::get) gives it.
+    pub fn last(&self) -> Result<Option<T>> {
         match self.len() {
-            0 => index_error("pop"),
-            len => self.remove(len - 1),
+            0 => Ok(None),
+            len => self.get(len - 1).map(Some),
+        }
+    }
+
+    /// Removes and returns the last element, or `None` if the list is empty;
+    /// a `TYPE_ERROR` as [`remove`](Self::remove) gives it.
+    pub fn pop(&self) -> Result<Option<T>> {
+        match self.len() {
+            0 => Ok(None),
+            len => self.remove(len - 1).map(Some),
         }
     }
 
     /// Shortens the list to `len` elements, dropping the rest; a no-op when it
-    /// is already that short. C++ `resize` when shrinking.
+    /// is already that short.
     pub fn truncate(&self, len: usize) {
         unsafe { ListObj::truncate(self.obj(), len) }
     }
 
-    /// Removes the elements in `start..end`, shifting the ones after them.
-    pub fn remove_range(&self, start: usize, end: usize) -> Result<()> {
+    /// Removes the elements in `range`, shifting the ones after them, as
+    /// [`Vec::drain`] does without returning them.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `range` starts after it ends or ends past the list.
+    pub fn remove_range(&self, range: impl RangeBounds<usize>) {
         let obj = self.obj();
         unsafe {
-            let size = (*obj).size as usize;
-            if start > end || end > size {
-                return index_error("remove_range");
+            let size = (*(*obj).size.get()) as usize;
+            let start = match range.start_bound() {
+                Bound::Included(&start) => start,
+                Bound::Excluded(&start) => start
+                    .checked_add(1)
+                    .expect("attempted to index slice from after maximum usize"),
+                Bound::Unbounded => 0,
+            };
+            let end = match range.end_bound() {
+                Bound::Included(&end) => end
+                    .checked_add(1)
+                    .expect("attempted to index slice up to maximum usize"),
+                Bound::Excluded(&end) => end,
+                Bound::Unbounded => size,
+            };
+            if start > end {
+                panic!("slice index starts at {start} but ends at {end}");
+            }
+            if end > size {
+                panic!("range end index {end} out of range for slice of length {size}");
             }
             if start == end {
-                return Ok(());
+                return;
             }
             // Rotate the removed cells to the back and drop them from there,
             // so the list is consistent while each element is released.
@@ -362,11 +472,10 @@ impl<T: ContainerElement> List<T> {
                 .rotate_left(end - start);
             ListObj::truncate(obj, size - (end - start));
         }
-        Ok(())
     }
 
     /// Inserts every item of `iter`, in order, at `index`, shifting the
-    /// elements after it. C++ `insert(position, first, last)`.
+    /// elements after it.
     pub fn insert_many<I: IntoIterator<Item = T>>(&self, index: usize, iter: I) -> Result<()> {
         // Drain the iterator first: it may reach this same list through
         // another handle, so the length is only read once it is done.
@@ -387,38 +496,46 @@ impl<T: ContainerElement> List<T> {
             for (offset, item) in items.into_iter().enumerate() {
                 write_cell(cell.add(offset), item);
             }
-            (*obj).size += count as i64;
+            (*(*obj).size.get()) += count as i64;
         }
         Ok(())
     }
 
     /// Makes room for at least `additional` more elements without
-    /// reallocating again, like `Vec::reserve`. C++ `reserve(n)` takes the
-    /// absolute capacity instead.
+    /// reallocating again, like `Vec::reserve`.
     pub fn reserve(&self, additional: usize) -> Result<()> {
-        let total = self.len() + additional;
+        let total = self.len().saturating_add(additional);
         if total > self.capacity() {
             self.grow_to(total)?;
         }
         Ok(())
     }
 
-    /// Makes room for `extra` more elements, growing geometrically like C++
-    /// `List::EnsureCapacity`.
+    /// Makes room for `extra` more elements, growing geometrically so that
+    /// repeated pushes take amortized constant time.
     #[inline]
     fn reserve_for(&self, extra: usize) -> Result<()> {
         let (size, capacity) = (self.len(), self.capacity());
-        if size + extra > capacity {
-            self.grow_to((capacity * 2).max(size + extra))?;
+        let needed = size.saturating_add(extra);
+        if needed > capacity {
+            self.grow_to((capacity * 2).min(MAX_CAPACITY).max(needed))?;
         }
         Ok(())
     }
 
-    /// Has the C++ runtime grow the buffer to hold `capacity` elements, with
+    /// Has the runtime grow the buffer to hold `capacity` elements, with
     /// the allocator that owns it (`ffi.ListReserve`).
     #[cold]
     #[inline(never)]
     fn grow_to(&self, capacity: usize) -> Result<()> {
+        if capacity > MAX_CAPACITY {
+            crate::bail!(
+                crate::error::VALUE_ERROR,
+                "List capacity {} exceeds the maximum {}",
+                capacity,
+                MAX_CAPACITY
+            );
+        }
         crate::cached_global_func!("ffi.ListReserve")
             .call_packed(&[AnyView::from(self), AnyView::from(&(capacity as i64))])?;
         Ok(())
@@ -431,7 +548,7 @@ impl<T: ContainerElement> List<T> {
     }
 
     /// Resizes the list to `new_len` elements, dropping the tail or appending
-    /// clones of `value`. C++ `resize`.
+    /// clones of `value`.
     pub fn resize(&self, new_len: usize, value: T) -> Result<()>
     where
         T: Clone,
@@ -444,11 +561,11 @@ impl<T: ContainerElement> List<T> {
         self.extend(std::iter::repeat_n(value, new_len - len))
     }
 
-    /// Reverses the elements in place. C++ `Reverse`.
+    /// Reverses the elements in place.
     pub fn reverse(&self) {
         let obj = self.obj();
         unsafe {
-            let size = (*obj).size as usize;
+            let size = (*(*obj).size.get()) as usize;
             if size > 1 {
                 std::slice::from_raw_parts_mut(ListObj::cell(obj, 0), size).reverse();
             }
@@ -456,9 +573,9 @@ impl<T: ContainerElement> List<T> {
     }
 
     /// Returns a double-ended iterator over the elements, yielding
-    /// `Result<T>`; see [`ListIterator`].
-    pub fn iter(&self) -> ListIterator<'_, T> {
-        ListIterator {
+    /// `Result<T>`; see [`Iter`].
+    pub fn iter(&self) -> Iter<'_, T> {
+        Iter {
             list: self,
             index: 0,
             back: usize::MAX,
@@ -476,7 +593,16 @@ impl<T> Debug for List<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let full_name = std::any::type_name::<T>();
         let short_name = full_name.split("::").last().unwrap_or(full_name);
-        write!(f, "List<{}>[{}]", short_name, self.data.size)
+        write!(f, "List<{}>[{}]", short_name, unsafe {
+            *self.data.size.get()
+        })
+    }
+}
+
+/// Formats the list as its `repr`; see [`AnyView`].
+impl<T: ContainerElement> std::fmt::Display for List<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&AnyView::from_object(&**ObjectRefCore::data(self)), f)
     }
 }
 
@@ -495,7 +621,7 @@ impl<T: ContainerElement> FromIterator<T> for List<T> {
 /// it there), and then moves on to the next element. It re-reads the length
 /// on every step, so it stays in bounds if the list is mutated meanwhile;
 /// iterating from the back (`rev`) pins the end at the first back step.
-pub struct ListIterator<'a, T> {
+pub struct Iter<'a, T> {
     list: &'a List<T>,
     index: usize,
     /// One past the last position still to visit from the back; `usize::MAX`
@@ -503,22 +629,28 @@ pub struct ListIterator<'a, T> {
     back: usize,
 }
 
-impl<T: ContainerElement> ListIterator<'_, T> {
+impl<T: ContainerElement> Iter<'_, T> {
     #[inline]
     fn end(&self) -> usize {
         self.back.min(self.list.len())
     }
 
+    /// # Safety
+    /// `index` is below the list's length.
     #[inline]
     unsafe fn read(&self, index: usize) -> Result<T> {
-        match T::container_try_cast_from_any_view(&*ListObj::cell(self.list.obj(), index)) {
+        // SAFETY: the conversion leaves the list unchanged while it reads the
+        // cell (see the module docs).
+        match unsafe {
+            T::container_try_cast_from_any_view(&*ListObj::cell(self.list.obj(), index))
+        } {
             Ok(value) => Ok(value),
             Err(()) => type_error(index),
         }
     }
 }
 
-impl<T: ContainerElement> Iterator for ListIterator<'_, T> {
+impl<T: ContainerElement> Iterator for Iter<'_, T> {
     type Item = Result<T>;
 
     #[inline]
@@ -537,7 +669,7 @@ impl<T: ContainerElement> Iterator for ListIterator<'_, T> {
     }
 }
 
-impl<T: ContainerElement> DoubleEndedIterator for ListIterator<'_, T> {
+impl<T: ContainerElement> DoubleEndedIterator for Iter<'_, T> {
     #[inline]
     fn next_back(&mut self) -> Option<Result<T>> {
         let end = self.end();
@@ -551,7 +683,7 @@ impl<T: ContainerElement> DoubleEndedIterator for ListIterator<'_, T> {
 
 impl<'a, T: ContainerElement> IntoIterator for &'a List<T> {
     type Item = Result<T>;
-    type IntoIter = ListIterator<'a, T>;
+    type IntoIter = Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -563,7 +695,7 @@ impl<'a, T: ContainerElement> IntoIterator for &'a List<T> {
 unsafe impl<T: ContainerElement> AnyCompatible for List<T> {
     #[inline]
     unsafe fn is_undefined(field: *const Self) -> bool {
-        ObjectArc::is_null(std::ptr::addr_of!((*field).data))
+        unsafe { ObjectArc::is_null(std::ptr::addr_of!((*field).data)) }
     }
 
     fn type_str() -> String {
@@ -578,15 +710,25 @@ unsafe impl<T: ContainerElement> AnyCompatible for List<T> {
     }
 
     unsafe fn check_any_strict(data: &TVMFFIAny) -> bool {
-        data.type_index == TypeIndex::kTVMFFIList as i32
-            && seq_cells(data)
+        unsafe {
+            data.type_index == TypeIndex::kTVMFFIList as i32
+                && seq_cells(data)
+                    .iter()
+                    .all(|cell| T::container_check_any_strict(cell))
+        }
+    }
+
+    unsafe fn match_constraints(data: &TVMFFIAny) -> bool {
+        unsafe {
+            seq_cells(data)
                 .iter()
-                .all(|cell| T::container_check_any_strict(cell))
+                .all(|cell| T::container_match_constraints(cell))
+        }
     }
 
     unsafe fn copy_to_any_view(src: &Self, data: &mut TVMFFIAny) {
         data.type_index = TypeIndex::kTVMFFIList as i32;
-        data.data_union.v_obj = ObjectArc::as_raw(Self::data(src)) as *mut TVMFFIObject;
+        data.data_union.v_obj = ObjectArc::as_ptr(Self::data(src)) as *mut TVMFFIObject;
         data.small_str_len = 0;
     }
 
@@ -597,14 +739,14 @@ unsafe impl<T: ContainerElement> AnyCompatible for List<T> {
     }
 
     unsafe fn copy_from_any_view_after_check(data: &TVMFFIAny) -> Self {
-        let ptr = data.data_union.v_obj as *const ListObj;
-        crate::object::unsafe_::inc_ref(ptr as *mut TVMFFIObject);
-        Self::from_data(ObjectArc::from_raw(ptr))
+        let ptr = unsafe { data.data_union.v_obj as *const ListObj };
+        unsafe { crate::object::unsafe_::inc_ref(ptr as *mut TVMFFIObject) };
+        unsafe { Self::from_data(ObjectArc::from_raw(ptr)) }
     }
 
     unsafe fn move_from_any_after_check(data: &mut TVMFFIAny) -> Self {
-        let ptr = data.data_union.v_obj as *const ListObj;
-        let obj = Self::from_data(ObjectArc::from_raw(ptr));
+        let ptr = unsafe { data.data_union.v_obj as *const ListObj };
+        let obj = unsafe { Self::from_data(ObjectArc::from_raw(ptr)) };
         data.type_index = TypeIndex::kTVMFFINone as i32;
         data.data_union.v_int64 = 0;
         obj
@@ -620,18 +762,60 @@ unsafe impl<T: ContainerElement> AnyCompatible for List<T> {
         }
 
         // Fast path: a list whose elements all match shares the reference.
-        if <Self as AnyCompatible>::check_any_strict(data) {
-            return Ok(<Self as AnyCompatible>::copy_from_any_view_after_check(
-                data,
-            ));
+        if unsafe { <Self as AnyCompatible>::check_any_strict(data) } {
+            return Ok(unsafe { <Self as AnyCompatible>::copy_from_any_view_after_check(data) });
         }
 
-        // Slow path: convert element by element into a new list.
+        // Slow path: convert element by element into a new list. The
+        // conversions leave the source sequence unchanged (see the module
+        // docs), so the borrowed cells stay valid.
         let mut items = Vec::new();
-        for cell in seq_cells(data) {
-            items.push(T::container_try_cast_from_any_view(cell)?);
+        for cell in unsafe { seq_cells(data) } {
+            unsafe { items.push(T::container_try_cast_from_any_view(cell)?) };
         }
         Self::from_items(&items).map_err(|_| ())
+    }
+}
+
+// The cell's payload word is the single object pointer of the handle.
+unsafe impl<T> crate::type_traits::RefFromAnyUnchecked for List<T>
+where
+    T: ContainerElement,
+{
+    #[inline(always)]
+    unsafe fn ref_from_any_unchecked(cell: &TVMFFIAny) -> &Self {
+        unsafe { &*(core::ptr::addr_of!(cell.data_union) as *const Self) }
+    }
+}
+
+unsafe impl<T> crate::type_traits::DowncastRefFromAny for List<T>
+where
+    T: ContainerElement,
+{
+    #[inline(always)]
+    unsafe fn downcast_ref_from_any(cell: &TVMFFIAny) -> Option<&Self> {
+        unsafe { crate::type_traits::downcast_ref_from_any_in_place::<Self>(cell) }
+    }
+}
+
+unsafe impl<T> crate::type_traits::DowncastRefFromObject for List<T>
+where
+    T: ContainerElement,
+{
+    #[inline(always)]
+    unsafe fn downcast_ref_from_object(place: &*mut TVMFFIObject) -> Option<&Self> {
+        unsafe { crate::type_traits::downcast_ref_from_object_in_place::<Self>(place) }
+    }
+}
+
+crate::impl_into_arg!(impl[T: ContainerElement] List<T>);
+
+impl<'b, T: ContainerElement> TryFrom<&'b Any> for List<T> {
+    type Error = Error;
+
+    fn try_from(value: &'b Any) -> Result<Self> {
+        let temp: TryFromTemp<Self> = TryFromTemp::try_from(value)?;
+        Ok(TryFromTemp::into_value(temp))
     }
 }
 

@@ -12,7 +12,10 @@ lines converted to UTC and said so, `seq robot` converted to local time and did 
 console show your own zone.
 
 Usage and bills are the exception: `seq usage` and a policy's monthly budget go by the billing period, the UTC month,
-and say UTC (usage_hist.py, ops_cli.py), as the console's Usage pages and invoices do.
+and say UTC (usage_hist.py, ops_cli.py), as the console's Usage pages and invoices do; and every day of the bill - the
+free credit's renewal (`seq account`), a credit's day, a plan's end and an invoice's period (`seq billing`) - is the UTC
+day and says UTC (`utc=True`), as the console's Billing page says them.
+
 
 `--json` prints what the gateway sent (ISO with offsets, epoch numbers), for scripts; nothing here touches it.
 """
@@ -67,9 +70,9 @@ def _zone() -> tzinfo:
     return ZoneInfo(local_zone())
 
 
-def instant(value: Any, *, ms: bool = False) -> datetime | None:
-    """`value` on this machine's clock: an ISO time, a datetime, epoch seconds - or epoch milliseconds with `ms`. None
-    when there is none or it cannot be read as a time."""
+def instant(value: Any, *, ms: bool = False, utc: bool = False) -> datetime | None:
+    """`value` on this machine's clock - in UTC with `utc`, a day of the bill: an ISO time, a datetime, epoch seconds - or
+    epoch milliseconds with `ms`. None when there is none or it cannot be read as a time."""
     if value is None or value == "" or isinstance(value, bool):
         return None
     try:
@@ -81,17 +84,17 @@ def instant(value: Any, *, ms: bool = False) -> datetime | None:
             t = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
     except (TypeError, ValueError, OverflowError, OSError):
         return None
-    return (t if t.tzinfo else t.replace(tzinfo=timezone.utc)).astimezone(_zone())
+    return (t if t.tzinfo else t.replace(tzinfo=timezone.utc)).astimezone(timezone.utc if utc else _zone())
 
 
 def stamp(value: Any, *, unit: str = "minute", day: str = "auto", zone: bool = True, ms: bool = False,
-          now: datetime | None = None) -> str:
-    """`value` (as `instant` reads it) on this machine's clock: the time of day to the `unit` ("minute" 14:05,
-    "second" 14:05:09, "milli" 14:05:09.149; 2:05 PM on a 12-hour clock, use), after the date when `day` asks for it
-    , and the
-    zone's abbreviation (EDT) unless `zone` is False - for a table whose heading names the zone once. '—' for no time;
-    the value as it came when it is not one."""
-    t = instant(value, ms=ms)
+          now: datetime | None = None, utc: bool = False) -> str:
+    """`value` (as `instant` reads it) on this machine's clock - in UTC with `utc`: the time of day to the `unit`
+    ("minute" 14:05, "second" 14:05:09, "milli" 14:05:09.149; 2:05 PM on a 12-hour clock, use), after the date when `day`
+    asks for it
+, and the zone's abbreviation (EDT, UTC) unless `zone` is False - for a table whose heading names the zone
+    once. '—' for no time; the value as it came when it is not one."""
+    t = instant(value, ms=ms, utc=utc)
     if t is None:
         return "—" if value is None or value == "" else str(value)
     twelve = _PREFS["clock"] == 12
@@ -109,9 +112,9 @@ def stamp(value: Any, *, unit: str = "minute", day: str = "auto", zone: bool = T
     return f"{text} {t.tzname()}" if zone else text
 
 
-def day_of(value: Any, *, ms: bool = False) -> str:
-    """The date `value` falls on here, 2026-10-11; '—' for no time."""
-    t = instant(value, ms=ms)
+def day_of(value: Any, *, ms: bool = False, utc: bool = False) -> str:
+    """The date `value` falls on here - in UTC with `utc`, a day of the bill - 2026-10-11; '—' for no time."""
+    t = instant(value, ms=ms, utc=utc)
     return f"{t:%Y-%m-%d}" if t else ("—" if value is None or value == "" else str(value))
 
 

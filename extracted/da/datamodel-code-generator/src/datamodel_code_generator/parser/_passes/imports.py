@@ -65,6 +65,7 @@ from datamodel_code_generator.model.output import _model_field_name_collisions
 from datamodel_code_generator.model.type_alias import TypeAliasBase
 from datamodel_code_generator.parser._imports_plan import Added, Aliased, ImportProducer, Removed
 from datamodel_code_generator.parser._passes._import_binding import (
+    ModuleImportTarget,
     ReferenceExpressionHost,
     reference_import_target,
     register_reference_import,
@@ -73,6 +74,7 @@ from datamodel_code_generator.parser._passes._import_binding import (
 from datamodel_code_generator.parser._passes._import_edges import (
     GenericBaseClassPlacement,
     _written_package,
+    _written_package_init,
     failing_import_reads,
     import_cycle_seeds,
     import_plan,
@@ -739,17 +741,26 @@ _ClashT = TypeVar("_ClashT", _MsgspecEnumClash, _MsgspecKindClash)
 
 
 def _refused_union_clashes(
-    data_type: DataType, clashes_of: Callable[[Sequence[DataType]], tuple[_ClashT, ...]]
-) -> tuple[_ClashT, ...]:
-    """Return each kind msgspec refuses a union for (``clashes_of`` its members), unless an alias it names is refused.
+    data_type: DataType, literal_enum_ids: Collection[ModelKey]
+) -> tuple[tuple[_MsgspecEnumClash, ...], tuple[_MsgspecKindClash, ...]]:
+    """Return each kind msgspec refuses a union for, unless an alias it names is refused for the kind.
 
-    ``clashes_of`` is ``_msgspec_enum_clashes`` (an Enum of the kind) or ``_msgspec_kind_clashes`` (more than one
-    member of the kind).
+    The kinds of an Enum (``_msgspec_enum_clashes``) come first, then those of more than one member
+    (``_msgspec_kind_clashes``), which leave the kinds of an Enum to them.
     """
-    if not (members := _msgspec_union_members(data_type)) or not (clashes := clashes_of(members)):
-        return ()
-    covered = {clash[0] for root in _iter_union_alias_roots(data_type) for clash in clashes_of((root,))}
-    return tuple(clash for clash in clashes if clash[0] not in covered)
+    if not (members := _msgspec_union_members(data_type)):
+        return (), ()
+    enum_clashes = _msgspec_enum_clashes(members, literal_enum_ids)
+    kind_clashes = _msgspec_kind_clashes(members, enum_clashes)
+    if not enum_clashes and not kind_clashes:
+        return (), ()
+    roots = [(root, _msgspec_enum_clashes((root,), literal_enum_ids)) for root in _iter_union_alias_roots(data_type)]
+    enum_covered = {clash[0] for _, root_clashes in roots for clash in root_clashes}
+    kind_covered = {clash[0] for root, root_clashes in roots for clash in _msgspec_kind_clashes((root,), root_clashes)}
+    return (
+        tuple(clash for clash in enum_clashes if clash[0] not in enum_covered),
+        tuple(clash for clash in kind_clashes if clash[0] not in kind_covered),
+    )
 
 
 def _first_union_clashes(clashes: Iterable[_ClashT]) -> dict[str, _ClashT]:
@@ -857,14 +868,15 @@ def _msgspec_number_slot(leaf: DataType) -> tuple[str, object] | None:
 
 
 def _msgspec_kind_clashes(
-    data_types: Iterable[DataType], literal_enum_ids: Collection[ModelKey]
+    data_types: Iterable[DataType], enum_clashes: Iterable[_MsgspecEnumClash]
 ) -> tuple[_MsgspecKindClash, ...]:
     """Return each kind and its written members of a union that msgspec refuses for more than one member of the kind.
 
     msgspec decodes a union only if it holds at most one dict-like member (``dict`` or Struct types), one array-like
     member (``list``, ``tuple``, ``set``) and one str-like member (``str``, an Enum of str values, ``bytes``, the dates,
-    times, ``UUID`` and ``Decimal``). A kind for which ``_msgspec_enum_clashes`` reports the union is left to it. An int
-    ``Literal`` beside ``float`` loses the integers it does not list only where no ``int`` member takes them.
+    times, ``UUID`` and ``Decimal``). A kind of the ``enum_clashes`` that ``_msgspec_enum_clashes`` reports for the
+    union is left to them. An int ``Literal`` beside ``float`` loses the integers it does not list only where no ``int``
+    member takes them.
     """
     slots: dict[str, dict[object, None]] = {kind: {} for kind in _MSGSPEC_KIND_ASIDES}
     names: dict[str, dict[str, None]] = {kind: {} for kind in _MSGSPEC_KIND_ASIDES}
@@ -874,7 +886,7 @@ def _msgspec_kind_clashes(
             for kind, counted_as in _msgspec_member_slots(leaf):
                 slots[kind][counted_as] = None
                 names[kind][member.type_hint] = None
-    covered = {clash[0] for clash in _msgspec_enum_clashes(members, literal_enum_ids)}
+    covered = {clash[0] for clash in enum_clashes}
     if "int" in slots["number"]:
         covered.add("number")
     return tuple((kind, (*names[kind],)) for kind, counted in slots.items() if len(counted) > 1 and kind not in covered)
@@ -1400,23 +1412,33 @@ def record_pydantic_floor(parser: FinishHost, contexts: Sequence[ModuleContextVi
 
     Every fact the constructs read is final here, after the last writer before rendering. A model or field owns
     each construct, named with its module when the parse writes more than one. Output that Pydantic does not
-    build has no floor to state.
+    build has no floor to state. The fields that write a ``bytes`` pattern Pydantic 2.14 refuses at import, as no
+    config selects ``python-re`` for it (#6673), are recorded too.
     """
-    if (record := _PYDANTIC_FLOORS.get()) is None or parser.target_pydantic_version is None:
+    if (record := _PYDANTIC_FLOORS.get()) is None:
         return
     if not parser.data_model_type._READ_BY_PYDANTIC:  # noqa: SLF001
-        record.record(parser, None)
+        record.record(parser, None, ())
         return
     used: list[tuple[PydanticConstruct, str]] = []
+    refused: list[str] = []
     for ctx in contexts:
         prefix = f"{module_name}." if len(contexts) > 1 and (module_name := dotted_module(ctx.module)) else ""
         for model in ctx.models:
             owner = f"{prefix}{model.class_name}"
+            names_fields = not model.IS_ROOT_MODEL and not model.IS_ALIAS
             used.extend(
                 (construct, owner if field_name is None else f"{owner}.{field_name}")
                 for construct, field_name in model._pydantic_constructs()  # noqa: SLF001
             )
-    record.record(parser, pydantic_floor(parser.target_pydantic_version, used))
+            if not model._builds_patterns_with_python_engine():  # noqa: SLF001
+                refused.extend(
+                    f"{owner}.{field.name}" if names_fields else owner
+                    for field in model.fields
+                    if field._writes_bytes_pattern_rust_rejects()  # noqa: SLF001
+                )
+    target = parser.target_pydantic_version
+    record.record(parser, None if target is None else pydantic_floor(target, used), tuple(dict.fromkeys(refused)))
 
 
 def warn_about_variant_discriminator_tags(parser: FinishHost) -> None:
@@ -1439,8 +1461,6 @@ def warn_about_msgspec_decoding(parser: FinishHost, contexts: Sequence[ModuleCon
     models = _context_models(contexts)
     named = {model.class_name: model for model in models}
     literal_enum_ids = parser._literal_under_all_enum_reference_ids  # noqa: SLF001
-    enum_clashes_of = partial(_msgspec_enum_clashes, literal_enum_ids=literal_enum_ids)
-    kind_clashes_of = partial(_msgspec_kind_clashes, literal_enum_ids=literal_enum_ids)
     for model in models:
         if isinstance(model, Enum):
             for message in filter(
@@ -1475,12 +1495,9 @@ def warn_about_msgspec_decoding(parser: FinishHost, contexts: Sequence[ModuleCon
             refused = bool(refusal[0]) and (
                 refusal[1] is not None or not (discriminated and parser.use_msgspec_tagged_unions)
             )
-            clashes = _first_union_clashes(
-                chain.from_iterable(_refused_union_clashes(data_type, enum_clashes_of) for data_type in nested)
-            )
-            kind_clashes = _first_union_clashes(
-                chain.from_iterable(_refused_union_clashes(data_type, kind_clashes_of) for data_type in nested)
-            )
+            refused_clashes = [_refused_union_clashes(data_type, literal_enum_ids) for data_type in nested]
+            clashes = _first_union_clashes(chain.from_iterable(enum for enum, _ in refused_clashes))
+            kind_clashes = _first_union_clashes(chain.from_iterable(kind for _, kind in refused_clashes))
             wide = _msgspec_wide_int(chain.from_iterable(data_type.literals for data_type in nested))
             if member is None and not refused and not clashes and not kind_clashes and wide is None:
                 continue
@@ -2259,18 +2276,15 @@ def import_models_of_hidden_submodules(parser: ImportsHost[Any], state: _Finaliz
             .difference(_iter_import_bindings(parser.imports))
         ):
             ledger.add_name(imports, resolver, get_special_path("import", [name]), name)
+        module = ModuleImportTarget.of(parser.imports, ctx, state)
         for model, data_type, reference, _ in users:
             expression = register_reference_import(
                 reference,
                 _get_model_module_name(model, module_names),
                 _get_data_type_target_full_name(data_type, reference, module_names),
-                imports,
-                resolver,
-                init=ctx.is_init,
-                internal_modules=state.internal_modules,
+                module,
                 producer=ImportProducer(_HIDDEN_SUBMODULES, model),
                 import_ledger=ledger,
-                shared_imports=parser.imports,
                 hidden_modules=modules,
             )
             if data_type.reference is None:
@@ -2450,7 +2464,7 @@ def _package_bindings(
     """
     bindings: list[tuple[ModulePath, ModuleContextView, tuple[str, ...]]] = []
     for ctx in contexts:
-        if not is_package_init((path := written_path(ctx.module, treat_dot_as_module=treat_dot_as_module))[-1]):
+        if (path := _written_package_init(ctx, treat_dot_as_module=treat_dot_as_module)) is None:
             continue
         if ctx.models:
             bindings.append((path, ctx, tuple(model.class_name for model in ctx.models)))

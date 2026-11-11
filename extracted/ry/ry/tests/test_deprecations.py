@@ -37,50 +37,6 @@ class TestDeprecationWarningEg:
             self._deprecated_fn()
 
 
-_SECS_NANOS_EXPECTED = [
-    ((0, 0), 0),
-    ((1, 0), 1_000_000_000),
-    ((0, 1), 1),
-    ((1, 1), 1_000_000_001),
-    ((1, 500_000_000), 1_500_000_000),
-]
-
-
-class TestDurationIntDeprecation:
-    """
-    for some insane reason i decided to make `__int__` return nanoseconds...
-
-    probably bc I thought it was more pure/precise, but in practice it was
-    a huge pain in the ass so it has been deprecated for both `Duration` and
-    `SignedDuration`
-    """
-
-    @pytest.mark.parametrize(("secs_nanos", "expected"), _SECS_NANOS_EXPECTED)
-    def test_duration_int(self, secs_nanos: tuple[int, int], expected: int) -> None:
-        with pytest.warns(
-            DeprecationWarning,
-            match=_deprecation_message(
-                "Duration.__int__", "Duration.as_nanos", "v0.0.108"
-            ),
-        ):
-            assert int(ry.Duration(*secs_nanos)) == expected
-
-    @pytest.mark.parametrize(
-        ("secs_nanos", "expected"),
-        [*_SECS_NANOS_EXPECTED, ((-1, -500_000_000), -1_500_000_000)],
-    )
-    def test_signed_duration_int(
-        self, secs_nanos: tuple[int, int], expected: int
-    ) -> None:
-        with pytest.warns(
-            DeprecationWarning,
-            match=_deprecation_message(
-                "SignedDuration.__int__", "SignedDuration.as_nanos", "v0.0.108"
-            ),
-        ):
-            assert int(ry.SignedDuration(*secs_nanos)) == expected
-
-
 class TestGzipDeprecations:
     """`*_encode`/`*_decode` aliases -> `gzip_compress`/`gzip_decompress`"""
 
@@ -143,9 +99,13 @@ class TestBrotliDeprecations:
         with pytest.warns(DeprecationWarning, match=msg):
             assert getattr(ry, old)(self._DATA, quality=5) == expected
         with pytest.warns(DeprecationWarning, match=msg):
-            assert getattr(ry, old)(self._DATA, magic_number=True) == (
-                ry.brotli_compress(self._DATA, magic_number=True)
-            )
+            assert getattr(ry, old)(self._DATA) == expected
+
+    @pytest.mark.parametrize("old", ["brotli_encode", "brotli"])
+    @pytest.mark.parametrize("magic_number", [False, True])
+    def test_magic_number_removed(self, old: str, *, magic_number: bool) -> None:
+        with pytest.raises(TypeError, match="magic_number"):
+            getattr(ry, old)(self._DATA, magic_number=magic_number)
 
     def test_decompress_alias(self) -> None:
         compressed = ry.brotli_compress(self._DATA)
@@ -157,19 +117,17 @@ class TestBrotliDeprecations:
         ):
             assert ry.brotli_decode(compressed) == ry.brotli_decompress(compressed)  # type: ignore[deprecated]  # ty:ignore[deprecated]
 
-    def test_quality_value_error(self) -> None:
+    @pytest.mark.parametrize("old", ["brotli_encode", "brotli"])
+    @pytest.mark.parametrize("quality", [6, 11, 12])
+    def test_quality_value_error(self, old: str, quality: int) -> None:
         with (
             pytest.warns(
                 DeprecationWarning,
-                match=_deprecation_message(
-                    "brotli_encode", "brotli_compress", "v0.0.109"
-                ),
+                match=_deprecation_message(old, "brotli_compress", "v0.0.109"),
             ),
-            pytest.raises(
-                ValueError, match="Compression level must be an integer 0-11"
-            ),
+            pytest.raises(ValueError, match="Compression level must be an integer 0-5"),
         ):
-            ry.brotli_encode(b"data", quality=12)  # type: ignore[arg-type,deprecated]  # ty:ignore[invalid-argument-type, deprecated]
+            getattr(ry, old)(b"data", quality=quality)
 
 
 class TestBzip2Deprecations:

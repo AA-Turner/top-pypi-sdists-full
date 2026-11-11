@@ -9,6 +9,7 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::sync::LazyLock;
 
+use super::document_parser::ParserDefinition;
 use super::types::*;
 
 // Comprehensive link pattern that captures both inline and reference links
@@ -580,6 +581,178 @@ pub(super) struct LinkExclusions<'a> {
     pub mdx: Option<&'a super::mdx::MdxContext>,
 }
 
+/// Links, images and footnote references after context filtering.
+///
+/// `links` and `images` hold only constructs a CommonMark renderer turns into a
+/// link or image. A reference whose label has no definition renders as literal
+/// text, so it is kept apart in `unresolved_links` and `unresolved_images` for
+/// the few readers that need the candidates (the undefined-reference rule and
+/// the line-wrapping and fix-safety guards).
+pub(super) struct FinalizedLinks<'a> {
+    pub links: Vec<ParsedLink<'a>>,
+    pub images: Vec<ParsedImage<'a>>,
+    pub unresolved_links: Vec<ParsedLink<'a>>,
+    pub unresolved_images: Vec<ParsedImage<'a>>,
+    pub broken_links: Vec<BrokenLinkInfo>,
+    pub footnote_refs: Vec<FootnoteRef>,
+}
+
+/// Canonical form of a reference label: the stripped text with every whitespace
+/// run collapsed to one space (CommonMark 4.7). Case folding is left to the
+/// consumer, which compares with a Unicode case fold.
+fn collapse_label(label: &str) -> String {
+    label.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Offset of the label's opening bracket in the source of a full reference
+/// (`[text][label]`, with or without a leading `!`): the last `[` that is not
+/// backslash-escaped, since a label cannot contain an unescaped bracket.
+pub(crate) fn reference_label_start(source: &str) -> Option<usize> {
+    let mut open = None;
+    let mut chars = source.char_indices();
+    while let Some((i, c)) = chars.next() {
+        match c {
+            '\\' => {
+                chars.next();
+            }
+            '[' => open = Some(i),
+            _ => {}
+        }
+    }
+    open
+}
+
+pub(super) fn fold_label(label: &str) -> String {
+    unicase::UniCase::new(collapse_label(label)).to_folded_case()
+}
+
+/// Decides whether a reference label has a definition, the one test that
+/// separates a rendered reference link from literal bracket text.
+///
+/// The answer never depends on the destination: `[r]: <>` defines `r` with an
+/// empty URL and its references are links.
+struct ReferenceResolver<'c> {
+    content: &'c str,
+    lines: &'c [LineInfo],
+    html_comment_ranges: &'c [crate::utils::skip_context::ByteRange],
+    mdx: Option<&'c super::mdx::MdxContext>,
+    flavor: MarkdownFlavor,
+    /// Folded heading texts, read only for the Pandoc flavors, where a heading
+    /// is an implicit definition of the reference that carries its text.
+    heading_labels: std::cell::OnceCell<HashSet<String>>,
+    /// The parser's own definitions, built on first use. Construction runs the
+    /// parser's first pass, which collects every definition, so the lookup
+    /// applies its label normalisation and Unicode case fold and sees
+    /// multi-line definitions while ignoring `[r]: /x` in code and raw HTML.
+    parser: std::cell::OnceCell<pulldown_cmark::Parser<'c>>,
+    /// Folded labels defined where the parser cannot see them: inside a
+    /// `markdown="1"` element or a MkDocs container (and, for MDX, anywhere the
+    /// MDX reader finds a definition).
+    container_defs: std::cell::OnceCell<HashSet<String>>,
+}
+
+impl<'c> ReferenceResolver<'c> {
+    fn new(
+        content: &'c str,
+        lines: &'c [LineInfo],
+        html_comment_ranges: &'c [crate::utils::skip_context::ByteRange],
+        mdx: Option<&'c super::mdx::MdxContext>,
+        flavor: MarkdownFlavor,
+    ) -> Self {
+        Self {
+            content,
+            lines,
+            html_comment_ranges,
+            mdx,
+            flavor,
+            heading_labels: std::cell::OnceCell::new(),
+            parser: std::cell::OnceCell::new(),
+            container_defs: std::cell::OnceCell::new(),
+        }
+    }
+
+    fn container_defs(&self) -> &HashSet<String> {
+        self.container_defs.get_or_init(|| {
+            if let Some(mdx) = self.mdx {
+                return mdx
+                    .reference_defs(self.content)
+                    .iter()
+                    .map(|def| fold_label(&def.id))
+                    .collect();
+            }
+            // A MkDocs container indents its body, and the markdown renderer strips
+            // that indent before reading the definitions. Reading the container
+            // lines with their indent removed through the parser gives the same
+            // normalisation, titles and continuation lines as top-level text.
+            //
+            // Markdown renderers for these containers read a definition anywhere,
+            // even straight after a paragraph line, which the CommonMark parser
+            // does not, so single-line definitions are also matched line by line.
+            let mut body = String::new();
+            let mut defs = HashSet::new();
+            for line in self.lines.iter().filter(|line| {
+                line.in_mkdocs_container()
+                    && !line.in_code_block
+                    && !crate::utils::skip_context::is_in_html_comment_ranges(
+                        self.html_comment_ranges,
+                        line.byte_offset,
+                    )
+            }) {
+                let text = line.content(self.content).trim();
+                if let Some(id) = REF_DEF_PATTERN
+                    .captures(text)
+                    .and_then(|cap| cap.get(1))
+                    .map(|m| m.as_str())
+                    .filter(|id| !id.starts_with('^'))
+                {
+                    defs.insert(fold_label(id));
+                }
+                body.push_str(text);
+                body.push('\n');
+            }
+            if !body.is_empty() {
+                let parser = pulldown_cmark::Parser::new_ext(&body, rumdl_parser_options_for(&body));
+                defs.extend(
+                    parser
+                        .reference_definitions()
+                        .iter()
+                        .map(|(label, _)| fold_label(label)),
+                );
+            }
+            defs
+        })
+    }
+
+    /// `parser_reported_missing` is true for a label the parser's resolution
+    /// callback already rejected, which makes the parser lookup redundant.
+    fn is_defined(&self, label: &str, parser_reported_missing: bool) -> bool {
+        if self.container_defs().contains(&fold_label(label)) {
+            return true;
+        }
+        if self.flavor.is_pandoc_compatible()
+            && self
+                .heading_labels
+                .get_or_init(|| {
+                    self.lines
+                        .iter()
+                        .filter_map(|line| line.heading.as_ref())
+                        .map(|heading| fold_label(&heading.text))
+                        .collect()
+                })
+                .contains(&fold_label(label))
+        {
+            return true;
+        }
+        if parser_reported_missing || self.mdx.is_some() {
+            return false;
+        }
+        let parser = self
+            .parser
+            .get_or_init(|| pulldown_cmark::Parser::new_ext(self.content, rumdl_parser_options_for(self.content)));
+        parser.reference_definitions().get(&collapse_label(label)).is_some()
+    }
+}
+
 /// Phase B: Filter images by code_spans, run regex fallbacks, and sort results.
 /// Requires code_spans which are computed after heading detection.
 pub(super) fn finalize_links_and_images<'a>(
@@ -588,12 +761,7 @@ pub(super) fn finalize_links_and_images<'a>(
     flavor: MarkdownFlavor,
     exclusions: &LinkExclusions<'_>,
     mut result: ParsedLinks<'a>,
-) -> (
-    Vec<ParsedLink<'a>>,
-    Vec<ParsedImage<'a>>,
-    Vec<BrokenLinkInfo>,
-    Vec<FootnoteRef>,
-) {
+) -> FinalizedLinks<'a> {
     use crate::utils::skip_context::{is_in_html_comment_ranges, is_mkdocs_snippet_line};
 
     let mut positions = super::source_positions::SourcePositions::new(content, lines);
@@ -604,6 +772,10 @@ pub(super) fn finalize_links_and_images<'a>(
         html_comment_ranges,
         mdx,
     } = *exclusions;
+
+    let resolver = ReferenceResolver::new(content, lines, html_comment_ranges, mdx, flavor);
+    let mut unresolved_links: Vec<ParsedLink<'a>> = Vec::new();
+    let mut unresolved_images: Vec<ParsedImage<'a>> = Vec::new();
 
     // Filter out images that fall inside code spans (deferred from Phase A)
     result
@@ -654,11 +826,17 @@ pub(super) fn finalize_links_and_images<'a>(
             ""
         };
 
+        let defined = resolver.is_defined(&broken.reference, true);
         let is_reference = true;
         let reference_id = Some(Cow::Owned(broken.reference.to_lowercase()));
 
         if is_image {
-            result.images.push(ParsedImage {
+            (if defined {
+                &mut result.images
+            } else {
+                &mut unresolved_images
+            })
+            .push(ParsedImage {
                 line: line_num,
                 end_line: end_line_num,
                 start_col: col_start,
@@ -674,7 +852,12 @@ pub(super) fn finalize_links_and_images<'a>(
             });
             result.image_found_positions.insert(start_pos);
         } else {
-            result.links.push(ParsedLink {
+            (if defined {
+                &mut result.links
+            } else {
+                &mut unresolved_links
+            })
+            .push(ParsedLink {
                 line: line_num,
                 end_line: end_line_num,
                 start_col: col_start,
@@ -767,8 +950,14 @@ pub(super) fn finalize_links_and_images<'a>(
             } else {
                 Cow::Owned(ref_id_str.to_lowercase())
             };
+            let defined = resolver.is_defined(if ref_id_str.is_empty() { text } else { ref_id_str }, false);
 
-            result.links.push(ParsedLink {
+            (if defined {
+                &mut result.links
+            } else {
+                &mut unresolved_links
+            })
+            .push(ParsedLink {
                 line: line_num,
                 end_line: end_line_num,
                 start_col: col_start,
@@ -873,8 +1062,14 @@ pub(super) fn finalize_links_and_images<'a>(
             } else {
                 Cow::Owned(ref_id_str.to_lowercase())
             };
+            let defined = resolver.is_defined(if ref_id_str.is_empty() { alt_text } else { ref_id_str }, false);
 
-            result.images.push(ParsedImage {
+            (if defined {
+                &mut result.images
+            } else {
+                &mut unresolved_images
+            })
+            .push(ParsedImage {
                 line: line_num,
                 end_line: end_line_num,
                 start_col: col_start,
@@ -926,8 +1121,17 @@ pub(super) fn finalize_links_and_images<'a>(
     // Sort by line number so binary search consumers work correctly.
     result.links.sort_by_key(|l| (l.line, l.byte_offset));
     result.images.sort_by_key(|i| (i.line, i.byte_offset));
+    unresolved_links.sort_by_key(|l| (l.line, l.byte_offset));
+    unresolved_images.sort_by_key(|i| (i.line, i.byte_offset));
 
-    (result.links, result.images, result.broken_links, result.footnote_refs)
+    FinalizedLinks {
+        links: result.links,
+        images: result.images,
+        unresolved_links,
+        unresolved_images,
+        broken_links: result.broken_links,
+        footnote_refs: result.footnote_refs,
+    }
 }
 
 /// True iff the source span of an *inline* link/image carries an explicit
@@ -994,7 +1198,7 @@ pub(super) fn has_explicit_empty_title_ending(span: &str) -> bool {
 /// `with \"quote\"` to MD054/MD053, and a transformer that copies that string
 /// back into the document would either double-escape or leave the wrong
 /// character count.
-fn unescape_commonmark_punctuation(input: &str) -> String {
+pub(super) fn unescape_commonmark_punctuation(input: &str) -> String {
     if !input.contains('\\') {
         return input.to_string();
     }
@@ -1066,9 +1270,83 @@ fn utf8_char_len(first_byte: u8) -> usize {
     }
 }
 
-/// Parse reference definitions
-pub(super) fn parse_reference_defs(content: &str, lines: &[LineInfo]) -> Vec<ReferenceDef> {
+/// The destination of each definition the parser reads at `starts`, the
+/// offsets of `[` opening labels, or `None` where it reads none.
+///
+/// The parser lists only the first definition of a label, so each label at
+/// `starts` gets a prefix no other label in the document holds before the
+/// document is parsed again. A prefix of ASCII characters other than
+/// whitespace and brackets changes neither where a definition ends nor
+/// whether its label is valid, so the parser then reads exactly the
+/// definitions it read before and lists every one of them.
+fn parser_destinations_at(content: &str, starts: &[usize]) -> Vec<Option<String>> {
+    let longest_run = content.split(|c| c != '\x7f').map(str::len).max().unwrap_or(0);
+    let marker = "\x7f".repeat(longest_run + 1);
+    let mut relabeled = String::with_capacity(content.len() + starts.len() * (2 * marker.len() + 8));
+    let mut copied = 0;
+    for (index, &start) in starts.iter().enumerate() {
+        relabeled.push_str(&content[copied..=start]);
+        relabeled.push_str(&marker);
+        relabeled.push_str(&index.to_string());
+        relabeled.push_str(&marker);
+        copied = start + 1;
+    }
+    relabeled.push_str(&content[copied..]);
+
+    let mut destinations = vec![None; starts.len()];
+    let parser = pulldown_cmark::Parser::new_ext(&relabeled, rumdl_parser_options_for(content));
+    for (label, definition) in parser.reference_definitions().iter() {
+        let index = label
+            .strip_prefix(marker.as_str())
+            .and_then(|rest| rest.split_once(marker.as_str()))
+            .and_then(|(index, _)| index.parse::<usize>().ok());
+        if let Some(slot) = index.and_then(|index| destinations.get_mut(index)) {
+            *slot = Some(definition.dest.to_string());
+        }
+    }
+    destinations
+}
+
+/// The destination of the definition `text` opens with, as the parser reads
+/// it.
+fn definition_destination(text: &str) -> Option<String> {
+    let parser = pulldown_cmark::Parser::new_ext(text, rumdl_parser_options_for(text));
+    parser
+        .reference_definitions()
+        .iter()
+        .next()
+        .map(|(_, definition)| definition.dest.to_string())
+}
+
+/// The link reference definitions of a document: the lines written as one
+/// that the Markdown parser reads as one, plus those the flavor reads where
+/// the parser sees text.
+///
+/// A line shaped like a definition is text when it continues a paragraph, a
+/// list item or a definition list term, or sits in a code block, heading,
+/// table or HTML block. `parser_definitions`
+/// holds the parser's first definition of each label; a repeated label's
+/// definition is consumed by the parser without being listed there, so a
+/// line not found among them is a definition exactly when the parser reads
+/// one there once its label is unique. A line inside the title of another
+/// definition, or in any block that swallows it, is then text. MkDocs
+/// containers read definitions anywhere in their body, and
+/// a definition straight after a Pandoc div fence, a container's opening or
+/// closing marker, a kramdown block attribute list or extension block, or
+/// after another such definition, is one where the flavor ends the block
+/// before it.
+pub(super) fn parse_reference_defs(
+    content: &str,
+    lines: &[LineInfo],
+    flavor: MarkdownFlavor,
+    parser_definitions: &[ParserDefinition],
+) -> Vec<ReferenceDef> {
     let mut refs = Vec::with_capacity(lines.len() / 20);
+    // Definitions the parser does not list, with their label offsets, to be
+    // checked against the parser once every line is read.
+    let mut unlisted: Vec<(usize, usize)> = Vec::new();
+    // The last line of the latest definition the flavor alone reads.
+    let mut flavor_definition_end: Option<usize> = None;
 
     for (line_idx, line_info) in lines.iter().enumerate() {
         if line_info.in_code_block {
@@ -1156,10 +1434,47 @@ pub(super) fn parse_reference_defs(content: &str, lines: &[LineInfo]) -> Vec<Ref
                 }
             }
 
+            let label_start =
+                byte_offset + (match_obj.as_str().len() - match_obj.as_str().trim_start_matches(' ').len());
+            let destination =
+                match parser_definitions.binary_search_by_key(&label_start, |definition| definition.span.start) {
+                    Ok(index) => parser_definitions[index].dest.clone(),
+                    Err(_) => {
+                        let after_flavor_marker = line_idx
+                            .checked_sub(1)
+                            .and_then(|previous| lines.get(previous))
+                            .is_some_and(|previous| {
+                                previous.is_container_marker
+                                    || previous.is_kramdown_block_ial
+                                    || previous.in_kramdown_extension_block
+                                    || (flavor.is_pandoc_compatible() && previous.is_div_marker)
+                            });
+                        let read_by_flavor = line_info.in_mkdocs_container()
+                            || after_flavor_marker
+                            || flavor_definition_end.is_some_and(|end| end + 1 == line_idx);
+                        if read_by_flavor {
+                            let last_line = lines[line_idx..]
+                                .iter()
+                                .take_while(|line| line.byte_offset < byte_end)
+                                .count();
+                            flavor_definition_end = Some(line_idx + last_line.max(1) - 1);
+                            let first_line_end = content[label_start..]
+                                .find('\n')
+                                .map_or(content.len(), |end| label_start + end);
+                            definition_destination(&content[label_start..first_line_end]).unwrap_or_else(|| url.clone())
+                        } else {
+                            // Set once the parser has been asked about every such line.
+                            unlisted.push((refs.len(), label_start));
+                            String::new()
+                        }
+                    }
+                };
+
             refs.push(ReferenceDef {
                 line: line_num,
                 id,
                 url,
+                destination,
                 title,
                 byte_offset,
                 byte_end,
@@ -1169,5 +1484,83 @@ pub(super) fn parse_reference_defs(content: &str, lines: &[LineInfo]) -> Vec<Ref
         }
     }
 
+    if !unlisted.is_empty() {
+        let starts: Vec<usize> = unlisted.iter().map(|&(_, start)| start).collect();
+        let mut read = vec![true; refs.len()];
+        for (&(index, _), destination) in unlisted.iter().zip(parser_destinations_at(content, &starts)) {
+            match destination {
+                Some(destination) => refs[index].destination = destination,
+                None => read[index] = false,
+            }
+        }
+        let mut read = read.into_iter();
+        refs.retain(|_| read.next().unwrap_or(true));
+    }
+
     refs
+}
+
+/// A definition a link may resolve to, with its label folded for matching.
+pub(super) struct DefinitionCandidate {
+    pub(super) label: String,
+    pub(super) definition: ParserDefinition,
+}
+
+/// The definitions links may resolve to, in source order: those the Markdown
+/// parser reads, and those in `reference_defs` that only the flavor reads,
+/// where it starts a block the parser continues. A label can occur more than
+/// once; which occurrence a link resolves to depends on which of them are in
+/// the document body, so the choice is left to the reader of this list.
+pub(super) fn definition_candidates(
+    content: &str,
+    parser_definitions: Vec<ParserDefinition>,
+    reference_defs: &[ReferenceDef],
+) -> Vec<DefinitionCandidate> {
+    let parser_starts: HashSet<usize> = parser_definitions.iter().map(|d| d.span.start).collect();
+    let mut candidates: Vec<DefinitionCandidate> = parser_definitions
+        .into_iter()
+        .filter_map(|definition| {
+            Some(DefinitionCandidate {
+                label: fold_label(written_label(content, definition.span.start)?),
+                definition,
+            })
+        })
+        .collect();
+    for def in reference_defs {
+        let start = definition_label_start(content, def);
+        if parser_starts.contains(&start) {
+            continue;
+        }
+        candidates.push(DefinitionCandidate {
+            label: fold_label(&def.id),
+            definition: ParserDefinition {
+                span: start..def.byte_end,
+                dest: def.destination.clone(),
+            },
+        });
+    }
+    candidates.sort_by_key(|candidate| candidate.definition.span.start);
+    candidates
+}
+
+/// Byte offset of the `[` opening the label of `def`.
+pub(super) fn definition_label_start(content: &str, def: &ReferenceDef) -> usize {
+    let rest = &content[def.byte_offset..];
+    def.byte_offset + rest.len() - rest.trim_start_matches(' ').len()
+}
+
+/// The label of the definition whose `[` is at `start`, as written: up to
+/// the first unescaped `]`.
+fn written_label(content: &str, start: usize) -> Option<&str> {
+    let rest = content.get(start..)?.strip_prefix('[')?;
+    let mut escaped = false;
+    for (i, c) in rest.char_indices() {
+        match c {
+            _ if escaped => escaped = false,
+            '\\' => escaped = true,
+            ']' => return Some(&rest[..i]),
+            _ => {}
+        }
+    }
+    None
 }

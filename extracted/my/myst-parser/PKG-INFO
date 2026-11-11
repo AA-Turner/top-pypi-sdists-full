@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: myst-parser
-Version: 5.1.0
+Version: 5.2.0
 Summary: An extended [CommonMark](https://spec.commonmark.org/) compliant parser,
 Keywords: markdown,lexer,parser,development,docutils,sphinx
 Author-email: Chris Sewell <chrisj_sewell@hotmail.com>
@@ -21,10 +21,10 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup
 License-File: LICENSE
-Requires-Dist: docutils>=0.20,<0.23
+Requires-Dist: docutils>=0.20,<0.24
 Requires-Dist: jinja2
 Requires-Dist: markdown-it-py~=4.2
-Requires-Dist: mdit-py-plugins~=0.6,>=0.6.1
+Requires-Dist: mdit-py-plugins~=0.7
 Requires-Dist: pyyaml
 Requires-Dist: sphinx>=8,<10
 Requires-Dist: pre-commit~=4.0 ; extra == "code-style"
@@ -40,6 +40,7 @@ Requires-Dist: sphinx-pyscript ; extra == "rtd"
 Requires-Dist: sphinx-tippy>=0.4.3 ; extra == "rtd"
 Requires-Dist: sphinx-autodoc2~=0.5.0 ; extra == "rtd"
 Requires-Dist: sphinx-togglebutton ; extra == "rtd"
+Requires-Dist: sphinx-syntax-example~=0.2.0 ; extra == "rtd"
 Requires-Dist: beautifulsoup4 ; extra == "testing"
 Requires-Dist: coverage[toml] ; extra == "testing"
 Requires-Dist: defusedxml ; extra == "testing"
@@ -48,7 +49,7 @@ Requires-Dist: pytest-cov ; extra == "testing"
 Requires-Dist: pytest-regressions ; extra == "testing"
 Requires-Dist: pytest-param-files~=0.6.0 ; extra == "testing"
 Requires-Dist: sphinx-pytest~=0.3.0 ; extra == "testing"
-Requires-Dist: pygments<2.21 ; extra == "testing"
+Requires-Dist: pygments<2.22 ; extra == "testing"
 Requires-Dist: pygments ; extra == "testing-docutils"
 Requires-Dist: pytest>=9,<10 ; extra == "testing-docutils"
 Requires-Dist: pytest-param-files~=0.6.0 ; extra == "testing-docutils"
@@ -59,6 +60,7 @@ Provides-Extra: linkify
 Provides-Extra: rtd
 Provides-Extra: testing
 Provides-Extra: testing-docutils
+Import-Name: myst_parser
 
 # MyST-Parser
 

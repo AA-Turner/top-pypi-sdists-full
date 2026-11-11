@@ -29,11 +29,17 @@ use bashkit::{
     DirEntry as FsDirEntry, ExcType, ExecResult as RustExecResult, ExecutionExtensions,
     ExecutionLimits, ExtFunctionResult, FileSystem, FileSystemExt, FileType as FsFileType,
     FsLimits, InMemoryFs, Metadata as FsMetadata, MontyException, MontyObject, NetworkAllowlist,
-    OutputCallback as RustOutputCallback, OverlayFs, PosixFs, PythonExternalFnHandler,
+    ObjectRef, OutputCallback as RustOutputCallback, OverlayFs, PosixFs, PythonExternalFnHandler,
     PythonLimits, ReadOnlyFs, ShellStateView as RustShellStateView,
     SnapshotOptions as RustSnapshotOptions, Tool, ToolRequest, async_trait,
 };
 use bashkit_scripted_tool::{ScriptedTool as RustScriptedTool, ToolArgs, ToolDef};
+
+// Monty python3 and ZapCode ts charge each VM for its own allocations through this
+// allocator (see bashkit::MeteredAllocator). In a cdylib it only governs this
+// library's Rust allocations, never the host runtime's allocator.
+#[global_allocator]
+static METERED_ALLOC: bashkit::MeteredAllocator = bashkit::MeteredAllocator;
 
 /// Typed named execution-policy selector for Python constructors.
 #[pyclass(name = "ExecutionProfile", eq, eq_int, from_py_object)]
@@ -1621,7 +1627,7 @@ fn policy_from_py(policy: &str) -> PyResult<RustCheckoutPolicy> {
 }
 
 /// A commit plus the objects a host needs to persist.
-#[pyclass(name = "PackedCommit", module = "bashkit", skip_from_py_object)]
+#[pyclass(name = "PackedCommit", module = "bashkit")]
 #[derive(Clone)]
 pub struct PyPackedCommit {
     id: String,
@@ -1688,7 +1694,7 @@ impl PyPackedCommit {
 }
 
 /// What changed between two commits.
-#[pyclass(name = "SnapshotDiff", module = "bashkit", skip_from_py_object)]
+#[pyclass(name = "SnapshotDiff", module = "bashkit")]
 #[derive(Clone)]
 pub struct PySnapshotDiff {
     #[pyo3(get)]
@@ -1723,11 +1729,7 @@ impl PySnapshotDiff {
 }
 
 /// The environment that produced a commit.
-#[pyclass(
-    name = "CapabilityFingerprint",
-    module = "bashkit",
-    skip_from_py_object
-)]
+#[pyclass(name = "CapabilityFingerprint", module = "bashkit")]
 #[derive(Clone)]
 pub struct PyCapabilityFingerprint {
     #[pyo3(get)]
@@ -2389,7 +2391,7 @@ impl PyFileSystem {
 /// Transient fields like `last_exit_code` and `traps` reflect the captured
 /// snapshot, but the core interpreter clears them before each top-level
 /// `execute()` or `execute_sync()` call.
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 pub struct ShellState {
     env: HashMap<String, String>,
     variables: HashMap<String, String>,
@@ -2891,7 +2893,37 @@ fn py_exec_result_from_error(err: impl ToString) -> ExecResult {
 fn py_exec_result_from_bash_result(result: bashkit::Result<RustExecResult>) -> ExecResult {
     match result {
         Ok(result) => py_exec_result_from_rust(result),
+        Err(bashkit::Error::Cancelled) => {
+            // Programmatic Ctrl+C (`Bash.cancel()`): standard exit 130,
+            // matching the interactive SIGINT contract.
+            let mut result = py_exec_result_from_error(bashkit::Error::Cancelled);
+            result.exit_code = 130;
+            result
+        }
+        Err(err @ bashkit::Error::ResourceLimit(bashkit::LimitExceeded::Timeout(_))) => {
+            // Execution timeout, wherever enforced (adapter-level budget or
+            // outer exec enforcement): standard exit 124.
+            let mut result = py_exec_result_from_error(err);
+            result.exit_code = 124;
+            result
+        }
         Err(err) => py_exec_result_from_error(err),
+    }
+}
+
+/// Map an execution-budget interruption from a custom-builtin callback.
+///
+/// Timeouts surface as exit 124, matching the embedded-runtime precedent.
+/// Cancellation propagates as an error so the native cancelled flag (and its
+/// sticky-until-`clear_cancel` contract) is preserved; the binding maps it to
+/// exit 130.
+fn map_py_budget_error(err: bashkit::Error) -> bashkit::Result<RustExecResult> {
+    match err {
+        bashkit::Error::Cancelled => Err(bashkit::Error::Cancelled),
+        other @ bashkit::Error::ResourceLimit(bashkit::LimitExceeded::Timeout(_)) => {
+            Ok(RustExecResult::err(format!("{}\n", other), 124))
+        }
+        other => Err(other),
     }
 }
 
@@ -2979,7 +3011,7 @@ fn prepare_output_handler(
 /// `name`, `argv`, `stdin`, `env`, and `cwd` are snapshots of the shell state at
 /// invocation time; `fs` is a live handle to the interpreter's virtual
 /// filesystem.
-#[pyclass(name = "BuiltinContext", skip_from_py_object)]
+#[pyclass(name = "BuiltinContext")]
 struct PyBuiltinContext {
     #[pyo3(get)]
     name: String,
@@ -2993,6 +3025,9 @@ struct PyBuiltinContext {
     cwd: String,
     #[pyo3(get)]
     fs: Py<PyFileSystem>,
+    /// Live handle on the surrounding execution budget for
+    /// [`is_cancelled`](#) / [`throw_if_cancelled`](#).
+    budget: Option<bashkit::ExecutionCapability<bashkit::ExecutionBudget>>,
 }
 
 #[pymethods]
@@ -3002,6 +3037,28 @@ impl PyBuiltinContext {
             "BuiltinContext(name={:?}, argv={:?}, stdin={:?}, cwd={:?})",
             self.name, self.argv, self.stdin, self.cwd
         )
+    }
+
+    /// Whether the surrounding execution has been cancelled or timed out.
+    ///
+    /// Poll this in long-running callbacks so `Bash.cancel()`, caller
+    /// cancellation, and execution timeouts abort promptly instead of
+    /// hanging the shell.
+    fn is_cancelled(&self) -> bool {
+        self.budget
+            .as_ref()
+            .and_then(|budget| budget.try_with(|budget| budget.check().is_err()).ok())
+            .unwrap_or(false)
+    }
+
+    /// Raise `asyncio.CancelledError` if the surrounding execution has been
+    /// cancelled or timed out.
+    fn throw_if_cancelled(&self, py: Python<'_>) -> PyResult<()> {
+        if self.is_cancelled() {
+            let cancelled = py.import("asyncio")?.call_method0("CancelledError")?;
+            return Err(pyo3::PyErr::from_value(cancelled));
+        }
+        Ok(())
     }
 }
 
@@ -3024,6 +3081,7 @@ fn make_py_builtin_context(
             env: ctx.env.clone(),
             cwd: ctx.cwd.to_string_lossy().into_owned(),
             fs,
+            budget: ctx.execution_budget(),
         },
     )
     .map_err(|e| e.to_string())
@@ -4109,33 +4167,45 @@ impl Builtin for PyCustomBuiltinAdapter {
         let callback_result = match builtin_arg {
             Ok(builtin_arg) if self.is_async => match session {
                 Some(session) => match session.try_with(Clone::clone) {
-                    Ok(callback_session) => session
-                        .run(call_python_callback_async(
+                    Ok(callback_session) => {
+                        let callback = session.run(call_python_callback_async(
                             callback_session,
                             &self.name,
                             &self.callback,
                             vec![builtin_arg],
-                        ))
-                        .await
-                        .unwrap_or_else(|error| Err(format!("{}: {error}", self.name))),
+                        ));
+                        match ctx.run_budgeted(callback).await {
+                            Ok(outcome) => outcome
+                                .unwrap_or_else(|error| Err(format!("{}: {error}", self.name))),
+                            Err(budget_err) => return map_py_budget_error(budget_err),
+                        }
+                    }
                     Err(error) => Err(format!("{}: {error}", self.name)),
                 },
                 None => Err(format!("{}: missing Python callback session", self.name)),
             },
             Ok(builtin_arg) => match session {
-                Some(session) => session
-                    .try_with(|session| {
-                        Python::attach(|py| {
-                            call_python_callback_sync(
-                                py,
-                                session.as_ref(),
-                                &self.name,
-                                &self.callback,
-                                vec![builtin_arg],
-                            )
-                        })
-                    })
-                    .unwrap_or_else(|error| Err(format!("{}: {error}", self.name))),
+                Some(session) => {
+                    let call = async {
+                        session
+                            .try_with(|session| {
+                                Python::attach(|py| {
+                                    call_python_callback_sync(
+                                        py,
+                                        session.as_ref(),
+                                        &self.name,
+                                        &self.callback,
+                                        vec![builtin_arg],
+                                    )
+                                })
+                            })
+                            .unwrap_or_else(|error| Err(format!("{}: {error}", self.name)))
+                    };
+                    match ctx.run_budgeted(call).await {
+                        Ok(result) => result,
+                        Err(budget_err) => return map_py_budget_error(budget_err),
+                    }
+                }
                 None => Err(format!("{}: missing Python callback session", self.name)),
             },
             Err(err) => Err(err),
@@ -4143,10 +4213,25 @@ impl Builtin for PyCustomBuiltinAdapter {
 
         Ok(match callback_result {
             Ok(result) => {
-                Python::attach(|py| extract_custom_builtin_callback_result(py, &self.name, &result))
-                    .unwrap_or_else(|msg| RustExecResult::err(msg, 1))
+                let output = Python::attach(|py| {
+                    extract_custom_builtin_callback_result(py, &self.name, &result)
+                })
+                .unwrap_or_else(|msg| RustExecResult::err(msg, 1));
+                // Cancellation/timeout wins even when the callback resolves
+                // gracefully after observing `is_cancelled()`.
+                if let Err(budget_err) = ctx.run_budgeted(async {}).await {
+                    return map_py_budget_error(budget_err);
+                }
+                output
             }
-            Err(msg) => RustExecResult::err(msg, 1),
+            Err(msg) => {
+                // A callback that fails *because* the execution was cancelled
+                // or timed out reports the interruption, not a builtin failure.
+                if let Err(budget_err) = ctx.run_budgeted(async {}).await {
+                    return map_py_budget_error(budget_err);
+                }
+                RustExecResult::err(msg, 1)
+            }
         })
     }
 }
@@ -4742,6 +4827,30 @@ fn prepare_runtime_external_handler(
         .map(Some)
 }
 
+/// Embedded Python limits from the profile, with `timeout` as each run's cap.
+///
+/// Decision: `timeout_seconds` also sets the runtimes' own time limit, see
+/// knowledge/runtimes/python-package.md#embedded-tool-runtimes.
+fn python_limits(profile: &bashkit::ExecutionProfile, timeout: Option<Duration>) -> PythonLimits {
+    let limits = profile.python_limits().clone();
+    match timeout {
+        Some(timeout) => limits.max_duration(timeout),
+        None => limits,
+    }
+}
+
+/// Embedded TypeScript limits; see [`python_limits`].
+fn typescript_limits(
+    profile: &bashkit::ExecutionProfile,
+    timeout: Option<Duration>,
+) -> bashkit::TypeScriptLimits {
+    let limits = profile.typescript_limits().clone();
+    match timeout {
+        Some(timeout) => limits.max_duration(timeout),
+        None => limits,
+    }
+}
+
 /// Apply python/external_handler configuration to a `BashBuilder`.
 ///
 /// Centralises the logic shared between `new()` and `reset()`.
@@ -4950,6 +5059,10 @@ impl PyBash {
             }
         }
 
+        let timeout = self
+            .timeout_seconds
+            .map(parse_timeout_seconds)
+            .transpose()?;
         let mut limits = profile.execution_limits().clone();
         if let Some(max_commands) = self.max_commands {
             limits = limits.max_commands(usize::try_from(max_commands).unwrap_or(usize::MAX));
@@ -4958,8 +5071,8 @@ impl PyBash {
             limits = limits
                 .max_loop_iterations(usize::try_from(max_loop_iterations).unwrap_or(usize::MAX));
         }
-        if let Some(timeout_seconds) = self.timeout_seconds {
-            limits = limits.timeout(parse_timeout_seconds(timeout_seconds)?);
+        if let Some(timeout) = timeout {
+            limits = limits.timeout(timeout);
         }
         builder = builder.limits(limits);
 
@@ -4971,7 +5084,7 @@ impl PyBash {
         builder = apply_python_config(
             builder,
             self.python,
-            profile.python_limits().clone(),
+            python_limits(&profile, timeout),
             self.external_functions.clone(),
             handler_clone,
         );
@@ -5067,6 +5180,7 @@ impl PyBash {
             }
         }
 
+        let timeout = timeout_seconds.map(parse_timeout_seconds).transpose()?;
         let mut limits = core_profile.execution_limits().clone();
         if let Some(mc) = max_commands {
             limits = limits.max_commands(usize::try_from(mc).unwrap_or(usize::MAX));
@@ -5074,8 +5188,8 @@ impl PyBash {
         if let Some(mli) = max_loop_iterations {
             limits = limits.max_loop_iterations(usize::try_from(mli).unwrap_or(usize::MAX));
         }
-        if let Some(ts) = timeout_seconds {
-            limits = limits.timeout(parse_timeout_seconds(ts)?);
+        if let Some(timeout) = timeout {
+            limits = limits.timeout(timeout);
         }
         builder = builder.limits(limits);
 
@@ -5102,7 +5216,7 @@ impl PyBash {
         builder = apply_python_config(
             builder,
             python,
-            core_profile.python_limits().clone(),
+            python_limits(&core_profile, timeout),
             fn_names,
             handler_for_build,
         );
@@ -6106,26 +6220,32 @@ impl BashTool {
     fn build_live_builder(&self, py: Python<'_>) -> PyResult<bashkit::BashBuilder> {
         let profile = self.profile.core();
         let mut builder = Bash::builder().profile(profile.clone());
+        let timeout = self
+            .timeout_seconds
+            .map(parse_timeout_seconds)
+            .transpose()?;
         if self.python {
+            let limits = python_limits(&profile, timeout);
             if let Some(handler) = &self.external_handler {
                 builder = builder.python_with_external_handler(
-                    profile.python_limits().clone(),
+                    limits,
                     self.external_functions.clone(),
                     make_external_handler_native(py, handler),
                 );
             } else {
-                builder = builder.python();
+                builder = builder.python_with_limits(limits);
             }
         }
         if self.typescript {
+            let limits = typescript_limits(&profile, timeout);
             if let Some(handler) = &self.typescript_external_handler {
                 builder = builder.typescript_with_external_handler(
-                    profile.typescript_limits().clone(),
+                    limits,
                     self.typescript_external_functions.clone(),
                     make_typescript_external_handler_native(py, handler),
                 );
             } else {
-                builder = builder.typescript();
+                builder = builder.typescript_with_limits(limits);
             }
         }
 
@@ -6152,8 +6272,8 @@ impl BashTool {
             limits = limits
                 .max_loop_iterations(usize::try_from(max_loop_iterations).unwrap_or(usize::MAX));
         }
-        if let Some(timeout_seconds) = self.timeout_seconds {
-            limits = limits.timeout(parse_timeout_seconds(timeout_seconds)?);
+        if let Some(timeout) = timeout {
+            limits = limits.timeout(timeout);
         }
         builder = builder.limits(limits);
 
@@ -6288,6 +6408,7 @@ impl BashTool {
     ) -> PyResult<Self> {
         let core_profile = profile.core();
         let mut builder = Bash::builder().profile(core_profile.clone());
+        let timeout = timeout_seconds.map(parse_timeout_seconds).transpose()?;
         let fn_names = external_functions.unwrap_or_default();
         let external_handler_reentry_guard = ExternalHandlerReentryGuard::new(
             py,
@@ -6301,14 +6422,15 @@ impl BashTool {
             &external_handler_reentry_guard,
         )?;
         if python {
+            let limits = python_limits(&core_profile, timeout);
             if let Some(handler) = &external_handler {
                 builder = builder.python_with_external_handler(
-                    core_profile.python_limits().clone(),
+                    limits,
                     fn_names.clone(),
                     make_external_handler_native(py, handler),
                 );
             } else {
-                builder = builder.python();
+                builder = builder.python_with_limits(limits);
             }
         }
         let ts_fn_names = typescript_external_functions.unwrap_or_default();
@@ -6322,14 +6444,15 @@ impl BashTool {
             "typescript_external",
         )?;
         if typescript {
+            let limits = typescript_limits(&core_profile, timeout);
             if let Some(handler) = &typescript_external_handler {
                 builder = builder.typescript_with_external_handler(
-                    core_profile.typescript_limits().clone(),
+                    limits,
                     ts_fn_names.clone(),
                     make_typescript_external_handler_native(py, handler),
                 );
             } else {
-                builder = builder.typescript();
+                builder = builder.typescript_with_limits(limits);
             }
         }
 
@@ -6355,8 +6478,8 @@ impl BashTool {
         if let Some(mli) = max_loop_iterations {
             limits = limits.max_loop_iterations(usize::try_from(mli).unwrap_or(usize::MAX));
         }
-        if let Some(ts) = timeout_seconds {
-            limits = limits.timeout(parse_timeout_seconds(ts)?);
+        if let Some(timeout) = timeout {
+            limits = limits.timeout(timeout);
         }
         builder = builder.limits(limits);
 
@@ -7700,85 +7823,89 @@ fn _bashkit(m: &Bound<'_, PyModule>) -> PyResult<()> {
 // MontyObject <-> Python conversion helpers
 // ============================================================================
 
+/// Most graph nodes one Monty -> Python conversion may visit.
+///
+/// Security decision: Monty 1.x values are graphs that share sub-objects, so
+/// `x = [x, x]` thirty times is 31 nodes but 2^30 leaves once expanded into
+/// Python objects. The depth cap alone does not bound that; this does.
+const MAX_CONVERTED_NODES: usize = 1_000_000;
+
 fn monty_to_py(py: Python<'_>, obj: &MontyObject) -> PyResult<Py<PyAny>> {
-    monty_to_py_inner(py, obj, 0)
+    let mut visited = 0;
+    monty_to_py_inner(py, obj.as_ref(), 0, &mut visited)
 }
 
-fn monty_to_py_inner(py: Python<'_>, obj: &MontyObject, depth: usize) -> PyResult<Py<PyAny>> {
+fn monty_to_py_inner(
+    py: Python<'_>,
+    obj: ObjectRef<'_>,
+    depth: usize,
+    visited: &mut usize,
+) -> PyResult<Py<PyAny>> {
+    use bashkit::monty_unstable::{MontyNode, child, node};
     if depth > MAX_NESTING_DEPTH {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "MontyObject nesting depth exceeds maximum of 64",
         ));
     }
-    match obj {
-        MontyObject::None => Ok(py.None()),
-        MontyObject::Bool(b) => Ok(b.into_pyobject(py)?.to_owned().into_any().unbind()),
-        MontyObject::Int(i) => Ok(i.into_pyobject(py)?.into_any().unbind()),
+    *visited += 1;
+    if *visited > MAX_CONVERTED_NODES {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "MontyObject has too many elements to convert",
+        ));
+    }
+    let items = |ids: &[bashkit::monty_unstable::NodeId], visited: &mut usize| {
+        ids.iter()
+            .map(|id| monty_to_py_inner(py, child(obj, *id), depth + 1, visited))
+            .collect::<PyResult<Vec<_>>>()
+    };
+    match node(obj) {
+        MontyNode::None => Ok(py.None()),
+        MontyNode::Bool(b) => Ok(b.into_pyobject(py)?.to_owned().into_any().unbind()),
+        MontyNode::Int(i) => Ok(i.into_pyobject(py)?.into_any().unbind()),
         // BigInt: convert to Python int via its decimal string representation.
-        MontyObject::BigInt(b) => {
+        MontyNode::BigInt(b) => {
             let int_str = b.to_string();
             let py_int = py.import("builtins")?.getattr("int")?.call1((int_str,))?;
             Ok(py_int.into_any().unbind())
         }
-        MontyObject::Float(f) => Ok(f.into_pyobject(py)?.into_any().unbind()),
-        MontyObject::String(s) => Ok(s.into_pyobject(py)?.into_any().unbind()),
+        MontyNode::Float(f) => Ok(f.into_pyobject(py)?.into_any().unbind()),
+        MontyNode::String(s) => Ok(s.into_pyobject(py)?.into_any().unbind()),
         // Known limitation: Path becomes a plain Python str, not pathlib.Path.
-        MontyObject::Path(s) => Ok(s.into_pyobject(py)?.into_any().unbind()),
-        MontyObject::Bytes(b) => Ok(b.as_slice().into_pyobject(py)?.into_any().unbind()),
-        MontyObject::Tuple(items) => {
-            let py_items = items
-                .iter()
-                .map(|v| monty_to_py_inner(py, v, depth + 1))
-                .collect::<PyResult<Vec<_>>>()?;
-            Ok(PyTuple::new(py, &py_items)?.into_any().unbind())
-        }
-        MontyObject::List(items) => {
-            let py_items = items
-                .iter()
-                .map(|v| monty_to_py_inner(py, v, depth + 1))
-                .collect::<PyResult<Vec<_>>>()?;
-            Ok(PyList::new(py, &py_items)?.into_any().unbind())
-        }
-        MontyObject::Set(items) => {
-            let py_items = items
-                .iter()
-                .map(|v| monty_to_py_inner(py, v, depth + 1))
-                .collect::<PyResult<Vec<_>>>()?;
-            Ok(PySet::new(py, &py_items)?.into_any().unbind())
-        }
-        MontyObject::FrozenSet(items) => {
-            let py_items = items
-                .iter()
-                .map(|v| monty_to_py_inner(py, v, depth + 1))
-                .collect::<PyResult<Vec<_>>>()?;
-            Ok(PyFrozenSet::new(py, &py_items)?.into_any().unbind())
-        }
+        MontyNode::Path(s) => Ok(s.into_pyobject(py)?.into_any().unbind()),
+        MontyNode::Bytes(b) => Ok(b.as_slice().into_pyobject(py)?.into_any().unbind()),
+        MontyNode::Tuple(ids) => Ok(PyTuple::new(py, &items(ids, visited)?)?.into_any().unbind()),
+        MontyNode::List(ids) => Ok(PyList::new(py, &items(ids, visited)?)?.into_any().unbind()),
+        MontyNode::Set(ids) => Ok(PySet::new(py, &items(ids, visited)?)?.into_any().unbind()),
+        MontyNode::FrozenSet(ids) => Ok(PyFrozenSet::new(py, &items(ids, visited)?)?
+            .into_any()
+            .unbind()),
         // NamedTuple: convert to dict mapping field names to values, preserving field names.
-        MontyObject::NamedTuple {
+        MontyNode::NamedTuple {
             field_names,
             values,
             ..
         } => {
             let dict = PyDict::new(py);
             for (name, value) in field_names.iter().zip(values.iter()) {
-                dict.set_item(name, monty_to_py_inner(py, value, depth + 1)?)?;
+                dict.set_item(
+                    name,
+                    monty_to_py_inner(py, child(obj, *value), depth + 1, visited)?,
+                )?;
             }
             Ok(dict.into_any().unbind())
         }
-        MontyObject::Dict(dict_pairs) => {
+        MontyNode::Dict(pairs) => {
             let dict = PyDict::new(py);
-            // DictPairs only implements IntoIterator (consuming), so clone is required
-            // to iterate without moving out of the match guard.
-            for (k, v) in dict_pairs.clone() {
+            for (k, v) in pairs {
                 dict.set_item(
-                    monty_to_py_inner(py, &k, depth + 1)?,
-                    monty_to_py_inner(py, &v, depth + 1)?,
+                    monty_to_py_inner(py, child(obj, *k), depth + 1, visited)?,
+                    monty_to_py_inner(py, child(obj, *v), depth + 1, visited)?,
                 )?;
             }
             Ok(dict.into_any().unbind())
         }
         // All other variants (Exception, Type, Function, etc.) — repr as string.
-        other => Ok(other.py_repr().into_pyobject(py)?.into_any().unbind()),
+        _ => Ok(obj.py_repr().into_pyobject(py)?.into_any().unbind()),
     }
 }
 
@@ -7800,14 +7927,14 @@ fn py_to_monty_inner(
         ));
     }
     if obj.is_none() {
-        return Ok(MontyObject::None);
+        return Ok(MontyObject::none());
     }
     // bool must come before int — bool is a subtype of int in Python
     if let Ok(b) = obj.extract::<bool>() {
-        return Ok(MontyObject::Bool(b));
+        return Ok(MontyObject::bool(b));
     }
     if let Ok(i) = obj.extract::<i64>() {
-        return Ok(MontyObject::Int(i));
+        return Ok(MontyObject::int(i));
     }
     // Large Python int that overflows i64: convert via decimal string → BigInt.
     if obj.is_instance_of::<PyInt>() {
@@ -7815,37 +7942,37 @@ fn py_to_monty_inner(
         let b = s.parse::<num_bigint::BigInt>().map_err(|e| {
             PyValueError::new_err(format!("failed to parse Python int as BigInt: {e}"))
         })?;
-        return Ok(MontyObject::BigInt(b));
+        return Ok(MontyObject::bigint(b));
     }
     // Guard f64 with an isinstance check so large Python ints (which widen to f64)
     // are not incorrectly classified as floats.
     if obj.is_instance_of::<PyFloat>()
         && let Ok(f) = obj.extract::<f64>()
     {
-        return Ok(MontyObject::Float(f));
+        return Ok(MontyObject::float(f));
     }
     if let Ok(s) = obj.extract::<String>() {
-        return Ok(MontyObject::String(s));
+        return Ok(MontyObject::string(s));
     }
     // Guard bytes with isinstance to avoid ambiguity with str-like objects.
     if obj.is_instance_of::<PyBytes>()
         && let Ok(b) = obj.extract::<Vec<u8>>()
     {
-        return Ok(MontyObject::Bytes(b));
+        return Ok(MontyObject::bytes(b));
     }
     if let Ok(tuple) = obj.cast::<PyTuple>() {
         let items = tuple
             .iter()
             .map(|v| py_to_monty_inner(py, &v, depth + 1))
             .collect::<PyResult<Vec<_>>>()?;
-        return Ok(MontyObject::Tuple(items));
+        return Ok(MontyObject::tuple(items));
     }
     if let Ok(list) = obj.cast::<PyList>() {
         let items = list
             .iter()
             .map(|v| py_to_monty_inner(py, &v, depth + 1))
             .collect::<PyResult<Vec<_>>>()?;
-        return Ok(MontyObject::List(items));
+        return Ok(MontyObject::list(items));
     }
     if let Ok(dict) = obj.cast::<PyDict>() {
         let pairs: Vec<(MontyObject, MontyObject)> = dict
@@ -7864,15 +7991,15 @@ fn py_to_monty_inner(
             .iter()
             .map(|v| py_to_monty_inner(py, &v, depth + 1))
             .collect::<PyResult<Vec<_>>>()?;
-        return Ok(MontyObject::Set(items));
+        return Ok(MontyObject::set(items));
     }
     if let Ok(fset) = obj.cast::<PyFrozenSet>() {
         let items = fset
             .iter()
             .map(|v| py_to_monty_inner(py, &v, depth + 1))
             .collect::<PyResult<Vec<_>>>()?;
-        return Ok(MontyObject::FrozenSet(items));
+        return Ok(MontyObject::frozenset(items));
     }
     // Fallback: convert to string via __str__
-    Ok(MontyObject::String(obj.str()?.extract::<String>()?))
+    Ok(MontyObject::string(obj.str()?.extract::<String>()?))
 }

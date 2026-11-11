@@ -1,10 +1,10 @@
 """VISA communication interface for SCPI-based instrument remote control.
-:version: 1.131.0
+:version: 1.132.0
 :copyright: 2025 by Rohde & Schwarz GMBH & Co. KG
 :license: MIT, see LICENSE for more details.
 """
 
-__version__ = '1.131.0'
+__version__ = '1.132.0'
 
 # Main class
 # Exceptions

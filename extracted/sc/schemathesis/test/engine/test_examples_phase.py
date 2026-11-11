@@ -5,7 +5,6 @@ from collections.abc import Callable
 import hypothesis
 import hypothesis.errors
 import jsonschema_rs
-import pytest
 
 import schemathesis
 from schemathesis.core.errors import InvalidRegexPattern, InvalidRegexType, InvalidSchema, SerializationNotPossible
@@ -150,13 +149,11 @@ def test_examples_phase_translates_generation_exception(ctx):
 def test_examples_phase_drains_deduplicated_errors(ctx):
     schema = _example_schema(ctx)
 
-    with ctx.restore_hooks():
+    @schemathesis.hook
+    def before_call(context, case, **kwargs):
+        raise RuntimeError("kaboom")
 
-        @schemathesis.hook
-        def before_call(context, case, **kwargs):
-            raise RuntimeError("kaboom")
-
-        stream = examples_only(schema)
+    stream = examples_only(schema)
 
     errors = stream.find_all(events.NonFatalError, phase=PhaseName.EXAMPLES)
     assert any("kaboom" in str(event.value) for event in errors), [str(e.value) for e in errors]
@@ -295,7 +292,6 @@ def test_examples_phase_fill_missing_fallback_defers_unsatisfiable(ctx):
     assert any(event.status == Status.ERROR for event in finished), [event.status for event in finished]
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_examples_phase_fill_missing_does_not_draw_constants(ctx):
     @schemathesis.python.constants
     def source():
@@ -366,7 +362,7 @@ def test_examples_phase_runs_when_error_feedback_disabled(ctx, app_runner):
     stream = examples_only(schema)
 
     finished = stream.find_all(events.ScenarioFinished, phase=PhaseName.EXAMPLES)
-    assert all(event.status == Status.SUCCESS for event in finished), [event.status for event in finished]
+    assert [event.status for event in finished] == [Status.SUCCESS]
 
 
 def test_examples_phase_emits_missing_path_parameters_error(ctx):

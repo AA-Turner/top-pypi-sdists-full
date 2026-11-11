@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from functools import lru_cache, partial
+from functools import cached_property, lru_cache, partial
 from typing import Any, Self
 
 from camel_converter._version import VERSION
 
 __version__ = VERSION
+
+_CONTAINERS = (dict, list, tuple)
 
 
 class Converter:
@@ -20,7 +22,7 @@ class Converter:
             camel case.
 
         Examples
-            >>> from camel_converrter import Converter
+            >>> from camel_converter import Converter
             >>> class SomeClass(Converter):
             >>>     some_value = "some value"
             >>>
@@ -28,14 +30,17 @@ class Converter:
             >>>         self.another_value = "another value"
             >>>
             >>> example = SomeClass()
-            >>> print(example)
+            >>> print(example.to_camel())
 
             This will print `{"someValue": "some value", "anotherValue": "another value"}`
         """
         class_vars = {
             key: value
-            for key, value in self.__class__.__dict__.items()
-            if not key.startswith("_") and not callable(value)
+            for cls in reversed(type(self).__mro__)
+            for key, value in cls.__dict__.items()
+            if not key.startswith("_")
+            and not callable(value)
+            and not isinstance(value, (property, cached_property, classmethod, staticmethod))
         }
 
         return dict_to_camel({**class_vars, **self.__dict__})
@@ -51,10 +56,10 @@ class Converter:
             An instance of the class
 
         Examples
-            >>> from camel_converrter import Converter
+            >>> from camel_converter import Converter
             >>> class SomeClass(Converter):
             >>>     def __init__(self, some_value: str) -> None:
-            >>>         self.some_value = "some value"
+            >>>         self.some_value = some_value
             >>>
             >>> example = SomeClass.from_camel({"someValue": "some value"})
             >>> print(example.some_value)
@@ -102,7 +107,10 @@ def dict_to_snake(
     Raises:
         TypeError: If data is not a dict
     """
-    return _convert_dict(data, partial(to_snake, treat_digits_as_capitals=treat_digits_as_capitals))
+    convert_key = (
+        partial(to_snake, treat_digits_as_capitals=True) if treat_digits_as_capitals else to_snake
+    )
+    return _convert_dict(data, convert_key)
 
 
 def dict_to_pascal(data: dict[Any, Any]) -> dict[Any, Any]:
@@ -132,9 +140,9 @@ def to_camel(snake_string: str) -> str:
     Returns:
         The string in camel case format. For example myVariable.
     """
-    words = _split_snake(snake_string)
+    prefix, words, suffix = _split_snake(snake_string)
 
-    return words[0] + "".join(word.title() for word in words[1:])
+    return prefix + words[0] + "".join(word.title() for word in words[1:]) + suffix
 
 
 @lru_cache(maxsize=4096)
@@ -151,14 +159,14 @@ def to_snake(camel_string: str, *, treat_digits_as_capitals: bool = False) -> st
     Returns:
         The string in snake case format. For example my_variable.
     """
-
-    def check_character(c: str) -> str:
-        if c.isupper() or (treat_digits_as_capitals and c.isdigit()):
-            return f"_{c}"
-        else:
-            return c
-
-    return "".join(check_character(c) for c in camel_string).lstrip("_").lower()
+    return "".join(
+        f"_{c}"
+        if i > 0
+        and camel_string[i - 1] != "_"
+        and (c.isupper() or (treat_digits_as_capitals and c.isdigit()))
+        else c
+        for i, c in enumerate(camel_string)
+    ).lower()
 
 
 @lru_cache(maxsize=4096)
@@ -171,13 +179,16 @@ def to_pascal(snake_string: str) -> str:
     Returns:
         The string in pascal case format. For example MyVariable.
     """
-    words = _split_snake(snake_string)
+    prefix, words, suffix = _split_snake(snake_string)
 
-    return "".join(word.title() for word in words)
+    return prefix + "".join(word.title() for word in words) + suffix
 
 
-def _split_snake(snake_string: str) -> list[str]:
-    return snake_string.split("_")
+def _split_snake(snake_string: str) -> tuple[str, list[str], str]:
+    core = snake_string.strip("_")
+    prefix = snake_string[: len(snake_string) - len(snake_string.lstrip("_"))]
+    suffix = snake_string[len(prefix) + len(core) :]
+    return prefix, core.split("_"), suffix
 
 
 def _convert_dict(data: dict[Any, Any], convert_key: Callable[[str], str]) -> dict[Any, Any]:
@@ -190,14 +201,15 @@ def _convert_dict(data: dict[Any, Any], convert_key: Callable[[str], str]) -> di
 def _convert_value(value: Any, convert_key: Callable[[str], str]) -> Any:
     if isinstance(value, dict):
         return {
-            (convert_key(k) if isinstance(k, str) else k): _convert_value(v, convert_key)
+            (convert_key(k) if isinstance(k, str) else k): (
+                _convert_value(v, convert_key) if isinstance(v, _CONTAINERS) else v
+            )
             for k, v in value.items()
         }
 
     if isinstance(value, list):
-        return [_convert_value(v, convert_key) for v in value]
+        return [_convert_value(v, convert_key) if isinstance(v, _CONTAINERS) else v for v in value]
 
-    if isinstance(value, tuple):
-        return tuple([_convert_value(v, convert_key) for v in value])
-
-    return value
+    return tuple(
+        [_convert_value(v, convert_key) if isinstance(v, _CONTAINERS) else v for v in value]
+    )

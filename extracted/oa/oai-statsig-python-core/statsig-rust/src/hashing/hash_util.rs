@@ -50,6 +50,13 @@ impl Display for HashAlgorithm {
     }
 }
 
+/// Number of SHA-256 digest bits encoded in an ID-list key.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[non_exhaustive]
+pub enum IdListFingerprintWidth {
+    Bits48 = 48,
+}
+
 pub struct HashUtil {
     sha_hasher: MemoSha256,
 }
@@ -78,6 +85,17 @@ impl HashUtil {
 
     pub fn sha256(&self, input: &str) -> String {
         self.sha_hasher.hash_string(input)
+    }
+
+    /// Derive the lookup key for the list's fingerprint width.
+    pub fn id_list_key(&self, unit_id: &str, width: IdListFingerprintWidth) -> String {
+        match width {
+            IdListFingerprintWidth::Bits48 => {
+                let mut key = self.sha256(unit_id);
+                key.truncate(8);
+                key
+            }
+        }
     }
 
     pub fn sha256_to_u64(&self, input: &str) -> u64 {

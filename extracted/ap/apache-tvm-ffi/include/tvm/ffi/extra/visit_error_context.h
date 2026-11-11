@@ -25,16 +25,37 @@
 #define TVM_FFI_EXTRA_VISIT_ERROR_CONTEXT_H_
 
 #include <tvm/ffi/container/array.h>
-#include <tvm/ffi/container/list.h>
 #include <tvm/ffi/error.h>
 #include <tvm/ffi/extra/base.h>
+#include <tvm/ffi/function.h>
 #include <tvm/ffi/memory.h>
 #include <tvm/ffi/object.h>
 #include <tvm/ffi/optional.h>
 #include <tvm/ffi/reflection/access_path.h>
+#include <tvm/ffi/reflection/accessor.h>
 
 namespace tvm {
 namespace ffi {
+namespace type_attr {
+
+/*!
+ * \brief Enrich an escaping structural visit or mutation error at its root.
+ *
+ * Called once at the outer public structural-operation error boundary, after
+ * recursive traversal has collected VisitErrorContext breadcrumbs. Arguments
+ * are (error, root), where root is the original operation input. Hook lookup
+ * uses only the exact root dynamic type, without parent lookup. Recursive
+ * visitor and mutator methods only collect context; they do not invoke this hook.
+ *
+ * The hook returns the original or an enriched error. An absent or failing
+ * hook leaves the original error unchanged, as does an error without visit
+ * context. Successful enrichment should remove the visit context to avoid
+ * rendering it again at an enclosing boundary.
+ */
+inline constexpr reflection::AttrKey<TypedFunction<Error(Error, ObjectRef)>> kEnrichVisitError{
+    "__ffi_enrich_visit_error__"};
+
+}  // namespace type_attr
 
 /*!
  * \brief Object class for VisitErrorContext.
@@ -47,7 +68,7 @@ class VisitErrorContextObj : public Object {
    * \brief Visit records that get populated, which include the object visit
    *        path pattern in innermost-first order. Best-effort — not exhaustive.
    */
-  List<ObjectRef> reverse_visit_pattern;
+  Array<ObjectRef> reverse_visit_pattern;
 
   /*!
    * \brief Pre-existing Error::extra_context payload before we placed the
@@ -56,7 +77,6 @@ class VisitErrorContextObj : public Object {
   Optional<ObjectRef> prev_error_context;
 
   /// \cond Doxygen_Suppress
-  static constexpr bool _type_mutable = true;
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindUnsupported;
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("ffi.VisitErrorContext", VisitErrorContextObj, Object);
   /// \endcond
@@ -99,6 +119,36 @@ class VisitErrorContext : public ObjectRef {
       return extra_context->as<VisitErrorContext>();
     }
     return std::nullopt;
+  }
+
+  /*!
+   * \brief Invoke the exact root type's visit-error enrichment hook.
+   *
+   * Public structural operations call this once at their outer error boundary,
+   * after recursive traversal has accumulated VisitErrorContext breadcrumbs,
+   * with the original operation input as root. Recursive visitor and mutator
+   * methods collect context without calling this helper.
+   *
+   * Only errors carrying VisitErrorContext and defined object roots participate.
+   * Lookup uses only the exact root dynamic type's attribute entry. An absent
+   * or failing hook leaves the original error unchanged. The borrowed
+   * root avoids changing successful mutation ownership semantics.
+   */
+  TVM_FFI_COLD_CODE
+  static Error EnrichVisitError(Error error, const ObjectRef& root) noexcept {
+    if (!root.defined() || !VisitErrorContext::TryGetFromError(error)) {
+      return error;
+    }
+    // Diagnostics must not replace the original failure if the hook itself fails.
+    try {
+      static reflection::TypeAttrColumn column(type_attr::kEnrichVisitError);
+      if (auto hook = type_attr::kEnrichVisitError.ValueFrom(column[root->type_index()])) {
+        return (*hook)(error, root);
+      }
+    } catch (...) {
+      return error;
+    }
+    return error;
   }
 
   /*! \brief Find all access paths that match the pattern specified in the
@@ -152,11 +202,11 @@ class VisitErrorContext : public ObjectRef {
  * \param node The ObjectRef at the current visit level (appended to the
  *             error context's reverse_visit_pattern on exception).
  */
-#define TVM_FFI_VISIT_END(node)                                               \
-  }                                                                           \
-  catch (::tvm::ffi::Error & _tvm_ffi_visit_err_) {                           \
-    ::tvm::ffi::detail::UpdateVisitErrorContext(_tvm_ffi_visit_err_, (node)); \
-    throw;                                                                    \
+#define TVM_FFI_VISIT_END(node)                                                \
+  }                                                                            \
+  catch (::tvm::ffi::Error & _tvm_ffi_visit_err_) {                            \
+    ::tvm::ffi::detail::UpdateVisitErrorContext(&_tvm_ffi_visit_err_, (node)); \
+    throw;                                                                     \
   }
 
 /*!
@@ -168,11 +218,11 @@ class VisitErrorContext : public ObjectRef {
  * \param node The current visit value. Object-backed values are appended to the
  *             error context's reverse_visit_pattern on exception.
  */
-#define TVM_FFI_VISIT_END_RETURN_EXPECTED(node)                               \
-  }                                                                           \
-  catch (::tvm::ffi::Error & _tvm_ffi_visit_err_) {                           \
-    ::tvm::ffi::detail::UpdateVisitErrorContext(_tvm_ffi_visit_err_, (node)); \
-    return ::tvm::ffi::Unexpected(_tvm_ffi_visit_err_);                       \
+#define TVM_FFI_VISIT_END_RETURN_EXPECTED(node)                                \
+  }                                                                            \
+  catch (::tvm::ffi::Error & _tvm_ffi_visit_err_) {                            \
+    ::tvm::ffi::detail::UpdateVisitErrorContext(&_tvm_ffi_visit_err_, (node)); \
+    return ::tvm::ffi::Unexpected(_tvm_ffi_visit_err_);                        \
   }
 
 /*!
@@ -230,7 +280,7 @@ namespace detail {
 TVM_FFI_COLD_CODE
 inline VisitErrorContext MakeVisitErrorContext(const ObjectRef& node) {
   ObjectPtr<VisitErrorContextObj> obj = make_object<VisitErrorContextObj>();
-  obj->reverse_visit_pattern = List<ObjectRef>{node};
+  obj->reverse_visit_pattern = Array<ObjectRef>{node};
   return VisitErrorContext(std::move(obj));
 }
 
@@ -239,28 +289,43 @@ inline VisitErrorContext MakeVisitErrorContext(const ObjectRef& node) {
  *        Calling convention may change; do not call directly from user code.
  */
 TVM_FFI_COLD_CODE
-inline void UpdateVisitErrorContext(Error& err, const ObjectRef& node) {  // NOLINT(*)
-  // NOTE: This function mutates the ErrorObj in place via ObjectUnsafe.
-  // Expected to run only inside the exception throw chain, where the Error
-  // is single-owned by this thread. The tradeoff avoids reallocating a
-  // fresh Error per catch frame; the immutability invariant returns once
-  // the unwind window closes.
-  std::optional<ObjectRef> extra_context = err.extra_context();
-  if (extra_context) {
-    Optional<VisitErrorContext> visit_context = extra_context->as<VisitErrorContext>();
-    if (visit_context) {
-      visit_context.value()->reverse_visit_pattern.push_back(node);
-      return;
+inline void UpdateVisitErrorContext(Error* err, const ObjectRef& node) {  // NOLINT(*)
+  // Callback, policy and default descent can report the same frame.
+  const Object* current = static_cast<const Object*>(
+      static_cast<ErrorObj*>(detail::ObjectUnsafe::RawObjectPtrFromObjectRef(*err))->extra_context);
+  if (current != nullptr && current->IsInstance<VisitErrorContextObj>()) {
+    const Array<ObjectRef>& pattern =
+        static_cast<const VisitErrorContextObj*>(current)->reverse_visit_pattern;
+    if (!pattern.empty() && pattern.back().same_as(node)) return;
+  }
+  // Copy-on-write at each level: the Error is replaced by a shallow copy when shared, and its
+  // VisitErrorContext likewise. Each level is borrowed through its parent's field, so an Error
+  // owned only by the unwinding frame is updated in place.
+  if (!err->unique()) {
+    *err = Error(err->kind(), err->message(), err->backtrace(), err->cause_chain(),
+                 err->extra_context());
+  }
+  ErrorObj* error_obj =
+      static_cast<ErrorObj*>(detail::ObjectUnsafe::RawObjectPtrFromObjectRef(*err));
+  Object* extra_context = static_cast<Object*>(error_obj->extra_context);
+  if (extra_context != nullptr && extra_context->IsInstance<VisitErrorContextObj>()) {
+    VisitErrorContextObj* visit_context = static_cast<VisitErrorContextObj*>(extra_context);
+    if (!visit_context->unique()) {
+      ObjectPtr<VisitErrorContextObj> copy = make_object<VisitErrorContextObj>(*visit_context);
+      visit_context = copy.get();
+      detail::ObjectUnsafe::DecRefObjectHandle(error_obj->extra_context);
+      error_obj->extra_context =
+          detail::ObjectUnsafe::MoveObjectPtrToTVMFFIObjectPtr(std::move(copy));
     }
+    visit_context->reverse_visit_pattern.push_back(node);
+    return;
   }
   // Build a fresh VisitErrorContext, preserving any pre-existing payload.
   ObjectPtr<VisitErrorContextObj> new_context = make_object<VisitErrorContextObj>();
-  new_context->reverse_visit_pattern = List<ObjectRef>{node};
-  if (extra_context) new_context->prev_error_context = *extra_context;
-
-  ErrorObj* error_obj =
-      static_cast<ErrorObj*>(detail::ObjectUnsafe::RawObjectPtrFromObjectRef(err));
-  if (error_obj->extra_context != nullptr) {
+  new_context->reverse_visit_pattern = Array<ObjectRef>{node};
+  if (extra_context != nullptr) {
+    new_context->prev_error_context = detail::ObjectUnsafe::ObjectRefFromObjectPtr<ObjectRef>(
+        detail::ObjectUnsafe::ObjectPtrFromUnowned<Object>(extra_context));
     detail::ObjectUnsafe::DecRefObjectHandle(error_obj->extra_context);
   }
   error_obj->extra_context =
@@ -271,17 +336,19 @@ inline void UpdateVisitErrorContext(Error& err, const ObjectRef& node) {  // NOL
  * \brief Name \p node in a raw failed result's visit error context.
  *
  * The overload the visit and mutate engines use at a hook boundary: hooks propagate errors
- * untouched, and the engine, which knows the node it dispatched on, adds that frame. The Error
- * is refcounted, so annotating this handle annotates the object \p result carries.
+ * untouched, and the engine, which knows the node it dispatched on, adds that frame.
  *
  * \param result A raw result already known to hold an Error.
  * \param node The node to name; a non-object node has no frame to add.
  */
-TVM_FFI_COLD_CODE inline void UpdateVisitErrorContext(const TVMFFIAny& result,
-                                                      AnyView node) noexcept {
+TVM_FFI_COLD_CODE inline void UpdateVisitErrorContext(TVMFFIAny* result, AnyView node) noexcept {
   if (node.type_index() >= TypeIndex::kTVMFFIStaticObjectBegin) {
-    Error err = AnyView::CopyFromTVMFFIAny(result).cast<Error>();
-    UpdateVisitErrorContext(err, node.cast<ObjectRef>());
+    // Take the Error out of the result and store it back, so one owned only by the result is
+    // updated in place.
+    Error err = detail::ObjectUnsafe::ObjectRefFromObjectPtr<Error>(
+        detail::ObjectUnsafe::ObjectPtrFromOwned<Object>(result->v_obj));
+    UpdateVisitErrorContext(&err, node.cast<ObjectRef>());
+    result->v_obj = detail::ObjectUnsafe::MoveObjectRefToTVMFFIObjectPtr(std::move(err));
   }
 }
 
@@ -294,15 +361,28 @@ TVM_FFI_COLD_CODE inline void UpdateVisitErrorContext(const TVMFFIAny& result,
  * `noexcept`, so an unguarded cast would terminate rather than propagate; skipping the frame is
  * correct because a non-object node has no identity to name in the context.
  *
- * \param err The Error to annotate. Refcounted, so annotating this handle annotates the shared
- *            object the caller's result carries.
+ * \param err The Error to annotate; replaced by an annotated copy when shared.
  * \param node The node to name; skipped when it is not object-backed.
  */
-TVM_FFI_COLD_CODE inline void UpdateVisitErrorContext(Error& err,
+TVM_FFI_COLD_CODE inline void UpdateVisitErrorContext(Error* err,
                                                       AnyView node) noexcept {  // NOLINT(*)
   if (node.type_index() >= TypeIndex::kTVMFFIStaticObjectBegin) {
     UpdateVisitErrorContext(err, node.cast<ObjectRef>());
   }
+}
+
+/*!
+ * \brief Name \p node in a failed Expected result's visit error context.
+ *
+ * \param result A result already known to hold an Error.
+ * \param node The node to name; skipped when it is not object-backed.
+ */
+template <typename T>
+TVM_FFI_COLD_CODE inline void UpdateVisitErrorContext(Expected<T>* result, AnyView node) noexcept {
+  // Move the Error out and back, so one owned only by the result is updated in place.
+  Error err = std::move(*result).error();
+  UpdateVisitErrorContext(&err, node);
+  *result = Unexpected<Error>(std::move(err));
 }
 }  // namespace detail
 

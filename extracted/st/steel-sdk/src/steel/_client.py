@@ -124,6 +124,8 @@ class Steel(SyncAPIClient):
             _strict_response_validation=_strict_response_validation,
         )
 
+        self._idempotency_header = "Idempotency-Key"
+
     @cached_property
     def api_keys(self) -> APIKeysResource:
         """Create project-scoped API keys using an organization-scoped API key."""
@@ -522,6 +524,8 @@ class AsyncSteel(AsyncAPIClient):
             custom_query=default_query,
             _strict_response_validation=_strict_response_validation,
         )
+
+        self._idempotency_header = "Idempotency-Key"
 
     @cached_property
     def api_keys(self) -> AsyncAPIKeysResource:

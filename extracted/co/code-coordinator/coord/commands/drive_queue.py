@@ -3187,7 +3187,15 @@ def drive_queue_diagnose(output_json: bool, dry_run: bool, config_path: Path) ->
     "--dry-run",
     is_flag=True,
     default=False,
-    help="Classify and print, but dispatch nothing and persist no convergence state.",
+    help=(
+        "Classify and print; dispatch no auto-action/mechanical fix and "
+        "persist/write/alert nothing. EXCEPTION (#3945): a `merged-partial` "
+        "row still dispatches its own read-only `claude -p` plan leg (up to "
+        "PLAN_LEG_TIMEOUT_SECONDS=20min) to render what it would propose — "
+        "that leg edits nothing in the target repo, but it IS a real "
+        "dispatch occupying a machine slot, unlike every other `--dry-run` "
+        "path in this command."
+    ),
 )
 @click.option(
     "--no-investigate",
@@ -3200,9 +3208,23 @@ def drive_queue_diagnose(output_json: bool, dry_run: bool, config_path: Path) ->
         "(C2/C3 allowlist) and alert (C4) tiers are unaffected."
     ),
 )
+@click.option(
+    "--no-followthrough",
+    is_flag=True,
+    default=False,
+    help=(
+        "Disarm `merged-partial` follow-through fleet-wide for this "
+        "sweep, regardless of any repo's own opt-in (#3945) — same kind "
+        "of invocation-scoped kill switch `--no-investigate` is for the "
+        "C1 tier. Every other row/tier is unaffected. Same effect as "
+        "setting COORD_BOARD_DOCTOR_NO_FOLLOWTHROUGH for just this "
+        "invocation."
+    ),
+)
 @_CONFIG_OPTION
 def drive_queue_sweep(
-    output_json: bool, dry_run: bool, no_investigate: bool, config_path: Path,
+    output_json: bool, dry_run: bool, no_investigate: bool, no_followthrough: bool,
+    config_path: Path,
 ) -> None:
     """Board-doctor sweep: classify every stuck row, dispatch, record (#3758).
 
@@ -3250,8 +3272,14 @@ def drive_queue_sweep(
     (`coord.state.BOARD_DOCTOR_BACKOFF_INITIAL_HOURS` doubling each firing
     up to `BOARD_DOCTOR_BACKOFF_CAP_HOURS`) rather than alerting once and
     then being ignored forever. `--dry-run` classifies and prints but
-    mutates no convergence counter and dispatches nothing — a sweep run
-    right after a dry run sees exactly what the dry run saw.
+    mutates no convergence counter and dispatches no auto-action/mechanical
+    fix — a sweep run right after a dry run sees exactly what the dry run
+    saw for those rows. The one exception (#3945): a `merged-partial` row
+    still dispatches its own read-only plan leg under `--dry-run` (it edits
+    nothing in the target repo, but it IS a real `claude -p` leg occupying
+    a machine slot for up to 20 minutes) so the rendered plan can be
+    printed; writing the follow-ups/closing the issue is what `--dry-run`
+    actually suppresses for that row.
 
     Meant to run on a schedule (`coord/deploy/coord-board-doctor.timer`,
     shipped disabled by default) as well as by hand; same `is_remote()`
@@ -3268,6 +3296,13 @@ def drive_queue_sweep(
     `coordinator.yml` would for every future sweep — the mechanical and
     alert tiers keep running either way.
 
+    `merged-partial` rows are resolved by a separate pass alongside the
+    tier loop above, never through it (see `run_sweep`'s docstring).
+    `--no-followthrough` disarms that pass fleet-wide for this invocation
+    regardless of any repo's own `repos[].board_doctor.followthrough`
+    opt-in — the same kind of kill switch `--no-investigate` is for the
+    C1 tier.
+
     There is no `--no-finish` here: the finisher tier (Trigger A,
     #3835/#3837) fires off `coord.auto_loop.process_review_completion` at
     review-completion time, never from this sweep's own dispatch loop, so a
@@ -3275,7 +3310,7 @@ def drive_queue_sweep(
     `coord fix <REVIEW_ID> --no-finish` instead — that IS the call site
     where Trigger A fires.
     """
-    from coord import board_doctor, board_doctor_policy  # noqa: PLC0415
+    from coord import board_doctor, board_doctor_followthrough, board_doctor_policy  # noqa: PLC0415
     from coord.board_service import is_remote  # noqa: PLC0415
     from coord.commands._common import _load_config  # noqa: PLC0415
 
@@ -3303,6 +3338,7 @@ def drive_queue_sweep(
             alert_dispatcher=board_doctor_policy.escalation_alert_dispatcher,
             dry_run=dry_run,
             escalation_resolver=board_doctor_policy.dismiss_resolved_escalation,
+            followthrough=not no_followthrough,
         )
     finally:
         # Restore rather than blindly delete: a caller already running with
@@ -3337,12 +3373,23 @@ def drive_queue_sweep(
                         }
                         for d in report.decisions
                     ],
+                    "followthrough": [
+                        {
+                            "repo": f.repo_name,
+                            "issue": f.issue_number,
+                            "action": f.action,
+                            "follow_ups": list(f.follow_ups),
+                            "reasons": list(f.reasons),
+                            "rendered_plan": f.rendered_plan,
+                        }
+                        for f in report.followthrough
+                    ],
                 }
             )
         )
         return
 
-    if not report.decisions:
+    if not report.decisions and not report.followthrough:
         click.echo(
             "nothing stuck: no drive-queue, merge-queue, or baseline-red row "
             "was observed"
@@ -3354,8 +3401,34 @@ def drive_queue_sweep(
             f"{d.queue}:{d.key} cause={d.cause} tier={d.tier} "
             f"action={d.action} count={d.count}{escalated}"
         )
+    # #3945: `merged-partial` follow-through runs its own plan-leg/write
+    # pipeline outside the tier loop above (see `run_sweep`'s docstring),
+    # so it is reported separately rather than as a `Decision` row.
+    # `--dry-run` prints exactly `render_plan()`'s rendering of what the
+    # plan leg proposed — the #3864 acceptance item this closes — and
+    # writes nothing, same guarantee the rest of this command gives.
+    for f in report.followthrough:
+        click.echo(f"\ndrive-queue:{f.repo_name}#{f.issue_number} merged-partial follow-through:")
+        click.echo(f"  action={f.action}")
+        if f.rendered_plan:
+            for line in f.rendered_plan.splitlines():
+                click.echo(f"  {line}")
+        if f.action == board_doctor_followthrough.ACTION_FILED and f.follow_ups:
+            click.echo(
+                "  filed: " + ", ".join(f"#{n}" for n in f.follow_ups)
+            )
+        for reason in f.reasons:
+            click.echo(f"  reason: {reason}")
     if dry_run:
-        click.echo("--dry-run: nothing was dispatched and no convergence state was persisted")
+        if report.followthrough:
+            click.echo(
+                "--dry-run: no auto-action/mechanical fix was dispatched and no "
+                "convergence state was persisted; the merged-partial row(s) above "
+                "still dispatched a real, read-only plan leg to render their plan "
+                "— nothing was written to GitHub"
+            )
+        else:
+            click.echo("--dry-run: nothing was dispatched and no convergence state was persisted")
     else:
         click.echo(
             f"{report.rows_observed} row(s) observed and decided — read the log later with "
@@ -5766,6 +5839,72 @@ def _fetch_gate_a_pending(entries: list) -> dict[str, bool]:
         # contract-SHA freshness check) on that relaunch, so this predicate
         # deliberately does not duplicate it.
         pending[e.key] = cache[key] == parked_fingerprint
+    return pending
+
+
+def _fetch_size_triage_pending(entries: list) -> dict[str, bool]:
+    """``{entry_key: still_waiting_on_the_triage_leg}`` for every entry
+    parked on `coord.dispatch.enforce_preflight_guard`'s size-triage-pending
+    refusal (#3971, `coord.decomposition_chat.SIZE_TRIAGE_PENDING_MARKER`).
+
+    Re-derives the SAME evidence `enforce_preflight_guard` itself consults
+    on its next real invocation — a matching `review_target` row's own
+    `status` column (#2096: one question, one answer) — rather than a
+    second, independent notion of "is the triage done". Board read only, no
+    `gh` call, and no work at all on a tick where nothing is parked this
+    way (the common case).
+
+    Reads the raw ``assignments`` rows out of :func:`_fetch_board_payload`
+    rather than `coord.state.build_board`, for the #615 reason every other
+    reader in this module routes: that fetch answers from the daemon's
+    ``GET /board`` when ``board_service`` is configured and from the local
+    DB only when it is not, so a thin client sees the real rows instead of
+    an empty board. `BoardView` cannot answer this one — it reduces the
+    board to per-issue facts and carries no ``review_target`` at all — and
+    the triage row is keyed by ``review_target``, not by its issue.
+
+    Fails **closed**, same posture as :func:`_fetch_gate_a_pending`: an
+    entry whose triage status can't be confirmed stays parked. Being wrong
+    that way costs a parked row an operator can see and release; being
+    wrong the other way resumes Work dispatch while a paid triage session
+    might still be about to propose splitting this issue into pieces no
+    single worker should touch at once. A board the fetch CAN read that
+    simply carries no row for this ``review_target`` is a different
+    answer, not an unreadable one — nothing is in flight, so the entry
+    resumes and the relaunch's own guard call re-derives the verdict.
+    """
+    from coord.decomposition_chat import (  # noqa: PLC0415
+        is_size_triage_pending_reason,
+        size_triage_review_target_for,
+    )
+    from coord.drive_state import TERMINAL_STATUSES  # noqa: PLC0415
+
+    targets = [
+        e for e in entries
+        if e.state == STATE_PARKED
+        and is_size_triage_pending_reason(getattr(e, "last_reason", "") or "")
+    ]
+    if not targets:
+        return {}
+
+    try:
+        payload = _fetch_board_payload()
+    except Exception:  # noqa: BLE001 — fail closed, stay parked
+        return {e.key: True for e in targets}
+
+    rows = payload.get("assignments") or []
+    pending: dict[str, bool] = {}
+    for e in targets:
+        review_target = size_triage_review_target_for(e.issue)
+        matches = [
+            r for r in rows
+            if (r.get("review_target") or "") == review_target
+            and (r.get("repo_name") or "") == e.repo
+        ]
+        pending[e.key] = any(
+            str(r.get("status") or "").lower() not in TERMINAL_STATUSES
+            for r in matches
+        )
     return pending
 
 
@@ -8436,6 +8575,13 @@ def drive_queue_tick(
         # tick when no entry is parked that way — which is the common case.
         gate_a_pending = _fetch_gate_a_pending(entries)
 
+        # #3971: the same live re-read, for every entry parked on a size-
+        # triage review still in flight — see `_fetch_size_triage_pending`'s
+        # docstring for the incident this closes (a flagged issue's
+        # drive-queue row, and every `after=` dependent behind it, stuck
+        # `blocked` even after the triage leg posted `proceed`).
+        size_triage_pending = _fetch_size_triage_pending(entries)
+
         # #2182: for every entry parked on a CI reason, a fresh single-entry
         # re-derivation of its gate, taken live THIS tick — see
         # `_fetch_live_ci_gate`'s docstring for the gap this closes (a park
@@ -8541,6 +8687,7 @@ def drive_queue_tick(
             exit_refused=exit_refused,
             exit_dead_end=exit_dead_end,
             gate_a_pending=gate_a_pending,
+            size_triage_pending=size_triage_pending,
             cordons=cordons,
             no_eligible_host=no_eligible_host,
             live_ci_gate=live_ci_gate,

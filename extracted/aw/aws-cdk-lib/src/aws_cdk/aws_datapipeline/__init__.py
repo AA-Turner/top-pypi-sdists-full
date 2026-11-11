@@ -192,7 +192,7 @@ class CfnPipeline(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPipeline", [resource]))
 
-    @jsii.member(jsii_name="fromPipelineID")
+    @jsii.member(jsii_name="fromPipelineId")
     @builtins.classmethod
     def from_pipeline_id(
         cls,
@@ -211,7 +211,7 @@ class CfnPipeline(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument pipeline_id", value=pipeline_id, expected_type=type_hints["pipeline_id"])
-        return typing.cast("_aws_datapipeline_9530a0d0.IPipelineRef", jsii.sinvoke(cls, "fromPipelineID", [scope, id, pipeline_id]))
+        return typing.cast("_aws_datapipeline_9530a0d0.IPipelineRef", jsii.sinvoke(cls, "fromPipelineId", [scope, id, pipeline_id]))
 
     @jsii.member(jsii_name="isCfnPipeline")
     @builtins.classmethod

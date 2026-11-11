@@ -188,7 +188,7 @@ asset = Asset(self, "BundledAsset",
     path="/path/to/asset",
     bundling=BundlingOptions(
         image=lambda_.Runtime.PYTHON_3_9.bundling_image,
-        command=["bash", "-c", "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output"
+        command=["bash", "-c", "pip install -r requirements.txt -t /asset-output && cp -au * /asset-output"
         ],
         security_opt="no-new-privileges:true",  # https://docs.docker.com/engine/reference/commandline/run/#optional-security-options---security-opt
         network="host"
@@ -512,7 +512,7 @@ class AssetOptions(_aws_cdk_0cae9daa.AssetOptions, _aws_cdk_0cae9daa.FileCopyOpt
                 code=lambda_.Code.from_asset(path.join(__dirname, "my-python-handler"),
                     bundling=BundlingOptions(
                         image=lambda_.Runtime.PYTHON_3_9.bundling_image,
-                        command=["bash", "-c", "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output"
+                        command=["bash", "-c", "pip install -r requirements.txt -t /asset-output && cp -au * /asset-output"
                         ]
                     )
                 ),

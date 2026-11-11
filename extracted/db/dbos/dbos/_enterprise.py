@@ -39,7 +39,8 @@ from ._utils import GlobalParams
 
 if TYPE_CHECKING:
     from ._dbos import DBOS
-    from ._serialization import Serializer
+    from ._external_storage import ExternalObjectRef, ExternalStore
+    from ._serialization import Serializer, WorkflowSerializationFormat
     from ._sys_db import SystemDatabase
 
 # Receives a Conductor alert as (name, message, metadata).
@@ -80,6 +81,35 @@ class AutoUpgradePassFactory(Protocol):
     def __call__(self, dbos: DBOS, *, grace_sec: float) -> AutoUpgradePass: ...
 
 
+class Suspend(Protocol):
+    """Suspend mode for recv and sleep: a waiting recv or a sleep parks its workflow in
+    the database as SUSPENDED instead of holding a thread; a send on the recv's topic,
+    the recv timeout, or the end of the sleep re-enqueues it. The send side is core's
+    (SystemDatabase._wake_receivers), so any sender wakes a parked recv."""
+
+    def recv_suspend(
+        self,
+        workflow_uuid: str,
+        function_id: int,
+        timeout_function_id: int,
+        topic: Optional[str],
+        timeout_seconds: float,
+    ) -> Any: ...
+
+    def sleep_suspend(
+        self, workflow_uuid: str, function_id: int, seconds: float
+    ) -> float:
+        """Checkpoints the sleep and parks the workflow until its end time, or returns
+        the seconds to sleep in the thread when that end time is near or past."""
+        ...
+
+    def transition_suspended_workflows(self) -> None: ...
+
+
+class SuspendFactory(Protocol):
+    def __call__(self, sys_db: "SystemDatabase") -> Suspend: ...
+
+
 class ShardedSystemDatabaseFactory(Protocol):
     """Builds the system database a sharded deployment uses, in place of core's Postgres one."""
 
@@ -101,6 +131,46 @@ class ShardedSystemDatabaseFactory(Protocol):
     ) -> "SystemDatabase": ...
 
 
+class ExternalStorage(Protocol):
+    """Stores and loads external objects for one DBOS instance or client. Shard keys
+    come from the caller's bindings, as for any other workflow-addressed write."""
+
+    def store(
+        self,
+        value: Any,
+        *,
+        owner_workflow_id: str,
+        serialization_type: Optional["WorkflowSerializationFormat"],
+        key: Optional[str],
+        store_id: Optional[str],
+    ) -> "ExternalObjectRef[Any]": ...
+
+    async def store_async(
+        self,
+        value: Any,
+        *,
+        owner_workflow_id: str,
+        serialization_type: Optional["WorkflowSerializationFormat"],
+        key: Optional[str],
+        store_id: Optional[str],
+    ) -> "ExternalObjectRef[Any]": ...
+
+    def get(self, ref: "ExternalObjectRef[Any]") -> Any: ...
+
+    async def get_async(self, ref: "ExternalObjectRef[Any]") -> Any: ...
+
+
+class ExternalStorageFactory(Protocol):
+    def __call__(
+        self,
+        sys_db: "SystemDatabase",
+        *,
+        stores: Sequence["ExternalStore"],
+        serializer: "Serializer",
+        check_caller_owner: bool = False,
+    ) -> ExternalStorage: ...
+
+
 class Enterprise(Protocol):
     """What the top-level dbos_enterprise module must provide."""
 
@@ -113,6 +183,12 @@ class Enterprise(Protocol):
 
     @property
     def ShardedSystemDatabase(self) -> ShardedSystemDatabaseFactory: ...
+
+    @property
+    def Suspend(self) -> SuspendFactory: ...
+
+    @property
+    def ExternalStorage(self) -> ExternalStorageFactory: ...
 
 
 # What needs the package without being an entitlement, for load()'s messages.
@@ -133,9 +209,15 @@ AUTO_UPGRADE = Feature(
     "autoUpgrade", "Auto-upgrading workflows", config_key="auto_upgrade"
 )
 SHARDING = Feature("sharding", "Using a sharded system database", config_key="sharding")
+SUSPEND = Feature(
+    "suspendWorkflows", "Suspending workflows on recv", config_key="suspend_mode"
+)
+EXTERNAL_STORAGE = Feature(
+    "externalStorage", "Using external storage", config_key="external_stores"
+)
 
 # Every entitled feature; a new one is a Feature here, named by Conductor's camelCase key.
-FEATURES: Tuple[Feature, ...] = (AUTO_UPGRADE, SHARDING)
+FEATURES: Tuple[Feature, ...] = (AUTO_UPGRADE, SHARDING, SUSPEND, EXTERNAL_STORAGE)
 
 
 def enabled_features(config: Mapping[str, object]) -> List[Feature]:

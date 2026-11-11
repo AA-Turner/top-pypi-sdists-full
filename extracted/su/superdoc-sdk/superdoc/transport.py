@@ -15,6 +15,7 @@ import logging
 import os
 import subprocess
 import threading
+import time
 from typing import Any, Dict, List, Optional
 
 
@@ -42,7 +43,15 @@ from .protocol import (
     resolve_watchdog_timeout,
     validate_capabilities,
     COLLABORATION_AUTH_PER_OPEN_FEATURE,
+    IDENTITY_CLAIM_PER_OPEN_FEATURE,
     normalize_collaboration_auth,
+    normalize_identity_claim,
+)
+from .notifications import (
+    DEFAULT_NOTIFICATION_CAPACITY,
+    AsyncNotifications,
+    NotificationHub,
+    Notifications,
 )
 from .sdk_policy import SDK_POLICY
 
@@ -74,6 +83,121 @@ class _State(enum.Enum):
     DISPOSING = 'DISPOSING'
 
 
+def _validate_per_open_options(
+    operation_id: Any,
+    collaboration_auth: Optional[Dict[str, str]],
+    identity_claim: Optional[str],
+) -> tuple:
+    normalized_collaboration_auth = (
+        normalize_collaboration_auth(collaboration_auth)
+        if collaboration_auth is not None
+        else None
+    )
+    if normalized_collaboration_auth is not None and operation_id != 'doc.open':
+        raise SuperDocError(
+            'collaboration_auth is supported only for doc.open requests.',
+            code='INVALID_ARGUMENT',
+        )
+    normalized_identity_claim = (
+        normalize_identity_claim(identity_claim) if identity_claim is not None else None
+    )
+    if normalized_identity_claim is not None and operation_id != 'doc.open':
+        raise SuperDocError(
+            'identity_claim is supported only for doc.open requests.',
+            code='INVALID_ARGUMENT',
+        )
+    return normalized_collaboration_auth, normalized_identity_claim
+
+
+def _require_per_open_features(
+    host_features: set,
+    collaboration_auth: Optional[Dict[str, str]],
+    identity_claim: Optional[str],
+) -> None:
+    if collaboration_auth is not None and COLLABORATION_AUTH_PER_OPEN_FEATURE not in host_features:
+        raise SuperDocError(
+            'The connected CLI host does not support per-open collaboration authentication.',
+            code='CAPABILITY_UNSUPPORTED',
+            details={'feature': COLLABORATION_AUTH_PER_OPEN_FEATURE},
+        )
+    if identity_claim is not None and (
+        IDENTITY_CLAIM_PER_OPEN_FEATURE is None or IDENTITY_CLAIM_PER_OPEN_FEATURE not in host_features
+    ):
+        raise SuperDocError(
+            'The connected CLI host does not support a per-open identity claim.',
+            code='CAPABILITY_UNSUPPORTED',
+            details={'feature': IDENTITY_CLAIM_PER_OPEN_FEATURE},
+        )
+
+
+class _ResponseTimeout(Exception):
+    pass
+
+
+class _SyncReader:
+    def __init__(self, process: subprocess.Popen, hub: NotificationHub, on_eof) -> None:
+        self._process = process
+        self._hub = hub
+        self._on_eof = on_eof
+        self._condition = threading.Condition()
+        self._responses: Dict[int, Any] = {}
+        self._eof = False
+        self._disconnect_reported = False
+        self._thread = threading.Thread(target=self._run, name='superdoc-host-reader', daemon=True)
+        self._thread.start()
+
+    def _run(self) -> None:
+        stdout = self._process.stdout
+        try:
+            while stdout is not None:
+                raw = stdout.readline()
+                if not raw:
+                    break
+                msg = parse_jsonrpc_line(raw.decode('utf-8', errors='replace'))
+                if isinstance(msg, JsonRpcNotification):
+                    logger.debug('Notification received: method=%s', msg.method)
+                    self._hub.publish(msg)
+                    continue
+                if isinstance(msg, InvalidFrame):
+                    continue
+                with self._condition:
+                    self._responses[msg.id] = msg
+                    self._condition.notify_all()
+        except Exception as exc:
+            logger.debug('Reader thread error: %s', exc)
+        finally:
+            with self._condition:
+                self._eof = True
+                self._condition.notify_all()
+            self._on_eof(self)
+
+    def wait_for(self, request_id: int, deadline: float) -> Any:
+        with self._condition:
+            while True:
+                msg = self._responses.pop(request_id, None)
+                if msg is not None:
+                    for stale in [key for key in self._responses if key < request_id]:
+                        del self._responses[stale]
+                    return msg
+                if self._eof:
+                    return None
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise _ResponseTimeout()
+                self._condition.wait(remaining)
+
+    def join(self, timeout: float) -> None:
+        if self._thread is not threading.current_thread():
+            self._thread.join(timeout)
+
+    def report_disconnect(self, error: SuperDocError) -> None:
+        with self._condition:
+            if self._disconnect_reported:
+                return
+            self._disconnect_reported = True
+        self._hub.disconnect(error)
+
+
 # ---------------------------------------------------------------------------
 # SyncHostTransport
 # ---------------------------------------------------------------------------
@@ -81,9 +205,9 @@ class _State(enum.Enum):
 class SyncHostTransport:
     """Synchronous blocking host transport.
 
-    Writes one JSON-RPC request to stdin, then reads stdout lines one at a time
-    (skipping notifications and invalid frames) until the matching response ID
-    is found. Uses a threading.Timer kill-switch for watchdog timeout.
+    Writes one JSON-RPC request to stdin; a background reader thread delivers
+    the matching response ID, publishes notifications to subscribers and skips
+    invalid frames. A watchdog deadline kills a host that does not respond.
 
     Thread-safety: a threading.Lock serializes concurrent invoke() calls.
     """
@@ -114,6 +238,8 @@ class SyncHostTransport:
         self._next_request_id = 1
         self._host_features: set[str] = set()
         self._lock = threading.Lock()
+        self._reader: Optional[_SyncReader] = None
+        self._notifications = NotificationHub()
 
     # -- Lifecycle -----------------------------------------------------------
 
@@ -122,37 +248,46 @@ class SyncHostTransport:
         with self._lock:
             self._ensure_connected()
 
+    def subscribe(self, capacity: int = DEFAULT_NOTIFICATION_CAPACITY) -> Notifications:
+        return self._notifications.subscribe_sync(capacity)
+
     def dispose(self) -> None:
-        """Gracefully shut down the host process."""
+        """Gracefully shut down the host process. Every subscription ends, even when shutdown fails."""
         with self._lock:
-            if self._state == _State.DISCONNECTED or self._state == _State.DISPOSING:
-                return
-            self._state = _State.DISPOSING
-
-            process = self._process
-            if process is None:
-                self._state = _State.DISCONNECTED
-                return
-
-            # Send host.shutdown request (best-effort).
             try:
-                self._write_request('host.shutdown', {})
-            except Exception:
-                pass
+                self._shutdown_locked()
+            finally:
+                self._notifications.close()
 
-            # Wait for graceful exit.
+    def _shutdown_locked(self) -> None:
+        if self._state == _State.DISCONNECTED or self._state == _State.DISPOSING:
+            return
+        self._state = _State.DISPOSING
+
+        process = self._process
+        if process is None:
+            self._state = _State.DISCONNECTED
+            return
+
+        # Send host.shutdown request (best-effort).
+        try:
+            self._write_request('host.shutdown', {})
+        except Exception:
+            pass
+
+        # Wait for graceful exit.
+        try:
+            process.wait(timeout=self._shutdown_timeout_ms / 1000)
+            logger.debug('Host exited gracefully (pid=%s).', process.pid)
+        except subprocess.TimeoutExpired:
+            process.kill()
             try:
-                process.wait(timeout=self._shutdown_timeout_ms / 1000)
-                logger.debug('Host exited gracefully (pid=%s).', process.pid)
+                process.wait(timeout=2)
             except subprocess.TimeoutExpired:
-                process.kill()
-                try:
-                    process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    pass
-                logger.debug('Host force-killed after shutdown timeout (pid=%s).', process.pid)
+                pass
+            logger.debug('Host force-killed after shutdown timeout (pid=%s).', process.pid)
 
-            self._cleanup()
+        self._cleanup()
 
     @property
     def state(self) -> str:
@@ -168,6 +303,7 @@ class SyncHostTransport:
         timeout_ms: Optional[int] = None,
         stdin_bytes: Optional[bytes] = None,
         collaboration_auth: Optional[Dict[str, str]] = None,
+        identity_claim: Optional[str] = None,
     ) -> Any:
         """Invoke an SDK operation over the selected host transport."""
         with self._lock:
@@ -177,27 +313,13 @@ class SyncHostTransport:
                     code=HOST_DISCONNECTED,
                 )
             operation_id = operation.get('operationId')
-            normalized_collaboration_auth = (
-                normalize_collaboration_auth(collaboration_auth)
-                if collaboration_auth is not None
-                else None
+            normalized_collaboration_auth, normalized_identity_claim = _validate_per_open_options(
+                operation_id, collaboration_auth, identity_claim,
             )
-            if normalized_collaboration_auth is not None and operation_id != 'doc.open':
-                raise SuperDocError(
-                    'collaboration_auth is supported only for doc.open requests.',
-                    code='INVALID_ARGUMENT',
-                )
             self._ensure_connected()
-
-            if (
-                normalized_collaboration_auth is not None
-                and COLLABORATION_AUTH_PER_OPEN_FEATURE not in self._host_features
-            ):
-                raise SuperDocError(
-                    'The connected CLI host does not support per-open collaboration authentication.',
-                    code='CAPABILITY_UNSUPPORTED',
-                    details={'feature': COLLABORATION_AUTH_PER_OPEN_FEATURE},
-                )
+            _require_per_open_features(
+                self._host_features, normalized_collaboration_auth, normalized_identity_claim,
+            )
 
 
             watchdog = resolve_watchdog_timeout(
@@ -209,12 +331,15 @@ class SyncHostTransport:
                 default_change_mode=self._default_change_mode,
                 user=self._user,
             )
-            payload = build_cli_invoke_payload(argv, stdin_bytes, normalized_collaboration_auth)
+            payload = build_cli_invoke_payload(
+                argv, stdin_bytes, normalized_collaboration_auth, normalized_identity_claim,
+            )
             structured = (
                 build_structured_read_input(
                     operation, params, stdin_bytes, normalized_collaboration_auth, encoded_argv=argv,
                 )
-                if 'cli.invoke.structuredReads' in self._host_features else None
+                if 'cli.invoke.structuredReads' in self._host_features
+                and normalized_identity_claim is None else None
             )
             if structured is not None:
                 payload = {'operationId': operation_id, 'input': structured}
@@ -267,6 +392,8 @@ class SyncHostTransport:
                 details={'message': str(exc)},
             ) from exc
 
+        self._reader = _SyncReader(self._process, self._notifications, self._on_reader_eof)
+
         # Handshake.
         try:
             capabilities = self._send_request(
@@ -316,95 +443,79 @@ class SyncHostTransport:
         )
         logger.debug('Request #%d: method=%s', request_id, method)
 
-        # Watchdog kill-switch: a background timer kills the process if readline blocks too long.
-        timed_out = threading.Event()
+        reader = self._reader
+        if reader is None:
+            raise SuperDocError('Host process is not available.', code=HOST_DISCONNECTED)
+        deadline = time.monotonic() + watchdog_ms / 1000
+        write_timed_out = threading.Event()
 
-        def _watchdog_fire():
-            timed_out.set()
+        def _kill_blocked_write() -> None:
+            write_timed_out.set()
             try:
                 process.kill()
             except Exception:
                 pass
 
-        timer = threading.Timer(watchdog_ms / 1000, _watchdog_fire)
-        timer.daemon = True
-        timer.start()
-
+        write_watchdog = threading.Timer(watchdog_ms / 1000, _kill_blocked_write)
+        write_watchdog.daemon = True
+        write_watchdog.start()
         try:
             process.stdin.write(line.encode('utf-8'))
             process.stdin.flush()
         except Exception as exc:
-            timer.cancel()
+            if write_timed_out.is_set():
+                raise self._watchdog_timeout(reader, method, watchdog_ms) from exc
             self._kill_and_reset()
             raise SuperDocError(
                 'Failed to write request to host process.',
                 code=HOST_DISCONNECTED,
                 details={'method': method},
             ) from exc
+        finally:
+            write_watchdog.cancel()
 
-        # Blocking read loop — skip notifications and invalid frames until matching response.
         try:
-            while True:
-                raw = process.stdout.readline()
-                if not raw:
-                    # EOF — process died.
-                    timer.cancel()
-                    if timed_out.is_set():
-                        self._kill_and_reset()
-                        raise SuperDocError(
-                            f'Host watchdog timed out waiting for {method}.',
-                            code=HOST_TIMEOUT,
-                            details={'method': method, 'timeout_ms': watchdog_ms},
-                        )
-                    exit_code = process.poll()
-                    self._kill_and_reset()
-                    raise SuperDocError(
-                        'Host process disconnected.',
-                        code=HOST_DISCONNECTED,
-                        details={'exit_code': exit_code, 'signal': None},
-                    )
+            msg = reader.wait_for(request_id, deadline)
+        except _ResponseTimeout:
+            raise self._watchdog_timeout(reader, method, watchdog_ms) from None
 
-                decoded = raw.decode('utf-8', errors='replace')
-                msg = parse_jsonrpc_line(decoded)
-
-                if isinstance(msg, JsonRpcNotification):
-                    logger.debug('Notification received: method=%s', msg.method)
-                    continue
-
-                if isinstance(msg, InvalidFrame):
-                    continue
-
-                if isinstance(msg, JsonRpcError) and msg.id == request_id:
-                    timer.cancel()
-                    logger.debug('Response #%d: error', request_id)
-                    raise map_jsonrpc_error(msg.error)
-
-                if isinstance(msg, JsonRpcResponse) and msg.id == request_id:
-                    timer.cancel()
-                    logger.debug('Response #%d: ok', request_id)
-                    return msg.result
-
-                # Response for a different ID — should not happen in sync transport.
-                # Skip it.
-                continue
-
-        except SuperDocError:
-            raise
-        except Exception as exc:
-            timer.cancel()
-            if timed_out.is_set():
-                self._kill_and_reset()
-                raise SuperDocError(
-                    f'Host watchdog timed out waiting for {method}.',
-                    code=HOST_TIMEOUT,
-                    details={'method': method, 'timeout_ms': watchdog_ms},
-                ) from exc
-            self._kill_and_reset()
-            raise SuperDocError(
+        if msg is None:
+            try:
+                exit_code = process.wait(timeout=1)
+            except Exception:
+                exit_code = process.poll()
+            disconnect_error = SuperDocError(
                 'Host process disconnected.',
                 code=HOST_DISCONNECTED,
-                details={'message': str(exc)},
-            ) from exc
+                details={'exit_code': exit_code, 'signal': None},
+            )
+            if self._state != _State.DISPOSING:
+                reader.report_disconnect(disconnect_error)
+            self._kill_and_reset()
+            raise disconnect_error
+
+        if isinstance(msg, JsonRpcError):
+            logger.debug('Response #%d: error', request_id)
+            raise map_jsonrpc_error(msg.error)
+
+        logger.debug('Response #%d: ok', request_id)
+        return msg.result
+
+    def _watchdog_timeout(self, reader: _SyncReader, method: str, watchdog_ms: int) -> SuperDocError:
+        if self._state != _State.DISPOSING:
+            reader.report_disconnect(
+                SuperDocError(
+                    'Host watchdog timeout; host process will be restarted on next request.',
+                    code=HOST_DISCONNECTED,
+                    details={'method': method, 'timeout_ms': watchdog_ms},
+                ),
+            )
+        self._kill_and_reset()
+        return SuperDocError(
+            f'Host watchdog timed out waiting for {method}.',
+            code=HOST_TIMEOUT,
+            details={'method': method, 'timeout_ms': watchdog_ms},
+        )
 
     def _write_request(self, method: str, params: Any) -> int:
         """Write a JSON-RPC request without waiting for a response."""
@@ -417,6 +528,11 @@ class SyncHostTransport:
         process.stdin.write(line.encode('utf-8'))
         process.stdin.flush()
         return request_id
+
+    def _on_reader_eof(self, reader: _SyncReader) -> None:
+        if self._state == _State.DISPOSING:
+            return
+        reader.report_disconnect(SuperDocError('Host process disconnected.', code=HOST_DISCONNECTED))
 
     def _kill_and_reset(self) -> None:
         """Kill the host process and reset to DISCONNECTED."""
@@ -435,6 +551,10 @@ class SyncHostTransport:
     def _cleanup(self) -> None:
         """Clear all process state. Transition to DISCONNECTED."""
         process = self._process
+        reader = self._reader
+        self._reader = None
+        if reader is not None:
+            reader.join(2)
         if process is not None:
             for stream in (process.stdin, process.stdout):
                 if stream is not None:
@@ -493,12 +613,16 @@ class AsyncHostTransport:
         self._host_features: set[str] = set()
         self._connecting: Optional[asyncio.Future] = None
         self._stopping = False
+        self._notifications = NotificationHub()
 
     # -- Lifecycle -----------------------------------------------------------
 
     async def connect(self) -> None:
         """Ensure the host process is running and handshake is complete."""
         await self._ensure_connected()
+
+    def subscribe(self, capacity: int = DEFAULT_NOTIFICATION_CAPACITY) -> AsyncNotifications:
+        return self._notifications.subscribe_async(capacity)
 
     async def _await_in_flight_cleanup(self) -> None:
         """Wait for an already-running cleanup task, if any."""
@@ -512,7 +636,13 @@ class AsyncHostTransport:
                 pass
 
     async def dispose(self) -> None:
-        """Gracefully shut down the host process."""
+        """Gracefully shut down the host process. Every subscription ends, even when shutdown fails."""
+        try:
+            await self._shutdown()
+        finally:
+            self._notifications.close()
+
+    async def _shutdown(self) -> None:
         if self._state == _State.DISCONNECTED:
             # Reader-triggered cleanup flips state to DISCONNECTED before the
             # subprocess is fully reaped. If that cleanup is still in flight,
@@ -573,33 +703,20 @@ class AsyncHostTransport:
         timeout_ms: Optional[int] = None,
         stdin_bytes: Optional[bytes] = None,
         collaboration_auth: Optional[Dict[str, str]] = None,
+        identity_claim: Optional[str] = None,
     ) -> Any:
         """Invoke an SDK operation over the selected host transport."""
         if self._state == _State.DISPOSING:
             raise SuperDocError('Host is disposing.', code=HOST_DISCONNECTED)
 
         operation_id = operation.get('operationId')
-        normalized_collaboration_auth = (
-            normalize_collaboration_auth(collaboration_auth)
-            if collaboration_auth is not None
-            else None
+        normalized_collaboration_auth, normalized_identity_claim = _validate_per_open_options(
+            operation_id, collaboration_auth, identity_claim,
         )
-        if normalized_collaboration_auth is not None and operation_id != 'doc.open':
-            raise SuperDocError(
-                'collaboration_auth is supported only for doc.open requests.',
-                code='INVALID_ARGUMENT',
-            )
         await self._ensure_connected()
-
-        if (
-            normalized_collaboration_auth is not None
-            and COLLABORATION_AUTH_PER_OPEN_FEATURE not in self._host_features
-        ):
-            raise SuperDocError(
-                'The connected CLI host does not support per-open collaboration authentication.',
-                code='CAPABILITY_UNSUPPORTED',
-                details={'feature': COLLABORATION_AUTH_PER_OPEN_FEATURE},
-            )
+        _require_per_open_features(
+            self._host_features, normalized_collaboration_auth, normalized_identity_claim,
+        )
 
 
         watchdog = resolve_watchdog_timeout(
@@ -611,12 +728,15 @@ class AsyncHostTransport:
             default_change_mode=self._default_change_mode,
             user=self._user,
         )
-        payload = build_cli_invoke_payload(argv, stdin_bytes, normalized_collaboration_auth)
+        payload = build_cli_invoke_payload(
+            argv, stdin_bytes, normalized_collaboration_auth, normalized_identity_claim,
+        )
         structured = (
             build_structured_read_input(
                 operation, params, stdin_bytes, normalized_collaboration_auth, encoded_argv=argv,
             )
-            if 'cli.invoke.structuredReads' in self._host_features else None
+            if 'cli.invoke.structuredReads' in self._host_features
+            and normalized_identity_claim is None else None
         )
         if structured is not None:
             payload = {'operationId': operation_id, 'input': structured}
@@ -767,6 +887,7 @@ class AsyncHostTransport:
 
                 if isinstance(msg, JsonRpcNotification):
                     logger.debug('Notification received: method=%s', msg.method)
+                    self._notifications.publish(msg)
                     continue
 
                 if isinstance(msg, InvalidFrame):
@@ -955,6 +1076,7 @@ class AsyncHostTransport:
 
         if error is not None:
             self._reject_all_pending(error)
+            self._notifications.disconnect(error)
         else:
             # Dispose path — reject remaining with generic disconnect.
             self._reject_all_pending(

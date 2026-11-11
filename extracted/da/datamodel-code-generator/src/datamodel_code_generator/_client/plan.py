@@ -683,7 +683,9 @@ class Planner:
         """Return the first type use of a declaration."""
         return first_use(self.uses, uses)
 
-    def media(self, operation: OperationContract, declaration: WireDeclaration, *, request: bool) -> MediaSpec:
+    def media(  # ruff: ignore[too-many-locals]
+        self, operation: OperationContract, declaration: WireDeclaration, *, request: bool
+    ) -> MediaSpec:
         """Return one media declaration with its normalized type, kind, type use, and form member plans."""
         media_type = declared_media_type(CLIENT, operation, declaration, self.problems)
         use = self.use(declaration.schemas)
@@ -708,8 +710,9 @@ class Planner:
         fields, additional, encoded = (
             self.forms.get(use.id, ((), None, ())) if kind == "form" and use is not None else ((), None, ())
         )
+        encodings = tuple(media_encodings(use, declaration)) if request else ()
         media_of, headers_of = (
-            self.part_media(operation, declaration, media_type, use)
+            self.part_media(operation, encodings, media_type, use)
             if kind == "multipart" and request and reason is None
             else ({}, {})
         )
@@ -721,7 +724,7 @@ class Planner:
         if reason is None and bare == _FORM_DATA and use is not None and use.schema is not None:
             if request:
                 members, extra, parts, additional_part = self._sent(
-                    use, declaration, media_of=media_of, styles_of=styles_of
+                    use, encodings, media_of=media_of, styles_of=styles_of
                 )
             else:
                 members, extra = self._received(use, use.schema)
@@ -747,7 +750,7 @@ class Planner:
             media_type=media_type,
             kind=kind,
             use=use,
-            null=request and json_null(kind, use, self.facts.symbols, self.facts.members),
+            null=request and json_null(kind, use, self.facts.tables),
             fields=fields,
             additional=additional,
             encoded=encoded,
@@ -761,7 +764,11 @@ class Planner:
         )
 
     def part_media(
-        self, operation: OperationContract, declaration: WireDeclaration, media_type: str, use: TypeUseBinding | None
+        self,
+        operation: OperationContract,
+        encodings: tuple[WireDeclaration, ...],
+        media_type: str,
+        use: TypeUseBinding | None,
     ) -> tuple[dict[str, tuple[str, ...]], dict[str, tuple[HeaderSpec, ...]]]:
         """Return the media types and headers each form-data member's encoding names, reporting those not sent yet.
 
@@ -769,12 +776,13 @@ class Planner:
         values are scalars, which are written as text in it; a file member takes any media types and ranges.
         A style, explode, or allowReserved leaves the contentType ignored, and only a member holding no files takes it.
         Only a declared header with a schema is returned; a body sent whole cannot carry a required one. The encoding
-        of a property the request leaves out applies to no part (`member_encodings`).
+        of a property the request leaves out applies to no part: `encodings` are those of the media that apply
+        (`media_encodings`).
         """
         members = dict(_parts(use).members)
         media_of: dict[str, tuple[str, ...]] = {}
         headers_of: dict[str, tuple[HeaderSpec, ...]] = {}
-        for encoding in media_encodings(use, declaration):
+        for encoding in encodings:
             name = encoding.name or ""
             subject = f"The {name} encoding of the {media_type} media of {label(operation)}"
             if headers := self._headers(encoding):
@@ -830,7 +838,7 @@ class Planner:
     def _sent(
         self,
         use: TypeUseBinding,
-        declaration: WireDeclaration,
+        encodings: tuple[WireDeclaration, ...],
         *,
         media_of: Mapping[str, tuple[str, ...]],
         styles_of: Mapping[str, ParameterPlan],
@@ -861,12 +869,12 @@ class Planner:
                 use=_part_use(use, extras.source, None, TypeUseBinding(use.id, "bound", extras.type, None)),
             )
         declared = dict(parts.members)
-        encodings = {encoding.name or "": encoding for encoding in media_encodings(use, declaration)}
+        named = {encoding.name or "": encoding for encoding in encodings}
         specs: list[PartSpec] = []
         for name, member, facts in _members(use):
             part = declared[name]
-            repeated = self.wire.kinds.member(facts.type)[2]
-            text = not part_json(self.wire.kinds, facts.type, encodings.get(name), self.wire.versions)
+            repeated = self.wire.kinds.tables.member_kind(facts.type)[2]
+            text = not part_json(self.wire.kinds, facts.type, named.get(name), self.wire.versions)
             specs.append(
                 PartSpec(
                     plan=PartPlan(
@@ -916,7 +924,7 @@ class Planner:
             additional = None
         elif extras is not None and not (isinstance(declared_extra, PartSchema) and declared_extra.file):
             leaf = (
-                self.wire.kinds.member(declared_extra.value)[1]
+                self.wire.kinds.tables.member_kind(declared_extra.value)[1]
                 if isinstance(declared_extra, PartSchema) and declared_extra.value is not None
                 else extras.leaf
             )
@@ -963,7 +971,7 @@ class Planner:
         bound = (
             TypeUseBinding(body.id, "not_generated", None, None)
             if value is None
-            else TypeUseBinding(body.id, "bound", self.wire.kinds.member(value)[1], None)
+            else TypeUseBinding(body.id, "bound", self.wire.kinds.tables.member_kind(value)[1], None)
         )
         return PartSpec(
             plan=plan, use=_part_use(body, location, name or None, bound), required=required, excluded=excluded
@@ -991,7 +999,7 @@ class Planner:
 
         A member no type is bound for is read as JSON, one part for each item when its schema is an array.
         """
-        kind, _, repeated = (None, None, part.repeated) if value is None else self.wire.kinds.member(value)
+        kind, _, repeated = (None, None, part.repeated) if value is None else self.wire.kinds.tables.member_kind(value)
         return PartPlan(name, kind or "json", repeated=repeated)
 
     def body(

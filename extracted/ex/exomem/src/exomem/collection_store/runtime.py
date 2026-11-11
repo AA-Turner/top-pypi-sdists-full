@@ -751,12 +751,16 @@ class CollectionStoreRuntime:
 
     def flush(self, token, *, deadline, cancelled=None, drain_views=True):
         """Called only after admission stops, drainage and boundary acquisition."""
+        from ..vault_store import marker as vault_marker
+
         with self._publication_writer(token) as writer:
             if drain_views:
                 self._drain_views(writer, deadline=deadline, cancelled=cancelled)
             result = replica.publish_replica(
                 self.root, writer, authority_check=lambda: self._authority(token, progress=True),
                 deadline=deadline, cancelled=cancelled,
+                # Store mode changes no collection head: only this flag copies the replica's marker.
+                force=vault_marker.replica_stale(self.root, writer.connection),
             )
             if result.status != "published":
                 raise connection.CollectionStoreError(
@@ -1211,7 +1215,10 @@ class StoreServer:
         self._boundary = None  # this vault's mutation boundary, read only to see whether another thread holds it
         self._held_elsewhere_since = None  # when a starved tick began waiting out another thread's hold
         # When each maintenance tick is next due; between two requests the most overdue one runs.
-        self._ticks = {"create": 0.0, "import": 0.0, "backfill": 0.0, "views": 0.0, "derived": 0.0}
+        self._ticks = {
+            "create": 0.0, "import": 0.0, "backfill": 0.0, "views": 0.0, "derived": 0.0,
+            "registry": 0.0,
+        }
         self._served_at = 0.0  # when the store thread last finished a request
         self._derived_handle = None  # the writer handle whose derived file the last derived tick reconciled
         self._derived_pass = None  # the running rebuild's bulk pass budget, across its steps
@@ -1237,6 +1244,7 @@ class StoreServer:
         self._view_retry_at = 0.0
         self._backfill_refused = {}  # collection id -> when its refused backfill is retried
         self._backfill_last = ""  # the collection the last batch advanced; the next one follows it
+        self._references_seeded = None  # the writer handle whose reference build states were last seeded
         self.pending_create = None  # the marker entries a served create left pending, until it finishes
         self._requests = deque()
         self._closed = False
@@ -1739,8 +1747,13 @@ class StoreServer:
                 # It does not stop for a waiting request, as the views slice does: under steady demand
                 # that would leave one batch per tick. A request waits at most the budget and one batch.
                 done = importer.run_jobs(self.root, deadline=time.monotonic() + derived_rows.STEP_SECONDS)
-        except Exception:  # noqa: BLE001 - a refused tick leaves its jobs for a later one
-            logger.warning("import jobs could not advance; retrying later", exc_info=True)
+        except Exception as error:  # noqa: BLE001 - a refused tick leaves its jobs for a later one
+            code = getattr(error, "code", None)
+            # A store refusal a later tick outlives is expected while it lasts; only a defect needs its traceback.
+            if code in importer.STORE_STATE:
+                logger.warning("import jobs could not advance (%s); retrying later", code)
+            else:
+                logger.warning("import jobs could not advance; retrying later", exc_info=True)
             return IMPORT_RETRY_SECONDS
         return 0.0 if done["batches"] else IMPORT_RETRY_SECONDS
 
@@ -1755,11 +1768,27 @@ class StoreServer:
         collection whose batch is refused waits the retry interval; the others keep advancing.
         """
         from ..governance import principal
-        from . import capability, index_migrations
+        from . import capability, index_migrations, reference_index
         from .preview import _mutate, preview_store
 
         if self.runtime is None or self._idle_released() or not capability.records_summary_enabled(self.root):
             return IMPORT_IDLE_SECONDS
+        if self._references_seeded is not self.runtime._handle:
+            # A restored or assembled store may hold declarations with no build state; once per
+            # writer handle, seed them so the reference index warms and builds like any other.
+            # A plain read finds them first, so a store with nothing to seed takes no checkout.
+            try:
+                handle = self.runtime._handle
+                with connection.store_reader(self.runtime.path, self.runtime.reader_pool()) as reader:
+                    unseeded = reference_index.unseeded(reader)
+                if unseeded:
+                    with principal.library_scope(), preview_store(self.root, self.runtime) as writer:
+                        _mutate(self.root, writer.seed_references)
+                        handle = writer.handle
+                self._references_seeded = handle
+            except Exception:  # noqa: BLE001 - a store that cannot seed now is retried next tick
+                logger.warning("reference index seeding could not run; retrying later", exc_info=True)
+                return IMPORT_RETRY_SECONDS
         try:
             with connection.store_reader(self.runtime.path, self.runtime.reader_pool()) as reader:
                 due = index_migrations.backfill_due(reader)
@@ -1772,13 +1801,14 @@ class StoreServer:
         due = [row for row in due if row[0] not in self._backfill_refused]
         if not due:
             return min((at - now for at in self._backfill_refused.values()), default=IMPORT_IDLE_SECONDS)
-        collection_id, projection, rollup = next((row for row in due if row[0] > self._backfill_last), due[0])
+        collection_id, projection, rollup, references = next(
+            (row for row in due if row[0] > self._backfill_last), due[0])
         self._backfill_last = collection_id
         try:
             with principal.library_scope(), preview_store(self.root, self.runtime) as writer:
                 try:
                     _mutate(self.root, writer.backfill_derived, collection_id, limit=BACKFILL_BATCH_ROWS,
-                            projection=projection, rollup=rollup)
+                            projection=projection, rollup=rollup, references=references)
                 except Exception:  # noqa: BLE001 - one refused collection leaves the others to advance
                     logger.warning("derived backfill of %s could not advance; retrying later",
                                    collection_id, exc_info=True)
@@ -1839,6 +1869,40 @@ class StoreServer:
         self._derived_retry = DERIVED_RETRY_SECONDS
         return {"advanced": 0.0, "done": 0.0,
                 "mismatched": IMPORT_RETRY_SECONDS}.get(outcome, IMPORT_IDLE_SECONDS)
+
+    def _registry_tick(self):
+        """Derive a store-mode vault's pages again after a commit changed its registries or policy.
+
+        The job is ``vault_store.rederive``: one bounded transaction per tick, resumed from the
+        store's own cursor after a restart. A plain read decides first, as the import and derived
+        ticks do: a file-mode vault costs one stat of the manifest, and a store-mode vault whose
+        rows already reflect the overlay, or that waits for the projector, costs one read. Only a
+        batch that can run takes the store checkout and the vault's mutation boundary.
+        """
+        from ..governance import principal
+        from ..vault_store import mode as store_mode
+        from ..vault_store import rederive
+        from .preview import preview_store
+
+        if self.runtime is None or self._idle_released():
+            return IMPORT_IDLE_SECONDS
+        try:
+            if not store_mode.store_mode_for_reads(self.root):
+                return IMPORT_RETRY_SECONDS
+            with connection.store_reader(self.runtime.path, self.runtime.reader_pool()) as reader:
+                outcome = rederive.pending(reader, self.root)
+            if outcome == rederive.READY:
+                with principal.library_scope(), preview_store(self.root, self.runtime) as writer:
+                    outcome = self._write(rederive.settle, self.root, writer)
+        except Exception:  # noqa: BLE001 - a refused batch leaves the rows behind the store, and a later tick retries
+            logger.warning(
+                "the registry state of the vault store could not advance; retrying later",
+                exc_info=True,
+            )
+            return IMPORT_RETRY_SECONDS
+        return {rederive.ADVANCED: 0.0, rederive.WAITING: DERIVED_RETRY_SECONDS}.get(
+            outcome, IMPORT_IDLE_SECONDS
+        )
 
     def _aside(self):
         """Whether background work ends after its current batch or window, which only frees the store sooner.

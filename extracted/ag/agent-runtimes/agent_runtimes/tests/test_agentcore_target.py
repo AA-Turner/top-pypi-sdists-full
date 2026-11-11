@@ -145,7 +145,7 @@ def _sse(*events: dict[str, Any]) -> StreamingBody:
 
 def _authorizer(audience: list[str] | None) -> dict[str, Any]:
     authorizer: dict[str, Any] = {
-        "discoveryUrl": "https://prod1.datalayer.run/api/iam/v1/.well-known/openid-configuration",
+        "discoveryUrl": "https://prod1.datalayer.run/api/iam/v1/oauth/.well-known/openid-configuration",
     }
     if audience is not None:
         authorizer["allowedAudience"] = audience
@@ -184,8 +184,12 @@ def test_deploy_creates_an_agui_runtime_then_tells_it_its_arn_and_audience(
                 "LOG_LEVEL": "INFO",
                 "AGENT_SPEC_ID": "crawler",
                 "AGENT_RUNTIMES_TARGET": "agentcore",
+                # Told where IAM is, read from the authorizer's discovery URL.
+                "DATALAYER_IAM_URL": "https://prod1.datalayer.run",
             },
             "authorizerConfiguration": _authorizer(None),
+            # The validated bearer passed through to the runtime.
+            "requestHeaderConfiguration": {"requestHeaderAllowlist": ["Authorization"]},
             "clientToken": "deploy-crawler-0000000000000000000000",
         },
     )
@@ -205,17 +209,19 @@ def test_deploy_creates_an_agui_runtime_then_tells_it_its_arn_and_audience(
                 "LOG_LEVEL": "INFO",
                 "AGENT_SPEC_ID": "crawler",
                 "AGENT_RUNTIMES_TARGET": "agentcore",
-                "AGENTCORE_RUNTIME_ARN": ARN,
+                "DATALAYER_IAM_URL": "https://prod1.datalayer.run",
                 "AGENTCORE_RUNTIME_URL": RUNTIME_URL,
+                "AGENTCORE_RUNTIME_ARN": ARN,
             },
             "authorizerConfiguration": _authorizer([ARN]),
+            "requestHeaderConfiguration": {"requestHeaderAllowlist": ["Authorization"]},
         },
     )
     settings = _settings(
         description="The Crawler",
         environment={"LOG_LEVEL": "INFO"},
         authorizer=JwtAuthorizer(
-            discovery_url="https://prod1.datalayer.run/api/iam/v1/.well-known/openid-configuration",
+            discovery_url="https://prod1.datalayer.run/api/iam/v1/oauth/.well-known/openid-configuration",
             allowed_clients=("datalayer-platform",),
             custom_claims={"org_uid": "org-1"},
         ),
@@ -324,6 +330,67 @@ def test_deploy_refuses_what_agentcore_would_and_what_the_deployment_sets_itself
         == "datalayer_openrouter_anthropic_claude_x"
     )
     assert len(runtime_name_for("x" * 80)) == 48
+
+
+def test_deploy_as_a_team_seat_creates_an_a2a_runtime(control) -> None:
+    """A seat is created in AgentCore's A2A protocol, and told it is one."""
+    client, stub = control
+    stub.add_response(
+        "create_agent_runtime",
+        _created(),
+        {
+            "agentRuntimeName": "datalayer_crawler",
+            "agentRuntimeArtifact": {"containerConfiguration": {"containerUri": IMAGE}},
+            "roleArn": ROLE,
+            "networkConfiguration": {"networkMode": "PUBLIC"},
+            # JSON-RPC 2.0 at `/` of port 9000, AgentCore's A2A contract.
+            "protocolConfiguration": {"serverProtocol": "A2A"},
+            "environmentVariables": {
+                "AGENT_SPEC_ID": "crawler",
+                "AGENT_RUNTIMES_TARGET": "agentcore",
+                "AGENTCORE_PROTOCOL": "A2A",
+            },
+        },
+    )
+    stub.add_response(
+        "get_agent_runtime", _got("READY"), {"agentRuntimeId": RUNTIME_ID}
+    )
+    stub.add_response(
+        "update_agent_runtime",
+        _updated(),
+        {
+            "agentRuntimeId": RUNTIME_ID,
+            "agentRuntimeArtifact": {"containerConfiguration": {"containerUri": IMAGE}},
+            "roleArn": ROLE,
+            "networkConfiguration": {"networkMode": "PUBLIC"},
+            "protocolConfiguration": {"serverProtocol": "A2A"},
+            "environmentVariables": {
+                "AGENT_SPEC_ID": "crawler",
+                "AGENT_RUNTIMES_TARGET": "agentcore",
+                "AGENTCORE_PROTOCOL": "A2A",
+                "AGENTCORE_RUNTIME_URL": RUNTIME_URL,
+            },
+        },
+    )
+
+    async def sleep(seconds: float) -> None:
+        return None
+
+    deployment = asyncio.run(
+        AgentCoreTarget(control_client=client, sleep=sleep).deploy(
+            "crawler", _settings(protocol="A2A")
+        )
+    )
+    assert deployment.arn == ARN
+    target = AgentCoreTarget()
+    with pytest.raises(ValueError, match="speaks AGUI or A2A, not 'MCP'"):
+        target.create_request("crawler", _settings(protocol="MCP"))
+    with pytest.raises(
+        ValueError, match="AGENTCORE_PROTOCOL is set by the deployment itself"
+    ):
+        target.create_request(
+            "crawler", _settings(environment={"AGENTCORE_PROTOCOL": "A2A"})
+        )
 
 
 def test_status_reads_the_runtime(control) -> None:
@@ -518,7 +585,7 @@ def test_loop_agentcore_deploy_status_invoke_sessions_destroy(cli) -> None:
             "environmentVariables": {
                 "AGENT_SPEC_ID": spec,
                 "AGENT_RUNTIMES_TARGET": "agentcore",
-                "AGENTCORE_RUNTIME_ARN": ARN,
+                # No authorizer, no Datalayer token to exchange: no ARN.
                 "AGENTCORE_RUNTIME_URL": RUNTIME_URL,
             },
         },
@@ -651,3 +718,223 @@ def test_loop_agentcore_refuses_an_unknown_agentspec_and_a_lone_audience(cli) ->
         app, ["agentcore", "deploy", "example-simple", *base, "--audience", ARN]
     )
     assert lone.exit_code == 1 and "give its --discovery-url" in lone.output
+
+
+def test_iam_url_of_reads_only_datalayer_iams_discovery_document() -> None:
+    from agent_runtimes.agentcore.target import iam_url_of
+
+    assert (
+        iam_url_of(
+            "https://prod1.datalayer.run/api/iam/v1/oauth/.well-known/openid-configuration"
+        )
+        == "https://prod1.datalayer.run"
+    )
+    assert (
+        iam_url_of("https://login.example.com/.well-known/openid-configuration") == ""
+    )
+
+
+def test_invoke_with_a_bearer_calls_https_with_it_and_reads_the_stream(
+    monkeypatch,
+) -> None:
+    """A runtime behind a JWT authorizer is invoked over HTTPS with the token, never with SigV4."""
+    import httpx
+
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        seen["headers"] = dict(request.headers)
+        seen["body"] = json.loads(request.content)
+        body = 'data: {"type": "RUN_STARTED"}\n\ndata: {"type": "TEXT_MESSAGE_CONTENT", "delta": "Hi"}\n\n'
+        return httpx.Response(
+            200, text=body, headers={"content-type": "text/event-stream"}
+        )
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kw: real(transport=httpx.MockTransport(handler), **kw),
+    )
+    deployment = Deployment(
+        target="agentcore",
+        agent_spec_id="crawler",
+        id=RUNTIME_ID,
+        arn=ARN,
+        region=REGION,
+    )
+
+    async def run() -> list[dict[str, Any]]:
+        return [
+            e
+            async for e in AgentCoreTarget().invoke(
+                deployment, "session-0001", {"prompt": "Hi"}, bearer="rs256"
+            )
+        ]
+
+    events = asyncio.run(run())
+    assert [e["type"] for e in events] == ["RUN_STARTED", "TEXT_MESSAGE_CONTENT"]
+    assert seen["headers"]["authorization"] == "Bearer rs256"
+    assert seen["headers"]["x-amzn-bedrock-agentcore-runtime-session-id"].startswith(
+        "datalayer-session-padded-"
+    )
+    assert "/invocations?qualifier=DEFAULT" in seen["url"] and seen["body"] == {
+        "prompt": "Hi"
+    }
+
+
+# --- online evaluation ---------------------------------------------------------------
+
+EVALUATION_ROLE = "arn:aws:iam::123456789012:role/org-EvaluationRole-x"
+
+
+def _online(config_id: str = "oe-1") -> dict[str, Any]:
+    from datetime import datetime, timezone
+
+    return {
+        "onlineEvaluationConfigArn": f"arn:aws:bedrock-agentcore:us-east-1:123456789012:online-evaluation-config/{config_id}",
+        "onlineEvaluationConfigId": config_id,
+        "createdAt": datetime(2026, 11, 11, tzinfo=timezone.utc),
+        "status": "ACTIVE",
+        "executionStatus": "ENABLED",
+    }
+
+
+def test_an_online_evaluation_is_created_then_updated_then_stopped(control) -> None:
+    client, stub = control
+    target = AgentCoreTarget(control_client=client)
+    deployment = _deployment()
+    name = AgentCoreTarget.online_evaluation_name(deployment)
+    runtime_name = RUNTIME_ID.rsplit("-", 1)[0]
+    assert len(name) <= 48 and name.endswith("_evaluation")
+    source = {
+        "cloudWatchLogs": {
+            "logGroupNames": ["aws/spans"],
+            "serviceNames": [f"{runtime_name}.DEFAULT"],
+        }
+    }
+    stub.add_response(
+        "list_online_evaluation_configs", {"onlineEvaluationConfigs": []}, {}
+    )
+    stub.add_response(
+        "create_online_evaluation_config",
+        _online(),
+        {
+            "onlineEvaluationConfigName": name,
+            "description": f"Datalayer: sessions of {RUNTIME_ID}",
+            "rule": {
+                "samplingConfig": {"samplingPercentage": 25.0},
+                "sessionConfig": {"sessionTimeoutMinutes": 15},
+            },
+            "dataSourceConfig": source,
+            "evaluators": [{"evaluatorId": "Builtin.GoalSuccessRate"}],
+            "evaluationExecutionRoleArn": EVALUATION_ROLE,
+            "enableOnCreate": True,
+        },
+    )
+    created = asyncio.run(
+        target.evaluate_online(
+            deployment,
+            evaluators=["Builtin.GoalSuccessRate"],
+            sampling_percentage=25,
+            role_arn=EVALUATION_ROLE,
+        )
+    )
+    assert (
+        created["onlineEvaluationConfigId"] == "oe-1"
+        and created["executionStatus"] == "ENABLED"
+    )
+
+    summary = {k: v for k, v in _online().items() if k != "outputConfig"}
+    summary["onlineEvaluationConfigName"] = name
+    summary["updatedAt"] = summary["createdAt"]
+    stub.add_response(
+        "list_online_evaluation_configs", {"onlineEvaluationConfigs": [summary]}, {}
+    )
+    stub.add_response(
+        "get_online_evaluation_config",
+        {
+            **_online(),
+            "onlineEvaluationConfigName": name,
+            "rule": {"samplingConfig": {"samplingPercentage": 25.0}},
+            "dataSourceConfig": source,
+            "updatedAt": _online()["createdAt"],
+            "evaluationExecutionRoleArn": EVALUATION_ROLE,
+        },
+        {"onlineEvaluationConfigId": "oe-1"},
+    )
+    stub.add_response(
+        "update_online_evaluation_config",
+        {k: v for k, v in _online().items() if k not in ("createdAt",)}
+        | {"updatedAt": _online()["createdAt"]},
+        {
+            "onlineEvaluationConfigId": "oe-1",
+            "rule": {
+                "samplingConfig": {"samplingPercentage": 100.0},
+                "sessionConfig": {"sessionTimeoutMinutes": 15},
+            },
+            "dataSourceConfig": source,
+            "evaluators": [{"evaluatorId": "Builtin.Helpfulness"}],
+            "evaluationExecutionRoleArn": EVALUATION_ROLE,
+            "executionStatus": "ENABLED",
+        },
+    )
+    asyncio.run(
+        target.evaluate_online(
+            deployment,
+            evaluators=["Builtin.Helpfulness"],
+            sampling_percentage=100,
+            role_arn=EVALUATION_ROLE,
+        )
+    )
+
+    stub.add_response(
+        "list_online_evaluation_configs", {"onlineEvaluationConfigs": [summary]}, {}
+    )
+    stub.add_response(
+        "get_online_evaluation_config",
+        {
+            **_online(),
+            "onlineEvaluationConfigName": name,
+            "rule": {"samplingConfig": {"samplingPercentage": 25.0}},
+            "dataSourceConfig": source,
+            "updatedAt": _online()["createdAt"],
+            "evaluationExecutionRoleArn": EVALUATION_ROLE,
+        },
+        {"onlineEvaluationConfigId": "oe-1"},
+    )
+    stub.add_response(
+        "delete_online_evaluation_config",
+        {
+            "onlineEvaluationConfigId": "oe-1",
+            "onlineEvaluationConfigArn": _online()["onlineEvaluationConfigArn"],
+            "status": "DELETING",
+        },
+        {"onlineEvaluationConfigId": "oe-1"},
+    )
+    assert asyncio.run(target.stop_online_evaluation(deployment)) is True
+
+
+@pytest.mark.parametrize(
+    "evaluators, share, role, said",
+    [
+        ([], 10, EVALUATION_ROLE, "Choose the evaluators"),
+        (["Builtin.Helpfulness"], 0, EVALUATION_ROLE, "above 0, at most 100"),
+        (["Builtin.Helpfulness"], 101, EVALUATION_ROLE, "above 0, at most 100"),
+        (["Builtin.Helpfulness"], 10, "", "evaluation role"),
+    ],
+)
+def test_an_online_evaluation_is_refused_in_a_sentence(
+    control, evaluators, share, role, said
+) -> None:
+    client, _ = control
+    with pytest.raises(AgentCoreError, match=said):
+        asyncio.run(
+            AgentCoreTarget(control_client=client).evaluate_online(
+                _deployment(),
+                evaluators=evaluators,
+                sampling_percentage=share,
+                role_arn=role,
+            )
+        )

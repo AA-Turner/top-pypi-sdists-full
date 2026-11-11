@@ -17,13 +17,10 @@ from pluggy import Result as PluggyResult
 from schemathesis.checks import collect_after_run_failures, run_checks_for
 from schemathesis.core.control import SkipTest
 from schemathesis.core.errors import (
-    SERIALIZERS_SUGGESTION_MESSAGE,
     IncorrectUsage,
     InvalidHeadersExample,
-    InvalidRegexPattern,
     InvalidSchema,
     SchemathesisError,
-    SerializationNotPossible,
     format_exception,
 )
 from schemathesis.core.failures import RUN_CHECKS_LABEL, FailureGroup, as_reported_failure, format_failures, get_origin
@@ -45,7 +42,7 @@ from schemathesis.generation.hypothesis.reporting import (
 )
 from schemathesis.generation.stateful.state_machine import StatefulCallbackMark, StatefulSchemaMark
 from schemathesis.pytest import _subtests
-from schemathesis.pytest._keys import _PYTEST_SCHEMAS_KEY, track_schema
+from schemathesis.pytest._keys import _PYTEST_SCHEMAS_KEY, _WORKER_AFTER_RUN_FAILURES_KEY, track_schema
 from schemathesis.pytest._subtests import HAS_CORE_SUBTESTS, is_subtest_report
 from schemathesis.pytest._test_builder import schema_error_suffix
 from schemathesis.pytest.control_flow import fail_on_no_matches
@@ -63,7 +60,7 @@ if TYPE_CHECKING:
     from _pytest.fixtures import FuncFixtureInfo
     from _pytest.terminal import TerminalReporter
 
-    from schemathesis.config import OutputConfig, ReportsConfig
+    from schemathesis.config import ReportsConfig
     from schemathesis.core.spec import SchemaMetadata
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.pytest.reporting import PytestReportDispatcher
@@ -127,6 +124,7 @@ class SchemathesisFunction(Function):
         self,
         *args: Any,
         test_func: Callable,
+        schema: BaseSchema,
         test_name: str | None = None,
         operation_label: str | None = None,
         operation_tags: list[str] | None = None,
@@ -134,9 +132,16 @@ class SchemathesisFunction(Function):
     ) -> None:
         super().__init__(*args, **kwargs)
         self.test_function = test_func
+        self.schema = schema
         self.test_name = test_name
         self.operation_label = operation_label
         self.operation_tags = operation_tags
+
+    def runtest(self) -> None:
+        __tracebackhide__ = True
+        # A schema gets `after_run` only if one of its tests runs here, not when deselected or run by another worker.
+        track_schema(self.config, self.schema)
+        super().runtest()
 
 
 class SchemathesisCase(PyCollector):
@@ -245,6 +250,7 @@ class SchemathesisCase(PyCollector):
                 callobj=funcobj,
                 fixtureinfo=fixtureinfo,
                 test_func=self.test_function,
+                schema=self.schema,
                 originalname=name,
                 operation_label=operation_label,
                 operation_tags=operation_tags,
@@ -262,6 +268,7 @@ class SchemathesisCase(PyCollector):
                     keywords={callspec.id: True},
                     originalname=name,
                     test_func=self.test_function,
+                    schema=self.schema,
                     operation_label=operation_label,
                     operation_tags=operation_tags,
                 )
@@ -287,7 +294,6 @@ class SchemathesisCase(PyCollector):
     def collect(self) -> list[Function]:
         """Generate different test items for all API operations available in the given schema."""
         try:
-            track_schema(self.config, self.schema)
             emit_openapi_auth_warnings(self.schema)
             emit_constants_warnings(self.schema)
             feedback = FeedbackSources(constants_value_source=make_constants_value_source(self.schema))
@@ -434,11 +440,8 @@ def pytest_pyfunc_call(pyfuncitem):  # type: ignore[no-untyped-def]
     """
     from schemathesis.generation.hypothesis.builder import (
         ApiOperationMark,
-        InvalidHeadersExampleMark,
-        InvalidRegexMark,
+        ExamplesControllerMark,
         MissingPathParameters,
-        NonSerializableMark,
-        UnsatisfiableExampleMark,
         UnserializablePayloadMark,
     )
 
@@ -456,22 +459,9 @@ def pytest_pyfunc_call(pyfuncitem):  # type: ignore[no-untyped-def]
                 raise IncorrectUsage(GIVEN_AND_EXPLICIT_EXAMPLE_ERROR_MESSAGE) from None
             raise InvalidSchema(exc.args[0]) from None
         except (SkipTest, unittest.SkipTest) as exc:
-            if UnsatisfiableExampleMark.is_set(pyfuncitem.obj):
-                raise Unsatisfiable("Failed to generate test cases from examples for this API operation") from None
-            non_serializable = NonSerializableMark.get(pyfuncitem.obj)
-            if non_serializable is not None:
-                media_types = ", ".join(non_serializable.media_types)
-                raise SerializationNotPossible(
-                    "Failed to generate test cases from examples for this API operation because of"
-                    f" unsupported payload media types: {media_types}\n{SERIALIZERS_SUGGESTION_MESSAGE}",
-                    media_types=non_serializable.media_types,
-                ) from None
-            invalid_regex = InvalidRegexMark.get(pyfuncitem.obj)
-            if invalid_regex is not None:
-                raise InvalidRegexPattern.from_jsonschema_rs_error(invalid_regex) from None
-            invalid_headers = InvalidHeadersExampleMark.get(pyfuncitem.obj)
-            if invalid_headers is not None:
-                raise InvalidHeadersExample.from_headers(invalid_headers) from None
+            examples = ExamplesControllerMark.get(pyfuncitem.obj)
+            if examples is not None and examples.deferred_errors:
+                raise examples.deferred_errors[0] from None
             pytest.skip(exc.args[0])
         except FailedHealthCheck as exc:
             operation = ApiOperationMark.get(pyfuncitem.obj)
@@ -489,9 +479,11 @@ def pytest_pyfunc_call(pyfuncitem):  # type: ignore[no-untyped-def]
         if unserializable_payload is not None:
             emit_unserializable_payload_warning(unserializable_payload)
 
-        invalid_headers = InvalidHeadersExampleMark.get(pyfuncitem.obj)
-        if invalid_headers is not None:
-            raise InvalidHeadersExample.from_headers(invalid_headers) from None
+        examples = ExamplesControllerMark.get(pyfuncitem.obj)
+        if examples is not None:
+            for error in examples.deferred_errors:
+                if isinstance(error, InvalidHeadersExample):
+                    raise error from None
 
         missing_path_parameters = MissingPathParameters.get(pyfuncitem.obj)
         if missing_path_parameters:
@@ -772,30 +764,7 @@ def report_subtest(
 def pytest_runtest_setup(item: pytest.Item) -> None:
     item_cls = getattr(item, "cls", None)
     if item_cls is not None and (schema := StatefulSchemaMark.get(item_cls)) is not None:
-        # Attach a callback to the TestCase class so the state machine can hand off
-        # its recorder to the report writers once the scenario finishes.
-        _schema = schema
-        if _is_xdist_worker(item.config):
-            reports = _schema.config.reports
-            if _has_reports(reports):
-
-                def _xdist_stateful_callback(recorder: Any, elapsed_sec: float) -> None:
-                    # pytest-xdist sets `workeroutput` on worker configs.
-                    workeroutput = item.config.workeroutput  # type: ignore[attr-defined]
-                    _push_to_xdist_workeroutput(workeroutput, _schema, recorder, elapsed_sec)
-
-                item.stash[_STATEFUL_WRITERS_KEY] = []
-                StatefulCallbackMark.set(item_cls, _xdist_stateful_callback)
-        else:
-            writers = _open_writers(_schema, item.config)
-            item.stash[_STATEFUL_WRITERS_KEY] = writers
-            if writers:
-
-                def _stateful_callback(recorder: Any, elapsed_sec: float) -> None:
-                    # Tags are not available for stateful tests — operations are discovered dynamically
-                    _write_to_writers(writers, recorder, elapsed_sec)
-
-                StatefulCallbackMark.set(item_cls, _stateful_callback)
+        _setup_stateful_test(item, item_cls, schema)
         return
 
     if not isinstance(item, SchemathesisFunction):
@@ -845,6 +814,33 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
     forwarder = _register_allure_forwarder(item.operation_label, writers)
     if forwarder is not None:
         item.stash[_ALLURE_FORWARDER_KEY] = forwarder
+
+
+def _setup_stateful_test(item: pytest.Item, item_cls: type, schema: BaseSchema) -> None:
+    track_schema(item.config, schema)
+    # Attach a callback to the TestCase class so the state machine can hand off
+    # its recorder to the report writers once the scenario finishes.
+    if _is_xdist_worker(item.config):
+        reports = schema.config.reports
+        if _has_reports(reports):
+
+            def _xdist_stateful_callback(recorder: Any, elapsed_sec: float) -> None:
+                # pytest-xdist sets `workeroutput` on worker configs.
+                workeroutput = item.config.workeroutput  # type: ignore[attr-defined]
+                _push_to_xdist_workeroutput(workeroutput, schema, recorder, elapsed_sec)
+
+            item.stash[_STATEFUL_WRITERS_KEY] = []
+            StatefulCallbackMark.set(item_cls, _xdist_stateful_callback)
+    else:
+        writers = _open_writers(schema, item.config)
+        item.stash[_STATEFUL_WRITERS_KEY] = writers
+        if writers:
+
+            def _stateful_callback(recorder: Any, elapsed_sec: float) -> None:
+                # Tags are not available for stateful tests — operations are discovered dynamically
+                _write_to_writers(writers, recorder, elapsed_sec)
+
+            StatefulCallbackMark.set(item_cls, _stateful_callback)
 
 
 def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> None:
@@ -910,16 +906,22 @@ def pytest_terminal_summary(terminalreporter: TerminalReporter, config: pytest.C
 
 
 def _run_after_run_checks(session: pytest.Session) -> None:
-    # No after_run when nothing ran (`--collect-only` or all items deselected).
-    if session.config.getoption("collectonly", False) or not session.testscollected:
+    outputs = _format_after_run_failures(session.config)
+    if _is_xdist_worker(session.config):
+        from schemathesis.pytest.xdist import SCHEMATHESIS_AFTER_RUN_FAILURES_KEY
+
+        # Worker output never reaches the terminal; pytest-xdist hands `workeroutput` to the controller to report.
+        session.config.workeroutput[SCHEMATHESIS_AFTER_RUN_FAILURES_KEY] = outputs  # type: ignore[attr-defined]
         return
-    schemas = session.config.stash.get(_PYTEST_SCHEMAS_KEY, {})
-    for schema in schemas.values():
-        failures = _fire_after_run(schema)
-        if failures:
-            _report_after_run_failures(session, failures, schema.config.output)
-            if session.exitstatus == pytest.ExitCode.OK:
-                session.exitstatus = pytest.ExitCode.TESTS_FAILED
+    _report_after_run_failures(session, outputs + session.config.stash.get(_WORKER_AFTER_RUN_FAILURES_KEY, []))
+
+
+def _format_after_run_failures(config: pytest.Config) -> list[str]:
+    return [
+        format_failures(case_id=None, response=None, failures=failures, curl=None, config=schema.config.output)
+        for schema in config.stash.get(_PYTEST_SCHEMAS_KEY, {}).values()
+        if (failures := _fire_after_run(schema))
+    ]
 
 
 def _fire_after_run(schema: BaseSchema) -> list:
@@ -929,8 +931,15 @@ def _fire_after_run(schema: BaseSchema) -> list:
     return collect_after_run_failures(schema.config, checks)
 
 
-def _report_after_run_failures(session: pytest.Session, failures: list, output_config: OutputConfig) -> None:
-    output = format_failures(case_id=None, response=None, failures=failures, curl=None, config=output_config)
+def _report_after_run_failures(session: pytest.Session, outputs: list[str]) -> None:
+    # xdist workers that ran tests of the same schema often fail its checks identically.
+    for output in dict.fromkeys(outputs):
+        _write_after_run_failures(session, output)
+    if outputs and session.exitstatus == pytest.ExitCode.OK:
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+
+def _write_after_run_failures(session: pytest.Session, output: str) -> None:
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     if reporter is not None:
         reporter.write_sep("=", RUN_CHECKS_LABEL, red=True)

@@ -10,6 +10,7 @@ from sqlalchemy import make_url
 from dbos._serialization import Serializer
 
 from ._error import DBOSInitializationError
+from ._external_storage import ExternalStore
 
 DBOS_CONFIG_PATH = "dbos-config.yaml"
 
@@ -46,6 +47,7 @@ class DBOSConfig(TypedDict, total=False):
         auto_upgrade_grace_sec (float): Seconds the latest application version must have been the latest before auto-upgrade re-enqueues PENDING workflows left on older versions, giving executors on those versions time to drain. ENQUEUED and DELAYED workflows are upgraded without waiting. Defaults to 0.0.
         enable_patching (bool): Deprecated. Pins the application version to "PATCHING_ENABLED" so every deployment shares one version.
         serializer (Serializer): A custom serializer and deserializer DBOS uses when storing program data in the system database
+        external_stores (List[ExternalStore]): The object stores for values passed to DBOS.store_external_object. If there are multiple, store_external_object must specify one with store_id, and each needs a unique store_id. Requires Transact Enterprise.
         use_listen_notify (bool): Whether to use LISTEN/NOTIFY or polling to listen for notifications and events.  Defaults to True. As this affects migrations, may not be changed after the system database is first created.
         run_migrations (bool): Whether to create and migrate the system database on launch. Defaults to True. Set to False for a process that must not alter the schema, such as one whose database role cannot run DDL, or a deployment that migrates out of band with `dbos migrate`. Launch then verifies the schema instead: a system database that is missing, or behind the version this build requires, fails launch rather than being created or migrated.
         notification_listener_polling_interval_sec (float): Polling interval in seconds for the notification listener background process. Defaults to 1.0. Minimum value is 0.001. Lower values can speed up test execution.
@@ -86,10 +88,14 @@ class DBOSConfig(TypedDict, total=False):
     auto_upgrade_interval_sec: Optional[float]
     auto_upgrade_grace_sec: Optional[float]
     serializer: Optional[Serializer]
+    external_stores: Optional[List[ExternalStore]]
     enable_patching: Optional[bool]
     use_listen_notify: Optional[bool]
     # Use a sharded system database from dbos-enterprise; every workflow then lives under an explicit shard key.
     sharding: Optional[bool]
+    # Suspend mode from dbos-enterprise: recv(suspend=True) and sleep(suspend=True) park the
+    # workflow in the database. Any send, with or without suspend mode, wakes a parked recv.
+    suspend_mode: Optional[bool]
     run_migrations: Optional[bool]
     max_executor_threads: Optional[int]
     notification_listener_polling_interval_sec: Optional[float]
@@ -157,6 +163,7 @@ class ConfigFile(TypedDict, total=False):
     use_listen_notify: bool
     run_migrations: bool
     sharding: bool
+    suspend_mode: bool
 
 
 def _validate_idle_transaction_timeout_sec(value: Optional[float]) -> None:
@@ -334,6 +341,7 @@ def translate_dbos_config_to_config_file(config: DBOSConfig) -> ConfigFile:
         run_migrations if run_migrations is not None else True
     )
     translated_config["sharding"] = bool(config.get("sharding"))
+    translated_config["suspend_mode"] = bool(config.get("suspend_mode"))
 
     return translated_config
 

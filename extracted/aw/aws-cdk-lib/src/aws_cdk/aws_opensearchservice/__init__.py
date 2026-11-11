@@ -1741,6 +1741,7 @@ class CfnDomain(
         # access_policies: Any
         
         cfn_domain = opensearchservice.CfnDomain(self, "MyCfnDomain",
+            accepted_warnings=["acceptedWarnings"],
             access_policies=access_policies,
             advanced_options={
                 "advanced_options_key": "advancedOptions"
@@ -1847,6 +1848,7 @@ class CfnDomain(
             ),
             encryption_at_rest_options=opensearchservice.CfnDomain.EncryptionAtRestOptionsProperty(
                 enabled=False,
+                encryption_mode="encryptionMode",
                 kms_key_id="kmsKeyId"
             ),
             engine_mode="engineMode",
@@ -1904,6 +1906,7 @@ class CfnDomain(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        accepted_warnings: typing.Optional[typing.Sequence[builtins.str]] = None,
         access_policies: typing.Any = None,
         advanced_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         advanced_security_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1935,6 +1938,7 @@ class CfnDomain(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
+        :param accepted_warnings: Warning codes to accept for this domain configuration update. Accepting a warning lets the update proceed past a validation that would otherwise block it. This property applies only to the current update and is not persisted on the domain. You can find warning codes in the ValidationFailures returned by DescribeDomainChangeProgress or DescribeDryRunProgress.
         :param access_policies: An AWS Identity and Access Management ( IAM ) policy document that specifies who can access the OpenSearch Service domain and their permissions. For more information, see `Configuring access policies <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ac.html#ac-creating>`_ in the *Amazon OpenSearch Service Developer Guide* .
         :param advanced_options: Additional options to specify for the OpenSearch Service domain. For more information, see `AdvancedOptions <https://docs.aws.amazon.com/opensearch-service/latest/APIReference/API_CreateDomain.html#API_CreateDomain_RequestBody>`_ in the OpenSearch Service API reference.
         :param advanced_security_options: Specifies options for fine-grained access control and SAML authentication. If you specify advanced security options, you must also enable node-to-node encryption ( `NodeToNodeEncryptionOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-nodetonodeencryptionoptions.html>`_ ) and encryption at rest ( `EncryptionAtRestOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-encryptionatrestoptions.html>`_ ). You must also enable ``EnforceHTTPS`` within `DomainEndpointOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-domainendpointoptions.html>`_ , which requires HTTPS for all traffic to the domain.
@@ -1967,6 +1971,7 @@ class CfnDomain(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDomainProps(
+            accepted_warnings=accepted_warnings,
             access_policies=access_policies,
             advanced_options=advanced_options,
             advanced_security_options=advanced_security_options,
@@ -2289,6 +2294,22 @@ class CfnDomain(
             type_hints = cached_type_hints(_typecheckingstub__da5300173c129717cc6b181e91e5685dc6f63810f40281dca8b4c3a64113df8f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessPolicies", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptedWarnings")
+    def accepted_warnings(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Warning codes to accept for this domain configuration update.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "acceptedWarnings"))
+
+    @accepted_warnings.setter
+    def accepted_warnings(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__46ba4e0dd61895dde9be4460c145110499371b717c60293292d47e8b4df9ab15)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptedWarnings", value)
 
     @builtins.property
     @jsii.member(jsii_name="advancedOptions")
@@ -3877,18 +3898,24 @@ class CfnDomain(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomain.EncryptionAtRestOptionsProperty",
         jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled", "kms_key_id": "kmsKeyId"},
+        name_mapping={
+            "enabled": "enabled",
+            "encryption_mode": "encryptionMode",
+            "kms_key_id": "kmsKeyId",
+        },
     )
     class EncryptionAtRestOptionsProperty:
         def __init__(
             self,
             *,
             enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            encryption_mode: typing.Optional[builtins.str] = None,
             kms_key_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service key to use.
 
             :param enabled: Specify ``true`` to enable encryption at rest. Required if you enable fine-grained access control in `AdvancedSecurityOptionsInput <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-advancedsecurityoptionsinput.html>`_ . If no encryption at rest options were initially specified in the template, updating this property by adding it causes no interruption. However, if you change this property after it's already been set within a template, the domain is deleted and recreated in order to modify the property.
+            :param encryption_mode: The type of encryption at rest applied to the domain's data. Valid values are DISK and NATIVE. DISK is the default and uses volume-level encryption. NATIVE uses engine-native, index-level encryption and requires encryption at rest to be enabled and OpenSearch version 3.3 or later. After the mode is set to NATIVE, it can't be changed back to DISK.
             :param kms_key_id: The KMS key ID. Takes the form ``1a2a3a4-1a2a-3a4a-5a6a-1a2a3a4a5a6a`` . Required if you enable encryption at rest. You can also use ``keyAlias`` as a value. If no encryption at rest options were initially specified in the template, updating this property by adding it causes no interruption. However, if you change this property after it's already been set within a template, the domain is deleted and recreated in order to modify the property.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-encryptionatrestoptions.html
@@ -3902,16 +3929,20 @@ class CfnDomain(
                 
                 encryption_at_rest_options_property = opensearchservice.CfnDomain.EncryptionAtRestOptionsProperty(
                     enabled=False,
+                    encryption_mode="encryptionMode",
                     kms_key_id="kmsKeyId"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__8045e71bf2b9389f7b778b391167aea3cf2ff9b7ccd6b9462c26cc1dcd4f9cbc)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument encryption_mode", value=encryption_mode, expected_type=type_hints["encryption_mode"])
                 check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if enabled is not None:
                 self._values["enabled"] = enabled
+            if encryption_mode is not None:
+                self._values["encryption_mode"] = encryption_mode
             if kms_key_id is not None:
                 self._values["kms_key_id"] = kms_key_id
 
@@ -3927,6 +3958,17 @@ class CfnDomain(
             '''
             result = self._values.get("enabled")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def encryption_mode(self) -> typing.Optional[builtins.str]:
+            '''The type of encryption at rest applied to the domain's data.
+
+            Valid values are DISK and NATIVE. DISK is the default and uses volume-level encryption. NATIVE uses engine-native, index-level encryption and requires encryption at rest to be enabled and OpenSearch version 3.3 or later. After the mode is set to NATIVE, it can't be changed back to DISK.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-encryptionatrestoptions.html#cfn-opensearchservice-domain-encryptionatrestoptions-encryptionmode
+            '''
+            result = self._values.get("encryption_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -5733,6 +5775,7 @@ class CfnDomain(
     jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomainProps",
     jsii_struct_bases=[],
     name_mapping={
+        "accepted_warnings": "acceptedWarnings",
         "access_policies": "accessPolicies",
         "advanced_options": "advancedOptions",
         "advanced_security_options": "advancedSecurityOptions",
@@ -5765,6 +5808,7 @@ class CfnDomainProps:
     def __init__(
         self,
         *,
+        accepted_warnings: typing.Optional[typing.Sequence[builtins.str]] = None,
         access_policies: typing.Any = None,
         advanced_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         advanced_security_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5794,6 +5838,7 @@ class CfnDomainProps:
     ) -> None:
         '''Properties for defining a ``CfnDomain``.
 
+        :param accepted_warnings: Warning codes to accept for this domain configuration update. Accepting a warning lets the update proceed past a validation that would otherwise block it. This property applies only to the current update and is not persisted on the domain. You can find warning codes in the ValidationFailures returned by DescribeDomainChangeProgress or DescribeDryRunProgress.
         :param access_policies: An AWS Identity and Access Management ( IAM ) policy document that specifies who can access the OpenSearch Service domain and their permissions. For more information, see `Configuring access policies <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ac.html#ac-creating>`_ in the *Amazon OpenSearch Service Developer Guide* .
         :param advanced_options: Additional options to specify for the OpenSearch Service domain. For more information, see `AdvancedOptions <https://docs.aws.amazon.com/opensearch-service/latest/APIReference/API_CreateDomain.html#API_CreateDomain_RequestBody>`_ in the OpenSearch Service API reference.
         :param advanced_security_options: Specifies options for fine-grained access control and SAML authentication. If you specify advanced security options, you must also enable node-to-node encryption ( `NodeToNodeEncryptionOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-nodetonodeencryptionoptions.html>`_ ) and encryption at rest ( `EncryptionAtRestOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-encryptionatrestoptions.html>`_ ). You must also enable ``EnforceHTTPS`` within `DomainEndpointOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-domainendpointoptions.html>`_ , which requires HTTPS for all traffic to the domain.
@@ -5834,6 +5879,7 @@ class CfnDomainProps:
             # access_policies: Any
             
             cfn_domain_props = opensearchservice.CfnDomainProps(
+                accepted_warnings=["acceptedWarnings"],
                 access_policies=access_policies,
                 advanced_options={
                     "advanced_options_key": "advancedOptions"
@@ -5940,6 +5986,7 @@ class CfnDomainProps:
                 ),
                 encryption_at_rest_options=opensearchservice.CfnDomain.EncryptionAtRestOptionsProperty(
                     enabled=False,
+                    encryption_mode="encryptionMode",
                     kms_key_id="kmsKeyId"
                 ),
                 engine_mode="engineMode",
@@ -5993,6 +6040,7 @@ class CfnDomainProps:
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d67607c52)
+            check_type(argname="argument accepted_warnings", value=accepted_warnings, expected_type=type_hints["accepted_warnings"])
             check_type(argname="argument access_policies", value=access_policies, expected_type=type_hints["access_policies"])
             check_type(argname="argument advanced_options", value=advanced_options, expected_type=type_hints["advanced_options"])
             check_type(argname="argument advanced_security_options", value=advanced_security_options, expected_type=type_hints["advanced_security_options"])
@@ -6020,6 +6068,8 @@ class CfnDomainProps:
             check_type(argname="argument use_case", value=use_case, expected_type=type_hints["use_case"])
             check_type(argname="argument vpc_options", value=vpc_options, expected_type=type_hints["vpc_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if accepted_warnings is not None:
+            self._values["accepted_warnings"] = accepted_warnings
         if access_policies is not None:
             self._values["access_policies"] = access_policies
         if advanced_options is not None:
@@ -6072,6 +6122,17 @@ class CfnDomainProps:
             self._values["use_case"] = use_case
         if vpc_options is not None:
             self._values["vpc_options"] = vpc_options
+
+    @builtins.property
+    def accepted_warnings(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Warning codes to accept for this domain configuration update.
+
+        Accepting a warning lets the update proceed past a validation that would otherwise block it. This property applies only to the current update and is not persisted on the domain. You can find warning codes in the ValidationFailures returned by DescribeDomainChangeProgress or DescribeDryRunProgress.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-acceptedwarnings
+        '''
+        result = self._values.get("accepted_warnings")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def access_policies(self) -> typing.Any:
@@ -11817,6 +11878,7 @@ def _typecheckingstub__6fcd2545392b3f48f314c640881e38e167b5936f1165d2eb1ce21766d
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    accepted_warnings: typing.Optional[typing.Sequence[builtins.str]] = None,
     access_policies: typing.Any = None,
     advanced_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     advanced_security_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11889,6 +11951,12 @@ def _typecheckingstub__82c494c700f6860a942b3abd6b86cf929f307e898357419f56692f0b4
 
 def _typecheckingstub__da5300173c129717cc6b181e91e5685dc6f63810f40281dca8b4c3a64113df8f(
     value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__46ba4e0dd61895dde9be4460c145110499371b717c60293292d47e8b4df9ab15(
+    value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12142,6 +12210,7 @@ def _typecheckingstub__0edcf62ab77376e080d4b111ffdeee55bda3d1ea1c392a1acb86f78ce
 def _typecheckingstub__8045e71bf2b9389f7b778b391167aea3cf2ff9b7ccd6b9462c26cc1dcd4f9cbc(
     *,
     enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    encryption_mode: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12324,6 +12393,7 @@ def _typecheckingstub__256b4aabbc2391aa4f2b7e2d1c28804fdc91f3e9c7c213de20cc38a33
 
 def _typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d67607c52(
     *,
+    accepted_warnings: typing.Optional[typing.Sequence[builtins.str]] = None,
     access_policies: typing.Any = None,
     advanced_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     advanced_security_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

@@ -10,6 +10,7 @@ import google.protobuf.empty_pb2
 import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
+import sentry_protos.billing.v1.common.v1.pricing_tier_pb2
 import sentry_protos.billing.v1.common.v1.soft_cap_type_pb2
 import sentry_protos.billing.v1.common.v1.sponsored_type_pb2
 import sys
@@ -86,6 +87,7 @@ class PendingChange(google.protobuf.message.Message):
     SPONSORED_TYPE_FIELD_NUMBER: builtins.int
     BILLING_TYPE_FIELD_NUMBER: builtins.int
     PAYG_MODE_FIELD_NUMBER: builtins.int
+    SALES_CONFIG_FIELD_NUMBER: builtins.int
     package_id: builtins.str
     """The package the subscription will switch to. Unset means the package is
     not changing.
@@ -113,6 +115,13 @@ class PendingChange(google.protobuf.message.Message):
         line item in the pool.
         """
 
+    @property
+    def sales_config(self) -> global___PendingSalesConfig:
+        """Replaces the next contract's whole sales config, so an empty
+        PendingSalesConfig clears it. Unset carries the current sales config over
+        unchanged.
+        """
+
     def __init__(
         self,
         *,
@@ -122,9 +131,10 @@ class PendingChange(google.protobuf.message.Message):
         sponsored_type: sentry_protos.billing.v1.common.v1.sponsored_type_pb2.SponsoredType.ValueType | None = ...,
         billing_type: global___PendingBillingType.ValueType | None = ...,
         payg_mode: global___PendingPaygMode.ValueType | None = ...,
+        sales_config: global___PendingSalesConfig | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_billing_type", b"_billing_type", "_month_interval", b"_month_interval", "_package_id", b"_package_id", "_payg_mode", b"_payg_mode", "_sponsored_type", b"_sponsored_type", "billing_type", b"billing_type", "month_interval", b"month_interval", "package_id", b"package_id", "payg_mode", b"payg_mode", "sponsored_type", b"sponsored_type"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_billing_type", b"_billing_type", "_month_interval", b"_month_interval", "_package_id", b"_package_id", "_payg_mode", b"_payg_mode", "_sponsored_type", b"_sponsored_type", "billing_type", b"billing_type", "month_interval", b"month_interval", "package_id", b"package_id", "payg_mode", b"payg_mode", "sponsored_type", b"sponsored_type", "user_configs", b"user_configs"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_billing_type", b"_billing_type", "_month_interval", b"_month_interval", "_package_id", b"_package_id", "_payg_mode", b"_payg_mode", "_sales_config", b"_sales_config", "_sponsored_type", b"_sponsored_type", "billing_type", b"billing_type", "month_interval", b"month_interval", "package_id", b"package_id", "payg_mode", b"payg_mode", "sales_config", b"sales_config", "sponsored_type", b"sponsored_type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_billing_type", b"_billing_type", "_month_interval", b"_month_interval", "_package_id", b"_package_id", "_payg_mode", b"_payg_mode", "_sales_config", b"_sales_config", "_sponsored_type", b"_sponsored_type", "billing_type", b"billing_type", "month_interval", b"month_interval", "package_id", b"package_id", "payg_mode", b"payg_mode", "sales_config", b"sales_config", "sponsored_type", b"sponsored_type", "user_configs", b"user_configs"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_billing_type", b"_billing_type"]) -> typing.Literal["billing_type"] | None: ...
     @typing.overload
@@ -134,9 +144,61 @@ class PendingChange(google.protobuf.message.Message):
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_payg_mode", b"_payg_mode"]) -> typing.Literal["payg_mode"] | None: ...
     @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_sales_config", b"_sales_config"]) -> typing.Literal["sales_config"] | None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_sponsored_type", b"_sponsored_type"]) -> typing.Literal["sponsored_type"] | None: ...
 
 global___PendingChange = PendingChange
+
+@typing.final
+class PendingSalesConfig(google.protobuf.message.Message):
+    """Mirrors contract.v2.SalesConfig field for field, since common.v1 cannot
+    import contract.v2 without a package cycle. The two must stay
+    wire-compatible.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    PRICING_FIELD_NUMBER: builtins.int
+    @property
+    def pricing(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___PendingSalesLineItemPricing]: ...
+    def __init__(
+        self,
+        *,
+        pricing: collections.abc.Iterable[global___PendingSalesLineItemPricing] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["pricing", b"pricing"]) -> None: ...
+
+global___PendingSalesConfig = PendingSalesConfig
+
+@typing.final
+class PendingSalesLineItemPricing(google.protobuf.message.Message):
+    """Mirrors contract.v2.SalesLineItemPricing."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    LINE_ITEM_UID_FIELD_NUMBER: builtins.int
+    RESERVED_PRICE_CENTS_FIELD_NUMBER: builtins.int
+    PAYG_RATE_FIELD_NUMBER: builtins.int
+    line_item_uid: builtins.str
+    reserved_price_cents: builtins.int
+    @property
+    def payg_rate(self) -> sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate: ...
+    def __init__(
+        self,
+        *,
+        line_item_uid: builtins.str = ...,
+        reserved_price_cents: builtins.int | None = ...,
+        payg_rate: sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["_payg_rate", b"_payg_rate", "_reserved_price_cents", b"_reserved_price_cents", "payg_rate", b"payg_rate", "reserved_price_cents", b"reserved_price_cents"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_payg_rate", b"_payg_rate", "_reserved_price_cents", b"_reserved_price_cents", "line_item_uid", b"line_item_uid", "payg_rate", b"payg_rate", "reserved_price_cents", b"reserved_price_cents"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_payg_rate", b"_payg_rate"]) -> typing.Literal["payg_rate"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_reserved_price_cents", b"_reserved_price_cents"]) -> typing.Literal["reserved_price_cents"] | None: ...
+
+global___PendingSalesLineItemPricing = PendingSalesLineItemPricing
 
 @typing.final
 class PendingUserConfig(google.protobuf.message.Message):

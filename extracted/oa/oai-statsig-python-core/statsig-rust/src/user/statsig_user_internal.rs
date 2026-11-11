@@ -103,40 +103,39 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
     pub fn get_user_value(&self, field: &Option<DynamicString>) -> Option<UserValueRef<'_>> {
         let field = field.as_ref()?;
 
-        let lowered_field = &field.lowercased_value;
+        let key = field.value.as_str();
+        let lowercase = field.lowercased_value.as_str();
 
-        if let Some(value) = self.get_primary_user_value(lowered_field) {
+        if let Some(value) = self.get_primary_user_value(lowercase) {
             if value.string_value().is_some_and(|value| !value.is_empty()) {
                 return Some(value);
             }
         }
 
-        if let Some(found) = self.get_custom_value(field.value.as_str()) {
-            return Some(found);
+        if let Some(value) = self.get_custom_value(key) {
+            return Some(value);
         }
-        if let Some(lowered_found) = self.get_custom_value(lowered_field.as_str()) {
-            return Some(lowered_found);
+        let alternate = (key != lowercase).then_some(lowercase);
+        if let Some(value) = alternate.and_then(|key| self.get_custom_value(key)) {
+            return Some(value);
         }
 
-        if let Some(instance) = &self.statsig_instance {
-            if let Some(val) = instance.get_value_from_global_custom_fields(&field.value) {
-                return Some(UserValueRef::Dynamic(val));
-            }
-
-            if let Some(val) = instance.get_value_from_global_custom_fields(&field.lowercased_value)
+        if let Some(instance) = self.statsig_instance {
+            if let Some(value) = instance
+                .get_value_from_global_custom_fields(key)
+                .or_else(|| instance.get_value_from_global_custom_fields(alternate?))
             {
-                return Some(UserValueRef::Dynamic(val));
+                return Some(UserValueRef::Dynamic(value));
             }
         }
 
-        if let Some(found) = self.get_private_attribute_value(field.value.as_str()) {
-            return Some(UserValueRef::Dynamic(found));
-        }
-        if let Some(lowered_found) = self.get_private_attribute_value(lowered_field.as_str()) {
-            return Some(UserValueRef::Dynamic(lowered_found));
+        if let Some(attributes) = self.private_attributes() {
+            if let Some(value) = attributes.get(key).or_else(|| attributes.get(alternate?)) {
+                return Some(UserValueRef::Dynamic(value));
+            }
         }
 
-        self.get_primary_user_value_alt(lowered_field)
+        self.get_primary_user_value_alt(lowercase)
     }
 
     pub fn get_value_from_environment(
@@ -344,10 +343,6 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
             }
             InternalUserRef::Prepared(user) => user.get_custom_value(key).map(UserValueRef::User),
         }
-    }
-
-    fn get_private_attribute_value(&self, key: &str) -> Option<&DynamicValue> {
-        self.private_attributes()?.get(key)
     }
 
     fn private_attributes(&self) -> Option<&UserDataMap> {

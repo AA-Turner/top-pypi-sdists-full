@@ -66,7 +66,7 @@ from cmath import polar as _polar
 from math import asinh, cos, cosh, degrees, fabs, sin, sinh, sqrt, tanh
 
 __all__ = _ALL_LAZY.ktm
-__version__ = '25.08.31'
+__version__ = '26.11.08'
 
 
 class KTMError(_ValueError):
@@ -501,15 +501,16 @@ def _Xs(_Coeffs, m, E, RA=False):  # in .rhumb.ekx
     n = n_ = E.n
     if n:  # isEllipsoidal
         X = [0]  # X[0] never used, it's just an integration
-        # constant, it cancels when evaluating a definite
+        # constant that cancels when evaluating a definite
         # integral.  Don't bother computing it, it is unused
         # in C{_Cyxgk4} above and C{rhumb.ekx._sincosSeries}.
+        _X =  X.append
         i  = (m + 2) if RA else 0
         _p = _polynomial
-        for r in _reverange(m):  # [m-1 ... 0]
-            j = i + r + 1
-            X.append(_p(n, Cs, i, j) * n_ / Cs[j])
-            i = j + 1
+        for j in _reverange(m):  # [m-1 ... 0]
+            j += i + 1
+            _X(_p(n, Cs, i, j) * n_ / Cs[j])
+            i  = j + 1
             n_ *= n
         X =  tuple(X)
     else:  # isSpherical
@@ -612,7 +613,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2022-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2022-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

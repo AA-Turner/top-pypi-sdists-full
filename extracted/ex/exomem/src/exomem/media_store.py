@@ -408,6 +408,11 @@ def _reserve(store: MediaJobStore, token: str, needed: int, limits: media_capaci
         raise MediaStoreError(STORE_BUSY_CODE, "hydration capacity is in use")
 
 
+#: The two answers of ``managed_event``: look at the file again later, or leave its bytes alone.
+DEFER = "defer"
+SUPPRESS = "suppress"
+
+
 def managed_event(vault: Path, path: Path) -> str | None:
     """Tell the watcher to defer an in-flight event or suppress proven cache bytes."""
     if originals.binding_for(vault) is None:
@@ -423,12 +428,12 @@ def managed_event(vault: Path, path: Path) -> str | None:
                 rows = conn.execute("SELECT * FROM media_access WHERE binary_rel = ?", (store._relative(path),)).fetchall()
                 # A read-only reader can see a ledger from before the start column, which the next write adds.
                 if any(holder_alive(row["pid"], row["pid_start"] if "pid_start" in row.keys() else None) for row in rows):
-                    return "defer"
+                    return DEFER
         finally:
             conn.close()
     snapshot = original_state(vault, path)
     if snapshot.state == "evicted" or cache_matches(vault, path, snapshot=snapshot):
-        return "suppress"
+        return SUPPRESS
     return None
 
 
@@ -455,6 +460,12 @@ def bound_originals(vault: Path, *, root: Path | None = None) -> Iterator[Origin
                 yield snapshot
         except (UnicodeError, ValueError):
             continue
+        except reserved_paths.ReservedPathLeafError as error:
+            # A note or an original that is not a plain file (a symlink, a hard link or a reserved name) is
+            # not a binding to trust. These are the leaf boundary's structural refusal codes; any other one,
+            # such as a transient I/O refusal, reaches the caller, which must not miss a binding.
+            if error.code not in ("UNSAFE_PATH", "RESERVED_PATH", "AMBIGUOUS_PATH"):
+                raise
 
 
 def _status_candidates(vault: Path, table: str, query: str, parameters: tuple[object, ...] = ()) -> tuple[list[sqlite3.Row], dict[str, object]]:
@@ -734,7 +745,7 @@ def upload_refusal(
     rechecks the allowance before publication. The declared size counts as a new version, because nothing
     shows a duplicate of a stored version before the bytes arrive.
     """
-    from . import source_inspection
+    from . import held_uploads, source_inspection
 
     vault = Path(vault).resolve()
     try:
@@ -742,9 +753,10 @@ def upload_refusal(
         if config is None or config.get("enabled") is not True:
             return None
         bounds = media_capacity.bounds_for(config, vault)
-        # `evidence` is the upload lane token (upload_tokens.UPLOAD_LANES) whose filing keeps notes and datasets.
-        stays = lane == "evidence" and (
-            filename is None or originals.is_note_path(filename) or source_inspection.is_dataset_name(filename))
+        # An import archive is unpacked into a stage and released, so it is never an offloaded original. `evidence` is
+        # the upload lane token (upload_tokens.UPLOAD_LANES) whose filing keeps notes and datasets.
+        stays = lane == held_uploads.IMPORT_LANE or (lane == "evidence" and (
+            filename is None or originals.is_note_path(filename) or source_inspection.is_dataset_name(filename)))
         largest = declared_bytes if most_bytes is None else most_bytes
         # A larger size never classifies back to offloadable, so the largest possible size decides for the range.
         if stays or (bounds is not None and bounds.classify(largest) != media_capacity.OFFLOADABLE):
@@ -785,6 +797,7 @@ def _publish_reference(vault: Path, snapshot: OriginalSnapshot, reference: Store
         render_frontmatter_document,
         serialize_frontmatter,
     )
+    from .vault_store import read
 
     text, guard = read_guarded_text(vault, snapshot.sidecar_path)
     if content_hash(text) != snapshot.sidecar_hash:
@@ -800,7 +813,14 @@ def _publish_reference(vault: Path, snapshot: OriginalSnapshot, reference: Store
     ),))
     # Keep protection through an uncertain writer or catalog result. Explicitly
     # confirm durable bytes even when a prior attempt already wrote this value.
-    with reserved_paths.open_generic_binary(vault, snapshot.sidecar_path.relative_to(vault).as_posix()) as source:
+    relative = snapshot.sidecar_path.relative_to(vault).as_posix()
+    # A store-mode vault's page is the store's, committed durably above, and its Markdown file may
+    # not be projected yet: the read-back is the store's page, with no file to sync.
+    if (stored := read.owned_bytes(vault, relative)) is not None:
+        if stored != rendered.encode("utf-8"):
+            raise MediaStoreError("MEDIA_ORIGINAL_CHANGED", "reference publication is uncertain")
+        return
+    with reserved_paths.open_generic_binary(vault, relative) as source:
         if source.stream.read() != rendered.encode("utf-8"):
             raise MediaStoreError("MEDIA_ORIGINAL_CHANGED", "reference publication is uncertain")
         os.fsync(source.stream.fileno())

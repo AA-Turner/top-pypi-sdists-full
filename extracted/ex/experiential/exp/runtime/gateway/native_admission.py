@@ -25,7 +25,12 @@ from exp.runtime.gateway.affinity import (
     house_aggregator_last,
     rendezvous_order,
 )
-from exp.runtime.gateway.capability_rungs import narrow_to_capable_rungs
+from exp.runtime.gateway.capability_rungs import (
+    first_dial_profiles,
+    generation_parameter_indexes,
+    live_issuer_index,
+    narrow_to_capable_rungs,
+)
 from exp.runtime.gateway.class_throttles import fast_request, require_fast_path
 from exp.runtime.gateway.contracts import AuthorizationSnapshot, DirectTarget, GatewayRequest
 from exp.runtime.gateway.native_accounting import NativeAttemptAccounting
@@ -37,10 +42,14 @@ from exp.runtime.gateway.native_execution import (
     request_carries_cache_markers,
     select_route_deployments,
 )
-from exp.runtime.gateway.native_fallback_rules import require_unrestricted_rung
+from exp.runtime.gateway.native_fallback_rules import (
+    coercible_rejections,
+    dialable_rejections,
+    require_unrestricted_rung,
+)
 from exp.runtime.gateway.native_image_output import image_aware_stream_payload
 from exp.runtime.gateway.native_reasoning import rung_provider_request
-from exp.runtime.gateway.native_request_policy import restrict_fallbacks
+from exp.runtime.gateway.native_request_policy import restrict_fallbacks, select_no_fallback_root
 from exp.runtime.gateway.native_responses import ContinuationContext
 from exp.runtime.gateway.native_stage_admission import (
     require_native_model_stage_contract,
@@ -75,10 +84,7 @@ from exp.runtime.models.providers.errors import (
     ProviderResponseError,
 )
 from exp.runtime.models.providers.generation_parameter_validation import bounded_output_request
-from exp.runtime.models.providers.generation_route_compat import (
-    compatible_generation_parameter_profile_indexes,
-    plaintext_reasoning_lead_order,
-)
+from exp.runtime.models.providers.generation_route_compat import plaintext_reasoning_lead_order
 from exp.runtime.models.providers.prompt_cache_options import honors_markers
 from exp.runtime.models.providers.protocol import NativeWireClient
 from exp.runtime.models.providers.streaming_requests import route_generation_parameter_requests
@@ -125,7 +131,7 @@ def admitted_route_requests(
     """
     request = fast_request(without_prompt_caching(request, authorization), authorization)
     route, resolved_wires, public_request, provider_request, disclosures = prepare_route_requests(
-        route, resolved_wires, request, authorization.fast
+        route, resolved_wires, request, authorization.fast, authorization.image_input_notice
     )
     require_fast_path(provider_request, authorization)
     if disclosures:
@@ -209,7 +215,7 @@ def select_single_route_before_search(
         )
         if not root_indexes:
             raise GatewayRoutingError("no-fallback routing requires an eligible root-model route")
-        route = select_route_deployments(route, root_indexes)
+        route = select_no_fallback_root(route, root_indexes)
         resolved_wires = tuple(resolved_wires[index] for index in root_indexes)
     if route.resolved_route_id is not None:
         return restrict_fallbacks(request, route), resolved_wires[:1], None
@@ -217,7 +223,7 @@ def select_single_route_before_search(
     preview = strip_search_carriers(preview) if preview.web_search is not None else preview
     preview = plan_tool_search(preview, [profile.dialect for profile, _ in resolved_wires]).request
     route, resolved_wires, _, prepared, _ = prepare_route_requests(
-        route, resolved_wires, preview, authorization.fast
+        route, resolved_wires, preview, authorization.fast, authorization.image_input_notice
     )
     route, resolved_wires = _prefer_cache_capable_rungs(route, resolved_wires, prepared)
     route, resolved_wires, placement = _affinity_ordered_rungs(
@@ -234,6 +240,9 @@ def select_single_route_before_search(
     return restricted, (resolved_wires[index],), placement
 
 
+MAXIMUM_ROUTE_DEGRADES = 4
+"""Route-wide disclosed degrades admission chains before refusing (each clears one rejection)."""
+
 PRIORITY_TIER_UNAVAILABLE_DISCLOSURE = "service_tier->default(priority_unavailable)"
 """Disclosure recorded when no rung offers the priority tier and the request runs at standard."""
 
@@ -243,6 +252,7 @@ def prepare_route_requests(
     resolved_wires: _ResolvedWires,
     request: GatewayRequest,
     fast: bool = False,
+    image_input_notice: str | None = None,
 ) -> tuple[GatewayRoute, _ResolvedWires, GatewayRequest, GatewayRequest, tuple[str, ...]]:
     """Pure capability filtering and shaping, with disclosures returned but never recorded.
 
@@ -317,47 +327,38 @@ def prepare_route_requests(
         return _candidate_serves(full_route, full_wires, candidate)
 
     try:
-        compatible_indexes = compatible_generation_parameter_profile_indexes(
-            tuple(profile for profile, _client in resolved_wires),
-            admitted_request,
-        )
+        compatible_indexes = generation_parameter_indexes(route, resolved_wires, admitted_request)
     except ProviderParameterError:
         # No rung preserves the request verbatim; retry once with the
         # minimal disclosed coercion when semantics allow, otherwise
         # keep the named rejection.
         coercion = coerce_generation_parameters(
-            tuple(profile for profile, _client in resolved_wires),
+            first_dial_profiles(route, resolved_wires),
             admitted_request,
             admits=candidate_serves,
         )
         if coercion is None:
             # No coercion SERVES, but one may still APPLY: the probe refused
             # every candidate because the coerced request dies one layer
-            # later, on a blocker that has nothing to do with the coerced
-            # field. Re-raising the verbatim rejection here would name that
-            # field (an image on a text-only route read as "thinking is not
-            # supported by this model route", because shaping rejects the
-            # foreign-wire thinking config before preflight ever sees the
-            # image; 25 such 400s on 2026-09-11). Carry the unprobed
-            # coercion forward instead and let the stage that actually
-            # refuses it name the caller's remedy. Nothing is recorded for a
-            # request that never serves.
+            # later, on a blocker unrelated to the coerced field. Re-raising
+            # the verbatim rejection would name that field (an image on a
+            # text-only route read as an unsupported thinking config). Carry
+            # the unprobed coercion forward so the stage that actually refuses
+            # names the caller's remedy; nothing is recorded for a request that
+            # never serves.
             coercion = coerce_generation_parameters(
-                tuple(profile for profile, _client in resolved_wires),
+                first_dial_profiles(route, resolved_wires),
                 admitted_request,
             )
         if coercion is None:
             raise
-        compatible_indexes = compatible_generation_parameter_profile_indexes(
-            tuple(profile for profile, _client in resolved_wires),
-            coercion.request,
-        )
+        compatible_indexes = generation_parameter_indexes(route, resolved_wires, coercion.request)
         admitted_request = coercion.request
         coercion_disclosures = (*coercion_disclosures, *coercion.disclosures)
     route = select_route_deployments(route, compatible_indexes)
     resolved_wires = tuple(resolved_wires[index] for index in compatible_indexes)
-    if route.resolved_route_id is None and route.reasoning_pinned_deployment_id is None:
-        # Plaintext-reasoning carriers lead; the rungs that drop it stay as fallbacks.
+    if route.resolved_route_id is None and live_issuer_index(route) is None:
+        # Plaintext-reasoning carriers lead (a stale pin included); the rest are fallbacks.
         order = plaintext_reasoning_lead_order(
             tuple(profile for profile, _client in resolved_wires),
             admitted_request,
@@ -397,49 +398,57 @@ def prepare_route_requests(
         provider_request,
         public_stream=public_request.stream,
     )
-    if not protocol_indexes:
-        # Degrade once with disclosure where the rejection set allows it:
-        # a unanimous capability rejection coerces any coercible capability,
-        # mixed rejections only the service-tier hint.
+    # Disclosed degrades while no rung may take the first dial: a unanimous rejection
+    # coerces any coercible capability, mixed ones only the service-tier hint, and
+    # clearing one can expose the next (a caller image, then a tool-result PDF).
+    for _degrade in range(MAXIMUM_ROUTE_DEGRADES):
+        if not (rejections := coercible_rejections(route, protocol_indexes, protocol_errors)):
+            break
         coercion = coerce_route_rejections(
-            protocol_errors, len(route.deployments), admitted_request
+            rejections, len(rejections), admitted_request, image_input_notice
         )
-        if coercion is not None:
-            admitted_request = coercion.request
-            coercion_disclosures = (*coercion_disclosures, *coercion.disclosures)
-            public_request, provider_request = route_generation_parameter_requests(
-                tuple(profile for profile, _client in resolved_wires),
-                admitted_request,
-            )
-            provider_request = provider_request.model_copy(
-                update={"stream": True, "include_usage": True}
-            )
-            protocol_indexes, protocol_errors = protocol_compatible_indexes(
-                route,
-                resolved_wires,
-                provider_request,
-                public_stream=public_request.stream,
-            )
-    if not protocol_indexes and provider_request.parallel_tool_calls is not None:
-        # LAST resort for parallel_tool_calls: no rung honours the control
-        # natively (and no other coercion freed one), so admit the rungs whose
-        # only objection is that control. The data plane then drops `true`
-        # (the provider's default) or serializes `false` per rung, disclosed
-        # (native_bridge's per-rung shaping). A native rung is always
-        # preferred, which is why this pass runs after everything else.
+        if coercion is None:
+            break
+        admitted_request = coercion.request
+        coercion_disclosures = (*coercion_disclosures, *coercion.disclosures)
+        public_request, provider_request = route_generation_parameter_requests(
+            tuple(profile for profile, _client in resolved_wires), admitted_request
+        )
+        provider_request = provider_request.model_copy(
+            update={"stream": True, "include_usage": True}
+        )
         protocol_indexes, protocol_errors = protocol_compatible_indexes(
+            route, resolved_wires, provider_request, public_stream=public_request.stream
+        )
+    if provider_request.parallel_tool_calls is not None and (
+        not protocol_indexes or dialable_rejections(route, protocol_indexes, protocol_errors)
+    ):
+        # LAST resort for parallel_tool_calls: no rung that may take the first
+        # dial honours the control natively (and no other coercion freed one),
+        # so admit the rungs whose only objection is that control. The data
+        # plane then drops `true` (the provider's default) or serializes
+        # `false` per rung, disclosed (native_bridge's per-rung shaping). A
+        # native rung is always preferred, which is why this pass runs after
+        # everything else; a native failover-only rung alone cannot be dialed.
+        emulated_indexes, emulated_errors = protocol_compatible_indexes(
             route,
             resolved_wires,
             provider_request,
             public_stream=public_request.stream,
             emulate_parallel_tool_calls=True,
         )
+        if not protocol_indexes or not dialable_rejections(
+            route, emulated_indexes, emulated_errors
+        ):
+            protocol_indexes, protocol_errors = emulated_indexes, emulated_errors
     if not protocol_indexes:
         if not protocol_errors:
             raise GatewayRoutingError("authorized route has no compatible deployment")
         # Nothing coercible remains; the shared admit handler scopes
         # capability rejections to their exact public request field.
         raise route_rejection(protocol_errors)
+    if dialable := dialable_rejections(route, protocol_indexes, protocol_errors):
+        raise route_rejection(dialable)  # Only failover-only rungs serve it: refuse, typed.
     if len(protocol_indexes) != len(route.deployments):
         selected_indexes = tuple(protocol_indexes)
         route = select_route_deployments(route, selected_indexes)
@@ -559,12 +568,7 @@ def _keeps_issuing_rung_first(route: GatewayRoute) -> bool:
     dead the pin is stale: every surviving rung runs without the reasoning,
     so the pool's normal ordering applies to them.
     """
-    if route.resolved_route_id is not None:
-        return True
-    pinned = route.reasoning_pinned_deployment_id
-    return pinned is not None and any(
-        deployment.deployment_id == pinned for deployment in route.deployments
-    )
+    return route.resolved_route_id is not None or live_issuer_index(route) is not None
 
 
 def _affinity_ordered_rungs(
@@ -663,8 +667,8 @@ def _candidate_serves(
     The policy layer sees only wire profiles, so without this probe a
     candidate could pass generation narrowing yet land on rungs that all fail
     deployment capability preflight, blocking a farther candidate whose rungs
-    serve. The probe mirrors the real pipeline exactly, including the single
-    capability coercion admission may run afterwards: clearing one capability
+    serve. The probe mirrors the real pipeline exactly, including the chained
+    capability coercions admission may run afterwards: clearing one capability
     can merely expose the next, so the coerced candidate must itself pass
     preflight before the snap counts as servable.
 
@@ -677,49 +681,46 @@ def _candidate_serves(
         Whether admission would serve the candidate.
     """
     try:
-        candidate_indexes = compatible_generation_parameter_profile_indexes(
-            tuple(profile for profile, _client in resolved_wires),
-            candidate,
-        )
+        candidate_indexes = generation_parameter_indexes(route, resolved_wires, candidate)
         candidate_route = select_route_deployments(route, candidate_indexes)
         candidate_wires = tuple(resolved_wires[index] for index in candidate_indexes)
-        candidate_public, candidate_provider = route_generation_parameter_requests(
-            tuple(profile for profile, _client in candidate_wires),
-            candidate,
-        )
+        profiles = tuple(profile for profile, _client in candidate_wires)
+        candidate_public, provider = route_generation_parameter_requests(profiles, candidate)
     except (ProviderParameterError, ProviderCapabilityError):
         return False
-    candidate_provider = candidate_provider.model_copy(
-        update={"stream": True, "include_usage": True}
+    stream = candidate_public.stream
+    provider = provider.model_copy(update={"stream": True, "include_usage": True})
+    indexes, errors = protocol_compatible_indexes(
+        candidate_route, candidate_wires, provider, public_stream=stream
     )
+    for _degrade in range(MAXIMUM_ROUTE_DEGRADES):  # The same chained degrades as admission.
+        if not (rejections := coercible_rejections(candidate_route, indexes, errors)):
+            break
+        coercion = coerce_route_rejections(rejections, len(rejections), candidate)
+        if coercion is None:
+            break
+        candidate = coercion.request
+        try:
+            _public, provider = route_generation_parameter_requests(profiles, candidate)
+        except (ProviderParameterError, ProviderCapabilityError):
+            return False
+        provider = provider.model_copy(update={"stream": True, "include_usage": True})
+        indexes, errors = protocol_compatible_indexes(
+            candidate_route, candidate_wires, provider, public_stream=stream
+        )
+    # Admission refuses what only failover-only rungs serve, after its last resort.
+    if indexes and not dialable_rejections(candidate_route, indexes, errors):
+        return True
+    if provider.parallel_tool_calls is None:
+        return False
     indexes, errors = protocol_compatible_indexes(
         candidate_route,
         candidate_wires,
-        candidate_provider,
-        public_stream=candidate_public.stream,
+        provider,
+        public_stream=stream,
+        emulate_parallel_tool_calls=True,
     )
-    if indexes:
-        return True
-    capability_coercion = coerce_route_rejections(
-        errors, len(candidate_route.deployments), candidate
-    )
-    if capability_coercion is None:
-        return False
-    try:
-        _coerced_public, coerced_provider = route_generation_parameter_requests(
-            tuple(profile for profile, _client in candidate_wires),
-            capability_coercion.request,
-        )
-    except (ProviderParameterError, ProviderCapabilityError):
-        return False
-    coerced_provider = coerced_provider.model_copy(update={"stream": True, "include_usage": True})
-    coerced_indexes, _coerced_errors = protocol_compatible_indexes(
-        candidate_route,
-        candidate_wires,
-        coerced_provider,
-        public_stream=candidate_public.stream,
-    )
-    return bool(coerced_indexes)
+    return bool(indexes) and not dialable_rejections(candidate_route, indexes, errors)
 
 
 def protocol_compatible_indexes(

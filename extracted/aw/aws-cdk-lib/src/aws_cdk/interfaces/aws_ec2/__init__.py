@@ -453,18 +453,21 @@ class ClientVpnRouteReference:
     jsii_type="aws-cdk-lib.interfaces.aws_ec2.ClientVpnTargetNetworkAssociationReference",
     jsii_struct_bases=[],
     name_mapping={
-        "client_vpn_target_network_association_id": "clientVpnTargetNetworkAssociationId",
+        "association_id": "associationId",
+        "client_vpn_endpoint_id": "clientVpnEndpointId",
     },
 )
 class ClientVpnTargetNetworkAssociationReference:
     def __init__(
         self,
         *,
-        client_vpn_target_network_association_id: builtins.str,
+        association_id: builtins.str,
+        client_vpn_endpoint_id: builtins.str,
     ) -> None:
         '''A reference to a ClientVpnTargetNetworkAssociation resource.
 
-        :param client_vpn_target_network_association_id: The Id of the ClientVpnTargetNetworkAssociation resource.
+        :param association_id: The AssociationId of the ClientVpnTargetNetworkAssociation resource.
+        :param client_vpn_endpoint_id: The ClientVpnEndpointId of the ClientVpnTargetNetworkAssociation resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -475,21 +478,31 @@ class ClientVpnTargetNetworkAssociationReference:
             from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
             
             client_vpn_target_network_association_reference = interfaces_ec2.ClientVpnTargetNetworkAssociationReference(
-                client_vpn_target_network_association_id="clientVpnTargetNetworkAssociationId"
+                association_id="associationId",
+                client_vpn_endpoint_id="clientVpnEndpointId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3c7fcd523c40c46f0da3e82691f5dd7318f305bacc934e54d00ced4247cdc9d)
-            check_type(argname="argument client_vpn_target_network_association_id", value=client_vpn_target_network_association_id, expected_type=type_hints["client_vpn_target_network_association_id"])
+            check_type(argname="argument association_id", value=association_id, expected_type=type_hints["association_id"])
+            check_type(argname="argument client_vpn_endpoint_id", value=client_vpn_endpoint_id, expected_type=type_hints["client_vpn_endpoint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "client_vpn_target_network_association_id": client_vpn_target_network_association_id,
+            "association_id": association_id,
+            "client_vpn_endpoint_id": client_vpn_endpoint_id,
         }
 
     @builtins.property
-    def client_vpn_target_network_association_id(self) -> builtins.str:
-        '''The Id of the ClientVpnTargetNetworkAssociation resource.'''
-        result = self._values.get("client_vpn_target_network_association_id")
-        assert result is not None, "Required property 'client_vpn_target_network_association_id' is missing"
+    def association_id(self) -> builtins.str:
+        '''The AssociationId of the ClientVpnTargetNetworkAssociation resource.'''
+        result = self._values.get("association_id")
+        assert result is not None, "Required property 'association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_vpn_endpoint_id(self) -> builtins.str:
+        '''The ClientVpnEndpointId of the ClientVpnTargetNetworkAssociation resource.'''
+        result = self._values.get("client_vpn_endpoint_id")
+        assert result is not None, "Required property 'client_vpn_endpoint_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -5036,6 +5049,51 @@ class _ISnapshotBlockPublicAccessRefProxy(
 typing.cast(typing.Any, ISnapshotBlockPublicAccessRef).__jsii_proxy_class__ = lambda : _ISnapshotBlockPublicAccessRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISnapshotRef")
+class ISnapshotRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Snapshot.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "SnapshotReference":
+        '''(experimental) A reference to a Snapshot resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISnapshotRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Snapshot.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ec2.ISnapshotRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "SnapshotReference":
+        '''(experimental) A reference to a Snapshot resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SnapshotReference", jsii.get(self, "snapshotRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISnapshotRef).__jsii_proxy_class__ = lambda : _ISnapshotRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISpotFleetRef")
 class ISpotFleetRef(
     _constructs_77d1e7e8.IConstruct,
@@ -5547,6 +5605,57 @@ class _ITrafficMirrorTargetRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ITrafficMirrorTargetRef).__jsii_proxy_class__ = lambda : _ITrafficMirrorTargetRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.ITransitGatewayAttachmentNatConfigurationRef"
+)
+class ITransitGatewayAttachmentNatConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a TransitGatewayAttachmentNatConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="transitGatewayAttachmentNatConfigurationRef")
+    def transit_gateway_attachment_nat_configuration_ref(
+        self,
+    ) -> "TransitGatewayAttachmentNatConfigurationReference":
+        '''(experimental) A reference to a TransitGatewayAttachmentNatConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITransitGatewayAttachmentNatConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TransitGatewayAttachmentNatConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ec2.ITransitGatewayAttachmentNatConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="transitGatewayAttachmentNatConfigurationRef")
+    def transit_gateway_attachment_nat_configuration_ref(
+        self,
+    ) -> "TransitGatewayAttachmentNatConfigurationReference":
+        '''(experimental) A reference to a TransitGatewayAttachmentNatConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TransitGatewayAttachmentNatConfigurationReference", jsii.get(self, "transitGatewayAttachmentNatConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITransitGatewayAttachmentNatConfigurationRef).__jsii_proxy_class__ = lambda : _ITransitGatewayAttachmentNatConfigurationRefProxy
 
 
 @jsii.interface(
@@ -9921,6 +10030,55 @@ class SnapshotBlockPublicAccessReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.SnapshotReference",
+    jsii_struct_bases=[],
+    name_mapping={"snapshot_arn": "snapshotArn"},
+)
+class SnapshotReference:
+    def __init__(self, *, snapshot_arn: builtins.str) -> None:
+        '''A reference to a Snapshot resource.
+
+        :param snapshot_arn: The Arn of the Snapshot resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
+            
+            snapshot_reference = interfaces_ec2.SnapshotReference(
+                snapshot_arn="snapshotArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5bee533db7ac3503e1ca4c5d6fe9fb003a9a6c0d14ac0bd1aac066d0da00b7c0)
+            check_type(argname="argument snapshot_arn", value=snapshot_arn, expected_type=type_hints["snapshot_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_arn": snapshot_arn,
+        }
+
+    @builtins.property
+    def snapshot_arn(self) -> builtins.str:
+        '''The Arn of the Snapshot resource.'''
+        result = self._values.get("snapshot_arn")
+        assert result is not None, "Required property 'snapshot_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SnapshotReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ec2.SpotFleetReference",
     jsii_struct_bases=[],
     name_mapping={"spot_fleet_id": "spotFleetId"},
@@ -10489,6 +10647,61 @@ class TrafficMirrorTargetReference:
 
     def __repr__(self) -> str:
         return "TrafficMirrorTargetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.TransitGatewayAttachmentNatConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "transit_gateway_attachment_nat_configuration_arn": "transitGatewayAttachmentNatConfigurationArn",
+    },
+)
+class TransitGatewayAttachmentNatConfigurationReference:
+    def __init__(
+        self,
+        *,
+        transit_gateway_attachment_nat_configuration_arn: builtins.str,
+    ) -> None:
+        '''A reference to a TransitGatewayAttachmentNatConfiguration resource.
+
+        :param transit_gateway_attachment_nat_configuration_arn: The Arn of the TransitGatewayAttachmentNatConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
+            
+            transit_gateway_attachment_nat_configuration_reference = interfaces_ec2.TransitGatewayAttachmentNatConfigurationReference(
+                transit_gateway_attachment_nat_configuration_arn="transitGatewayAttachmentNatConfigurationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7d7fd8660b1888241109d1ed65d8d501dae880bf391895bcb06704f0fc85a219)
+            check_type(argname="argument transit_gateway_attachment_nat_configuration_arn", value=transit_gateway_attachment_nat_configuration_arn, expected_type=type_hints["transit_gateway_attachment_nat_configuration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "transit_gateway_attachment_nat_configuration_arn": transit_gateway_attachment_nat_configuration_arn,
+        }
+
+    @builtins.property
+    def transit_gateway_attachment_nat_configuration_arn(self) -> builtins.str:
+        '''The Arn of the TransitGatewayAttachmentNatConfiguration resource.'''
+        result = self._values.get("transit_gateway_attachment_nat_configuration_arn")
+        assert result is not None, "Required property 'transit_gateway_attachment_nat_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TransitGatewayAttachmentNatConfigurationReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -13000,6 +13213,7 @@ __all__ = [
     "ISecurityGroupRef",
     "ISecurityGroupVpcAssociationRef",
     "ISnapshotBlockPublicAccessRef",
+    "ISnapshotRef",
     "ISpotFleetRef",
     "ISqlHaStandbyDetectedInstanceRef",
     "ISubnetCidrBlockRef",
@@ -13011,6 +13225,7 @@ __all__ = [
     "ITrafficMirrorFilterRuleRef",
     "ITrafficMirrorSessionRef",
     "ITrafficMirrorTargetRef",
+    "ITransitGatewayAttachmentNatConfigurationRef",
     "ITransitGatewayAttachmentRef",
     "ITransitGatewayConnectPeerRef",
     "ITransitGatewayConnectRef",
@@ -13094,6 +13309,7 @@ __all__ = [
     "SecurityGroupReference",
     "SecurityGroupVpcAssociationReference",
     "SnapshotBlockPublicAccessReference",
+    "SnapshotReference",
     "SpotFleetReference",
     "SqlHaStandbyDetectedInstanceReference",
     "SubnetCidrBlockReference",
@@ -13105,6 +13321,7 @@ __all__ = [
     "TrafficMirrorFilterRuleReference",
     "TrafficMirrorSessionReference",
     "TrafficMirrorTargetReference",
+    "TransitGatewayAttachmentNatConfigurationReference",
     "TransitGatewayAttachmentReference",
     "TransitGatewayConnectPeerReference",
     "TransitGatewayConnectReference",
@@ -13210,7 +13427,8 @@ def _typecheckingstub__955d0e41ede8d58fe3f1e03206fcc6cf2c837c6a701c1cdbfcdb58c18
 
 def _typecheckingstub__b3c7fcd523c40c46f0da3e82691f5dd7318f305bacc934e54d00ced4247cdc9d(
     *,
-    client_vpn_target_network_association_id: builtins.str,
+    association_id: builtins.str,
+    client_vpn_endpoint_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13680,6 +13898,13 @@ def _typecheckingstub__6ad7a412bb4a7b19786369fbb394c471b2636bbcb63104a8ad0494d4e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5bee533db7ac3503e1ca4c5d6fe9fb003a9a6c0d14ac0bd1aac066d0da00b7c0(
+    *,
+    snapshot_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e118107621a5bd1c8bc349d74994c79a1a88962c110757dc9faba1d47504c73a(
     *,
     spot_fleet_id: builtins.str,
@@ -13755,6 +13980,13 @@ def _typecheckingstub__ef09d27d4ecc067dd0ecc3aaf93fa5b28de397da0443888e4044c29b2
 def _typecheckingstub__b3ab01ca9a5683fa84e2013c5b5dd1998daa11eb9d67b91630464d8c40e967cb(
     *,
     traffic_mirror_target_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d7fd8660b1888241109d1ed65d8d501dae880bf391895bcb06704f0fc85a219(
+    *,
+    transit_gateway_attachment_nat_configuration_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14073,5 +14305,5 @@ def _typecheckingstub__5bdce5af9d1e135e7564b00f4d9b2945ac4e23e3d35d3e993e24d29db
     """Type checking stubs"""
     pass
 
-for cls in [IApplicationStatusCheckRef, ICapacityManagerDataExportRef, ICapacityReservationFleetRef, ICapacityReservationRef, ICarrierGatewayRef, IClientVpnAuthorizationRuleRef, IClientVpnEndpointRef, IClientVpnRouteRef, IClientVpnTargetNetworkAssociationRef, ICustomerGatewayRef, IDHCPOptionsRef, IEC2FleetRef, IEIPAssociationRef, IEIPRef, IEgressOnlyInternetGatewayRef, IEnclaveCertificateIamRoleAssociationRef, IFlowLogRef, IFpgaImageRef, IGatewayRouteTableAssociationRef, IHostRef, IIPAMAllocationRef, IIPAMPoolCidrRef, IIPAMPoolRef, IIPAMPrefixListResolverRef, IIPAMPrefixListResolverTargetRef, IIPAMRef, IIPAMResourceDiscoveryAssociationRef, IIPAMResourceDiscoveryRef, IIPAMScopeRef, IIPv4PoolRef, IInstanceConnectEndpointRef, IInstanceEventWindowRef, IInstanceRef, IInternetGatewayRef, IIpPoolRouteTableAssociationRef, IIpamExternalResourceVerificationTokenRef, IIpamInternetRegistryAssociationRef, IKeyPairRef, ILaunchTemplateRef, ILocalGatewayRouteRef, ILocalGatewayRouteTableRef, ILocalGatewayRouteTableVPCAssociationRef, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef, ILocalGatewayVirtualInterfaceGroupRef, ILocalGatewayVirtualInterfaceRef, INatGatewayRef, INetworkAclEntryRef, INetworkAclRef, INetworkInsightsAccessScopeAnalysisRef, INetworkInsightsAccessScopeRef, INetworkInsightsAnalysisRef, INetworkInsightsPathRef, INetworkInterfaceAttachmentRef, INetworkInterfacePermissionRef, INetworkInterfaceRef, INetworkPerformanceMetricSubscriptionRef, IPlacementGroupRef, IPrefixListRef, IRouteRef, IRouteServerAssociationRef, IRouteServerEndpointRef, IRouteServerPeerRef, IRouteServerPropagationRef, IRouteServerRef, IRouteTableRef, ISecondaryNetworkRef, ISecurityGroupEgressRef, ISecurityGroupIngressRef, ISecurityGroupRef, ISecurityGroupVpcAssociationRef, ISnapshotBlockPublicAccessRef, ISpotFleetRef, ISqlHaStandbyDetectedInstanceRef, ISubnetCidrBlockRef, ISubnetCidrReservationRef, ISubnetNetworkAclAssociationRef, ISubnetRef, ISubnetRouteTableAssociationRef, ITrafficMirrorFilterRef, ITrafficMirrorFilterRuleRef, ITrafficMirrorSessionRef, ITrafficMirrorTargetRef, ITransitGatewayAttachmentRef, ITransitGatewayConnectPeerRef, ITransitGatewayConnectRef, ITransitGatewayMeteringPolicyEntryRef, ITransitGatewayMeteringPolicyRef, ITransitGatewayMulticastDomainAssociationRef, ITransitGatewayMulticastDomainRef, ITransitGatewayMulticastGroupMemberRef, ITransitGatewayMulticastGroupSourceRef, ITransitGatewayPeeringAttachmentRef, ITransitGatewayPolicyTableAssociationRef, ITransitGatewayPolicyTableEntryRef, ITransitGatewayPolicyTableRef, ITransitGatewayRef, ITransitGatewayRouteRef, ITransitGatewayRouteTableAssociationRef, ITransitGatewayRouteTablePropagationRef, ITransitGatewayRouteTableRef, ITransitGatewayVpcAttachmentRef, IVPCBlockPublicAccessExclusionRef, IVPCBlockPublicAccessOptionsRef, IVPCCidrBlockRef, IVPCDHCPOptionsAssociationRef, IVPCEncryptionControlRef, IVPCEndpointConnectionNotificationRef, IVPCEndpointRef, IVPCEndpointServicePermissionsRef, IVPCEndpointServiceRef, IVPCGatewayAttachmentRef, IVPCPeeringConnectionRef, IVPCRef, IVPNConcentratorRef, IVPNConnectionRef, IVPNConnectionRouteRef, IVPNGatewayRef, IVPNGatewayRoutePropagationRef, IVerifiedAccessEndpointRef, IVerifiedAccessGroupRef, IVerifiedAccessInstanceRef, IVerifiedAccessTrustProviderRef, IVolumeAttachmentRef, IVolumeRef]:
+for cls in [IApplicationStatusCheckRef, ICapacityManagerDataExportRef, ICapacityReservationFleetRef, ICapacityReservationRef, ICarrierGatewayRef, IClientVpnAuthorizationRuleRef, IClientVpnEndpointRef, IClientVpnRouteRef, IClientVpnTargetNetworkAssociationRef, ICustomerGatewayRef, IDHCPOptionsRef, IEC2FleetRef, IEIPAssociationRef, IEIPRef, IEgressOnlyInternetGatewayRef, IEnclaveCertificateIamRoleAssociationRef, IFlowLogRef, IFpgaImageRef, IGatewayRouteTableAssociationRef, IHostRef, IIPAMAllocationRef, IIPAMPoolCidrRef, IIPAMPoolRef, IIPAMPrefixListResolverRef, IIPAMPrefixListResolverTargetRef, IIPAMRef, IIPAMResourceDiscoveryAssociationRef, IIPAMResourceDiscoveryRef, IIPAMScopeRef, IIPv4PoolRef, IInstanceConnectEndpointRef, IInstanceEventWindowRef, IInstanceRef, IInternetGatewayRef, IIpPoolRouteTableAssociationRef, IIpamExternalResourceVerificationTokenRef, IIpamInternetRegistryAssociationRef, IKeyPairRef, ILaunchTemplateRef, ILocalGatewayRouteRef, ILocalGatewayRouteTableRef, ILocalGatewayRouteTableVPCAssociationRef, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef, ILocalGatewayVirtualInterfaceGroupRef, ILocalGatewayVirtualInterfaceRef, INatGatewayRef, INetworkAclEntryRef, INetworkAclRef, INetworkInsightsAccessScopeAnalysisRef, INetworkInsightsAccessScopeRef, INetworkInsightsAnalysisRef, INetworkInsightsPathRef, INetworkInterfaceAttachmentRef, INetworkInterfacePermissionRef, INetworkInterfaceRef, INetworkPerformanceMetricSubscriptionRef, IPlacementGroupRef, IPrefixListRef, IRouteRef, IRouteServerAssociationRef, IRouteServerEndpointRef, IRouteServerPeerRef, IRouteServerPropagationRef, IRouteServerRef, IRouteTableRef, ISecondaryNetworkRef, ISecurityGroupEgressRef, ISecurityGroupIngressRef, ISecurityGroupRef, ISecurityGroupVpcAssociationRef, ISnapshotBlockPublicAccessRef, ISnapshotRef, ISpotFleetRef, ISqlHaStandbyDetectedInstanceRef, ISubnetCidrBlockRef, ISubnetCidrReservationRef, ISubnetNetworkAclAssociationRef, ISubnetRef, ISubnetRouteTableAssociationRef, ITrafficMirrorFilterRef, ITrafficMirrorFilterRuleRef, ITrafficMirrorSessionRef, ITrafficMirrorTargetRef, ITransitGatewayAttachmentNatConfigurationRef, ITransitGatewayAttachmentRef, ITransitGatewayConnectPeerRef, ITransitGatewayConnectRef, ITransitGatewayMeteringPolicyEntryRef, ITransitGatewayMeteringPolicyRef, ITransitGatewayMulticastDomainAssociationRef, ITransitGatewayMulticastDomainRef, ITransitGatewayMulticastGroupMemberRef, ITransitGatewayMulticastGroupSourceRef, ITransitGatewayPeeringAttachmentRef, ITransitGatewayPolicyTableAssociationRef, ITransitGatewayPolicyTableEntryRef, ITransitGatewayPolicyTableRef, ITransitGatewayRef, ITransitGatewayRouteRef, ITransitGatewayRouteTableAssociationRef, ITransitGatewayRouteTablePropagationRef, ITransitGatewayRouteTableRef, ITransitGatewayVpcAttachmentRef, IVPCBlockPublicAccessExclusionRef, IVPCBlockPublicAccessOptionsRef, IVPCCidrBlockRef, IVPCDHCPOptionsAssociationRef, IVPCEncryptionControlRef, IVPCEndpointConnectionNotificationRef, IVPCEndpointRef, IVPCEndpointServicePermissionsRef, IVPCEndpointServiceRef, IVPCGatewayAttachmentRef, IVPCPeeringConnectionRef, IVPCRef, IVPNConcentratorRef, IVPNConnectionRef, IVPNConnectionRouteRef, IVPNGatewayRef, IVPNGatewayRoutePropagationRef, IVerifiedAccessEndpointRef, IVerifiedAccessGroupRef, IVerifiedAccessInstanceRef, IVerifiedAccessTrustProviderRef, IVolumeAttachmentRef, IVolumeRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

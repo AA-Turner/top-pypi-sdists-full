@@ -1158,6 +1158,23 @@ repos:
         require_serial: true
         stages: [pre-commit]
 
+      # OMN-23187: Rejects a blocking subprocess or network call that carries no timeout inside a node
+      # whose contract or overlay declares one (the declared limit then bounds nothing).
+      # Annotation: the timeout-ok comment, with a reason, on the call line.
+      # The calls that sat in the tree before the refusal are the shrink-only
+      # .onex_ratchets/declared_timeout_baseline.yaml (burn-down ticket and zero-target date in its
+      # header); handing the baseline file to the hook checks it did not grow against HEAD.
+      - id: declared-timeout-reaches-call
+        name: A declared timeout reaches every blocking call (OMN-23187)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_declared_timeout:ValidatorDeclaredTimeout
+        language: system
+        args: [--baseline, .onex_ratchets/declared_timeout_baseline.yaml]
+        files: ^(.*\.py|\.onex_ratchets/declared_timeout_baseline\.yaml)$
+        pass_filenames: true
+        require_serial: true
+        stages: [pre-commit]
+
       # OMN-10818, enforced by OMN-22005 (plan task T2.4): Rejects if-bus-is-not-None guards wrapping publish/emit/send calls.
       # Annotation: add  # none-guard-ok: <reason>  on the if line.
       # The findings that sat in the tree before the refusal are the shrink-only
@@ -1186,6 +1203,64 @@ repos:
         language: system
         args: [--baseline, .onex_ratchets/import_none_fallback_baseline.yaml]
         files: ^(.*\.py|\.onex_ratchets/import_none_fallback_baseline\.yaml)$
+        pass_filenames: true
+        require_serial: true
+        stages: [pre-commit]
+
+      # OMN-23186: Rejects int(td.total_seconds()) or a floored age compared to a bound.
+      # The tree holds no finding, so the hook runs without a baseline; a repository that adopts it
+      # with older findings hands the hook its own shrink-only baseline file (--baseline).
+      - id: no-time-bound-truncation
+        name: No duration cut to whole seconds before a limit compare (OMN-23186)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_time_bound_truncation:ValidatorTimeBoundTruncation
+        language: system
+        files: \.py$
+        pass_filenames: true
+        require_serial: true
+        stages: [pre-commit]
+
+      # OMN-23186: Rejects a Request/Reading/Fact model field typed datetime and a strptime on a request
+      # field outside a ValueError handler.
+      # The tree holds no finding, so the hook runs without a baseline; a repository that adopts it
+      # with older findings hands the hook its own shrink-only baseline file (--baseline).
+      - id: no-naive-timestamp
+        name: No naive datetime request field, no unguarded strptime on a request field (OMN-23186)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_naive_timestamp:ValidatorNaiveTimestamp
+        language: system
+        files: \.py$
+        pass_filenames: true
+        require_serial: true
+        stages: [pre-commit]
+
+      # OMN-23189 (gate OMN-21433 AC-4): Rejects an id or key built from a seconds-only strftime stamp with no nonce.
+      # Annotation: the nonce-ok comment with a reason on the assignment line.
+      # This repository holds no finding, so it passes no baseline; a consumer that holds findings hands
+      # the hook --baseline FILE, a per-file shrink-only baseline checked against HEAD.
+      - id: no-id-from-stamp
+        name: No id or key built from a seconds-only stamp without a nonce (OMN-23189)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_id_from_stamp:ValidatorIdFromStamp
+        language: system
+        files: \.py$
+        pass_filenames: true
+        require_serial: true
+        stages: [pre-commit]
+
+      # OMN-23188: Rejects a write-then-rename whose temporary path is the target path plus a fixed suffix
+      # (target.tmp), the same file for every writer. Create it with tempfile.mkstemp in the target directory.
+      # Annotation: the fixed-tmp-ok marker and a reason in a comment on the rename line.
+      # The findings that sat in the tree before the refusal are the shrink-only
+      # .onex_ratchets/fixed_tmp_atomic_write_baseline.yaml (burn-down ticket and zero-target date in its
+      # header); handing the baseline file to the hook checks it did not grow against HEAD.
+      - id: no-fixed-tmp-atomic-write
+        name: No fixed temporary file in a write-then-rename (OMN-23188)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_fixed_tmp_atomic_write:ValidatorFixedTmpAtomicWrite
+        language: system
+        args: [--baseline, .onex_ratchets/fixed_tmp_atomic_write_baseline.yaml]
+        files: ^(.*\.py|\.onex_ratchets/fixed_tmp_atomic_write_baseline\.yaml)$
         pass_filenames: true
         require_serial: true
         stages: [pre-commit]

@@ -133,6 +133,7 @@ class VisaTimeoutSuppressor:
 		self._old_visa_tout_ms: int = 0
 
 		self._timeout_occurred: bool = False
+		self._instrument_errors: List[str] | None = None
 
 		if visa_tout_ms > 0:
 			self._old_visa_tout_ms = io.visa_timeout
@@ -157,6 +158,7 @@ class VisaTimeoutSuppressor:
 			if not self._io.query_instr_status:
 				# If the instrument status checking is OFF, clear the error queue
 				try:
+					# noinspection bad-assignment
 					self._instrument_errors = self._io.query_all_syst_errors(False)
 				except VisaIOError:
 					pass
@@ -170,6 +172,7 @@ class VisaTimeoutSuppressor:
 				if not self._io.query_instr_status:
 					# If the instrument status checking is OFF, clear the error queue
 					try:
+						# noinspection bad-assignment
 						self._instrument_errors = self._io.query_all_syst_errors(False)
 					except VisaIOError:
 						pass

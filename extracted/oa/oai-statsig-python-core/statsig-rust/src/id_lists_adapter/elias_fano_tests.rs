@@ -297,7 +297,7 @@ fn direct_adds_match_the_existing_heap_image_including_density_fallback() {
             .collect();
         let ids: IdListIds = keys.into_iter().collect();
         let expected = IdListImage::build_heap(&[7; 32], "direct", &ids).unwrap();
-        let actual = IdListImage::try_heap_from_adds(&[7; 32], "direct", body).unwrap();
+        let actual = IdListImage::try_heap_from_adds(&[7; 32], "direct", body.into()).unwrap();
 
         assert_eq!(actual.is_compact(), compact);
         assert_eq!(&*actual.map, &*expected.map);
@@ -318,9 +318,9 @@ fn direct_adds_preserve_ineligible_changesets_for_ordered_replay() {
         "+BBBBBBBB",
     ] {
         let body = format!("{prefix}{suffix}");
-        assert_eq!(
-            IdListImage::try_heap_from_adds(&[7; 32], "direct", body.clone()).err(),
-            Some(body),
-        );
+        assert!(matches!(
+            IdListImage::try_heap_from_adds(&[7; 32], "direct", Cow::Borrowed(&body)),
+            Err(Cow::Borrowed(original)) if original == body
+        ));
     }
 }

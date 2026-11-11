@@ -7,6 +7,7 @@ import yaml
 from linkml_runtime import SchemaView
 from linkml_runtime.dumpers import yaml_dumper
 from linkml_runtime.linkml_model import SchemaDefinition
+from typing_extensions import deprecated
 
 from linkml_map import ObjectTransformer
 from linkml_map.datamodel.transformer_model import TransformationSpecification
@@ -18,18 +19,18 @@ from linkml_map.transformer.transformer import Transformer
 logger = logging.getLogger(__name__)
 
 
+@deprecated(
+    "Session is deprecated and will be removed; construct an ObjectTransformer instead. "
+    "See https://linkml.io/linkml-map/examples/Tutorial/"
+)
 @dataclass
 class Session:
     """
     A wrapper object for a transformer session.
 
-    Todo:
-    - rename to Manager?
-    - consolidate configuration
-    - include source and target database
-
-        - current spec, src_sv, tgt_sv all live in both this class and transformer
-
+    Deprecated: construct an :class:`~linkml_map.ObjectTransformer` from the specification and
+    schemas instead, and use ``SchemaMapper``, ``TransformationSpecificationInverter`` and
+    ``GraphvizCompiler`` for operations on the specification itself.
     """
 
     transformer_specification: TransformationSpecification | None = None

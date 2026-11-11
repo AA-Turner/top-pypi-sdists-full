@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import pytest
 from numpy import linalg
@@ -100,6 +101,8 @@ def test_gaussian(dynamic, periodic, ndim, bound):
     truths = np.zeros(ndim)
     truths[0] = -.1
     span = [[-10, 10]] * ndim
+    # the bound plots only accept (lower, upper) pairs
+    bound_span = list(span)
     if ndim > 1:
         truths[1] = .1
         span[1] = .9
@@ -112,17 +115,22 @@ def test_gaussian(dynamic, periodic, ndim, bound):
                       hist2d_kwargs=dict(plot_datapoints=True),
                       max_n_ticks=0)
     plt.close()
+    dyplot.cornerplot(results,
+                      title_fmt=[random.choice([".2f", ".2e"]) for _ in range(ndim)],
+                      show_titles=True,
+                      truths=truths)
+    plt.close()
     if ndim != 1:
         # cornerbound
         dyplot.cornerbound(results,
                            it=500,
                            prior_transform=g.prior_transform,
                            show_live=True,
-                           span=span)
+                           span=bound_span)
         dyplot.cornerbound(results,
                            it=500,
                            show_live=True,
-                           span=span,
+                           span=bound_span,
                            fig=(plt.gcf(), plt.gcf().axes))
         plt.close()
         # boundplot
@@ -131,7 +139,7 @@ def test_gaussian(dynamic, periodic, ndim, bound):
                          it=1000,
                          prior_transform=g.prior_transform,
                          show_live=True,
-                         span=span)
+                         span=bound_span)
         plt.close()
         dyplot.boundplot(results, dims=(0, 1)[:min(ndim, 2)], it=1000)
         plt.close()
@@ -170,3 +178,23 @@ def test_gaussianx(bound):
                        it=3000,
                        prior_transform=g.prior_transform,
                        show_live=False)
+
+
+def test_plot_fixes():
+    # regressions of cornerplot with mixed smoothing and of boundplot
+    # with idx for dynamic runs
+    g = Gaussian(ndim=3)
+    sampler = dynesty.DynamicNestedSampler(g.loglikelihood,
+                                           g.prior_transform,
+                                           g.ndim,
+                                           nlive=100,
+                                           rstate=get_rstate())
+    sampler.run_nested(print_progress=printing, maxbatch=1)
+    results = sampler.results
+
+    dyplot.cornerplot(results, smooth=[10, 10, 0.02])
+    plt.close()
+
+    idx = len(results['samples']) // 2
+    dyplot.boundplot(results, dims=(0, 1), idx=idx, show_live=True)
+    plt.close()

@@ -440,13 +440,19 @@ class BaseClient(Generic[_HttpxClientT, _DefaultStreamT]):
         # headers are case-insensitive while dictionaries are not.
         headers = httpx.Headers(headers_dict)
 
+        lower_custom_headers = [header.lower() for header in custom_headers]
+
         idempotency_header = self._idempotency_header
-        if idempotency_header and options.idempotency_key and idempotency_header not in headers:
+        if (
+            idempotency_header
+            and options.idempotency_key
+            and idempotency_header not in headers
+            and idempotency_header.lower() not in lower_custom_headers
+        ):
             headers[idempotency_header] = options.idempotency_key
 
         # Don't set these headers if they were already set or removed by the caller. We check
         # `custom_headers`, which can contain `Omit()`, instead of `headers` to account for the removal case.
-        lower_custom_headers = [header.lower() for header in custom_headers]
         if "x-steel-retry-count" not in lower_custom_headers:
             headers["x-steel-retry-count"] = str(retries_taken)
         if "x-steel-read-timeout" not in lower_custom_headers:

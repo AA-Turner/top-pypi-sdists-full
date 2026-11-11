@@ -39,10 +39,13 @@ TEST(Device, AnyConversionWithString) {
     DLDeviceType device_type;
   };
   const TestCase test_cases[] = {
-      {"cpu", kDLCPU},        {"cuda", kDLCUDA},       {"opencl", kDLOpenCL}, {"vulkan", kDLVulkan},
-      {"metal", kDLMetal},    {"mps", kDLMetal},       {"vpi", kDLVPI},       {"rocm", kDLROCM},
-      {"ext_dev", kDLExtDev}, {"hexagon", kDLHexagon}, {"wgpu", kDLWebGPU},   {"webgpu", kDLWebGPU},
-      {"maia", kDLMAIA},      {"trn", kDLTrn},
+      {"cpu", kDLCPU},          {"cuda", kDLCUDA},     {"opencl", kDLOpenCL},
+      {"vulkan", kDLVulkan},    {"metal", kDLMetal},   {"mps", kDLMetal},
+      {"vpi", kDLVPI},          {"rocm", kDLROCM},     {"ext_dev", kDLExtDev},
+      {"hexagon", kDLHexagon},  {"wgpu", kDLWebGPU},   {"webgpu", kDLWebGPU},
+      {"maia", kDLMAIA},        {"trn", kDLTrn},       {"tpu", kDLTPU},
+      {"tpu_host", kDLTPUHost}, {"ascend", kDLAscend}, {"oneapi", kDLOneAPI},
+      {"xpu", kDLOneAPI},
   };
   for (const TestCase& test_case : test_cases) {
     SCOPED_TRACE(test_case.name);
@@ -60,6 +63,11 @@ TEST(Device, AnyConversionWithString) {
   DLDevice opencl = opencl_view.cast<DLDevice>();
   EXPECT_EQ(opencl.device_type, kDLOpenCL);
   EXPECT_EQ(opencl.device_id, 2);
+
+  AnyView xpu_view = "xpu:2";
+  DLDevice xpu = xpu_view.cast<DLDevice>();
+  EXPECT_EQ(xpu.device_type, kDLOneAPI);
+  EXPECT_EQ(xpu.device_id, 2);
 
   AnyView max_index_view = "cuda:2147483647";
   DLDevice max_index = max_index_view.cast<DLDevice>();

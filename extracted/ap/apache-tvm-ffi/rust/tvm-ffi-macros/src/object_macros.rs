@@ -17,10 +17,11 @@
  * under the License.
  */
 use proc_macro::TokenStream;
+use proc_macro_error::abort;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
-use syn::ext::IdentExt;
 use syn::DeriveInput;
+use syn::ext::IdentExt;
 
 use crate::utils::*;
 
@@ -33,58 +34,46 @@ pub fn derive_object(input: proc_macro::TokenStream) -> TokenStream {
 /// The `ObjectCore` impl of an object struct, and its `ShallowCopy` when it
 /// registers reflection, naming the tvm-ffi crate `tvm_ffi_crate`.
 ///
-/// `rs_class` registers the reflection of a type without `#[reflect]` fields
-/// or `#[type_s_eq_hash_kind]` too, with the creator of its `UnsafeInit`, as
-/// `#[rs_class]` does.
+/// `rs_object` registers the reflection of a type without `#[reflect]` fields
+/// or `s_eq_hash_kind` too, with the creator of its `UnsafeInit`, as
+/// `#[rs_object]` does.
 pub(crate) fn expand_object(
     derive_input: &DeriveInput,
     tvm_ffi_crate: &TokenStream2,
-    rs_class: bool,
+    rs_object: bool,
 ) -> TokenStream2 {
     let struct_name = derive_input.ident.clone();
+    let options = object_options(derive_input);
 
-    let type_key = get_attr(derive_input, "type_key")
-        .map(attr_to_str)
-        .expect("Expect #[type_key = \"<my_type_key>\"] attribute");
-    let type_final = match get_attr(derive_input, "type_final") {
-        Some(attr) if matches!(attr.parse_meta(), Ok(syn::Meta::Path(_))) => true,
-        Some(_) => panic!("Expect #[type_final] attribute"),
-        None => false,
-    };
-
+    let type_key = options
+        .type_key
+        .clone()
+        .expect("Expect #[object(type_key = \"<my_type_key>\")]");
+    let type_final = options.type_final;
+    let type_immutable = options.immutable;
+    // Whether an `rs_object` can derive from this type, which needs its
+    // `ShallowCopy` and `UnsafeInit`.
+    let type_rs_parent = options.rs_parent;
     // Whether this type is defined here, so that it registers its key, as C++
     // `TVM_FFI_DECLARE_OBJECT_INFO` does. Without it, the type binds a key
     // that its defining library, usually C++, has registered.
-    let type_register = match get_attr(derive_input, "type_register") {
-        Some(attr) if matches!(attr.parse_meta(), Ok(syn::Meta::Path(_))) => true,
-        Some(_) => panic!("Expect #[type_register] attribute"),
-        None => false,
-    };
+    let type_register = options.register;
 
     // Reserved child slots and whether children may exceed them, as C++
     // `_type_child_slots` and `_type_child_slots_can_overflow` declare them.
-    let child_slots = match get_attr(derive_input, "type_child_slots").map(|a| a.parse_meta()) {
-        Some(Ok(syn::Meta::NameValue(syn::MetaNameValue {
-            lit: syn::Lit::Int(n),
-            ..
-        }))) => n
+    let child_slots = match &options.child_slots {
+        Some(n) => n
             .base10_parse::<i32>()
-            .expect("Expect #[type_child_slots = <non-negative integer>]"),
-        Some(_) => panic!("Expect #[type_child_slots = <non-negative integer>]"),
+            .expect("Expect `child_slots = <non-negative integer>`"),
         None => 0,
     };
-    let child_slots_can_overflow =
-        match get_attr(derive_input, "type_child_slots_can_overflow").map(|a| a.parse_meta()) {
-            Some(Ok(syn::Meta::NameValue(syn::MetaNameValue {
-                lit: syn::Lit::Bool(b),
-                ..
-            }))) => b.value,
-            Some(_) => panic!("Expect #[type_child_slots_can_overflow = <bool>]"),
-            None => true,
-        };
+    let child_slots_can_overflow = options
+        .child_slots_can_overflow
+        .as_ref()
+        .is_none_or(|b| b.value);
     assert!(
         child_slots >= 0,
-        "Expect #[type_child_slots = <non-negative integer>]"
+        "Expect `child_slots = <non-negative integer>`"
     );
     assert!(
         !(type_final && child_slots > 0),
@@ -92,10 +81,14 @@ pub(crate) fn expand_object(
     );
     assert!(
         type_register
-            || (get_attr(derive_input, "type_child_slots").is_none()
-                && get_attr(derive_input, "type_child_slots_can_overflow").is_none()),
-        "#[type_child_slots] and #[type_child_slots_can_overflow] need #[type_register]"
+            || (options.child_slots.is_none() && options.child_slots_can_overflow.is_none()),
+        "`child_slots` and `child_slots_can_overflow` need `register`"
     );
+    // Upcasts reinterpret a pointer to the object as one to its parent, which
+    // only `repr(C)` keeps at offset zero.
+    if !derive_input.attrs.iter().any(is_repr_c) {
+        abort!(struct_name, "#[derive(Object)] needs #[repr(C)]");
+    }
     // we expect base always to be the first field
     let base_ty = match &derive_input.data {
         syn::Data::Struct(s) => s.fields.iter().next().map(|f| f.ty.clone()),
@@ -103,28 +96,60 @@ pub(crate) fn expand_object(
     }
     .expect("First field must be `<base_name>: <ObjectCoreType>`");
 
-    let reflection = Reflection::parse(derive_input, rs_class);
+    let reflection = Reflection::parse(derive_input, &options, rs_object);
+    let writable = reflection
+        .iter()
+        .flat_map(|reflection| &reflection.reflected)
+        .find(|field| field.flags.iter().any(|flag| flag == "writable"));
+    if let (true, Some(field)) = (type_immutable, writable) {
+        abort!(
+            field.id,
+            "an immutable type cannot have a #[reflect(writable)] field"
+        );
+    }
+    let has_writable_field = writable.is_some();
+    let immutable_impl = if type_immutable {
+        quote! {
+            unsafe impl #tvm_ffi_crate::object::ImmutableObject for #struct_name {}
+        }
+    } else {
+        quote! {}
+    };
     assert!(
-        reflection.is_none() || (type_register && get_attr(derive_input, "type_index").is_none()),
-        "#[reflect], #[type_s_eq_hash_kind] and #[type_reflection] need #[type_register] and no \
-         #[type_index]"
+        reflection.is_none() || (type_register && options.type_index.is_none()),
+        "#[reflect], `s_eq_hash_kind` and `reflection` need `register` and no `type_index`"
     );
-    let (register_reflection, shallow_copy_impl) = match &reflection {
-        Some(reflection) => (
-            reflection.register_tokens(&struct_name, &type_key, tvm_ffi_crate),
-            reflection.shallow_copy_tokens(&struct_name, &base_ty, tvm_ffi_crate),
-        ),
-        None => (quote! {}, quote! {}),
+    let register_reflection = match &reflection {
+        Some(reflection) => reflection.register_tokens(&struct_name, &type_key, tvm_ffi_crate),
+        None => quote! {},
+    };
+    let (base_id, field_ids) = struct_field_ids(derive_input);
+    let shallow_copy_impl = if reflection.is_some() || type_rs_parent {
+        shallow_copy_tokens(&struct_name, &base_ty, &base_id, &field_ids, tvm_ffi_crate)
+    } else {
+        quote! {}
+    };
+    let unsafe_init_impl = if rs_object || type_rs_parent {
+        if !derive_input.generics.params.is_empty() {
+            abort!(
+                struct_name,
+                "`rs_parent` needs a struct without generic parameters"
+            );
+        }
+        unsafe_init_tokens(&struct_name, &base_ty, &base_id, &field_ids, tvm_ffi_crate)
+    } else {
+        quote! {}
     };
 
     // A type with a static index has it; one defined here registers its key
-    // under its parent on first use, or takes the index the key already has,
+    // under its parent on its first `type_index()`, which a static init block
+    // calls at load, or takes the index the key already has,
     // as C++ `TVM_FFI_DECLARE_OBJECT_INFO` does; any other type binds the
     // index its defining library registered.
-    let type_index_tokens = match get_attr(derive_input, "type_index").map(attr_to_expr) {
-        Some(type_index) => {
-            let type_index_expr =
-                type_index.expect("Expect #[type_index(TypeIndex::<my_type_index>)] attribute");
+    let type_index_tokens = match &options.type_index {
+        // A static index is trusted: the type must be the one the runtime
+        // gives that index.
+        Some(type_index_expr) => {
             quote! {
                 #[inline]
                 fn type_index() -> i32 {
@@ -136,15 +161,14 @@ pub(crate) fn expand_object(
             quote! {
                 #[inline]
                 fn type_index() -> i32 {
-                    static TYPE_INDEX: std::sync::LazyLock<i32> = std::sync::LazyLock::new(||
+                    static TYPE_INDEX: #tvm_ffi_crate::extra::cold_init_lazy_lock::ColdInitLazyLock<i32> = #tvm_ffi_crate::extra::cold_init_lazy_lock::ColdInitLazyLock::new(||
                         unsafe {
                             // The parent first, since registering it takes the
                             // same lock.
                             let parent =
                                 <#base_ty as #tvm_ffi_crate::object::ObjectCore>::type_index();
-                            let _registering = #tvm_ffi_crate::object::TYPE_REGISTRATION
-                                .lock()
-                                .unwrap_or_else(|e| e.into_inner());
+                            let _registering =
+                                #tvm_ffi_crate::object::lock_type_registration();
                             let type_key_arg =
                                  #tvm_ffi_crate::tvm_ffi_sys::TVMFFIByteArray::from_str(#type_key);
                             let tindex = #tvm_ffi_crate::tvm_ffi_sys::TVMFFITypeGetOrAllocIndex(
@@ -156,16 +180,23 @@ pub(crate) fn expand_object(
                                 parent,
                             );
                             if tindex < 0 {
-                                panic!(
+                                ::core::panic!(
                                     "Failed to get or allocate type index for type key: {}",
                                     #type_key
                                 );
                             }
+                            #tvm_ffi_crate::object::assert_registered_type_matches::<#struct_name>(
+                                tindex, parent, false,
+                            );
                             #register_reflection
                             tindex
                         }
                     );
                     *TYPE_INDEX
+                }
+
+                fn type_index_available() -> bool {
+                    <#base_ty as #tvm_ffi_crate::object::ObjectCore>::type_index_available()
                 }
             }
         }
@@ -173,7 +204,7 @@ pub(crate) fn expand_object(
             quote! {
                 #[inline]
                 fn type_index() -> i32 {
-                    static TYPE_INDEX: std::sync::LazyLock<i32> = std::sync::LazyLock::new(||
+                    static TYPE_INDEX: #tvm_ffi_crate::extra::cold_init_lazy_lock::ColdInitLazyLock<i32> = #tvm_ffi_crate::extra::cold_init_lazy_lock::ColdInitLazyLock::new(||
                         unsafe {
                             let type_key_arg =
                                  #tvm_ffi_crate::tvm_ffi_sys::TVMFFIByteArray::from_str(#type_key);
@@ -182,19 +213,64 @@ pub(crate) fn expand_object(
                                 &type_key_arg, &mut tindex
                             );
                             if ret != 0 {
-                                panic!(
+                                ::core::panic!(
                                     "Type key {} is not registered: load the library that defines \
-                                     it first, or add #[type_register] if this crate defines it",
+                                     it first, or add #[object(register)] if this crate defines \
+                                     it",
                                     #type_key
                                 );
                             }
+                            #tvm_ffi_crate::object::assert_registered_type_matches::<#struct_name>(
+                                tindex,
+                                <#base_ty as #tvm_ffi_crate::object::ObjectCore>::type_index(),
+                                true,
+                            );
                             tindex
                         }
                     );
                     *TYPE_INDEX
                 }
+
+                fn type_index_available() -> bool {
+                    let mut tindex = 0;
+                    // SAFETY: the key and the index outlive the call.
+                    let found = unsafe {
+                        let type_key_arg =
+                            #tvm_ffi_crate::tvm_ffi_sys::TVMFFIByteArray::from_str(#type_key);
+                        #tvm_ffi_crate::tvm_ffi_sys::TVMFFITypeKeyToIndex(&type_key_arg, &mut tindex)
+                            == 0
+                    };
+                    if !found {
+                        // Discard the error the failed lookup raised.
+                        ::core::mem::drop(#tvm_ffi_crate::Error::from_raised());
+                    }
+                    found
+                }
             }
         }
+    };
+    // A type defined here registers when its library loads, as a C++ type does
+    // through `refl::ObjectDef` in a static init block; a binding stays lazy,
+    // and so does a type under a binding whose library is not loaded yet.
+    let register_at_load = if type_register && options.type_index.is_none() {
+        if !derive_input.generics.params.is_empty() {
+            abort!(
+                struct_name,
+                "`register` needs a struct without generic parameters"
+            );
+        }
+        // The key is in the text of the block, which identifies the block, so
+        // two libraries that differ only in their keys both register.
+        quote! {
+            #tvm_ffi_crate::static_init_block! {
+                let _: &str = #type_key;
+                if <#struct_name as #tvm_ffi_crate::object::ObjectCore>::type_index_available() {
+                    let _ = <#struct_name as #tvm_ffi_crate::object::ObjectCore>::type_index();
+                }
+            }
+        }
+    } else {
+        quote! {}
     };
     // search for field name base and derive the base type
     // we expect base always to be the first field
@@ -207,6 +283,16 @@ pub(crate) fn expand_object(
                         !<#base_ty as #tvm_ffi_crate::object::ObjectCore>::TYPE_FINAL,
                         "an object type cannot derive from a final parent"
                     );
+                    ::core::assert!(
+                        #type_immutable
+                            || !<#base_ty as #tvm_ffi_crate::object::ObjectCore>::TYPE_IMMUTABLE,
+                        "a subtype of an immutable object type must be immutable"
+                    );
+                    ::core::assert!(
+                        !#type_immutable
+                            || !<#base_ty as #tvm_ffi_crate::object::ObjectCore>::TYPE_HAS_WRITABLE_FIELD,
+                        "an immutable type cannot inherit a #[reflect(writable)] field"
+                    );
                 };
             }
         }),
@@ -217,6 +303,8 @@ pub(crate) fn expand_object(
             let (base_id, base_ty) = (f.ident.clone()?, f.ty.clone());
             // The transitive case of subtyping
             Some(quote! {
+                type Parent = #base_ty;
+
                 const TYPE_DEPTH: i32 =
                     <#base_ty as #tvm_ffi_crate::object::ObjectCore>::TYPE_DEPTH + 1;
 
@@ -240,33 +328,52 @@ pub(crate) fn expand_object(
     quote! {
         #final_parent_check
 
+        const _: () = ::core::assert!(
+            ::core::mem::offset_of!(#struct_name, #base_id) == 0,
+            "the parent object must be the first field"
+        );
+
         unsafe impl #tvm_ffi_crate::object::ObjectCore for #struct_name {
             const TYPE_KEY: &'static str = #type_key;
             const TYPE_FINAL: bool = #type_final;
+            const TYPE_IMMUTABLE: bool = #type_immutable;
+            const TYPE_HAS_WRITABLE_FIELD: bool =
+                <#base_ty as #tvm_ffi_crate::object::ObjectCore>::TYPE_HAS_WRITABLE_FIELD
+                    || #has_writable_field;
 
             #type_index_tokens
 
             #base_def_tokens
         }
 
+        impl<'a> ::core::convert::From<&'a #struct_name> for #tvm_ffi_crate::AnyView<'a> {
+            #[inline(always)]
+            fn from(value: &'a #struct_name) -> Self {
+                Self::from_object(value)
+            }
+        }
+
         #shallow_copy_impl
+
+        #unsafe_init_impl
+
+        #immutable_impl
+
+        #register_at_load
     }
 }
 
-/// The reflection a `#[type_register]` type declares: its `#[reflect]` fields,
-/// its `#[type_s_eq_hash_kind]` and its `#[type_reflection]` function.
+/// The reflection a `register` type declares: its `#[reflect]` fields, its
+/// `s_eq_hash_kind` and its `reflection` function.
 struct Reflection {
     /// The structural kind; `None` inherits the parent's.
     kind: Option<syn::Ident>,
-    /// The function `#[type_reflection(path)]` names, which registers methods.
+    /// The function `reflection = path` names, which registers methods.
     methods: Option<syn::Path>,
-    /// The parent's field name and every other field's name.
-    base_id: syn::Ident,
-    field_ids: Vec<syn::Ident>,
     /// The reflected fields.
     reflected: Vec<ReflectedField>,
     /// Whether the type registers the creator of its `UnsafeInit`, as an
-    /// `#[rs_class]` type does.
+    /// `#[rs_object]` type does.
     unsafe_init: bool,
 }
 
@@ -354,16 +461,13 @@ fn doc_comment(attrs: &[syn::Attribute]) -> String {
 
 impl Reflection {
     /// The type's reflection, or `None` when it declares none and is not an
-    /// `rs_class`.
-    fn parse(derive_input: &DeriveInput, rs_class: bool) -> Option<Self> {
-        let kind = get_attr(derive_input, "type_s_eq_hash_kind").map(|attr| {
-            let kind = attr_to_str(attr);
-            syn::Ident::new(&kind.value(), kind.span())
-        });
-        let methods = get_attr(derive_input, "type_reflection").map(|attr| {
-            attr.parse_args::<syn::Path>()
-                .expect("Expect #[type_reflection(<path to fn(&mut ObjectDef<Self>)>)]")
-        });
+    /// `rs_object`.
+    fn parse(derive_input: &DeriveInput, options: &ObjectOptions, rs_object: bool) -> Option<Self> {
+        let kind = options
+            .s_eq_hash_kind
+            .as_ref()
+            .map(|kind| syn::Ident::new(&kind.value(), kind.span()));
+        let methods = options.reflection.clone();
         let syn::Data::Struct(s) = &derive_input.data else {
             return None;
         };
@@ -373,14 +477,8 @@ impl Reflection {
             !base.attrs.iter().any(|a| a.path.is_ident("reflect")),
             "the parent field cannot be #[reflect]; the parent registers its own fields"
         );
-        let mut field_ids = Vec::new();
         let mut reflected: Vec<ReflectedField> = Vec::new();
         for field in fields {
-            let id = field
-                .ident
-                .clone()
-                .expect("#[derive(Object)] needs named fields");
-            field_ids.push(id);
             if let Some(attr) = field.attrs.iter().find(|a| a.path.is_ident("reflect")) {
                 let field = ReflectedField::parse(field, attr);
                 if let Some(other) = reflected.iter().find(|f| f.name == field.name) {
@@ -392,19 +490,14 @@ impl Reflection {
                 reflected.push(field);
             }
         }
-        if kind.is_none() && methods.is_none() && reflected.is_empty() && !rs_class {
+        if kind.is_none() && methods.is_none() && reflected.is_empty() && !rs_object {
             return None;
         }
         Some(Self {
             kind,
             methods,
-            base_id: base
-                .ident
-                .clone()
-                .expect("First field must be `<base_name>: <ObjectCoreType>`"),
-            field_ids,
             reflected,
-            unsafe_init: rs_class,
+            unsafe_init: rs_object,
         })
     }
 
@@ -418,8 +511,8 @@ impl Reflection {
     ) -> proc_macro2::TokenStream {
         let reflection = quote!(#tvm_ffi_crate::reflection);
         let kind = match &self.kind {
-            Some(kind) => quote!(Some(#reflection::SEqHashKind::#kind)),
-            None => quote!(None),
+            Some(kind) => quote!(::core::option::Option::Some(#reflection::SEqHashKind::#kind)),
+            None => quote!(::core::option::Option::None),
         };
         let fields = self.reflected.iter().map(|field| {
             let ReflectedField {
@@ -434,68 +527,111 @@ impl Reflection {
                 format_ident!("{}", flag.to_string().to_uppercase(), span = flag.span())
             });
             quote! {
-                .field::<#ty>(
+                let def = def.field::<#ty>(
                     #name,
                     #doc,
                     ::core::mem::offset_of!(#struct_name, #id),
                     #reflection::FieldFlags::NONE #(| #reflection::FieldFlags::#flags)*,
-                )?
+                )?;
             }
         });
-        // The `#[type_reflection]` function registers the methods after the
+        // The `reflection` function registers the methods after the
         // fields, as a C++ `ObjectDef` chains `def` after `def_ro`.
         let methods = self.methods.as_ref().map(|path| {
             // The registration is a `static` initializer, where `Self` does
             // not resolve, so `Self::f` names the struct.
             let mut path = path.clone();
-            if let Some(first) = path.segments.first_mut() {
-                if first.ident == "Self" {
-                    first.ident = struct_name.clone();
-                }
+            if let Some(first) = path.segments.first_mut()
+                && first.ident == "Self"
+            {
+                first.ident = struct_name.clone();
             }
-            quote! {
-                let mut def = def;
-                #path(&mut def);
-            }
+            quote!(#path)
         });
+        let methods = methods.unwrap_or_else(|| quote!(|_| {}));
         let creator = if self.unsafe_init {
-            quote!(Some(#reflection::unsafe_init_creator::<#struct_name>))
+            quote!(::core::option::Option::Some(#reflection::unsafe_init_creator::<#struct_name>))
         } else {
-            quote!(None)
+            quote!(::core::option::Option::None)
         };
         quote! {
-            let registered = (|| -> #tvm_ffi_crate::Result<()> {
-                let def = #reflection::ObjectDef::<#struct_name>::registering(
-                    tindex, #kind, #creator,
-                )?
+            let registered = #reflection::register_object::<#struct_name>(
+                tindex,
+                #kind,
+                #creator,
+                |def| {
                     #(#fields)*
-                    .shallow_copy()?;
-                #methods
-                def.finish()
-            })();
-            if let Err(error) = registered {
-                panic!("Failed to register the reflection of type key {}: {}", #type_key, error);
+                    ::core::result::Result::Ok(def)
+                },
+                #methods,
+            );
+            if let ::core::result::Result::Err(error) = registered {
+                ::core::panic!("Failed to register the reflection of type key {}: {}", #type_key, error);
             }
         }
     }
+}
 
-    /// `ShallowCopy`: the parent's shallow copy and a clone of every other field.
-    fn shallow_copy_tokens(
-        &self,
-        struct_name: &syn::Ident,
-        base_ty: &syn::Type,
-        tvm_ffi_crate: &proc_macro2::TokenStream,
-    ) -> proc_macro2::TokenStream {
-        let base_id = &self.base_id;
-        let field_ids = &self.field_ids;
-        quote! {
-            impl #tvm_ffi_crate::reflection::ShallowCopy for #struct_name {
-                fn shallow_copy(&self) -> Self {
-                    Self {
-                        #base_id: <#base_ty as #tvm_ffi_crate::reflection::ShallowCopy>
-                            ::shallow_copy(&self.#base_id),
-                        #(#field_ids: ::core::clone::Clone::clone(&self.#field_ids),)*
-                    }
+/// The parent's field name and every other field's name.
+fn struct_field_ids(derive_input: &DeriveInput) -> (syn::Ident, Vec<syn::Ident>) {
+    let syn::Data::Struct(s) = &derive_input.data else {
+        panic!("First field must be `<base_name>: <ObjectCoreType>`");
+    };
+    let mut ids = s.fields.iter().map(|field| {
+        field
+            .ident
+            .clone()
+            .expect("#[derive(Object)] needs named fields")
+    });
+    let base_id = ids
+        .next()
+        .expect("First field must be `<base_name>: <ObjectCoreType>`");
+    (base_id, ids.collect())
+}
+
+/// `ShallowCopy`: the parent's shallow copy and a clone of every other field.
+fn shallow_copy_tokens(
+    struct_name: &syn::Ident,
+    base_ty: &syn::Type,
+    base_id: &syn::Ident,
+    field_ids: &[syn::Ident],
+    tvm_ffi_crate: &TokenStream2,
+) -> TokenStream2 {
+    quote! {
+        impl #tvm_ffi_crate::reflection::ShallowCopy for #struct_name {
+            fn shallow_copy(&self) -> Self {
+                Self {
+                    #base_id: <#base_ty as #tvm_ffi_crate::reflection::ShallowCopy>
+                        ::shallow_copy(&self.#base_id),
+                    #(#field_ids: ::core::clone::Clone::clone(&self.#field_ids),)*
+                }
+            }
+        }
+    }
+}
+
+/// `UnsafeInit`: drops the parent's defined fields, then each other defined
+/// field in order, as the drop glue does; only through raw pointers, since
+/// some may be undefined.
+fn unsafe_init_tokens(
+    struct_name: &syn::Ident,
+    base_ty: &syn::Type,
+    base_id: &syn::Ident,
+    field_ids: &[syn::Ident],
+    tvm_ffi_crate: &TokenStream2,
+) -> TokenStream2 {
+    let field_drop = quote!(#tvm_ffi_crate::reflection::field_drop);
+    quote! {
+        unsafe impl #tvm_ffi_crate::reflection::UnsafeInit for #struct_name {
+            #[allow(unused_imports)]
+            unsafe fn drop_defined_fields(this: *mut Self) {
+                use #field_drop::{DropDefined as _, DropNothing as _};
+                unsafe {
+                    <#base_ty as #tvm_ffi_crate::reflection::UnsafeInit>::drop_defined_fields(
+                        ::core::ptr::addr_of_mut!((*this).#base_id),
+                    );
+                    #((&#field_drop::FieldPtr(::core::ptr::addr_of_mut!((*this).#field_ids)))
+                        .drop_field();)*
                 }
             }
         }
@@ -508,16 +644,21 @@ pub fn derive_object_ref(input: proc_macro::TokenStream) -> TokenStream {
     TokenStream::from(expand_object_ref(&derive_input, &get_tvm_ffi_crate()))
 }
 
-/// The `ObjectRefCore` and `AnyCompatible` impls of a reference struct,
+/// The impls of a reference struct, as configured by `#[object_ref(...)]`,
 /// naming the tvm-ffi crate `tvm_ffi_crate`.
 pub(crate) fn expand_object_ref(
     derive_input: &DeriveInput,
     tvm_ffi_crate: &TokenStream2,
 ) -> TokenStream2 {
     let struct_name = derive_input.ident.clone();
+    let options = object_ref_options(derive_input);
+    let tvm_ffi_crate = &match &options.tvm_ffi_crate {
+        Some(path) => quote!(#path),
+        None => tvm_ffi_crate.clone(),
+    };
 
     // The `ObjectArc<T>` slot is the first field; its name is the struct's choice
-    // (`data` in this crate, `base` in stubgen output, so that reflected fields
+    // (`data` in this crate, `data_` in stubgen output, so that reflected fields
     // named `data` keep their name).
     let (data_id, data_ty) = match &derive_input.data {
         syn::Data::Struct(s) => s
@@ -528,10 +669,13 @@ pub(crate) fn expand_object_ref(
         _ => panic!("derive only works for structs"),
     }
     .expect("First field must be `<name>: ObjectArc<T>`");
+    // Spell the object type as written, so rustdoc shows `Target = FooObj`.
+    let object_ty = object_arc_argument(&data_ty)
+        .unwrap_or_else(|| quote!(<#data_ty as ::core::ops::Deref>::Target));
 
     let mut expanded = quote! {
         unsafe impl #tvm_ffi_crate::object::ObjectRefCore for #struct_name {
-            type ContainerType = <#data_ty as std::ops::Deref>::Target;
+            type ContainerType = #object_ty;
             #[inline]
             fn data(this: &Self) -> &#tvm_ffi_crate::object::ObjectArc<Self::ContainerType> {
                 &this.#data_id
@@ -548,132 +692,324 @@ pub(crate) fn expand_object_ref(
             }
         }
 
+        impl #struct_name {
+            /// The reference to a new object, for the type's constructors.
+            #[allow(dead_code)]
+            #[inline(always)]
+            fn from_object(object: #object_ty) -> Self {
+                Self { #data_id: #tvm_ffi_crate::object::ObjectArc::new(object) }
+            }
+        }
+
+        // The handle is exactly its object pointer, which an FFI cell's
+        // payload word holds, so an `Array` cell can lend `&Self` in place.
+        const _: () = {
+            type ContainerType = <#struct_name as #tvm_ffi_crate::object::ObjectRefCore>::ContainerType;
+            ::core::assert!(
+                ::core::mem::size_of::<#struct_name>()
+                    == ::core::mem::size_of::<#tvm_ffi_crate::object::ObjectArc<ContainerType>>()
+                    && ::core::mem::offset_of!(#struct_name, #data_id) == 0,
+                "an ObjectRef must consist of its ObjectArc alone"
+            );
+        };
+
+        // SAFETY: one `ObjectArc` (asserted above), checked by `check_any_strict`.
+        #tvm_ffi_crate::impl_object_ref_downcast_ref!(unsafe #struct_name);
+
+        // As `str`, `Path` and `[T]` do, so `impl AsRef<Base>` bounds accept the
+        // base itself; upcasts add `AsRef` to each base.
+        impl ::core::convert::AsRef<#struct_name> for #struct_name {
+            #[inline(always)]
+            fn as_ref(&self) -> &Self {
+                self
+            }
+        }
+
         impl ::std::convert::From<&#struct_name> for #struct_name {
             #[inline]
             fn from(value: &#struct_name) -> Self {
-                value.clone()
-            }
-        }
-
-        // implement AnyCompatible for #struct_name
-        unsafe impl #tvm_ffi_crate::type_traits::AnyCompatible for #struct_name {
-            const MATCH_ANY_EXACT: bool = {
-                type ContainerType =
-                    <#struct_name as #tvm_ffi_crate::object::ObjectRefCore>::ContainerType;
-                <ContainerType as #tvm_ffi_crate::object::ObjectCore>::TYPE_FINAL
-            };
-
-            #[inline]
-            fn match_any_exact_type_index() -> i32 {
-                type ContainerType = <#struct_name as #tvm_ffi_crate::object::ObjectRefCore>
-                    ::ContainerType;
-                <ContainerType as #tvm_ffi_crate::object::ObjectCore>::type_index()
-            }
-
-            #[inline]
-            unsafe fn is_undefined(field: *const Self) -> bool {
-                #tvm_ffi_crate::object::ObjectArc::is_null(::core::ptr::addr_of!((*field).#data_id))
-            }
-
-            fn type_str() -> std::string::String {
-                type ContainerType = <#struct_name as #tvm_ffi_crate::object::ObjectRefCore>
-                    ::ContainerType;
-                <ContainerType as #tvm_ffi_crate::object::ObjectCore>::TYPE_KEY.into()
-            }
-
-            #[inline(always)]
-            unsafe fn copy_to_any_view(
-                src: &Self,
-                data: &mut  #tvm_ffi_crate::tvm_ffi_sys::TVMFFIAny
-            ) {
-                type ContainerType = <#struct_name as #tvm_ffi_crate::object::ObjectRefCore>
-                    ::ContainerType;
-                let data_ptr = #tvm_ffi_crate::object::ObjectArc::<ContainerType>::as_raw(
-                    &src.#data_id
-                );
-                let object_ptr =
-                    data_ptr as *mut ContainerType as *mut #tvm_ffi_crate::tvm_ffi_sys::TVMFFIObject;
-                data.type_index = (*object_ptr).type_index;
-                data.small_str_len = 0;
-                data.data_union.v_obj = object_ptr;
-            }
-
-            #[inline(always)]
-            unsafe fn check_any_strict(
-                data: & #tvm_ffi_crate::tvm_ffi_sys::TVMFFIAny
-            ) -> bool {
-                type ContainerType = <#struct_name as #tvm_ffi_crate::object::ObjectRefCore>
-                    ::ContainerType;
-                #tvm_ffi_crate::object::is_instance_of::<ContainerType>(data.type_index)
-            }
-
-            unsafe fn copy_from_any_view_after_check(
-                data: & #tvm_ffi_crate::tvm_ffi_sys::TVMFFIAny
-            ) -> Self {
-                type ContainerType = <#struct_name as #tvm_ffi_crate::object::ObjectRefCore>
-                    ::ContainerType;
-                let data_ptr = data.data_union.v_obj;
-                // need to increase ref because original weak ptr
-                // do not own the code
-                #tvm_ffi_crate::object::unsafe_::inc_ref(
-                    data_ptr as *mut  #tvm_ffi_crate::tvm_ffi_sys::TVMFFIObject
-                );
-                Self {
-                    #data_id: #tvm_ffi_crate::object::ObjectArc::from_raw(
-                        data_ptr as *mut ContainerType
-                    )
-                }
-            }
-
-            #[inline(always)]
-            unsafe fn move_to_any(
-                src: Self,
-                data: &mut  #tvm_ffi_crate::tvm_ffi_sys::TVMFFIAny
-            ) {
-                type ContainerType = <#struct_name as #tvm_ffi_crate::object::ObjectRefCore>
-                    ::ContainerType;
-                let data_ptr = #tvm_ffi_crate::object::ObjectArc::into_raw(
-                    src.#data_id
-                );
-                let object_ptr =
-                    data_ptr as *mut ContainerType as *mut #tvm_ffi_crate::tvm_ffi_sys::TVMFFIObject;
-                data.type_index = (*object_ptr).type_index;
-                data.small_str_len = 0;
-                data.data_union.v_obj = object_ptr;
-            }
-
-            #[inline(always)]
-            unsafe fn move_from_any_after_check(
-                data: &mut  #tvm_ffi_crate::tvm_ffi_sys::TVMFFIAny
-            ) -> Self {
-                type ContainerType = <#struct_name as #tvm_ffi_crate::object::ObjectRefCore>
-                    ::ContainerType;
-                let data_ptr = data.data_union.v_obj as *mut ContainerType;
-                Self {
-                    #data_id: #tvm_ffi_crate::object::ObjectArc::<ContainerType>::from_raw(data_ptr)
-                }
-            }
-
-            unsafe fn try_cast_from_any_view(
-                data: & #tvm_ffi_crate::tvm_ffi_sys::TVMFFIAny
-            ) -> Result<Self, ()> {
-                type ContainerType = <#struct_name as #tvm_ffi_crate::object::ObjectRefCore>
-                    ::ContainerType;
-                if #tvm_ffi_crate::object::is_instance_of::<ContainerType>(data.type_index) {
-                    Ok(Self::copy_from_any_view_after_check(data))
-                } else {
-                    Err(())
-                }
+                ::core::clone::Clone::clone(value)
             }
         }
     };
-    // skip ObjectRef since it can create circular dependency with any.rs
-    if struct_name != "ObjectRef" {
+    // The default `AnyCompatible`: the object type check alone, which
+    // `match_any!` may route by.
+    if !options.skip_any_compatible {
         expanded.extend(quote! {
-            #tvm_ffi_crate::impl_try_from_any!(#struct_name);
-            #tvm_ffi_crate::impl_arg_into_ref!(#struct_name);
-            #tvm_ffi_crate::impl_into_arg_holder_default!(#struct_name);
+            unsafe impl #tvm_ffi_crate::object::ObjectRefAnyCompatible for #struct_name {
+                const MATCH_ANY_EXACT: bool = true;
+            }
+        });
+        if derive_input.generics.params.is_empty() {
+            expanded.extend(quote! {
+                unsafe impl #tvm_ffi_crate::object::PlainObjectRef for #struct_name {}
+            });
+        }
+    }
+    // Field reads through the reference, as C++ `operator->`.
+    if !options.skip_deref {
+        expanded.extend(quote! {
+            impl ::core::ops::Deref for #struct_name {
+                type Target = #object_ty;
+                #[inline(always)]
+                fn deref(&self) -> &Self::Target {
+                    &self.#data_id
+                }
+            }
         });
     }
+    // The runtime type key and object address, so `Result<_, Self>` from
+    // `downcast` can be unwrapped.
+    if !options.skip_debug {
+        expanded.extend(quote! {
+            impl ::core::fmt::Debug for #struct_name {
+                fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                    #tvm_ffi_crate::object::fmt_object_ref(self, f)
+                }
+            }
+        });
+    }
+    // The runtime `repr`, as `AnyView` formats it.
+    if !options.skip_display {
+        expanded.extend(quote! {
+            impl ::core::fmt::Display for #struct_name {
+                fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                    let object = &**#tvm_ffi_crate::object::ObjectRefCore::data(self);
+                    ::core::fmt::Display::fmt(&#tvm_ffi_crate::AnyView::from_object(object), f)
+                }
+            }
+        });
+    }
+    // `ObjectRef` itself skips these: `any.rs` implements them for it.
+    if struct_name != "ObjectRef" {
+        expanded.extend(quote! {
+            #tvm_ffi_crate::impl_any_compatible_conversions!(#struct_name);
+            // Every object reference upcasts to the root `ObjectRef`.
+            #tvm_ffi_crate::impl_object_ref_upcast!(
+                unsafe #struct_name => #tvm_ffi_crate::object::ObjectRef
+            );
+        });
+    }
+    // The root upcast is already above.
+    if let Some(parent) = options.parent.filter(|parent| !is_object_ref_root(parent)) {
+        if options.unsafe_parent {
+            // The object type must still derive from the parent's.
+            expanded.extend(quote! {
+                const _: () = {
+                    fn derives_from<T: #tvm_ffi_crate::object::ObjectDerivesFrom<A, I>, A, I>() {}
+                    let _ = derives_from::<
+                        <#struct_name as #tvm_ffi_crate::object::ObjectRefCore>::ContainerType,
+                        <#parent as #tvm_ffi_crate::object::ObjectRefCore>::ContainerType,
+                        _,
+                    >;
+                };
+                #tvm_ffi_crate::impl_object_ref_upcast!(unsafe #struct_name => #parent);
+            });
+        } else {
+            expanded.extend(quote! {
+                #tvm_ffi_crate::impl_object_ref_upcast!(#struct_name => #parent);
+            });
+        }
+    }
     expanded
+}
+
+/// Whether `attr` is a `#[repr(...)]` that includes `C`.
+fn is_repr_c(attr: &syn::Attribute) -> bool {
+    let Ok(syn::Meta::List(list)) = attr.parse_meta() else {
+        return false;
+    };
+    list.path.is_ident("repr")
+        && list.nested.iter().any(|item| {
+            matches!(item, syn::NestedMeta::Meta(syn::Meta::Path(path)) if path.is_ident("C"))
+        })
+}
+
+/// `T` of a field type spelled `ObjectArc<T>`.
+fn object_arc_argument(ty: &syn::Type) -> Option<TokenStream2> {
+    let syn::Type::Path(path) = ty else {
+        return None;
+    };
+    let last = path.path.segments.last()?;
+    if last.ident != "ObjectArc" {
+        return None;
+    }
+    match &last.arguments {
+        syn::PathArguments::AngleBracketed(args) => match args.args.first()? {
+            syn::GenericArgument::Type(object) if args.args.len() == 1 => Some(quote!(#object)),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Whether `ty` names the root `ObjectRef`.
+fn is_object_ref_root(ty: &syn::Type) -> bool {
+    match ty {
+        syn::Type::Path(path) => path
+            .path
+            .segments
+            .last()
+            .is_some_and(|s| s.ident == "ObjectRef"),
+        _ => false,
+    }
+}
+
+/// The options of `#[object_ref(...)]` on an `ObjectRef` derive.
+#[derive(Default)]
+struct ObjectRefOptions {
+    tvm_ffi_crate: Option<syn::Path>,
+    parent: Option<syn::Type>,
+    unsafe_parent: bool,
+    skip_deref: bool,
+    skip_debug: bool,
+    skip_display: bool,
+    skip_any_compatible: bool,
+}
+
+/// One `#[object_ref(...)]` item: a flag, `[unsafe] parent = Type` or `crate = path`.
+enum ObjectRefOption {
+    Flag(syn::Ident),
+    Parent(Box<syn::Type>, bool),
+    Crate(syn::Path),
+}
+
+impl syn::parse::Parse for ObjectRefOption {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let is_unsafe = input.parse::<Option<syn::Token![unsafe]>>()?.is_some();
+        let name: syn::Ident = input.call(syn::Ident::parse_any)?;
+        if name == "parent" {
+            input.parse::<syn::Token![=]>()?;
+            return Ok(ObjectRefOption::Parent(Box::new(input.parse()?), is_unsafe));
+        }
+        if is_unsafe {
+            return Err(syn::Error::new(name.span(), "only `parent` takes `unsafe`"));
+        }
+        if name == "crate" {
+            input.parse::<syn::Token![=]>()?;
+            return Ok(ObjectRefOption::Crate(syn::Path::parse_mod_style(input)?));
+        }
+        Ok(ObjectRefOption::Flag(name))
+    }
+}
+
+fn object_ref_options(derive_input: &DeriveInput) -> ObjectRefOptions {
+    let mut options = ObjectRefOptions::default();
+    for attr in derive_input
+        .attrs
+        .iter()
+        .filter(|a| a.path.is_ident("object_ref"))
+    {
+        let items = attr
+            .parse_args_with(
+                syn::punctuated::Punctuated::<ObjectRefOption, syn::Token![,]>::parse_terminated,
+            )
+            .unwrap_or_else(|error| abort!(error.span(), "{}", error));
+        for item in items {
+            match item {
+                ObjectRefOption::Parent(parent, is_unsafe) => {
+                    options.parent = Some(*parent);
+                    options.unsafe_parent = is_unsafe;
+                }
+                ObjectRefOption::Crate(path) => options.tvm_ffi_crate = Some(path),
+                ObjectRefOption::Flag(flag) if flag == "skip_deref" => options.skip_deref = true,
+                ObjectRefOption::Flag(flag) if flag == "skip_debug" => options.skip_debug = true,
+                ObjectRefOption::Flag(flag) if flag == "skip_display" => {
+                    options.skip_display = true
+                }
+                ObjectRefOption::Flag(flag) if flag == "skip_any_compatible" => {
+                    options.skip_any_compatible = true
+                }
+                ObjectRefOption::Flag(flag) => abort!(
+                    flag,
+                    "unknown `object_ref` option; expected `[unsafe] parent = ...`, `skip_deref`, \
+                     `skip_debug`, `skip_display`, `skip_any_compatible` or `crate = ...`"
+                ),
+            }
+        }
+    }
+    options
+}
+
+/// The options of `#[object(...)]` on an `Object` derive.
+#[derive(Default)]
+struct ObjectOptions {
+    type_key: Option<syn::LitStr>,
+    type_index: Option<syn::Expr>,
+    type_final: bool,
+    immutable: bool,
+    register: bool,
+    rs_parent: bool,
+    child_slots: Option<syn::LitInt>,
+    child_slots_can_overflow: Option<syn::LitBool>,
+    s_eq_hash_kind: Option<syn::LitStr>,
+    reflection: Option<syn::Path>,
+}
+
+impl ObjectOptions {
+    /// Parses one `#[object(...)]` item: a flag, `name = value` or
+    /// `unsafe type_index = expr`.
+    fn parse_item(&mut self, input: syn::parse::ParseStream) -> syn::Result<()> {
+        let is_unsafe = input.parse::<Option<syn::Token![unsafe]>>()?.is_some();
+        // `final` is a keyword.
+        let name: syn::Ident = input.call(syn::Ident::parse_any)?;
+        if is_unsafe != (name == "type_index") {
+            let message = if is_unsafe {
+                "only `type_index` takes `unsafe`"
+            } else {
+                "expected `unsafe type_index = ...`: the type must be the one the runtime gives \
+                 that index"
+            };
+            return Err(syn::Error::new(name.span(), message));
+        }
+        match name.to_string().as_str() {
+            "final" => self.type_final = true,
+            "immutable" => self.immutable = true,
+            "register" => self.register = true,
+            "rs_parent" => self.rs_parent = true,
+            "type_key" => self.type_key = Some(parse_value(input)?),
+            "type_index" => self.type_index = Some(parse_value(input)?),
+            "child_slots" => self.child_slots = Some(parse_value(input)?),
+            "child_slots_can_overflow" => self.child_slots_can_overflow = Some(parse_value(input)?),
+            "s_eq_hash_kind" => self.s_eq_hash_kind = Some(parse_value(input)?),
+            "reflection" => self.reflection = Some(parse_value(input)?),
+            _ => {
+                return Err(syn::Error::new(
+                    name.span(),
+                    "unknown `object` option; expected `type_key = \"...\"`, \
+                     `unsafe type_index = ...`, `final`, `immutable`, `register`, `rs_parent`, \
+                     `child_slots = <n>`, `child_slots_can_overflow = <bool>`, \
+                     `s_eq_hash_kind = \"<kind>\"` or `reflection = <path>`",
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// The `= value` of a `name = value` option.
+fn parse_value<T: syn::parse::Parse>(input: syn::parse::ParseStream) -> syn::Result<T> {
+    input.parse::<syn::Token![=]>()?;
+    input.parse()
+}
+
+fn object_options(derive_input: &DeriveInput) -> ObjectOptions {
+    let mut options = ObjectOptions::default();
+    for attr in derive_input
+        .attrs
+        .iter()
+        .filter(|a| a.path.is_ident("object"))
+    {
+        attr.parse_args_with(|input: syn::parse::ParseStream| {
+            while !input.is_empty() {
+                options.parse_item(input)?;
+                if !input.is_empty() {
+                    input.parse::<syn::Token![,]>()?;
+                }
+            }
+            Ok(())
+        })
+        .unwrap_or_else(|error| abort!(error.span(), "{}", error));
+    }
+    options
 }

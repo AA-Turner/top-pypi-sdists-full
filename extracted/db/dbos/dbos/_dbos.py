@@ -31,6 +31,7 @@ from typing import (
     TypedDict,
     TypeVar,
     Union,
+    cast,
     overload,
 )
 from zoneinfo import ZoneInfo
@@ -69,12 +70,14 @@ from ._core import (
     read_stream_offset,
     read_stream_offset_async,
     record_sleep,
+    record_sleep_suspend,
     run_step,
     run_step_async,
     send_bulk,
     set_event,
     start_workflow,
     start_workflow_async,
+    suspend_hooks,
     write_stream,
 )
 from ._datasource import AsyncSQLAlchemyDatasource, SQLAlchemyDatasource
@@ -151,14 +154,20 @@ from ._dbos_config import (
     process_config,
     translate_dbos_config_to_config_file,
 )
-from ._enterprise import AlertHandler, ConductorThread
+from ._enterprise import AlertHandler, ConductorThread, ExternalStorage
 from ._error import (
     DBOSException,
+    DBOSExternalStoreNotConfiguredError,
     DBOSInitializationError,
     DBOSNonExistentWorkflowError,
     DBOSPatchNondeterminismError,
 )
 from ._event_loop import BackgroundEventLoop
+from ._external_storage import (
+    ExternalObjectRef,
+    ExternalStore,
+    check_external_stores,
+)
 from ._logger import (
     add_otlp_to_all_loggers,
     add_transformer_to_all_loggers,
@@ -170,6 +179,7 @@ from ._logger import (
 from ._shard_keys import bind_shard_keys
 from ._workflow_commands import (
     BACKGROUND_JOBS_THREAD_NAME,
+    BackgroundLease,
     background_jobs_thread,
     delete_workflow,
     get_workflow,
@@ -204,6 +214,56 @@ def _get_or_create_dbos_registry() -> DBOSRegistry:
     if _dbos_global_registry is None:
         _dbos_global_registry = DBOSRegistry()
     return _dbos_global_registry
+
+
+def _external_object_owner(
+    ctx: Optional[DBOSContext],
+    owner_workflow_id: Optional[str],
+    shard_key: Optional[str],
+) -> str:
+    owner = owner_workflow_id
+    if owner is None:
+        if ctx is None or not ctx.is_within_workflow():
+            raise DBOSException(
+                "store_external_object called outside a workflow requires an owner_workflow_id"
+            )
+        owner = ctx.workflow_id
+    # Another key would hide the object from its owner, so GC would collect it while the owner lives.
+    if (
+        ctx is not None
+        and ctx.is_within_workflow()
+        and owner == ctx.workflow_id
+        and ctx.shard_key is not None
+        and shard_key is not None
+        and shard_key != ctx.shard_key
+    ):
+        raise DBOSException(
+            f"store_external_object's shard_key {shard_key!r} differs from workflow {owner}'s shard key {ctx.shard_key!r}"
+        )
+    return owner
+
+
+def _external_object_serialization(
+    ctx: Optional[DBOSContext],
+    serialization_type: Optional[WorkflowSerializationFormat],
+) -> Optional[WorkflowSerializationFormat]:
+    # Like send and set_event, the default follows the current workflow's format.
+    if (
+        serialization_type is None
+        or serialization_type == WorkflowSerializationFormat.DEFAULT
+    ) and ctx is not None:
+        return ctx.serialization_type
+    return serialization_type
+
+
+def _refuse_load_in_workflow(fn: str) -> None:
+    # A load is I/O, so it belongs in a step's retries and checkpointed errors, not a workflow body.
+    ctx = get_local_dbos_context()
+    if ctx is not None and ctx.is_workflow():
+        raise DBOSException(
+            f"{fn}() may not be called from a workflow. Call it from a step and use the "
+            "value there: a step's return value is checkpointed, so return only a small result."
+        )
 
 
 def check_async(fn: str) -> None:
@@ -646,8 +706,10 @@ class DBOS:
         self._executor_field: Optional[ThreadPoolExecutor] = None
         self._shared_executor_field: Optional[_SharedExecutor] = None
         self._background_threads: List[threading.Thread] = []
-        # Set after the shutdown drain, so timeouts still fire while workflows finish.
+        # Set after the shutdown drain, so timeouts and schedules still fire while workflows finish.
         self._background_jobs_stop_event = threading.Event()
+        # Held while this process holds the background-jobs lock; the scheduler fires only then.
+        self._background_lease = BackgroundLease()
         # Strong references to running async workflow tasks: the event loop
         # only keeps weak references, so without these a garbage-collection
         # pass can destroy a pending workflow task mid-execution (#710).
@@ -675,6 +737,10 @@ class DBOS:
         self._alert_handler: Optional[AlertHandler] = None
         serializer = config.get("serializer")
         self._serializer: Serializer = serializer if serializer else DefaultSerializer()
+        self._external_stores: List[ExternalStore] = check_external_stores(
+            config.get("external_stores")
+        )
+        self._external_storage_field: Optional[ExternalStorage] = None
         self._conductor_executor_metadata: Optional[Dict[str, Any]] = config.get(
             "conductor_executor_metadata"
         )
@@ -740,6 +806,13 @@ class DBOS:
             raise DBOSException("Executor accessed before DBOS was launched")
         rv: ThreadPoolExecutor = self._executor_field
         return rv
+
+    def _external_storage(self) -> ExternalStorage:
+        if not self._external_stores:
+            raise DBOSExternalStoreNotConfiguredError(None, [])
+        if self._external_storage_field is None:
+            raise DBOSException("External objects used before DBOS was launched")
+        return self._external_storage_field
 
     @property
     def _sys_db(self) -> SystemDatabase:
@@ -865,6 +938,11 @@ class DBOS:
                 ),
                 sharding=self._config.get("sharding", False),
             )
+            if self._config.get("suspend_mode"):
+                # Entitlement checked at construction, with the other config-enabled features.
+                self._sys_db.suspend = _enterprise.load(
+                    _enterprise.SUSPEND.description
+                ).Suspend(self._sys_db)
 
             # Run migrations for the system database
             if self._config.get("run_migrations", True):
@@ -875,6 +953,17 @@ class DBOS:
                 # be allowed to run DDL, but it still requires an up-to-date schema.
                 dbos_logger.debug("Verifying system database migrations")
                 self._sys_db.verify_migrations()
+
+            # Built before recovery and queues start, as their workflows may use external objects.
+            if self._external_stores:
+                self._external_storage_field = _enterprise.load(
+                    _enterprise.EXTERNAL_STORAGE.description
+                ).ExternalStorage(
+                    self._sys_db,
+                    stores=self._external_stores,
+                    serializer=self._serializer,
+                    check_caller_owner=True,
+                )
 
             # Register the current application version
             self._sys_db.create_application_version(GlobalParams.app_version)
@@ -1041,11 +1130,15 @@ class DBOS:
                 )
                 or 30.0
             )
-            scheduler_evt = threading.Event()
-            self.background_thread_stop_events.append(scheduler_evt)
+            # Stopped with the background jobs, as a draining holder of their lock fires for everyone.
             scheduler_thread = threading.Thread(
                 target=dynamic_scheduler_loop,
-                args=(scheduler_evt, scheduler_polling_interval_sec),
+                args=(
+                    self._background_jobs_stop_event,
+                    self._sys_db,
+                    scheduler_polling_interval_sec,
+                    self._background_lease.held,
+                ),
                 daemon=True,
             )
             scheduler_thread.start()
@@ -1811,7 +1904,7 @@ class DBOS:
         """Wait for any one of the given workflow handles to complete and return it.
 
         Polls the database until at least one workflow's status is no longer
-        PENDING, ENQUEUED, or DELAYED, then returns the corresponding handle.
+        PENDING, ENQUEUED, DELAYED, or SUSPENDED, then returns the corresponding handle.
         """
         check_async("wait_first")
         if not handles:
@@ -2036,12 +2129,22 @@ class DBOS:
         )
 
     @classmethod
-    def recv(cls, topic: Optional[str] = None, timeout_seconds: float = 60) -> Any:
+    def recv(
+        cls,
+        topic: Optional[str] = None,
+        timeout_seconds: float = 60,
+        *,
+        suspend: bool = False,
+    ) -> Any:
         """
         Receive a workflow message.
 
         This function must be called from within a workflow.
         `recv` will return the message sent on `topic`, waiting if necessary.
+
+        With `suspend=True` (Transact Enterprise), a recv that has to wait parks the workflow in the database
+        and exits its execution instead of holding a thread; a `send` on the topic or the
+        timeout re-enqueues it and the replayed recv returns the message.
         """
         check_async("recv")
         cur_ctx = snapshot_step_context(reserve_sleep_id=True)
@@ -2050,6 +2153,14 @@ class DBOS:
         attributes: TracedAttributes = {"name": "recv"}
         with EnterDBOSStepCtx(attributes, cur_ctx) as ctx:
             timeout_function_id = ctx.curr_step_function_id + 1
+            if suspend:
+                return suspend_hooks(_get_dbos_instance(), "recv").recv_suspend(
+                    ctx.workflow_id,
+                    ctx.curr_step_function_id,
+                    timeout_function_id,
+                    topic,
+                    timeout_seconds,
+                )
             return _get_dbos_instance()._sys_db.recv(
                 ctx.workflow_id,
                 ctx.curr_step_function_id,
@@ -2060,7 +2171,11 @@ class DBOS:
 
     @classmethod
     async def recv_async(
-        cls, topic: Optional[str] = None, timeout_seconds: float = 60
+        cls,
+        topic: Optional[str] = None,
+        timeout_seconds: float = 60,
+        *,
+        suspend: bool = False,
     ) -> Any:
         """
         Receive a workflow message.
@@ -2075,6 +2190,16 @@ class DBOS:
         attributes: TracedAttributes = {"name": "recv"}
         with EnterDBOSStepCtx(attributes, cur_ctx) as ctx:
             timeout_function_id = ctx.curr_step_function_id + 1
+            if suspend:
+                # to_thread copies the context, so the hook sees this execution's owner token.
+                return await asyncio.to_thread(
+                    suspend_hooks(_get_dbos_instance(), "recv").recv_suspend,
+                    ctx.workflow_id,
+                    ctx.curr_step_function_id,
+                    timeout_function_id,
+                    topic,
+                    timeout_seconds,
+                )
             return await _get_dbos_instance()._sys_db.recv_async(
                 ctx.workflow_id,
                 ctx.curr_step_function_id,
@@ -2084,22 +2209,27 @@ class DBOS:
             )
 
     @classmethod
-    def sleep(cls, seconds: float) -> None:
+    def sleep(cls, seconds: float, *, suspend: bool = False) -> None:
         """
         Sleep for the specified time (in seconds).
 
         It is important to use `DBOS.sleep` or `DBOS.sleep_async` (as opposed to any other sleep) within workflows,
         as the DBOS sleep methods are durable and completed sleeps will be skipped during recovery.
+
+        With `suspend=True` (Transact Enterprise), the sleep parks the workflow in the database and
+        exits its execution instead of holding a thread; once the duration has passed the workflow
+        is re-enqueued and the replayed sleep returns at once.
         """
         check_async("sleep")
         if seconds <= 0:
             return
         cur_ctx = snapshot_step_context()
-        duration = record_sleep(_get_dbos_instance(), cur_ctx, seconds)
+        record = record_sleep_suspend if suspend else record_sleep
+        duration = record(_get_dbos_instance(), cur_ctx, seconds)
         time.sleep(duration)
 
     @classmethod
-    async def sleep_async(cls, seconds: float) -> None:
+    async def sleep_async(cls, seconds: float, *, suspend: bool = False) -> None:
         """
         Sleep for the specified time (in seconds).
 
@@ -2110,8 +2240,9 @@ class DBOS:
             return
         cur_ctx = snapshot_step_context()
         await cls._configure_asyncio_thread_pool()
+        record = record_sleep_suspend if suspend else record_sleep
         duration = await asyncio.to_thread(
-            record_sleep, _get_dbos_instance(), cur_ctx, seconds
+            record, _get_dbos_instance(), cur_ctx, seconds
         )
         await asyncio.sleep(duration)
 
@@ -2190,6 +2321,97 @@ class DBOS:
                     },
                 )
                 return done, pending
+
+    @classmethod
+    def store_external_object(
+        cls,
+        value: T,
+        *,
+        owner_workflow_id: Optional[str] = None,
+        serialization_type: Optional[
+            WorkflowSerializationFormat
+        ] = WorkflowSerializationFormat.DEFAULT,
+        key: Optional[str] = None,
+        shard_key: Optional[str] = None,
+        store_id: Optional[str] = None,
+    ) -> ExternalObjectRef[T]:
+        """Upload a value to an external store (if there are multiple, specify one with store_id) and return a ref to it. A bytes value is stored as is, without serialization, which is fastest for large objects."""
+        check_async("store_external_object")
+        external_storage = _get_dbos_instance()._external_storage()
+        ctx = get_local_dbos_context()
+        owner = _external_object_owner(ctx, owner_workflow_id, shard_key)
+        serialization_type = _external_object_serialization(ctx, serialization_type)
+        with bind_shard_keys({owner: shard_key}):
+            if ctx is not None and ctx.is_workflow():
+                return cls.run_step(
+                    {"name": "DBOS.storeExternalObject"},
+                    external_storage.store,
+                    value,
+                    owner_workflow_id=owner,
+                    serialization_type=serialization_type,
+                    key=key,
+                    store_id=store_id,
+                )
+            return external_storage.store(
+                value,
+                owner_workflow_id=owner,
+                serialization_type=serialization_type,
+                key=key,
+                store_id=store_id,
+            )
+
+    @classmethod
+    async def store_external_object_async(
+        cls,
+        value: T,
+        *,
+        owner_workflow_id: Optional[str] = None,
+        serialization_type: Optional[
+            WorkflowSerializationFormat
+        ] = WorkflowSerializationFormat.DEFAULT,
+        key: Optional[str] = None,
+        shard_key: Optional[str] = None,
+        store_id: Optional[str] = None,
+    ) -> ExternalObjectRef[T]:
+        """Upload a value to an external store (if there are multiple, specify one with store_id) and return a ref to it. A bytes value is stored as is, without serialization, which is fastest for large objects."""
+        external_storage = _get_dbos_instance()._external_storage()
+        await cls._configure_asyncio_thread_pool()
+        ctx = get_local_dbos_context()
+        owner = _external_object_owner(ctx, owner_workflow_id, shard_key)
+        serialization_type = _external_object_serialization(ctx, serialization_type)
+        with bind_shard_keys({owner: shard_key}):
+            if ctx is not None and ctx.is_workflow():
+                return await cls.run_step_async(
+                    {"name": "DBOS.storeExternalObject"},
+                    external_storage.store_async,
+                    value,
+                    owner_workflow_id=owner,
+                    serialization_type=serialization_type,
+                    key=key,
+                    store_id=store_id,
+                )
+            return await external_storage.store_async(
+                value,
+                owner_workflow_id=owner,
+                serialization_type=serialization_type,
+                key=key,
+                store_id=store_id,
+            )
+
+    @classmethod
+    def load_external_object(cls, ref: ExternalObjectRef[T]) -> T:
+        """Load the value an external object ref points to. Call it from a step, not a workflow, and use the value in that step: a step's return value is checkpointed, so return only a small result."""
+        check_async("load_external_object")
+        _refuse_load_in_workflow("load_external_object")
+        return cast(T, _get_dbos_instance()._external_storage().get(ref))
+
+    @classmethod
+    async def load_external_object_async(cls, ref: ExternalObjectRef[T]) -> T:
+        """Load the value an external object ref points to. Call it from a step, not a workflow, and use the value in that step: a step's return value is checkpointed, so return only a small result."""
+        _refuse_load_in_workflow("load_external_object_async")
+        external_storage = _get_dbos_instance()._external_storage()
+        await cls._configure_asyncio_thread_pool()
+        return cast(T, await external_storage.get_async(ref))
 
     @classmethod
     def set_event(
@@ -3725,7 +3947,8 @@ class DBOS:
                 )
             )
         with dbos._sys_db.engine.begin() as c:
-            for sched in to_apply:
+            # Sorted, so concurrent writers lock schedule rows in one order.
+            for sched in sorted(to_apply, key=lambda s: s["schedule_name"]):
                 dbos._sys_db.upsert_schedule(sched, conn=c)
 
     @classmethod
@@ -4210,8 +4433,8 @@ class DBOS:
         # position on the event loop, failing loudly if a sibling task
         # interleaved with the probe.
         function_id = ctx.function_id
-        checkpoint_name = await asyncio.to_thread(
-            lambda: sys_db.get_checkpoint_name(
+        checkpoint = await asyncio.to_thread(
+            lambda: sys_db.get_checkpoint_at_or_after(
                 workflow_id=workflow_id, function_id=function_id + 1
             )
         )
@@ -4225,12 +4448,12 @@ class DBOS:
                 "in the same workflow, so the position of its marker would "
                 "depend on task scheduling; call it from sequential workflow code",
             )
-        if checkpoint_name is not None and checkpoint_name != patch_name:
+        if checkpoint is not None and checkpoint != (function_id + 1, patch_name):
             # Pre-patch replay: run the old code, consuming no position.
             return False
         # Reserve the next checkpoint position.
         ctx.function_id += 1
-        if checkpoint_name == patch_name:
+        if checkpoint is not None:
             # Replay: the patch marker is already in history.
             return True
         # New execution: record the marker at the reserved position. No

@@ -4,7 +4,7 @@ Run a single catalog factory on a chosen port for manual debugging:
 
     python -m test.apps 8080 success
     python -m test.apps 8080 success_and_failure
-    python -m test.apps 8080 users_crud
+    python -m test.apps 8080 users.crud
     python -m test.apps 8080 envelopes.ajv
     python -m test.apps 8080 graphql.books
 
@@ -16,19 +16,39 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import inspect
 import pkgutil
 import sys
+from collections.abc import Callable
 from functools import partial
+from types import ModuleType
 
 from test.apps.catalog import openapi as openapi_catalog
 from test.apps.catalog.graphql import bookstore as graphql_bookstore
 from test.apps.catalog.openapi import envelopes
 from test.apps.catalog.openapi.envelopes import Envelope
-from test.apps.runtime import OpenAPIApp
+from test.apps.runtime import GraphQLApp, OpenAPIApp
+
+
+def _factories(module: ModuleType) -> dict[str, Callable[[], OpenAPIApp | GraphQLApp]]:
+    # Factories that need no arguments; the rest get explicit entries.
+    return {
+        name: value
+        for name, value in vars(module).items()
+        if inspect.isfunction(value)
+        and value.__module__ == module.__name__
+        and not name.startswith("_")
+        and all(
+            parameter.default is not parameter.empty
+            or parameter.kind in (parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD)
+            for parameter in inspect.signature(value).parameters.values()
+        )
+    }
+
 
 # Every catalog module; envelopes take an argument, so they get their own entries below.
-_OPENAPI_MODULES = {
-    module.name: importlib.import_module(f"{openapi_catalog.__name__}.{module.name}")
+_OPENAPI_FACTORIES = {
+    module.name: _factories(importlib.import_module(f"{openapi_catalog.__name__}.{module.name}"))
     for module in pkgutil.iter_modules(openapi_catalog.__path__)
     if not module.ispkg and module.name != "envelopes"
 }
@@ -43,21 +63,7 @@ _ENVELOPE_FACTORIES = {
 }
 
 _GRAPHQL_FACTORIES = {
-    "books": graphql_bookstore.books,
-    "federated_subgraph": graphql_bookstore.federated_subgraph,
-    "use_after_create": graphql_bookstore.use_after_create,
-    "tombstone_pool": graphql_bookstore.tombstone_pool,
-    "use_after_delete": graphql_bookstore.use_after_delete,
-    "slow_mutation": graphql_bookstore.slow_mutation,
-    "double_delete": graphql_bookstore.double_delete,
-    "generic_id_pool": graphql_bookstore.generic_id_pool,
-    "input_object_pool": graphql_bookstore.input_object_pool,
-    "list_argument_pool": graphql_bookstore.list_argument_pool,
-    "non_id_pool": graphql_bookstore.non_id_pool,
-    "bare_slug": graphql_bookstore.bare_slug,
-    "relay_connection": graphql_bookstore.relay_connection,
-    "lenient": graphql_bookstore.lenient,
-    "coverage_inputs": graphql_bookstore.coverage_inputs,
+    **_factories(graphql_bookstore),
     # Answers every query with no data, the shape of a server that never serves the query.
     "canned_response": partial(graphql_bookstore.canned_response, {"data": None}),
 }
@@ -78,26 +84,21 @@ def _resolve(name: str):
         module_name, factory_name = name.split(".", 1)
     else:
         module_name, factory_name = "basic", name
-    module = _OPENAPI_MODULES.get(module_name)
-    if module is None:
-        raise SystemExit(f"Unknown module: {module_name!r}. Choices: {sorted(_OPENAPI_MODULES)}")
-    factory = getattr(module, factory_name, None)
-    if factory is None or not callable(factory):
+    factories = _OPENAPI_FACTORIES.get(module_name)
+    if factories is None:
+        raise SystemExit(f"Unknown module: {module_name!r}. Choices: {sorted(_OPENAPI_FACTORIES)}")
+    factory = factories.get(factory_name)
+    if factory is None:
         raise SystemExit(f"Unknown factory {factory_name!r} in {module_name}")
     return factory
 
 
 def _list_factories() -> None:
     print("Available factories (default module is `basic`; use `<module>.<name>` for others):")
-    for module_name, module in _OPENAPI_MODULES.items():
-        names = sorted(
-            name
-            for name, value in vars(module).items()
-            if not name.startswith("_") and callable(value) and getattr(value, "__module__", None) == module.__name__
-        )
-        if names:
+    for module_name, factories in _OPENAPI_FACTORIES.items():
+        if factories:
             print(f"\n  {module_name}.*:")
-            for name in names:
+            for name in sorted(factories):
                 print(f"    {name}")
     print("\n  envelopes.*:")
     for name in sorted(_ENVELOPE_FACTORIES):
@@ -114,7 +115,7 @@ def main() -> None:
         "factory",
         nargs="?",
         default="success_and_failure",
-        help="Factory name (e.g. 'success', 'users_crud', 'graphql.books').",
+        help="Factory name (e.g. 'success', 'users.crud', 'graphql.books').",
     )
     parser.add_argument("--list", action="store_true", help="List available factories and exit.")
     args = parser.parse_args()

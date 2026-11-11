@@ -80,6 +80,12 @@ class _AssumeRoleParams(TypedDict):
     Tags: ReadOnly[NotRequired[tuple[AwsSessionTag, ...]]]
 
 
+class _StsClientKwargs(TypedDict):
+    verify: ReadOnly[bool | str]
+    endpoint_url: ReadOnly[NotRequired[str]]
+    region_name: ReadOnly[NotRequired[str]]
+
+
 def _assume_role_params(
     aws_role_name: str,
     aws_session_name: str,
@@ -275,7 +281,7 @@ class BaseAWSLLM(SignsRequestsWithAWS):
             "aws_session_tags",
         ]
 
-    def _get_ssl_verify(self, ssl_verify: bool | str | None = None):
+    def _get_ssl_verify(self, ssl_verify: bool | str | None = None) -> bool | str:
         """
         Get SSL verification setting for boto3 clients.
 
@@ -875,15 +881,18 @@ class BaseAWSLLM(SignsRequestsWithAWS):
         aws_sts_endpoint: str | None = None,
         ssl_verify: bool | str | None = None,
         aws_region_name: str | None = None,
-    ) -> dict:
+    ) -> _StsClientKwargs:
         """STS client kwargs with aligned endpoint_url and region_name (SigV4)."""
-        kwargs: Final[dict] = {"verify": self._get_ssl_verify(ssl_verify)}
-        if aws_sts_endpoint is not None:
-            kwargs["endpoint_url"] = aws_sts_endpoint
-        sts_region: Final = self._resolve_sts_region(aws_sts_endpoint, aws_region_name)
-        if sts_region is not None:
-            kwargs["region_name"] = sts_region
-        return kwargs
+        verify: Final = self._get_ssl_verify(ssl_verify)
+        match (aws_sts_endpoint, self._resolve_sts_region(aws_sts_endpoint, aws_region_name)):
+            case (None, None):
+                return _StsClientKwargs(verify=verify)
+            case (None, region):
+                return _StsClientKwargs(verify=verify, region_name=region)
+            case (endpoint, None):
+                return _StsClientKwargs(verify=verify, endpoint_url=endpoint)
+            case (endpoint, region):
+                return _StsClientKwargs(verify=verify, endpoint_url=endpoint, region_name=region)
 
     def get_aws_region_name_for_non_llm_api_calls(
         self,
@@ -1526,16 +1535,28 @@ class BaseAWSLLM(SignsRequestsWithAWS):
         aws_region_name: str,
         endpoint_type: Literal["runtime", "agent", "agentcore"] | None = "runtime",
     ) -> tuple[str, str]:
-        configured_endpoint: Final = (
-            aws_bedrock_runtime_endpoint if isinstance(aws_bedrock_runtime_endpoint, str) else None
-        )
-        runtime_endpoint: Final = configured_endpoint or get_secret_str("AWS_BEDROCK_RUNTIME_ENDPOINT")
-        endpoint_url: Final = (
-            api_base
-            or runtime_endpoint
-            or self._select_default_endpoint_url(endpoint_type=endpoint_type, aws_region_name=aws_region_name)
-        )
-        return endpoint_url, runtime_endpoint or endpoint_url
+        env_aws_bedrock_runtime_endpoint: Final = get_secret("AWS_BEDROCK_RUNTIME_ENDPOINT")
+        if api_base is not None:
+            endpoint_url = api_base
+        elif aws_bedrock_runtime_endpoint is not None and isinstance(aws_bedrock_runtime_endpoint, str):
+            endpoint_url = aws_bedrock_runtime_endpoint
+        elif env_aws_bedrock_runtime_endpoint and isinstance(env_aws_bedrock_runtime_endpoint, str):
+            endpoint_url = env_aws_bedrock_runtime_endpoint
+        else:
+            endpoint_url = self._select_default_endpoint_url(
+                endpoint_type=endpoint_type,
+                aws_region_name=aws_region_name,
+            )
+
+        # Determine proxy_endpoint_url
+        if aws_bedrock_runtime_endpoint is not None and isinstance(aws_bedrock_runtime_endpoint, str):
+            proxy_endpoint_url = aws_bedrock_runtime_endpoint
+        elif env_aws_bedrock_runtime_endpoint and isinstance(env_aws_bedrock_runtime_endpoint, str):
+            proxy_endpoint_url = env_aws_bedrock_runtime_endpoint
+        else:
+            proxy_endpoint_url = endpoint_url
+
+        return endpoint_url, proxy_endpoint_url
 
     def _select_default_endpoint_url(
         self,
@@ -1801,13 +1822,13 @@ async def run_aws_signing(
     )
 
 
-async def sign_request_off_loop_if_aws(
+async def run_off_loop_if_aws(
     provider_config: object,
-    sign_request: Callable[_SignParams, _SignedRequest],
+    call: Callable[_SignParams, _SignedRequest],
     /,
     *args: _SignParams.args,
-    **kwargs: _SignParams.kwargs,  # kwargs-ok: ParamSpec forwarding keeps the wrapped sign_request signature
+    **kwargs: _SignParams.kwargs,  # kwargs-ok: ParamSpec forwarding keeps the wrapped call's signature
 ) -> _SignedRequest:
     if isinstance(provider_config, SignsRequestsWithAWS):
-        return await run_aws_signing(sign_request, *args, **kwargs)
-    return sign_request(*args, **kwargs)
+        return await run_aws_signing(call, *args, **kwargs)
+    return call(*args, **kwargs)

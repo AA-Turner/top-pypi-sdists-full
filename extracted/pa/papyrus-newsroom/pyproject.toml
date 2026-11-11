@@ -1,6 +1,6 @@
 [project]
 name = "papyrus-newsroom"
-version = "5.103.0"
+version = "5.104.0"
 description = "Papyrus newsroom Python tools and CLI."
 readme = "README.md"
 license = "MIT"

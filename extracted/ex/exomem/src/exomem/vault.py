@@ -8,12 +8,14 @@ list_directory, etc.).
 
 from __future__ import annotations
 
+import bisect
 import contextlib
 import errno
 import functools
 import hashlib
 import json
 import logging
+import operator
 import os
 import re
 import secrets
@@ -24,6 +26,7 @@ import threading
 import time
 import unicodedata
 import uuid
+from collections import deque
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import Context, ContextVar, copy_context
@@ -124,11 +127,28 @@ APPEND_ONLY_KB_SUBPATHS: tuple[str, ...] = (
 )
 
 # Frontmatter keys the schema deliberately excludes (see _scaffold's
-# references/frontmatter.md): numeric confidence scores misrepresent the signal
-# (trust is citations + link count), and knowledge does not expire on a schedule.
-# Governed write paths refuse them so the documented "no confidence floats / no
-# retention decay" stance is actually enforced, not just described.
-EXCLUDED_FRONTMATTER_FIELDS: frozenset[str] = frozenset({"confidence", "decay_at", "expires_at"})
+# references/frontmatter.md), each with the remedy its refusal states: a claim carries no
+# confidence score (trust is citations + link count, and a degree of belief is its own belief
+# unit), and knowledge does not expire on a schedule. Governed write paths refuse them so the
+# documented "no confidence floats / no retention decay" stance is actually enforced, not just
+# described.
+# nosemgrep: ep-word-set -- field names that the frontmatter reference excludes, not a vocabulary
+_EXCLUDED_FIELD_REMEDIES: Mapping[str, str] = {
+    "confidence": (
+        "A confidence or a degree of belief is never frontmatter: a degree of belief that its "
+        "holder stated is a `## Belief` unit in the page body (see \"Recording a degree of "
+        "belief\" in the skill's page-types reference)."
+    ),
+    "decay_at": (
+        "Exomem decays no material on a schedule; supersede or archive the page explicitly "
+        "when it no longer holds."
+    ),
+    "expires_at": (
+        "Knowledge does not expire on a schedule; supersede or archive the page explicitly "
+        "when it no longer holds."
+    ),
+}
+EXCLUDED_FRONTMATTER_FIELDS: frozenset[str] = frozenset(_EXCLUDED_FIELD_REMEDIES)
 EXCLUDED_FIELD_CODE = "EXCLUDED_FIELD"
 
 # The broader `auto_*` exclusion documented in
@@ -178,14 +198,10 @@ def excluded_field_in_collection_frontmatter(
 
 def excluded_frontmatter_reason(field: str) -> str | None:
     """A refusal reason if `field` is a schema-excluded frontmatter key, else None."""
-    if field.strip().casefold() in EXCLUDED_FRONTMATTER_FIELDS:
-        return (
-            f"`{field}` is a schema-excluded frontmatter field. Exomem does not "
-            "record numeric confidence scores or time-based decay/expiry — trust "
-            "is conveyed by citations and link count, and old material is never "
-            "auto-decayed (see SKILL.md). Omit this field."
-        )
-    return None
+    remedy = _EXCLUDED_FIELD_REMEDIES.get(field.strip().casefold())
+    if remedy is None:
+        return None
+    return f"`{field}` is a schema-excluded frontmatter field. {remedy} Omit this field."
 
 
 def governed_frontmatter_reason(
@@ -212,7 +228,7 @@ def governed_frontmatter_reason(
         return None
     # Deferred: `semantic_language_registry` imports this module. The vocabulary still has
     # exactly one definition, the verdict registry.
-    from . import semantic_language_registry, semantic_units
+    from . import semantic_labels, semantic_language_registry, semantic_units
 
     normalized_type = str(page_type or "").strip().casefold()
     if normalized_type != "experiment":
@@ -226,7 +242,7 @@ def governed_frontmatter_reason(
         semantic_language_registry.load_for_page(*page)
         if page is not None
         else semantic_language_registry.core_registry()
-    ).verdict_keys()
+    ).label_keys(semantic_labels.VERDICTS)
     # An outcome takes a key only; a unit verdict also takes a label.
     if not isinstance(value, str) or value.strip().casefold() not in keys:
         return (
@@ -292,6 +308,16 @@ VAULT_SCAN_SKIP_DIRS = frozenset(
     }
 )
 VAULT_SCAN_SKIP_DIR_PREFIXES = (".exomem-batch-",)
+
+
+def is_scan_skipped_runtime_name(name: str) -> bool:
+    """Whether a scan skips this entry at any depth as runtime scratch, not content.
+
+    Batch workspaces, and the entries a held-filesystem capability probe briefly
+    creates (symlink aliases included) in a root it tests, which can lie inside the
+    Knowledge Base. `reserved_paths` refuses writes under the probe's names.
+    """
+    return name.startswith(VAULT_SCAN_SKIP_DIR_PREFIXES) or held_fs.is_probe_entry(name)
 _GRAPH_RESET_RUNTIME_DIR_NAME = re.compile(r"^\.graph-reset-[0-9a-f]{24}$", re.ASCII)
 _GRAPH_REBUILD_RUNTIME_FILE_NAME = re.compile(
     r"^\.graph-rebuild-[0-9a-f]{64}-[0-9a-f]{24}\.sqlite"
@@ -410,9 +436,7 @@ def in_excluded_scan_dir(rel_path: str) -> bool:
     ):
         return True
     for segment in segments:
-        if segment in VAULT_SCAN_SKIP_DIRS or segment.startswith(
-            VAULT_SCAN_SKIP_DIR_PREFIXES
-        ):
+        if segment in VAULT_SCAN_SKIP_DIRS or is_scan_skipped_runtime_name(segment):
             return True
     return False
 
@@ -500,10 +524,22 @@ def _is_vault(path: Path) -> bool:
     at all, so a vault has to stay a vault across the move in both directions --
     one that has migrated, and one that never will.
     """
-    return (
+    if (
         (path / kb_dirname() / "_Schema" / _SCHEMA_SENTINEL).exists()
         or (shipped_schema_target(path) / _SCHEMA_SENTINEL).exists()
-    )
+    ):
+        return True
+    # A store-mode vault keeps the legacy sentinel page in its store, and its file may be absent.
+    from . import state_migration
+    from .vault_store import read
+
+    try:
+        return read.page_exists(path, f"{kb_dirname()}/_Schema/{_SCHEMA_SENTINEL}")
+    except (ValueError, OSError, state_migration.StateMigrationManifestError):
+        # Callers probe every ancestor of a path. One that holds its own state root (the filesystem
+        # root, say) is refused placement, and a broken state root cannot prove a vault: both mean
+        # "not a vault", and file mode is as it was.
+        return False
 
 
 def kb_root(vault: Path) -> Path:
@@ -709,8 +745,18 @@ def resolve_display_title(frontmatter: dict[str, Any], body: str, path: Path | s
     return stem or str(path)
 
 
-def title_key_from_bytes(raw: bytes, path: Path | str) -> str | None:
-    """The wikilink resolver's lower-cased display title of a page's bytes, as a file read gives it.
+def title_key(title: str) -> str:
+    """The key a page is found under by its title: NFC, stripped, lower-cased.
+
+    One spelling for every producer and every lookup of the title map, so a title typed
+    decomposed (or padded) finds the page whose title is stored composed. It does not
+    case-fold: folding merges titles that differ (`ß` and `ss`).
+    """
+    return unicodedata.normalize("NFC", title).strip().lower()
+
+
+def display_title_from_bytes(raw: bytes, path: Path | str) -> str | None:
+    """The display title of a page's bytes, as a file read gives it.
 
     ``path`` (absolute or vault-relative) only supplies the filename fallback of the title
     precedence. It returns None when the bytes are not UTF-8 text.
@@ -721,8 +767,16 @@ def title_key_from_bytes(raw: bytes, path: Path | str) -> str | None:
         return None
     # A text-mode read translates newlines before it parses; the bytes path parses the same text.
     fm, body, _ = parse_frontmatter(text.replace("\r\n", "\n").replace("\r", "\n"))
-    title = resolve_display_title(fm, body, path)
-    return title.lower() if title else None
+    return resolve_display_title(fm, body, path) or None
+
+
+def title_key_from_bytes(raw: bytes, path: Path | str) -> str | None:
+    """The wikilink resolver's lower-cased display title of a page's bytes, as a file read gives it.
+
+    It returns None when the bytes are not UTF-8 text.
+    """
+    title = display_title_from_bytes(raw, path)
+    return title_key(title) if title else None
 
 
 def unique_path(directory: Path, stem: str, suffix: str = ".md", *, vault_root: Path | None = None) -> Path:
@@ -1355,6 +1409,12 @@ class PathGuard:
         if not read.serves(Path(vault_root), rel):
             raise PathGuardError("PATH_GUARD_INVALID", "the store does not serve this path")
         return _store_guard(rel, _stored_sha256(Path(vault_root), rel))
+
+    @classmethod
+    def of_stored(cls, target: str, sha256: str | None) -> PathGuard:
+        """Guard a stored page by the hash that the caller read in its own store snapshot, or by
+        its absence there when ``sha256`` is None: a folder's pages then cost no query each."""
+        return _store_guard("/".join(_safe_guard_target(target)), sha256)
 
     @classmethod
     def capture(
@@ -4039,6 +4099,11 @@ def _allowed_census_names(directory: Path, allowed_changes: Iterable[Path]) -> f
     return frozenset(names)
 
 
+#: The most entries that one folder transition binds: the census of each folder that a directory
+#: recovery reads, and the pages that a store-mode folder trash or recovery moves in one transaction.
+DIRECTORY_TRANSITION_LIMIT = 4096
+
+
 @dataclass(frozen=True, slots=True)
 class DirectoryCensusGuard:
     """Bind an absent directory or a bounded exact child census to commit time."""
@@ -4638,10 +4703,14 @@ class PlannedWrite:
 
 @dataclass(frozen=True, slots=True)
 class DeferredGraphCompletion:
-    """Exact graph handoff retained after a canonical deferred-completion batch."""
+    """Graph handoff kept after a canonical deferred-completion batch.
+
+    A store-mode commit has no checkpoint (``None``): its graph rows committed with its pages, so
+    the handoff names the paths and nothing is left to complete.
+    """
 
     replaced: tuple[Path, ...]
-    checkpoint: GraphSyncCheckpoint
+    checkpoint: GraphSyncCheckpoint | None
     predecessor: GraphSyncCheckpoint | None
 
 
@@ -5236,7 +5305,7 @@ def folder_split_warnings(vault_root: Path, directory: Path) -> list[str]:
     for part in relative.parts:
         variants = sibling_name_variants(current, part)
         if variants and (current / part).is_dir():
-            audit_call = active_call_text("review_memory", {"mode": "audit", "categories": ["path_variants"]})
+            audit_call = active_call_text("maintain_memory", {"mode": "audit", "categories": ["path_variants"]})
             warnings.append(
                 f"folder '{part}' also exists as {', '.join(repr(v) for v in variants)}; "
                 f"run {audit_call} to see the split"
@@ -6108,7 +6177,7 @@ def _batch_atomic_write_locked(
     canonical_started_monotonic = _fast_ack_monotonic()
     additive_guard = None
     try:
-        from . import vocabulary_gate
+        from . import vocabulary_auxiliaries, vocabulary_gate
         from .writer_lease import (
             log_active_mutation_phase,
             mark_active_mutation_committed,
@@ -6117,6 +6186,11 @@ def _batch_atomic_write_locked(
 
         additive_guard = vocabulary_gate.begin_batch(
             vault_root, staged, snapshots, auxiliary_manifest=_vocabulary_auxiliaries
+        )
+        # The staged plan no longer changes, so the per-write access check reuses one set of its images.
+        plan_images = (
+            tuple(vocabulary_auxiliaries.planned_images(vault_root, writes))
+            if vault_root is not None and _vocabulary_auxiliaries is not None else ()
         )
         validate_active_write_fence()
         if _prepare is None:
@@ -6156,6 +6230,7 @@ def _batch_atomic_write_locked(
                     granted_paths=(
                         additive_guard.effect_paths() if additive_guard is not None else frozenset()
                     ),
+                    planned_images=plan_images,
                 )
                 recheck_path_guards(
                     root,
@@ -6508,6 +6583,7 @@ def _validate_batch_write_access(
     auxiliary_manifest: Any | None = None,
     defer_registry: bool = False,
     granted_paths: frozenset[str] = frozenset(),
+    planned_images: tuple[Any, ...] | None = None,
 ) -> None:
     """Fail closed when any planned target is outside or newly write-protected.
 
@@ -6515,7 +6591,8 @@ def _validate_batch_write_access(
     caller's writable scopes. `defer_registry` leaves that storage to the later check.
     `granted_paths` are the paths that the authority's reservation for this exact batch
     names; the registry storage whose sealed primary is among them skips the writable-scope
-    rule, and every other write keeps it.
+    rule, and every other write keeps it. `planned_images` are the full plan's images when
+    the caller already built them, so a batch that revalidates per write hashes its plan once.
     """
     from . import access, vocabulary_auxiliaries, writer_lease
     from .governance import connector_boundary
@@ -6524,7 +6601,9 @@ def _validate_batch_write_access(
     writes = tuple(writes)
     full_plan = writes if proposed is None else tuple(proposed)
     roles = vocabulary_auxiliaries.validate(
-        vault_root, vocabulary_auxiliaries.planned_images(vault_root, full_plan), auxiliary_manifest,
+        vault_root,
+        vocabulary_auxiliaries.planned_images(vault_root, full_plan) if planned_images is None else planned_images,
+        auxiliary_manifest,
     )
     primary_bound_paths = {
         path for path, role in roles.items() if role in vocabulary_auxiliaries.PRIMARY_BOUND_ROLES
@@ -7494,11 +7573,13 @@ def relative_posix(path: Path, anchor: Path) -> str:
     return path.relative_to(anchor).as_posix()
 
 
-def walk_vault_md(vault_root: Path):
+def walk_vault_md(vault_root: Path, *, skip: Callable[[Path], bool] | None = None):
     """Yield every .md path under vault_root, skipping config/cruft dirs.
 
     Walks the FULL vault, not just Knowledge Base/. Used by Tier 2 inbound-
-    wikilink scans and move/delete safety checks.
+    wikilink scans and move/delete safety checks. ``skip`` is asked about each
+    Markdown-named entry before the walk stats it, and an entry that it takes is
+    dropped unstatted.
     """
 
     from . import foreground_priority
@@ -7511,6 +7592,8 @@ def walk_vault_md(vault_root: Path):
             return
         for child in children:
             foreground_priority.check_cancelled()
+            if skip is not None and child.suffix.lower() == ".md" and skip(child):
+                continue
             kind = _walk_vault_md_entry(vault_root, child)
             if kind == "dir":
                 yield from walk(child)
@@ -8188,6 +8271,7 @@ def find_inbound_wikilinks(
     target_rel_path: str,
     *,
     visible: Callable[[str], bool] | None = None,
+    target_has_no_file: bool = False,
 ) -> list[InboundLink]:
     """Return every wikilink in the vault that resolves to `target_rel_path`.
 
@@ -8209,19 +8293,40 @@ def find_inbound_wikilinks(
     `visible` is a reader's view (see `egress.visible_page_filter`; `None`
     for the owner): uniqueness is then counted over the pages it admits, as
     in a vault without the others. Only a basename that is shared is decided.
+
+    `target_has_no_file` says the target is a page that the vault holds but has no file yet (a
+    store page that the projector has not written): the basename count includes it, so a bare
+    `[[foo]]` still resolves to it when no other file is named `foo`.
     """
     data = _inbound_index(vault_root)
     with _INBOUND_INDEX_LOCK:
         snapshot = _snapshot_inbound(data, target_rel_path)
-    return _select_inbound_wikilinks(snapshot, target_rel_path, visible)
+    return _select_inbound_wikilinks(
+        snapshot, target_rel_path, visible, target_has_no_file=target_has_no_file
+    )
 
 
-def find_inbound_wikilinks_many(vault_root: Path, targets: Iterable[str]) -> dict[str, list[InboundLink]]:
-    """`find_inbound_wikilinks` for several targets over one index read, as the owner sees them."""
+def find_inbound_wikilinks_many(
+    vault_root: Path, targets: Iterable[str], *, held: bool = False
+) -> dict[str, list[InboundLink]]:
+    """`find_inbound_wikilinks` for several targets over one index read, as the owner sees them.
+
+    `held` says that the vault holds every target, as a store holds a page that may have no file
+    yet: a target that the index did not read counts toward its basename, as `target_has_no_file`
+    does for one target, and the index answers which ones those are without a look at the disk.
+    """
     data = _inbound_index(vault_root)
     with _INBOUND_INDEX_LOCK:
         snapshots = {target: _snapshot_inbound(data, target) for target in targets}
-    return {target: _select_inbound_wikilinks(snapshot, target, None) for target, snapshot in snapshots.items()}
+    return {
+        target: _select_inbound_wikilinks(
+            snapshot,
+            target,
+            None,
+            target_has_no_file=held and target not in snapshot.sources,
+        )
+        for target, snapshot in snapshots.items()
+    }
 
 
 def cached_inbound_wikilinks(
@@ -8359,6 +8464,8 @@ def _select_inbound_wikilinks(
     data: _InboundIndexData,
     target_rel_path: str,
     visible: Callable[[str], bool] | None,
+    *,
+    target_has_no_file: bool = False,
 ) -> list[InboundLink]:
     _target, target_full, target_stripped, target_basename = _inbound_target_forms(
         target_rel_path
@@ -8371,6 +8478,8 @@ def _select_inbound_wikilinks(
             for rel in data.stem_paths.get(target_basename, ())
             if visible(rel)
         )
+    if target_has_no_file:
+        stem_count += 1
     basename_unique = stem_count == 1
 
     candidates: list[_InboundEntry] = []
@@ -8441,10 +8550,15 @@ def _insert_into_bucket(mapping: dict[str, tuple[str, ...]], key: str, *values: 
 
 @dataclass(frozen=True, slots=True)
 class WikilinkCandidate:
-    """One indexed page's physical path and its own normalized title."""
+    """One indexed page's physical path and its own normalized title.
+
+    `display_title` keeps the title's own spelling, which an agent reads in a link, so two builds
+    that disagree on it are not the same candidate.
+    """
 
     path: str
     title_key: str | None
+    display_title: str | None = None
 
 
 def _wikilink_path_key(path: str) -> str:
@@ -8468,6 +8582,13 @@ def wikilink_candidates(
             if visible is None or visible(candidate.path):
                 matches[candidate.path] = candidate
     return [matches[path] for path in sorted(matches)]
+
+
+def _keyed_title(title: object) -> tuple[str | None, str | None]:
+    """A page's title as the resolver files it: its key, and the title as spelled; both None if blank."""
+    if not title or not str(title).strip():
+        return None, None
+    return title_key(str(title)), str(title).strip()
 
 
 class WikilinkResolver:
@@ -8511,26 +8632,44 @@ class WikilinkResolver:
             vault_root, full_paths=(), kb_stripped=(), stems={}, titles={}, candidates_by_key={}
         )
         normalized = sorted(
-            (
-                str(rel_path).replace("\\", "/").lstrip("/"),
-                str(title).strip().lower() if title and str(title).strip() else None,
-            )
+            (str(rel_path).replace("\\", "/").lstrip("/"), *_keyed_title(title))
             for rel_path, title in entries
         )
-        for rel_path, title_lower in normalized:
+        for rel_path, title_lower, display in normalized:
             request_budget.checkpoint()
-            resolver._add_entry(rel_path, title_lower)
+            resolver._add_entry(rel_path, title_lower, display)
         return resolver
 
     def _build(self) -> None:
-        vault_resolved = self.vault_root.resolve()
-        for md in sorted(walk_vault_md(self.vault_root), key=lambda item: item.as_posix()):
-            request_budget.checkpoint()
-            try:
-                rel = md.resolve().relative_to(vault_resolved).as_posix()
-            except ValueError:
-                continue
-            self._add_entry(rel, self._read_title_lower(md))
+        from . import find_corpus
+        from .vault_store import ownership, read
+
+        root = self.vault_root
+        # A store-mode vault's corpus holds the store's pages and the files that it does not own.
+        corpus = find_corpus.corpus_paths(
+            root, "vault", lambda **walk: walk_vault_md(root, **walk)
+        )
+        # One snapshot reads each stored page's body once, as the walk of the disk reads each file.
+        with (
+            read.snapshot(root)
+            if isinstance(corpus, find_corpus.StoreCorpus)
+            else contextlib.nullcontext()
+        ) as view:
+            for md in sorted(corpus, key=lambda item: item.as_posix()):
+                request_budget.checkpoint()
+                try:
+                    # The path's own spelling: the walk yields no link, and a stored page's file may
+                    # be one, which `resolve()` would follow to another page.
+                    rel = relative_posix(md, root)
+                except ValueError:
+                    continue
+                if view is not None and ownership.classify(rel) is ownership.Ownership.PAGE:
+                    page = view.page(rel)
+                    if page is None:
+                        continue  # deleted since the corpus was listed
+                    self._add_entry(rel, *_keyed_title(display_title_from_bytes(page.body, rel)))
+                else:
+                    self._add_entry(rel, *_keyed_title(self._read_title(md)))
 
     @classmethod
     def from_maps(
@@ -8590,18 +8729,24 @@ class WikilinkResolver:
     # same on-disk state (parity is what keeps the graph lane's recall
     # unchanged — only the cost model differs).
 
-    def _add_entry(self, rel_path: str, title_lower: str | None) -> None:
+    def _add_entry(
+        self, rel_path: str, title_lower: str | None, display_title: str | None = None
+    ) -> None:
         """Index one file's path/stem (always) and title (when present).
 
         Mirrors `_build`'s historical per-file body exactly: the path + stem
         edges are added even for an unreadable file (title read failed), the
         title edge only when a display title (`resolve_display_title`) was read.
+        `display_title` is that title as the page spells it, for a reader that shows it.
         """
         no_ext = _wikilink_path_key(rel_path)
         self._remove_entry(rel_path)
         self.candidates_by_key[no_ext] = tuple(
             sorted(
-                (*self.candidates_by_key.get(no_ext, ()), WikilinkCandidate(rel_path, title_lower)),
+                (
+                    *self.candidates_by_key.get(no_ext, ()),
+                    WikilinkCandidate(rel_path, title_lower, display_title if title_lower else None),
+                ),
                 key=lambda candidate: candidate.path,
             )
         )
@@ -8640,13 +8785,30 @@ class WikilinkResolver:
             if candidate.title_key:
                 _insert_into_bucket(self.titles, candidate.title_key, no_ext)
 
+    def _current_title(self, vault_root: Path, rel_path: str) -> tuple[bool, str | None]:
+        """Whether the page exists now, and its display title: from the store when it serves the
+        page, else the file.
+        """
+        from .vault_store import read
+
+        try:
+            page = read.owned_page(vault_root, rel_path)
+        except FileNotFoundError:
+            return False, None
+        if page is not None:
+            return True, display_title_from_bytes(page.body, rel_path)
+        abs_path = vault_root / rel_path
+        if not abs_path.is_file():
+            return False, None
+        return True, self._read_title(abs_path)
+
     @staticmethod
-    def _read_title_lower(abs_path: Path) -> str | None:
+    def _read_title(abs_path: Path) -> str | None:
         try:
             raw = abs_path.read_bytes()
         except OSError:
             return None
-        return title_key_from_bytes(raw, abs_path)
+        return display_title_from_bytes(raw, abs_path)
 
     def on_files_changed(
         self,
@@ -8685,7 +8847,7 @@ class WikilinkResolver:
         deleted = _norm(deleted_rels)
         conflict = changed & deleted
         for rel_path in conflict:
-            if (vault_root / rel_path).is_file():
+            if self._current_title(vault_root, rel_path)[0]:
                 deleted.discard(rel_path)
             else:
                 changed.discard(rel_path)
@@ -8694,9 +8856,9 @@ class WikilinkResolver:
         for rel_path in deleted | changed:
             self._remove_entry(rel_path)
         for rel_path in sorted(changed):
-            abs_path = vault_root / rel_path
-            if abs_path.is_file():
-                self._add_entry(rel_path, self._read_title_lower(abs_path))
+            found, title = self._current_title(vault_root, rel_path)
+            if found:
+                self._add_entry(rel_path, *_keyed_title(title))
 
     def on_entries_changed(
         self,
@@ -8714,15 +8876,12 @@ class WikilinkResolver:
         def _path(rel: str) -> str:
             return str(rel).replace("\\", "/").lstrip("/")
 
-        changed = {
-            _path(rel): (str(title).strip().lower() if title and str(title).strip() else None)
-            for rel, title in entries
-        }
+        changed = {_path(rel): _keyed_title(title) for rel, title in entries}
         deleted = {_path(rel) for rel in deleted_rels}
         for rel_path in deleted | set(changed):
             self._remove_entry(rel_path)
-        for rel_path, title_lower in sorted(changed.items()):
-            self._add_entry(rel_path, title_lower)
+        for rel_path, (title_lower, display) in sorted(changed.items()):
+            self._add_entry(rel_path, title_lower, display)
 
     def add_pending(self, no_ext_path: str, *, title: str | None = None) -> None:
         """Register a file the writer is about to create.
@@ -8731,7 +8890,7 @@ class WikilinkResolver:
         note's path) resolve before the file lands on disk.
         """
         no_ext = no_ext_path.removesuffix(".md").lstrip("/")
-        self._add_entry(no_ext + ".md", title.strip().lower() if title and title.strip() else None)
+        self._add_entry(no_ext + ".md", *_keyed_title(title))
 
 
 def _strip_wikilink_brackets(s: str) -> str:
@@ -8921,7 +9080,7 @@ def _normalize_wikilink(
         if stem_matches:
             return _selected(stem_matches, "stem")
         title_matches = _matches(
-            resolver.titles.get(cleaned.lower(), ()), title_key=cleaned.lower()
+            resolver.titles.get(title_key(cleaned), ()), title_key=title_key(cleaned)
         )
         if title_matches:
             return _selected(title_matches, "title")
@@ -9043,6 +9202,14 @@ def _rewritable_wikilinks(text: str) -> list[re.Match[str]]:
     return [match for match in matches if not inside(match.start(), match.end())]
 
 
+def rewritable_link_ranges(text: str) -> list[tuple[int, int]]:
+    """The `(start, end)` of each link in `text` that a write reads as a live link.
+
+    A link in code, a fence or an origin carrier is not one.
+    """
+    return [(match.start(), match.end()) for match in _rewritable_wikilinks(text)]
+
+
 def normalize_body_wikilinks(
     body: str,
     vault_root: Path,
@@ -9070,7 +9237,9 @@ def normalize_body_wikilinks(
     # is consumed by a non-capturing branch), so we parse the full match
     # text to recover the alias.
     for m in reversed(matches):
-        full = m.group(0)  # '[[target]]' or '[[target|alias]]'
+        # '[[target]]' or '[[target|alias]]', read from the body: the matches come from text whose
+        # code spans are blanked, which would blank an alias that holds inline code.
+        full = body[m.start() : m.end()]
         inner = full[2:-2]
         alias: str | None = None
         if "|" in inner:
@@ -9093,10 +9262,150 @@ def normalize_body_wikilinks(
     return new_body, warnings
 
 
+#: A title that holds one of these cannot be written as a link: the link grammar reads `/` as a path,
+#: `#` as an anchor, `|` as an alias, the brackets as the link's own edge, and a line break ends it.
+#: A backtick opens a code span, which blanks the link, or the links up to the next backtick, for a writer.
+_LINK_TITLE_REFUSED = frozenset("/#|[]`\r\n")
+
+
+@dataclass(frozen=True, slots=True)
+class TitleLinkView:
+    """A body with its links shown by page title, and the way back to the stored bytes.
+
+    `spans` lists each rewritten link as `(stored_start, stored_end, shown_start, shown_end)`,
+    in order. Nothing is stored in this form: the view is for a reader, and `stored_range` turns
+    a span of the shown text back into the stored one.
+    """
+
+    text: str
+    spans: tuple[tuple[int, int, int, int], ...] = ()
+
+    def stored_range(self, start: int, end: int) -> tuple[int, int] | None:
+        """The stored range that the shown range `[start, end)` stands for.
+
+        None when either edge falls inside a rewritten link: half a link has no stored bytes.
+        """
+        first = self._stored_offset(start)
+        last = self._stored_offset(end)
+        return None if first is None or last is None else (first, last)
+
+    def shown_range(self, start: int, end: int) -> tuple[int, int]:
+        """The shown range that the stored range `[start, end)` stands for.
+
+        The stored range must not cut a link: a link wholly inside it maps to the whole shown link.
+        """
+        return self._shown_offset(start), self._shown_offset(end)
+
+    def links_in(self, start: int, end: int) -> tuple[tuple[int, int, int, int], ...]:
+        """The rewritten links that lie wholly inside the shown range `[start, end)`."""
+        first = bisect.bisect_left(self.spans, start, key=operator.itemgetter(2))
+        last = bisect.bisect_right(self.spans, end, key=operator.itemgetter(3))
+        return self.spans[first:last]
+
+    def links_in_stored(self, start: int, end: int) -> tuple[tuple[int, int, int, int], ...] | None:
+        """The rewritten links wholly inside the stored range `[start, end)`; None if it cuts one."""
+        first = bisect.bisect_right(self.spans, start, key=operator.itemgetter(1))
+        last = bisect.bisect_left(self.spans, end, key=operator.itemgetter(0))
+        inside = self.spans[first:last]
+        if inside and (inside[0][0] < start or inside[-1][1] > end):
+            return None
+        return inside
+
+    def _shown_offset(self, stored: int) -> int:
+        # Each link that ends at or before the offset moved every later offset by what it gained or lost.
+        index = bisect.bisect_right(self.spans, stored, key=operator.itemgetter(1)) - 1
+        return stored + (self.spans[index][3] - self.spans[index][1] if index >= 0 else 0)
+
+    def _stored_offset(self, shown: int) -> int | None:
+        index = bisect.bisect_right(self.spans, shown, key=operator.itemgetter(2)) - 1
+        if index >= 0 and shown < self.spans[index][3]:
+            if shown > self.spans[index][2]:
+                return None
+            index -= 1  # the offset is the link's own first character, so the links before it count
+        # Each link before the offset moved every later offset by the length it gained or lost.
+        moved = self.spans[index][3] - self.spans[index][1] if index >= 0 else 0
+        return shown - moved
+
+
+def render_title_links(
+    body: str,
+    vault_root: Path,
+    *,
+    resolver: WikilinkResolver,
+    visible: Callable[[str], bool] | None = None,
+) -> TitleLinkView:
+    """Show each body link by its page's title, where the title writes back to that same page.
+
+    `[[Notes/Insights/slug#Part|alias]]` shows as `[[Display Title#Part|alias]]`. A link keeps its
+    stored bytes unless its target resolves to one page that `visible` admits, the page's title
+    holds none of the characters a link cannot carry, and `[[Title]]` written back resolves, by the
+    same order and stem priority as a write (`normalize_wikilink`), to that same page. A duplicate
+    title, a title that is another page's filename stem, and a withheld page therefore stay as
+    stored, and a withheld page's title is never read. Skips code, fences and origin carriers, as
+    a write does. The cost is one pass over the body and in-memory lookups.
+    """
+    admitted: dict[str, bool] = {}
+
+    def keep(path: str) -> bool:
+        if visible is None:
+            return True
+        if path not in admitted:
+            admitted[path] = visible(path)
+        return admitted[path]
+
+    def resolve(target: str) -> WikilinkCandidate | None:
+        # No `retired` lookup: a collection's retired path is stored data to leave as stored, and
+        # asking costs a read per link.
+        _, warning, candidate = _normalize_wikilink(
+            target, vault_root, resolver=resolver, strict=False,
+            visible=keep if visible is not None else None, retired=lambda _path: None,
+        )
+        return None if warning else candidate
+
+    shown_by_target: dict[str, str | None] = {}
+
+    def shown(target: str) -> str | None:
+        if target not in shown_by_target:
+            shown_by_target[target] = None
+            candidate = resolve(target)
+            title = candidate.display_title if candidate is not None else None
+            if candidate is not None and title and _LINK_TITLE_REFUSED.isdisjoint(title):
+                link = f"[[{title}]]"
+                # A writer reads the link through the same masking, so it must come out whole.
+                whole = [found.group(0) for found in _rewritable_wikilinks(link)] == [link]
+                written_back = resolve(title) if whole else None
+                if written_back is not None and written_back.path == candidate.path:
+                    shown_by_target[target] = title + split_wikilink_target(target)[1]
+        return shown_by_target[target]
+
+    pieces: list[str] = []
+    spans: list[tuple[int, int, int, int]] = []
+    cursor = 0
+    shown_length = 0
+    for match in _rewritable_wikilinks(body):
+        # Read from the body: the match comes from text with its code spans blanked.
+        original = body[match.start() : match.end()]
+        target, separator, alias = original[2:-2].partition("|")
+        title = shown(target.strip())
+        if title is None:
+            continue
+        replacement = f"[[{title}{separator}{alias}]]"
+        if replacement == original:
+            continue
+        pieces.append(body[cursor : match.start()])
+        shown_length += match.start() - cursor
+        spans.append((match.start(), match.end(), shown_length, shown_length + len(replacement)))
+        pieces.append(replacement)
+        shown_length += len(replacement)
+        cursor = match.end()
+    pieces.append(body[cursor:])
+    return TitleLinkView("".join(pieces), tuple(spans))
+
+
 # ---------------- log helpers ----------------
 
 
-_LOG_WIKILINK_RE = re.compile(r"!?\[\[(.+?)\]\]")
+_LOG_WIKILINK_TOKEN = re.compile(r"\[\[|\]\]|\n")
 
 
 def escape_wikilinks_for_log(text: str) -> str:
@@ -9107,8 +9416,42 @@ def escape_wikilinks_for_log(text: str) -> str:
     broken_wikilink audit then re-flags — a self-inflicted drift class. Render
     any `[[...]]` / `![[...]]` as backticked code so it stays inert while the
     referenced text is preserved.
+
+    One left-to-right scan pairs each `]]` with the earliest unpaired `[[` before it on its line,
+    with at least one character between them. A paired `[[` (and a `!` just before it) and its `]]`
+    become backticks, so no `[[` is left before a `]]` on any line, however the brackets nest. A
+    regex substitution repeated until stable gave the same text on ordinary lines, but nested or
+    unclosed brackets made it quadratic.
     """
-    return _LOG_WIKILINK_RE.sub(lambda m: f"`{m.group(1)}`", text)
+    if "[[" not in text:
+        return text
+    pieces: list[str] = []
+    # Each unpaired `[[` on this line, earliest first: its index in `pieces` and its end in `text`.
+    opened: deque[tuple[int, int]] = deque()
+    position = 0
+    while (match := _LOG_WIKILINK_TOKEN.search(text, position)) is not None:
+        start, token = match.start(), match.group()
+        pieces.append(text[position:start])
+        position = match.end()
+        if token == "\n":
+            opened.clear()
+        elif token == "[[":
+            opened.append((len(pieces), position))
+        elif opened:
+            if opened[0][1] == start:
+                # `[[]]` holds nothing, so only a `]]` one character later can close it: `[[]]]`.
+                if not text.startswith("]", position):
+                    pieces.append(token)
+                    continue
+                pieces.append("]")
+                position += 1
+            index, _end = opened.popleft()
+            pieces[index] = "`"
+            pieces[index - 1] = pieces[index - 1].removesuffix("!")
+            token = "`"
+        pieces.append(token)
+    pieces.append(text[position:])
+    return "".join(pieces)
 
 
 def document_newline(text: str) -> str:

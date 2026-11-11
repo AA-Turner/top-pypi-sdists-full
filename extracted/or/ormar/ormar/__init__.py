@@ -77,7 +77,17 @@ from ormar.fields import (
 # noqa: I100
 from ormar.databases.connection import DatabaseConnection
 from ormar.models import ExcludableItems, Extra, Model, OrmarConfig
-from ormar.queryset import NullsOrdering, OrderAction, Prefetch, QuerySet, and_, or_
+from ormar.queryset import (
+    F,
+    NullsOrdering,
+    OrderAction,
+    Prefetch,
+    QuerySet,
+    RandomOrder,
+    and_,
+    or_,
+    random,
+)
 from ormar.relations import RelationType
 from ormar.signals import Signal
 
@@ -139,9 +149,12 @@ __all__ = [
     "ManyToManyField",
     "ForeignKeyField",
     "OrderAction",
+    "RandomOrder",
+    "random",
     "NullsOrdering",
     "ExcludableItems",
     "and_",
+    "F",
     "or_",
     "EncryptBackends",
     "ENCODERS_MAP",

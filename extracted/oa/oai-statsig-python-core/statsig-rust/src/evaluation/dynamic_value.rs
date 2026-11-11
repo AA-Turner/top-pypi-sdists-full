@@ -5,7 +5,7 @@ use std::{collections::HashMap, fmt::Debug};
 use crate::{
     hashing::{self, ahash_str},
     log_w,
-    value_parsing::{maybe_parse_f64, maybe_parse_i64, try_parse_timestamp},
+    value_parsing::parse_string_values,
 };
 
 use super::dynamic_string::DynamicString;
@@ -52,21 +52,7 @@ impl DynamicValue {
 
     #[must_use]
     pub fn from_string(value: impl Into<String>) -> Self {
-        let value = value.into();
-        let int_value = maybe_parse_i64(&value);
-        let float_value = maybe_parse_f64(&value);
-        let timestamp_value = try_parse_timestamp(&value, int_value);
-        let hash_value = ahash_str(&value);
-
-        DynamicValue {
-            string_value: Some(DynamicString::from(value.clone())),
-            json_value: JsonValue::String(value),
-            timestamp_value,
-            int_value,
-            float_value,
-            hash_value,
-            ..DynamicValue::new()
-        }
+        Self::from(JsonValue::String(value.into()))
     }
 
     #[must_use]
@@ -250,24 +236,15 @@ impl From<JsonValue> for DynamicValue {
             },
 
             JsonValue::Number(n) => {
-                let mut float_value = n.as_f64();
-                let mut int_value = n.as_i64();
-                if let (Some(f), None) = (float_value, int_value) {
-                    let iv = f as i64;
-                    if iv as f64 == f {
-                        int_value = Some(iv);
+                let float_value = n.as_f64();
+                let (int_value, string_value) = match float_value {
+                    Some(f) if n.is_f64() => {
+                        let i = f as i64;
+                        ((i as f64 == f).then_some(i), Some(f.to_string()))
                     }
-                } else if let (None, Some(i)) = (float_value, int_value) {
-                    let fv = i as f64;
-                    if fv as i64 == i {
-                        float_value = Some(fv)
-                    }
-                }
-
-                let string_value = float_value
-                    .map(|f| f.to_string())
-                    .or_else(|| int_value.map(|i| i.to_string()))
-                    .or(stringified_json_value);
+                    // Integer IDs must keep their exact digits when they exceed f64 precision.
+                    _ => (n.as_i64(), stringified_json_value),
+                };
 
                 DynamicValue {
                     float_value,
@@ -280,9 +257,7 @@ impl From<JsonValue> for DynamicValue {
             }
 
             JsonValue::String(s) => {
-                let int_value = maybe_parse_i64(s);
-                let float_value = maybe_parse_f64(s);
-                let timestamp_value = try_parse_timestamp(s, int_value);
+                let (int_value, float_value, timestamp_value) = parse_string_values(s);
                 DynamicValue {
                     string_value: Some(DynamicString::from(s.clone())),
                     json_value,
@@ -297,7 +272,7 @@ impl From<JsonValue> for DynamicValue {
             JsonValue::Array(arr) => DynamicValue {
                 array_value: Some(arr.iter().map(|v| DynamicValue::from(v.clone())).collect()),
                 string_value: Some(DynamicString::from(
-                    stringified_json_value.unwrap_or(json_value.to_string()),
+                    stringified_json_value.unwrap_or_else(|| json_value.to_string()),
                 )),
                 json_value,
                 hash_value,

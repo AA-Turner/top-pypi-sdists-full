@@ -96,14 +96,27 @@ class RoboCasaSimEnv(NativeSimProcess):
     ``control="droid_joint"`` drives the PandaOmron's Franka arm with absolute joint
     targets at 15 Hz from DROID's home pose and reports DROID's three camera views,
     seven joints and normalized gripper; the default keeps RoboCasa's delta-EEF API.
+
+    ``camera_history`` (the ticks back of each window frame, oldest first) makes each policy
+    observation that window of every camera, with the current state: before the episode has
+    reached a tick, its first frame stands in, as upstream's training windows clamp to the
+    episode's start. Without it, each observation is the four-frame, two-tick window and the
+    states that go with it (Xiaomi's and RLDX-1's).
     """
 
     control = "eef_delta"
+    camera_history: tuple[int, ...] | None = None
 
     def __init__(self, *, task: str, seed: int = 0, python: Path | None = None,
-                 control: str = "eef_delta"):
+                 control: str = "eef_delta", camera_history: tuple[int, ...] | None = None):
         if control not in ("eef_delta", "droid_joint"):
             raise ValueError("RoboCasa365 control must be eef_delta or droid_joint")
+        if camera_history is not None and (
+                control != "eef_delta" or not camera_history
+                or any(not isinstance(tick, int) or tick < 0 for tick in camera_history)
+                or list(camera_history) != sorted(camera_history, reverse=True)):
+            raise ValueError("a RoboCasa365 camera history is its ticks back, oldest first")
+        self.camera_history = None if camera_history is None else tuple(camera_history)
         self.python = python or ensure_robocasa_runtime()
         self.control = control
         super().__init__(python=self.python, script=Path(__file__).with_name("robocasa_process.py"),
@@ -111,7 +124,8 @@ class RoboCasaSimEnv(NativeSimProcess):
             setup={"task": task, "seed": seed, "control": control})
         self.task_description = self._initial["instruction"]
         self._last_gripper = -1.0
-        self._history = deque(maxlen=7)
+        self._history = deque(maxlen=7 if self.camera_history is None
+                              else self.camera_history[0] + 1)
         self._last = self._initial
 
     def reset(self):
@@ -151,6 +165,11 @@ class RoboCasaSimEnv(NativeSimProcess):
         history = list(self._history)
         if not history:
             raise RuntimeError("Reset the simulator before requesting a policy observation")
+        if self.camera_history is not None:
+            window = [history[max(0, len(history) - 1 - tick)] for tick in self.camera_history]
+            return {"images": {key: np.stack([item["images"][key] for item in window])
+                               for key in CAMERA_KEYS},
+                    "robot_state": obs["state"]}
         sampled = [history[max(0, len(history) - 1 - (3 - index) * 2)] for index in range(4)]
         return {"images": {key: np.stack([item["images"][key] for item in sampled])
                            for key in CAMERA_KEYS},

@@ -111,7 +111,14 @@ html_theme_options = {
     ],
 }
 
-exclude_patterns = ["_build", ".DS_Store", "**.ipynb_checkpoints", "tutorials/images/**"]
+exclude_patterns = [
+    "_build",
+    ".DS_Store",
+    "**.ipynb_checkpoints",
+    "tutorials/images/**",
+    "html/**",
+    "**/autofiles-stash/**",
+]
 
 html_show_sourcelink = False
 
@@ -212,6 +219,10 @@ Contrarily to lazy functions, reduction functions are evaluated eagerly, and the
 
 Reduction operations can be used with any of :ref:`NDArray <NDArray>`, :ref:`C2Array <C2Array>`, :ref:`NDField <NDField>` and :ref:`LazyExpr <LazyExpr>`. Again, although these can be part of a :ref:`LazyExpr <LazyExpr>`, you must be aware that they are not lazy, but will be evaluated eagerly during the construction of a LazyExpr instance (this might change in the future). When the input is a :ref:`LazyExpr`, reductions accept ``fp_accuracy`` to control floating-point accuracy, and it is forwarded to :func:`LazyExpr.compute`.
 
+Eligible lazy-expression reductions accept ``jit`` and ``jit_backend`` through
+their evaluation options. See :ref:`JITOptions`; native JIT requests remain best
+effort and can use the interpreter when compilation or loading is unavailable.
+
 .. currentmodule:: blosc2
 
 .. autosummary::
@@ -302,7 +313,7 @@ def process_sig(app, what, name, obj, options, signature, return_annotation):
 # ``-W`` (as CI does) to turn that warning into a failure.
 
 _AUTODOC_DIRECTIVE = re.compile(
-    r"^\s*\.\.\s+(?:autoclass|autofunction|autodata|autoexception|autodecorator)::"
+    r"^\s*\.\.\s+(?:autoclass|autofunction|autodata|autoexception|autodecorator|py:class)::"
     r"\s*([\w.]+)"
 )
 _CURRENTMODULE = re.compile(r"^\s*\.\.\s+(?:currentmodule|module)::\s*([\w.]+)")
@@ -411,7 +422,18 @@ def check_undocumented(app, exception):
         )
 
 
+def normalize_numpydoc_exclusions(app, what, name, obj, options, lines):
+    """Let numpydoc honor explicit exclusions with Sphinx 9 option objects."""
+    # numpydoc expects the directive's hyphenated key, whereas Sphinx 9 exposes
+    # exclude_members in options.__dict__. Without this bridge, excluded methods
+    # disappear from autodoc but remain in numpydoc's generated summary table.
+    excluded = getattr(options, "exclude_members", None)
+    if excluded is not None:
+        options.__dict__["exclude-members"] = excluded
+
+
 def setup(app):
+    app.connect("autodoc-process-docstring", normalize_numpydoc_exclusions, priority=400)
     app.connect("autodoc-process-signature", process_sig)
     app.connect("builder-inited", gather_documented)
     app.connect("build-finished", check_undocumented)

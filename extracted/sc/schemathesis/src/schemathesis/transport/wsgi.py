@@ -21,7 +21,6 @@ from schemathesis.transport.prepare import (
     BODY_KWARGS,
     get_exclude_headers,
     normalize_base_url,
-    prepare_body,
     prepare_cookies,
     prepare_headers,
     prepare_path,
@@ -88,7 +87,7 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
         # Handle serialization. A body the caller passes replaces the generated one, so that one is not serialized.
         if serializer is not None and not replaces_body(kwargs):
             context = SerializationContext(case=case)
-            extra = serializer(context, prepare_body(case))
+            extra = serializer(context, case.operation.schema.prepare_request_body(case))
         else:
             extra = {}
 
@@ -206,6 +205,8 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
             content=content,
             request=requests.Request(**requests_kwargs).prepare(),
             elapsed=elapsed,
+            message=response.status.partition(" ")[2],
+            encoding=response.mimetype_params.get("charset"),
             verify=False,
             stream_cut_short=stream_cut_short,
             _override=Override.from_send_kwargs(kwargs),

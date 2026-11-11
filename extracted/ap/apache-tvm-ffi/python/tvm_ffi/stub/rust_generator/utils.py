@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from . import consts as C
-from .directives import Directives
+from .directives import RustDirectives
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -105,18 +105,18 @@ class RustImports:
     """The per-file collector: the ``use`` items and the Rust directives of one file."""
 
     items: list[RustUse] = dataclasses.field(default_factory=list)
-    directives: Directives = dataclasses.field(default_factory=Directives)
+    directives: RustDirectives = dataclasses.field(default_factory=RustDirectives)
     builtin_mirrors: dict[str, str] = dataclasses.field(default_factory=dict)
     """Builtin ancestors mirrored in this file, root first: type key -> the base each embeds."""
     reserved: set[str] = dataclasses.field(default_factory=set)
     """Names the file's ``object/`` blocks define; an import may not take one."""
 
-    def record_builtin_base(self, chain: list[str]) -> str:
+    def record_builtin_base(self, chain: list[str], root: str = "tvm_ffi::Object") -> str:
         """Record the stand-ins for the builtin ``chain`` (root side first); return the last name.
 
-        An empty chain (parent ``ffi.Object``) yields the crate's ``Object``.
+        The first stand-in embeds the crate's ``root`` object; an empty chain yields ``root``.
         """
-        base = self.record("tvm_ffi::Object")
+        base = self.record(root)
         for key in chain:
             self.builtin_mirrors.setdefault(key, base)
             base = builtin_mirror_name(key)
@@ -196,17 +196,16 @@ def check_tokens(lines: Iterable[str]) -> tuple[str, ...]:
 def rust_ident(name: str) -> str:
     """Spell a reflected field name in Rust.
 
-    Two naming conventions are unwrapped, and nothing else is renamed: a C++
-    member with one trailing underscore (``global_var_map_``) loses it, and a
-    dunder name (``__dict__``) loses both pairs. Keywords become raw
-    identifiers; the four that cannot, and ``base`` (the member name the
-    generated structs use themselves), get a trailing underscore.
+    The name is kept as registered: keywords become raw identifiers, and the
+    four that cannot get a trailing underscore. The generated structs' own
+    members, ``base_`` and ``data_``, are rejected as reflected names.
     """
-    if len(name) > 4 and name.startswith("__") and name.endswith("__"):
-        name = name[2:-2]
-    elif len(name) > 1 and name.endswith("_") and not name.endswith("__"):
-        name = name[:-1]
-    if name in C.RUST_NOT_RAW_IDENTIFIERS or name in C.RUST_RESERVED_MEMBERS:
+    if name in C.RUST_GENERATED_MEMBERS:
+        raise ValueError(
+            f"reflected field `{name}` collides with the member the generated Rust bindings "
+            f"name `{name}`; register the field under another name"
+        )
+    if name in C.RUST_NOT_RAW_IDENTIFIERS:
         return f"{name}_"
     if name in C.RUST_KEYWORDS:
         return f"r#{name}"

@@ -4,8 +4,8 @@ import binascii
 import inspect
 import json
 import os
-import time
 from collections.abc import Iterator, Mapping, MutableMapping
+from functools import partial
 from http.client import RemoteDisconnected
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
@@ -30,10 +30,9 @@ from schemathesis.core.transport import (
     read_event_stream,
 )
 from schemathesis.generation.overrides import Override
-from schemathesis.transport import BaseTransport, SerializationContext
+from schemathesis.transport import BaseTransport, SerializationContext, retry_on_transport_errors
 from schemathesis.transport.prepare import (
     get_exclude_headers,
-    prepare_body,
     prepare_cookies,
     prepare_headers,
     prepare_url,
@@ -156,7 +155,7 @@ class RequestsTransport(BaseTransport["requests.Session"]):
         # transports pick one of `data` and `json` when given both, which can drop the caller's body.
         if serializer is not None and not replaces_body(kwargs):
             context = SerializationContext(case=case)
-            extra = serializer(context, prepare_body(case))
+            extra = serializer(context, case.operation.schema.prepare_request_body(case))
         else:
             extra = {}
 
@@ -192,7 +191,9 @@ class RequestsTransport(BaseTransport["requests.Session"]):
 
         return data
 
-    def _build_request_data(self, case: Case, kwargs: dict[str, Any]) -> dict[str, Any]:
+    def _build_request_data(
+        self, case: Case, kwargs: dict[str, Any], session: requests.Session | None
+    ) -> dict[str, Any]:
         """Merge the serialized case with transport settings from config and explicit keyword arguments."""
         settings = case.operation.schema.config.request_settings_for(operation=case.operation)
         data = self.serialize_case(case, **kwargs)
@@ -211,6 +212,14 @@ class RequestsTransport(BaseTransport["requests.Session"]):
         proxies = settings.proxies
         if proxies is not None:
             data.setdefault("proxies", proxies)
+        # A request without auth gets netrc credentials for its host, which would replace the configured ones.
+        if (
+            case._has_explicit_auth
+            and data.get("auth") is None
+            and (session is None or not session.auth)
+            and "Authorization" in data["headers"]
+        ):
+            data["auth"] = lambda request: request
         return data
 
     @override
@@ -229,7 +238,7 @@ class RequestsTransport(BaseTransport["requests.Session"]):
                 headers.setdefault(name, value)
             kwargs["headers"] = headers
 
-        data = self._build_request_data(case, kwargs)
+        data = self._build_request_data(case, kwargs, session)
         # Unless redirects are configured, a documented redirect is the response under test, not its target.
         if max_redirects == 0 or (
             max_redirects is None and any(code.startswith("3") for code in case.operation.responses.status_codes)
@@ -263,7 +272,9 @@ class RequestsTransport(BaseTransport["requests.Session"]):
             retries = config.request_retries_for(operation=case.operation) or 0
             max_stream_events = config.max_stream_events_for(operation=case.operation)
             with ratelimit(rate_limit, config.base_url):
-                response = _request_with_retries(session, data, retries, max_stream_events)
+                response = retry_on_transport_errors(
+                    partial(_request_resending_on_dropped_connection, session, data, max_stream_events), retries
+                )
             return Response.from_requests(
                 response,
                 verify=verify,
@@ -277,21 +288,6 @@ class RequestsTransport(BaseTransport["requests.Session"]):
                 session.close()
             elif isinstance(session, ManagedCookiesSession):
                 session.cookies.clear()
-
-
-def _request_with_retries(
-    session: requests.Session, data: dict[str, Any], retries: int, max_stream_events: int
-) -> requests.Response:
-    # Retry transient network failures with exponential backoff capped at 10s.
-    attempt = 0
-    while True:
-        try:
-            return _request_resending_on_dropped_connection(session, data, max_stream_events)
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            if attempt >= retries:
-                raise
-            time.sleep(min(2**attempt, 10))
-            attempt += 1
 
 
 def _request_resending_on_dropped_connection(

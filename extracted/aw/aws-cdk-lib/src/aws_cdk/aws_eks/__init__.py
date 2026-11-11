@@ -27,6 +27,8 @@ In addition, the library also supports defining Kubernetes resource manifests wi
       * [Bottlerocket](#bottlerocket)
     * [Endpoint Access](#endpoint-access)
     * [Alb Controller](#alb-controller)
+
+      * [OIDC authentication on Ingresses](#oidc-authentication-on-ingresses)
     * [VPC Support](#vpc-support)
 
       * [Kubectl Handler](#kubectl-handler)
@@ -80,13 +82,13 @@ This example defines an Amazon EKS cluster with the following configuration:
 * A Kubernetes pod with a container based on the [paulbouwer/hello-kubernetes](https://github.com/paulbouwer/hello-kubernetes) image.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 # provisioning a cluster
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 
 # apply a kubernetes manifest to the cluster
@@ -150,12 +152,12 @@ A more detailed breakdown of each is provided further down this README.
 Creating a new cluster is done using the `Cluster` or `FargateCluster` constructs. The only required properties are the kubernetes `version` and `kubectlLayer`.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -170,13 +172,13 @@ This can happen in one of three situations:
 This affects the EKS cluster itself, the custom resource that created the cluster, associated IAM roles, node groups, security groups, VPC and any other CloudFormation resources managed by this construct.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 import aws_cdk as core
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "kubectl"),
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "kubectl"),
     removal_policy=core.RemovalPolicy.RETAIN
 )
 ```
@@ -184,12 +186,12 @@ eks.Cluster(self, "HelloEKS",
 You can also use `FargateCluster` to provision a cluster that uses only fargate workers.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 eks.FargateCluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -199,12 +201,12 @@ the cluster cannot be deleted until protection is disabled. This setting only ap
 > For more details visit [Deletion protection](https://docs.aws.amazon.com/eks/latest/userguide/deletion-protection.html).
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "kubectl"),
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "kubectl"),
     deletion_protection=True
 )
 ```
@@ -214,12 +216,12 @@ eks.Cluster(self, "HelloEKS",
 Amazon EKS Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 eks.Cluster(self, "HighPerformanceCluster",
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "kubectl"),
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "kubectl"),
     control_plane_scaling_tier=eks.ControlPlaneScalingTier.TIER_XL
 )
 ```
@@ -253,14 +255,14 @@ By default, this library will allocate a managed node group with 2 *m5.large* in
 At cluster instantiation time, you can customize the number of instances and their type:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     default_capacity=5,
     default_capacity_instance=ec2.InstanceType.of(ec2.InstanceClass.M5, ec2.InstanceSize.SMALL),
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -269,13 +271,13 @@ To access the node group that was created on your behalf, you can use `cluster.d
 Additional customizations are available post instantiation. To apply them, set the default capacity to 0, and use the `cluster.addNodegroupCapacity` method:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     default_capacity=0,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 
 cluster.add_nodegroup_capacity("custom-node-group",
@@ -394,7 +396,7 @@ Node groups are available with IPv6 configured networks.  For custom roles assig
 > For more details visit [Configuring the Amazon VPC CNI plugin for Kubernetes to use IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/cni-iam-role.html#cni-iam-role-create-role)
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 ipv6_management = iam.PolicyDocument(
@@ -419,9 +421,9 @@ eks_cluster_node_group_role = iam.Role(self, "eksClusterNodeGroupRole",
 )
 
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     default_capacity=0,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 
 cluster.add_nodegroup_capacity("custom-node-group",
@@ -530,13 +532,13 @@ has been changed. As a workaround, you need to add a temporary policy to the clu
 successful replacement. Consider this example if you are renaming the cluster from `foo` to `bar`:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 cluster = eks.Cluster(self, "cluster-to-rename",
     cluster_name="foo",  # rename this to 'bar'
-    kubectl_layer=KubectlV36Layer(self, "kubectl"),
-    version=eks.KubernetesVersion.V1_36
+    kubectl_layer=KubectlV37Layer(self, "kubectl"),
+    version=eks.KubernetesVersion.V1_37
 )
 
 # allow the cluster admin role to delete the cluster 'foo'
@@ -589,12 +591,12 @@ To create an EKS cluster that **only** uses Fargate capacity, you can use `Farga
 The following code defines an Amazon EKS cluster with a default Fargate Profile that matches all pods from the "kube-system" and "default" namespaces. It is also configured to [run CoreDNS on Fargate](https://docs.aws.amazon.com/eks/latest/userguide/fargate-getting-started.html#fargate-gs-coredns).
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 cluster = eks.FargateCluster(self, "MyCluster",
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -674,13 +676,13 @@ To disable bootstrapping altogether (i.e. to fully customize user-data), set `bo
 You can also configure the cluster to use an auto-scaling group as the default capacity:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     default_capacity_type=eks.DefaultCapacityType.EC2,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -787,13 +789,13 @@ AWS Identity and Access Management (IAM) and native Kubernetes [Role Based Acces
 You can configure the [cluster endpoint access](https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html) by using the `endpointAccess` property:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     endpoint_access=eks.EndpointAccess.PRIVATE,  # No access outside of your VPC.
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -813,49 +815,49 @@ From the docs:
 To deploy the controller on your EKS cluster, configure the `albController` property:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V3_2_2
     ),
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
 To provide additional Helm chart values supported by `albController` in CDK, use the `additionalHelmChartValues` property. For example, the following code snippet shows how to set the `enableWafV2` flag:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V3_2_2,
         additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
             enable_wafv2=False
         )
     ),
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
 To overwrite an existing ALB controller service account, use the `overwriteServiceAccount` property:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V3_2_2,
         overwrite_service_account=True
     ),
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -887,21 +889,83 @@ if cluster.alb_controller:
     manifest.node.add_dependency(cluster.alb_controller)
 ```
 
+#### OIDC authentication on Ingresses
+
+Ingresses can authenticate users against an OIDC identity provider with the
+`alb.ingress.kubernetes.io/auth-type: oidc` and `alb.ingress.kubernetes.io/auth-idp-oidc` annotations.
+The OIDC client ID and client secret live in a Kubernetes Secret in the Ingress's namespace (the
+`secretName` in `auth-idp-oidc`), and the controller reads it with its own service account,
+`aws-load-balancer-controller` in `kube-system`. The controller's Helm chart does not grant access to
+secrets by default, so without additional RBAC the Ingress fails to reconcile with an error like
+`secrets "my-oidc-secret" is forbidden: User "system:serviceaccount:kube-system:aws-load-balancer-controller" cannot get resource "secrets"`.
+
+The Secret must be in the Ingress's namespace and contain `clientID` and `clientSecret` keys
+(see [`auth-idp-oidc`](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/annotations/#auth-idp-oidc)).
+Create it outside CDK, for example with `kubectl`, not with `cluster.addManifest`, which would store the
+client secret in plain text in the CloudFormation template. Anything that can create an Ingress in that
+namespace can use the secret for OIDC authentication, so limit who can create Ingresses there.
+
+Grant the controller read access to that one secret with a Role and RoleBinding in the Ingress's namespace:
+
+```python
+# cluster: eks.Cluster
+
+
+namespace = "my-app" # namespace of the Ingress and its OIDC secret
+oidc_secret_name = "my-oidc-secret" # the `secretName` in `auth-idp-oidc`
+
+cluster.add_manifest("AlbControllerOidcSecretAccess", {
+    "api_version": "rbac.authorization.k8s.io/v1",
+    "kind": "Role",
+    "metadata": {"name": "aws-load-balancer-controller-oidc", "namespace": namespace},
+    "rules": [{
+        "api_groups": [""],
+        "resources": ["secrets"],
+        "resource_names": [oidc_secret_name],
+        "verbs": ["get", "list", "watch"]
+    }]
+}, {
+    "api_version": "rbac.authorization.k8s.io/v1",
+    "kind": "RoleBinding",
+    "metadata": {"name": "aws-load-balancer-controller-oidc", "namespace": namespace},
+    "role_ref": {
+        "api_group": "rbac.authorization.k8s.io",
+        "kind": "Role",
+        "name": "aws-load-balancer-controller-oidc"
+    },
+    "subjects": [{
+        "kind": "ServiceAccount",
+        "name": "aws-load-balancer-controller",
+        "namespace": "kube-system"
+    }]
+})
+```
+
+For several OIDC Ingresses, list every `secretName` in `resourceNames`, with one Role and RoleBinding
+per namespace.
+
+Restricting `list` and `watch` with `resourceNames` works because the controller first does a `get` of the
+secret, then watches it with a `metadata.name` field selector (see
+[Referring to resources](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#referring-to-resources)
+in the Kubernetes RBAC documentation). The chart's `clusterSecretsPermissions.allowAllSecrets` value
+grants access to every secret in the cluster instead; the chart recommends a namespaced Role and
+RoleBinding like the one above.
+
 ### VPC Support
 
 You can specify the VPC of the cluster using the `vpc` and `vpcSubnets` properties:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 # vpc: ec2.Vpc
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     vpc=vpc,
     vpc_subnets=[ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)],
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -945,12 +1009,12 @@ The `ClusterHandler` is a set of Lambda functions (`onEventHandler`, `isComplete
 You can configure the environment of the Cluster Handler functions by specifying it at cluster instantiation. For example, this can be useful in order to configure an http proxy:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 # proxy_instance_security_group: ec2.SecurityGroup
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     cluster_handler_environment={
         "https_proxy": "http://proxy.myproxy.com"
     },
@@ -959,7 +1023,7 @@ cluster = eks.Cluster(self, "hello-eks",
     # Cluster Handler Lambdas so that it can reach the proxy.
     #
     cluster_handler_security_group=proxy_instance_security_group,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -968,7 +1032,7 @@ cluster = eks.Cluster(self, "hello-eks",
 You can optionally choose to configure your cluster to use IPv6 using the [`ipFamily`](https://docs.aws.amazon.com/eks/latest/APIReference/API_KubernetesNetworkConfigRequest.html#AmazonEKS-Type-KubernetesNetworkConfigRequest-ipFamily) definition for your cluster.  Note that this will require the underlying subnets to have an associated IPv6 CIDR.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 # vpc: ec2.Vpc
 
 
@@ -993,11 +1057,11 @@ for subnet in subnets:
     subnetcount = subnetcount + 1
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     vpc=vpc,
     ip_family=eks.IpFamily.IP_V6,
     vpc_subnets=[ec2.SubnetSelection(subnets=vpc.public_subnets)],
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -1028,15 +1092,15 @@ cluster = eks.Cluster.from_cluster_attributes(self, "Cluster",
 You can configure the environment of this function by specifying it at cluster instantiation. For example, this can be useful in order to configure an http proxy:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     kubectl_environment={
         "http_proxy": "http://proxy.myproxy.com"
     },
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -1053,12 +1117,12 @@ Depending on which version of kubernetes you're targeting, you will need to use 
 the `@aws-cdk/lambda-layer-kubectl-vXY` packages.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -1094,7 +1158,7 @@ cluster1 = eks.Cluster(self, "MyCluster",
     kubectl_layer=layer,
     vpc=vpc,
     cluster_name="cluster-name",
-    version=eks.KubernetesVersion.V1_36
+    version=eks.KubernetesVersion.V1_37
 )
 
 # or
@@ -1110,7 +1174,7 @@ cluster2 = eks.Cluster.from_cluster_attributes(self, "MyCluster",
 By default, the kubectl provider is configured with 1024MiB of memory. You can use the `kubectlMemory` option to specify the memory size for the AWS Lambda function:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 # or
 # vpc: ec2.Vpc
@@ -1118,8 +1182,8 @@ from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 eks.Cluster(self, "MyCluster",
     kubectl_memory=Size.gibibytes(4),
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 eks.Cluster.from_cluster_attributes(self, "MyCluster",
     kubectl_memory=Size.gibibytes(4),
@@ -1154,14 +1218,14 @@ cluster.add_auto_scaling_group_capacity("self-ng-arm",
 When you create a cluster, you can specify a `mastersRole`. The `Cluster` construct will associate this role with the `system:masters` [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) group, giving it super-user access to the cluster.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 # role: iam.Role
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     masters_role=role,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -1207,28 +1271,28 @@ You can use the `secretsEncryptionKey` to configure which key the cluster will u
 > This setting can only be specified when the cluster is created and cannot be updated.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 secrets_key = kms.Key(self, "SecretsKey")
 cluster = eks.Cluster(self, "MyCluster",
     secrets_encryption_key=secrets_key,
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
 You can also use a similar configuration for running a cluster built using the FargateCluster construct.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 secrets_key = kms.Key(self, "SecretsKey")
 cluster = eks.FargateCluster(self, "MyFargateCluster",
     secrets_encryption_key=secrets_key,
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -1247,12 +1311,12 @@ When you create an Amazon EKS cluster, you can configure it to leverage the [EKS
 Once you have identified the on-premises node and pod (optional) CIDRs you will use for your hybrid nodes and the workloads running on them, you can specify them during cluster creation using the `remoteNodeNetworks` and `remotePodNetworks` (optional) properties:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 eks.Cluster(self, "Cluster",
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "KubectlLayer"),
     remote_node_networks=[eks.RemoteNodeNetwork(
         cidrs=["10.0.0.0/16"]
     )
@@ -1305,7 +1369,7 @@ To access the Kubernetes resources from the console, make sure your viewing prin
 in the `aws-auth` ConfigMap. Some options to consider:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 # cluster: eks.Cluster
 # your_current_role: iam.Role
 # vpc: ec2.Vpc
@@ -1323,7 +1387,7 @@ your_current_role.add_to_policy(iam.PolicyStatement(
 
 ```python
 # Option 2: create your custom mastersRole with scoped assumeBy arn as the Cluster prop. Switch to this role from the AWS console.
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 # vpc: ec2.Vpc
 
 
@@ -1333,8 +1397,8 @@ masters_role = iam.Role(self, "MastersRole",
 
 cluster = eks.Cluster(self, "EksCluster",
     vpc=vpc,
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "KubectlLayer"),
     masters_role=masters_role
 )
 
@@ -1373,14 +1437,14 @@ AWS IAM principals from both Amazon EKS access entry APIs and the aws-auth confi
 To specify the `authenticationMode`:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 # vpc: ec2.Vpc
 
 
 eks.Cluster(self, "Cluster",
     vpc=vpc,
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "KubectlLayer"),
     authentication_mode=eks.AuthenticationMode.API_AND_CONFIG_MAP
 )
 ```
@@ -1425,7 +1489,7 @@ eks.AccessPolicy.from_access_policy_name("AmazonEKSAdminPolicy",
 Use `grantAccess()` to grant the AccessPolicy to an IAM principal:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 # vpc: ec2.Vpc
 
 
@@ -1444,8 +1508,8 @@ eks_admin_view_role = iam.Role(self, "EKSAdminViewRole",
 cluster = eks.Cluster(self, "Cluster",
     vpc=vpc,
     masters_role=cluster_admin_role,
-    version=eks.KubernetesVersion.V1_36,
-    kubectl_layer=KubectlV36Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_37,
+    kubectl_layer=KubectlV37Layer(self, "KubectlLayer"),
     authentication_mode=eks.AuthenticationMode.API_AND_CONFIG_MAP
 )
 
@@ -1873,13 +1937,13 @@ Pruning is enabled by default but can be disabled through the `prune` option
 when a cluster is defined:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 eks.Cluster(self, "MyCluster",
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     prune=False,
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -2301,15 +2365,15 @@ You can enable logging for each one separately using the `clusterLogging`
 property. For example:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
 
 
 cluster = eks.Cluster(self, "Cluster",
     # ...
-    version=eks.KubernetesVersion.V1_36,
+    version=eks.KubernetesVersion.V1_37,
     cluster_logging=[eks.ClusterLoggingTypes.API, eks.ClusterLoggingTypes.AUTHENTICATOR, eks.ClusterLoggingTypes.SCHEDULER
     ],
-    kubectl_layer=KubectlV36Layer(self, "kubectl")
+    kubectl_layer=KubectlV37Layer(self, "kubectl")
 )
 ```
 
@@ -3386,18 +3450,18 @@ class AlbControllerHelmChartOptions:
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+            from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
             
             
             eks.Cluster(self, "HelloEKS",
-                version=eks.KubernetesVersion.V1_36,
+                version=eks.KubernetesVersion.V1_37,
                 alb_controller=eks.AlbControllerOptions(
                     version=eks.AlbControllerVersion.V3_2_2,
                     additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
                         enable_wafv2=False
                     )
                 ),
-                kubectl_layer=KubectlV36Layer(self, "kubectl")
+                kubectl_layer=KubectlV37Layer(self, "kubectl")
             )
         '''
         if __debug__:
@@ -3476,16 +3540,16 @@ class AlbControllerOptions:
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+            from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
             
             
             eks.Cluster(self, "HelloEKS",
-                version=eks.KubernetesVersion.V1_36,
+                version=eks.KubernetesVersion.V1_37,
                 alb_controller=eks.AlbControllerOptions(
                     version=eks.AlbControllerVersion.V3_2_2,
                     overwrite_service_account=True
                 ),
-                kubectl_layer=KubectlV36Layer(self, "kubectl")
+                kubectl_layer=KubectlV37Layer(self, "kubectl")
             )
         '''
         if isinstance(additional_helm_chart_values, dict):
@@ -3792,16 +3856,16 @@ class AlbControllerVersion(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+        from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
         
         
         eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_36,
+            version=eks.KubernetesVersion.V1_37,
             alb_controller=eks.AlbControllerOptions(
                 version=eks.AlbControllerVersion.V3_2_2,
                 overwrite_service_account=True
             ),
-            kubectl_layer=KubectlV36Layer(self, "kubectl")
+            kubectl_layer=KubectlV37Layer(self, "kubectl")
         )
     '''
 
@@ -4279,14 +4343,14 @@ class AuthenticationMode(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+        from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
         # vpc: ec2.Vpc
         
         
         eks.Cluster(self, "Cluster",
             vpc=vpc,
-            version=eks.KubernetesVersion.V1_36,
-            kubectl_layer=KubectlV36Layer(self, "KubectlLayer"),
+            version=eks.KubernetesVersion.V1_37,
+            kubectl_layer=KubectlV37Layer(self, "KubectlLayer"),
             authentication_mode=eks.AuthenticationMode.API_AND_CONFIG_MAP
         )
     '''
@@ -8702,7 +8766,12 @@ class CfnCluster(
             ),
             kubernetes_network_config=eks.CfnCluster.KubernetesNetworkConfigProperty(
                 elastic_load_balancing=eks.CfnCluster.ElasticLoadBalancingProperty(
-                    enabled=False
+                    enabled=False,
+                    gateway_api=eks.CfnCluster.GatewayApiProperty(
+                        crds=eks.CfnCluster.GatewayApiCrdsProperty(
+                            managed=False
+                        )
+                    )
                 ),
                 ip_family="ipFamily",
                 service_ipv4_cidr="serviceIpv4Cidr",
@@ -10107,19 +10176,21 @@ class CfnCluster(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnCluster.ElasticLoadBalancingProperty",
         jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled"},
+        name_mapping={"enabled": "enabled", "gateway_api": "gatewayApi"},
     )
     class ElasticLoadBalancingProperty:
         def __init__(
             self,
             *,
             enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            gateway_api: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.GatewayApiProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Indicates the current configuration of the load balancing capability on your EKS Auto Mode cluster.
 
             For example, if the capability is enabled or disabled. For more information, see EKS Auto Mode load balancing capability in the *Amazon EKS User Guide* .
 
             :param enabled: Indicates if the load balancing capability is enabled on your EKS Auto Mode cluster. If the load balancing capability is enabled, EKS Auto Mode will create and delete load balancers in your AWS account.
+            :param gateway_api: The Gateway API configuration for the load balancing capability of EKS Auto Mode.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-elasticloadbalancing.html
             :exampleMetadata: fixture=_generated
@@ -10131,15 +10202,23 @@ class CfnCluster(
                 from aws_cdk import aws_eks as eks
                 
                 elastic_load_balancing_property = eks.CfnCluster.ElasticLoadBalancingProperty(
-                    enabled=False
+                    enabled=False,
+                    gateway_api=eks.CfnCluster.GatewayApiProperty(
+                        crds=eks.CfnCluster.GatewayApiCrdsProperty(
+                            managed=False
+                        )
+                    )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__41c8959626c6cd4c3ff5a15cfb2de0bea1a0b654c1bd2e0a62c4841ab19277cc)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument gateway_api", value=gateway_api, expected_type=type_hints["gateway_api"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if enabled is not None:
                 self._values["enabled"] = enabled
+            if gateway_api is not None:
+                self._values["gateway_api"] = gateway_api
 
         @builtins.property
         def enabled(
@@ -10153,6 +10232,17 @@ class CfnCluster(
             '''
             result = self._values.get("enabled")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def gateway_api(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.GatewayApiProperty"]]:
+            '''The Gateway API configuration for the load balancing capability of EKS Auto Mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-elasticloadbalancing.html#cfn-eks-cluster-elasticloadbalancing-gatewayapi
+            '''
+            result = self._values.get("gateway_api")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.GatewayApiProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10295,6 +10385,126 @@ class CfnCluster(
 
         def __repr__(self) -> str:
             return "EtcdPlacementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.GatewayApiCrdsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"managed": "managed"},
+    )
+    class GatewayApiCrdsProperty:
+        def __init__(
+            self,
+            *,
+            managed: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        ) -> None:
+            '''The Gateway API Custom Resource Definition (CRD) configuration for the cluster.
+
+            :param managed: Indicates whether EKS manages the lifecycle of the Gateway API CRDs on the cluster. If true, EKS installs and upgrades the Gateway API CRDs. Requires ElasticLoadBalancing to be enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-gatewayapicrds.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                gateway_api_crds_property = eks.CfnCluster.GatewayApiCrdsProperty(
+                    managed=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__deb142f110929a98e5e2178a88a1e1519b1f4d5ab8958cb464c16ebc6b463d29)
+                check_type(argname="argument managed", value=managed, expected_type=type_hints["managed"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "managed": managed,
+            }
+
+        @builtins.property
+        def managed(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Indicates whether EKS manages the lifecycle of the Gateway API CRDs on the cluster.
+
+            If true, EKS installs and upgrades the Gateway API CRDs. Requires ElasticLoadBalancing to be enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-gatewayapicrds.html#cfn-eks-cluster-gatewayapicrds-managed
+            '''
+            result = self._values.get("managed")
+            assert result is not None, "Required property 'managed' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayApiCrdsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.GatewayApiProperty",
+        jsii_struct_bases=[],
+        name_mapping={"crds": "crds"},
+    )
+    class GatewayApiProperty:
+        def __init__(
+            self,
+            *,
+            crds: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.GatewayApiCrdsProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The Gateway API configuration for the load balancing capability of EKS Auto Mode.
+
+            :param crds: The Gateway API Custom Resource Definition (CRD) configuration for the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-gatewayapi.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                gateway_api_property = eks.CfnCluster.GatewayApiProperty(
+                    crds=eks.CfnCluster.GatewayApiCrdsProperty(
+                        managed=False
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4712b8aac748f873242be7891f01cc9fbddf537e18f1bfc1fb4ad5ba8ad9edff)
+                check_type(argname="argument crds", value=crds, expected_type=type_hints["crds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "crds": crds,
+            }
+
+        @builtins.property
+        def crds(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.GatewayApiCrdsProperty"]:
+            '''The Gateway API Custom Resource Definition (CRD) configuration for the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-gatewayapi.html#cfn-eks-cluster-gatewayapi-crds
+            '''
+            result = self._values.get("crds")
+            assert result is not None, "Required property 'crds' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.GatewayApiCrdsProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayApiProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -10618,7 +10828,12 @@ class CfnCluster(
                 
                 kubernetes_network_config_property = eks.CfnCluster.KubernetesNetworkConfigProperty(
                     elastic_load_balancing=eks.CfnCluster.ElasticLoadBalancingProperty(
-                        enabled=False
+                        enabled=False,
+                        gateway_api=eks.CfnCluster.GatewayApiProperty(
+                            crds=eks.CfnCluster.GatewayApiCrdsProperty(
+                                managed=False
+                            )
+                        )
                     ),
                     ip_family="ipFamily",
                     service_ipv4_cidr="serviceIpv4Cidr",
@@ -12175,7 +12390,12 @@ class CfnClusterProps:
                 ),
                 kubernetes_network_config=eks.CfnCluster.KubernetesNetworkConfigProperty(
                     elastic_load_balancing=eks.CfnCluster.ElasticLoadBalancingProperty(
-                        enabled=False
+                        enabled=False,
+                        gateway_api=eks.CfnCluster.GatewayApiProperty(
+                            crds=eks.CfnCluster.GatewayApiCrdsProperty(
+                                managed=False
+                            )
+                        )
                     ),
                     ip_family="ipFamily",
                     service_ipv4_cidr="serviceIpv4Cidr",
@@ -16696,15 +16916,15 @@ class ClusterLoggingTypes(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+        from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
         
         
         cluster = eks.Cluster(self, "Cluster",
             # ...
-            version=eks.KubernetesVersion.V1_36,
+            version=eks.KubernetesVersion.V1_37,
             cluster_logging=[eks.ClusterLoggingTypes.API, eks.ClusterLoggingTypes.AUTHENTICATOR, eks.ClusterLoggingTypes.SCHEDULER
             ],
-            kubectl_layer=KubectlV36Layer(self, "kubectl")
+            kubectl_layer=KubectlV37Layer(self, "kubectl")
         )
     '''
 
@@ -16931,12 +17151,12 @@ class ControlPlaneScalingTier(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
         
         
         eks.Cluster(self, "HighPerformanceCluster",
-            version=eks.KubernetesVersion.V1_35,
-            kubectl_layer=KubectlV35Layer(self, "kubectl"),
+            version=eks.KubernetesVersion.V1_37,
+            kubectl_layer=KubectlV37Layer(self, "kubectl"),
             control_plane_scaling_tier=eks.ControlPlaneScalingTier.TIER_XL
         )
     '''
@@ -16981,13 +17201,13 @@ class DefaultCapacityType(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+        from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
         
         
         cluster = eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_36,
+            version=eks.KubernetesVersion.V1_37,
             default_capacity_type=eks.DefaultCapacityType.EC2,
-            kubectl_layer=KubectlV36Layer(self, "kubectl")
+            kubectl_layer=KubectlV37Layer(self, "kubectl")
         )
     '''
 
@@ -17154,13 +17374,13 @@ class EndpointAccess(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+        from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
         
         
         cluster = eks.Cluster(self, "hello-eks",
-            version=eks.KubernetesVersion.V1_36,
+            version=eks.KubernetesVersion.V1_37,
             endpoint_access=eks.EndpointAccess.PRIVATE,  # No access outside of your VPC.
-            kubectl_layer=KubectlV36Layer(self, "kubectl")
+            kubectl_layer=KubectlV37Layer(self, "kubectl")
         )
     '''
 
@@ -19551,7 +19771,7 @@ class IpFamily(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+        from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
         # vpc: ec2.Vpc
         
         
@@ -19576,11 +19796,11 @@ class IpFamily(enum.Enum):
             subnetcount = subnetcount + 1
         
         cluster = eks.Cluster(self, "hello-eks",
-            version=eks.KubernetesVersion.V1_36,
+            version=eks.KubernetesVersion.V1_37,
             vpc=vpc,
             ip_family=eks.IpFamily.IP_V6,
             vpc_subnets=[ec2.SubnetSelection(subnets=vpc.public_subnets)],
-            kubectl_layer=KubectlV36Layer(self, "kubectl")
+            kubectl_layer=KubectlV37Layer(self, "kubectl")
         )
     '''
 
@@ -20840,13 +21060,13 @@ class KubernetesVersion(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+        from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
         
         
         cluster = eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_36,
+            version=eks.KubernetesVersion.V1_37,
             default_capacity=0,
-            kubectl_layer=KubectlV36Layer(self, "kubectl")
+            kubectl_layer=KubectlV37Layer(self, "kubectl")
         )
         
         cluster.add_nodegroup_capacity("custom-node-group",
@@ -21143,6 +21363,18 @@ class KubernetesVersion(
         ``@aws-cdk/lambda-layer-kubectl-v36``.
         '''
         return typing.cast("KubernetesVersion", jsii.sget(cls, "V1_36"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V1_37")
+    @builtins.classmethod
+    def V1_37(cls) -> "KubernetesVersion":
+        '''Kubernetes version 1.37.
+
+        When creating a ``Cluster`` with this version, you need to also specify the
+        ``kubectlLayer`` property with a ``KubectlV37Layer`` from
+        ``@aws-cdk/lambda-layer-kubectl-v37``.
+        '''
+        return typing.cast("KubernetesVersion", jsii.sget(cls, "V1_37"))
 
     @builtins.property
     @jsii.member(jsii_name="version")
@@ -24017,13 +24249,13 @@ class Cluster(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+        from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
         
         
         cluster = eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_36,
+            version=eks.KubernetesVersion.V1_37,
             default_capacity=0,
-            kubectl_layer=KubectlV36Layer(self, "kubectl")
+            kubectl_layer=KubectlV37Layer(self, "kubectl")
         )
         
         cluster.add_nodegroup_capacity("custom-node-group",
@@ -25936,13 +26168,13 @@ class ClusterProps(ClusterOptions):
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+            from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
             
             
             cluster = eks.Cluster(self, "HelloEKS",
-                version=eks.KubernetesVersion.V1_36,
+                version=eks.KubernetesVersion.V1_37,
                 default_capacity=0,
-                kubectl_layer=KubectlV36Layer(self, "kubectl")
+                kubectl_layer=KubectlV37Layer(self, "kubectl")
             )
             
             cluster.add_nodegroup_capacity("custom-node-group",
@@ -26562,12 +26794,12 @@ class FargateCluster(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+        from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
         
         
         cluster = eks.FargateCluster(self, "MyCluster",
-            version=eks.KubernetesVersion.V1_36,
-            kubectl_layer=KubectlV36Layer(self, "kubectl")
+            version=eks.KubernetesVersion.V1_37,
+            kubectl_layer=KubectlV37Layer(self, "kubectl")
         )
     '''
 
@@ -26820,12 +27052,12 @@ class FargateClusterProps(ClusterOptions):
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+            from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
             
             
             cluster = eks.FargateCluster(self, "MyCluster",
-                version=eks.KubernetesVersion.V1_36,
-                kubectl_layer=KubectlV36Layer(self, "kubectl")
+                version=eks.KubernetesVersion.V1_37,
+                kubectl_layer=KubectlV37Layer(self, "kubectl")
             )
         '''
         if isinstance(alb_controller, dict):
@@ -28617,6 +28849,7 @@ def _typecheckingstub__7bb17cf34c4e7ec854117e30e45277f3c379475592d98a5dd9a284458
 def _typecheckingstub__41c8959626c6cd4c3ff5a15cfb2de0bea1a0b654c1bd2e0a62c4841ab19277cc(
     *,
     enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    gateway_api: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.GatewayApiProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28632,6 +28865,20 @@ def _typecheckingstub__f49095254b4d4121f694873b18c2ef5026ef5539eb56b045195b57760
 def _typecheckingstub__d9922e303b981810f9f91e0f2fd64b8fed44ce90a058b7bd5f2bc4155496d671(
     *,
     spread_level: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__deb142f110929a98e5e2178a88a1e1519b1f4d5ab8958cb464c16ebc6b463d29(
+    *,
+    managed: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4712b8aac748f873242be7891f01cc9fbddf537e18f1bfc1fb4ad5ba8ad9edff(
+    *,
+    crds: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.GatewayApiCrdsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

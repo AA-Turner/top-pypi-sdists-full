@@ -17,13 +17,14 @@ from __future__ import division as _; del _  # noqa: E702 ;
 
 from pygeodesy.angles import Ang, _Ang3Tuple, isAng,  Property_RO
 from pygeodesy.basics import _copysign, signBit
-from pygeodesy.constants import EPS, INF, NAN, PI_2, \
-                               _copysign_1_0, _over, _1_over, remainder, \
-                               _0_0, _0_01, _0_5, _0_75, _1_0, _2_0, _4_0
+from pygeodesy.constants import EPS, INF, NAN, PI_2, _0_0, _0_01, \
+                               _0_5, _0_75, _1_0, _2_0, _4_0, \
+                               _copysign_1_0, _over, _1_over
 from pygeodesy.constants import _16_0  # PYCHOK used!
 # from pygeodesy.elliptic import Elliptic  # _MODS
 from pygeodesy.fmath import hypot1,  _ALL_LAZY, Fmt, _MODS
 from pygeodesy.interns import _DMAIN_, _scale_
+from pygeodesy.karney import _remainder2, _tauf
 # from pygeodesy.lazily import _ALL_LAZY, _ALL_MODS as _MODS  # from .fmath
 # from pygeodesy.named import _NamedTuple, _Pass  # from .namedTuples
 from pygeodesy.namedTuples import Vector2Tuple,  _Pass
@@ -40,13 +41,14 @@ from pygeodesy.utily import sincos2
 from math import atan, atanh, exp, fabs, log, sinh, sqrt
 
 __all__ = _ALL_LAZY.triaxials_conformal3
-__version__ = '26.08.02'
+__version__ = '26.10.30'
 
 _gam_    = 'gam'
 _LOG2MIN =  log(EPS) * _2_0
 # _N     = (log(_4_0) - log(PI)) / (PI_2 - log(_4_0))
 _NLOG2   = -log(_2_0)
 # _B     =  exp(_N * PI_2) - pow(_4_0, _N)
+_useTauf =  True  # see ._invPI and GeographicLib 2.8 Comformal3.cpp
 
 
 class BetOmgGam5Tuple(_Ang3Tuple):
@@ -441,35 +443,39 @@ def _invF(eF, x):  # -> Ang
 def _invPi(eF, x):  # -> Ang
     '''(INTERNAL) Inverse elliptic function C{Pi(x)}.
     '''
-    r, y = _invRy2(eF, eF.cPi, x)
-    if y:  # solve eF.fPi(phi) = y for phi
-        def _fPi2(phi):  # -> pair<real, real>
-            s, c = sincos2(phi)
-            f  = eF.fPi(s, c, eF.fDelta(s, c))
-            a2 = eF.alpha2
-            fp = (_1_0 - c**2 * a2) if a2 < 0 else \
-                 (eF.alphap2 + s**2 * a2)
-            fp *= sqrt(eF.kp2 + c**2 * eF.k2)
-            return f, _1_over(fp)
+    a2, ap2 = eF.alpha2, eF.alphap2
+    if _useTauf and not eF.kp2:  # i.e. if eF.k2 == 1
+        # see GeographicLib 2.8 Conformal3.cpp
+        es = _copysign(sqrt(fabs(a2)), a2)
+        r  = _tauf(sinh(ap2 * x), es)
+        r  =  Ang.fromRadians(r)
+    else:
+        r, y = _invRy2(eF, eF.cPi, x)
+        if y:  # solve eF.fPi(phi) = y for phi
+            def _fPi2(phi):  # -> pair<real, real>
+                s, c = sincos2(phi)
+                f  = eF.fPi(s, c, eF.fDelta(s, c))
+                fp = (_1_0 - c**2 * a2) if a2 < 0 else \
+                     ( ap2 + s**2 * a2)
+                fp *= sqrt(eF.kp2 + c**2 * eF.k2)
+                return f, _1_over(fp)
 
-        z = fabs(y)
-        z, _, _, _ = _root4(_fPi2, z, z * PI_2 / eF.cPi)
-        r += Ang.fromRadians(_copysign(z, y))
+            z = fabs(y)
+            z, _, _, _ = _root4(_fPi2, z, z * PI_2 / eF.cPi)
+            r += Ang.fromRadians(_copysign(z, y))
     return r
 
 
 def _invRy2(eF, eF_c, x):
     # helper for C{_invF} and C{_invPi}
     if eF.kp2:
-        n = eF_c * _2_0
-        y = remainder(x, n)
-        n = round((x - y) / n) * _2_0
+        y, n = _remainder2(x, eF_c)
     else:  # eF_c == N-/INF
-        y, n = x, _0_0
+        y, n =  x, _0_0
     if not y:
-        y, n = 0, (n if n else y)  # signed 0
+        y, n =  0, (n if n else y)  # signed 0
     elif fabs(y) == eF_c:
-        y, n = 0, (_copysign_1_0(y) + n)
+        y, n =  0, (_copysign_1_0(y) + n)
     return Ang.cardinal(n), y
 
 
@@ -611,7 +617,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2025-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2025-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

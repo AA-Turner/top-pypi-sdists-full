@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_lakeformation.literals import ApplicationStatusType
+    from mypy_boto3_lakeformation.literals import AnyResourceSupportedTypesType
 
-    data: ApplicationStatusType = "DISABLED"
+    data: AnyResourceSupportedTypesType = "TABLE"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AnyResourceSupportedTypesType",
     "ApplicationStatusType",
     "ComparisonOperatorType",
     "CredentialsScopeType",
@@ -54,12 +55,14 @@ __all__ = (
     "VerificationStatusType",
 )
 
+AnyResourceSupportedTypesType = Literal["TABLE"]
 ApplicationStatusType = Literal["DISABLED", "ENABLED"]
 ComparisonOperatorType = Literal[
     "BEGINS_WITH", "BETWEEN", "CONTAINS", "EQ", "GE", "GT", "IN", "LE", "LT", "NE", "NOT_CONTAINS"
 ]
 CredentialsScopeType = Literal["READ", "READWRITE"]
 DataLakeResourceTypeType = Literal[
+    "ANY_RESOURCE",
     "CATALOG",
     "DATABASE",
     "DATA_LOCATION",
@@ -69,6 +72,7 @@ DataLakeResourceTypeType = Literal[
     "LF_TAG_POLICY_DATABASE",
     "LF_TAG_POLICY_TABLE",
     "TABLE",
+    "USER_DEFINED_FUNCTION",
 ]
 EnableStatusType = Literal["DISABLED", "ENABLED"]
 FieldNameStringType = Literal["LAST_MODIFIED", "RESOURCE_ARN", "ROLE_ARN"]
@@ -92,6 +96,7 @@ PermissionType = Literal[
     "DELETE",
     "DESCRIBE",
     "DROP",
+    "EXECUTE",
     "GRANT_WITH_LF_TAG_EXPRESSION",
     "INSERT",
     "SELECT",
@@ -115,6 +120,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -219,6 +225,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -270,8 +277,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -525,7 +530,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

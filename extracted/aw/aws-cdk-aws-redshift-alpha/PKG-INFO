@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-redshift-alpha
-Version: 2.275.0a0
+Version: 2.276.0a0
 Summary: The CDK Construct Library for AWS::Redshift
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -24,7 +24,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.275.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.276.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
 Requires-Dist: jsii<2.0.0,>=1.142.0
 Requires-Dist: publication>=0.0.3
@@ -316,11 +316,12 @@ Table(self, "Table",
 )
 ```
 
+`tableName` may be schema-qualified, such as `analytics.orders`.
+
 Tables greater than v2.114.1 can have their table name changed, for versions <= v2.114.1, this would not be possible.
 Therefore, changing of table names for <= v2.114.1 have been disabled.
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
 from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_name="oldTableName",  # This value can be change for versions greater than v2.114.1

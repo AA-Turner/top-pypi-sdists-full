@@ -150,10 +150,23 @@ def test_dynamic():
     check_results_gau(dsampler.results, rstate, logz_tol)
 
 
-@pytest.mark.parametrize('bound,periodic',
-                         itertools.product(['single', 'multi'], [False, True]))
+@pytest.mark.parametrize(
+    'cls', [dynesty.NestedSampler, dynesty.DynamicNestedSampler])
+def test_ncdim_deprecated(cls):
+    with pytest.warns(DeprecationWarning, match='ncdim'):
+        cls(loglikelihood_gau,
+            prior_transform_gau,
+            ntotdim,
+            ncdim=ndim_gau,
+            rstate=get_rstate())
+
+
+@pytest.mark.parametrize(
+    'bound,periodic',
+    itertools.product(['single', 'multi', 'balls', 'cubes', 'none'],
+                      [False, True]))
 def test_single_periodic(bound, periodic):
-    # check single/multi ellipse bound with and without periodic vars
+    # check all the bounds with and without periodic vars
     logz_tol = 1
     rstate = get_rstate()
     if periodic:
@@ -166,6 +179,13 @@ def test_single_periodic(bound, periodic):
                                      ncdim=ndim_gau,
                                      periodic=periodic,
                                      bound=bound,
+                                     sample='unif',
                                      rstate=rstate)
+    if bound == 'none':
+        # uniform sampling of the cube is too slow for a full run;
+        # just make sure the sampling works after the first bound update
+        dsampler.run_nested(maxiter=2000, print_progress=printing)
+        assert dsampler.nbound > 0
+        return
     dsampler.run_nested(print_progress=printing)
     check_results_gau(dsampler.results, rstate, logz_tol)

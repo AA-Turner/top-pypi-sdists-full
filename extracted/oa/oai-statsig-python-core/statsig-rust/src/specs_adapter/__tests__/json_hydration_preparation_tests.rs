@@ -423,7 +423,7 @@ async fn json_preparation_collects_malformed_rule_references_but_preserves_toler
             .iter()
             .find(|config| config.name == "malformed")
             .unwrap();
-        assert_eq!(malformed.use_remote_decoder, default_is_remote);
+        assert!(malformed.use_remote_decoder);
 
         for capture_data_store_bytes in [false, true] {
             let mut data = ResponseData::from_bytes(original.clone());

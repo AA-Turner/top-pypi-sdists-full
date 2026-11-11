@@ -3891,6 +3891,9 @@ class BrokerageName(IntEnum):
     QUANT_BRIDGE = 40
     """Transaction and submit/execution rules will use Quant Bridge models"""
 
+    ETORO = 41
+    """Transaction and submit/execution rules will use eToro models"""
+
 
 class WolverineBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Wolverine Brokerage model"""
@@ -4783,6 +4786,64 @@ class BinanceUSBrokerageModel(QuantConnect.Brokerages.BinanceBrokerageModel):
         Binance global leverage rule
         
         :param security: 
+        """
+        ...
+
+
+class EtoroBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
+    """Represents a brokerage model specific to eToro."""
+
+    def __init__(self, account_type: QuantConnect.AccountType = ...) -> None:
+        """
+        Constructor for eToro brokerage model
+        
+        :param account_type: Cash or Margin; a cash account gives every security leverage 1 and takes no other,
+        a margin account starts at the leverage of get_leverage and takes another with SetLeverage
+        """
+        ...
+
+    def can_submit_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Returns true if the brokerage could accept this order. This takes into account order type, security type.
+        
+        :param security: The security of the order
+        :param order: The order to be processed
+        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
+        :returns: True if the brokerage could process the order, false otherwise.
+        """
+        ...
+
+    def can_update_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, request: QuantConnect.Orders.UpdateOrderRequest, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Returns true for a price change of a stop market or a limit order, the stop loss or the take profit of a
+        position, which eToro moves on the position; the order may come without its entry, read from the position
+        after a restart. The new price is checked as at submission, see IsExitPriceSupported. Any
+        other update is refused, eToro has no order update; an order is cancelled and placed again instead.
+        
+        :param security: The security of the order
+        :param order: The order to be updated
+        :param request: The requested update to be made to the order
+        :param message: If this function returns false, a brokerage message detailing why the order may not be updated
+        :returns: True for a price change of an exit order, false otherwise.
+        """
+        ...
+
+    def get_fee_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Orders.Fees.IFeeModel:
+        """
+        Provides the eToro fee model
+        
+        :param security: Security
+        :returns: eToro fee model.
+        """
+        ...
+
+    def get_leverage(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the leverage a security starts at: 1 on a cash account; on a margin account 30 on a currency pair, the
+        highest eToro offers, and Lean's default elsewhere, 2 on equities and 1 on crypto, inside what eToro offers.
+        
+        :param security: The security
+        :returns: The leverage the security starts at.
         """
         ...
 

@@ -1,27 +1,19 @@
 # File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
-from typing import TYPE_CHECKING, Dict, List, Union, Optional
-from typing_extensions import Literal, TypeAlias
+from typing import List, Optional
+from typing_extensions import Literal
 
 from pydantic import Field as FieldInfo
 
 from .._models import BaseModel
 from .command_dialog import CommandDialog
-from .command_events import CommandEvents
+from .command_result import CommandResult
 from .command_error_info import CommandErrorInfo
 
-__all__ = [
-    "SessionCommandsResponse",
-    "CommandsExecution",
-    "CommandsExecutionExecution",
-    "CommandsExecutionPage",
-    "CommandsExecutionResult",
-    "CommandsExecutionObserve",
-    "CommandsDialogAnswer",
-]
+__all__ = ["SessionCommandsResponse", "Execution", "Page", "Observe"]
 
 
-class CommandsExecutionExecution(BaseModel):
+class Execution(BaseModel):
     id: str
 
     effect: Literal["none", "applied", "unknown"]
@@ -37,7 +29,7 @@ class CommandsExecutionExecution(BaseModel):
     error: Optional[CommandErrorInfo] = None
 
 
-class CommandsExecutionPage(BaseModel):
+class Page(BaseModel):
     """The tab the execution used."""
 
     tab: str
@@ -47,33 +39,7 @@ class CommandsExecutionPage(BaseModel):
     url: str
 
 
-class CommandsExecutionResult(BaseModel):
-    """Result of one command.
-
-    Commands add their own fields, such as snapshot, value, url, or loading.
-    """
-
-    effect: Literal["none", "applied", "unknown"]
-    """What happened to the page: nothing, a change, or a possible change."""
-
-    ok: bool
-
-    error: Optional[CommandErrorInfo] = None
-
-    if TYPE_CHECKING:
-        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
-        # value to this field, so for compatibility we avoid doing it at runtime.
-        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
-
-        # Stub to indicate that arbitrary properties are accepted.
-        # To access properties that are not valid identifiers you can use `getattr`, e.g.
-        # `getattr(obj, '$type')`
-        def __getattr__(self, attr: str) -> object: ...
-    else:
-        __pydantic_extra__: Dict[str, object]
-
-
-class CommandsExecutionObserve(BaseModel):
+class Observe(BaseModel):
     additions: Optional[int] = None
 
     base: Optional[str] = None
@@ -91,47 +57,33 @@ class CommandsExecutionObserve(BaseModel):
     snapshot_id: Optional[str] = FieldInfo(alias="snapshotId", default=None)
 
 
-class CommandsExecution(BaseModel):
-    epoch: int
-    """
-    Goes up when commands or a dialog answer change the page, and when the browser
-    restarts.
+class SessionCommandsResponse(BaseModel):
+    id: str
+    """The id of this execution, the same as execution.id.
+
+    Use it to get or cancel the execution.
     """
 
-    execution: CommandsExecutionExecution
+    execution: Execution
 
-    page: Optional[CommandsExecutionPage] = None
+    page: Optional[Page] = None
     """The tab the execution used."""
 
-    results: List[CommandsExecutionResult]
+    results: List[CommandResult]
 
     body_expired: Optional[bool] = FieldInfo(alias="bodyExpired", default=None)
 
     dialog: Optional[CommandDialog] = None
-    """A JavaScript dialog: alert, confirm, prompt, or beforeunload."""
+    """A dialog that is open on the tab and blocks it until it closes."""
 
     epoch_changed: Optional[bool] = FieldInfo(alias="epochChanged", default=None)
-    """Whether another Commands API client changed the session since after."""
+    """Set when the execution ran with after.
 
-    events: Optional[CommandEvents] = None
-    """Navigations, opened and closed tabs, dialogs, and downloads since eventsAfter."""
+    Whether another execution, a quick action, or a browser restart changed the
+    session since then. Input from CDP clients or the live view does not count.
+    """
 
     next: Optional[str] = None
     """Send it as after in the next request."""
 
-    observe: Optional[CommandsExecutionObserve] = None
-
-
-class CommandsDialogAnswer(BaseModel):
-    """Response to the dialog command."""
-
-    answered: CommandDialog
-    """A JavaScript dialog: alert, confirm, prompt, or beforeunload."""
-
-    epoch: int
-
-    events: Optional[CommandEvents] = None
-    """Navigations, opened and closed tabs, dialogs, and downloads since eventsAfter."""
-
-
-SessionCommandsResponse: TypeAlias = Union[CommandsExecution, CommandsDialogAnswer]
+    observe: Optional[Observe] = None

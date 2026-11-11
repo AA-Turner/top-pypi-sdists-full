@@ -27,6 +27,7 @@ import asyncio
 import json
 import os
 import re
+import threading
 import time
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -49,6 +50,9 @@ from .resources import register_resources
 from .tool_definitions import TOOL_DEFINITIONS
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from fastmcp.server.context import Context
     from fastmcp.tools import Tool
 
 # Context variable to store the Zernio API key for the current connection
@@ -65,6 +69,23 @@ _ACCOUNTS_MAX_PAGE_SIZE = 500
 _PROFILES_PAGE_SIZE = 100
 _PROFILES_MAX_PAGE_SIZE = 1000
 _RETRY_ALL_BUDGET_SECONDS = 300.0
+# The agent already retries a failed tool call, so the SDK retries once, not
+# twice: a read that keeps timing out holds a tool thread ~60 s instead of
+# ~91 s, and an overloaded API sees two attempts per call instead of three.
+_UPSTREAM_MAX_ATTEMPTS = 2
+
+# A client per call cost a TLS handshake and ~6 ms CPU each, so connections are
+# reused, whatever the caller's key. The pool is per thread, not per process:
+# httpcore's sync pool scans every connection under one lock on each request,
+# and 40 tool threads sharing it made call_tool 40% slower than no pooling.
+_thread_state = threading.local()
+
+
+def _api_transport() -> httpx.HTTPTransport:
+    transport = getattr(_thread_state, "transport", None)
+    if transport is None:
+        transport = _thread_state.transport = httpx.HTTPTransport()
+    return transport
 
 # Always-visible core: the 20 hand-written ergonomic tools (guardrails +
 # LLM-shaped args, preferred over their raw generated twins) plus the generated
@@ -158,18 +179,40 @@ class _AnnotatedBM25SearchTransform(BM25SearchTransform):
             }
         )
 
+    # The catalog is fixed for the life of the process (tools are registered at
+    # import and no tool carries per-user visibility or auth), so the visible
+    # catalog is read once and the BM25 index is reused by identity. FastMCP
+    # otherwise rebuilds the catalog and SHA-256s every tool's text on each
+    # search: ~14 ms of the ~18 ms CPU a search_tools call costs on one core.
+    # Revisit if tools ever become per-user or get registered at runtime.
+    _visible_tools: Sequence[Tool] | None = None
+
+    async def _get_visible_tools(self, ctx: Context) -> Sequence[Tool]:
+        if self._visible_tools is None:
+            self._visible_tools = await super()._get_visible_tools(ctx)
+        return self._visible_tools
+
+    async def _search(self, tools: Sequence[Tool], query: str) -> Sequence[Tool]:
+        if tools is not self._indexed_tools:
+            return await super()._search(tools, query)
+        return [tools[i] for i in self._index.query(query, self._max_results)]
+
 
 # Initialize MCP server
 mcp = FastMCP(
     "Zernio",
     instructions="""
-Zernio API server for scheduling social media posts.
+Zernio API server for social posting, messaging, email and ads.
 
 Available tools are prefixed by resource:
 - accounts_* : Manage connected social media accounts
 - profiles_* : Manage profiles (groups of accounts)
 - posts_*    : Create, list, update, delete posts
 - media_*    : Upload images and videos
+- email_*    : Read, send, schedule, forward and track mail in connected
+               Gmail, Outlook and IMAP mailboxes; drafts, labels, signatures
+- calendar_* : Google and Outlook calendar events and availability
+- files_*    : Google Drive and OneDrive files
 - docs_*     : Search Zernio API documentation
 - support_ask : PAID diagnosis of a Zernio API problem
 
@@ -301,7 +344,12 @@ def _get_client() -> Late:
         )
 
     base_url = os.getenv("ZERNIO_BASE_URL") or os.getenv("LATE_BASE_URL", None)
-    return Late(api_key=api_key, base_url=base_url)
+    return Late(
+        api_key=api_key,
+        base_url=base_url,
+        max_retries=_UPSTREAM_MAX_ATTEMPTS,
+        transport=_api_transport(),
+    )
 
 
 # ============================================================================

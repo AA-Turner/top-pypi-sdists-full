@@ -1,6 +1,6 @@
 """Definitions of register values returned by the Huawei inverter."""
 
-from enum import IntEnum
+from enum import IntEnum, IntFlag
 from typing import NamedTuple
 
 
@@ -113,6 +113,7 @@ class StorageWorkingModesC(_IntEnumWithPrettyString):
     TIME_OF_USE_LG = 3
     FULLY_FED_TO_GRID = 4
     TIME_OF_USE_LUNA2000 = 5
+    THIRD_PARTY_CONTROL = 6
 
 
 class StorageProductModel(IntEnum):
@@ -686,6 +687,94 @@ ALARM_CODES_3 = {
     ),
 }
 
+# Consolidated master dictionary of Huawei alarm codes keyed directly by alarm_id
+HUAWEI_ALARM_CODES: dict[int, Alarm] = {
+    # Inverter PV & Arc Faults
+    2001: Alarm("High String Input Voltage", 2001, "Major"),
+    2002: Alarm("DC Arc Fault", 2002, "Major"),
+    2003: Alarm("DC Arc Fault (ADMC Alarm to be clear manually)", 2003, "Major"),
+    2011: Alarm("String Reverse Connection", 2011, "Major"),
+    2012: Alarm("String Current Backfeed", 2012, "Warning"),
+    2013: Alarm("Abnormal String Power", 2013, "Warning"),
+    2014: Alarm("High input string voltage to ground", 2014, "Major"),
+    2015: Alarm("PV String Loss", 2015, "Warning"),
+    2021: Alarm("AFCI Self-Check Fail", 2021, "Major"),
+    # Grid & AC Faults
+    2031: Alarm("Phase Wire Short-Circuited to PE", 2031, "Major"),
+    2032: Alarm("Grid Loss", 2032, "Major"),
+    2033: Alarm("Grid Undervoltage", 2033, "Major"),
+    2034: Alarm("Grid Overvoltage", 2034, "Major"),
+    2035: Alarm("Grid Volt. Imbalance", 2035, "Major"),
+    2036: Alarm("Grid Overfrequency", 2036, "Major"),
+    2037: Alarm("Grid Underfrequency", 2037, "Major"),
+    2038: Alarm("Unstable Grid Frequency", 2038, "Major"),
+    2039: Alarm("Output Overcurrent", 2039, "Major"),
+    2040: Alarm("Output DC Component Overhigh", 2040, "Major"),
+    2051: Alarm("Abnormal Residual Current", 2051, "Major"),
+    # Inverter Hardware & System Alarms
+    2061: Alarm("Abnormal Grounding", 2061, "Major"),
+    2062: Alarm("Low Insulation Resistance", 2062, "Major"),
+    2063: Alarm("Overtemperature", 2063, "Minor"),
+    2064: Alarm("Device Fault", 2064, "Major"),
+    2065: Alarm("Upgrade Failed or Version Mismatch", 2065, "Minor"),
+    2066: Alarm("License Expired", 2066, "Warning"),
+    2067: Alarm("Faulty Power Collector", 2067, "Major"),
+    2068: Alarm("Battery abnormal", 2068, "Minor"),
+    2069: Alarm("Battery Reverse Connection", 2069, "Major"),
+    2070: Alarm("Active Islanding", 2070, "Major"),
+    2071: Alarm("Passive Islanding", 2071, "Major"),
+    2072: Alarm("Transient AC Overvoltage", 2072, "Major"),
+    2075: Alarm("Peripheral port short circuit", 2075, "Warning"),
+    2077: Alarm("Churn output overload", 2077, "Major"),
+    2080: Alarm("Abnormal PV module configuration", 2080, "Major"),
+    2081: Alarm("Optimizer fault", 2081, "Warning"),
+    2082: Alarm("On-grid/Off-grid controller abnormal", 2082, "Major"),
+    2085: Alarm("Built-in PID operation abnormal", 2085, "Minor"),
+    2086: Alarm("External Fan Abnormal", 2086, "Major"),
+    2087: Alarm("Internal Fan Abnormal", 2087, "Major"),
+    2088: Alarm("DC Protection Unit Abnormal", 2088, "Major"),
+    2089: Alarm("EL Unit Abnormal", 2089, "Minor"),
+    2090: Alarm("Active Adjustment Instruction Abnormal", 2090, "Major"),
+    2091: Alarm("Reactive Adjustment Instruction Abnormal", 2091, "Major"),
+    2092: Alarm("CT Wiring Abnormal", 2092, "Major"),
+    2093: Alarm("DC Switch Abnormal", 2093, "Minor"),
+    2094: Alarm("Allowable discharge capacity of the battery is low", 2094, "Warning"),
+    # SmartLogger Alarms
+    1100: Alarm("Abnormal Active Schedule", 1100, "Major"),
+    1101: Alarm("Abnormal Reactive Schedule", 1101, "Major"),
+    1103: Alarm("MCB Disconnect", 1103, "Major"),
+    1104: Alarm("Abnormal Cubicle", 1104, "Major"),
+    1105: Alarm("Device Address Conflict", 1105, "Major"),
+    1106: Alarm("AC SPD Fault", 1106, "Major"),
+    1107: Alarm("DI1 Custom Alarm", 1107, "Adaptable"),
+    1108: Alarm("DI2 Custom Alarm", 1108, "Adaptable"),
+    1109: Alarm("DI3 Custom Alarm", 1109, "Adaptable"),
+    1110: Alarm("DI4 Custom Alarm", 1110, "Adaptable"),
+    1111: Alarm("DI5 Custom Alarm", 1111, "Adaptable"),
+    1112: Alarm("DI6 Custom Alarm", 1112, "Adaptable"),
+    1113: Alarm("DI7 Custom Alarm", 1113, "Adaptable"),
+    1114: Alarm("DI8 Custom Alarm", 1114, "Adaptable"),
+    1115: Alarm("24V Power Failure", 1115, "Major"),
+    1116: Alarm("WebUI Certificate Invalid", 1116, "Warning"),
+    1117: Alarm("WebUI Certificate To Expire", 1117, "Warning"),
+    1118: Alarm("WebUI Certificate Expired", 1118, "Major"),
+    1119: Alarm("License Expired", 1119, "Warning"),
+    1120: Alarm("Mgmt System Certificate Invalid", 1120, "Warning"),
+    1121: Alarm("Mgmt System Certificate To Expire", 1121, "Warning"),
+    1122: Alarm("Mgmt System Certificate Expired", 1122, "Major"),
+    1129: Alarm("SmartLogger Certificate Invalid", 1129, "Warning"),
+    1130: Alarm("SmartLogger Certificate About To Expire", 1130, "Warning"),
+    1131: Alarm("SmartLogger Certificate Expired", 1131, "Major"),
+    1132: Alarm("Smart Rack Controller Cables Not Connected", 1132, "Major"),
+    1134: Alarm("Smart PCS Cables Not Connected", 1134, "Major"),
+    1140: Alarm("Array Black Start Failed", 1140, "Minor"),
+    1141: Alarm("ESS Shutdown", 1141, "Major"),
+    1163: Alarm("PV Array Topology Abnormal", 1163, "Minor"),
+    1164: Alarm("ESS Control Abnormal", 1164, "Minor"),
+    1165: Alarm("Inconsistent PCS Parameters", 1165, "Major"),
+    61440: Alarm("Faulty Monitoring Unit", 61440, "Minor"),
+}
+
 
 class StorageCapacityControlMode(IntEnum):
     """Storage Capacity Control Mode."""
@@ -927,3 +1016,898 @@ class SmartLoggerInOperation(IntEnum):
 
     INVALID = 0
     IN_OPERATION = 1
+
+
+class DongleScenarioStatus(_IntEnumWithPrettyString):
+    """Dongle networking and operating scenario status."""
+
+    STANDALONE = 0
+    """Standalone single-inverter scenario."""
+    GRID_TIED = 1
+    """Standard grid-tied SDongle scenario."""
+    CASCADED = 2
+    """Cascaded inverter network scenario."""
+    MICROGRID = 3
+    """Microgrid / hybrid third-party scenario."""
+
+
+class StorageUnitConnectStatus(_IntEnumWithPrettyString):
+    """Storage Unit connection status."""
+
+    OFFLINE = 45056  # 0xB000
+    """Storage unit is disconnected/offline."""
+    ONLINE = 45057  # 0xB001
+    """Storage unit is connected/online."""
+    CONNECTED = 32764  # 0x7FFC
+    """FE / bus connection established."""
+    CONNECTING = 32765  # 0x7FFD
+    """Connection in progress."""
+
+
+class BatterySohCalibrationStatus(_IntEnumWithPrettyString):
+    """Battery State of Health (SOH) calibration status."""
+
+    IDLE = 0
+    """Normal operation / calibration idle."""
+    REQUIRED = 1
+    """SOH calibration required / pending."""
+    IN_PROGRESS = 2
+    """SOH calibration actively in progress."""
+    COMPLETED = 3
+    """SOH calibration completed."""
+
+
+class GridOutputMode(_IntEnumWithPrettyString):
+    """Grid output connection mode."""
+
+    THREE_PHASE_FOUR_WIRE = 0
+    """Three-phase four-wire grid connection."""
+    THREE_PHASE_THREE_WIRE = 1
+    """Three-phase three-wire grid connection."""
+    SINGLE_PHASE_TWO_WIRE = 2
+    """Single-phase two-wire grid connection (L/N)."""
+    SPLIT_PHASE_THREE_WIRE = 3
+    """Split-phase three-wire grid connection (L1/L2/N)."""
+    SPLIT_PHASE_TWO_WIRE = 4
+    """Split-phase two-wire grid connection (L1/L2)."""
+
+
+class InnerPidRunningMode(_IntEnumWithPrettyString):
+    """Built-in PID running / operation mode."""
+
+    DISABLED = 0
+    """PID module operation disabled."""
+    REPAIR = 1
+    """Nighttime PID recovery/repair mode."""
+    SUPPRESSION = 2
+    """Daytime PID suppression mode."""
+    SUPPRESSION_AND_REPAIR = 3
+    """Continuous suppression and nighttime repair."""
+
+
+class InnerPidCompensationDirection(_IntEnumWithPrettyString):
+    """Built-in PID voltage offset compensation direction."""
+
+    UNIDENTIFIED = 0
+    """Compensation direction not identified."""
+    PV_NEGATIVE_POSITIVE_OFFSET = 1
+    """PV- positive offset voltage compensation."""
+    PV_POSITIVE_NEGATIVE_OFFSET = 2
+    """PV+ negative offset voltage compensation."""
+
+
+class AfciMode(_IntEnumWithPrettyString):
+    """AFCI (Arc Fault Circuit Interrupter) operational mode."""
+
+    DISABLED = 0
+    """AFCI disabled."""
+    ENABLED = 1
+    """AFCI standard protection enabled."""
+
+
+class StorageHeatingStatus(_IntEnumWithPrettyString):
+    """Energy storage battery heating film status."""
+
+    OFF = 0
+    """Battery heating is idle/off."""
+    HEATING = 1
+    """Battery heating is actively running."""
+
+
+class Dongle4GNetworkMode(_IntEnumWithPrettyString):
+    """SDongle 4G cellular network selection mode."""
+
+    AUTO_4G_3G_2G = 0
+    """Automatic 4G/3G/2G network selection."""
+    AUTO_3G_2G = 1
+    """Automatic 3G/2G network selection."""
+    ONLY_2G = 2
+    """Force 2G (GSM/GPRS) network connection only."""
+
+
+class Dongle4GApnMode(_IntEnumWithPrettyString):
+    """SDongle 4G APN configuration mode."""
+
+    AUTOMATIC = 0
+    """Automatic APN selection via SIM carrier profile."""
+    MANUAL = 1
+    """Manual APN parameter specification."""
+
+
+class Dongle4GAuthenticationType(_IntEnumWithPrettyString):
+    """SDongle 4G APN authentication protocol."""
+
+    NONE = 0
+    """No authentication required."""
+    PAP = 1
+    """Password Authentication Protocol (PAP)."""
+    CHAP = 2
+    """Challenge Handshake Authentication Protocol (CHAP)."""
+    PAP_OR_CHAP = 3
+    """Automatic negotiation of PAP or CHAP."""
+
+
+class Dongle4GSignalStrength(_IntEnumWithPrettyString):
+    """SDongle 4G cellular reception signal strength."""
+
+    NO_SIGNAL = 0
+    """No cellular signal detected."""
+    VERY_WEAK = 1
+    """Very weak reception (marginal connection)."""
+    WEAK = 2
+    """Weak reception."""
+    MEDIUM = 3
+    """Medium / good reception."""
+    STRONG = 4
+    """Strong reception."""
+    VERY_STRONG = 5
+    """Excellent signal reception."""
+
+
+class Dongle4GModuleStatus(_IntEnumWithPrettyString):
+    """SDongle 4G SIM card and modem status."""
+
+    NO_SIM_CARD = 0
+    """SIM card not detected in slot."""
+    SIM_REGISTRATION_FAILED = 1
+    """SIM card registration failed with cellular network."""
+    NO_CONNECTION = 2
+    """Modem active but no data connection established."""
+    CONNECTED = 6
+    """Cellular data connection actively established."""
+    SIM_PRESENT = 100
+    """SIM card present and recognized."""
+    PIN_REQUIRED = 101
+    """SIM PIN entry required to unlock card."""
+    PUK_REQUIRED = 102
+    """SIM PUK entry required (card locked)."""
+    MODULE_NOT_INSERTED = 65535
+    """4G wireless expansion module not inserted."""
+
+
+class ActivePowerLimitationMode(_IntEnumWithPrettyString):
+    """Grid active power export limitation mode."""
+
+    TOTAL_POWER = 0
+    """Active power limitation evaluated on total sum of all phases."""
+    SINGLE_PHASE_POWER = 1
+    """Active power limitation evaluated per individual phase."""
+
+
+class ReactivePowerControlMode(_IntEnumWithPrettyString):
+    """Grid reactive power control scheduling mode."""
+
+    NO_OUTPUT = 0
+    """No reactive power output."""
+    REACTIVE_DISPATCH = 1
+    """Direct reactive power dispatch."""
+    CLOSED_LOOP_POWER_FACTOR = 10
+    """Closed-loop power factor control."""
+
+
+class MeterPowerDirection(_IntEnumWithPrettyString):
+    """Power meter CT installation / power flow direction."""
+
+    FORWARD = 0
+    """Standard forward power direction (positive)."""
+    REVERSE = 1
+    """Reversed CT installation / power flow direction."""
+
+
+class SmartLoggerEmiOperationMode(_IntEnumWithPrettyString):
+    """SmartLogger environmental monitoring instrument (EMI) operating mode."""
+
+    MASTER = 0
+    """SmartLogger acts as Modbus master polling EMI sensors."""
+    SLAVE = 1
+    """SmartLogger acts as Modbus slave receiving sensor data."""
+
+
+class SubdeviceSupportFlag(IntFlag):
+    """Sub-device support feature flags (Register 30207).
+
+    When a bit is 0, the gated registers are unsupported by the inverter and should not be queried.
+    """
+
+    GRID_TIED_POINT_POWER_CONTROL = 1 << 2
+    """Grid-tied point power control / DI scheduling support.
+
+    Gates support for registers 40321-40324 (sub-device schedule power & control).
+    """
+    SUBDEVICE_MANAGEMENT = 1 << 3
+    """Sub-device / cascade management support.
+
+    Gates support for register 60450 (sub-device management).
+    """
+    BATTERY = 1 << 7
+    """Energy storage system (ESS) / battery support.
+
+    Gates support for registers 47075 (rn.STORAGE_MAXIMUM_CHARGING_POWER),
+    47077 (rn.STORAGE_MAXIMUM_DISCHARGING_POWER), 47081 (rn.STORAGE_CHARGING_CUTOFF_CAPACITY),
+    and 47082 (rn.STORAGE_DISCHARGING_CUTOFF_CAPACITY).
+    """
+    PERFORMANCE_DATA = 1 << 8
+    """Performance data telemetry support.
+
+    Gates support for register 14201 (performance data).
+    """
+
+
+class SubdeviceInPositionFlag(IntFlag):
+    """Sub-device in-position detected flags (Register 30209).
+
+    Indicates connected optional hardware. When 0, the device is not present and its registers should not be queried.
+    """
+
+    OPTIMIZERS = 1 << 2
+    """PV optimizers present / connected.
+
+    Gates support for register 47156 (unlock optimizer) and register 60460 (optimizer layout).
+    """
+    PHYSICAL_OPTIMIZER_LAYOUT_1 = 1 << 3
+    """Physical optimizer layout support (flag 1).
+
+    Gates support for register 60460 (optimizer layout).
+    """
+    PHYSICAL_OPTIMIZER_LAYOUT_2 = 1 << 5
+    """Physical optimizer layout support (flag 2).
+
+    Gates support for registers 47157 (optimizer power adjustment) and 60460 (optimizer layout).
+    """
+    BACKUP_BOX = 1 << 7
+    """Backup Box / off-grid backup device present.
+
+    Gates support for register 47102 (rn.STORAGE_BACKUP_POWER_STATE_OF_CHARGE).
+    """
+    ROUTER_WIFI_EXPANSION_1 = 1 << 9
+    """Router Wi-Fi / WLAN expansion module present (flag 1).
+
+    Gates support for registers 43048 (WLAN open condition) and 70049 (router Wi-Fi setting).
+    """
+    ROUTER_WIFI_EXPANSION_2 = 1 << 12
+    """Router Wi-Fi / WLAN expansion module present (flag 2).
+
+    Gates support for registers 43048 (WLAN open condition) and 70049 (router Wi-Fi setting).
+    """
+
+
+class FeatureMask1(IntFlag):
+    """System and regional feature mask flags (Register 30211).
+
+    When a bit is 0, the gated registers are unsupported by the inverter and should not be queried.
+    """
+
+    LICENSE_MANAGEMENT = 1 << 19
+    """License information management.
+
+    Gates support for register 14200 (license info).
+    """
+    DAYLIGHT_SAVING_TIME = 1 << 30
+    """Daylight Saving Time (DST) and timezone configuration.
+
+    Gates support for registers 42900 (rn.DAYLIGHT_SAVING_TIME) and 43006 (rn.TIME_ZONE).
+    """
+
+
+class FeatureMask2(IntFlag):
+    """Network, telemetry and battery limit feature mask flags (Register 30213).
+
+    When a bit is 0, the gated registers are unsupported by the inverter and should not be queried.
+    """
+
+    POWER_ADJUSTMENT_STATUS = 1 << 6
+    """Active and reactive power regulation status reporting.
+
+    Gates support for registers 35300 (active power regulation status)
+    and 35304 (reactive power regulation status).
+    """
+    NTP_TIME_SYNCHRONIZATION = 1 << 14
+    """NTP time synchronization support.
+
+    Gates support for registers 35112 (last NTP sync status), 35113 (last NTP sync time),
+    43311 (NTP sync toggle), 43312 (NTP server address), 43342 (NTP server port),
+    and 43343 (NTP sync interval).
+    """
+    ROUTER_WIFI_SETTINGS = 1 << 15
+    """Router / Wi-Fi configuration.
+
+    Gates support for registers 43048 (WLAN open condition) and 70049 (router Wi-Fi setting).
+    """
+    ADVANCED_COMMUNICATION = 1 << 27
+    """Advanced communication parameters.
+
+    Gates support for register 43345.
+    """
+    BATTERY_CHARGE_DISCHARGE_LIMITS = 1 << 28
+    """Battery charge/discharge power and capacity limits configuration.
+
+    Gates support for registers 47075 (rn.STORAGE_MAXIMUM_CHARGING_POWER),
+    47077 (rn.STORAGE_MAXIMUM_DISCHARGING_POWER), 47081 (rn.STORAGE_CHARGING_CUTOFF_CAPACITY),
+    47082 (rn.STORAGE_DISCHARGING_CUTOFF_CAPACITY), 47242 (rn.STORAGE_POWER_OF_CHARGE_FROM_GRID),
+    and 47249 (rn.STORAGE_FORCIBLE_DISCHARGE_POWER).
+    """
+
+
+class FeatureMask3(IntFlag):
+    """Grid code and network protection feature mask flags (Register 30215).
+
+    When a bit is 0, the gated registers are unsupported by the inverter and should not be queried.
+    """
+
+    COMMUNICATION_FAIL_ACTIVE_POWER_DERATING = 1 << 6
+    """Active power threshold when communication fails.
+
+    Gates support for register 47424.
+    """
+    SECONDARY_GRID_TIED_CHARGE_POWER_LIMIT = 1 << 9
+    """Secondary grid-tied charge power limit.
+
+    Gates support for registers 47242 (rn.STORAGE_POWER_OF_CHARGE_FROM_GRID) and 47590.
+    """
+    GRID_CODE_PROTECTION_CURVES = 1 << 12
+    """Grid code voltage/frequency protection curves (LVRT/HVRT).
+
+    Gates support for registers 42001 (rn.GRID_OUTPUT_MODE), 42061 (rn.AUTO_STARTUP_UPON_GRID_RECOVERY),
+    42084 (rn.GRID_CONNECTED_RECOVERY_MAX_VOLTAGE), 42200 (rn.LVRT_TRIGGER_THRESHOLD),
+    and 42201-42204 (LVRT/HVRT reactive current compensation coefficients).
+    """
+    PV_STRING_ACCESS_DETECTION = 1 << 13
+    """PV string access detection.
+
+    Gates support for register 60200.
+    """
+    MODBUS_TCP_SETTINGS = 1 << 23
+    """Modbus TCP server settings.
+
+    Gates support for register 65666.
+    """
+    CAPACITY_CONTROL = 1 << 30
+    """Energy storage capacity control / peak shaving support.
+
+    Gates support for registers 47954 (rn.STORAGE_CAPACITY_CONTROL_MODE)
+    and 47955 (rn.STORAGE_CAPACITY_CONTROL_SOC_PEAK_SHAVING).
+    """
+
+
+class FeatureMask4(IntFlag):
+    """Protocol and scheduling feature mask flags (Register 30217).
+
+    When a bit is 0, the gated registers are unsupported by the inverter and should not be queried.
+    """
+
+    MANAGEMENT_SYSTEM_SETTINGS = 1 << 0
+    """Management system protocol, server address and TLS settings.
+
+    Gates support for registers 48021 (management system access), 48022 (management system server address),
+    48052 (network status port), 48053 (SSL entry), 48054 (TLS version), and 48087 (protocol type).
+    """
+    BATTERY_WORKING_MODE_B = 1 << 9
+    """Battery charge/discharge working mode B.
+
+    Gates support for register 37006 (rn.STORAGE_UNIT_1_WORKING_MODE_B).
+    """
+    BAUD_RATE_NEGOTIATION_RS485_2_1 = 1 << 12
+    """RS485-2 port baud rate auto-negotiation (flag 1).
+
+    Gates support for registers 43024 (baud rate negotiation) and 43035 (baud rate setting).
+    """
+    LUNA_V200_SUPPORT = 1 << 15
+    """LUNA V200 battery firmware compatibility.
+
+    Indicates inverter firmware compatibility with LUNA2000 V200 battery packs.
+    """
+    DRY_CONTACT_SCHEDULING = 1 << 20
+    """Dry contact scheduling settings.
+
+    Gates support for registers 40300 (dry contact scheduling) and 42033 (rn.DRY_CONTACT_NORMAL_STATE).
+    """
+    BAUD_RATE_NEGOTIATION_RS485_2_2 = 1 << 22
+    """RS485-2 port baud rate auto-negotiation (flag 2).
+
+    Gates support for registers 43025 and 70068 (baud rate negotiation).
+    """
+
+
+class FeatureMask30342(IntFlag):
+    """System and ESS feature mask flags (Register 30342).
+
+    When a bit is 0, the gated registers are unsupported by the inverter and should not be queried.
+    """
+
+    RAPID_SHUTDOWN = 1 << 1
+    """Rapid shutdown on communication disconnect.
+
+    Gates support for registers 47323 (rapid shutdown enabled) and 47324 (rapid shutdown wait time).
+    """
+    ESS_LOW_POWER = 1 << 4
+    """Energy storage system (ESS) low power consumption mode.
+
+    Gates support for register 47842 (rn.STORAGE_ESS_LOW_POWER).
+    """
+    NETWORKING_ENHANCEMENT = 1 << 6
+    """Network signal enhancement.
+
+    Gates support for register 47164.
+    """
+    COMMUNICATION_STATUS = 1 << 12
+    """Communication status signal reporting.
+
+    Gates support for register 35286.
+    """
+
+
+class FeatureMask30308(IntFlag):
+    """Inverter operational capabilities and grid code feature mask flags (Register 30308).
+
+    When a bit is 0, the gated registers are unsupported by the inverter and should not be queried.
+    """
+
+    GRID_CODE = 1 << 0
+    """Grid code configuration.
+
+    Gates support for register 42000 (rn.GRID_CODE).
+    """
+    OUTPUT_MODE = 1 << 1
+    """Grid output mode (three-phase three-wire vs three-phase four-wire).
+
+    Gates support for register 42001 (rn.GRID_OUTPUT_MODE).
+    """
+    VOLTAGE_LEVEL = 1 << 2
+    """Voltage rating level.
+
+    Gates support for register 42002 (rn.ISLANDING_PROTECTION).
+    """
+    FREQUENCY_LEVEL = 1 << 3
+    """Frequency rating level.
+
+    Gates support for register 42003 (rn.INSULATION_RESISTANCE_PROTECTION_THRESHOLD).
+    """
+    REACTIVE_POWER_GRADIENT = 1 << 5
+    """Reactive power change gradient.
+
+    Gates support for register 42015.
+    """
+    ACTIVE_POWER_GRADIENT = 1 << 6
+    """Active power change gradient.
+
+    Gates support for register 42017.
+    """
+    SCHEDULE_INSTRUCTION_VALID_DURATION = 1 << 7
+    """Schedule instruction valid duration.
+
+    Gates support for register 42019.
+    """
+    MAX_APPARENT_POWER = 1 << 8
+    """Maximum apparent power benchmark.
+
+    Gates support for register 42021.
+    """
+    MAX_ACTIVE_POWER = 1 << 9
+    """Maximum active power benchmark.
+
+    Gates support for register 42023.
+    """
+    BACKUP_OFF_GRID_SWITCHING = 1 << 10
+    """Off-grid / backup mode switching support.
+
+    Gates support for registers 42044 (grid-tied/off-grid mode switching), 42045 (off-grid mode),
+    45250 (parallel off-grid switchover), 47102 (rn.STORAGE_BACKUP_POWER_STATE_OF_CHARGE),
+    47604 (rn.BACKUP_SWITCH_TO_OFF_GRID), and 47605 (rn.BACKUP_VOLTAGE_INDEPENDENT_OPERATION).
+    """
+    PQ_MODE = 1 << 11
+    """PQ mode scheduling.
+
+    Gates support for register 42046.
+    """
+    PID_COMPENSATION_DIRECTION = 1 << 12
+    """Built-in PID compensation direction.
+
+    Gates support for register 42048.
+    """
+    SPECIAL_CUT = 1 << 13
+    """Special cut setting.
+
+    Gates support for register 42050.
+    """
+    MPPT_MULTI_PEAK_SCANNING = 1 << 14
+    """Multi-peak MPPT scanning.
+
+    Gates support for register 42054 (rn.MPPT_MULTIMODAL_SCANNING).
+    """
+    MPPT_SCAN_INTERVAL = 1 << 15
+    """MPPT scanning interval configuration.
+
+    Gates support for register 42055 (rn.MPPT_SCANNING_INTERVAL).
+    """
+
+
+class FeatureMask30315(IntFlag):
+    """Power derating and characteristic curves feature mask flags (Register 30315).
+
+    When a bit is 0, the gated registers are unsupported by the inverter and should not be queried.
+    """
+
+    DERATED_BY_FIXED_ACTIVE_POWER_W = 1 << 0
+    """Derated by fixed active power in Watts.
+
+    Gates support for register 40120.
+    """
+    POWER_FACTOR = 1 << 1
+    """Power factor control.
+
+    Gates support for register 40122 (rn.POWER_FACTOR_2).
+    """
+    REACTIVE_POWER_COMPENSATION_QS = 1 << 2
+    """Reactive power compensation Q/S.
+
+    Gates support for register 40123 (rn.REACTIVE_POWER_COMPENSATION).
+    """
+    ACTIVE_POWER_PERCENTAGE_DERATING = 1 << 3
+    """Active power percentage derating.
+
+    Gates support for register 40125 (rn.ACTIVE_POWER_PERCENTAGE_DERATING).
+    """
+    ACTIVE_POWER_FIXED_VALUE_DERATING = 1 << 4
+    """Active power fixed value derating in kW.
+
+    Gates support for register 40126 (rn.ACTIVE_POWER_FIXED_VALUE_DERATING).
+    """
+    NIGHTTIME_REACTIVE_POWER_COMPENSATION_QS = 1 << 5
+    """Nighttime reactive power compensation Q-U.
+
+    Gates support for register 40128 (rn.REACTIVE_POWER_COMPENSATION_AT_NIGHT).
+    """
+    COSPHI_P_CURVE = 1 << 6
+    """cos phi - P characteristic curve.
+
+    Gates support for register 40133.
+    """
+    PF_U_CURVE = 1 << 7
+    """PF - U characteristic curve.
+
+    Gates support for register 40175.
+    """
+    PF_VOLTAGE_DETECTION_FILTER_TIME = 1 << 8
+    """PF-U voltage detection filter time.
+
+    Gates support for register 42032.
+    """
+    REACTIVE_POWER_ADJUSTMENT_TIME = 1 << 9
+    """Reactive power adjustment time.
+
+    Gates support for registers 40124 (rn.REACTIVE_POWER_ADJUSTMENT_TIME)
+    and 40196 (rn.CHARACTERISTIC_CURVE_REACTIVE_POWER_ADJUSTMENT_TIME).
+    """
+    OVERFREQUENCY_DERATING_RESPONSE_DURATION = 1 << 10
+    """Overfrequency derating response duration.
+
+    Gates support for register 42149.
+    """
+    QU_SCHEDULING = 1 << 12
+    """Q-U scheduling trigger and exit thresholds.
+
+    Gates support for registers 40038 (rn.Q_U_SCHEDULING_TRIGGER_POWER_PERCENTAGE)
+    and 40198 (rn.Q_U_SCHEDULING_EXIT_POWER_PERCENTAGE).
+    """
+    QP_CURVE = 1 << 14
+    """Q-P characteristic curve.
+
+    Gates support for register 40354.
+    """
+    DRM = 1 << 15
+    """Demand Response Enabling Device (DRM).
+
+    Gates support for register 42013.
+    """
+
+
+class FeatureMask30320(IntFlag):
+    """Grid protection and off-grid independent operation feature mask flags (Register 30320).
+
+    When a bit is 0, the gated registers are unsupported by the inverter and should not be queried.
+    """
+
+    LVRT_ACTIVE_CURRENT_MAINTENANCE_COEFFICIENT = 1 << 0
+    """LVRT active current maintenance coefficient.
+
+    Gates support for register 42118.
+    """
+    CHARGE_VOLTAGE_DERATING = 1 << 2
+    """Charge voltage derating.
+
+    Gates support for register 42243.
+    """
+    PCH_U_CURVE = 1 << 3
+    """Pch(U) power voltage characteristic curve.
+
+    Gates support for register 65620.
+    """
+    GRID_RECONNECTION_DELAY_TIME = 1 << 4
+    """Delay time for reconnecting automatically to power grid.
+
+    Gates support for register 42092.
+    """
+    INITIAL_DELAY_FREQUENCY_SENSITIVE_MODE = 1 << 5
+    """Initial delay in frequency-sensitive mode.
+
+    Gates support for register 42053.
+    """
+    SHORTTIME_GRID_DISCONNECTION = 1 << 7
+    """Short-time grid disconnection duration and quick startup.
+
+    Gates support for registers 42105 and 42116.
+    """
+    V_PHASE_GROUNDED = 1 << 8
+    """V-phase grounded detection.
+
+    Gates support for register 42115 (rn.COMMUNICATION_RESUME_STARTUP).
+    """
+    VOLTAGE_IN_INDEPENDENT_OPERATION = 1 << 9
+    """Voltage in independent operation (off-grid backup output voltage).
+
+    Gates support for register 47605 (rn.BACKUP_VOLTAGE_INDEPENDENT_OPERATION).
+    """
+    CT_ANOMALY_DETECTION = 1 << 10
+    """Current Transformer (CT) anomaly detection.
+
+    Gates support for register 47320.
+    """
+    UNDERFREQUENCY_RISE_POWER_FREQUENCY = 1 << 12
+    """Frequency of underfrequency rise power.
+
+    Gates support for register 42185.
+    """
+    OVERFREQUENCY_DERATING_FREQUENCY = 1 << 13
+    """Frequency of overfrequency derating.
+
+    Gates support for register 42186.
+    """
+
+
+class FeatureMask30350(IntFlag):
+    """Built-in PID and voltage rise suppression feature mask flags (Register 30350).
+
+    When a bit is 0, the gated registers are unsupported by the inverter and should not be queried.
+    """
+
+    BUILTIN_PID_RUNNING_MODE = 1 << 0
+    """Built-in PID module running mode.
+
+    Gates support for register 42180.
+    """
+    NIGHTTIME_OFFGRID_PID_REPAIR = 1 << 2
+    """Nighttime off-grid PID repair.
+
+    Gates support for register 42183.
+    """
+    DAYTIME_VOLTAGE_RISE_SUPPRESSION_PU_CURVE = 1 << 3
+    """Daytime voltage rise suppression P-U curve.
+
+    Gates support for register 42184.
+    """
+
+
+class ChargerChargingWaitReason(IntEnum):
+    """Reason why charger is waiting / paused (Register 30516)."""
+
+    UNKNOWN = 0
+    WAITING_FOR_EV = 1
+    HOUSEHOLD_POWER_EXCESSIVE = 2
+    INSUFFICIENT_GREEN_POWER = 3
+    PHASE_SWITCHING = 4
+
+
+class ChargerMeterConnectStatus(IntEnum):
+    """External power meter connection status (Register 30518)."""
+
+    DISCONNECTED = 0
+    CONNECTED = 1
+
+
+class ChargerGunWorkStatus(IntEnum):
+    """Charging gun / connector operational status (Register 31006)."""
+
+    STANDBY = 0
+    STANDBY_PLUGGED = 1
+    SCHEDULED_WAITING = 2
+    CHARGING = 3
+    CHARGING_ENDED = 4
+    FAULT = 5
+    ORDERLY_WAITING = 6
+    UPGRADING = 7
+    CHARGING_STARTING = 8
+    ALARM = 9
+    GREEN_POWER_WAITING = 10
+    GREEN_POWER_CHARGING = 11
+
+
+class ChargerGunLockStatus(IntEnum):
+    """Charging connector mechanical lock status (Register 31030)."""
+
+    LOCKED = 0
+    UNLOCKED = 1
+
+
+class ChargerGunLockControlMode(IntEnum):
+    """Connector lock control mode (Register 41006)."""
+
+    ALWAYS_LOCKED = 0
+    """Connector always locked"""
+    LOCK_DURING_CHARGING = 1
+    """Connector locked only while charging"""
+    LOCK_WHEN_PLUGGED = 2
+    """Connector locked when plugged in"""
+
+
+class ChargerAcWiringMode(IntEnum):
+    """AC grid wiring mode (Register 40036)."""
+
+    SINGLE_PHASE = 0
+    THREE_PHASE_FOUR_WIRE = 1
+
+
+class ChargerContactorControlMode(IntEnum):
+    """Contactor control mode (Register 40032)."""
+
+    SINGLE_PHASE = 0
+    THREE_PHASE = 1
+
+
+class ChargerGunWorkMode(IntEnum):
+    """Operating mode setting for the charging gun (Register 41000)."""
+
+    FAST_CHARGING = 0
+    GREEN_POWER_PRIORITY = 1
+
+
+class ChargerChargingMethod(IntEnum):
+    """Active charging method (Register 31040)."""
+
+    IMMEDIATE_CHARGING = 0
+    SCHEDULED_CHARGING = 1
+    NEXT_TRIP_CHARGING = 2
+
+
+class ChargerNetworkingMode(IntEnum):
+    """Network connection interface mode (Register 40008)."""
+
+    FAST_ETHERNET = 0
+    WIFI = 1
+
+
+class ChargerGroundingSystem(IntEnum):
+    """Grounding system type (Register 40006)."""
+
+    TN_TT = 0
+    IT = 1
+
+
+class ChargerIndicatorLightStatus(IntEnum):
+    """Charger LED ring indicator light status / lamp language (Register 40038)."""
+
+    STANDBY = 0
+    """Idle / standby (pulsating white)"""
+    AUTHENTICATION_WAITING = 1
+    """Vehicle plugged in, waiting for authorization (steady blue)"""
+    SCHEDULED_WAITING = 2
+    """Scheduled charging waiting (pulsating blue)"""
+    CHARGING = 3
+    """Normal charging in progress (pulsating blue)"""
+    CHARGING_COMPLETED = 4
+    """Charging completed, connector plugged (steady blue)"""
+    GREEN_POWER_CHARGING = 5
+    """PV green power charging in progress (pulsating green)"""
+    FAULT_ALARM = 6
+    """System fault or alarm (steady or flashing red)"""
+    UPGRADING = 7
+    """Firmware upgrade in progress (flashing white)"""
+
+
+class ChargerAcType(IntEnum):
+    """Regional AC charger classification type (Register 30110)."""
+
+    CBG = 0
+    """China / CBG regional variant"""
+    EUROPE = 1
+    """European regional variant"""
+
+
+class ChargerNetworkingResult(IntEnum):
+    """Charger networking configuration outcome (Register 30114)."""
+
+    SUCCESS = 0
+    """Networking configuration successful"""
+    FAILURE = 1
+    """Networking configuration failed"""
+
+
+class ChargerDispatchScenario(IntEnum):
+    """Energy scheduling and dispatch scenario (Register 30132)."""
+
+    PV_ESS_CHARGER_1_0_WITHOUT_METER = 0
+    """PV + Energy Storage + Charger 1.0 without power meter"""
+    PV_ESS_CHARGER_1_0_WITH_METER = 1
+    """PV + Energy Storage + Charger 1.0 with power meter"""
+    PV_ESS_CHARGER_2_0 = 2
+    """PV + Energy Storage 2.0 scenario"""
+
+
+class ChargerGunType(IntEnum):
+    """Charging connector physical interface type (Register 31002)."""
+
+    GB18487_TYPE_2 = 0
+    """Standard GB18487 / Type 2 AC connector interface"""
+
+
+class ChargerOutputRelayStatus(IntEnum):
+    """Charging output main contactor / relay state (Register 31008)."""
+
+    DISCONNECTED = 0
+    """Contactor open / disconnected"""
+    CONNECTED = 1
+    """Contactor closed / connected"""
+
+
+class ChargerReportedWorkMode(IntEnum):
+    """Reported operating work mode of the charger gun (Register 31034)."""
+
+    FAST_CHARGING = 0
+    """Fast charging mode"""
+    GREEN_POWER = 1
+    """Green power / PV surplus priority mode"""
+    NEXT_TRIP = 2
+    """Next trip scheduled target mode"""
+
+
+class ChargerDhcpStatus(IntEnum):
+    """DHCP client state (Register 40010)."""
+
+    ENABLED = 0
+    """DHCP client enabled (automatic IPv4 configuration)"""
+    DISABLED = 1
+    """DHCP client disabled (static IPv4 configuration)"""
+
+
+class ChargerFactoryReset(IntEnum):
+    """Factory reset command (Register 40034)."""
+
+    RESET = 0
+    """Restore parameters to factory default settings"""
+
+
+class ChargerVersionRollback(IntEnum):
+    """Firmware version rollback permission (Register 40056)."""
+
+    DISALLOWED = 0
+    """Firmware version downgrade disallowed"""
+    ALLOWED = 1
+    """Firmware version downgrade allowed"""
+
+
+class ChargerGunLockPresence(IntEnum):
+    """Electronic connector lock hardware presence (Register 41012)."""
+
+    PRESENT = 0
+    """Motorized connector lock hardware present"""
+    NOT_PRESENT = 1
+    """Motorized connector lock hardware not present"""

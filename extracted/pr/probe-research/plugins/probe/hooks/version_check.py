@@ -1,0 +1,1933 @@
+#!/usr/bin/env python3
+"""Probe version check. Runs on SessionStart AND on PreCompact.
+
+Prints a Claude Code hook JSON to stdout:
+  - up to date, or no data        -> {"continue": true}
+  - a newer version is available   -> {"systemMessage": ...,
+                                       "hookSpecificOutput": {additionalContext}}
+
+WHY PRECOMPACT TOO.
+
+SessionStart was the only trigger, and it fires once per session. That is fine
+for anyone who opens and closes sessions through the day, and useless for the
+researcher this tool is built for: they keep a handful of sessions alive for
+weeks, and their Probe work goes through the HOSTED MCP, which runs no code on
+their machine at all. Such a laptop can sit months behind with a perfectly
+healthy updater that simply never gets an occasion to run.
+
+PreCompact is the occasion. It fires when a session's context is compacted,
+which is a thing that only happens to long-lived sessions -- so it targets
+exactly the population SessionStart misses, and stays quiet for everyone else.
+
+ON PRECOMPACT THIS HOOK IS SILENT, and that is deliberate on two counts. The
+output contract is not the same one (`hookSpecificOutput.hookEventName` is
+`SessionStart` below, and additionalContext is that event's channel), so
+reusing this payload there would be emitting a shape for the wrong event.
+And a nudge injected mid-compaction is noise at the worst possible moment --
+the user did not do anything, the agent is busy, and the same message already
+rendered when the session began. PreCompact exists here to APPLY, not to talk:
+it runs the same gate chain, spawns the same detached upgrade AND the same
+team-note reconcile, then prints `{"continue": true}` and gets out of the way.
+
+THE TEAM-NOTE RECONCILE IS THE SECOND REASON PRECOMPACT EARNS ITS PLACE. `Stop`
+pushes the local file at the end of every turn, so a session that ends normally
+never needs this. A session alive for weeks is the one that does: it may not
+reach `SessionEnd` for weeks, and the start hook it ran once cannot help it
+again. Compaction is the only recurring occasion such a session offers.
+
+Contract:
+  * FAIL-OPEN. Any error prints {"continue": true} and exits 0 — a broken check
+    never blocks a session. (session-start.sh is the outer backstop.)
+  * SYNCHRONOUS. The comparison finishes before we print, because the
+    systemMessage is only delivered if it is in this hook's stdout.
+  * THROTTLED. The network is hit at most once per TTL (default 15m) on success,
+    and no more than once per BACKOFF (default 1h) after a failure — so an offline
+    machine does not re-hit the network every session. BACKOFF stays longer than
+    TTL on purpose: retrying something that just failed should be less eager than
+    refreshing something that worked. A cache file stores
+    {fetched_at, ok, manifest}; within TTL we compare against the cached manifest
+    (no network) so the nudge still renders every session until the user upgrades.
+    A failed/invalid fetch keeps the last-good manifest (never evicts it) and
+    records the attempt so the backoff applies.
+
+Resolution order for the API origin mirrors the CLI (sdk.config.resolve):
+  PROBE_BASE_URL env  ->  ~/.config/probe/config.json base_url  ->  hosted default,
+  restricted to http(s) so a stray file://ftp:// origin can't be fetched.
+Semver comparison prefers packaging.version and falls back to a normalized
+numeric-triplet compare (handles 0.8 vs 0.8.0 and ignores pre-release/build
+suffixes) when packaging is not importable in the system python.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import NoReturn
+
+# `time` left with the helpers that moved to version_policy; pathlib
+# came back for the team-note brief, which reads the CLI's stored credential and
+# makes one short, fail-open request of its own.
+# The shared policy: TTL/BACKOFF, the cache and state paths, the cache reader and
+# writer, and the fetch. `make sync-plugin-policy` copies it here from
+# src/probe/version_policy.py and tests/test_policy_sync.py fails if the copies
+# drift. This is a sibling import -- sys.path[0] is this script's directory when
+# session-start.sh runs `python3 <plugin_root>/hooks/version_check.py` -- because
+# the system python3 has no probe package to import from.
+#
+# Three of the values below used to be defined here as well as in the CLI. The
+# autoupdate STATE path was the dangerous one: this file recomputed what
+# autoupdate.py owned, and a divergence would have stopped auto-update while
+# `probe doctor` kept reporting it healthy.
+import version_policy
+
+# The vendored session marker (same sibling-import mechanics as version_policy;
+# `make sync-session-marker` keeps it byte-identical to the SDK copy). Imported
+# at module load, where sys.path[0] is guaranteed to be the hooks directory --
+# an import deferred into _tracking_off() would resolve against whatever path
+# the caller happens to have.
+import _session_marker
+
+# The server's notices for this plugin (plan T8): shown once per computer to the person and once per
+# session to the agent, through the ledger the CLI, the SDK and pi share. Sibling import, as above.
+import server_notices
+
+TTL = version_policy.TTL
+BACKOFF = version_policy.BACKOFF
+TIMEOUT = version_policy.TIMEOUT
+DEFAULT_BASE = version_policy.DEFAULT_BASE
+
+
+# The CLI release that introduced the one-step update, which the wizard now runs
+# (setup is wizard-only, Richard 2026-09-29). The nudge points at the wizard only
+# for CLIs >= this; older ones get the raw commands (which get them to a version
+# that has it). CI keeps this == the released version (see release.yml).
+UPDATE_CMD_MIN_CLI = "0.8.1"
+#: What an update needs of an open session where it follows (`_picked_up`):
+#: nothing. Its hooks run the installed plugin from their next event
+#: (`dispatch.hand_over`), a tap's watcher hands its session to the Probe
+#: service (HANDBACK_TAP on), and the service moves the rest after its update
+#: (`probe.service.followup`). Anywhere else, RESTART_TO_APPLY, as before.
+PICKED_UP = "open sessions pick it up at their next prompt"
+RESTART_TO_APPLY = "restart {agent} to apply"
+#: The Probe plugins and the tap, by name, in Claude Code's install ledger: both install names'
+#: (`install_names.json`), the taps last.
+LEDGER_PLUGINS = ("probe-research", "probe-research-daemon", "probe", "probe-daemon", "probe-research-tap", "probe-tap")
+LEDGER_TAPS = ("probe-research-tap", "probe-tap")
+#: The first tap whose watcher hands its session to the Probe service (`tap/handback.py`).
+HANDBACK_TAP = "0.10.13"
+#: Where a tap keeps a session's `tap watch` files (`tap/config.py` WATCHER_DIR_ENV): `/tmp` unless set.
+WATCHER_DIR_ENV = "PROBE_TAP_WATCHER_DIR"
+
+# Which hook event we are running under. routes.json exports this ONLY for
+# PreCompact, so an unset value means SessionStart -- the reading that preserves
+# the old behaviour, which matters because an older wiring can ship alongside
+# a newer copy of this file (the plugin and CLI version independently).
+HOOK_EVENT_ENV = "PROBE_HOOK_EVENT"
+PRECOMPACT = "precompact"
+
+# session-start.sh parses SessionStart's stdin and exports the `source` field
+# here. "compact" means this session just lost everything that was not written
+# down -- the one moment a standing instruction can still recover it, because
+# PreCompact has no context channel and no agent turn runs between the event
+# and the summarizer.
+SESSION_SOURCE_ENV = "PROBE_SESSION_SOURCE"
+COMPACT_SOURCE = "compact"
+RESUME_SOURCE = "resume"
+# The session id, parsed from the same stdin by session-start.sh. It keys the
+# tracking signal (`probe session untrack` -> sessions/<id>.tracking = off),
+# which is the researcher's DECLARATION that this conversation is not
+# research. The declaration outlives the model's context -- the signal is a
+# file, the skill text that carried it is summarizer fodder -- so the context
+# boundary is exactly where a hook must re-assert it.
+SESSION_ID_ENV = "PROBE_SESSION_ID"
+# The initial working directory, parsed from the same SessionStart JSON as the
+# id. It is immutable session provenance: later `cd`s do not change the default
+# a session was seeded with.
+SESSION_CWD_ENV = "PROBE_SESSION_CWD"
+# Set by the lean `probe-research-daemon` plugin's routes.json (daemon reads): the
+# daemon records and reads for this agent, so NOTHING here goes into the agent's
+# context -- the update nudge and the stuck-write / team-note reports reach the
+# researcher as a systemMessage instead, and `probe doctor` has the detail.
+PROFILE_ENV = "PROBE_PLUGIN_PROFILE"
+PROFILE_DAEMON = "daemon"
+# The nudge is CONDITIONAL on the domain ("the team's ML work") for the same
+# reason the pointer block is: this hook is user-global, and an unconditional
+# order to do Probe work in a dotfiles session teaches the agent to ignore the
+# block. And it asks only for what the summary STILL SHOWS -- the compacted
+# span itself is gone, and inviting its reconstruction would land invented
+# decisions in team-visible notes as provenance. It names the `track-work`
+# skill because a compaction is the one moment the skill text is gone.
+COMPACT_CONTEXT = (
+    "Context was just compacted. If this session involves the team's ML work, reconcile Probe "
+    "before continuing - make sure everything is up to date in Probe with the local state "
+    "(artifacts, metrics, entities, notes) but also make sure you're not missing anything FROM "
+    "Probe either. Do not reconstruct what the summary no longer carries. The `track-work` "
+    "skill has the current commands."
+)
+# TWO SENTENCES since 2026-09-17, and no more. This is injected at EVERY session
+# start, so it is the most-repeated string the plugin owns. The first sentence is
+# the state; the second is the one-time mention of `/probe on` that replaced
+# "ask the user" -- the behaviour eval showed that phrasing turning into an agent
+# reaching for the switch itself, or asking on every refusal. Naming the origin of
+# the state and how to flip it beyond that one mention is the regression.
+#: The `daemon` state's line, at every session start: who writes what (the agent
+#: launches, the daemon records). Selected instead of nothing (a fresh start
+#: under `full` injects nothing), because an agent that is not told will record,
+#: and then the daemon and the agent both write. The text is
+#: `_session_marker.DAEMON_CONTEXT`, the one statement of the split, which the
+#: guard hook also sends when the switch moves to `daemon` mid-session.
+DAEMON_CONTEXT = _session_marker.DAEMON_CONTEXT
+
+#: After a compaction in the `daemon` state, IN PLACE OF `COMPACT_CONTEXT`: the
+#: daemon read the transcript through the compaction, so there is nothing to
+#: reconcile INTO Probe; reads are still the agent's.
+COMPACT_CONTEXT_DAEMON = (
+    "Context was just compacted. No need to re-record what happened in Probe. Check Probe for "
+    "any missing content that the compaction dropped."
+)
+
+TRACKING_OFF_CONTEXT = (
+    "Probe is READ-ONLY here: no writes, but Probe's own upkeep the user asks for runs; reads "
+    "(MCP, and `probe` read commands like `session status`) are fine. If the user asks to record something, say "
+    "once that `/probe on` would - never as a running reminder."
+)
+
+#: THE ONE LINE `off` STILL INJECTS, and the reason it is not zero.
+#:
+#: `off` suppresses everything else this hook emits -- that is what "no effect on
+#: the coding agent" means. This line survives because of the failure documented
+#: in `_start_context`: the pointer block in the researcher's own CLAUDE.md /
+#: AGENTS.md says to register work in Probe, no hook can remove it per session,
+#: and a model whose ONLY information about Probe is that standing instruction
+#: will follow it -- which is how an untracked session created a project while
+#: the status line read `untracked`. Injecting nothing here does not buy silence;
+#: it buys a wall the model hits once a session and can never learn from.
+#:
+#: The second sentence is the part that cannot be dropped. An agent that cannot
+#: look must not report "no prior work found" -- that is a claim about the team's
+#: record, made by something that did not read it.
+TRACKING_FULLY_OFF_CONTEXT = (
+    "Probe is OFF for this conversation, and the Probe service does not capture its transcript: make no Probe calls at "
+    "all about the work, reads included, and do "
+    "not ask to change the state; a repeat request is not permission - only `/probe on` or "
+    "`/probe read` typed by the researcher, or their asking you to turn Probe on here, changes what you may do. "
+    "Probe's own upkeep the researcher asks for (install, settings, update, repair, uninstall, bringing in past "
+    "work) still runs, as `npx -y probe-research ...`. Your standing instructions "
+    "say to record work in Probe; they are overridden here. If prior work would have been "
+    "relevant, say you could not look - never report that none exists."
+)
+
+
+#: The document's filename. Kept in step with `probe.cli.team_note_file`, which
+#: is what actually writes it -- this module only has to NAME the same file.
+DOCUMENT_NAME = "probe-team-note.md"
+
+
+#: Mirrors `probe.cli.team_note_file.RENDER_FAILURE_FILE` under
+#: `probe.version_policy.state_dir()`. Duplicated rather than imported for the
+#: same reason `_document_path` duplicates the CLI's path resolution: this file
+#: is a hook, run by whatever bare python3 the harness has, with no guarantee
+#: `probe` is importable. `test_render_failure_path_matches_the_cli` pins them.
+STATE_DIRNAME = "probe"
+RENDER_FAILURE_FILE = "render-failures.json"
+
+RENDER_FAILURE_CONTEXT = (
+    "The team note could not be written into this session's instruction file, so "
+    "what you can see of it may be stale or absent:\n{detail}\n"
+    "Reading the note directly still works: open `{document}`."
+)
+
+#: Says WHOSE text each parked copy is, because the answer changes the action.
+#: A copy this machine's current credential wrote is unsent work to fold back
+#: in; a copy another credential wrote is a different team's private prose, and
+#: folding that in would move one tenant's note into another's.
+PARKED_COPIES_CONTEXT = (
+    "Team-note copies are sitting on this machine unsynced. Nothing will send them: {detail} A "
+    "copy written under the credential this machine uses now is unsent work: read it, fold "
+    "anything still true into `{document}` (which does sync), and delete it. A copy under a "
+    "DIFFERENT credential belongs to another team - leave it or hand it to them, never fold it "
+    "in. `probe doctor` names the owner of each."
+)
+
+
+
+def _hook_harness():
+    """The harness resolver beside this file, loaded by explicit path."""
+    import importlib.util  # noqa: PLC0415
+
+    key = "_probe_hooks._hook_harness"
+    if key in sys.modules:
+        return sys.modules[key]
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_hook_harness.py")
+    spec = importlib.util.spec_from_file_location(key, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[key] = module
+    spec.loader.exec_module(module)
+    return module
+
+def _render_failures() -> list[str]:
+    """What the last background render could not do. NEVER raises.
+
+    A hook that cannot read a status file must not become the reason a session
+    fails to start, so every error here degrades to "nothing to report" -- the
+    same fail-open contract the version check runs under.
+    """
+    xdg = os.environ.get("XDG_STATE_HOME")
+    base = xdg if xdg else os.path.join(os.path.expanduser("~"), ".local", "state")
+    path = os.path.join(base, STATE_DIRNAME, "team-note", RENDER_FAILURE_FILE)
+    try:
+        with open(path, encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (OSError, ValueError):
+        return []
+    found = payload.get("failures") if isinstance(payload, dict) else None
+    return [str(item) for item in found][:5] if isinstance(found, list) else []
+
+
+def _team_note_dir() -> str:
+    """`state_dir()/team-note`, resolved the way `probe.version_policy` resolves it.
+
+    Deliberately duplicates the CLI rather than importing it: this file is a
+    hook, run by a bare `python3` against whatever interpreter the harness has,
+    with no guarantee the `probe` package is importable. Three lines of
+    duplication beat a briefing that disappears whenever the CLI is installed
+    somewhere this interpreter cannot see.
+    """
+    xdg = os.environ.get("XDG_STATE_HOME")
+    # NO expanduser ON THE XDG VALUE, because `probe.version_policy.state_dir`
+    # does not do one either (`Path(xdg)`), and this file's whole job is to
+    # name the same path the CLI writes. Expanding here would send the hook
+    # somewhere the CLI never looks the moment anyone exports `~/...`.
+    base = xdg if xdg else os.path.join(os.path.expanduser("~"), ".local", "state")
+    return os.path.join(base, "probe", "team-note")
+
+
+def _document_path() -> str:
+    """Absolute path of the synced document, resolved the way the CLI resolves it.
+
+    ONE DOCUMENT PER MACHINE, and the harness must not reach this path. It used
+    to sit beside each harness's instruction file, which -- with a base copy
+    keyed on the credential alone -- gave three harnesses one merge base and
+    made every session start push a whole document over the last one
+    (2026-09-07, v765-v770). `PROBE_AGENT` still picks which INSTRUCTION FILE
+    gets the managed block; it no longer picks a document.
+
+    `test_team_note_brief_names_the_real_path` pins this against
+    `team_note_file.paths().document` across the whole env matrix, so a change
+    to one fails on the other.
+    """
+    return os.path.join(_team_note_dir(), DOCUMENT_NAME)
+
+
+def _parked_copies() -> list:
+    """Documents on disk that are NOT being synced, newest first, each with
+    whether it belongs to the credential this machine is using now.
+
+    A parked copy is text somebody wrote that this machine will not send: a
+    leftover per-harness document from the old layout, or one written under a
+    different credential. The CLI parks them rather than deleting them, and this
+    is the only channel that tells anyone they are there -- `notes sync` runs
+    from the session-start hook with its output sent to DEVNULL, so a notice it
+    printed would reach nobody.
+    """
+    roots = [_team_note_dir()]
+    for harness in _hook_harness().registry().all():
+        home = harness.home_dir()
+        if home is not None:
+            roots.append(str(home))
+    # WHOSE THE LIVE DOCUMENT IS, read straight off disk. This hook has no
+    # credential and cannot compute an owner key, but it does not need one: the
+    # question is only "same hand as the file being synced right now", and both
+    # answers are sitting in `.owner` sidecars.
+    try:
+        with open(os.path.join(_team_note_dir(), DOCUMENT_NAME + ".owner"), encoding="utf-8") as fh:
+            live_owner = fh.read().strip()
+    except OSError:
+        live_owner = None
+    found = []
+    for root in dict.fromkeys(roots):
+        try:
+            names = sorted(os.listdir(root), reverse=True)
+        except OSError:
+            continue
+        for name in names:
+            # Sidecars travel with a parked copy (its owner stamp, the base it
+            # derives from, that base's version) and are not copies themselves.
+            if name.endswith((".owner", ".base", ".meta")):
+                continue
+            if not any(name.startswith(f"{DOCUMENT_NAME}.{kind}-") for kind in ("unsynced", "legacy")):
+                continue
+            path = os.path.join(root, name)
+            try:
+                with open(path + ".owner", encoding="utf-8") as fh:
+                    owner = fh.read().strip()
+            except OSError:
+                owner = None
+            if owner is not None and live_owner is not None and owner != live_owner:
+                # ANOTHER CREDENTIAL'S NOTE. Naming it here would send an agent
+                # to open a different team's private prose to find out whose it
+                # is -- and that reading lands in this session's transcript.
+                continue
+            found.append(path)
+    return found
+
+
+
+
+#: The server notices `_final` put in this hook's output: shown only once it went out (`_emit`).
+_SHOWING = server_notices.Notices()
+
+
+def _emit(obj: dict) -> NoReturn:
+    try:
+        sys.stdout.write(json.dumps(obj))
+        sys.stdout.flush()
+    except BaseException:
+        _SHOWING.release()
+        raise
+    _SHOWING.commit()
+    sys.exit(0)
+
+
+def _seed_tracking_signal() -> None:
+    """Give this session its STARTING tracking value, once, at SessionStart.
+
+    One setting, one file. The signal is written here from the effective
+    initial-cwd default, so every reader -- the statusline, `probe session
+    status`, the off contract
+    below, tracking_guard's warn -- resolves the SAME value from the SAME
+    place. Before this, an absent file meant "undecided" and each reader
+    decided for itself what that was worth: the statusline resolved it against
+    the default and rendered `off`, while this hook and the guard looked only
+    for an explicit marker and so read a default-off machine as tracking. That
+    is how a session showing `untracked` filled the dashboard with projects.
+
+    Idempotent and never overrides a decision (`set_session_state_if_absent`), so a
+    resume or post-compact start re-runs it harmlessly. Fail-soft: a seed that
+    cannot be written leaves the file absent, which every reader now resolves
+    against the same default anyway -- the seed makes the state explicit, it is
+    not what makes it correct. One exception: the state a Codex session was
+    launched with (`_launch_environ`) reaches it only through this seed, so an
+    unwritten seed leaves such a session on the machine default.
+    """
+    session_id = os.environ.get(SESSION_ID_ENV) or ""
+    if not session_id:
+        return  # PreCompact carries no id; the session was seeded at its start.
+    if _daemon_profile():
+        _session_marker.mark_session_profile(session_id, _session_marker.RECORDER_DAEMON)
+    try:
+        # The signal is the live state. Once present, even discovering the cwd
+        # default is both wasted ancestor I/O and a risk of live-reloading a
+        # config edit into a session that already decided.
+        if _session_marker.session_state(session_id) is not None:
+            return
+        cwd = os.environ.get(SESSION_CWD_ENV) or None
+        state, source = _session_marker.resolve_state_default(cwd, environ=_launch_environ())
+        # `on` is stored by who records (the wizard's "Who records", `seed_state`):
+        # `daemon` in the lean plugin's sessions, whose agent has nothing to
+        # record with, and `full` everywhere else -- including a default still
+        # reading `daemon` from when the switch had that position (Richard
+        # 2026-09-29: the daemon is the wizard's alone); inline while the team's
+        # daemon allowance is spent. Who decided it (`seed_source`): `probe session
+        # status` says whether the researcher set the state or it is a machine default.
+        _session_marker.seed_started(session_id, state, source)
+    except Exception:
+        pass
+
+
+#: The harness whose hooks do not get the variables it was started with: Codex
+#: applies its `shell_environment_policy` to them (issue 3620).
+HOOK_ENV_FILTERED = "codex"  # harness-literal-ok: only Codex filters its hooks' environment (issue 3620)
+
+
+def _launch_environ() -> "dict | None":
+    """The environment the Codex process itself was started with, when this
+    hook runs under Codex and its own environment has no state override; None
+    (read this process's own) otherwise. Codex's `shell_environment_policy`
+    drops `PROBE_SESSION_STATE` from what its hooks inherit (issue 3620), so a
+    session launched with it set seeded the machine default instead. Every other
+    harness passes its environment to its hooks whole. Linux only
+    (`harness_launch_environ`); elsewhere `probe doctor` says how to pass it."""
+    if _session_marker.state_env_override() is not None:
+        return None
+    try:
+        hooks = _hook_harness()
+        harness = hooks.current()
+        if harness.id != HOOK_ENV_FILTERED or not harness.binary:
+            return None
+        others = tuple(h.binary for h in hooks.registry().all() if h.binary and h.binary != harness.binary)
+    except Exception:
+        return None
+    return _session_marker.harness_launch_environ(harness.binary, stop_titles=others)
+
+
+def _probe_state() -> str:
+    """This conversation's three-valued state, resolved exactly as the guard does.
+
+    Falls back to `full` when the session id is missing or the resolver raises:
+    everything in this hook is advisory, and a hook that guessed "off" on its own
+    failure would silence the plugin on a machine that never asked for it.
+    """
+    session_id = os.environ.get(SESSION_ID_ENV) or ""
+    try:
+        if session_id:
+            explicit = _session_marker.session_state(session_id)
+            if explicit is not None:
+                return explicit
+        state, _source = _session_marker.resolve_state_default(
+            os.environ.get(SESSION_CWD_ENV) or None
+        )
+        return state
+    except Exception:
+        return _session_marker.STATE_FULL
+
+
+def _tracking_off() -> bool:
+    """Whether this session is untracked -- by declaration or by default.
+
+    `is_tracking`, not the raw signal. A folder or machine default of `off` HAS
+    made the declaration: the default is the researcher choosing the value a
+    new session starts at, which is the same setting the toggle flips, so
+    honouring it only when someone re-typed it per session is honouring it
+    nowhere. Doubt still reads False -- no id, invalid id, unreadable state --
+    because an uncertain read must degrade to the nudge rather than to silence.
+    """
+    session_id = os.environ.get(SESSION_ID_ENV) or ""
+    if not session_id:
+        return False
+    try:
+        signal = _session_marker.tracking_signal(session_id)
+        if signal is not None:
+            return not _session_marker.is_tracking(signal)
+        cwd = os.environ.get(SESSION_CWD_ENV) or None
+        on, _source = _session_marker.resolve_tracking_default(cwd)
+        return not on
+    except Exception:
+        return False
+
+
+def _start_context() -> str | None:
+    """What to inject at a session start, or None.
+
+    THE OFF CONTRACT GOES IN AT EVERY START, boundary or not. It used to be
+    injected only on compact/resume, on the reasoning that those are where a
+    declaration gets lost -- but a FRESH start was the one that carried nothing
+    at all, and a fresh start is where an agent picks up a global instruction
+    to register its work in Probe. The state was on the status line, which is
+    chrome the model cannot read. So the model's first and only information
+    about tracking was the instruction telling it to record, and it recorded:
+    that is how an untracked session created a project while displaying
+    `untracked`. A session must be TOLD, in the one channel it actually reads.
+
+    Everything else is unchanged. A tracking session still gets the reconcile
+    nudge after a compaction and silence on resume and on a fresh start --
+    injecting a nudge there would be new nagging, not a fix.
+
+    PreCompact runs this same file (see docstring) and must stay SILENT there:
+    additionalContext is SessionStart's channel, and mid-compaction there is
+    nobody left to read it. Silent is not the same as idle, which is why the
+    maintenance spawn sits ABOVE the PreCompact return below -- see there.
+    """
+    # THE MAINTENANCE RUNS ON EVERY EVENT THIS HOOK FIRES FOR, PreCompact
+    # included, which is why it is spawned before the silence check rather than
+    # after it. A compaction only ever happens to a LONG-LIVED session, and a
+    # long-lived session is exactly the one whose team-note edits have nowhere
+    # else to go: `Stop` pushes at the end of each turn, but a session that runs
+    # for weeks may not reach `SessionEnd` for weeks, and a start hook it already
+    # ran once cannot help it. Compaction is the one recurring occasion such a
+    # session offers, and it costs nothing here -- the spawn is detached and its
+    # return value is only ever a MESSAGE, which PreCompact then discards.
+    # `off` MEANS OFF, INCLUDING THE MAINTENANCE. The spawn below refreshes the
+    # instruction block and pushes the team note -- two network calls this
+    # session never asked for. A researcher who turned Probe off and then found
+    # it still talking to the server would be right to say it was not off, so
+    # this returns before the spawn rather than merely suppressing its message.
+    state = _probe_state()
+    if state == _session_marker.STATE_OFF:
+        if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT:
+            return None
+        # Everything else is suppressed -- the outbox report, the compact nudge,
+        # the render-failure and parked-copy reports, the stale-CLI warning. See
+        # TRACKING_FULLY_OFF_CONTEXT for why this one line is not suppressed too.
+        return TRACKING_FULLY_OFF_CONTEXT
+
+    stale_cli = _spawn_session_maintenance()
+    if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT:
+        return None
+    parts: list[str] = []
+    tracking_off = not _session_marker.state_allows_writes(state)
+    if tracking_off:
+        parts.append(TRACKING_OFF_CONTEXT)
+    elif state == _session_marker.STATE_DAEMON and not _session_marker.companion_key_held():
+        # `daemon` chosen, but the daemon has no key and can never start: say so
+        # now rather than let the agent believe something records it.
+        parts.append(_session_marker.daemon_degraded_notice("unauthorized"))
+    elif state == _session_marker.STATE_DAEMON and os.environ.get(SESSION_SOURCE_ENV) == COMPACT_SOURCE:
+        # Mid-session the worker is already running or it is not: say only what
+        # is true NOW. A dead daemon must not be re-announced as recording.
+        status = _session_marker.daemon_status(os.environ.get(SESSION_ID_ENV) or "", state)
+        if status is not None and status[0] == _session_marker.DAEMON_LIVE:
+            parts.extend((DAEMON_CONTEXT, COMPACT_CONTEXT_DAEMON))
+        else:
+            parts.append(_session_marker.daemon_degraded_notice(status[1] if status else None))
+    elif state == _session_marker.STATE_DAEMON:
+        # The swapped literal: an install that never chooses `daemon` never sees
+        # it, and `COMPACT_CONTEXT` below stays byte-identical. At a fresh start
+        # the worker is starting with the capture daemon; the per-prompt notice
+        # says so if it does not.
+        parts.append(DAEMON_CONTEXT)
+    else:
+        source = os.environ.get(SESSION_SOURCE_ENV)
+        if source == COMPACT_SOURCE:
+            parts.append(COMPACT_CONTEXT)
+    # ORDER IS BY URGENCY, not by budget. This used to read "before the brief on
+    # purpose", because the team-note brief travelled this channel and could
+    # occupy most of a 9000-character cap, so whatever followed it was eaten
+    # first. The note left this channel: it renders into the instruction file
+    # now, and what remains here is a few hundred characters of nudges. The
+    # ordering survives because an action item still belongs above background.
+    outbox = _outbox_context(tracking_off)
+    if outbox:
+        parts.append(outbox)
+    # EVERY ACTION ITEM GOES BEFORE THE BRIEF, stale_cli included. It used to be
+    # appended after, where -- by the reasoning three lines up -- it was first in
+    # line to be eaten, and what it says is that the team note is not syncing at
+    # all. A warning about the briefing mechanism cannot be the thing the
+    # briefing mechanism drops.
+    if stale_cli:
+        parts.append(stale_cli)
+    # THE TEAM NOTE NO LONGER TRAVELS THIS CHANNEL, and that is the point of the
+    # change this comment survives. It is rendered into a managed block in
+    # CLAUDE.md / AGENTS.md, which the harness reads whole and before any hook of
+    # ours runs -- so the note stopped being something this hook has to size
+    # against a character budget it kept getting wrong.
+    #
+    # What the hook still owes a session is the report when that render FAILED.
+    # The render happens during a background sync with no channel to the model at
+    # the moment it runs, so this is where "fail loudly" actually becomes loud;
+    # without it the loud failure is silent in practice, which is precisely the
+    # bug the whole change exists to stop.
+    failures = _render_failures()
+    if failures:
+        detail = "\n".join(f"- {item}" for item in failures)
+        parts.append(RENDER_FAILURE_CONTEXT.format(detail=detail, document=_document_path()))
+    # PARKED COPIES ARE TEXT NOBODY IS SENDING, and this is the only channel
+    # that says so. The CLI parks a leftover per-harness document, or one
+    # written under another credential, rather than deleting it -- and the sync
+    # that does the parking runs detached with stdout and stderr on DEVNULL, so
+    # anything it printed reached nobody.
+    parked = _parked_copies()
+    if parked:
+        detail = "\n".join(f"- {item}" for item in parked[:5])
+        more = f"\n- ...and {len(parked) - 5} more" if len(parked) > 5 else ""
+        parts.append(
+            PARKED_COPIES_CONTEXT.format(detail=detail + more, document=_document_path())
+        )
+    return "\n\n".join(parts) if parts else None
+
+
+#: The maintenance a session start -- OR A COMPACTION -- owes the machine,
+#: DETACHED. Two jobs, one spawn, run in order:
+#:
+#:   agent-rules refresh   rewrite the managed instruction block when this CLI
+#:                         is newer than what is installed. That file lives in
+#:                         the researcher's home directory and no release can
+#:                         reach it, so this is the only channel that can
+#:                         correct it -- and correcting it matters most right
+#:                         after an upgrade changes what it should say.
+#:   notes sync            reconcile the local team-note file: push anything an
+#:                         earlier session left unsynced, then refresh it.
+#:
+#: DETACHED IS THE WHOLE DESIGN. Session start is on a 2s fail-open budget and
+#: its own comment says every added millisecond is felt; a reconcile is one or
+#: two HTTP calls plus interpreter startup and does not fit. The session is
+#: briefed from the brief either way (that is what `parts` already carries), so
+#: the file arriving a second later costs nothing -- the agent reads the note
+#: from context and only touches the file when it wants to WRITE.
+#:
+#: The first CLI that has `notes sync` and `agent-rules refresh`. The plugin and
+#: the CLI update on INDEPENDENT schedules -- the plugin through the agent's own
+#: marketplace, the CLI through uv -- so a machine routinely runs a new plugin
+#: against an old CLI. Observed in production the day this shipped: plugin 0.44.0
+#: called both commands against CLI 0.104.0, which had neither, and because the
+#: spawn discards its output the failure was perfectly silent. The file was never
+#: seeded, nothing ever synced, and nothing said so.
+#:
+#: Comparing BEFORE spawning is what turns that into a sentence the researcher
+#: can act on. It is deliberately a version floor rather than a probe of `--help`:
+#: a probe costs an interpreter start on the session-start path, and the floor is
+#: exactly the fact we need.
+TEAM_NOTE_MIN_CLI = "0.144.0"
+
+#: The first CLI with `probe mcp tools|call`, the read bridge an inline agent
+#: (`/probe inline`) reads the hosted Probe MCP through. Same independence as
+#: TEAM_NOTE_MIN_CLI: a plugin whose inline notice names the two commands beside
+#: an older CLI would send the agent to `No such command`, so the notice names
+#: them only at or above this floor (`inline_notice_for`).
+INLINE_BRIDGE_MIN_CLI = "0.220.0"
+
+#: `probe --version` for the inline notice, under the guard's own 5 s hook
+#: budget (measured 0.9 s on the devbox).
+INLINE_CLI_TIMEOUT_S = 3.0
+
+#: What `paper_find_ready` asks this machine's CLI: the papers hook holds a web
+#: search and names `probe paper find` only when the CLI has it. The plugin and
+#: the CLI update independently, and a hold beside a CLI without the command
+#: would send the agent to `No such command`. The command itself is asked, not a
+#: version floor: CLI 0.238.0 shipped without it while it was in review.
+PAPER_FIND_PROBE = ("paper", "find", "--help")
+
+#: Where `probe` lives when PATH does not say: session-start.sh's search.
+_PROBE_FALLBACKS = ("~/.local/bin/probe", "~/.local/share/uv/tools/probe-research/bin/probe")
+
+#: What a too-old CLI is told. Names the upgrade, because the researcher reading
+#: it has no other way to connect "my notes are not syncing" to "my CLI is old".
+TEAM_NOTE_STALE_CLI = (
+    "Your team note is NOT syncing: this plugin needs CLI {needed} or newer for the local "
+    "`probe-team-note.md` and you are on {have}. Nothing is lost - edits stay on this machine "
+    "until the CLI is upgraded. Tell the researcher to run `uv tool upgrade probe-research`."
+)
+
+
+_OUTBOX_SAFE_COMPONENT = re.compile(r"[^A-Za-z0-9._-]+")
+
+_OUTBOX_GLOBAL_RANK_VARS = ("SLURM_PROCID", "RANK", "OMPI_COMM_WORLD_RANK")
+
+
+def _outbox_safe_component(value: str) -> str:
+    return _OUTBOX_SAFE_COMPONENT.sub("_", value)[:120] or "producer"
+
+
+def _outbox_rank_suffix() -> str | None:
+    """probe.sdk.delivery.journal.paths._rank_suffix, copied -- see _outbox_dir for why."""
+    for var in _OUTBOX_GLOBAL_RANK_VARS:
+        raw = (os.environ.get(var) or "").strip()
+        if raw:
+            return f"rank-{_outbox_safe_component(raw)}"
+    local = (os.environ.get("LOCAL_RANK") or "").strip()
+    if local:
+        import socket
+
+        return f"rank-{_outbox_safe_component(socket.gethostname())}-{_outbox_safe_component(local)}"
+    return None
+
+
+def _outbox_dir() -> Path:
+    """The CLI's durable write outbox, resolved EXACTLY as the CLI resolves it.
+
+    A copy of probe.sdk.delivery.journal.paths.default_dir (rank suffix included), not an
+    import: the system python3 this hook runs on has no probe package. Copy
+    fidelity is load-bearing -- review of the first draft found that omitting
+    the rank suffix made any session inside a SLURM/torchrun allocation (RANK
+    is exported there) count an empty parent directory and stay silent while
+    dead letters sat in rank-0/, and a training box is exactly where an outbox
+    backs up. Reads the directory rather than shelling out to `probe outbox
+    status` because a session start cannot afford an interpreter launch to
+    learn "nothing is stuck", which is the answer almost every time.
+    (PROBE_OUTBOX_DIR may point at shared storage; a hung mount there hangs
+    every probe command on the machine, not just this count.)
+    """
+    configured = os.environ.get("PROBE_OUTBOX_DIR")
+    if configured:
+        outbox = Path(configured).expanduser()
+    else:
+        base = os.environ.get("XDG_STATE_HOME")
+        root = Path(base) if base else Path.home() / ".local" / "state"
+        outbox = root / "probe" / "outbox"
+    # The rank split applies under an explicit PROBE_OUTBOX_DIR as well.
+    suffix = _outbox_rank_suffix()
+    return outbox / suffix if suffix else outbox
+
+
+def _outbox_dead_letters() -> int:
+    """Dead-lettered op files, 0 on any doubt.
+
+    failed/ ONLY, deliberately. Queued ops need no help from this hook: every
+    CLI invocation already kicks the GUARDED background drainer for them
+    (main._outbox_notice -> outbox_worker.maybe_spawn, which checks pending,
+    paused, auth-block freshness and the lease), and the maintenance spawn
+    above runs two CLI invocations on every session start. Dead letters are
+    the one state nothing retries on its own. Fail-open to zero: an unreadable
+    state dir must degrade to "nothing to say", never to a repair prompt about
+    ops that may not exist.
+    """
+    try:
+        return sum(1 for _ in (_outbox_dir() / "failed").glob("*.json"))
+    except Exception:
+        return 0
+
+
+#: Which dead letters a session start told of, per outbox and per audience:
+#: `{"<outbox dir>": {"<audience>": {"names": ["<op file>", ...], "at": <epoch s>}}}`
+#: under the state folder.
+DEAD_LETTERS_TOLD_FILE = "outbox-dead-letters-told.json"
+#: Letters already told are told again this often while they stay stuck: a
+#: telling can reach nobody (a harness that drops the channel, a headless start,
+#: a hook cut short), and a retried letter fails again under its old name.
+DEAD_LETTERS_RETELL_S = 86400
+#: Who a session start tells: the agent that repairs the letters
+#: (`OUTBOX_REPAIR_CONTEXT`), an agent that may only report them
+#: (`OUTBOX_REPORT_ONLY_CONTEXT`), or the researcher (the daemon profile's
+#: line). Telling one never stands in for telling another.
+TELL_REPAIR, TELL_REPORT, TELL_RESEARCHER = "repair", "report", "researcher"
+
+
+def _untold_dead_letters(audience: str, now: "float | None" = None) -> int:
+    """`_outbox_dead_letters`, only when `audience` has not been told of them
+    (one is new since the last telling, or that telling is
+    DEAD_LETTERS_RETELL_S old), else 0; records what it tells. A letter that
+    can never deliver (a stale epoch, a 404) was announced at every session
+    start (issue 3629); `probe doctor` and `probe outbox status` keep counting
+    it. A record that cannot be read or written tells, as before."""
+    failed = _outbox_dead_letters()
+    if not failed:
+        return 0
+    now = time.time() if now is None else now
+    try:
+        outbox = str(_outbox_dir())
+        names = sorted(p.name for p in (Path(outbox) / "failed").glob("*.json"))
+        path = version_policy.state_dir() / DEAD_LETTERS_TOLD_FILE
+        try:
+            told = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            told = {}
+        told = told if isinstance(told, dict) else {}
+        tellings = told.get(outbox) if isinstance(told.get(outbox), dict) else {}
+        last = tellings.get(audience) if isinstance(tellings.get(audience), dict) else {}
+        seen = last.get("names") if isinstance(last.get("names"), list) else []
+        at = last.get("at") if isinstance(last.get("at"), (int, float)) else 0
+        if set(names) <= set(seen) and 0 <= now - at < DEAD_LETTERS_RETELL_S:
+            return 0
+        version_policy.atomic_write_json(
+            path, {**told, outbox: {**tellings, audience: {"names": names, "at": int(now)}}})
+    except Exception:
+        pass
+    return failed
+
+
+#: Why the maintenance spawn carries NO `outbox retry`/`outbox drain`, though
+#: the first draft had both and they look like the obvious automation
+#: (adversarial review, findings 1/2/6/7):
+#:   * `outbox retry` clears the auth block -- correctly, for a HUMAN typing
+#:     it, which asserts the credential was dealt with. A hook typing it every
+#:     session start turns the drainer's deliberate 300s post-401 cooldown
+#:     into a steady failure loop and restamps auth_blocked_since, erasing the
+#:     "blocked since Tuesday" signal an operator diagnoses from.
+#:   * A requeued dead letter keeps its (old, therefore FRONT) FIFO position,
+#:     where one unroutable op parks the drain and blocks every fresh op
+#:     behind it -- undoing the head-of-line reasoning that dead-lettered it.
+#:   * `outbox drain` holds the drain lock across network I/O with none of
+#:     maybe_spawn's guards, and is redundant besides: the spawn's own CLI
+#:     invocations kick the guarded drainer.
+#:   * Both ignore `probe outbox pause`, which promises "nothing drains".
+#: Dead letters need ATTENTION, not plumbing -- so the plumbing stays
+#: untouched and the attention is delegated to the agent as a prompt. The
+#: retry in step 2 below is the same command, but issued per-op by an agent
+#: that has just read `status --verbose` -- the judgment call the CLI's own
+#: comment assumes. "VERBATIM" in step 3 is the policy half: a later agent
+#: trimming an earlier agent's recorded findings is how information quietly
+#: disappears, so repair means re-homing content, never editing it.
+OUTBOX_REPAIR_CONTEXT = (
+    "The Probe outbox on this machine holds {failed} dead-lettered write(s) that will not "
+    "deliver on their own. Fix them before other work: 1. `probe outbox status --verbose` "
+    "lists the stuck ops. If it says paused or auth-blocked, an operator set that on purpose: "
+    "leave it and report instead. 2. Transient failure (a network blip, a cap since freed): "
+    "`probe outbox retry <op_id>` requeues one op. 3. Deterministic rejection (e.g. a note "
+    "append larger than the target's remaining characters): retrying can never work and "
+    "trimming loses content. Move the payload VERBATIM to an artifact on the same target, "
+    "append a short pointer note, then `probe outbox discard <op_id>`. The payload is in the "
+    "op JSON under the outbox's failed/ directory (note text at body.notes_append). 4. If an "
+    "op targets another researcher's project or run, report it rather than writing into their "
+    "records. Then tell the user what was stuck and what you did."
+)
+
+#: The untracked-session variant. The toggle stops RECORDING, and repairing a
+#: dead letter CREATES an artifact and a note -- recording. An untracked
+#: session is still told what is stuck (the writes it carries were recorded
+#: while tracking was on; silence would strand them), but is directed to a
+#: read and a report, not a write. A separate template rather than a clause:
+#: the first draft buried "unless tracking is off" mid-list and the imperative
+#: steps above it won.
+OUTBOX_REPORT_ONLY_CONTEXT = (
+    "The Probe outbox on this machine holds {failed} dead-lettered write(s) that will not "
+    "deliver on their own. Probe is not `on` for this session, so do not write: run `probe "
+    "outbox status --verbose` (a read) and report what is stuck to the researcher, who can "
+    "retry, re-home or discard it."
+)
+
+
+def _outbox_context(tracking_off: bool) -> str | None:
+    """The repair prompt, the report-only variant, or None when nothing new is stuck."""
+    failed = _untold_dead_letters(TELL_REPORT if tracking_off else TELL_REPAIR)
+    if not failed:
+        return None
+    template = OUTBOX_REPORT_ONLY_CONTEXT if tracking_off else OUTBOX_REPAIR_CONTEXT
+    return template.format(failed=failed)
+
+
+def _team_note_cli_too_old(binary: str) -> str | None:
+    """The warning to show, or None when the CLI can do the work.
+
+    Unknown versions pass. A CLI whose `--version` cannot be parsed is more
+    likely a development checkout than an old release, and refusing to sync on a
+    parse failure would be a worse default than trying and failing quietly.
+    """
+    have = _local_cli(binary)
+    local, needed = _triplet(have or ""), _triplet(TEAM_NOTE_MIN_CLI)
+    if local is None or needed is None or local >= needed:
+        return None
+    return TEAM_NOTE_STALE_CLI.format(needed=TEAM_NOTE_MIN_CLI, have=_safe_ver(have))
+
+
+#: `probe.feedback.UNSENT`: a feedback question answered yes, not sent yet.
+FEEDBACK_UNSENT = "yes: not sent yet"
+#: `probe.feedback.OLD_DAEMON_VOID`: a yes a daemon from before 0.247.0 voided.
+FEEDBACK_OLD_DAEMON_VOID = "void: the held action changed on disk"
+
+
+def _feedback_unsent() -> bool:
+    """Is a `feedback.send` question answered and not acted on yet? A few small
+    file reads, so a session start pays for `probe feedback flush` (a cold
+    `probe` process) only when there is something to send."""
+    base = os.environ.get("XDG_STATE_HOME") or os.path.join(os.path.expanduser("~"), ".local", "state")
+    root = os.path.join(base, "probe", "approvals")
+    try:
+        names = os.listdir(os.path.join(root, "requests"))
+    except OSError:
+        return False
+    for name in names:
+        if not name.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(root, "requests", name), encoding="utf-8") as handle:
+                req = json.load(handle)
+        except (OSError, ValueError):
+            continue
+        if not isinstance(req, dict) or req.get("policy") != "feedback.send":
+            continue
+        if req.get("state") == "approved" and req.get("outcome") == FEEDBACK_UNSENT:
+            return True
+        if req.get("state") == "void" and req.get("outcome") == FEEDBACK_OLD_DAEMON_VOID:
+            return True
+        if req.get("state") == "waiting" and os.path.exists(os.path.join(root, "answers", name)):
+            return True
+    return False
+
+
+def _service_syncs_notes(feedback: bool) -> bool:
+    """Hand a session start's maintenance to the Probe service: `agent-rules
+    refresh` for this session's agent (its `PROBE_AGENT`, or the CLI's own
+    default, as the spawned command reads it), `notes sync`, and `feedback
+    flush` when asked. True when it took them. Never raises."""
+    try:
+        import importlib.util  # noqa: PLC0415
+
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_service_call.py")
+        spec = importlib.util.spec_from_file_location("_probe_hooks._service_call", path)
+        _service_call = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_service_call)
+        return _service_call.notes_sync(
+            "reconcile", rules_for=[os.environ.get("PROBE_AGENT") or ""], feedback=feedback
+        )
+    except Exception:  # noqa: BLE001 - the next session start asks again
+        return False
+
+
+def _spawn_session_maintenance() -> str | None:
+    """Fire and forget. Never raises, never waits, never blocks a session start.
+
+    Returns a message for `additionalContext` when it did NOT spawn because the
+    CLI is too old -- the one failure here that is invisible otherwise.
+    """
+    binary = os.environ.get("PROBE_BIN") or "probe"
+    stale = _team_note_cli_too_old(binary)
+    if stale:
+        return stale
+    # A FULL RECONCILE REGARDLESS OF THE TRACKING TOGGLE. This used to send
+    # `--pull-only` when tracking was off, reasoning that the toggle stops
+    # recording and a push records. That was half a gate and the wrong half: the
+    # `Stop` hook has never consulted the toggle and pushes at the end of every
+    # turn anyway, so the only thing withholding the push here achieved was to
+    # make a session's edits sit unsent until some LATER session pushed them --
+    # while telling the agent, in the same breath, that the file "syncs on its
+    # own".
+    #
+    # The toggle governs what Probe RECORDS ABOUT THE WORK: projects, runs,
+    # experiments, entity notes. The team note is not a record of this session;
+    # it is the lab's shared document, and an agent has no business writing to
+    # it unless what it wrote belongs to the team either way. So an edit that
+    # exists is an edit that should land, and the toggle has no opinion about it.
+    # The Probe service runs `agent-rules refresh`, `notes sync` and, when the researcher
+    # said yes to unsent feedback, `feedback flush`, once per machine and debounced
+    # (`notes.sync`): this route runs in the service and only asks (service-only plan, task 14).
+    _service_syncs_notes(_feedback_unsent())
+    return None
+
+
+def _daemon_profile() -> bool:
+    return os.environ.get(PROFILE_ENV) == PROFILE_DAEMON
+
+
+def _inline_reminder() -> str | None:
+    """After a compaction or a resume while the researcher has Probe inline
+    (`/probe inline`): the notice, now -- Claude Code's auto-compaction carries
+    the turn on with no new prompt -- naming this plugin's `inline/` copies of
+    the skills. Re-armed too (not marked told): where SessionStart context does
+    not land, the guard tells it at the next chance (`_announce_inline_once`).
+    The first part of the skills rides with it (notes parity N1); the guard
+    sends the rest."""
+    if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT:
+        return None
+    if os.environ.get(SESSION_SOURCE_ENV) not in (COMPACT_SOURCE, RESUME_SOURCE):
+        return None
+    sid = os.environ.get(SESSION_ID_ENV) or ""
+    if not _session_marker.is_inline(sid):
+        return None
+    _session_marker.forget_inline_shown(sid)
+    root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "inline")
+    notice = inline_notice_for(*(os.path.join(root, name) for name in _session_marker.INLINE_SKILL_FILES))
+    part = _session_marker.next_inline_skills_part(sid, root)
+    return f"{notice}\n\n{part}" if part else notice
+
+
+def _retired_config_notice() -> str | None:
+    """The researcher's one line when this session starts under the retired per-folder config
+    file (removed 2026-11-04): once per session, only while something records, and never
+    during a compaction."""
+    if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT:
+        return None
+    if not _session_marker.state_allows_writes(_probe_state()):
+        return None
+    return _session_marker.take_retired_config_notice(
+        os.environ.get(SESSION_ID_ENV) or "", os.environ.get(SESSION_CWD_ENV) or None
+    )
+
+
+def _daemon_profile_notice() -> str | None:
+    """The daemon profile's `_start_context`: the same maintenance, and the
+    reports that would have gone to the agent as ONE line for the researcher.
+    `off` means off here too, maintenance included."""
+    if _probe_state() == _session_marker.STATE_OFF:
+        return None
+    stale_cli = _spawn_session_maintenance()
+    if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT:
+        return None
+    tail = _profile_items(stale_cli)
+    state = _probe_state()
+    if state == _session_marker.STATE_DAEMON:
+        # Nothing records if the daemon cannot run, and in this profile the agent
+        # cannot fall back to recording: the researcher is told (the approved line,
+        # `mailbox.FAILURE_MESSAGES`), never the agent.
+        reason = None
+        if not _session_marker.companion_key_held():
+            reason = "unauthorized"
+        elif os.environ.get(SESSION_SOURCE_ENV) == COMPACT_SOURCE:
+            status = _session_marker.daemon_status(os.environ.get(SESSION_ID_ENV) or "", state)
+            if status is not None and status[0] != _session_marker.DAEMON_LIVE:
+                reason = status[1]
+        if reason is not None and reason != getattr(_session_marker, "DAEMON_HANDOVER", None):
+            # (A worker handing over to a new daemon process is not stopped;
+            # one whose hand-over nobody took up reads `expired`.)
+            words = _session_marker.DAEMON_REASON_WORDS.get(reason or "", "not running")
+            stopped = DAEMON_STOPPED_LINE.format(reason=words)
+            return f"{stopped}\nProbe: {tail}. Run `probe doctor`." if tail else stopped
+    return f"Probe: {tail}. Run `probe doctor`." if tail else None
+
+
+def _owed_rules(said: list) -> "str | None":
+    """Probe's rules and the team note, for a chat that starts on or read where the agent's hooks add them
+    (`session_marker.take_owed_rules`): a fresh context (a start, `/clear`, a compaction) is owed them again,
+    a resume only what it never had. A part that does not fit beside `said` waits for the next prompt."""
+    if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT:
+        return None
+    session_id = os.environ.get(SESSION_ID_ENV) or ""
+    try:
+        instruction = _hook_harness().instruction_file()
+        if not session_id or not instruction:
+            return None
+        if os.environ.get(SESSION_SOURCE_ENV) != RESUME_SOURCE:
+            _session_marker.reset_given_rules(session_id)
+        room = _session_marker.HOOK_CONTEXT_CHARS - sum(len(text) + 2 for text in said)
+        return _session_marker.take_owed_rules(session_id, _probe_state(), instruction, room=room)
+    except Exception:  # noqa: BLE001 -- fail open: the next prompt tries again
+        return None
+
+
+#: What the researcher sees when the daemon cannot record (daemon reads; the
+#: approved text is `mailbox.FAILURE_MESSAGES[DAEMON_STOPPED]`, pinned by a test).
+DAEMON_STOPPED_LINE = "Probe daemon stopped: {reason}. Recording and reads resume when it restarts."
+
+
+def _profile_items(stale_cli: bool = False) -> str:
+    items: list[str] = []
+    failed = _untold_dead_letters(TELL_RESEARCHER)
+    if failed:
+        items.append(f"{failed} writes stuck in the outbox")
+    if stale_cli:
+        items.append("the team note is not syncing (the CLI is too old)")
+    if _render_failures():
+        items.append("the team note could not be written into your instruction file")
+    if _parked_copies():
+        items.append("team-note copies are parked")
+    return "; ".join(items)
+
+
+def _final(obj: dict) -> NoReturn:
+    """Merge the post-compaction nudge into whatever main() was going to say.
+
+    Every exit from main() goes through here so the nudge cannot be lost to an
+    early return (up-to-date, no manifest, malformed cache). An update nudge
+    already occupying additionalContext is appended to, never clobbered.
+
+    In the daemon profile nothing reaches the agent -- `additionalContext` is
+    dropped and the researcher gets the reports as a systemMessage line -- but
+    an inline session's notice after a compaction or resume (`_inline_reminder`)
+    and the server's notices (`_server_notices`), which reach both profiles' agents.
+    Both profiles' researchers see the retired-config notice (`_retired_config_notice`).
+    """
+    notices = _server_notices()
+    _SHOWING.claims.extend(notices.claims)
+    lowered_person, lowered_agent = _lowered_notices()
+    person_lines = [*notices.person_lines, *filter(None, [_retired_config_notice()]), *lowered_person]
+    if person_lines:
+        prior = obj.get("systemMessage")
+        obj["systemMessage"] = "\n".join(([prior] if prior else []) + person_lines)
+    if _daemon_profile():
+        obj.pop("hookSpecificOutput", None)
+        notice = _daemon_profile_notice()
+        if notice:
+            prior = obj.get("systemMessage")
+            obj["systemMessage"] = f"{prior}\n{notice}" if prior else notice
+        context = [c for c in (_inline_reminder(), *notices.agent_lines, *lowered_agent) if c]
+        rules = _owed_rules(context)
+        if rules:
+            context.append(rules)
+        if context:
+            obj["hookSpecificOutput"] = {"hookEventName": "SessionStart", "additionalContext": "\n\n".join(context)}
+        _emit(obj)
+    for ctx in (_start_context(), *notices.agent_lines, *lowered_agent):
+        if not ctx:
+            continue
+        hso = obj.setdefault("hookSpecificOutput", {"hookEventName": "SessionStart"})
+        prior = hso.get("additionalContext")
+        hso["additionalContext"] = f"{prior}\n\n{ctx}" if prior else ctx
+    _emit(obj)
+
+
+#: The missed-chats offer, for the agent (fixes-1107b PR B): the person decides, with fresh consent.
+MISSED_OFFER = (
+    "Probe: chats went unrecorded on this computer from {since} to {until} ({why}; the agent turned it "
+    "down, and it is back now). In your next reply, offer to bring them in: run `npx -y probe-research "
+    "import review --sessions missed --json`, say its `say` line, and ask with your question tool "
+    "(preselect nothing). Only on a yes: show its consent lines, then run `npx -y probe-research import "
+    "start <id> --directed --json`. Chats the person kept out are never in it."
+)
+MISSED_WHY = {
+    "default": "new chats did not record",
+    "profile": "the computer was on Runs only",
+    "sign_in": "the computer was signed out",
+}
+
+
+def _lowered_notices() -> "tuple[list[str], list[str]]":
+    """What the agent turned down on this computer (fixes-1107b PR B): the person's line once per
+    lowering still in effect (where a person sees one, `server_notices.is_person_watching`), and the
+    agent's missed-chats offer once a stretch has ended (not with Probe `off` here: its agent does
+    no Probe work; nor in a `claude -p` run: the offer waits for a chat that does). None on PreCompact."""
+    if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT:
+        return [], []
+    person: list = []
+    agent: list = []
+    try:
+        if server_notices.is_person_watching():
+            taken = _session_marker.take_untold(_session_marker.TOLD_AT_START)
+            person = [entry["notice"] for entry in taken if entry.get("notice")]
+        # The offer waits for a chat with a person to answer it: not a `claude -p` run.
+        if _probe_state() != _session_marker.STATE_OFF and os.environ.get(server_notices.ATTENDED_ENV) != "0":
+            offers = _session_marker.take_missed_offers()
+            if offers:
+                agent = [MISSED_OFFER.format(
+                    since=_to_day(min(o["from"] for o in offers)), until=_to_day(max(o["to"] for o in offers)),
+                    why="; ".join(dict.fromkeys(MISSED_WHY.get(o["scope"], "recording was off") for o in offers)),
+                )]
+    except Exception:  # noqa: BLE001 -- a session start never fails on a notice
+        pass
+    return person, agent
+
+
+def _to_day(at: float) -> str:
+    return time.strftime("%Y-%m-%d", time.localtime(at))
+
+
+def _server_notices() -> "server_notices.Notices":
+    """The server's notices for this session start; none on PreCompact, which shows nothing, nor with
+    Probe `off` (no Probe calls), and none for the agent of an untracked session, which does no Probe
+    work (its person still sees them)."""
+    if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT or _probe_state() == _session_marker.STATE_OFF:
+        return server_notices.Notices()
+    version = _local_plugin(os.environ.get("PROBE_PLUGIN_JSON") or "")
+    session_id = "" if _tracking_off() else os.environ.get(SESSION_ID_ENV) or ""
+    return server_notices.collect(session_id, version if isinstance(version, str) else None)
+
+
+def _ver_str(v: str) -> str:
+    """Bare version for display: 'probe 0.7.0' -> '0.7.0'."""
+    return str(v).strip().split()[-1] if v and str(v).strip() else str(v)
+
+
+# The manifest is fetched over the network and parts of it are echoed into the
+# session's systemMessage and the model-facing additionalContext. Comparison
+# logic can take the strings as-is, but anything DISPLAYED must be shaped like
+# a version -- a compromised or misconfigured origin must not get free
+# instruction text into every session start.
+_DISPLAY_VER = re.compile(r"[0-9A-Za-z.+~_-]{1,32}")
+
+
+def _safe_ver(v) -> str:
+    s = _ver_str(v)
+    return s if isinstance(s, str) and _DISPLAY_VER.fullmatch(s or "") else "?"
+
+
+def _triplet(v: str):
+    """Normalized (major, minor, patch); ignores a leading token and any
+    pre-release/build suffix. None if unparseable."""
+    if not v:
+        return None
+    v = str(v).strip().split()[-1]  # "probe 0.7.0" -> "0.7.0"
+    for sep in ("+", "-"):  # 0.8.0-rc1 / 0.8.0+meta -> 0.8.0
+        v = v.split(sep, 1)[0]
+    try:
+        nums = [int(p) for p in v.split(".")]
+    except ValueError:
+        return None
+    while len(nums) < 3:
+        nums.append(0)
+    return tuple(nums[:3])
+
+
+def _user_scope_installs() -> bool:
+    """Does Claude Code's install ledger record the Probe plugin, and every
+    install of it and of the tap at user scope? A project-scoped install
+    serves its project only, and an open session's hooks never hand over to
+    it (`dispatch.installed_root`). False when it cannot be read."""
+    harness = _hook_harness()
+    dispatch = harness.load_sibling("dispatch")
+    raw = dispatch._read_ledger(dispatch._ledger(os.environ))
+    if raw is None:
+        return False
+    plugins = json.loads(raw.decode("utf-8")).get("plugins")
+    if not isinstance(plugins, dict):
+        return False
+    ours = {k: v for k, v in plugins.items() if isinstance(k, str) and k.split("@", 1)[0] in LEDGER_PLUGINS}
+    if not any(k.split("@", 1)[0] not in LEDGER_TAPS and v for k, v in ours.items()):
+        return False
+    return all(isinstance(e, dict) and e.get("scope") == "user" for v in ours.values() for e in v or [])
+
+
+def _shim_follows(harness_id: str) -> bool:
+    """Has this agent moved to the frozen hook shim here, cut over with none of its
+    processes open (`_hook_switches.does_follow_updates`, the ledger fact
+    `probe.cli.updater.follows_without_restart` reads first)? Then the shim runs
+    every open session's hooks from the Probe service's current release, whatever
+    the registry's `follows_updates` says. One listdir when no machine here ever
+    switched; False on any doubt (an older dispatcher's copy of the module, handing
+    this event over, has no such rule)."""
+    try:
+        switches = _hook_harness().load_sibling("_hook_switches")
+        if not switches.has_any_ledger(switches.get_service_root()):
+            return False
+        service_dir = _hook_harness().load_sibling("_service_paths").service_dir()
+        ledger = switches.load_ledger(switches.get_ledger_path(service_dir))
+        return switches.does_follow_updates(ledger, harness_id) is True
+    except Exception:  # noqa: BLE001 - unproven: the registry's answer
+        return False
+
+
+def _picked_up(manifest: dict, local: dict) -> "tuple[bool, str]":
+    """`(follows, agent)`: do this agent's open sessions follow the update with
+    no restart (`probe.cli.updater.follows_without_restart`, before it runs)?
+    An agent moved to the frozen hook shim with none of its processes open
+    (`_shim_follows`) does. Otherwise an agent whose open sessions follow updates (the
+    registry's `follows_updates`: Claude Code; never one with `loaded_records`, Kimi
+    Code, whose answer needs the release installed first), every install at user scope where
+    its ledger has scopes (`scoped_installs`: Claude Code's), the tap it
+    updates to handing its sessions to the Probe
+    service (HANDBACK_TAP or later; no tap at all: nothing to hand back) and
+    no live `tap watch` from before it (`_has_stuck_watchers`). `agent` names
+    it for the restart note. Never raises: anything unproven is (False, ...)."""
+    agent = "Claude Code"
+    try:
+        harness = _hook_harness().current()
+        agent = getattr(harness, "label", None) or agent
+        if _shim_follows(harness.id):
+            return True, agent
+        capabilities = _hook_harness().load_sibling("_harness_registry")
+        if not harness.can(capabilities.CAPABILITY_FOLLOWS_UPDATES):
+            return False, agent
+        if harness.can(capabilities.CAPABILITY_LOADED_RECORDS):
+            # Kimi keeps what it loaded at its start: whether the coming release
+            # needs a /reload is known only once it is installed (the update's own
+            # line, `updater.follows_without_restart`), never predicted here.
+            return False, agent
+        if harness.can(capabilities.CAPABILITY_SCOPED_INSTALLS) and not _user_scope_installs():
+            return False, agent
+        tap = local.get("tap")
+        latest = (manifest.get("tap") or {}).get("latest") if isinstance(manifest.get("tap"), dict) else None
+        if tap:
+            target = latest if latest and _remote_gt_local(str(tap), str(latest)) else tap
+            if _remote_gt_local(str(target), HANDBACK_TAP):
+                return False, agent
+        return not _has_stuck_watchers(harness.capture.watcher_prefix), agent
+    except Exception:  # noqa: BLE001 - a notice must never fail the hook
+        return False, agent
+
+
+#: A session id as a watcher file names it.
+_WATCHER_SID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+#: A versioned tap folder in a `tap watch` command line (a tap that wrote no `.version`). Kimi Code's
+#: folders are `managed/probe-research-tap@<version>`.
+_TAP_FOLDER_VERSION = re.compile(
+    r"/(probe-research-tap|prbe-cc-tap-plugin|prbe-codex-tap-plugin)[/@](\d+\.\d+\.\d+)(?:/|\s|$)")
+
+
+def _has_stuck_watchers(prefix: str) -> bool:
+    """Does a live `tap watch` of this agent's sessions (`<watcher dir>/<prefix>-watcher-<sid>.pid`)
+    run a tap from before HANDBACK_TAP, or one whose version cannot be read? Such a watcher never
+    hands its session to the Probe service, and nothing moves it any more (service-only 28b), so its
+    session follows an update only after a restart. Proven as the tap's own hooks prove it: a pid
+    file of this user's own (`_read_own_file`) naming a live process whose command line is THIS
+    session's `tap watch`; a dead pid, a pid reused since, or a file planted by another user in the
+    shared folder names nothing."""
+    import glob  # noqa: PLC0415
+
+    folder = os.environ.get(WATCHER_DIR_ENV) or "/tmp"
+    folder = folder if os.path.isabs(folder) else "/tmp"
+    head = f"{prefix}-watcher-"
+    for path in glob.glob(os.path.join(glob.escape(folder), f"{glob.escape(head)}*.pid")):
+        sid = os.path.basename(path)[len(head):-len(".pid")]
+        try:
+            pid = int((_read_own_file(path) or "").strip())
+        except ValueError:
+            continue
+        if not _WATCHER_SID.match(sid) or pid <= 1:
+            continue
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            continue  # gone, or another user's process: not this session's watcher
+        command = _get_command_line(pid)
+        at = command.find("tap watch")
+        if at < 0 or sid not in command[at:]:
+            continue  # unproven: a pid reused since, or a command line that cannot be read
+        version = (_read_own_file(path[: -len(".pid")] + ".version") or "").strip()
+        if not re.match(r"^\d+(\.\d+)+$", version):
+            found = _TAP_FOLDER_VERSION.search(command)
+            version = found.group(2) if found else ""
+        if not version or _remote_gt_local(version, HANDBACK_TAP):
+            return True
+    return False
+
+
+def _read_own_file(path: str, limit: int = 64) -> "str | None":
+    """A small file of this user's own, or None: opened without blocking and without following a
+    link, then a regular file owned by this uid, at most `limit` bytes. The watcher folder is shared
+    (`/tmp`): a FIFO there with no writer must never stall the hook, nor another user's file speak."""
+    import stat  # noqa: PLC0415
+
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NOCTTY", 0))
+    except OSError:
+        return None
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+            return None
+        return os.read(fd, limit).decode("ascii", "replace")
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def _get_command_line(pid: int) -> str:
+    """A process's command line, `/proc` first, else `ps`; "" when it cannot be read."""
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as handle:
+            return handle.read(65536).replace(b"\0", b" ").decode("utf-8", "replace")
+    except OSError:
+        pass
+    try:
+        return subprocess.run(  # noqa: S603 -- a fixed binary, no shell
+            ["ps", "-ww", "-o", "command=", "-p", str(pid)],
+            capture_output=True, text=True, timeout=5, check=False, stdin=subprocess.DEVNULL,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def _remote_gt_local(local: str, remote: str) -> bool:
+    """True iff remote is strictly newer than local."""
+    try:
+        from packaging.version import Version  # type: ignore
+
+        return Version(str(remote)) > Version(str(local))
+    except Exception:
+        lp, rp = _triplet(local), _triplet(remote)
+        if lp is None or rp is None:
+            return False
+        return rp > lp
+
+
+# _valid_base / _base_url / _cache_path / _read_cache / _write_cache / _fetch all
+# moved to version_policy, which the CLI shares. They are re-exported here under
+# their old private names so the rest of this file (and its tests) read the same.
+_valid_base = version_policy.valid_base
+_base_url = version_policy.base_url
+_fetch = version_policy.fetch
+
+
+#: Cap on manifest prose echoed into a session -- the advisory, and the per-pair
+#: `message`. The bound is the point -- the manifest is fetched over the network,
+#: so an untrusted origin must not be able to paste paragraphs of instructions
+#: into every session start.
+_ADVISORY_CAP = 200
+#: Where the full text lives. A truncated warning with no route to the rest is
+#: how the 347-character advisory in production came to end mid-word, at
+#: "...come back carrying an upgrade notic", with nothing telling the reader
+#: there was more of the sentence.
+_ADVISORY_MORE = "/install"
+
+
+def _clip_advisory(text: str) -> str:
+    """Cap the advisory on a WORD boundary, and say where the rest is.
+
+    Slicing at a fixed index cuts mid-word, which reads as a broken tool rather
+    than a truncated message -- and the reader cannot tell whether the missing
+    half mattered. Cutting at the last space keeps the cap honest and appends a
+    pointer, so the bound stays a bound and the reader keeps a route to the rest.
+    """
+    if len(text) <= _ADVISORY_CAP:
+        return text
+    head = text[:_ADVISORY_CAP]
+    cut = head.rsplit(" ", 1)[0]
+    # A single unbroken token longer than the cap has no space to cut at; the
+    # hard slice is then the only bound available, and it still gets the pointer.
+    if not cut:
+        cut = head
+    return f"{cut.rstrip(',;:.')}… (full note: {_ADVISORY_MORE})"
+
+
+#: What the notice says when a pair is urgent and publishes no `message` of its
+#: own. Deliberately the smallest TRUE sentence: it says what happens to the
+#: reader if they wait, rather than grading the release ("important update"),
+#: which tells them nothing they can act on.
+DEFAULT_URGENT_MESSAGE = "some features may not work correctly until you update"
+
+
+def _pair_message(info: dict) -> str | None:
+    """The server's own sentence for this component, bounded, or None.
+
+    WHY THE MANIFEST GETS TO WRITE THIS. The tier is the same shape every time --
+    "you are below a threshold we published" -- but what it COSTS the reader is
+    different for every breaking change, and only the release that introduced it
+    knows. A client that hardcodes one sentence can say a change is urgent and
+    never say why, which is precisely the notice a person learns to dismiss.
+
+    Bounded and whitespace-flattened for the same reason the advisory is: this
+    text arrives over the network, so a compromised or fat-fingered manifest must
+    not be able to paste paragraphs, or a newline, into every session start. It
+    is displayed to a PERSON and never enters additionalContext, which the model
+    reads as instructions.
+    """
+    text = info.get("message")
+    if not isinstance(text, str) or not text.strip():
+        return None
+    return _clip_advisory(" ".join(text.split()))
+
+
+def _local_cli(probe_bin: str, timeout: float = 5):
+    try:
+        out = subprocess.run([probe_bin, "--version"], capture_output=True, text=True, timeout=timeout)
+        if out.returncode == 0:
+            return (out.stdout or "").strip() or None
+    except Exception:
+        return None
+    return None
+
+
+def _probe_bin() -> str:
+    """The `probe` the agent's shell would run: `PROBE_BIN` (session-start.sh
+    exports it), then PATH, then the two install locations it also searches."""
+    explicit = os.environ.get("PROBE_BIN")
+    if explicit:
+        return explicit
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        candidate = os.path.join(directory, "probe")
+        if os.path.isabs(directory) and os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    for raw in _PROBE_FALLBACKS:
+        candidate = os.path.expanduser(raw)
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return "probe"
+
+
+def inline_bridge_ready() -> bool:
+    """Does this machine's CLI have the inline read bridge (`INLINE_BRIDGE_MIN_CLI`)?
+
+    An unknown version is NO, unlike `_team_note_cli_too_old`: there a wrong
+    guess costs a quiet failed sync, here it sends the agent to a command that
+    does not exist."""
+    have = _local_cli(_probe_bin(), timeout=INLINE_CLI_TIMEOUT_S)
+    local, needed = _triplet(have or ""), _triplet(INLINE_BRIDGE_MIN_CLI)
+    return local is not None and needed is not None and local >= needed
+
+
+def paper_find_ready() -> "bool | None":
+    """Does this machine's CLI have `probe paper find`? True when its `--help`
+    exits 0, False when click answers `No such command` (exit 2: an older CLI),
+    None for anything else (no CLI, a timeout, a crash mid-update): a caller must
+    not remember None, or one bad start would switch the hook off."""
+    try:
+        out = subprocess.run(
+            [_probe_bin(), *PAPER_FIND_PROBE], capture_output=True, text=True, timeout=INLINE_CLI_TIMEOUT_S
+        )
+    except Exception:
+        return None
+    if out.returncode == 0:
+        return True
+    if out.returncode == 2 and "No such command" in (out.stderr or "") + (out.stdout or ""):
+        return False
+    return None
+
+
+def inline_notice_for(track_work: str, write_summary: str, edit_notes: str, *,
+                      read_only: bool = False, budget: bool = False) -> str:
+    """`_session_marker.INLINE_NOTICE`, its last sentence by what the local CLI can do."""
+    return _session_marker.inline_notice(track_work, write_summary, edit_notes, bridge=inline_bridge_ready(),
+                                          read_only=read_only, budget=budget)
+
+
+def _local_plugin(plugin_json: str):
+    try:
+        with open(plugin_json) as f:
+            return json.load(f).get("version")
+    except Exception:
+        return None
+
+
+def _local_tap():
+    """The transcript tap's installed version, or None if it is not installed.
+
+    Read from the tap's own state dir rather than Claude Code's plugin cache:
+    the cache path is version-qualified (…/probe-research-tap/<version>/) so
+    finding it means globbing and guessing which of several cached copies is
+    live, while `.installed_version` is written by the tap's SessionStart hook
+    and names the version that actually RAN. That is the one worth warning
+    about — a cached-but-never-run copy has captured nothing.
+
+    None (not installed / never run) is a normal answer, and main() skips any
+    component whose local version is unknown, so users without the tap are
+    never nudged about it.
+    """
+    capture = _hook_harness().current().capture
+    if capture is None:
+        return None
+    path = str(capture.state_dir())
+    try:
+        with open(os.path.join(path, ".installed_version")) as f:
+            return (f.read() or "").strip() or None
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Auto-update: on for the machine's managed CLI unless a person turned it off,
+# opt-in (the wizard) for any other install (`version_policy.autoupdate_state`).
+#
+# The upgrade is spawned DETACHED and this hook returns immediately. The hook is
+# synchronous by contract -- its systemMessage cannot come from a background
+# process -- and the update allows itself 300s, so applying inline would let
+# a Claude Code session hang for up to five minutes before you could type.
+# Nothing is lost by deferring: a plugin update only takes effect on restart
+# anyway, so a background upgrade lands for the NEXT session either way.
+#
+# `probe wizard --action update --yes` records its own outcome, which is the only
+# way a detached run can report failure. `probe doctor` prints it.
+# ---------------------------------------------------------------------------
+
+
+def _autoupdate_settings() -> dict:
+    """Read the state the wizard (and the managed CLI's default) wrote; `{}`
+    when missing or unreadable. What it means is `version_policy.autoupdate_state`'s.
+
+    This used to recompute the state path that autoupdate.py owns. It now shares
+    one definition -- the divergence that duplication invited would have stopped
+    auto-update here while `probe doctor`, reading the other path, went on
+    reporting it enabled with a months-old success.
+    """
+    return version_policy.read_state()
+
+
+def _managed_cli(probe_bin: str) -> bool:
+    """Is the `probe` this hook would update the machine's managed CLI, its uv
+    tool env (`version_policy.managed_cli`)? A bare name is looked up on PATH;
+    one not found is not. A pip install in a researcher's project env is not,
+    and the default never updates it (plan D4)."""
+    try:
+        path = probe_bin if os.path.isabs(probe_bin) else shutil.which(probe_bin)
+        return bool(path) and version_policy.managed_cli(os.path.realpath(path))
+    except Exception:
+        return False
+
+
+def _spawn_autoupdate(probe_bin: str) -> None:
+    """Ask the Probe service for an update check (`update.check_now`, trigger `session`): its
+    updater applies one on a quiet machine. Nothing is spawned here (service-only plan, task 14).
+    Never raises into the hook."""
+    enabled, _default = version_policy.autoupdate_state(_autoupdate_settings(), managed=_managed_cli(probe_bin))
+    if not enabled:
+        return
+    try:
+        import importlib.util  # noqa: PLC0415
+
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_service_call.py")
+        spec = importlib.util.spec_from_file_location("_probe_hooks._service_call", path)
+        _service_call = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_service_call)
+        _service_call.call("update.check_now", {"trigger": "session"})
+    except Exception:  # noqa: BLE001 - fail-open: a missed check never blocks a session
+        pass
+
+
+#: A cached manifest older than this means fetches have been FAILING, not merely
+#: that none was due: it is far past both the 15m TTL and the 1h failure backoff.
+#: Until this notice existed, that state was indistinguishable from a healthy
+#: machine -- both printed `{"continue": true}` -- so a laptop that had not
+#: reached the version endpoint in six weeks looked exactly like one checked
+#: minutes ago. That ambiguity is the whole bug: silence has to mean one thing.
+_STALE_MANIFEST_S = 86400
+#: How often the notice above may repeat. A version check that speaks every
+#: session stops being read, and then a real warning goes past unread with it.
+_STALE_NOTICE_EVERY_S = 86400
+
+
+def _stale_notice_path():
+    return version_policy.cache_path().parent / "version-stale-notice.json"
+
+
+def _stale_manifest_notice(fetched_at, now=None) -> str | None:
+    """One line when the manifest cannot be refreshed, at most daily. Else None.
+
+    Returns None -- stays SILENT -- whenever the cache is fresh. A current machine
+    must print nothing at all; the affirmative "you are up to date" answer belongs
+    to `probe doctor`, which a person runs deliberately, not to a hook that fires
+    on every session and would become wallpaper.
+    """
+    now = time.time() if now is None else now
+    age = now - (fetched_at or 0)
+    if fetched_at and age <= _STALE_MANIFEST_S:
+        return None
+    path = _stale_notice_path()
+    try:
+        last = json.loads(path.read_text()).get("at") or 0
+    except Exception:
+        last = 0
+    if now - last < _STALE_NOTICE_EVERY_S:
+        return None
+    if not version_policy.atomic_write_json(path, {"at": int(now)}):
+        # Could not record that we spoke, so speaking again next session is the
+        # likely outcome. Staying quiet is the safer failure: an unwritable state
+        # dir must not turn one notice into one per session, forever.
+        return None
+    when = "never" if not fetched_at else f"{int(age // 86400)}d ago"
+    return (
+        "Probe could not confirm your client version "
+        f"(last successful check: {when}). Your install may be out of date. "
+        f"Run `probe doctor` to compare; to upgrade, {_session_marker.UPDATE_HINT}."
+    )
+
+
+def main() -> None:
+    # Before anything else: a session must know its own tracking value from its
+    # first moment, or the readers that fire earliest race the seed.
+    _seed_tracking_signal()
+    manifest, fetched_at, ok = version_policy.read_cache()
+    # Reuse a good manifest for TTL; after a failure, wait BACKOFF before retrying.
+    #
+    # This hook is SYNCHRONOUS by contract and so it fetches INLINE, unlike the
+    # CLI, which hands the refresh to a detached process. Its systemMessage only
+    # reaches the session if it is in this process's stdout, so there is nothing
+    # to hand off to.
+    #
+    # The fetch goes through the module-level `_fetch` (which IS
+    # version_policy.fetch) rather than version_policy.refresh, so this file keeps
+    # one substitutable seam for its own tests. What matters for correctness is
+    # shared either way: the cache format, the TTL, and what `ok` means.
+    if not version_policy.cache_is_fresh(fetched_at, ok):
+        # Single-flight. If a CLI invocation is already refreshing, reuse what we
+        # have instead of making the identical request a second time.
+        if version_policy.claim_refresh():
+            try:
+                manifest = _fetch(_base_url() + version_policy.MANIFEST_PATH)
+                version_policy.write_cache(manifest, True)
+            except Exception:
+                # Keep the last-good manifest; record the attempt for backoff.
+                version_policy.write_cache(manifest, False)
+            finally:
+                version_policy.release_refresh()
+
+    # NOT on PreCompact. That event's contract is to APPLY and say nothing (see
+    # the module docstring): its output shape is not SessionStart's, and a message
+    # injected mid-compaction interrupts work the user did not start. Gated before
+    # the call rather than after, because the notice RECORDS that it spoke --
+    # computing it here would spend the once-a-day budget on an event that cannot
+    # deliver it, and silence the next real session start. The same for a session
+    # whose person sees no `systemMessage` (`server_notices.is_person_watching`:
+    # a `claude -p` run, Kimi Code, Cursor).
+    stale_notice = (
+        None
+        if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT or not server_notices.is_person_watching()
+        else _stale_manifest_notice(fetched_at)
+    )
+
+    if not isinstance(manifest, dict):
+        # No manifest at all: nothing can be compared. Say so if it has been
+        # failing long enough to matter, rather than returning the same silence
+        # a perfectly current machine returns.
+        _final({"systemMessage": stale_notice} if stale_notice else {"continue": True})
+
+    local = {
+        "cli": _local_cli(os.environ.get("PROBE_BIN") or "probe"),
+        "plugin": _local_plugin(os.environ.get("PROBE_PLUGIN_JSON") or ""),
+        "tap": _local_tap(),
+    }
+
+    # Three buckets, graded independently per component, because a machine can be
+    # in different tiers for different components -- a current CLI beside a plugin
+    # that predates a breaking change is the ordinary case, not an edge one.
+    #
+    #   nudges       cur < latest        something newer exists
+    #   needs_update cur < recommended   something newer exists AND we know what
+    #                                    breaks without it (the server flag)
+    #   below_min    cur < min           past the floor the server supports
+    #
+    # A component in `needs_update` is always in `nudges` too when the manifest is
+    # sane (recommended <= latest). That overlap is deliberate: the buckets answer
+    # "what is stale" and "how urgent is it" separately, so a manifest with the
+    # thresholds crossed degrades into an over-warning rather than into a
+    # component that is urgent and invisible.
+    nudges, needs_update, below_min = [], [], []
+    # What the SERVER wants said about the components that are actually urgent,
+    # in manifest order and de-duplicated. See `_pair_message`: the canned
+    # sentence is only the fallback for a pair that ships no `message`.
+    messages: list[str] = []
+    for key, label in (("cli", "CLI"), ("plugin", "plugin"), ("tap", "transcript tap")):
+        info = manifest.get(key)
+        if not isinstance(info, dict):  # a malformed field disables only that key
+            continue
+        latest, minv, cur = info.get("latest"), info.get("min"), local.get(key)
+        rec = info.get("recommended")
+        if not cur or not latest:
+            continue
+        urgent = False
+        if _remote_gt_local(cur, latest):
+            nudges.append((label, _safe_ver(cur), _safe_ver(latest)))
+        # THE PAIR SHOWN IS cur → latest, NOT cur → recommended. `recommended` is
+        # the threshold that decides how loudly to speak; the version to go to is
+        # still the newest one, and naming an intermediate release as the target
+        # would send people to a version that is itself already behind.
+        if rec and _remote_gt_local(cur, rec):  # cur < recommended
+            needs_update.append((label, _safe_ver(cur), _safe_ver(latest)))
+            urgent = True
+        if minv and _remote_gt_local(cur, minv):  # cur < min
+            below_min.append((label, _safe_ver(cur), _safe_ver(minv)))
+            urgent = True
+        # ONLY THE URGENT COMPONENTS CONTRIBUTE A MESSAGE. A pair may carry one
+        # permanently -- it describes what that component breaks, not a release
+        # -- so reading it for a component that is merely behind would put a
+        # breakage warning on a machine nothing is wrong with.
+        if urgent:
+            text = _pair_message(info)
+            if text and text not in messages:
+                messages.append(text)
+
+    if not nudges and not needs_update and not below_min:
+        # Everything comparable is current. Silent BY DESIGN -- but only when the
+        # manifest it was compared against is itself fresh. A "current" verdict
+        # graded against a six-week-old manifest is not a verdict.
+        _final({"systemMessage": stale_notice} if stale_notice else {"continue": True})
+
+    def _fmt(items):  # items: (label, current, target)
+        return ", ".join(f"{label} {cur} → {target}" for label, cur, target in items)
+
+    # Prefer the wizard, which updates everything in one step, but only for CLIs
+    # new enough to have that step; older CLIs get the raw sequence (which
+    # upgrades them to one that does).
+    local_cli = local.get("cli")
+    has_update_cmd = bool(local_cli) and not _remote_gt_local(local_cli, UPDATE_CMD_MIN_CLI)
+    # The raw sequence updates the tap too when that is what is stale —
+    # otherwise the nudge names a component and then hands over commands that
+    # cannot fix it. The wizard's update covers all three itself.
+    tap_stale = any(label == "transcript tap" for label, _, _ in nudges + needs_update + below_min)
+    # Old install names only: a CLI older than UPDATE_CMD_MIN_CLI predates the new ones.
+    cmds = (
+        "uv tool upgrade probe-research && "
+        "claude plugin marketplace update research-os-agent && "
+        "claude plugin update probe-research@research-os-agent"
+        + (" && claude plugin update probe-research-tap@research-os-agent" if tap_stale else "")
+    )
+    # What to do, said two ways: `run_line` for the person, `tell` for the
+    # agent's instructions. The person asks their agent; the agent runs the
+    # in-chat update itself (fixes-1107b: never the wizard or a terminal).
+    if has_update_cmd:
+        run_line = "To update, ask your agent to update Probe."
+        tell = _session_marker.UPDATE_HINT
+    else:
+        run_line = f"Run: {cmds}"
+        tell = f"run `{cmds}`"
+    advisory = manifest.get("advisory")
+
+    # THE ROUTINE NUDGE IS WHAT CHANGED AND WHAT TO RUN, AND NOTHING ELSE. It
+    # used to append the restart parenthetical and a 200-character advisory on
+    # top of that, which made a piece of routine housekeeping three wrapped lines
+    # of terminal at every session start. A notice that long is a notice that
+    # stops being read, and then a real warning goes past unread with it.
+    #
+    # THE VERSION PAIRS STAY. They are the content of the message -- "something
+    # is stale" without saying what, or how far behind, is a notification the
+    # reader cannot act on or judge the urgency of. What went is the packaging
+    # around them.
+    # WHICH TIER IS SPEAKING. Worst wins, and each tier is a strict superset of
+    # the seriousness below it, so the message never has to describe two states
+    # at once. `summary` names the components in the WORST bucket, not every
+    # stale one: a below-minimum CLI beside a merely-behind tap is a message
+    # about the CLI, and listing the tap next to it flattens the difference the
+    # tier exists to draw.
+    urgent = bool(below_min or needs_update)
+    summary = _fmt(below_min or needs_update or nudges)
+
+    # ONE FACT PER LINE: the headline, what is stale, what to run. Run together
+    # into a paragraph these read as one long sentence that the terminal then
+    # soft-wraps wherever the window happens to end, so the command -- the only
+    # part anyone retypes -- lands mid-line in the middle of a version list.
+    # Explicit newlines put the break where the meaning breaks.
+    #
+    # SAY WHAT IT COSTS TO WAIT, not how the server feels about it. "Update
+    # recommended" or "important update" grade the release and tell the reader
+    # nothing they can act on. The publisher writes that sentence per component
+    # in the manifest, because the shape of the tier is always the same and what
+    # it BREAKS is different every time -- only the release that introduced the
+    # break knows. `DEFAULT_URGENT_MESSAGE` covers a pair that publishes none.
+    #
+    # ONE MESSAGE GOES IN THE HEADLINE; SEVERAL GET THEIR OWN LINES. Two urgent
+    # components with different sentences cannot share a headline without
+    # becoming the run-on the three-line shape exists to prevent, and the common
+    # case by far is one.
+    #
+    # THE DEFAULT IS FOR `needs_update` ONLY. "Below the minimum supported
+    # version" already says the worst of it, and pinning the softer generic
+    # sentence onto that headline would make the louder tier read as the quieter
+    # one. A published `message` still lands there -- that is the whole point of
+    # letting the server write it -- but nothing is invented to fill the space.
+    extra_messages: list[str] = []
+    head_note = messages[0] if messages else (None if below_min else DEFAULT_URGENT_MESSAGE)
+    if messages:
+        extra_messages = messages[1:]
+    if below_min:
+        head = "⚠ Probe is below the minimum supported version"
+        if head_note:
+            head += f" — {head_note}"
+    elif needs_update:
+        head = f"⚠ Probe update needed — {head_note}"
+    else:
+        head = "⚠ Probe update available"
+    lines = [head, summary]
+    lines.extend(extra_messages)
+
+    # THE RESTART NOTE AND THE ADVISORY RIDE THE URGENT TIERS ONLY. Both are
+    # packaging on a routine nudge -- the thing that turned a one-line notice
+    # into three wrapped lines at every single session start -- and both are the
+    # message itself once something is actually broken.
+    #
+    # The advisory in particular is one manifest-wide string echoed to every
+    # install, so ungated it is shown mostly to people it does not describe: a
+    # note about what a CLI below 0.127.0 breaks reached a machine running
+    # 0.144.0. `recommended` is what makes it addressable -- an install the
+    # advisory applies to is now a tier the server can name, so the note reaches
+    # that machine and stays off everyone else's screen.
+    # "No restart" only where it is true (`_picked_up`), else the restart note.
+    picked_up, agent = _picked_up(manifest, local)
+    after = PICKED_UP if picked_up else RESTART_TO_APPLY.format(agent=agent)
+    then = f" (no restart: {PICKED_UP})" if picked_up else f", then restart {agent}"
+    if urgent:
+        lines.append(f"{run_line} ({after})")
+        if isinstance(advisory, str) and advisory.strip():
+            # Human-facing only, and bounded: one line, capped, so a hostile
+            # manifest cannot paste paragraphs of instructions into the session.
+            # It stays OUT of additionalContext for that same reason -- that
+            # channel is read as instructions.
+            lines.append(f"Note: {_clip_advisory(' '.join(advisory.split()))}")
+    else:
+        lines.append(run_line)
+    sys_msg = "\n".join(lines)
+
+    # THE AGENT IS TOLD THE TIER TOO, because its standing instruction is not to
+    # nag -- correct for housekeeping, wrong when a known breakage is in front of
+    # the user. Without this the model reads every tier as the same routine
+    # notice and stays quiet through the one that mattered.
+    if urgent:
+        ctx = (
+            f"The Probe client is out of date ({summary}) and known to "
+            "misbehave at that version: features may fail until it is updated. "
+            f"Tell the user, and offer to {tell} for them{then}; say so "
+            "again if they hit an error that could be explained by the stale "
+            "client. This one is worth raising unprompted; do not repeat it more "
+            "than once unless something fails."
+        )
+    else:
+        ctx = (
+            f"The Probe client is out of date ({summary}). If the user wants "
+            f"to update, {tell} for them{then}. "
+            "Do not nag; only act if they ask."
+        )
+
+    # An update exists. Where automatic updates are on (`_spawn_autoupdate`: on
+    # for the managed CLI unless turned off, opt-in elsewhere), apply it in the
+    # background; the nudge below still renders this session, because the update lands after
+    # it (open sessions then pick it up at their next prompt, where `_picked_up`).
+    _spawn_autoupdate(os.environ.get("PROBE_BIN") or "probe")
+
+    # PreCompact applies and says nothing. See the module docstring: the payload
+    # below is SessionStart's output contract, and a nudge delivered mid-compaction
+    # interrupts work the user did not start to repeat a message they already saw
+    # when the session opened. The spawn above is the whole reason PreCompact is
+    # wired up, and it has already happened by this line.
+    if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT:
+        _final({"continue": True})
+
+    _final(
+        {
+            "systemMessage": sys_msg,
+            "hookSpecificOutput": {
+                "hookEventName": "SessionStart",
+                "additionalContext": ctx,
+            },
+        }
+    )
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        sys.stdout.write('{"continue": true}')
+        sys.exit(0)

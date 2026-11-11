@@ -12,6 +12,7 @@ import google.protobuf.message
 import google.protobuf.timestamp_pb2
 import sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2
 import sentry_protos.billing.v1.services.contract.v2.billing_config_pb2
+import sentry_protos.billing.v1.services.contract.v2.sales_config_pb2
 import sys
 import typing
 
@@ -59,6 +60,7 @@ class ProvisionSalesContractRequest(google.protobuf.message.Message):
     TIMING_FIELD_NUMBER: builtins.int
     NEW_TERM_START_FIELD_NUMBER: builtins.int
     INVOICED_FIELD_NUMBER: builtins.int
+    SALES_CONFIG_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     package_uid: builtins.str
     """The enterprise package the contract moves to."""
@@ -67,9 +69,9 @@ class ProvisionSalesContractRequest(google.protobuf.message.Message):
     timing: global___SalesContractTiming.ValueType
     @property
     def user_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2.UserConfig]:
-        """Reservation overrides, each on a single line item, with the deal's price for
-        the term in reserved_price_cents. Line items not named keep their current
-        configuration.
+        """Reservation overrides, each on a single line item. Line items not named keep
+        their current configuration. The deal's prices go in sales_config, since a
+        UserConfig must not carry a price.
         """
 
     @property
@@ -82,6 +84,13 @@ class ProvisionSalesContractRequest(google.protobuf.message.Message):
     def invoiced(self) -> sentry_protos.billing.v1.services.contract.v2.billing_config_pb2.InvoicedConfig:
         """The contract's invoiced config once the deal takes effect. Required."""
 
+    @property
+    def sales_config(self) -> sentry_protos.billing.v1.services.contract.v2.sales_config_pb2.SalesConfig:
+        """The deal's prices. When set, it replaces the contract's whole sales config
+        when the deal takes effect, and an empty SalesConfig clears it. Unset keeps
+        the current prices.
+        """
+
     def __init__(
         self,
         *,
@@ -92,9 +101,13 @@ class ProvisionSalesContractRequest(google.protobuf.message.Message):
         timing: global___SalesContractTiming.ValueType = ...,
         new_term_start: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         invoiced: sentry_protos.billing.v1.services.contract.v2.billing_config_pb2.InvoicedConfig | None = ...,
+        sales_config: sentry_protos.billing.v1.services.contract.v2.sales_config_pb2.SalesConfig | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["effective", b"effective", "invoiced", b"invoiced", "new_term_start", b"new_term_start", "timing", b"timing"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["effective", b"effective", "invoiced", b"invoiced", "month_interval", b"month_interval", "new_term_start", b"new_term_start", "organization_id", b"organization_id", "package_uid", b"package_uid", "timing", b"timing", "user_configs", b"user_configs"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_sales_config", b"_sales_config", "effective", b"effective", "invoiced", b"invoiced", "new_term_start", b"new_term_start", "sales_config", b"sales_config", "timing", b"timing"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_sales_config", b"_sales_config", "effective", b"effective", "invoiced", b"invoiced", "month_interval", b"month_interval", "new_term_start", b"new_term_start", "organization_id", b"organization_id", "package_uid", b"package_uid", "sales_config", b"sales_config", "timing", b"timing", "user_configs", b"user_configs"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_sales_config", b"_sales_config"]) -> typing.Literal["sales_config"] | None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["effective", b"effective"]) -> typing.Literal["timing", "new_term_start"] | None: ...
 
 global___ProvisionSalesContractRequest = ProvisionSalesContractRequest

@@ -8,6 +8,7 @@ from snowflake.core.code_bundle import (
     CodeBundle,
     CodeBundleResource,
     ExecuteCodeBundleRequest,
+    ExecuteCodeBundleResponse,
 )
 
 from ...utils import BASE_URL, extra_params, mock_http_response
@@ -128,14 +129,29 @@ def test_execute_code_bundle(fake_root, code_bundle):
     request = ExecuteCodeBundleRequest(entrypoint="main.py", arguments=["--flag", "value"])
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        code_bundle.execute(request)
+        mocked_request.return_value = mock_http_response(ExecuteCodeBundleResponse(return_value="42").to_json())
+        result = code_bundle.execute(request)
+        assert isinstance(result, ExecuteCodeBundleResponse)
+        assert result.return_value == "42"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response(ExecuteCodeBundleResponse(return_value="42").to_json())
         op = code_bundle.execute_async(request)
         assert isinstance(op, PollingOperation)
-        op.result()
+        result = op.result()
+        assert isinstance(result, ExecuteCodeBundleResponse)
+        assert result.return_value == "42"
     mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_execute_code_bundle_status_response(code_bundle):
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response('{"status": "Execution completed."}')
+        result = code_bundle.execute(ExecuteCodeBundleRequest(entrypoint="main.py"))
+    assert isinstance(result, ExecuteCodeBundleResponse)
+    assert result.status == "Execution completed."
+    assert result.return_value is None
 
 
 def test_execute_code_bundle_with_specification_and_execution_name(fake_root, code_bundle):

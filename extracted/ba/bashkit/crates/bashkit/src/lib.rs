@@ -323,7 +323,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.20.3", features = ["git"] }
+//! bashkit = { version = "0.21.0", features = ["git"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -354,7 +354,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.20.3", features = ["python"] }
+//! bashkit = { version = "0.21.0", features = ["python"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -470,6 +470,10 @@ pub mod terminal;
 /// invariants enforced (TM-INF-013, TM-INF-016, TM-INF-022).
 #[doc(hidden)]
 pub mod testing;
+#[cfg(any(feature = "python", feature = "typescript"))]
+mod vm_meter;
+#[cfg(feature = "typescript")]
+mod zapcode_guard;
 /// Clock and timer that match the interpreter's target.
 ///
 /// Native targets use tokio's clock (it follows paused/advanced test time),
@@ -574,6 +578,13 @@ pub use builtins::ssh::{SshClient, SshHandler, SshOutput, SshTarget};
 
 #[cfg(feature = "python")]
 pub use builtins::{Python, PythonExternalFnHandler, PythonExternalFns, PythonLimits};
+#[cfg(any(feature = "python", feature = "typescript"))]
+pub use vm_meter::MeteredAllocator;
+
+// Monty python3 and ZapCode ts fail closed without the metered allocator.
+#[cfg(all(test, any(feature = "python", feature = "typescript")))]
+#[global_allocator]
+static TEST_ALLOC: vm_meter::MeteredAllocator = vm_meter::MeteredAllocator;
 
 // Shared resource-limit core for embedded language VMs (Python, TypeScript).
 #[cfg(any(feature = "python", feature = "typescript", feature = "cpython"))]
@@ -587,24 +598,23 @@ pub use builtins::{CPython, CPythonLimits};
 #[cfg(feature = "sqlite")]
 pub use builtins::{Sqlite, SqliteBackend, SqliteLimits};
 // Re-export monty types needed by external handler consumers.
-// **Unstable:** These types come from monty, which is pre-1.0 (`0.0.x`).
-// They may change in breaking ways between bashkit releases.
+// **Unstable:** these follow Monty's API, which may change in breaking ways
+// between bashkit releases. `MontyObject` is an opaque graph since Monty 1.x:
+// build values with its constructors, read them through `ObjectRef`, and use
+// `monty_unstable` only for whole-graph conversions (bindings).
 #[cfg(feature = "python")]
-pub use monty_types::{ExcType, ExtFunctionResult, MontyException, MontyObject};
+pub use monty_types::unstable as monty_unstable;
+#[cfg(feature = "python")]
+pub use monty_types::{ExcType, ExtFunctionResult, MontyException, MontyObject, ObjectRef};
 
 #[cfg(feature = "typescript")]
 pub use builtins::{
     TypeScriptConfig, TypeScriptExtension, TypeScriptExternalFnHandler, TypeScriptExternalFns,
     TypeScriptLimits,
 };
-// Re-export zapcode-core types needed by external handler consumers.
-#[cfg(all(feature = "typescript", target_arch = "wasm32", target_os = "unknown"))]
-pub use zapcode_browser::Value as ZapcodeValue;
-#[cfg(all(
-    feature = "typescript",
-    not(all(target_arch = "wasm32", target_os = "unknown"))
-))]
-pub use zapcode_core::Value as ZapcodeValue;
+// Re-export ZapCode types needed by external handler consumers.
+#[cfg(feature = "typescript")]
+pub use zapcode_vendor::Value as ZapcodeValue;
 
 /// Logging utilities module
 ///
@@ -3870,8 +3880,12 @@ impl BashBuilder {
             match &m.vfs_mount {
                 None => {
                     // Overlay at root: real fs becomes the lower layer,
-                    // existing VFS content overlaid on top
-                    current_fs = Arc::new(OverlayFs::new(real_fs));
+                    // existing VFS content overlaid on top.
+                    // THREAT[TM-DOS-144]: keep the configured FsLimits on
+                    // the writable upper layer; `OverlayFs::new` used the
+                    // defaults, so a root mount silently raised the quota.
+                    let limits = current_fs.limits();
+                    current_fs = Arc::new(OverlayFs::with_limits(real_fs, limits));
                     host_mounts.mounts.push(HostMount {
                         host_path: canonical_host,
                         vfs_path: PathBuf::from("/"),
@@ -8704,9 +8718,10 @@ echo missing fi"#,
     }
 }
 
-// Browser-only upstream source retains VM limits; native builds keep the
-// external crate and its public value types. See runtimes/zapcode-runtime.md.
-#[cfg(all(feature = "typescript", target_arch = "wasm32", target_os = "unknown"))]
+// Decision: every target runs this in-tree ZapCode 1.5.1 copy instead of the
+// registry crate, so Bashkit can carry resource-limit fixes (marked
+// `bashkit fork:`) that upstream has not shipped. See runtimes/zapcode-runtime.md.
+#[cfg(feature = "typescript")]
 #[rustfmt::skip]
 #[allow(dead_code, unused_imports, clippy::all, clippy::unwrap_used)]
-mod zapcode_browser;
+mod zapcode_vendor;

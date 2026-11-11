@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: datamodel-code-generator
-Version: 0.92.0
+Version: 0.93.0
 Summary: Datamodel Code Generator
 Project-URL: Homepage, https://github.com/datamodel-code-generator/datamodel-code-generator
 Project-URL: Source, https://github.com/datamodel-code-generator/datamodel-code-generator
@@ -11,14 +11,13 @@ Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: argcomplete<4,>=2.10.1
 Requires-Dist: black>=19.10b0; python_version < '3.15' and sys_platform != 'emscripten'
 Requires-Dist: black>=26.5; python_version >= '3.15' and sys_platform != 'emscripten'
@@ -30,7 +29,6 @@ Requires-Dist: pydantic!=2.10,!=2.10.1,!=2.10.2,<3,>=2; python_version < '3.14'
 Requires-Dist: pydantic<3,>=2.12; python_version >= '3.14' and python_version < '3.15'
 Requires-Dist: pydantic<3,>=2.14; python_version >= '3.15'
 Requires-Dist: pyyaml>=6.0.1
-Requires-Dist: tomli<3,>=2.2.1; python_version < '3.11'
 Requires-Dist: typing-extensions<5,>=4.16
 Provides-Extra: all
 Requires-Dist: black>=19.10b0; (python_version < '3.15' and sys_platform != 'emscripten') and extra == 'all'

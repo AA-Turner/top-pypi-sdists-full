@@ -659,7 +659,11 @@ class Netconf:
     def _free(
         self,
     ) -> None:
-        self.ffi_mapping.shared_mapping.free(ptr=self._ptr_or_exception())
+        ptr = self._ptr_or_exception()
+
+        self.ptr = None
+        self.poll_fd = 0
+        self.ffi_mapping.shared_mapping.free(ptr=ptr)
 
     def _get_options(self) -> str:
         """
@@ -1232,7 +1236,7 @@ class Netconf:
         self,
         payload: str | bytes,
         *,
-        base_namespace_prefix: str = "",
+        base_namespace_prefix: str | bytes = "",
         extra_namespaces: list[tuple[str, str]] | None = None,
         operation_timeout_ns: int | None = None,
         cancel: Cancel | None = None,
@@ -1297,7 +1301,7 @@ class Netconf:
         self,
         payload: str | bytes,
         *,
-        base_namespace_prefix: str = "",
+        base_namespace_prefix: str | bytes = "",
         extra_namespaces: list[tuple[str, str]] | None = None,
         operation_timeout_ns: int | None = None,
         cancel: Cancel | None = None,
@@ -1362,10 +1366,10 @@ class Netconf:
         self,
         *,
         source: DatastoreType = DatastoreType.RUNNING,
-        filter_: str = "",
+        filter_: str | bytes = "",
         filter_type: FilterType = FilterType.SUBTREE,
-        filter_namespace_prefix: str = "",
-        filter_namespace: str = "",
+        filter_namespace_prefix: str | bytes = "",
+        filter_namespace: str | bytes = "",
         defaults_type: DefaultsType = DefaultsType.UNSET,
         operation_timeout_ns: int | None = None,
         cancel: Cancel | None = None,
@@ -1422,10 +1426,10 @@ class Netconf:
         self,
         *,
         source: DatastoreType = DatastoreType.RUNNING,
-        filter_: str = "",
+        filter_: str | bytes = "",
         filter_type: FilterType = FilterType.SUBTREE,
-        filter_namespace_prefix: str = "",
-        filter_namespace: str = "",
+        filter_namespace_prefix: str | bytes = "",
+        filter_namespace: str | bytes = "",
         defaults_type: DefaultsType = DefaultsType.UNSET,
         operation_timeout_ns: int | None = None,
         cancel: Cancel | None = None,
@@ -1925,10 +1929,10 @@ class Netconf:
     def get(  # noqa: PLR0913
         self,
         *,
-        filter_: str = "",
+        filter_: str | bytes = "",
         filter_type: FilterType = FilterType.SUBTREE,
-        filter_namespace_prefix: str = "",
-        filter_namespace: str = "",
+        filter_namespace_prefix: str | bytes = "",
+        filter_namespace: str | bytes = "",
         defaults_type: DefaultsType = DefaultsType.UNSET,
         operation_timeout_ns: int | None = None,
         cancel: Cancel | None = None,
@@ -1982,10 +1986,10 @@ class Netconf:
     async def get_async(  # noqa: PLR0913
         self,
         *,
-        filter_: str = "",
+        filter_: str | bytes = "",
         filter_type: FilterType = FilterType.SUBTREE,
-        filter_namespace_prefix: str = "",
-        filter_namespace: str = "",
+        filter_namespace_prefix: str | bytes = "",
+        filter_namespace: str | bytes = "",
         defaults_type: DefaultsType = DefaultsType.UNSET,
         operation_timeout_ns: int | None = None,
         cancel: Cancel | None = None,
@@ -2349,7 +2353,7 @@ class Netconf:
     def cancel_commit(
         self,
         *,
-        persist_id: str | None = None,
+        persist_id: str | bytes | None = None,
         operation_timeout_ns: int | None = None,
         cancel: Cancel | None = None,
     ) -> Result:
@@ -2392,7 +2396,7 @@ class Netconf:
     async def cancel_commit_async(
         self,
         *,
-        persist_id: str | None = None,
+        persist_id: str | bytes | None = None,
         operation_timeout_ns: int | None = None,
         cancel: Cancel | None = None,
     ) -> Result:
@@ -2516,9 +2520,9 @@ class Netconf:
     @handle_operation_timeout
     def get_schema(
         self,
-        identifier: str,
+        identifier: str | bytes,
         *,
-        version: str = "",
+        version: str | bytes = "",
         format_: SchemaFormat = SchemaFormat.YANG,
         operation_timeout_ns: int | None = None,
         cancel: Cancel | None = None,
@@ -2566,9 +2570,9 @@ class Netconf:
     @handle_operation_timeout_async
     async def get_schema_async(
         self,
-        identifier: str,
+        identifier: str | bytes,
         *,
-        version: str = "",
+        version: str | bytes = "",
         format_: SchemaFormat = SchemaFormat.YANG,
         operation_timeout_ns: int | None = None,
         cancel: Cancel | None = None,
@@ -2618,12 +2622,12 @@ class Netconf:
         self,
         *,
         source: DatastoreType = DatastoreType.RUNNING,
-        filter_: str = "",
+        filter_: str | bytes = "",
         filter_type: FilterType = FilterType.SUBTREE,
-        filter_namespace_prefix: str = "",
-        filter_namespace: str = "",
+        filter_namespace_prefix: str | bytes = "",
+        filter_namespace: str | bytes = "",
         config_filter: ConfigFilter = ConfigFilter.UNSET,
-        origin_filters: str = "",
+        origin_filters: str | bytes = "",
         max_depth: int = 0,
         with_origin: bool = False,
         defaults_type: DefaultsType = DefaultsType.UNSET,
@@ -2691,12 +2695,12 @@ class Netconf:
         self,
         *,
         source: DatastoreType = DatastoreType.RUNNING,
-        filter_: str = "",
+        filter_: str | bytes = "",
         filter_type: FilterType = FilterType.SUBTREE,
-        filter_namespace_prefix: str = "",
-        filter_namespace: str = "",
+        filter_namespace_prefix: str | bytes = "",
+        filter_namespace: str | bytes = "",
         config_filter: ConfigFilter = ConfigFilter.UNSET,
-        origin_filters: str = "",
+        origin_filters: str | bytes = "",
         max_depth: int = 0,
         with_origin: bool = False,
         defaults_type: DefaultsType = DefaultsType.UNSET,
@@ -2860,7 +2864,7 @@ class Netconf:
     @handle_operation_timeout
     def action(
         self,
-        action: str,
+        action: str | bytes,
         *,
         operation_timeout_ns: int | None = None,
         cancel: Cancel | None = None,
@@ -2903,7 +2907,7 @@ class Netconf:
     @handle_operation_timeout_async
     async def action_async(
         self,
-        action: str,
+        action: str | bytes,
         *,
         operation_timeout_ns: int | None = None,
         cancel: Cancel | None = None,

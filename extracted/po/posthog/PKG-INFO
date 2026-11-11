@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthog
-Version: 7.86.6
+Version: 7.87.0
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -43,6 +43,7 @@ Requires-Dist: opentelemetry-instrumentation-system-metrics>=0.60b0; extra == "m
 Provides-Extra: dev
 Requires-Dist: django-stubs; extra == "dev"
 Requires-Dist: griffe; extra == "dev"
+Requires-Dist: griffe2md; extra == "dev"
 Requires-Dist: lxml; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: mypy-baseline; extra == "dev"
@@ -101,6 +102,8 @@ Requires-Dist: opentelemetry-instrumentation-aiohttp-client>=0.60b0; extra == "t
 Requires-Dist: opentelemetry-instrumentation-django>=0.60b0; extra == "test"
 Requires-Dist: pytest-bdd>=8.1.0; extra == "test"
 Requires-Dist: zstandard>=0.23.0; extra == "test"
+Requires-Dist: griffe; extra == "test"
+Requires-Dist: griffe2md; extra == "test"
 Requires-Dist: gevent>=25.4.1; implementation_name == "cpython" and extra == "test"
 Dynamic: author
 Dynamic: home-page

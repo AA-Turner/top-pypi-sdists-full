@@ -3894,14 +3894,6 @@ class CfnFleet(
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -6415,6 +6407,7 @@ class CfnStack(
             feedback_url="feedbackUrl",
             name="name",
             redirect_url="redirectUrl",
+            storage_connector_authentication="storageConnectorAuthentication",
             storage_connectors=[appstream.CfnStack.StorageConnectorProperty(
                 connector_type="connectorType",
         
@@ -6456,6 +6449,7 @@ class CfnStack(
         feedback_url: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         redirect_url: typing.Optional[builtins.str] = None,
+        storage_connector_authentication: typing.Optional[builtins.str] = None,
         storage_connectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStack.StorageConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         streaming_experience_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStack.StreamingExperienceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6477,6 +6471,7 @@ class CfnStack(
         :param feedback_url: The URL that users are redirected to after they click the Send Feedback link. If no URL is specified, no Send Feedback link is displayed.
         :param name: The name of the stack.
         :param redirect_url: The URL that users are redirected to after their streaming session ends.
+        :param storage_connector_authentication: Controls whether stored OneDrive and Google Drive authentication is retained between streaming sessions. Valid values: FORCE_REAUTHENTICATION | REUSE_CREDENTIALS.
         :param storage_connectors: The storage connectors to enable.
         :param streaming_experience_settings: The streaming protocol that you want your stack to prefer. This can be UDP or TCP. Currently, UDP is only supported in the Windows native client.
         :param tags: An array of key-value pairs.
@@ -6499,6 +6494,7 @@ class CfnStack(
             feedback_url=feedback_url,
             name=name,
             redirect_url=redirect_url,
+            storage_connector_authentication=storage_connector_authentication,
             storage_connectors=storage_connectors,
             streaming_experience_settings=streaming_experience_settings,
             tags=tags,
@@ -6793,6 +6789,22 @@ class CfnStack(
             type_hints = cached_type_hints(_typecheckingstub__dda375121bdfb203a69bc3a2485d69e2ee01da1e4327d7116bfac610f8927d22)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "redirectUrl", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="storageConnectorAuthentication")
+    def storage_connector_authentication(self) -> typing.Optional[builtins.str]:
+        '''Controls whether stored OneDrive and Google Drive authentication is retained between streaming sessions.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "storageConnectorAuthentication"))
+
+    @storage_connector_authentication.setter
+    def storage_connector_authentication(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c2e3168ce25b397cefa31f6b4312eb1cb5e3da794b4189fd8512a7ee6afefb46)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "storageConnectorAuthentication", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageConnectors")
@@ -7742,14 +7754,6 @@ class CfnStackFleetAssociation(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -7881,6 +7885,7 @@ class CfnStackFleetAssociationProps:
         "feedback_url": "feedbackUrl",
         "name": "name",
         "redirect_url": "redirectUrl",
+        "storage_connector_authentication": "storageConnectorAuthentication",
         "storage_connectors": "storageConnectors",
         "streaming_experience_settings": "streamingExperienceSettings",
         "tags": "tags",
@@ -7903,6 +7908,7 @@ class CfnStackProps:
         feedback_url: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         redirect_url: typing.Optional[builtins.str] = None,
+        storage_connector_authentication: typing.Optional[builtins.str] = None,
         storage_connectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStack.StorageConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         streaming_experience_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStack.StreamingExperienceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7922,6 +7928,7 @@ class CfnStackProps:
         :param feedback_url: The URL that users are redirected to after they click the Send Feedback link. If no URL is specified, no Send Feedback link is displayed.
         :param name: The name of the stack.
         :param redirect_url: The URL that users are redirected to after their streaming session ends.
+        :param storage_connector_authentication: Controls whether stored OneDrive and Google Drive authentication is retained between streaming sessions. Valid values: FORCE_REAUTHENTICATION | REUSE_CREDENTIALS.
         :param storage_connectors: The storage connectors to enable.
         :param streaming_experience_settings: The streaming protocol that you want your stack to prefer. This can be UDP or TCP. Currently, UDP is only supported in the Windows native client.
         :param tags: An array of key-value pairs.
@@ -7978,6 +7985,7 @@ class CfnStackProps:
                 feedback_url="feedbackUrl",
                 name="name",
                 redirect_url="redirectUrl",
+                storage_connector_authentication="storageConnectorAuthentication",
                 storage_connectors=[appstream.CfnStack.StorageConnectorProperty(
                     connector_type="connectorType",
             
@@ -8015,6 +8023,7 @@ class CfnStackProps:
             check_type(argname="argument feedback_url", value=feedback_url, expected_type=type_hints["feedback_url"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument redirect_url", value=redirect_url, expected_type=type_hints["redirect_url"])
+            check_type(argname="argument storage_connector_authentication", value=storage_connector_authentication, expected_type=type_hints["storage_connector_authentication"])
             check_type(argname="argument storage_connectors", value=storage_connectors, expected_type=type_hints["storage_connectors"])
             check_type(argname="argument streaming_experience_settings", value=streaming_experience_settings, expected_type=type_hints["streaming_experience_settings"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -8044,6 +8053,8 @@ class CfnStackProps:
             self._values["name"] = name
         if redirect_url is not None:
             self._values["redirect_url"] = redirect_url
+        if storage_connector_authentication is not None:
+            self._values["storage_connector_authentication"] = storage_connector_authentication
         if storage_connectors is not None:
             self._values["storage_connectors"] = storage_connectors
         if streaming_experience_settings is not None:
@@ -8181,6 +8192,17 @@ class CfnStackProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-redirecturl
         '''
         result = self._values.get("redirect_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def storage_connector_authentication(self) -> typing.Optional[builtins.str]:
+        '''Controls whether stored OneDrive and Google Drive authentication is retained between streaming sessions.
+
+        Valid values: FORCE_REAUTHENTICATION | REUSE_CREDENTIALS.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-storageconnectorauthentication
+        '''
+        result = self._values.get("storage_connector_authentication")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -10125,6 +10147,7 @@ def _typecheckingstub__add685d2c205e11b1f2727c7c09ea99b5fd4739effbaca1fd079659e5
     feedback_url: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     redirect_url: typing.Optional[builtins.str] = None,
+    storage_connector_authentication: typing.Optional[builtins.str] = None,
     storage_connectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStack.StorageConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     streaming_experience_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStack.StreamingExperienceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10232,6 +10255,12 @@ def _typecheckingstub__73280be80fedcfcb318f73a4dbe80e309ed0d2f02b7aedb45617faf54
     pass
 
 def _typecheckingstub__dda375121bdfb203a69bc3a2485d69e2ee01da1e4327d7116bfac610f8927d22(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2e3168ce25b397cefa31f6b4312eb1cb5e3da794b4189fd8512a7ee6afefb46(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -10400,6 +10429,7 @@ def _typecheckingstub__2f5987726340331a807da3e721dc066e307475a26a6ce0ddcd409aa8f
     feedback_url: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     redirect_url: typing.Optional[builtins.str] = None,
+    storage_connector_authentication: typing.Optional[builtins.str] = None,
     storage_connectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStack.StorageConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     streaming_experience_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStack.StreamingExperienceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,

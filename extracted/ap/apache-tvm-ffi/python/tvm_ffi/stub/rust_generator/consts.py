@@ -18,11 +18,6 @@
 
 from __future__ import annotations
 
-#: One-line directives the Rust backend consumes.
-RUST_DIRECTIVE_KINDS = frozenset(
-    {"import-object", "field", "nullable", "enum", "opaque", "upcast", "custom-new"}
-)
-
 #: Default FFI-origin -> Rust-type map; ``::`` paths get a ``use``, bare names do not.
 RUST_TY_MAP_DEFAULTS = {
     "int": "i64",
@@ -36,7 +31,7 @@ RUST_TY_MAP_DEFAULTS = {
     "Array": "tvm_ffi::Array",  # the crate's own Array<T>, NOT Vec
     "List": "tvm_ffi::List",  # the crate's own List<T>, NOT Vec
     "Map": "tvm_ffi::Map",  # the crate's own Map<K, V>, NOT HashMap
-    # An object value is the `ObjectRef` handle; `Object` only appears as an embedded `base`.
+    # An object value is the `ObjectRef` handle; `Object` only appears as an embedded `base_`.
     "Object": "tvm_ffi::object::ObjectRef",
     "Tensor": "tvm_ffi::Tensor",
     "Shape": "tvm_ffi::Shape",
@@ -60,15 +55,30 @@ RUST_TY_MAP_DEFAULTS = {
 #: Origins without a crate mirror; such a field is read as ``tvm_ffi::Any``.
 RUST_UNSUPPORTED_ORIGINS = frozenset({"Dict", "Union", "tuple"})
 
-#: Mirror scalar by ``(origin, reflected size)``: the schema erases widths and signedness.
+#: Mirror scalar by ``(origin, reflected size)``. The schema erases integer widths and
+#: signedness, so only an 8-byte integer, which the field getter also reads as ``i64``, is
+#: mirrored; a narrower one (``uint32_t``, ``int32_t``, ...) needs a ``field`` or ``enum``
+#: directive, else its type stays opaque.
 RUST_SCALAR_BY_SIZE = {
-    ("int", 1): "i8",
-    ("int", 2): "i16",
-    ("int", 4): "i32",
     ("int", 8): "i64",
     ("float", 4): "f32",
     ("float", 8): "f64",
 }
+
+#: ``(size, alignment)`` of the mirror of a field by schema origin; any other mirror is
+#: one object pointer (:data:`RUST_POINTER_LAYOUT`). A field whose reflected bytes differ
+#: has no mirror.
+RUST_MIRROR_LAYOUTS = {
+    "int": (8, 8),
+    "bool": (1, 1),
+    "str": (16, 8),
+    "bytes": (16, 8),
+    "Any": (16, 8),
+    "Device": (8, 4),
+    "dtype": (4, 2),
+    "DataType": (4, 2),
+}
+RUST_POINTER_LAYOUT = (8, 8)
 
 #: Byte width of the scalars a ``field`` / ``enum`` directive may name; checked against the field.
 RUST_SCALAR_WIDTHS = {
@@ -85,11 +95,31 @@ RUST_SCALAR_WIDTHS = {
     "f64": 8,
 }
 
-#: Parameters of the wrapper's allocator taken as their own type, as ``#[rs_class]``'s
-#: ``new`` takes them: a literal infers only from its exact type. Any other parameter is
-#: ``impl Into<T>``; ``<Leaf>Obj::new`` takes every one as its own type.
+#: Parameters of the wrapper's allocator taken as their own type, as ``#[rs_object]``'s
+#: ``new`` takes them: a literal infers only from its exact type. An object reference is
+#: ``impl IntoArg<T>`` and any other parameter ``impl Into<T>``; ``<Leaf>Obj::new``
+#: takes every one as its own type.
 RUST_EXACT_PARAMS = frozenset(
     {"bool", "i8", "i16", "i32", "i64", "isize", "u8", "u16", "u32", "u64", "usize", "f32", "f64"}
+)
+
+#: Builtin origins whose Rust type is an object reference, taken as ``impl IntoArg<T>``.
+#: A type key outside ``ffi.*`` is one too: a generated or ``ty_map``'d binding. ``Shape``,
+#: like ``Array`` / ``List`` / ``Map``, is a container taken as ``impl Into<T>``, which also
+#: accepts what it is built from (``From<impl AsRef<[i64]>>``).
+RUST_OBJECT_REF_ORIGINS = frozenset(
+    {
+        "Object",
+        "Tensor",
+        "Callable",
+        "ffi.Object",
+        "ffi.Tensor",
+        "ffi.Function",
+        "ffi.Module",
+        "ffi.Error",
+        "ffi.reflection.AccessPath",
+        "ffi.reflection.AccessStep",
+    }
 )
 
 #: Size of an object reference field; ``nullable`` may only wrap those.
@@ -113,6 +143,13 @@ RUST_MOD_MAP = {
 #: Root of the object hierarchy.
 RUST_ROOT_TYPE_KEY = "ffi.Object"
 
+#: Builtin types whose object struct the crate defines; a subtype embeds it as ``base_``.
+RUST_CRATE_OBJECTS = {"ffi.Enum": "tvm_ffi::enum_ref::EnumObj"}
+
+#: Root of the enum types: their registry allocates the values, and their references
+#: implement ``tvm_ffi::EnumRef``.
+RUST_ENUM_TYPE_KEY = "ffi.Enum"
+
 #: Keywords a field name may collide with: spelled ``r#name``, or ``name_`` for the four
 #: that cannot be raw identifiers.
 RUST_KEYWORDS = frozenset(
@@ -123,10 +160,13 @@ RUST_KEYWORDS = frozenset(
 )
 RUST_NOT_RAW_IDENTIFIERS = frozenset({"self", "Self", "super", "crate"})
 
-#: The one member name the generated structs use themselves: ``base`` is the parent slot of every
-#: object struct and the ``ObjectArc`` slot of every reference wrapper. A reflected field of that
-#: name would collide (or shadow through ``Deref``), so ``rust_ident`` spells it ``base_``.
-RUST_RESERVED_MEMBERS = frozenset({"base"})
+#: The members the generated structs use themselves: ``base_``, the parent's object in every
+#: object struct, and ``data_``, the ``ObjectArc`` of every reference. The trailing ``_`` keeps
+#: them apart from reflected names such as ``base`` and ``data``.
+RUST_GENERATED_MEMBERS = frozenset({"base_", "data_"})
+
 
 #: ``rustfmt``'s default ``max_width``; a wider allocator signature wraps one parameter per line.
 RUST_MAX_WIDTH = 100
+#: ``rustfmt``'s default ``fn_call_width``; wider call arguments take one line each.
+RUST_FN_CALL_WIDTH = 60

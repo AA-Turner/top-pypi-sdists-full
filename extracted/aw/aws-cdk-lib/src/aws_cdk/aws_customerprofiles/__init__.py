@@ -101,11 +101,9 @@ class CfnCalculatedAttributeDefinition(
             conditions=customerprofiles.CfnCalculatedAttributeDefinition.ConditionsProperty(
                 object_count=123,
                 range=customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
-                    unit="unit",
-        
-                    # the properties below are optional
                     timestamp_format="timestampFormat",
                     timestamp_source="timestampSource",
+                    unit="unit",
                     value=123,
                     value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
                         end=123,
@@ -119,6 +117,20 @@ class CfnCalculatedAttributeDefinition(
             ),
             description="description",
             display_name="displayName",
+            filter=customerprofiles.CfnCalculatedAttributeDefinition.FilterProperty(
+                groups=[customerprofiles.CfnCalculatedAttributeDefinition.FilterGroupProperty(
+                    dimensions=[customerprofiles.CfnCalculatedAttributeDefinition.FilterDimensionProperty(
+                        attributes={
+                            "attributes_key": customerprofiles.CfnCalculatedAttributeDefinition.FilterAttributeDimensionProperty(
+                                dimension_type="dimensionType",
+                                values=["values"]
+                            )
+                        }
+                    )],
+                    type="type"
+                )],
+                include="include"
+            ),
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -139,6 +151,7 @@ class CfnCalculatedAttributeDefinition(
         conditions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCalculatedAttributeDefinition.ConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
+        filter: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCalculatedAttributeDefinition.FilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         use_historical_data: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
@@ -153,6 +166,7 @@ class CfnCalculatedAttributeDefinition(
         :param conditions: The conditions including range, object count, and threshold for the calculated attribute.
         :param description: The description of the calculated attribute.
         :param display_name: The display name of the calculated attribute.
+        :param filter: Defines how to filter the objects coming in for calculated attributes.
         :param tags: An array of key-value pairs to apply to this resource.
         :param use_historical_data: Whether historical data ingested before the Calculated Attribute was created should be included in calculations.
         '''
@@ -168,6 +182,7 @@ class CfnCalculatedAttributeDefinition(
             conditions=conditions,
             description=description,
             display_name=display_name,
+            filter=filter,
             tags=tags,
             use_historical_data=use_historical_data,
         )
@@ -379,6 +394,24 @@ class CfnCalculatedAttributeDefinition(
         jsii.set(self, "displayName", value)
 
     @builtins.property
+    @jsii.member(jsii_name="filter")
+    def filter(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCalculatedAttributeDefinition.FilterProperty"]]:
+        '''Defines how to filter the objects coming in for calculated attributes.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCalculatedAttributeDefinition.FilterProperty"]], jsii.get(self, "filter"))
+
+    @filter.setter
+    def filter(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCalculatedAttributeDefinition.FilterProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__532cdaf945d7096ed817a623b89c3f6c253bff09de27c89d0ae0d38bca6df3a0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "filter", value)
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
@@ -576,11 +609,9 @@ class CfnCalculatedAttributeDefinition(
                 conditions_property = customerprofiles.CfnCalculatedAttributeDefinition.ConditionsProperty(
                     object_count=123,
                     range=customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
-                        unit="unit",
-                
-                        # the properties below are optional
                         timestamp_format="timestampFormat",
                         timestamp_source="timestampSource",
+                        unit="unit",
                         value=123,
                         value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
                             end=123,
@@ -649,12 +680,307 @@ class CfnCalculatedAttributeDefinition(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinition.FilterAttributeDimensionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"dimension_type": "dimensionType", "values": "values"},
+    )
+    class FilterAttributeDimensionProperty:
+        def __init__(
+            self,
+            *,
+            dimension_type: builtins.str,
+            values: typing.Sequence[builtins.str],
+        ) -> None:
+            '''Object that defines how to filter the incoming objects for the calculated attribute.
+
+            :param dimension_type: The action to filter with.
+            :param values: The values to apply the DimensionType on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-filterattributedimension.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                filter_attribute_dimension_property = customerprofiles.CfnCalculatedAttributeDefinition.FilterAttributeDimensionProperty(
+                    dimension_type="dimensionType",
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1c19035a29b34ddce2820c4571d3ef1fdf94d155d4128c6d521b0557f0a8d9f2)
+                check_type(argname="argument dimension_type", value=dimension_type, expected_type=type_hints["dimension_type"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "dimension_type": dimension_type,
+                "values": values,
+            }
+
+        @builtins.property
+        def dimension_type(self) -> builtins.str:
+            '''The action to filter with.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-filterattributedimension.html#cfn-customerprofiles-calculatedattributedefinition-filterattributedimension-dimensiontype
+            '''
+            result = self._values.get("dimension_type")
+            assert result is not None, "Required property 'dimension_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def values(self) -> typing.List[builtins.str]:
+            '''The values to apply the DimensionType on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-filterattributedimension.html#cfn-customerprofiles-calculatedattributedefinition-filterattributedimension-values
+            '''
+            result = self._values.get("values")
+            assert result is not None, "Required property 'values' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FilterAttributeDimensionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinition.FilterDimensionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"attributes": "attributes"},
+    )
+    class FilterDimensionProperty:
+        def __init__(
+            self,
+            *,
+            attributes: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCalculatedAttributeDefinition.FilterAttributeDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Contains the map of attribute names to attribute dimensions.
+
+            :param attributes: Is the attribute within the FilterDimension map.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-filterdimension.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                filter_dimension_property = customerprofiles.CfnCalculatedAttributeDefinition.FilterDimensionProperty(
+                    attributes={
+                        "attributes_key": customerprofiles.CfnCalculatedAttributeDefinition.FilterAttributeDimensionProperty(
+                            dimension_type="dimensionType",
+                            values=["values"]
+                        )
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9832b527669f8325203396d0f539334ae109db245c5d681ea2e23abc6b997a0b)
+                check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "attributes": attributes,
+            }
+
+        @builtins.property
+        def attributes(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCalculatedAttributeDefinition.FilterAttributeDimensionProperty"]]]:
+            '''Is the attribute within the FilterDimension map.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-filterdimension.html#cfn-customerprofiles-calculatedattributedefinition-filterdimension-attributes
+            '''
+            result = self._values.get("attributes")
+            assert result is not None, "Required property 'attributes' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCalculatedAttributeDefinition.FilterAttributeDimensionProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FilterDimensionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinition.FilterGroupProperty",
+        jsii_struct_bases=[],
+        name_mapping={"dimensions": "dimensions", "type": "type"},
+    )
+    class FilterGroupProperty:
+        def __init__(
+            self,
+            *,
+            dimensions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCalculatedAttributeDefinition.FilterDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            type: builtins.str,
+        ) -> None:
+            '''Object that holds the dimensions to filter on.
+
+            :param dimensions: 
+            :param type: The type of logical relationship between the dimensions of the Filter group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-filtergroup.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                filter_group_property = customerprofiles.CfnCalculatedAttributeDefinition.FilterGroupProperty(
+                    dimensions=[customerprofiles.CfnCalculatedAttributeDefinition.FilterDimensionProperty(
+                        attributes={
+                            "attributes_key": customerprofiles.CfnCalculatedAttributeDefinition.FilterAttributeDimensionProperty(
+                                dimension_type="dimensionType",
+                                values=["values"]
+                            )
+                        }
+                    )],
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0f35db104435ef22865e1eb73a302c70cc8faf7854691670c4b12cf73c475421)
+                check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "dimensions": dimensions,
+                "type": type,
+            }
+
+        @builtins.property
+        def dimensions(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCalculatedAttributeDefinition.FilterDimensionProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-filtergroup.html#cfn-customerprofiles-calculatedattributedefinition-filtergroup-dimensions
+            '''
+            result = self._values.get("dimensions")
+            assert result is not None, "Required property 'dimensions' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCalculatedAttributeDefinition.FilterDimensionProperty"]]], result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of logical relationship between the dimensions of the Filter group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-filtergroup.html#cfn-customerprofiles-calculatedattributedefinition-filtergroup-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FilterGroupProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinition.FilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"groups": "groups", "include": "include"},
+    )
+    class FilterProperty:
+        def __init__(
+            self,
+            *,
+            groups: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCalculatedAttributeDefinition.FilterGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            include: builtins.str,
+        ) -> None:
+            '''Defines how to filter the objects coming in for calculated attributes.
+
+            :param groups: 
+            :param include: Define whether to include or exclude objects for Calculated Attributed calculation that fit the filter groups criteria.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-filter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                filter_property = customerprofiles.CfnCalculatedAttributeDefinition.FilterProperty(
+                    groups=[customerprofiles.CfnCalculatedAttributeDefinition.FilterGroupProperty(
+                        dimensions=[customerprofiles.CfnCalculatedAttributeDefinition.FilterDimensionProperty(
+                            attributes={
+                                "attributes_key": customerprofiles.CfnCalculatedAttributeDefinition.FilterAttributeDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                )
+                            }
+                        )],
+                        type="type"
+                    )],
+                    include="include"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1b3286a5ab3fc67fa1bf1400c8228af68f7f45e162844dd4fc7188c37a4976e3)
+                check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
+                check_type(argname="argument include", value=include, expected_type=type_hints["include"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "groups": groups,
+                "include": include,
+            }
+
+        @builtins.property
+        def groups(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCalculatedAttributeDefinition.FilterGroupProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-filter.html#cfn-customerprofiles-calculatedattributedefinition-filter-groups
+            '''
+            result = self._values.get("groups")
+            assert result is not None, "Required property 'groups' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCalculatedAttributeDefinition.FilterGroupProperty"]]], result)
+
+        @builtins.property
+        def include(self) -> builtins.str:
+            '''Define whether to include or exclude objects for Calculated Attributed calculation that fit the filter groups criteria.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-filter.html#cfn-customerprofiles-calculatedattributedefinition-filter-include
+            '''
+            result = self._values.get("include")
+            assert result is not None, "Required property 'include' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "unit": "unit",
             "timestamp_format": "timestampFormat",
             "timestamp_source": "timestampSource",
+            "unit": "unit",
             "value": "value",
             "value_range": "valueRange",
         },
@@ -663,17 +989,17 @@ class CfnCalculatedAttributeDefinition(
         def __init__(
             self,
             *,
-            unit: builtins.str,
             timestamp_format: typing.Optional[builtins.str] = None,
             timestamp_source: typing.Optional[builtins.str] = None,
+            unit: typing.Optional[builtins.str] = None,
             value: typing.Optional[jsii.Number] = None,
             value_range: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCalculatedAttributeDefinition.ValueRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The relative time period over which data is included in the aggregation.
 
-            :param unit: The unit of time.
             :param timestamp_format: The format the timestamp field in your JSON object is specified. This value should be one of EPOCHMILLI (for Unix epoch timestamps with second/millisecond level precision) or ISO_8601 (following ISO_8601 format with second/millisecond level precision, with an optional offset of Z or in the format HH:MM or HHMM.). E.g. if your object type is MyType and source JSON is {"generatedAt": {"timestamp": "2001-07-04T12:08:56.235-0700"}}, then TimestampFormat should be "ISO_8601"
             :param timestamp_source: An expression specifying the field in your JSON object from which the date should be parsed. The expression should follow the structure of "{ObjectTypeName.}". E.g. if your object type is MyType and source JSON is {"generatedAt": {"timestamp": "1737587945945"}}, then TimestampSource should be "{MyType.generatedAt.timestamp}"
+            :param unit: The unit of time.
             :param value: The amount of time of the specified unit.
             :param value_range: A structure letting customers specify a relative time window over which over which data is included in the Calculated Attribute. Use positive numbers to indicate that the endpoint is in the past, and negative numbers to indicate it is in the future. ValueRange overrides Value.
 
@@ -687,11 +1013,9 @@ class CfnCalculatedAttributeDefinition(
                 from aws_cdk import aws_customerprofiles as customerprofiles
                 
                 range_property = customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
-                    unit="unit",
-                
-                    # the properties below are optional
                     timestamp_format="timestampFormat",
                     timestamp_source="timestampSource",
+                    unit="unit",
                     value=123,
                     value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
                         end=123,
@@ -701,32 +1025,22 @@ class CfnCalculatedAttributeDefinition(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__4567eb83ac5620aa6be36cbd0e38cdba257d259743e1017616dbc2252fc66f9d)
-                check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
                 check_type(argname="argument timestamp_format", value=timestamp_format, expected_type=type_hints["timestamp_format"])
                 check_type(argname="argument timestamp_source", value=timestamp_source, expected_type=type_hints["timestamp_source"])
+                check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
                 check_type(argname="argument value_range", value=value_range, expected_type=type_hints["value_range"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "unit": unit,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
             if timestamp_format is not None:
                 self._values["timestamp_format"] = timestamp_format
             if timestamp_source is not None:
                 self._values["timestamp_source"] = timestamp_source
+            if unit is not None:
+                self._values["unit"] = unit
             if value is not None:
                 self._values["value"] = value
             if value_range is not None:
                 self._values["value_range"] = value_range
-
-        @builtins.property
-        def unit(self) -> builtins.str:
-            '''The unit of time.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-range.html#cfn-customerprofiles-calculatedattributedefinition-range-unit
-            '''
-            result = self._values.get("unit")
-            assert result is not None, "Required property 'unit' is missing"
-            return typing.cast(builtins.str, result)
 
         @builtins.property
         def timestamp_format(self) -> typing.Optional[builtins.str]:
@@ -748,6 +1062,15 @@ class CfnCalculatedAttributeDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-range.html#cfn-customerprofiles-calculatedattributedefinition-range-timestampsource
             '''
             result = self._values.get("timestamp_source")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def unit(self) -> typing.Optional[builtins.str]:
+            '''The unit of time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-range.html#cfn-customerprofiles-calculatedattributedefinition-range-unit
+            '''
+            result = self._values.get("unit")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -1006,6 +1329,7 @@ class CfnCalculatedAttributeDefinition(
         "conditions": "conditions",
         "description": "description",
         "display_name": "displayName",
+        "filter": "filter",
         "tags": "tags",
         "use_historical_data": "useHistoricalData",
     },
@@ -1021,6 +1345,7 @@ class CfnCalculatedAttributeDefinitionProps:
         conditions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCalculatedAttributeDefinition.ConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
+        filter: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCalculatedAttributeDefinition.FilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         use_historical_data: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
@@ -1033,6 +1358,7 @@ class CfnCalculatedAttributeDefinitionProps:
         :param conditions: The conditions including range, object count, and threshold for the calculated attribute.
         :param description: The description of the calculated attribute.
         :param display_name: The display name of the calculated attribute.
+        :param filter: Defines how to filter the objects coming in for calculated attributes.
         :param tags: An array of key-value pairs to apply to this resource.
         :param use_historical_data: Whether historical data ingested before the Calculated Attribute was created should be included in calculations.
 
@@ -1061,11 +1387,9 @@ class CfnCalculatedAttributeDefinitionProps:
                 conditions=customerprofiles.CfnCalculatedAttributeDefinition.ConditionsProperty(
                     object_count=123,
                     range=customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
-                        unit="unit",
-            
-                        # the properties below are optional
                         timestamp_format="timestampFormat",
                         timestamp_source="timestampSource",
+                        unit="unit",
                         value=123,
                         value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
                             end=123,
@@ -1079,6 +1403,20 @@ class CfnCalculatedAttributeDefinitionProps:
                 ),
                 description="description",
                 display_name="displayName",
+                filter=customerprofiles.CfnCalculatedAttributeDefinition.FilterProperty(
+                    groups=[customerprofiles.CfnCalculatedAttributeDefinition.FilterGroupProperty(
+                        dimensions=[customerprofiles.CfnCalculatedAttributeDefinition.FilterDimensionProperty(
+                            attributes={
+                                "attributes_key": customerprofiles.CfnCalculatedAttributeDefinition.FilterAttributeDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                )
+                            }
+                        )],
+                        type="type"
+                    )],
+                    include="include"
+                ),
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -1095,6 +1433,7 @@ class CfnCalculatedAttributeDefinitionProps:
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument use_historical_data", value=use_historical_data, expected_type=type_hints["use_historical_data"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1109,6 +1448,8 @@ class CfnCalculatedAttributeDefinitionProps:
             self._values["description"] = description
         if display_name is not None:
             self._values["display_name"] = display_name
+        if filter is not None:
+            self._values["filter"] = filter
         if tags is not None:
             self._values["tags"] = tags
         if use_historical_data is not None:
@@ -1184,6 +1525,17 @@ class CfnCalculatedAttributeDefinitionProps:
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def filter(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCalculatedAttributeDefinition.FilterProperty"]]:
+        '''Defines how to filter the objects coming in for calculated attributes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-filter
+        '''
+        result = self._values.get("filter")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCalculatedAttributeDefinition.FilterProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -4140,6 +4492,20 @@ class CfnEventTrigger(
                     unlimited=False
                 )]
             ),
+            intent_filter_definition=customerprofiles.CfnEventTrigger.IntentFilterDefinitionProperty(
+                groups=[customerprofiles.CfnEventTrigger.IntentFilterGroupProperty(
+                    conditions=[customerprofiles.CfnEventTrigger.IntentFilterConditionProperty(
+                        comparison_operator="comparisonOperator",
+                        intent=customerprofiles.CfnEventTrigger.IntentProperty(
+                            intent_domain="intentDomain",
+                            type="type"
+                        ),
+                        values=["values"]
+                    )],
+                    logical_operator="logicalOperator"
+                )],
+                logical_operator="logicalOperator"
+            ),
             segment_filter="segmentFilter",
             tags=[CfnTag(
                 key="key",
@@ -4159,6 +4525,7 @@ class CfnEventTrigger(
         object_type_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         event_trigger_limits: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventTrigger.EventTriggerLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        intent_filter_definition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventTrigger.IntentFilterDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         segment_filter: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -4172,6 +4539,7 @@ class CfnEventTrigger(
         :param object_type_name: The unique name of the object type.
         :param description: The description of the event trigger.
         :param event_trigger_limits: Defines limits controlling whether an event triggers the destination, based on ingestion latency and the number of invocations per profile over specific time periods.
+        :param intent_filter_definition: Filters the destination to profiles whose predicted intents meet the specified conditions.
         :param segment_filter: The destination is triggered only for profiles that meet the criteria of a segment definition.
         :param tags: An array of key-value pairs to apply to this resource.
         '''
@@ -4186,6 +4554,7 @@ class CfnEventTrigger(
             object_type_name=object_type_name,
             description=description,
             event_trigger_limits=event_trigger_limits,
+            intent_filter_definition=intent_filter_definition,
             segment_filter=segment_filter,
             tags=tags,
         )
@@ -4364,6 +4733,24 @@ class CfnEventTrigger(
             type_hints = cached_type_hints(_typecheckingstub__8577e6b11fafc0b473494e772f42df4b3a275f14decae7f35bf35c8ceca6efbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventTriggerLimits", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="intentFilterDefinition")
+    def intent_filter_definition(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventTrigger.IntentFilterDefinitionProperty"]]:
+        '''Filters the destination to profiles whose predicted intents meet the specified conditions.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventTrigger.IntentFilterDefinitionProperty"]], jsii.get(self, "intentFilterDefinition"))
+
+    @intent_filter_definition.setter
+    def intent_filter_definition(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventTrigger.IntentFilterDefinitionProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__78417d4fa6db64bf386dde4a723f7c5c3b54aa44f4049e7026477a64b8b8fbaf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "intentFilterDefinition", value)
 
     @builtins.property
     @jsii.member(jsii_name="segmentFilter")
@@ -4624,6 +5011,333 @@ class CfnEventTrigger(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnEventTrigger.IntentFilterConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "comparison_operator": "comparisonOperator",
+            "intent": "intent",
+            "values": "values",
+        },
+    )
+    class IntentFilterConditionProperty:
+        def __init__(
+            self,
+            *,
+            comparison_operator: builtins.str,
+            intent: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventTrigger.IntentProperty", typing.Dict[builtins.str, typing.Any]]],
+            values: typing.Sequence[builtins.str],
+        ) -> None:
+            '''The criteria that a predicted intent must meet.
+
+            :param comparison_operator: The operator used to compare the predicted intent against a list of values.
+            :param intent: Identifies a predicted intent by domain and type.
+            :param values: A list of intent values used for comparison.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intentfiltercondition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                intent_filter_condition_property = customerprofiles.CfnEventTrigger.IntentFilterConditionProperty(
+                    comparison_operator="comparisonOperator",
+                    intent=customerprofiles.CfnEventTrigger.IntentProperty(
+                        intent_domain="intentDomain",
+                        type="type"
+                    ),
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5043fb7db2705305a15db72858627c5b8fcb4a060d4fa4e1286f769500f7733b)
+                check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
+                check_type(argname="argument intent", value=intent, expected_type=type_hints["intent"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "comparison_operator": comparison_operator,
+                "intent": intent,
+                "values": values,
+            }
+
+        @builtins.property
+        def comparison_operator(self) -> builtins.str:
+            '''The operator used to compare the predicted intent against a list of values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intentfiltercondition.html#cfn-customerprofiles-eventtrigger-intentfiltercondition-comparisonoperator
+            '''
+            result = self._values.get("comparison_operator")
+            assert result is not None, "Required property 'comparison_operator' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def intent(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventTrigger.IntentProperty"]:
+            '''Identifies a predicted intent by domain and type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intentfiltercondition.html#cfn-customerprofiles-eventtrigger-intentfiltercondition-intent
+            '''
+            result = self._values.get("intent")
+            assert result is not None, "Required property 'intent' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventTrigger.IntentProperty"], result)
+
+        @builtins.property
+        def values(self) -> typing.List[builtins.str]:
+            '''A list of intent values used for comparison.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intentfiltercondition.html#cfn-customerprofiles-eventtrigger-intentfiltercondition-values
+            '''
+            result = self._values.get("values")
+            assert result is not None, "Required property 'values' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IntentFilterConditionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnEventTrigger.IntentFilterDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"groups": "groups", "logical_operator": "logicalOperator"},
+    )
+    class IntentFilterDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            groups: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventTrigger.IntentFilterGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            logical_operator: builtins.str,
+        ) -> None:
+            '''Filters the destination to profiles whose predicted intents meet the specified conditions.
+
+            :param groups: A list of intent filter groups combined by the definition's logical operator.
+            :param logical_operator: The operator used to combine multiple dimensions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intentfilterdefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                intent_filter_definition_property = customerprofiles.CfnEventTrigger.IntentFilterDefinitionProperty(
+                    groups=[customerprofiles.CfnEventTrigger.IntentFilterGroupProperty(
+                        conditions=[customerprofiles.CfnEventTrigger.IntentFilterConditionProperty(
+                            comparison_operator="comparisonOperator",
+                            intent=customerprofiles.CfnEventTrigger.IntentProperty(
+                                intent_domain="intentDomain",
+                                type="type"
+                            ),
+                            values=["values"]
+                        )],
+                        logical_operator="logicalOperator"
+                    )],
+                    logical_operator="logicalOperator"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f400ee542702f29e36bd1cd91b370aa3243a242d0640d9a87c5b70d62dcff7b4)
+                check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
+                check_type(argname="argument logical_operator", value=logical_operator, expected_type=type_hints["logical_operator"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "groups": groups,
+                "logical_operator": logical_operator,
+            }
+
+        @builtins.property
+        def groups(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventTrigger.IntentFilterGroupProperty"]]]:
+            '''A list of intent filter groups combined by the definition's logical operator.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intentfilterdefinition.html#cfn-customerprofiles-eventtrigger-intentfilterdefinition-groups
+            '''
+            result = self._values.get("groups")
+            assert result is not None, "Required property 'groups' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventTrigger.IntentFilterGroupProperty"]]], result)
+
+        @builtins.property
+        def logical_operator(self) -> builtins.str:
+            '''The operator used to combine multiple dimensions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intentfilterdefinition.html#cfn-customerprofiles-eventtrigger-intentfilterdefinition-logicaloperator
+            '''
+            result = self._values.get("logical_operator")
+            assert result is not None, "Required property 'logical_operator' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IntentFilterDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnEventTrigger.IntentFilterGroupProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "conditions": "conditions",
+            "logical_operator": "logicalOperator",
+        },
+    )
+    class IntentFilterGroupProperty:
+        def __init__(
+            self,
+            *,
+            conditions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventTrigger.IntentFilterConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            logical_operator: builtins.str,
+        ) -> None:
+            '''A group of intent filter conditions combined by the group's logical operator.
+
+            :param conditions: A list of intent filter conditions.
+            :param logical_operator: The operator used to combine multiple dimensions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intentfiltergroup.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                intent_filter_group_property = customerprofiles.CfnEventTrigger.IntentFilterGroupProperty(
+                    conditions=[customerprofiles.CfnEventTrigger.IntentFilterConditionProperty(
+                        comparison_operator="comparisonOperator",
+                        intent=customerprofiles.CfnEventTrigger.IntentProperty(
+                            intent_domain="intentDomain",
+                            type="type"
+                        ),
+                        values=["values"]
+                    )],
+                    logical_operator="logicalOperator"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8b14e5895c44780e2065c763861e13da339a945fc8c4642224a421f8c57e7bba)
+                check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
+                check_type(argname="argument logical_operator", value=logical_operator, expected_type=type_hints["logical_operator"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "conditions": conditions,
+                "logical_operator": logical_operator,
+            }
+
+        @builtins.property
+        def conditions(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventTrigger.IntentFilterConditionProperty"]]]:
+            '''A list of intent filter conditions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intentfiltergroup.html#cfn-customerprofiles-eventtrigger-intentfiltergroup-conditions
+            '''
+            result = self._values.get("conditions")
+            assert result is not None, "Required property 'conditions' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventTrigger.IntentFilterConditionProperty"]]], result)
+
+        @builtins.property
+        def logical_operator(self) -> builtins.str:
+            '''The operator used to combine multiple dimensions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intentfiltergroup.html#cfn-customerprofiles-eventtrigger-intentfiltergroup-logicaloperator
+            '''
+            result = self._values.get("logical_operator")
+            assert result is not None, "Required property 'logical_operator' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IntentFilterGroupProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnEventTrigger.IntentProperty",
+        jsii_struct_bases=[],
+        name_mapping={"intent_domain": "intentDomain", "type": "type"},
+    )
+    class IntentProperty:
+        def __init__(self, *, intent_domain: builtins.str, type: builtins.str) -> None:
+            '''Identifies a predicted intent by domain and type.
+
+            :param intent_domain: The domain of the intent.
+            :param type: The type of the intent.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intent.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                intent_property = customerprofiles.CfnEventTrigger.IntentProperty(
+                    intent_domain="intentDomain",
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__43f64d2915fd5097fe290c9c69acb22230cd291a10e7b565e705f9eea553166e)
+                check_type(argname="argument intent_domain", value=intent_domain, expected_type=type_hints["intent_domain"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "intent_domain": intent_domain,
+                "type": type,
+            }
+
+        @builtins.property
+        def intent_domain(self) -> builtins.str:
+            '''The domain of the intent.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intent.html#cfn-customerprofiles-eventtrigger-intent-intentdomain
+            '''
+            result = self._values.get("intent_domain")
+            assert result is not None, "Required property 'intent_domain' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of the intent.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-intent.html#cfn-customerprofiles-eventtrigger-intent-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IntentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnEventTrigger.ObjectAttributeProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4854,6 +5568,7 @@ class CfnEventTrigger(
         "object_type_name": "objectTypeName",
         "description": "description",
         "event_trigger_limits": "eventTriggerLimits",
+        "intent_filter_definition": "intentFilterDefinition",
         "segment_filter": "segmentFilter",
         "tags": "tags",
     },
@@ -4868,6 +5583,7 @@ class CfnEventTriggerProps:
         object_type_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         event_trigger_limits: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventTrigger.EventTriggerLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        intent_filter_definition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventTrigger.IntentFilterDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         segment_filter: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -4879,6 +5595,7 @@ class CfnEventTriggerProps:
         :param object_type_name: The unique name of the object type.
         :param description: The description of the event trigger.
         :param event_trigger_limits: Defines limits controlling whether an event triggers the destination, based on ingestion latency and the number of invocations per profile over specific time periods.
+        :param intent_filter_definition: Filters the destination to profiles whose predicted intents meet the specified conditions.
         :param segment_filter: The destination is triggered only for profiles that meet the criteria of a segment definition.
         :param tags: An array of key-value pairs to apply to this resource.
 
@@ -4923,6 +5640,20 @@ class CfnEventTriggerProps:
                         unlimited=False
                     )]
                 ),
+                intent_filter_definition=customerprofiles.CfnEventTrigger.IntentFilterDefinitionProperty(
+                    groups=[customerprofiles.CfnEventTrigger.IntentFilterGroupProperty(
+                        conditions=[customerprofiles.CfnEventTrigger.IntentFilterConditionProperty(
+                            comparison_operator="comparisonOperator",
+                            intent=customerprofiles.CfnEventTrigger.IntentProperty(
+                                intent_domain="intentDomain",
+                                type="type"
+                            ),
+                            values=["values"]
+                        )],
+                        logical_operator="logicalOperator"
+                    )],
+                    logical_operator="logicalOperator"
+                ),
                 segment_filter="segmentFilter",
                 tags=[CfnTag(
                     key="key",
@@ -4938,6 +5669,7 @@ class CfnEventTriggerProps:
             check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument event_trigger_limits", value=event_trigger_limits, expected_type=type_hints["event_trigger_limits"])
+            check_type(argname="argument intent_filter_definition", value=intent_filter_definition, expected_type=type_hints["intent_filter_definition"])
             check_type(argname="argument segment_filter", value=segment_filter, expected_type=type_hints["segment_filter"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4950,6 +5682,8 @@ class CfnEventTriggerProps:
             self._values["description"] = description
         if event_trigger_limits is not None:
             self._values["event_trigger_limits"] = event_trigger_limits
+        if intent_filter_definition is not None:
+            self._values["intent_filter_definition"] = intent_filter_definition
         if segment_filter is not None:
             self._values["segment_filter"] = segment_filter
         if tags is not None:
@@ -5016,6 +5750,17 @@ class CfnEventTriggerProps:
         '''
         result = self._values.get("event_trigger_limits")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventTrigger.EventTriggerLimitsProperty"]], result)
+
+    @builtins.property
+    def intent_filter_definition(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventTrigger.IntentFilterDefinitionProperty"]]:
+        '''Filters the destination to profiles whose predicted intents meet the specified conditions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-intentfilterdefinition
+        '''
+        result = self._values.get("intent_filter_definition")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEventTrigger.IntentFilterDefinitionProperty"]], result)
 
     @builtins.property
     def segment_filter(self) -> typing.Optional[builtins.str]:
@@ -13692,6 +14437,7 @@ def _typecheckingstub__3a09ab96caa4db6cfa4ebb0207c025a7f976cac18f814d69b882506cf
     conditions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCalculatedAttributeDefinition.ConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
+    filter: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCalculatedAttributeDefinition.FilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     use_historical_data: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
@@ -13758,6 +14504,12 @@ def _typecheckingstub__64a1f1d0da7758807d6fc0184c03cfdc7c695677f2dd2cfeb300cb009
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__532cdaf945d7096ed817a623b89c3f6c253bff09de27c89d0ae0d38bca6df3a0(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCalculatedAttributeDefinition.FilterProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__66b41ae1f61b2d451c01e8a6b3eabc1ef1fe6f0e51c71a264d46a9df8ec0ad14(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
@@ -13794,11 +14546,42 @@ def _typecheckingstub__d5d5606a68f168622e019935c1cfd2eb8821e95f36c66313b2a6f7a38
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1c19035a29b34ddce2820c4571d3ef1fdf94d155d4128c6d521b0557f0a8d9f2(
+    *,
+    dimension_type: builtins.str,
+    values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9832b527669f8325203396d0f539334ae109db245c5d681ea2e23abc6b997a0b(
+    *,
+    attributes: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCalculatedAttributeDefinition.FilterAttributeDimensionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f35db104435ef22865e1eb73a302c70cc8faf7854691670c4b12cf73c475421(
+    *,
+    dimensions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCalculatedAttributeDefinition.FilterDimensionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b3286a5ab3fc67fa1bf1400c8228af68f7f45e162844dd4fc7188c37a4976e3(
+    *,
+    groups: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCalculatedAttributeDefinition.FilterGroupProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    include: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4567eb83ac5620aa6be36cbd0e38cdba257d259743e1017616dbc2252fc66f9d(
     *,
-    unit: builtins.str,
     timestamp_format: typing.Optional[builtins.str] = None,
     timestamp_source: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[builtins.str] = None,
     value: typing.Optional[jsii.Number] = None,
     value_range: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCalculatedAttributeDefinition.ValueRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -13838,6 +14621,7 @@ def _typecheckingstub__b490cf412d8b10ddc1ddbf98b6d852a5446deca7e9befe3439df8de51
     conditions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCalculatedAttributeDefinition.ConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
+    filter: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCalculatedAttributeDefinition.FilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     use_historical_data: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
@@ -14247,6 +15031,7 @@ def _typecheckingstub__3238d15e8be30353d06e9f7813fb0d93d105339df1e3008dc6d5d8891
     object_type_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     event_trigger_limits: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventTrigger.EventTriggerLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    intent_filter_definition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventTrigger.IntentFilterDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     segment_filter: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -14307,6 +15092,12 @@ def _typecheckingstub__8577e6b11fafc0b473494e772f42df4b3a275f14decae7f35bf35c8ce
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__78417d4fa6db64bf386dde4a723f7c5c3b54aa44f4049e7026477a64b8b8fbaf(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEventTrigger.IntentFilterDefinitionProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6ed3d132124c95676f8283662330dfc6f234432d197bcdb1846aeb9b55d6b31d(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -14342,6 +15133,39 @@ def _typecheckingstub__c21f9960dce43c4cfe6a915ec34c75b13089631bea9d3de70a87e7098
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5043fb7db2705305a15db72858627c5b8fcb4a060d4fa4e1286f769500f7733b(
+    *,
+    comparison_operator: builtins.str,
+    intent: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventTrigger.IntentProperty, typing.Dict[builtins.str, typing.Any]]],
+    values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f400ee542702f29e36bd1cd91b370aa3243a242d0640d9a87c5b70d62dcff7b4(
+    *,
+    groups: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventTrigger.IntentFilterGroupProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    logical_operator: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b14e5895c44780e2065c763861e13da339a945fc8c4642224a421f8c57e7bba(
+    *,
+    conditions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventTrigger.IntentFilterConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    logical_operator: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43f64d2915fd5097fe290c9c69acb22230cd291a10e7b565e705f9eea553166e(
+    *,
+    intent_domain: builtins.str,
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f0a90a9f34cbabcbef830e52f532688120b085cb48e257f24a4658b7c9bbbcec(
     *,
     comparison_operator: builtins.str,
@@ -14370,6 +15194,7 @@ def _typecheckingstub__a9d2b6147273c603d09e90db3d8372049e484840bcff7a8dc8031fd2f
     object_type_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     event_trigger_limits: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventTrigger.EventTriggerLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    intent_filter_definition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventTrigger.IntentFilterDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     segment_filter: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

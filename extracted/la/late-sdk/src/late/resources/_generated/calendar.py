@@ -136,6 +136,7 @@ class CalendarResource:
         busy: bool | None = None,
         visibility: str | None = None,
         metadata: dict[str, Any] | None = None,
+        notify_participants: str | None = "all",
     ) -> dict[str, Any]:
         """Create an event"""
         payload = self._build_payload(
@@ -155,6 +156,7 @@ class CalendarResource:
             busy=busy,
             visibility=visibility,
             metadata=metadata,
+            notify_participants=notify_participants,
         )
         return self._client._post("/v1/calendar/events", data=payload)
 
@@ -194,6 +196,7 @@ class CalendarResource:
         busy: bool | None = None,
         visibility: str | None = None,
         metadata: dict[str, Any] | None = None,
+        notify_participants: str | None = "all",
     ) -> dict[str, Any]:
         """Update an event"""
         payload = self._build_payload(
@@ -213,18 +216,51 @@ class CalendarResource:
             busy=busy,
             visibility=visibility,
             metadata=metadata,
+            notify_participants=notify_participants,
         )
         return self._client._patch(f"/v1/calendar/events/{event_id}", data=payload)
 
     def delete_calendar_event(
-        self, event_id: str, account_id: str, *, calendar_id: str | None = None
+        self,
+        event_id: str,
+        account_id: str,
+        *,
+        calendar_id: str | None = None,
+        notify_participants: str | None = "all",
     ) -> dict[str, Any]:
         """Delete an event"""
         params = self._build_params(
             account_id=account_id,
             calendar_id=calendar_id,
+            notify_participants=notify_participants,
         )
         return self._client._delete(f"/v1/calendar/events/{event_id}", params=params)
+
+    def list_calendar_event_instances(
+        self,
+        event_id: str,
+        account_id: str,
+        from_: datetime | str,
+        to: datetime | str,
+        *,
+        calendar_id: str | None = None,
+        timezone: str | None = None,
+        cursor: str | None = None,
+        limit: int | None = 50,
+    ) -> dict[str, Any]:
+        """List the occurrences of a recurring event"""
+        params = self._build_params(
+            account_id=account_id,
+            calendar_id=calendar_id,
+            from_=from_,
+            to=to,
+            timezone=timezone,
+            cursor=cursor,
+            limit=limit,
+        )
+        return self._client._get(
+            f"/v1/calendar/events/{event_id}/instances", params=params
+        )
 
     def rsvp_calendar_event(
         self,
@@ -234,6 +270,7 @@ class CalendarResource:
         *,
         calendar_id: str | None = None,
         comment: str | None = None,
+        send_response: bool | None = True,
     ) -> dict[str, Any]:
         """Respond to an invitation"""
         payload = self._build_payload(
@@ -241,15 +278,22 @@ class CalendarResource:
             calendar_id=calendar_id,
             status=status,
             comment=comment,
+            send_response=send_response,
         )
         return self._client._post(f"/v1/calendar/events/{event_id}/rsvp", data=payload)
 
     def calendar_free_busy(
-        self, account_ids: list[str], from_: datetime | str, to: datetime | str
+        self,
+        from_: datetime | str,
+        to: datetime | str,
+        *,
+        account_ids: list[str] | None = None,
+        accounts: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Busy blocks for one or more accounts"""
         payload = self._build_payload(
             account_ids=account_ids,
+            accounts=accounts,
             from_=from_,
             to=to,
         )
@@ -343,6 +387,7 @@ class CalendarResource:
         busy: bool | None = None,
         visibility: str | None = None,
         metadata: dict[str, Any] | None = None,
+        notify_participants: str | None = "all",
     ) -> dict[str, Any]:
         """Create an event (async)"""
         payload = self._build_payload(
@@ -362,6 +407,7 @@ class CalendarResource:
             busy=busy,
             visibility=visibility,
             metadata=metadata,
+            notify_participants=notify_participants,
         )
         return await self._client._apost("/v1/calendar/events", data=payload)
 
@@ -403,6 +449,7 @@ class CalendarResource:
         busy: bool | None = None,
         visibility: str | None = None,
         metadata: dict[str, Any] | None = None,
+        notify_participants: str | None = "all",
     ) -> dict[str, Any]:
         """Update an event (async)"""
         payload = self._build_payload(
@@ -422,21 +469,54 @@ class CalendarResource:
             busy=busy,
             visibility=visibility,
             metadata=metadata,
+            notify_participants=notify_participants,
         )
         return await self._client._apatch(
             f"/v1/calendar/events/{event_id}", data=payload
         )
 
     async def adelete_calendar_event(
-        self, event_id: str, account_id: str, *, calendar_id: str | None = None
+        self,
+        event_id: str,
+        account_id: str,
+        *,
+        calendar_id: str | None = None,
+        notify_participants: str | None = "all",
     ) -> dict[str, Any]:
         """Delete an event (async)"""
         params = self._build_params(
             account_id=account_id,
             calendar_id=calendar_id,
+            notify_participants=notify_participants,
         )
         return await self._client._adelete(
             f"/v1/calendar/events/{event_id}", params=params
+        )
+
+    async def alist_calendar_event_instances(
+        self,
+        event_id: str,
+        account_id: str,
+        from_: datetime | str,
+        to: datetime | str,
+        *,
+        calendar_id: str | None = None,
+        timezone: str | None = None,
+        cursor: str | None = None,
+        limit: int | None = 50,
+    ) -> dict[str, Any]:
+        """List the occurrences of a recurring event (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            calendar_id=calendar_id,
+            from_=from_,
+            to=to,
+            timezone=timezone,
+            cursor=cursor,
+            limit=limit,
+        )
+        return await self._client._aget(
+            f"/v1/calendar/events/{event_id}/instances", params=params
         )
 
     async def arsvp_calendar_event(
@@ -447,6 +527,7 @@ class CalendarResource:
         *,
         calendar_id: str | None = None,
         comment: str | None = None,
+        send_response: bool | None = True,
     ) -> dict[str, Any]:
         """Respond to an invitation (async)"""
         payload = self._build_payload(
@@ -454,17 +535,24 @@ class CalendarResource:
             calendar_id=calendar_id,
             status=status,
             comment=comment,
+            send_response=send_response,
         )
         return await self._client._apost(
             f"/v1/calendar/events/{event_id}/rsvp", data=payload
         )
 
     async def acalendar_free_busy(
-        self, account_ids: list[str], from_: datetime | str, to: datetime | str
+        self,
+        from_: datetime | str,
+        to: datetime | str,
+        *,
+        account_ids: list[str] | None = None,
+        accounts: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Busy blocks for one or more accounts (async)"""
         payload = self._build_payload(
             account_ids=account_ids,
+            accounts=accounts,
             from_=from_,
             to=to,
         )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.75
+Version: 0.0.76
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -27,6 +27,8 @@ Description-Content-Type: text/markdown
 # Raindrop Python SDK
 
 The official Python SDK for [Raindrop AI](https://raindrop.ai) — track AI events, collect user signals, and instrument LLM applications with OpenTelemetry-based tracing.
+
+No write key yet? Agents can create one now, without a browser: run `npx -y create-raindrop --org-name '<project name>'` and give the user the claim link. Steps, including a plain HTTP call without Node: [raindrop.ai/auth.md](https://www.raindrop.ai/auth.md).
 
 ## Installation
 

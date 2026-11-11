@@ -96,6 +96,7 @@ __all__ = (
     "ListScriptsPaginatorName",
     "LocationFilterType",
     "LocationUpdateStatusType",
+    "LogDeliveryDestinationTypeType",
     "LogDestinationType",
     "MatchmakingConfigurationStatusType",
     "MetricNameType",
@@ -954,6 +955,7 @@ ListLocationsPaginatorName = Literal["list_locations"]
 ListScriptsPaginatorName = Literal["list_scripts"]
 LocationFilterType = Literal["AWS", "CUSTOM"]
 LocationUpdateStatusType = Literal["PENDING_UPDATE"]
+LogDeliveryDestinationTypeType = Literal["CLOUDWATCH", "FIREHOSE", "S3"]
 LogDestinationType = Literal["CLOUDWATCH", "NONE", "S3"]
 MatchmakingConfigurationStatusType = Literal[
     "CANCELLED",

@@ -82,7 +82,8 @@ DataFrameGetOptions = TypeVar("DataFrameGetOptions", bool, Filter, Underscore, F
 class ForRelationship:
     """Names the has-many relationship that the rows of a `DataFrame[...]` annotation belong to.
 
-    Create it with `for_relationship(...)`, as the first item of the subscript."""
+    Create it with `for_relationship(...)`, as the first item of the subscript, or attach it with
+    `DataFrame[...].for_relationship(...)`."""
 
     __slots__ = ("feature",)
 
@@ -113,6 +114,8 @@ def for_relationship(relationship: Any) -> ForRelationship:
     ]:
         ...
     ```
+
+    `DataFrame[Index, Transaction.id, Transaction.amount].for_relationship(User.sent)` declares the same type.
     """
     # Only a feature reference names a relationship; a string would be looked up in the feature registry instead.
     feature = unwrap_feature(relationship) if isinstance(relationship, (FeatureWrapper, Feature)) else None
@@ -243,6 +246,24 @@ class DataFrameMeta(type):
 
         return SubclassedDataFrame
 
+    def for_relationship(cls, relationship: Any) -> Type[DataFrame]:
+        """Declare which has-many relationship the rows of this resolver output `DataFrame` belong to.
+
+        `DataFrame[Index, Transaction.id].for_relationship(User.sent)` is the same type as
+        `DataFrame[for_relationship(User.sent), Index, Transaction.id]`; see `chalk.for_relationship`.
+        """
+        df = cast(Type[DataFrame], cls)
+        # Inside a method body the name resolves to the module-level function, not this method.
+        marker = for_relationship(relationship)
+        if df.__relationship__ is not None:
+            raise TypeError(
+                f"{df.__name__} already belongs to for_relationship({df.__relationship__.root_fqn}); "
+                + "it cannot be given another relationship."
+            )
+        # Subclassing keeps every other attribute (columns, filters, pydantic model, limit) as it is, which
+        # re-subscripting with only the marker would not: `__getitem__` resets the model and the limit.
+        return cast(Type[DataFrame], DataFrameMeta(df.__name__, (df,), {"__relationship__": marker.feature}))
+
     def __repr__(cls):
         cls = cast(Type[DataFrame], cls)
         elements = [str(x) for x in (*cls.filters, *cls.columns)]
@@ -326,7 +347,8 @@ class DataFrame(metaclass=DataFrameMeta):
     __limit__: int | None = None
     """The maximum number of rows to return"""
     __relationship__: ClassVar[Feature | None] = None
-    """The has-many relationship the rows belong to, if declared with `for_relationship(...)`"""
+    """The has-many relationship the rows belong to, if declared with `for_relationship(...)` or
+    `DataFrame[...].for_relationship(...)`"""
 
     if TYPE_CHECKING:
 

@@ -33,6 +33,8 @@ _ENUMS = (
     ("PaneOpenError", "open_errors", "What a refused `PROBE.open` rejects with."),
     ("PaneSourceState", "states", "A resolved entry's `state`."),
     ("PanePartialReason", "reasons", "Why a resolved entry is `partial`."),
+    ("PaneCheckStatus", "check_statuses", "What the render check at push answered."),
+    ("PaneCheckState", "check_states", "A state the render check draws the pane in."),
 )
 
 

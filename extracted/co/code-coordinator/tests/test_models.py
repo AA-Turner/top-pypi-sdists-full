@@ -173,6 +173,26 @@ def test_is_policy_refusal_reason_fails_open_on_anything_else(text):
     assert is_policy_refusal_reason(text) is False
 
 
+# ── #3977: the upstream-gap park marker ──────────────────────────────────────
+
+
+def test_is_upstream_gap_park_reason_matches_the_marker():
+    from coord.models import UPSTREAM_GAP_PARK_MARKER, is_upstream_gap_park_reason
+
+    reason = (
+        f"blocked on upstream quadraui release: `RowAlign` already on "
+        f"quadraui@main, unreleased {UPSTREAM_GAP_PARK_MARKER}"
+    )
+    assert is_upstream_gap_park_reason(reason) is True
+
+
+@pytest.mark.parametrize("text", [None, "", "CI checks have reported", "a policy refusal"])
+def test_is_upstream_gap_park_reason_fails_open_on_anything_else(text):
+    from coord.models import is_upstream_gap_park_reason
+
+    assert is_upstream_gap_park_reason(text) is False
+
+
 # ── #2966: coordinator_owned_docs — "only the coordinator writes docs" ──────
 
 
@@ -417,7 +437,9 @@ def test_parse_issue_resolution_real_marker_wins_over_later_quoted_one() -> None
         "Reviewer note: `ISSUE_RESOLUTION: partial`. This matches exactly "
         "what review expected."
     )
-    assert parse_issue_resolution(text) == IssueResolution("resolved", "")
+    assert parse_issue_resolution(text) == IssueResolution(
+        "resolved", "", explicit=True
+    )
 
 
 @pytest.mark.parametrize(
@@ -429,7 +451,9 @@ def test_parse_issue_resolution_list_and_heading_prefixes(prefix: str) -> None:
     parse exactly like a `*` bullet already did — not fail open to the
     "resolved" default."""
     text = f"{prefix} ISSUE_RESOLUTION: partial — X"
-    assert parse_issue_resolution(text) == IssueResolution("partial", "X")
+    assert parse_issue_resolution(text) == IssueResolution(
+        "partial", "X", explicit=True
+    )
 
 
 def test_parse_issue_resolution_3916_review_text_regression() -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autoware-carla-scenario
-Version: 26.7.0
+Version: 26.8.7
 Summary: CARLA scenario testing framework for Autoware
 Author: Masaya Kataoka
 Author-email: Masaya Kataoka <ms.kataoka@gmail.com>
@@ -39,7 +39,11 @@ Requires-Dist: carla-driver-interface>=2.4.2,<3
 Requires-Dist: grpcio>=1.60
 Requires-Dist: protobuf>=4.25.0,<8
 Requires-Dist: orjson>=3.13.0
-Requires-Dist: hilspy>=0.16,<0.17 ; extra == 'hils'
+Requires-Dist: hilspy>=0.16,<0.18 ; extra == 'hils'
+Requires-Dist: autoware-carla-scenario[hils] ; extra == 'hils-setup'
+Requires-Dist: hilspy>=0.17,<0.18 ; extra == 'hils-setup'
+Requires-Dist: ansible-runner>=2.4 ; extra == 'hils-setup'
+Requires-Dist: ansible-core>=2.15 ; extra == 'hils-setup'
 Requires-Dist: roadgen>=0.42.0 ; extra == 'map'
 Requires-Dist: autoware-carla-scenario-rerun>=0.3,<0.4 ; extra == 'rerun'
 Requires-Dist: rerun-sdk>=0.38.1,<0.39 ; extra == 'rerun'
@@ -60,6 +64,7 @@ Project-URL: Repository, https://github.com/autowarefoundation/autoware_carla_sc
 Project-URL: Issues, https://github.com/autowarefoundation/autoware_carla_scenario/issues
 Project-URL: Changelog, https://github.com/autowarefoundation/autoware_carla_scenario/releases
 Provides-Extra: hils
+Provides-Extra: hils-setup
 Provides-Extra: map
 Provides-Extra: rerun
 Provides-Extra: rerun-lidar

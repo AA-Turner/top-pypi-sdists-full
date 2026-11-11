@@ -3888,7 +3888,14 @@ class CfnImage(
                     container_tags=["containerTags"],
                     repository_name="repositoryName"
                 ),
-                image_scanning_enabled=False
+                image_scanning_enabled=False,
+                image_scanning_types=["imageScanningTypes"],
+                scan_result_condition=imagebuilder.CfnImage.ScanResultConditionProperty(
+                    maximum_severity_label="maximumSeverityLabel",
+        
+                    # the properties below are optional
+                    fix_available=False
+                )
             ),
             image_tests_configuration=imagebuilder.CfnImage.ImageTestsConfigurationProperty(
                 image_tests_enabled=False,
@@ -4623,6 +4630,8 @@ class CfnImage(
         name_mapping={
             "ecr_configuration": "ecrConfiguration",
             "image_scanning_enabled": "imageScanningEnabled",
+            "image_scanning_types": "imageScanningTypes",
+            "scan_result_condition": "scanResultCondition",
         },
     )
     class ImageScanningConfigurationProperty:
@@ -4631,11 +4640,15 @@ class CfnImage(
             *,
             ecr_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnImage.EcrConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             image_scanning_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            image_scanning_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+            scan_result_condition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnImage.ScanResultConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains settings for Image Builder image resource and container image scans.
 
             :param ecr_configuration: Contains Amazon ECR settings for vulnerability scans.
             :param image_scanning_enabled: A setting that indicates whether Image Builder keeps a snapshot of the vulnerability scans that Amazon Inspector runs against the build instance when you create a new image.
+            :param image_scanning_types: The type of vulnerability scan that Image Builder runs for AMI output when ImageScanningEnabled is true. Specify a single value. If you omit ImageScanningTypes, Image Builder uses TEST_INSTANCE_CVE. With TEST_INSTANCE_CVE, Amazon Inspector scans the test instance during image tests, and you must activate Amazon Inspector for Amazon EC2 scanning in your account. With ON_DEMAND_AMI_CVE, Amazon Inspector starts an on-demand scan of the output AMI during image tests. You must build from an image recipe, but you do not need to activate Amazon Inspector in your account.
+            :param scan_result_condition: The condition that the output AMI's scan results must meet for the image to pass. When you set it, the test phase waits for the scan to finish, and Image Builder fails the image if a counted finding exceeds MaximumSeverityLabel.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-image-imagescanningconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -4651,18 +4664,31 @@ class CfnImage(
                         container_tags=["containerTags"],
                         repository_name="repositoryName"
                     ),
-                    image_scanning_enabled=False
+                    image_scanning_enabled=False,
+                    image_scanning_types=["imageScanningTypes"],
+                    scan_result_condition=imagebuilder.CfnImage.ScanResultConditionProperty(
+                        maximum_severity_label="maximumSeverityLabel",
+                
+                        # the properties below are optional
+                        fix_available=False
+                    )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__155636d4b270ff858336d445a5c3a434623faaa989317a61b024d7142948911e)
                 check_type(argname="argument ecr_configuration", value=ecr_configuration, expected_type=type_hints["ecr_configuration"])
                 check_type(argname="argument image_scanning_enabled", value=image_scanning_enabled, expected_type=type_hints["image_scanning_enabled"])
+                check_type(argname="argument image_scanning_types", value=image_scanning_types, expected_type=type_hints["image_scanning_types"])
+                check_type(argname="argument scan_result_condition", value=scan_result_condition, expected_type=type_hints["scan_result_condition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ecr_configuration is not None:
                 self._values["ecr_configuration"] = ecr_configuration
             if image_scanning_enabled is not None:
                 self._values["image_scanning_enabled"] = image_scanning_enabled
+            if image_scanning_types is not None:
+                self._values["image_scanning_types"] = image_scanning_types
+            if scan_result_condition is not None:
+                self._values["scan_result_condition"] = scan_result_condition
 
         @builtins.property
         def ecr_configuration(
@@ -4685,6 +4711,30 @@ class CfnImage(
             '''
             result = self._values.get("image_scanning_enabled")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def image_scanning_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The type of vulnerability scan that Image Builder runs for AMI output when ImageScanningEnabled is true.
+
+            Specify a single value. If you omit ImageScanningTypes, Image Builder uses TEST_INSTANCE_CVE. With TEST_INSTANCE_CVE, Amazon Inspector scans the test instance during image tests, and you must activate Amazon Inspector for Amazon EC2 scanning in your account. With ON_DEMAND_AMI_CVE, Amazon Inspector starts an on-demand scan of the output AMI during image tests. You must build from an image recipe, but you do not need to activate Amazon Inspector in your account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-image-imagescanningconfiguration.html#cfn-imagebuilder-image-imagescanningconfiguration-imagescanningtypes
+            '''
+            result = self._values.get("image_scanning_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def scan_result_condition(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnImage.ScanResultConditionProperty"]]:
+            '''The condition that the output AMI's scan results must meet for the image to pass.
+
+            When you set it, the test phase waits for the scan to finish, and Image Builder fails the image if a counted finding exceeds MaximumSeverityLabel.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-image-imagescanningconfiguration.html#cfn-imagebuilder-image-imagescanningconfiguration-scanresultcondition
+            '''
+            result = self._values.get("scan_result_condition")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnImage.ScanResultConditionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4882,6 +4932,90 @@ class CfnImage(
 
         def __repr__(self) -> str:
             return "LatestVersionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_imagebuilder.CfnImage.ScanResultConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "maximum_severity_label": "maximumSeverityLabel",
+            "fix_available": "fixAvailable",
+        },
+    )
+    class ScanResultConditionProperty:
+        def __init__(
+            self,
+            *,
+            maximum_severity_label: builtins.str,
+            fix_available: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''The condition that the output AMI's scan results must meet for the image to pass.
+
+            When you set it, the test phase waits for the scan to finish, and Image Builder fails the image if a counted finding exceeds MaximumSeverityLabel.
+
+            :param maximum_severity_label: The maximum severity allowed for findings on the output AMI. A finding above this severity fails the image, unless FixAvailable excludes it.
+            :param fix_available: Specifies whether only findings that have a fix available count toward MaximumSeverityLabel. When false, Image Builder counts every finding. The default is true.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-image-scanresultcondition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_imagebuilder as imagebuilder
+                
+                scan_result_condition_property = imagebuilder.CfnImage.ScanResultConditionProperty(
+                    maximum_severity_label="maximumSeverityLabel",
+                
+                    # the properties below are optional
+                    fix_available=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__30e4ed785abe2544d93d3922f49abf46d7c5ca355d4acce0895e1a9f05131a29)
+                check_type(argname="argument maximum_severity_label", value=maximum_severity_label, expected_type=type_hints["maximum_severity_label"])
+                check_type(argname="argument fix_available", value=fix_available, expected_type=type_hints["fix_available"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "maximum_severity_label": maximum_severity_label,
+            }
+            if fix_available is not None:
+                self._values["fix_available"] = fix_available
+
+        @builtins.property
+        def maximum_severity_label(self) -> builtins.str:
+            '''The maximum severity allowed for findings on the output AMI.
+
+            A finding above this severity fails the image, unless FixAvailable excludes it.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-image-scanresultcondition.html#cfn-imagebuilder-image-scanresultcondition-maximumseveritylabel
+            '''
+            result = self._values.get("maximum_severity_label")
+            assert result is not None, "Required property 'maximum_severity_label' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def fix_available(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Specifies whether only findings that have a fix available count toward MaximumSeverityLabel.
+
+            When false, Image Builder counts every finding. The default is true.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-image-scanresultcondition.html#cfn-imagebuilder-image-scanresultcondition-fixavailable
+            '''
+            result = self._values.get("fix_available")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScanResultConditionProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5104,7 +5238,14 @@ class CfnImagePipeline(
                     container_tags=["containerTags"],
                     repository_name="repositoryName"
                 ),
-                image_scanning_enabled=False
+                image_scanning_enabled=False,
+                image_scanning_types=["imageScanningTypes"],
+                scan_result_condition=imagebuilder.CfnImagePipeline.ScanResultConditionProperty(
+                    maximum_severity_label="maximumSeverityLabel",
+        
+                    # the properties below are optional
+                    fix_available=False
+                )
             ),
             image_tags={
                 "image_tags_key": "imageTags"
@@ -5701,6 +5842,8 @@ class CfnImagePipeline(
         name_mapping={
             "ecr_configuration": "ecrConfiguration",
             "image_scanning_enabled": "imageScanningEnabled",
+            "image_scanning_types": "imageScanningTypes",
+            "scan_result_condition": "scanResultCondition",
         },
     )
     class ImageScanningConfigurationProperty:
@@ -5709,11 +5852,15 @@ class CfnImagePipeline(
             *,
             ecr_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnImagePipeline.EcrConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             image_scanning_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            image_scanning_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+            scan_result_condition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnImagePipeline.ScanResultConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains settings for Image Builder image resource and container image scans.
 
             :param ecr_configuration: Contains Amazon ECR settings for vulnerability scans.
             :param image_scanning_enabled: A setting that indicates whether Image Builder keeps a snapshot of the vulnerability scans that Amazon Inspector runs against the build instance when you create a new image.
+            :param image_scanning_types: The type of vulnerability scan that Image Builder runs for AMI output when ImageScanningEnabled is true. Specify a single value. If you omit ImageScanningTypes, Image Builder uses TEST_INSTANCE_CVE. With TEST_INSTANCE_CVE, Amazon Inspector scans the test instance during image tests, and you must activate Amazon Inspector for Amazon EC2 scanning in your account. With ON_DEMAND_AMI_CVE, Amazon Inspector starts an on-demand scan of the output AMI during image tests. You must build from an image recipe, but you do not need to activate Amazon Inspector in your account.
+            :param scan_result_condition: The condition that the output AMI's scan results must meet for the image to pass. When you set it, the test phase waits for the scan to finish, and Image Builder fails the image if a counted finding exceeds MaximumSeverityLabel.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-imagepipeline-imagescanningconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -5729,18 +5876,31 @@ class CfnImagePipeline(
                         container_tags=["containerTags"],
                         repository_name="repositoryName"
                     ),
-                    image_scanning_enabled=False
+                    image_scanning_enabled=False,
+                    image_scanning_types=["imageScanningTypes"],
+                    scan_result_condition=imagebuilder.CfnImagePipeline.ScanResultConditionProperty(
+                        maximum_severity_label="maximumSeverityLabel",
+                
+                        # the properties below are optional
+                        fix_available=False
+                    )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__8e9c4bcdf41e69c9224e93798644f93b8f44565c0bd7edb8e6b49dc0367bc5b6)
                 check_type(argname="argument ecr_configuration", value=ecr_configuration, expected_type=type_hints["ecr_configuration"])
                 check_type(argname="argument image_scanning_enabled", value=image_scanning_enabled, expected_type=type_hints["image_scanning_enabled"])
+                check_type(argname="argument image_scanning_types", value=image_scanning_types, expected_type=type_hints["image_scanning_types"])
+                check_type(argname="argument scan_result_condition", value=scan_result_condition, expected_type=type_hints["scan_result_condition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ecr_configuration is not None:
                 self._values["ecr_configuration"] = ecr_configuration
             if image_scanning_enabled is not None:
                 self._values["image_scanning_enabled"] = image_scanning_enabled
+            if image_scanning_types is not None:
+                self._values["image_scanning_types"] = image_scanning_types
+            if scan_result_condition is not None:
+                self._values["scan_result_condition"] = scan_result_condition
 
         @builtins.property
         def ecr_configuration(
@@ -5763,6 +5923,30 @@ class CfnImagePipeline(
             '''
             result = self._values.get("image_scanning_enabled")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def image_scanning_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The type of vulnerability scan that Image Builder runs for AMI output when ImageScanningEnabled is true.
+
+            Specify a single value. If you omit ImageScanningTypes, Image Builder uses TEST_INSTANCE_CVE. With TEST_INSTANCE_CVE, Amazon Inspector scans the test instance during image tests, and you must activate Amazon Inspector for Amazon EC2 scanning in your account. With ON_DEMAND_AMI_CVE, Amazon Inspector starts an on-demand scan of the output AMI during image tests. You must build from an image recipe, but you do not need to activate Amazon Inspector in your account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-imagepipeline-imagescanningconfiguration.html#cfn-imagebuilder-imagepipeline-imagescanningconfiguration-imagescanningtypes
+            '''
+            result = self._values.get("image_scanning_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def scan_result_condition(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnImagePipeline.ScanResultConditionProperty"]]:
+            '''The condition that the output AMI's scan results must meet for the image to pass.
+
+            When you set it, the test phase waits for the scan to finish, and Image Builder fails the image if a counted finding exceeds MaximumSeverityLabel.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-imagepipeline-imagescanningconfiguration.html#cfn-imagebuilder-imagepipeline-imagescanningconfiguration-scanresultcondition
+            '''
+            result = self._values.get("scan_result_condition")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnImagePipeline.ScanResultConditionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5932,6 +6116,90 @@ class CfnImagePipeline(
 
         def __repr__(self) -> str:
             return "PipelineLoggingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_imagebuilder.CfnImagePipeline.ScanResultConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "maximum_severity_label": "maximumSeverityLabel",
+            "fix_available": "fixAvailable",
+        },
+    )
+    class ScanResultConditionProperty:
+        def __init__(
+            self,
+            *,
+            maximum_severity_label: builtins.str,
+            fix_available: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''The condition that the output AMI's scan results must meet for the image to pass.
+
+            When you set it, the test phase waits for the scan to finish, and Image Builder fails the image if a counted finding exceeds MaximumSeverityLabel.
+
+            :param maximum_severity_label: The maximum severity allowed for findings on the output AMI. A finding above this severity fails the image, unless FixAvailable excludes it.
+            :param fix_available: Specifies whether only findings that have a fix available count toward MaximumSeverityLabel. When false, Image Builder counts every finding. The default is true.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-imagepipeline-scanresultcondition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_imagebuilder as imagebuilder
+                
+                scan_result_condition_property = imagebuilder.CfnImagePipeline.ScanResultConditionProperty(
+                    maximum_severity_label="maximumSeverityLabel",
+                
+                    # the properties below are optional
+                    fix_available=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f7b505b5e00686fac01b70705ad0c171c02a75d62f193967b625546292f92509)
+                check_type(argname="argument maximum_severity_label", value=maximum_severity_label, expected_type=type_hints["maximum_severity_label"])
+                check_type(argname="argument fix_available", value=fix_available, expected_type=type_hints["fix_available"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "maximum_severity_label": maximum_severity_label,
+            }
+            if fix_available is not None:
+                self._values["fix_available"] = fix_available
+
+        @builtins.property
+        def maximum_severity_label(self) -> builtins.str:
+            '''The maximum severity allowed for findings on the output AMI.
+
+            A finding above this severity fails the image, unless FixAvailable excludes it.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-imagepipeline-scanresultcondition.html#cfn-imagebuilder-imagepipeline-scanresultcondition-maximumseveritylabel
+            '''
+            result = self._values.get("maximum_severity_label")
+            assert result is not None, "Required property 'maximum_severity_label' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def fix_available(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Specifies whether only findings that have a fix available count toward MaximumSeverityLabel.
+
+            When false, Image Builder counts every finding. The default is true.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-imagepipeline-scanresultcondition.html#cfn-imagebuilder-imagepipeline-scanresultcondition-fixavailable
+            '''
+            result = self._values.get("fix_available")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScanResultConditionProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -6320,7 +6588,14 @@ class CfnImagePipelineProps:
                         container_tags=["containerTags"],
                         repository_name="repositoryName"
                     ),
-                    image_scanning_enabled=False
+                    image_scanning_enabled=False,
+                    image_scanning_types=["imageScanningTypes"],
+                    scan_result_condition=imagebuilder.CfnImagePipeline.ScanResultConditionProperty(
+                        maximum_severity_label="maximumSeverityLabel",
+            
+                        # the properties below are optional
+                        fix_available=False
+                    )
                 ),
                 image_tags={
                     "image_tags_key": "imageTags"
@@ -6671,7 +6946,14 @@ class CfnImageProps:
                         container_tags=["containerTags"],
                         repository_name="repositoryName"
                     ),
-                    image_scanning_enabled=False
+                    image_scanning_enabled=False,
+                    image_scanning_types=["imageScanningTypes"],
+                    scan_result_condition=imagebuilder.CfnImage.ScanResultConditionProperty(
+                        maximum_severity_label="maximumSeverityLabel",
+            
+                        # the properties below are optional
+                        fix_available=False
+                    )
                 ),
                 image_tests_configuration=imagebuilder.CfnImage.ImageTestsConfigurationProperty(
                     image_tests_enabled=False,
@@ -8340,6 +8622,14 @@ class CfnInfrastructureConfiguration(
                     s3_key_prefix="s3KeyPrefix"
                 )
             ),
+            parent_instance=imagebuilder.CfnInfrastructureConfiguration.ParentInstanceProperty(
+                auto_scaling_group=imagebuilder.CfnInfrastructureConfiguration.AutoScalingGroupProperty(
+                    name="name",
+        
+                    # the properties below are optional
+                    capacity_wait_timeout_seconds=123
+                )
+            ),
             placement=imagebuilder.CfnInfrastructureConfiguration.PlacementProperty(
                 availability_zone="availabilityZone",
                 host_id="hostId",
@@ -8355,6 +8645,7 @@ class CfnInfrastructureConfiguration(
             tags={
                 "tags_key": "tags"
             },
+            terminate_instance_on_completion=False,
             terminate_instance_on_failure=False
         )
     '''
@@ -8371,12 +8662,14 @@ class CfnInfrastructureConfiguration(
         instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         key_pair: typing.Optional[builtins.str] = None,
         logging: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfrastructureConfiguration.LoggingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        parent_instance: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfrastructureConfiguration.ParentInstanceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         placement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfrastructureConfiguration.PlacementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         resource_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         sns_topic_arn: typing.Optional[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]] = None,
         subnet_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        terminate_instance_on_completion: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         terminate_instance_on_failure: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::ImageBuilder::InfrastructureConfiguration``.
@@ -8390,12 +8683,14 @@ class CfnInfrastructureConfiguration(
         :param instance_types: The instance types of the infrastructure configuration. You can specify one or more instance types to use for this build. The service will pick one of these instance types based on availability.
         :param key_pair: The key pair of the infrastructure configuration. You can use this to log on to and debug the instance used to create your image.
         :param logging: The logging configuration of the infrastructure configuration.
+        :param parent_instance: Settings for building on an instance that is already running, instead of an instance that Image Builder launches for the build.
         :param placement: The instance placement settings that define where the instances that are launched from your image will run.
         :param resource_tags: The metadata tags to assign to the Amazon EC2 instance that Image Builder launches during the build process. Tags are formatted as key value pairs.
         :param security_group_ids: The security group IDs to associate with the instance used to customize your Amazon EC2 AMI.
         :param sns_topic_arn: The Amazon Resource Name (ARN) for the SNS topic to which we send image build event notifications. .. epigraph:: EC2 Image Builder is unable to send notifications to SNS topics that are encrypted using keys from other accounts. The key that is used to encrypt the SNS topic must reside in the account that the Image Builder service runs under.
         :param subnet_id: The subnet ID in which to place the instance used to customize your Amazon EC2 AMI.
         :param tags: The metadata tags to assign to the infrastructure configuration resource that Image Builder creates as output. Tags are formatted as key value pairs.
+        :param terminate_instance_on_completion: Specifies whether Image Builder terminates build and test instances that are still running when image creation ends without a failure. A TerminateInstance step in a workflow runs even when this is false.
         :param terminate_instance_on_failure: The terminate instance on failure setting of the infrastructure configuration. Set to false if you want Image Builder to retain the instance used to configure your AMI if the build or test phase of your workflow fails.
         '''
         if __debug__:
@@ -8410,12 +8705,14 @@ class CfnInfrastructureConfiguration(
             instance_types=instance_types,
             key_pair=key_pair,
             logging=logging,
+            parent_instance=parent_instance,
             placement=placement,
             resource_tags=resource_tags,
             security_group_ids=security_group_ids,
             sns_topic_arn=sns_topic_arn,
             subnet_id=subnet_id,
             tags=tags,
+            terminate_instance_on_completion=terminate_instance_on_completion,
             terminate_instance_on_failure=terminate_instance_on_failure,
         )
 
@@ -8624,6 +8921,24 @@ class CfnInfrastructureConfiguration(
         jsii.set(self, "logging", value)
 
     @builtins.property
+    @jsii.member(jsii_name="parentInstance")
+    def parent_instance(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInfrastructureConfiguration.ParentInstanceProperty"]]:
+        '''Settings for building on an instance that is already running, instead of an instance that Image Builder launches for the build.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInfrastructureConfiguration.ParentInstanceProperty"]], jsii.get(self, "parentInstance"))
+
+    @parent_instance.setter
+    def parent_instance(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInfrastructureConfiguration.ParentInstanceProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3723b29fff0f7a6cb3644dd3bf3976d21f18823891f468fb4e8dd10cd87767dd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parentInstance", value)
+
+    @builtins.property
     @jsii.member(jsii_name="placement")
     def placement(
         self,
@@ -8718,6 +9033,24 @@ class CfnInfrastructureConfiguration(
         jsii.set(self, "tagsRaw", value)
 
     @builtins.property
+    @jsii.member(jsii_name="terminateInstanceOnCompletion")
+    def terminate_instance_on_completion(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Specifies whether Image Builder terminates build and test instances that are still running when image creation ends without a failure.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "terminateInstanceOnCompletion"))
+
+    @terminate_instance_on_completion.setter
+    def terminate_instance_on_completion(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9137d25caf36c8a3068ba6fdf8bb6b37f2ad507441667a7a212e6ec76af3ab54)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terminateInstanceOnCompletion", value)
+
+    @builtins.property
     @jsii.member(jsii_name="terminateInstanceOnFailure")
     def terminate_instance_on_failure(
         self,
@@ -8734,6 +9067,84 @@ class CfnInfrastructureConfiguration(
             type_hints = cached_type_hints(_typecheckingstub__7249b107702cdaa94b0beadeaf7622e73dee8dfe6ae5b06188bce3dbefe11423)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "terminateInstanceOnFailure", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_imagebuilder.CfnInfrastructureConfiguration.AutoScalingGroupProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "capacity_wait_timeout_seconds": "capacityWaitTimeoutSeconds",
+        },
+    )
+    class AutoScalingGroupProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            capacity_wait_timeout_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Identifies the Amazon EC2 Auto Scaling group that Image Builder takes the build instance from, and how long Image Builder waits when the group has no instance available.
+
+            :param name: The name of the Auto Scaling group, in the same account and AWS Region as the infrastructure configuration.
+            :param capacity_wait_timeout_seconds: The number of seconds that Image Builder waits for an instance to become available in the group before the build fails. If you set this value to 0 or omit it, the build fails as soon as the group has no instance available.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-infrastructureconfiguration-autoscalinggroup.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_imagebuilder as imagebuilder
+                
+                auto_scaling_group_property = imagebuilder.CfnInfrastructureConfiguration.AutoScalingGroupProperty(
+                    name="name",
+                
+                    # the properties below are optional
+                    capacity_wait_timeout_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__13cd687ab4a25731c5130b7252f96e6f7456f3f36d55da3ff0cfc8467641cbeb)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument capacity_wait_timeout_seconds", value=capacity_wait_timeout_seconds, expected_type=type_hints["capacity_wait_timeout_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+            }
+            if capacity_wait_timeout_seconds is not None:
+                self._values["capacity_wait_timeout_seconds"] = capacity_wait_timeout_seconds
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the Auto Scaling group, in the same account and AWS Region as the infrastructure configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-infrastructureconfiguration-autoscalinggroup.html#cfn-imagebuilder-infrastructureconfiguration-autoscalinggroup-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def capacity_wait_timeout_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The number of seconds that Image Builder waits for an instance to become available in the group before the build fails.
+
+            If you set this value to 0 or omit it, the build fails as soon as the group has no instance available.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-infrastructureconfiguration-autoscalinggroup.html#cfn-imagebuilder-infrastructureconfiguration-autoscalinggroup-capacitywaittimeoutseconds
+            '''
+            result = self._values.get("capacity_wait_timeout_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AutoScalingGroupProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_imagebuilder.CfnInfrastructureConfiguration.InstanceMetadataOptionsProperty",
@@ -8876,6 +9287,69 @@ class CfnInfrastructureConfiguration(
 
         def __repr__(self) -> str:
             return "LoggingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_imagebuilder.CfnInfrastructureConfiguration.ParentInstanceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"auto_scaling_group": "autoScalingGroup"},
+    )
+    class ParentInstanceProperty:
+        def __init__(
+            self,
+            *,
+            auto_scaling_group: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfrastructureConfiguration.AutoScalingGroupProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Settings for building on an instance that is already running, instead of an instance that Image Builder launches for the build.
+
+            :param auto_scaling_group: Identifies the Amazon EC2 Auto Scaling group that Image Builder takes the build instance from, and how long Image Builder waits when the group has no instance available.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-infrastructureconfiguration-parentinstance.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_imagebuilder as imagebuilder
+                
+                parent_instance_property = imagebuilder.CfnInfrastructureConfiguration.ParentInstanceProperty(
+                    auto_scaling_group=imagebuilder.CfnInfrastructureConfiguration.AutoScalingGroupProperty(
+                        name="name",
+                
+                        # the properties below are optional
+                        capacity_wait_timeout_seconds=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__059dee4690589a8cd44fb2fafe1341f11151fcf4de1f1d38cba30678930b48a2)
+                check_type(argname="argument auto_scaling_group", value=auto_scaling_group, expected_type=type_hints["auto_scaling_group"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "auto_scaling_group": auto_scaling_group,
+            }
+
+        @builtins.property
+        def auto_scaling_group(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInfrastructureConfiguration.AutoScalingGroupProperty"]:
+            '''Identifies the Amazon EC2 Auto Scaling group that Image Builder takes the build instance from, and how long Image Builder waits when the group has no instance available.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-infrastructureconfiguration-parentinstance.html#cfn-imagebuilder-infrastructureconfiguration-parentinstance-autoscalinggroup
+            '''
+            result = self._values.get("auto_scaling_group")
+            assert result is not None, "Required property 'auto_scaling_group' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInfrastructureConfiguration.AutoScalingGroupProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ParentInstanceProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9079,12 +9553,14 @@ class CfnInfrastructureConfiguration(
         "instance_types": "instanceTypes",
         "key_pair": "keyPair",
         "logging": "logging",
+        "parent_instance": "parentInstance",
         "placement": "placement",
         "resource_tags": "resourceTags",
         "security_group_ids": "securityGroupIds",
         "sns_topic_arn": "snsTopicArn",
         "subnet_id": "subnetId",
         "tags": "tags",
+        "terminate_instance_on_completion": "terminateInstanceOnCompletion",
         "terminate_instance_on_failure": "terminateInstanceOnFailure",
     },
 )
@@ -9099,12 +9575,14 @@ class CfnInfrastructureConfigurationProps:
         instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         key_pair: typing.Optional[builtins.str] = None,
         logging: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfrastructureConfiguration.LoggingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        parent_instance: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfrastructureConfiguration.ParentInstanceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         placement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfrastructureConfiguration.PlacementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         resource_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         sns_topic_arn: typing.Optional[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]] = None,
         subnet_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        terminate_instance_on_completion: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         terminate_instance_on_failure: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnInfrastructureConfiguration``.
@@ -9116,12 +9594,14 @@ class CfnInfrastructureConfigurationProps:
         :param instance_types: The instance types of the infrastructure configuration. You can specify one or more instance types to use for this build. The service will pick one of these instance types based on availability.
         :param key_pair: The key pair of the infrastructure configuration. You can use this to log on to and debug the instance used to create your image.
         :param logging: The logging configuration of the infrastructure configuration.
+        :param parent_instance: Settings for building on an instance that is already running, instead of an instance that Image Builder launches for the build.
         :param placement: The instance placement settings that define where the instances that are launched from your image will run.
         :param resource_tags: The metadata tags to assign to the Amazon EC2 instance that Image Builder launches during the build process. Tags are formatted as key value pairs.
         :param security_group_ids: The security group IDs to associate with the instance used to customize your Amazon EC2 AMI.
         :param sns_topic_arn: The Amazon Resource Name (ARN) for the SNS topic to which we send image build event notifications. .. epigraph:: EC2 Image Builder is unable to send notifications to SNS topics that are encrypted using keys from other accounts. The key that is used to encrypt the SNS topic must reside in the account that the Image Builder service runs under.
         :param subnet_id: The subnet ID in which to place the instance used to customize your Amazon EC2 AMI.
         :param tags: The metadata tags to assign to the infrastructure configuration resource that Image Builder creates as output. Tags are formatted as key value pairs.
+        :param terminate_instance_on_completion: Specifies whether Image Builder terminates build and test instances that are still running when image creation ends without a failure. A TerminateInstance step in a workflow runs even when this is false.
         :param terminate_instance_on_failure: The terminate instance on failure setting of the infrastructure configuration. Set to false if you want Image Builder to retain the instance used to configure your AMI if the build or test phase of your workflow fails.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html
@@ -9151,6 +9631,14 @@ class CfnInfrastructureConfigurationProps:
                         s3_key_prefix="s3KeyPrefix"
                     )
                 ),
+                parent_instance=imagebuilder.CfnInfrastructureConfiguration.ParentInstanceProperty(
+                    auto_scaling_group=imagebuilder.CfnInfrastructureConfiguration.AutoScalingGroupProperty(
+                        name="name",
+            
+                        # the properties below are optional
+                        capacity_wait_timeout_seconds=123
+                    )
+                ),
                 placement=imagebuilder.CfnInfrastructureConfiguration.PlacementProperty(
                     availability_zone="availabilityZone",
                     host_id="hostId",
@@ -9166,6 +9654,7 @@ class CfnInfrastructureConfigurationProps:
                 tags={
                     "tags_key": "tags"
                 },
+                terminate_instance_on_completion=False,
                 terminate_instance_on_failure=False
             )
         '''
@@ -9178,12 +9667,14 @@ class CfnInfrastructureConfigurationProps:
             check_type(argname="argument instance_types", value=instance_types, expected_type=type_hints["instance_types"])
             check_type(argname="argument key_pair", value=key_pair, expected_type=type_hints["key_pair"])
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
+            check_type(argname="argument parent_instance", value=parent_instance, expected_type=type_hints["parent_instance"])
             check_type(argname="argument placement", value=placement, expected_type=type_hints["placement"])
             check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
             check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
             check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument terminate_instance_on_completion", value=terminate_instance_on_completion, expected_type=type_hints["terminate_instance_on_completion"])
             check_type(argname="argument terminate_instance_on_failure", value=terminate_instance_on_failure, expected_type=type_hints["terminate_instance_on_failure"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_profile_name": instance_profile_name,
@@ -9199,6 +9690,8 @@ class CfnInfrastructureConfigurationProps:
             self._values["key_pair"] = key_pair
         if logging is not None:
             self._values["logging"] = logging
+        if parent_instance is not None:
+            self._values["parent_instance"] = parent_instance
         if placement is not None:
             self._values["placement"] = placement
         if resource_tags is not None:
@@ -9211,6 +9704,8 @@ class CfnInfrastructureConfigurationProps:
             self._values["subnet_id"] = subnet_id
         if tags is not None:
             self._values["tags"] = tags
+        if terminate_instance_on_completion is not None:
+            self._values["terminate_instance_on_completion"] = terminate_instance_on_completion
         if terminate_instance_on_failure is not None:
             self._values["terminate_instance_on_failure"] = terminate_instance_on_failure
 
@@ -9290,6 +9785,17 @@ class CfnInfrastructureConfigurationProps:
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInfrastructureConfiguration.LoggingProperty"]], result)
 
     @builtins.property
+    def parent_instance(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInfrastructureConfiguration.ParentInstanceProperty"]]:
+        '''Settings for building on an instance that is already running, instead of an instance that Image Builder launches for the build.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-parentinstance
+        '''
+        result = self._values.get("parent_instance")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInfrastructureConfiguration.ParentInstanceProperty"]], result)
+
+    @builtins.property
     def placement(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInfrastructureConfiguration.PlacementProperty"]]:
@@ -9356,6 +9862,19 @@ class CfnInfrastructureConfigurationProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def terminate_instance_on_completion(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Specifies whether Image Builder terminates build and test instances that are still running when image creation ends without a failure.
+
+        A TerminateInstance step in a workflow runs even when this is false.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-terminateinstanceoncompletion
+        '''
+        result = self._values.get("terminate_instance_on_completion")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def terminate_instance_on_failure(
@@ -12149,6 +12668,8 @@ def _typecheckingstub__155636d4b270ff858336d445a5c3a434623faaa989317a61b024d7142
     *,
     ecr_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnImage.EcrConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_scanning_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    image_scanning_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    scan_result_condition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnImage.ScanResultConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12167,6 +12688,14 @@ def _typecheckingstub__ae579b3568475007ef3046d31af2cc00ebde2b499245bed681ab762a0
     major: typing.Optional[builtins.str] = None,
     minor: typing.Optional[builtins.str] = None,
     patch: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30e4ed785abe2544d93d3922f49abf46d7c5ca355d4acce0895e1a9f05131a29(
+    *,
+    maximum_severity_label: builtins.str,
+    fix_available: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12352,6 +12881,8 @@ def _typecheckingstub__8e9c4bcdf41e69c9224e93798644f93b8f44565c0bd7edb8e6b49dc03
     *,
     ecr_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnImagePipeline.EcrConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_scanning_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    image_scanning_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    scan_result_condition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnImagePipeline.ScanResultConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12368,6 +12899,14 @@ def _typecheckingstub__2af353350682d5947ff1643b9bf2422511eaee659a470f07d53aac235
     *,
     image_log_group_name: typing.Optional[builtins.str] = None,
     pipeline_log_group_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f7b505b5e00686fac01b70705ad0c171c02a75d62f193967b625546292f92509(
+    *,
+    maximum_severity_label: builtins.str,
+    fix_available: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12643,12 +13182,14 @@ def _typecheckingstub__8df8a03094d1fe92963a315a657a78657df102ba9fbe66eda2c26bb8e
     instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     key_pair: typing.Optional[builtins.str] = None,
     logging: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfrastructureConfiguration.LoggingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parent_instance: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfrastructureConfiguration.ParentInstanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     placement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfrastructureConfiguration.PlacementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resource_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     sns_topic_arn: typing.Optional[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef]] = None,
     subnet_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    terminate_instance_on_completion: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     terminate_instance_on_failure: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12720,6 +13261,12 @@ def _typecheckingstub__d17651b37e2f4aa5ce6c6076a887fc7270cae14e1f7330e9b48dc5412
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3723b29fff0f7a6cb3644dd3bf3976d21f18823891f468fb4e8dd10cd87767dd(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInfrastructureConfiguration.ParentInstanceProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ee5273f955052040314d788896b8d38dbd2dcdb1d6dce31f51de7b15342f440c(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInfrastructureConfiguration.PlacementProperty]],
 ) -> None:
@@ -12756,8 +13303,22 @@ def _typecheckingstub__cc5a3a7adbaeb667678ab511c655f1ae0df213cbf0afc14685b60d46b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9137d25caf36c8a3068ba6fdf8bb6b37f2ad507441667a7a212e6ec76af3ab54(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7249b107702cdaa94b0beadeaf7622e73dee8dfe6ae5b06188bce3dbefe11423(
     value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13cd687ab4a25731c5130b7252f96e6f7456f3f36d55da3ff0cfc8467641cbeb(
+    *,
+    name: builtins.str,
+    capacity_wait_timeout_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12773,6 +13334,13 @@ def _typecheckingstub__1141979976cfe1199d14e004e82c4b5c7d9823434580281c214438e94
 def _typecheckingstub__d7c7b472c2127725031940b44ae4cf826450bdc016814ad2356cca6734e1ab2e(
     *,
     s3_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfrastructureConfiguration.S3LogsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__059dee4690589a8cd44fb2fafe1341f11151fcf4de1f1d38cba30678930b48a2(
+    *,
+    auto_scaling_group: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfrastructureConfiguration.AutoScalingGroupProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12804,12 +13372,14 @@ def _typecheckingstub__cf8c493013f64742391c2bf93c7050f371ffeff0d9a35a3791f0b9fbb
     instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     key_pair: typing.Optional[builtins.str] = None,
     logging: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfrastructureConfiguration.LoggingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parent_instance: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfrastructureConfiguration.ParentInstanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     placement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfrastructureConfiguration.PlacementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resource_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     sns_topic_arn: typing.Optional[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef]] = None,
     subnet_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    terminate_instance_on_completion: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     terminate_instance_on_failure: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""

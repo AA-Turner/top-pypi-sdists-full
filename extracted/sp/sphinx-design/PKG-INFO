@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: sphinx_design
-Version: 0.7.0
+Version: 0.8.0
 Summary: A sphinx extension for designing beautiful, view size responsive web components.
 Keywords: sphinx,extension,material design,web components
 Author-email: Chris Sewell <chrisj_sewell@hotmail.com>
@@ -21,23 +21,27 @@ Classifier: Topic :: Text Processing :: Markup
 Classifier: Topic :: Text Processing :: Markup :: Markdown
 Classifier: Topic :: Text Processing :: Markup :: reStructuredText
 License-File: LICENSE
-Requires-Dist: sphinx>=7,<10
-Requires-Dist: pre-commit>=3,<4 ; extra == "code-style"
+Requires-Dist: sphinx>=7.2,<10
+Requires-Dist: pre-commit>=3,<5 ; extra == "code-style"
 Requires-Dist: myst-parser>=4,<6 ; extra == "rtd"
 Requires-Dist: myst-parser>=4,<6 ; extra == "testing"
-Requires-Dist: pytest~=8.3 ; extra == "testing"
+Requires-Dist: pytest>=8.3,<10.0 ; extra == "testing"
 Requires-Dist: pytest-cov ; extra == "testing"
 Requires-Dist: pytest-regressions ; extra == "testing"
 Requires-Dist: defusedxml ; extra == "testing"
-Requires-Dist: pytest~=8.3 ; extra == "testing-no-myst"
+Requires-Dist: tinycss2 ; extra == "testing"
+Requires-Dist: rcssmin ; extra == "testing"
+Requires-Dist: pytest>=8.3,<10.0 ; extra == "testing-no-myst"
 Requires-Dist: pytest-cov ; extra == "testing-no-myst"
 Requires-Dist: pytest-regressions ; extra == "testing-no-myst"
 Requires-Dist: defusedxml ; extra == "testing-no-myst"
-Requires-Dist: furo~=2024.7.18 ; extra == "theme-furo"
-Requires-Dist: sphinx-immaterial~=0.12.2 ; extra == "theme-im"
-Requires-Dist: pydata-sphinx-theme~=0.15.2 ; extra == "theme-pydata"
-Requires-Dist: sphinx-rtd-theme~=2.0 ; extra == "theme-rtd"
-Requires-Dist: sphinx-book-theme~=1.1 ; extra == "theme-sbt"
+Requires-Dist: tinycss2 ; extra == "testing-no-myst"
+Requires-Dist: rcssmin ; extra == "testing-no-myst"
+Requires-Dist: furo~=2025.12 ; extra == "theme-furo"
+Requires-Dist: sphinx-immaterial~=0.13.9 ; extra == "theme-im"
+Requires-Dist: pydata-sphinx-theme>=0.20,<0.25 ; extra == "theme-pydata"
+Requires-Dist: sphinx-rtd-theme~=3.1 ; extra == "theme-rtd"
+Requires-Dist: sphinx-book-theme~=1.2 ; extra == "theme-sbt"
 Project-URL: Documentation, https://sphinx-design.readthedocs.io
 Project-URL: Homepage, https://github.com/executablebooks/sphinx-design
 Provides-Extra: code-style
@@ -49,6 +53,7 @@ Provides-Extra: theme-im
 Provides-Extra: theme-pydata
 Provides-Extra: theme-rtd
 Provides-Extra: theme-sbt
+Import-Name: sphinx_design
 
 # sphinx-design
 
@@ -70,14 +75,11 @@ extensions = ["sphinx_design"]
 
 ## Supported browsers
 
-- Chrome >= 60
-- Firefox >= 60
-- Firefox ESR
-- iOS >= 12
-- Safari >= 12
-- Explorer >= 12
-
-(Mirrors: <https://github.com/twbs/bootstrap/blob/v5.0.2/.browserslistrc>)
+sphinx-design targets [**Baseline** Widely Available](https://web.dev/baseline)
+web features (interoperable across Chrome, Edge, Firefox and Safari for at least
+30 months — the evergreen browsers of roughly the last 2½ years). Internet
+Explorer is not supported. See the [getting started guide](./docs/get_started.md)
+for details.
 
 ## Theme support
 
@@ -99,9 +101,11 @@ See [Migrating from sphinx-panels](./docs/get_started.md) for more information.
 It is recommended to use [tox](https://tox.readthedocs.io/en/latest/) to run the tests and document builds.
 Run `tox -va` to see all the available tox environments.
 
-To run linting, formatting and SASS compilation, use [pre-commit](https://pre-commit.com/).
-`pre-commit run --all css` will run the SASS compiler, for which you will need [node](https://nodejs.org) and [npm](https://www.npmjs.com/) installed,
-or you can directly run `npm run css`.
+To run linting, formatting and CSS generation, use [pre-commit](https://pre-commit.com/).
+`pre-commit run --all-files css` regenerates the compiled stylesheet
+(`sphinx_design/static/sphinx-design.min.css`) from `style/design.toml` and the
+hand-authored `style/*.css`; you can also run it directly with
+`python tools/generate_css.py`.
 
 ## TODO
 
@@ -117,8 +121,6 @@ naming of directives/roles: standard prefix?
 why are cards setup with "word-wrap: break-word;"?
 
 handle latex
-
-Use autoprefixer when compiling SASS (see <https://getbootstrap.com/docs/5.0/getting-started/browsers-devices/#supported-browsers>)
 
 horizontal card (grid row inside card, picture on left)
 

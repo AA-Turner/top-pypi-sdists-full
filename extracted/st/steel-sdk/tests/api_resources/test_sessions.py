@@ -325,7 +325,6 @@ class TestSessions:
                 "tab": "t321669910225",
             },
             after="x",
-            events_after="c-321669910225",
             observe={
                 "mode": "none",
                 "base": "x",
@@ -1596,7 +1595,6 @@ class TestAsyncSessions:
                 "tab": "t321669910225",
             },
             after="x",
-            events_after="c-321669910225",
             observe={
                 "mode": "none",
                 "base": "x",

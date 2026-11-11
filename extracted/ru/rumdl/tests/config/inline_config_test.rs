@@ -664,6 +664,259 @@ fn test_fix_md013_reflow_respects_disable_next_line() {
     }
 }
 
+/// Default-mode reflow reports each over-long line on its own and gives every
+/// such warning the fix for the whole paragraph. A disabled line sharing a
+/// paragraph with an enabled over-long line must still be left as written.
+#[test]
+fn test_fix_md013_reflow_keeps_a_disabled_line_inside_a_paragraph() {
+    use rumdl_lib::rules::MD013LineLength;
+    use rumdl_lib::rules::md013_line_length::md013_config::MD013Config;
+    use rumdl_lib::types::LineLength;
+
+    let rule = MD013LineLength::from_config_struct(MD013Config {
+        line_length: LineLength::from_const(80),
+        reflow: true,
+        ..Default::default()
+    });
+
+    let long = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.";
+    for document in [
+        format!("# Test\n\n<!-- rumdl-disable-next-line MD013 -->\n{long}\n{long}\n"),
+        format!("# Test\n\n{long} <!-- rumdl-disable-line MD013 -->\n{long}\n"),
+        format!("# Test\n\n{long}\n{long} <!-- rumdl-disable-line MD013 -->\n"),
+        format!("# Test\n\n> {long}\n> {long} <!-- rumdl-disable-line MD013 -->\n"),
+    ] {
+        // The fix ends at the end of the paragraph's last line: with its line
+        // ending, with a CRLF one, and at the end of a file that has none.
+        for content in [
+            document.clone(),
+            document.replace('\n', "\r\n"),
+            document.trim_end().to_string(),
+        ] {
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            let warnings = rule.check(&ctx).unwrap();
+            let enabled: Vec<_> = warnings
+                .iter()
+                .filter(|w| !ctx.inline_config().is_rule_disabled("MD013", w.line))
+                .collect();
+            assert!(
+                !enabled.is_empty(),
+                "the over-long enabled line is still reported: {content:?}"
+            );
+            assert!(
+                enabled.iter().all(|w| w.fix.is_none()),
+                "no fix may be offered, it would rewrite a disabled line: {content:?}"
+            );
+            assert_eq!(fix_with_rule(&rule, &content), content);
+        }
+    }
+
+    // Control: without the directive the same paragraph is rewrapped.
+    let content = format!("# Test\n\n{long}\n{long}\n");
+    assert_ne!(fix_with_rule(&rule, &content), content);
+}
+
+/// MD048 reports the two fences of a block on their own lines, each with a fix
+/// for that line alone. Only the opener can carry a directive, since nothing
+/// between the fences is one, so it must exempt the block: a closing fence
+/// converted on its own no longer closes its opener.
+#[test]
+fn test_fix_md048_keeps_the_closing_fence_of_a_block_disabled_at_its_opener() {
+    use rumdl_lib::MD048CodeFenceStyle;
+    use rumdl_lib::rules::code_fence_utils::CodeFenceStyle;
+
+    let backtick = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
+    let tilde = MD048CodeFenceStyle::new(CodeFenceStyle::Tilde);
+
+    // Each document with the rule that wants its block converted and the
+    // 1-indexed line of the block's opening fence.
+    let documents: [(&MD048CodeFenceStyle, &str, usize); 6] = [
+        (
+            &backtick,
+            "<!-- rumdl-disable-next-line MD048 -->\n~~~text\ncode\n~~~\n\nAfter.\n",
+            2,
+        ),
+        (
+            &backtick,
+            "<!-- markdownlint-disable-next-line MD048 -->\n~~~text\ncode\n~~~\n\nAfter.\n",
+            2,
+        ),
+        (
+            &backtick,
+            "<!-- rumdl-disable-next-line -->\n~~~text\ncode\n~~~\n\nAfter.\n",
+            2,
+        ),
+        // The converted closing fence would also be lengthened past the inner one.
+        (
+            &backtick,
+            "<!-- rumdl-disable-next-line MD048 -->\n~~~markdown\n```rust\ncode\n```\n~~~\n\nAfter.\n",
+            2,
+        ),
+        (
+            &backtick,
+            "- item\n\n  <!-- rumdl-disable-next-line MD048 -->\n  ~~~text\n  code\n  ~~~\n\n  After.\n",
+            4,
+        ),
+        (
+            &tilde,
+            "<!-- rumdl-disable-next-line MD048 -->\n```text\ncode\n```\n\nAfter.\n",
+            2,
+        ),
+    ];
+    for (rule, document, opener) in documents {
+        for content in [
+            document.to_string(),
+            document.replace('\n', "\r\n"),
+            document.trim_end().to_string(),
+        ] {
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert!(ctx.inline_config().is_rule_disabled("MD048", opener), "{content:?}");
+            // The opener is still reported, for the inline-config filter to drop
+            // and credit to the directive. The closing fence is not reported.
+            let reported: Vec<usize> = rule.check(&ctx).unwrap().iter().map(|w| w.line).collect();
+            assert_eq!(reported, [opener], "{content:?}");
+            assert_eq!(fix_with_rule(rule, &content), content);
+        }
+    }
+
+    // Control: without the directive both fences are reported and converted.
+    let content = "~~~text\ncode\n~~~\n\nAfter.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let reported: Vec<usize> = backtick.check(&ctx).unwrap().iter().map(|w| w.line).collect();
+    assert_eq!(reported, [1, 3]);
+    assert_eq!(fix_with_rule(&backtick, content), "```text\ncode\n```\n\nAfter.\n");
+
+    // Control: the block after a disabled one is converted, both fences.
+    let content = "<!-- rumdl-disable-next-line MD048 -->\n~~~text\ncode\n~~~\n\n~~~text\nmore\n~~~\n";
+    assert_eq!(
+        fix_with_rule(&backtick, content),
+        "<!-- rumdl-disable-next-line MD048 -->\n~~~text\ncode\n~~~\n\n```text\nmore\n```\n"
+    );
+}
+
+/// A fix replaces whole lines and ends where the next line starts. A disabled
+/// line that only borders the paragraph, on either side, withholds nothing.
+#[test]
+fn test_fix_md013_reflow_rewraps_a_paragraph_bordered_by_disabled_lines() {
+    use rumdl_lib::rules::MD013LineLength;
+    use rumdl_lib::rules::md013_line_length::md013_config::MD013Config;
+    use rumdl_lib::types::LineLength;
+
+    let rule = MD013LineLength::from_config_struct(MD013Config {
+        line_length: LineLength::from_const(80),
+        reflow: true,
+        ..Default::default()
+    });
+
+    let long = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.";
+    let heading = format!("# {long} <!-- rumdl-disable-line MD013 -->");
+    // Line 1 and line 3 are disabled headings; the paragraph is line 2 alone.
+    let document = format!("{heading}\n{long}\n{heading}\n");
+    for (content, eol) in [
+        (document.clone(), "\n"),
+        (document.replace('\n', "\r\n"), "\r\n"),
+        // The paragraph is the last line of a file with no final line ending.
+        (format!("{heading}\n{long}"), "\n"),
+    ] {
+        let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+        assert!(ctx.inline_config().is_rule_disabled("MD013", 1), "{content:?}");
+        assert!(!ctx.inline_config().is_rule_disabled("MD013", 2), "{content:?}");
+        let fixable: Vec<usize> = rule
+            .check(&ctx)
+            .unwrap()
+            .iter()
+            .filter(|w| w.fix.is_some())
+            .map(|w| w.line)
+            .collect();
+        assert_eq!(fixable, [2], "{content:?}");
+
+        let fixed = fix_with_rule(&rule, &content);
+        let lines: Vec<&str> = fixed.split(eol).collect();
+        assert_eq!(lines[0], heading, "{fixed:?}");
+        assert_eq!(
+            lines[1..3].join(" "),
+            long,
+            "the paragraph is rewrapped onto two lines: {fixed:?}"
+        );
+        assert!(lines[1..3].iter().all(|line| line.len() <= 80), "{fixed:?}");
+        assert_eq!(
+            fixed.matches(heading.as_str()).count(),
+            content.matches(heading.as_str()).count(),
+            "{fixed:?}"
+        );
+    }
+}
+
+/// A bounded matrix over reflow modes, containers, directive placements and
+/// line endings: a line MD013 is disabled on comes out of the fix exactly as
+/// written, whichever line of its paragraph or list item the directive is on.
+#[test]
+fn test_fix_md013_reflow_never_rewrites_a_disabled_line_in_any_mode() {
+    use rumdl_lib::rules::MD013LineLength;
+    use rumdl_lib::rules::md013_line_length::md013_config::{MD013Config, ReflowMode};
+    use rumdl_lib::types::LineLength;
+
+    let long = "Lorem ipsum dolor sit amet. Consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore.";
+    let directive = "<!-- rumdl-disable-line MD013 -->";
+    let mut documents = 0;
+    let mut rewritten = Vec::new();
+    for mode in [
+        ReflowMode::Default,
+        ReflowMode::Normalize,
+        ReflowMode::SentencePerLine,
+        ReflowMode::SentencePack,
+        ReflowMode::SemanticLineBreaks,
+    ] {
+        let rule = MD013LineLength::from_config_struct(MD013Config {
+            line_length: LineLength::from_const(80),
+            reflow: true,
+            reflow_mode: mode,
+            ..Default::default()
+        });
+        for (first, rest) in [("", ""), ("> ", "> "), ("- ", "  "), ("1. ", "   "), ("> - ", ">   ")] {
+            for disabled in 0..3 {
+                let source_lines: Vec<String> = (0..3)
+                    .map(|line| {
+                        let prefix = if line == 0 { first } else { rest };
+                        if line == disabled {
+                            format!("{prefix}{long} {directive}")
+                        } else {
+                            format!("{prefix}{long}")
+                        }
+                    })
+                    .collect();
+                // With a final line ending, with CRLF ones, and with none at
+                // the end of the file.
+                for (eol, final_eol) in [("\n", "\n"), ("\r\n", "\r\n"), ("\n", "")] {
+                    let content = format!("{}{final_eol}", source_lines.join(eol));
+                    let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+                    assert!(
+                        ctx.inline_config().is_rule_disabled("MD013", disabled + 1),
+                        "fixture: the directive must disable line {}: {content:?}",
+                        disabled + 1
+                    );
+                    documents += 1;
+                    let fixed = rule.fix(&ctx).unwrap();
+                    let kept = fixed.split(eol).filter(|line| *line == source_lines[disabled]).count();
+                    if kept != 1 {
+                        rewritten.push(format!(
+                            "{mode:?}, container {first:?}, line {} disabled: {content:?} became {fixed:?}",
+                            disabled + 1
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(documents, 225);
+    assert!(
+        rewritten.is_empty(),
+        "{} of {documents} documents had a disabled line rewritten:\n{}",
+        rewritten.len(),
+        rewritten.join("\n")
+    );
+}
+
 #[test]
 fn test_fix_md013_reflow_respects_capture_restore() {
     use rumdl_lib::rules::MD013LineLength;

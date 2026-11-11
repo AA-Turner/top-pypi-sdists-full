@@ -8,9 +8,11 @@
 from __future__ import annotations
 
 import builtins
-import inspect
 import itertools
 import math
+import operator
+import os
+import sys
 import weakref
 from abc import abstractmethod
 from collections import OrderedDict, namedtuple
@@ -18,6 +20,7 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from functools import reduce
 from itertools import islice, product
+from operator import index
 from typing import TYPE_CHECKING, Any, NamedTuple, Protocol, runtime_checkable
 
 from numpy.exceptions import ComplexWarning
@@ -33,15 +36,18 @@ import numpy as np
 import blosc2
 from blosc2 import SpecialValue, blosc2_ext, compute_chunks_blocks
 from blosc2.core import fsspec_open, is_fsspec_url, normalize_urlpath
+from blosc2.dsl_kernel import SourceKernel
 from blosc2.info import InfoReporter, format_nbytes_info
 from blosc2.schunk import SChunk
 
 from .linalg import matmul
 from .utils import (
+    chunk_flat_index,
     get_chunks_idx,
     get_local_slice,
     get_selection,
     incomplete_lazyfunc,
+    is_called_from,
     npbinvert,
     nplshift,
     nprshift,
@@ -56,8 +62,8 @@ from .utils import (
 # instead of materializing a huge coordinate set.
 _SUBSAMPLE_GATHER_MAX_COORDS = 1_000_000
 
-# These functions in ufunc_map in ufunc_map_1param are implemented in numexpr and so we call
-# those instead (since numexpr uses multithreading it is faster)
+# These ufuncs have expression equivalents; use native evaluation where admitted
+# and explicit NumPy semantics otherwise.
 ufunc_map = {
     np.add: "+",
     np.subtract: "-",
@@ -86,7 +92,7 @@ ufunc_map = {
     np.minimum: "minimum",
 }
 
-# implemented in numexpr
+# represented by the expression function registry
 ufunc_map_1param = {
     np.sqrt: "sqrt",
     np.sin: "sin",
@@ -240,9 +246,43 @@ def is_inside_new_expr() -> bool:
     """
     Whether the current code is being executed during the creation of new expression.
     """
-    # Get the current call stack
-    stack = inspect.stack()
-    return builtins.any(frame_info.function in {"_new_expr", "open_lazyarray"} for frame_info in stack)
+    return is_called_from(("_new_expr", "open_lazyarray"))
+
+
+def _normalize_slice(s):
+    """Return slice s with bool or out-of-range integer bounds and step as NumPy reads them.
+
+    NumPy (like slice.indices()) accepts any integers there, clamping them to the index range,
+    and bools as integers; ndindex rejects both.  Slices without such values, or with a value
+    that is not an integer at all, are returned unchanged.
+    """
+    values, changed = [], False
+    for v, lo in ((s.start, -sys.maxsize - 1), (s.stop, -sys.maxsize - 1), (s.step, -sys.maxsize)):
+        if v is not None:
+            try:
+                i = operator.index(v)
+            except TypeError:
+                return s
+            if isinstance(v, bool) or not lo <= i <= sys.maxsize:
+                v, changed = builtins.min(builtins.max(int(i), lo), sys.maxsize), True
+        values.append(v)
+    return slice(*values) if changed else s
+
+
+def _normalize_key_item(k):
+    if isinstance(k, slice):
+        return _normalize_slice(k)
+    # NumPy indexes with a 0-d integer array as with an integer
+    if isinstance(k, np.ndarray) and k.ndim == 0 and np.issubdtype(k.dtype, np.integer):
+        return int(k)
+    return k
+
+
+def _normalize_key(key):
+    """Turn the parts of an indexing key that NumPy accepts but ndindex does not into equivalents."""
+    if isinstance(key, tuple):
+        return tuple(_normalize_key_item(k) for k in key)
+    return _normalize_key_item(key)
 
 
 def _is_scalar_bool(k):
@@ -250,6 +290,23 @@ def _is_scalar_bool(k):
     return isinstance(k, (bool, np.bool_)) or (
         isinstance(k, np.ndarray) and k.ndim == 0 and k.dtype == np.bool_
     )
+
+
+def _check_adjacent_advanced(key, count_bools=False):
+    """Raise NotImplementedError unless the advanced indices in the tuple `key` (arrays, integers
+    and, with `count_bools`, scalar bools) are adjacent: NumPy moves the broadcast dimensions to
+    the front otherwise."""
+    adv = [
+        i
+        for i, k in enumerate(key)
+        if (count_bools and _is_scalar_bool(k))
+        or isinstance(k, list | np.ndarray)
+        or (isinstance(k, int | np.integer) and not isinstance(k, bool))
+    ]
+    if adv[-1] - adv[0] + 1 != len(adv):
+        raise NotImplementedError(
+            "Array indices separated by slices, ellipses (...), or newaxes (None) are not supported"
+        )
 
 
 def make_key_hashable(key):
@@ -286,6 +343,52 @@ def get_ndarray_start_stop(ndim, key, shape):
     return start, stop, tuple(step), none_mask
 
 
+def _selection_shape(start, stop, step, int_mask, none_mask) -> tuple:
+    """NumPy's shape of the selection of a key resolved by process_key() and
+    get_ndarray_start_stop(): ``len(range(start, stop, step))`` per sliced dimension, nothing for
+    an integer index and 1 for every None (`int_mask` and `none_mask` have one entry per key item).
+    """
+    dims = zip(start, stop, step, strict=True)
+    shape = []
+    for is_int, is_none in zip(int_mask, none_mask, strict=True):
+        if is_none:
+            shape.append(1)
+            continue
+        st, sp, stp = next(dims)
+        if not is_int:
+            shape.append(len(range(st, sp, stp)))
+    return tuple(shape)
+
+
+def _check_broadcast(vshape: tuple, shape: tuple) -> bool:
+    """Check that a value of shape `vshape` can be assigned to a selection of shape `shape` as in
+    NumPy, which ignores leading dimensions of length 1 of the value and broadcasts the rest;
+    raise NumPy's ValueError if not.  Return whether the value must be broadcast, i.e. it does not
+    hold the items of the selection (in C order: dimensions of length 1 do not matter there).
+    """
+    extra = builtins.max(len(vshape) - len(shape), 0)
+    if builtins.any(n != 1 for n in vshape[:extra]) or builtins.any(
+        n not in (1, s) for n, s in zip(reversed(vshape), reversed(shape), strict=False)
+    ):
+        raise ValueError(f"could not broadcast input array from shape {vshape} into shape {shape}")
+    return math.prod(vshape) != math.prod(shape)
+
+
+def _broadcast_value(value: np.ndarray, shape: tuple) -> np.ndarray:
+    """`value` broadcast to `shape` as checked by _check_broadcast() (a read-only view)."""
+    extra = value.ndim - len(shape)
+    return np.broadcast_to(value.reshape(value.shape[extra:]) if extra > 0 else value, shape)
+
+
+def _setitem_value(value, shape: tuple):
+    """`value` (not a scalar) for a selection of shape `shape` that is written piece by piece
+    (``value[idx]``): as it is if it has that shape, else broadcast to it (a NumPy view)."""
+    if value.shape == shape:
+        return value
+    _check_broadcast(value.shape, shape)
+    return _broadcast_value(value[()] if isinstance(value, blosc2.Operand) else value, shape)
+
+
 def are_partitions_aligned(shape, chunks, blocks):
     """
     Check if the partitions defined by chunks and blocks are aligned with the shape.
@@ -305,6 +408,33 @@ def are_partitions_aligned(shape, chunks, blocks):
     return builtins.all(c % b == 0 for c, b in zip(chunks, blocks, strict=True))
 
 
+def blocks_contiguous(chunks, blocks):
+    """Whether the blocks are C-contiguous runs of their chunk (no block may be 0 long).
+
+    That is the case only if their leading dims are 1, then one dim divides the chunk's, and the
+    rest are equal to the chunk's; same rule as nchunk_fastpath() in C-Blosc2's b2nd.c.
+    """
+    k = 0
+    for i, (size, unit) in enumerate(zip(chunks, blocks, strict=True)):
+        if size % unit != 0 or (i > k and size != unit):
+            return False
+        if i == k and unit == 1:
+            k += 1
+    return True
+
+
+def chunks_tile_flat(shape, chunks, blocks):
+    """Whether physical chunks/blocks form consecutive C-order runs, with only tail padding."""
+    if len(shape) == 0 or 0 in shape or 0 in chunks or 0 in blocks or not blocks_contiguous(chunks, blocks):
+        return False
+    axis = 0
+    while axis < len(chunks) - 1 and chunks[axis] == 1:
+        axis += 1
+    if tuple(chunks[axis + 1 :]) != tuple(shape[axis + 1 :]):
+        return False
+    return shape[axis] % chunks[axis] == 0 or math.prod(shape[:axis]) == 1
+
+
 def are_partitions_behaved(shape, chunks, blocks):
     """
     Check if the partitions defined by chunks and blocks are well-behaved with respect to the shape.
@@ -321,18 +451,6 @@ def are_partitions_behaved(shape, chunks, blocks):
         if container and container[-1] != part[-1]:
             return False
         return builtins.all(size % unit == 0 for size, unit in zip(container[:-1], part[:-1], strict=True))
-
-    def blocks_contiguous(chunks, blocks):
-        # A block is a C-contiguous run of its chunk only if its leading dims are 1,
-        # then one dim divides the chunk's, and the rest are equal to the chunk's.
-        # Same rule as nchunk_fastpath() in C-Blosc2's b2nd.c.
-        k = 0
-        for i, (size, unit) in enumerate(zip(chunks, blocks, strict=True)):
-            if size % unit != 0 or (i > k and size != unit):
-                return False
-            if i == k and unit == 1:
-                k += 1
-        return True
 
     return blocks_contiguous(chunks, blocks) and check_contiguity(shape, chunks)
 
@@ -3372,7 +3490,7 @@ class Operand:
             _check_allowed_dtypes(value)
             return blosc2.LazyExpr(new_op=(value, ufunc_map_1param[ufunc], None))
 
-        return NotImplemented  # if not implemented in numexpr will default to NumPy
+        return NotImplemented  # Unsupported expression ufuncs defer to NumPy.
 
     def __add__(self, value: int | float | blosc2.Array, /) -> blosc2.LazyExpr:
         _check_allowed_dtypes(value)
@@ -3725,38 +3843,14 @@ def detect_aligned_chunks(
         if s.stop is not None and s.stop % chunks[i] != 0:
             return []
 
-    # Parse the slice boundaries
-    start_indices = []
-    end_indices = []
-    n_chunks = []
-
-    for i, s in enumerate(key):
-        start = s.start if s.start is not None else 0
-        stop = s.stop if s.stop is not None else shape[i]
-        chunk_size = chunks[i]
-        start_idx = start // chunk_size
-        end_idx = stop // chunk_size
-        start_indices.append(start_idx)
-        end_indices.append(end_idx)
-        # Total chunk count along this dim: ceil, not floor -- a trailing
-        # partial chunk (shape[i] not a multiple of chunk_size) still counts
-        # as one chunk. Floor division here undercounts it, which corrupts
-        # the flat chunk-index math below for any aligned slice with a
-        # nonzero start in an earlier dimension (silently returns a
-        # different chunk's data instead of the requested one).
-        n_chunks.append(math.ceil(shape[i] / chunk_size))
-
     # Get all chunk combinations in the slice
-    indices = [range(start, end) for start, end in zip(start_indices, end_indices, strict=False)]
-    result = []
-
-    for combination in product(*indices):
-        flat_index = 0
-        multiplier = 1
-        for idx, n in zip(reversed(range(len(n_chunks))), reversed(n_chunks), strict=False):
-            flat_index += combination[idx] * multiplier
-            multiplier *= n
-        result.append(flat_index)
+    indices = []
+    for s, n, c in zip(key, shape, chunks, strict=True):
+        start = s.start if s.start is not None else 0
+        stop = s.stop if s.stop is not None else n
+        indices.append(range(start // c, stop // c))
+    grid, _ = get_chunks_idx(shape, chunks)
+    result = [chunk_flat_index(combination, grid) for combination in product(*indices)]
 
     # Check if chunks are consecutive if requested
     if consecutive and result:
@@ -3770,6 +3864,176 @@ def detect_aligned_chunks(
                 return []
 
     return sorted(result)
+
+
+_LOSSLESS_CODECS = frozenset(
+    (blosc2.Codec.BLOSCLZ, blosc2.Codec.LZ4, blosc2.Codec.LZ4HC, blosc2.Codec.ZLIB, blosc2.Codec.ZSTD)
+)
+_LOSSLESS_FILTERS = frozenset(
+    (
+        blosc2.Filter.NOFILTER,
+        blosc2.Filter.SHUFFLE,
+        blosc2.Filter.BITSHUFFLE,
+        blosc2.Filter.DELTA,
+        blosc2.Filter.BYTEDELTA,
+    )
+)
+
+
+def _is_lossless(cparams: blosc2.CParams) -> bool:
+    """Whether compressing with *cparams* gives back exactly the input (no lossy codec or filter)."""
+    return (
+        cparams.codec in _LOSSLESS_CODECS
+        and builtins.all(f in _LOSSLESS_FILTERS for f in cparams.filters)
+        and not cparams.use_dict
+    )
+
+
+_CHUNK_ENCODING = (
+    "codec",
+    "codec_meta",
+    "clevel",
+    "use_dict",
+    "typesize",
+    "blocksize",
+    "splitmode",
+    "filters",
+    "filters_meta",
+)
+
+
+def _chunks_interchangeable(dst: NDArray, src: NDArray) -> bool:
+    """Whether the compressed chunks of `src` can stand for those of `dst` (and vice versa): they
+    lay out the same items the same way (dtype, chunks, blocks) and encode them the same lossless
+    way."""
+    # Copying compressed bytes skips both the source postfilter and the destination prefilter.
+    if src.schunk._has_postfilter or dst.schunk._has_prefilter:
+        return False
+    if src.dtype != dst.dtype or src.chunks != dst.chunks or src.blocks != dst.blocks:
+        return False
+    a, b = dst.cparams, src.cparams
+    return _is_lossless(a) and builtins.all(getattr(a, f) == getattr(b, f) for f in _CHUNK_ENCODING)
+
+
+def _resolved_urlpath(a: NDArray, path: str) -> str:
+    """`path`, the urlpath of `a`, with symlinks resolved.  Cached per handle: resolving costs one
+    lstat per path component, and on NFS one of the file itself also flushes its dirty pages."""
+    cached = a.__dict__.get("_resolved_urlpath")
+    if cached is None or cached[0] != path:
+        cached = a._resolved_urlpath = (path, os.path.realpath(path))
+    return cached[1]
+
+
+def _same_storage(a: NDArray, b: NDArray) -> bool:
+    """Whether two arrays may share their data (the same super-chunk, or the same file)."""
+    if a._handle_lock is b._handle_lock:  # one lock per C super-chunk, shared by views
+        return True
+    pa, pb = a.schunk.urlpath, b.schunk.urlpath
+    if not (isinstance(pa, str) and isinstance(pb, str)):
+        return False
+    return pa == pb or _resolved_urlpath(a, pa) == _resolved_urlpath(b, pb)
+
+
+# Upper bound for the temporary buffers of chunk-wise writes (unless a single chunk is larger)
+_CHUNKWISE_MAX_NBYTES = 32 * 2**20
+
+
+def _region_boxes(
+    shape, chunks, start, stop, max_items, split_covered=False, reverse=False, split_edges=True
+):
+    """Split the non-empty region ``[start, stop)`` along chunk boundaries into boxes.
+
+    Yields ``(lo, hi, nchunk)``.  Boxes hold at most `max_items` items (or one chunk, when that is
+    larger), so that writing each with one ``set_slice`` keeps memory bounded while staying with
+    few calls (every call costs some frame I/O on disk).  With `split_covered`, a chunk the region
+    fully covers is always yielded alone, with its index in `nchunk` (None otherwise); an edge
+    chunk (one with padding beyond the shape) only with `split_edges`.  Boxes come in C order, or
+    the reverse one.
+    """
+    ndim = len(shape)
+    grid, _ = get_chunks_idx(shape, chunks)
+    strides = [math.prod(grid[d + 1 :]) for d in range(ndim)]  # of the chunk indices
+
+    def covers_a_chunk(lo, hi):
+        for s, c, l_, h in zip(shape, chunks, lo, hi, strict=True):
+            i = -(-l_ // c)  # first chunk starting inside the box
+            end = builtins.min((i + 1) * c, s) if split_edges else (i + 1) * c
+            if i * c >= h or end > h:
+                return False
+        return True
+
+    def whole_chunks(lo, hi):
+        """The chunks of a box made of whole chunks, in the order in which visit() splits it."""
+        ranges = [range(l_ // c, -(-h // c)) for l_, h, c in zip(lo, hi, chunks, strict=True)]
+        if reverse:
+            ranges = [r[::-1] for r in ranges]
+        los = [[i * c for i in r] for r, c in zip(ranges, chunks, strict=True)]
+        his = [
+            [builtins.min((i + 1) * c, s) for i in r] for r, c, s in zip(ranges, chunks, shape, strict=True)
+        ]
+        offsets = [[i * st for i in r] for r, st in zip(ranges, strides, strict=True)]
+        return zip(product(*los), product(*his), map(builtins.sum, product(*offsets)), strict=True)
+
+    def visit(lo, hi):
+        covered = split_covered and covers_a_chunk(lo, hi)
+        nitems = math.prod(h - l_ for l_, h in zip(lo, hi, strict=True))
+        if not covered and nitems <= max_items:
+            yield lo, hi, None
+            return
+        d = next((d for d in range(ndim) if lo[d] // chunks[d] != (hi[d] - 1) // chunks[d]), None)
+        if d is None:  # a single chunk
+            nchunk = None
+            if covered:
+                nchunk = chunk_flat_index([l_ // c for l_, c in zip(lo, chunks, strict=True)], grid)
+            yield lo, hi, nchunk
+            return
+        if covered and builtins.all(
+            l_ % c == 0 and (h % c == 0 or (split_edges and h == s))
+            for l_, h, c, s in zip(lo, hi, chunks, shape, strict=True)
+        ):
+            yield from whole_chunks(lo, hi)
+            return
+        c = chunks[d]
+        # Slabs as thick as the budget allows; covered chunks have to be isolated one by one
+        step = 1 if covered else builtins.max(1, max_items // (nitems // (hi[d] - lo[d]) * c))
+        idx = range(lo[d] // c, (hi[d] - 1) // c + 1, step)
+        for i in reversed(idx) if reverse else idx:
+            sub_lo = lo[:d] + (builtins.max(lo[d], i * c),) + lo[d + 1 :]
+            sub_hi = hi[:d] + (builtins.min(hi[d], (i + step) * c),) + hi[d + 1 :]
+            yield from visit(sub_lo, sub_hi)
+
+    yield from visit(tuple(start), tuple(stop))
+
+
+def _chunkwise_plan(
+    shape,
+    chunks,
+    start,
+    stop,
+    itemsize,
+    split_covered,
+    reverse=False,
+    buffer_covered=False,
+    split_edges=True,
+):
+    """Plan writing the region ``[start, stop)`` box by box, with boxes of at most
+    _CHUNKWISE_MAX_NBYTES of `itemsize`-byte items (or one chunk, when that is larger).
+
+    Returns the boxes from _region_boxes as ``(lo, hi, nchunk, nitems)``, and the largest
+    `nitems` of the boxes that are written from a buffer: all of them with `buffer_covered`, else
+    all but the covered chunks (`nchunk` not None), whose `nitems` is left out (None).
+    """
+    max_items = builtins.max(math.prod(chunks), _CHUNKWISE_MAX_NBYTES // itemsize)
+    boxes, buf_items = [], 0
+    for lo, hi, nchunk in _region_boxes(
+        shape, chunks, start, stop, max_items, split_covered, reverse, split_edges
+    ):
+        n = None
+        if nchunk is None or buffer_covered:
+            n = math.prod(map(operator.sub, hi, lo))
+            buf_items = builtins.max(buf_items, n)
+        boxes.append((lo, hi, nchunk, n))
+    return boxes, buf_items
 
 
 class NDOuterIterator:
@@ -4028,16 +4292,10 @@ class NDArray(blosc2_ext.NDArray, Operand):
         All the attributes from the :ref:`SChunk <SChunk>` can be accessed through
         this instance as `self.schunk`.
 
-        .. warning::
-            The returned SChunk is a *view* over C memory owned by this
-            NDArray: keep the NDArray alive while using it. A schunk that
-            outlives its array reads freed memory — e.g.
-            ``blosc2.asarray(...).schunk.get_chunk(0)`` nondeterministically
-            returns ``b""`` or raises. (A keep-alive back-reference was
-            tried and reverted: the NDArray<->SChunk cycle defers
-            finalization from refcount time to GC time, exhausting file
-            descriptors and breaking the indexing machinery's
-            dropped-on-gc caches.)
+        .. note::
+            The returned SChunk is a *view* over the C super-chunk of this
+            NDArray and keeps that memory alive, so it stays valid after the
+            NDArray is gone (e.g. ``schunk = blosc2.open(urlpath).schunk``).
 
         See Also
         --------
@@ -4361,22 +4619,63 @@ class NDArray(blosc2_ext.NDArray, Operand):
                 out = super().set_slice((start, stop), chunk)
         return out
 
+    def _normalize_oselection(self, key: list | np.ndarray) -> list:
+        """Count negative indices from the end of their axis, like NumPy; IndexError outside the axis."""
+        shape = self.shape
+        if len(key) != len(shape):
+            raise ValueError(f"Key must have {len(shape)} dimensions, got {len(key)}.")
+        normalized = []
+        for indices, size in zip(key, shape, strict=True):
+            if isinstance(indices, np.ndarray):
+                indices = indices.tolist()  # min(), max() and the extension's copy are faster on lists
+            if len(indices) > 0:
+                low, high = builtins.min(indices), builtins.max(indices)
+                if low < -size or high >= size:
+                    bad = next(i for i in indices if not -size <= i < size)  # the first, as in NumPy
+                    axis = len(normalized)
+                    raise IndexError(f"index {bad} is out of bounds for axis {axis} with size {size}")
+                if low < 0:
+                    indices = [i + size if i < 0 else i for i in indices]
+            normalized.append(indices)
+        return normalized
+
     def get_oselection_numpy(self, key: list | np.ndarray) -> np.ndarray:
         """
         Select independently from self along axes specified in key. Key must be same length as self shape.
+        Negative indices count from the end of their axis; out-of-bounds indices raise IndexError.
         See Zarr https://zarr.readthedocs.io/en/stable/user-guide/arrays.html#orthogonal-indexing.
         """
-        shape = tuple(len(k) for k in key) + self.shape[len(key) :]
+        key = self._normalize_oselection(key)
         # Create the array to store the result
-        arr = np.empty(shape, dtype=self.dtype)
+        arr = np.empty(tuple(len(k) for k in key), dtype=self.dtype)
         return super().get_oindex_numpy(arr, key)
 
-    def set_oselection_numpy(self, key: list | np.ndarray, arr: NDArray) -> np.ndarray:
+    def set_oselection_numpy(self, key: list | np.ndarray, arr: Any) -> np.ndarray:
         """
         Select independently from self along axes specified in key and set to entries in arr.
         Key must be same length as self shape.
+        Negative indices count from the end of their axis; out-of-bounds indices raise IndexError.
+        ``arr`` is converted to the array's dtype and broadcast to the selection's shape as in NumPy
+        (a scalar, a list, an array or an NDArray).
         See Zarr https://zarr.readthedocs.io/en/stable/user-guide/arrays.html#orthogonal-indexing.
         """
+        key = self._normalize_oselection(key)
+        shape = tuple(map(len, key))
+        # The extension reads the selection's bytes straight from arr's buffer: only a C-contiguous
+        # array of the selection's shape and dtype skips NumPy's assignment
+        if not (
+            isinstance(arr, np.ndarray)
+            and arr.shape == shape
+            and arr.dtype == self.dtype
+            and arr.flags.c_contiguous
+        ):
+            if isinstance(arr, blosc2.Operand):
+                arr = arr[()]
+            elif isinstance(arr, list | tuple):
+                arr = np.asarray(arr)  # nested lists broadcast like arrays, as in NumPy's indexing
+            value = np.empty(shape, dtype=self.dtype)
+            value[...] = arr
+            arr = value
         return super().set_oindex_numpy(key, arr)
 
     def _try_subsample_gather(self, start, stop, step, shape):
@@ -4545,33 +4844,52 @@ class NDArray(blosc2_ext.NDArray, Operand):
         if not isinstance(key, (list, np.ndarray)):
             return None
         key_arr = np.asarray(key)
-        if not (np.issubdtype(key_arr.dtype, np.integer) and key_arr.ndim >= 1):
+        if not (np.issubdtype(key_arr.dtype, np.integer) and key_arr.ndim >= 1) or self.ndim == 0:
             return None
         # 1-D: axis=None (flat); ndim>1: axis=0 (row selection)
         return self._take_numpy(key_arr, axis=None if self.ndim == 1 else 0)
 
-    def _scalar_bool_key_to_newaxis(self, key):
-        """Rewrite a tuple key's scalar bools to numpy's single-newaxis semantics.
+    def _drop_scalar_bools(self, key):
+        """Handle the scalar bools of a tuple key like NumPy.
 
-        Scalar bools act as one np.newaxis-like dimension of length 1 (all True)
-        or 0 (any False), placed at the first bool's position.  Returns
-        ``(key, None)`` unchanged when there are no scalar bools, ``(new_key,
-        None)`` to continue processing, or ``(None, empty_shape)`` when any bool
-        is False and the result is an empty array of that shape.
+        NumPy treats them as 0-d boolean (advanced) indices: together they add one
+        dimension of length 1 (all True) or 0 (any False), which goes where the
+        advanced indices (integers included) are if those are adjacent, else in
+        front.  Returns ``(key, None)`` unchanged when there are no scalar bools,
+        ``(rest, shape)`` when the result is ``self[rest]`` (the key without the
+        bools) reshaped to ``shape``, ``(None, shape)`` when the result is an empty
+        array of that shape, or ``(rest, None)`` to continue processing with rest.
         """
         if not builtins.any(_is_scalar_bool(k) for k in key):
             return key, None
-        first = next(i for i, k in enumerate(key) if _is_scalar_bool(k))
-        new_key = key[:first] + (None,) + tuple(k for k in key[first + 1 :] if not _is_scalar_bool(k))
-        if builtins.all(k for k in key if _is_scalar_bool(k)):  # all True -> plain newaxis
-            return new_key, None
-        # any False -> the newaxis dim is empty; shape from the all-True form
-        key_idx = ndindex.ndindex(new_key).expand(self.shape)
-        shape = list(key_idx.newshape(self.shape))
-        raw = key_idx.raw
-        pos = builtins.sum(not isinstance(k, int) for k in raw[: raw.index(None)])
-        shape[pos] = 0
-        return None, tuple(shape)
+        rest = tuple(k for k in key if not _is_scalar_bool(k))
+        all_true = builtins.all(k for k in key if _is_scalar_bool(k))
+        # NumPy works out the shape (and validates the key) on a stride-0 stand-in for self; that
+        # costs no memory for basic indices, nor for an empty result
+        stand_in = np.broadcast_to(np.empty((), dtype=np.uint8), self.shape)
+        if not builtins.any(isinstance(k, list | np.ndarray) for k in rest):
+            shape = stand_in[key].shape
+            return (rest, shape) if all_true else (None, shape)
+        # Together with array indices, a False empties the broadcast result (or does not broadcast)
+        if not all_true:
+            return None, stand_in[key].shape
+        # and True bools broadcast away, unless they separate the advanced indices
+        _check_adjacent_advanced(key, count_bools=True)
+        return rest, None
+
+    def _getitem_fancy_newaxis(self, key):
+        """Fancy indexing with np.newaxis in a tuple key.
+
+        Index without the Nones and insert their dimensions where NumPy puts them.
+        The advanced indices (arrays and integers) must be adjacent, as without
+        Nones.
+        """
+        _check_adjacent_advanced(key)
+        nparr = self[tuple(k for k in key if k is not None)]
+        # NumPy places the new axes on a stride-0 stand-in for self; an extra trailing dimension of
+        # length 0 keeps its result empty, so this costs no memory
+        stand_in = np.broadcast_to(np.empty((), dtype=np.uint8), (*self.shape, 0))
+        return nparr.reshape(stand_in[(*key, slice(None))].shape[:-1])
 
     def _getitem_bool_mask(self, key):
         """Handle boolean array key with optional sparse-gather fast path.
@@ -4580,6 +4898,8 @@ class NDArray(blosc2_ext.NDArray, Operand):
         boolean mask (caller should continue with regular indexing).
         """
         if not (hasattr(key, "dtype") and np.issubdtype(key.dtype, np.bool_) and key.shape == self.shape):
+            return None
+        if isinstance(key, np.generic):  # a scalar bool, whose shape matches a 0-d array's
             return None
         # For sparse boolean masks, converting to flat indices and using the
         # sparse-gather path is faster than decompressing every data chunk.
@@ -4645,6 +4965,14 @@ class NDArray(blosc2_ext.NDArray, Operand):
                [3.3333, 3.3333, 3.3333, 3.3333, 3.3333],
                [3.3333, 3.3333, 3.3333, 3.3333, 3.3333]])
         """
+        # Fast path for the common basic indexing (integers, unit-step slices, Ellipsis, None);
+        # None means that the key needs the general path below
+        nparr = self.get_basic_numpy(key)
+        if nparr is not None:
+            if self._keep_last_read:
+                self._remember_read(key, nparr)
+            return nparr
+
         # Follow shape changes made by another handle (SWMR) before validating the key
         self.refresh()
         # The more general case (this is quite slow)
@@ -4663,17 +4991,17 @@ class NDArray(blosc2_ext.NDArray, Operand):
 
         key = key[()] if isinstance(key, NDArray) else key  # key not iterable
         key = tuple(k[()] if isinstance(k, NDArray) else k for k in key) if isinstance(key, tuple) else key
+        key = _normalize_key(key)
 
-        # Scalar bools inside a tuple act like a single np.newaxis dimension of
-        # length 1 (all True) or 0 (any False), placed at the first bool's
-        # position (numpy semantics); rewrite to the equivalent None form so the
-        # regular machinery handles them.  Bare scalar bools are handled below in
-        # the fancy branch.  (numpy rejects scalar-bool tuples in __setitem__, so
-        # this stays getitem-only.)
+        # Scalar bools inside a tuple are 0-d boolean indices, as in NumPy (see
+        # _drop_scalar_bools).  Bare scalar bools are handled below in the fancy
+        # branch.  (__setitem__ does not support them.)
         if isinstance(key, tuple):
-            key, empty_shape = self._scalar_bool_key_to_newaxis(key)
-            if empty_shape is not None:
-                return np.empty(empty_shape, dtype=self.dtype)
+            key, bool_shape = self._drop_scalar_bools(key)
+            if key is None:
+                return np.empty(bool_shape, dtype=self.dtype)
+            if bool_shape is not None:
+                return self[key].reshape(bool_shape)
 
         # Check boolean array key early to avoid expensive process_key / nonzero
         result = self._getitem_bool_mask(key)
@@ -4703,6 +5031,8 @@ class NDArray(blosc2_ext.NDArray, Operand):
                     return np.expand_dims(self._get_set_findex_default(_slice, out=out), 0)
                 else:  # do nothing
                     return np.empty((0,) + self.shape, dtype=self.dtype)
+            if isinstance(key, tuple) and builtins.any(k is None for k in key):
+                return self._getitem_fancy_newaxis(key)
             return self.get_fselection_numpy(key)  # fancy index default, can be quite slow
 
         start, stop, step, none_mask = get_ndarray_start_stop(self.ndim, key_, self.shape)
@@ -4727,13 +5057,87 @@ class NDArray(blosc2_ext.NDArray, Operand):
             nparr = np.expand_dims(nparr, axis=[i for i, n in enumerate(none_mask) if n])
 
         if self._keep_last_read:
-            self._last_read.clear()
-            inmutable_key = make_key_hashable(key)
-            self._last_read[inmutable_key] = nparr
-
+            self._remember_read(key, nparr)
         return nparr
 
-    def __setitem__(
+    def _remember_read(self, key, nparr: np.ndarray) -> None:
+        """Make `nparr`, read with `key`, the content of the last-read cache (see keep_last_read)."""
+        self._last_read.clear()
+        self._last_read[make_key_hashable(key)] = nparr
+
+    def read_into(self, out: np.ndarray, key: Any = None, casting: str = "same_kind") -> np.ndarray:
+        """Decompress ``self[key]`` into the existing NumPy array ``out``.
+
+        This is ``out[...] = self[key]`` without the temporary array: the data is decompressed
+        straight to its place in ``out``, which can be a view into a larger array, e.g. the
+        interior of a padded array, one item of a batch or one channel of a multi-channel array.
+        Nothing of the larger array outside ``out`` is touched. Reusing ``out`` across calls also
+        saves the page faults of a fresh result array every time.
+
+        Parameters
+        ----------
+        out: np.ndarray
+            Writeable NumPy array with the shape of ``self[key]``. Contiguous or not: any layout
+            works. Data goes straight into ``out`` (no temporary) when ``out`` has ``self.dtype`` and
+            its last axis is contiguous, with any strides in the other axes that are whole
+            multiples of the next axis' stride. That covers C-contiguous arrays and every box of one,
+            including views with steps in all but the last axis. Other layouts (e.g. Fortran order,
+            transposed views, steps along the last axis) and other dtypes go through one temporary.
+            For a CPU ``torch.Tensor`` ``t``, pass ``t.numpy()``.
+        key: int, slice, Ellipsis or tuple of them, or any key that :meth:`__getitem__` accepts
+            The selection to read, as in ``self[key]``; None (default) reads the whole array.
+            Integers, slices with step 1 and an Ellipsis decompress straight into ``out``; other
+            keys (steps, integer or boolean arrays, ``None``) go through ``self[key]``.
+        casting: str
+            How ``self.dtype`` may be converted to ``out.dtype``, as in :func:`numpy.copyto`.
+            Default ``"same_kind"``.
+
+        Returns
+        -------
+        out: np.ndarray
+            The ``out`` array.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import blosc2
+        >>> a = blosc2.arange(12, dtype=np.int32, shape=(3, 4))
+        >>> padded = np.full((5, 6), -1, dtype=np.int32)
+        >>> _ = a.read_into(padded[1:4, 1:5])  # into the interior of a padded array
+        >>> padded
+        array([[-1, -1, -1, -1, -1, -1],
+               [-1,  0,  1,  2,  3, -1],
+               [-1,  4,  5,  6,  7, -1],
+               [-1,  8,  9, 10, 11, -1],
+               [-1, -1, -1, -1, -1, -1]], dtype=int32)
+        >>> batch = np.empty((2, 2, 4), dtype=np.int32)
+        >>> _ = a.read_into(batch[1], (slice(1, 3), slice(None)))  # into one item of a batch
+        >>> batch[1]
+        array([[ 4,  5,  6,  7],
+               [ 8,  9, 10, 11]], dtype=int32)
+        """
+        if not isinstance(out, np.ndarray):
+            raise TypeError(f"out must be a NumPy array, not {type(out).__name__}")
+        if not out.flags.writeable:
+            raise ValueError("out is read-only")
+        if key is None:
+            key = ()
+        # Integers, slices with step 1 and an Ellipsis: straight into out, or into a temporary for
+        # another dtype or layout (None: another key, see get_basic_into)
+        value = self.get_basic_into(out, key)
+        if value is out:
+            return out
+        if value is None:  # steps, arrays, newaxis, masks, fields...: through __getitem__
+            value = self[key]
+            if isinstance(value, (blosc2.LazyExpr, NDField)):
+                value = value[:]
+            value = np.asarray(value)
+            if out.shape != value.shape:
+                raise ValueError(f"out has shape {out.shape}, but the selection has shape {value.shape}")
+        np.copyto(out, value, casting=casting)
+        return out
+
+    def __setitem__(  # noqa: C901
         self,
         key: int | slice | Sequence[slice | int | np.bool_ | np.ndarray[int | np.bool_] | None] | None,
         value: object,
@@ -4743,12 +5147,12 @@ class NDArray(blosc2_ext.NDArray, Operand):
         Parameters
         ----------
         key: int, slice or sequence of slices
-            The index or indices specifying the slice(s) to be updated. Note that the step parameter
-            is not yet supported.
-        value: Py_Object Supporting the Buffer Protocol
-            An object supporting the
-            `Buffer Protocol <https://docs.python.org/3/c-api/buffer.html>`_
-            which will be used to overwrite the specified slice(s).
+            The index or indices specifying the slice(s) to be updated.
+        value: scalar or array-like
+            The value(s) to write: a scalar, or an array (NumPy array, :ref:`NDArray`, or any object
+            supporting the `Buffer Protocol <https://docs.python.org/3/c-api/buffer.html>`_) that
+            is broadcast to the shape of the selection as in NumPy. A value that cannot be
+            broadcast raises ValueError.
 
         Examples
         --------
@@ -4768,21 +5172,34 @@ class NDArray(blosc2_ext.NDArray, Operand):
                [3.3333, 3.3333, 3.3333, 3.3333, 3.3333, 3.3333, 3.3333, 3.3333]])
         """
         blosc2_ext.check_access_mode(self.schunk.urlpath, self.schunk.mode)
-        # Follow shape changes made by another handle (SWMR) before validating the key
-        self.refresh()
+        # Fast path for basic keys (integers, unit-step slices, Ellipsis), which also follows shape
+        # changes made by another handle (SWMR); None means that the key needs the general path
+        basic = self.get_basic_start_stop(key)
+        if basic is None:
+            # Follow shape changes made by another handle (SWMR) before validating the key
+            self.refresh()
 
-        # key not iterable
-        key = key[()] if isinstance(key, NDArray) else key
-        key = tuple(k[()] if isinstance(k, NDArray) else k for k in key) if isinstance(key, tuple) else key
+            # key not iterable
+            key = key[()] if isinstance(key, NDArray) else key
+            key = (
+                tuple(k[()] if isinstance(k, NDArray) else k for k in key) if isinstance(key, tuple) else key
+            )
 
-        key_, mask = process_key(key, self.shape)  # internally handles key an integer
+            key_, mask = process_key(key, self.shape)  # internally handles key an integer
         if hasattr(value, "shape") and value.shape == () and not getattr(value.dtype, "fields", None):
             value = value.item()
-        value = (
-            value if np.isscalar(value) else blosc2.as_simpleproxy(value)
-        )  # convert to SimpleProxy for e.g. JAX, Tensorflow, PyTorch
+        # 0-d values are scalars now and nothing below makes new ones: check once (it is not cheap)
+        scalar = np.isscalar(value)
+        # Convert to SimpleProxy for e.g. JAX, Tensorflow, PyTorch (not NumPy arrays: that costs more
+        # than a small write, for the same result)
+        if not (scalar or type(value) is np.ndarray):
+            value = blosc2.as_simpleproxy(value)
 
-        if builtins.any(isinstance(k, list | np.ndarray) for k in key_):  # fancy indexing
+        # `shape` is NumPy's shape of the selection, which the value must broadcast to
+        if basic is not None:
+            start, stop, mask, shape = basic
+            none_mask = ()
+        elif builtins.any(isinstance(k, list | np.ndarray) for k in key_):  # fancy indexing
             _slice = ndindex.ndindex(key_).expand(
                 self.shape
             )  # handles negative indices -> positive internally
@@ -4794,41 +5211,207 @@ class NDArray(blosc2_ext.NDArray, Operand):
                     _slice = ndindex.ndindex(()).expand(self.shape)  # just get whole array
                 else:  # do nothing
                     return self
-            result = self._get_set_findex_default(_slice, value=value)
-            from . import indexing
+            if not scalar:
+                # The shape of a stride-0 stand-in for self with an extra empty dimension (no memory)
+                stand_in = np.broadcast_to(np.empty((), dtype=np.uint8), (*self.shape, 0))
+                value = _setitem_value(value, stand_in[(*_slice.raw, slice(None))].shape[:-1])
+            return self._mark_indexes_stale(self._get_set_findex_default(_slice, value=value))
+        else:
+            start, stop, step, none_mask = get_ndarray_start_stop(self.ndim, key_, self.shape)
+            shape = _selection_shape(start, stop, step, mask, none_mask)
+            if step != (1,) * self.ndim:  # handle non-unit or negative steps
+                if np.any(none_mask):
+                    raise ValueError("Cannot mix non-unit steps and None indexing for __setitem__.")
+                if not scalar:
+                    value = _setitem_value(value, shape)
+                return self._mark_indexes_stale(
+                    self._get_set_nonunit_steps((start, stop, step, mask), value=value)
+                )
 
-            indexing.mark_indexes_stale(self)
-            return result
-
-        start, stop, step, none_mask = get_ndarray_start_stop(self.ndim, key_, self.shape)
-
-        if step != (1,) * self.ndim:  # handle non-unit or negative steps
-            if np.any(none_mask):
-                raise ValueError("Cannot mix non-unit steps and None indexing for __setitem__.")
-            result = self._get_set_nonunit_steps((start, stop, step, mask), value=value)
-            from . import indexing
-
-            indexing.mark_indexes_stale(self)
-            return result
-
-        shape = [sp - st for sp, st in zip(stop, start, strict=False)]
+        # set_slice() checks only the size of the buffer: check the shape before writing anything
+        broadcast = not scalar and (vshape := value.shape) != shape and _check_broadcast(vshape, shape)
+        if (
+            isinstance(value, NDArray)
+            and not broadcast
+            and not builtins.any(none_mask)
+            and self._set_array_chunkwise(start, stop, mask, value)
+        ):
+            return self._mark_indexes_stale(self)
         if isinstance(value, blosc2.Operand):  # handles SimpleProxy, NDArray, LazyExpr etc.
             value = value[()]  # convert to numpy
-        if np.isscalar(value) or value.shape == ():
+        if broadcast and value.size == 1:
+            value = value.reshape(())  # fill as with a scalar (chunk-wise in large regions)
+        if scalar or value.shape == ():
+            if self._fill_chunkwise(start, stop, value):
+                return self._mark_indexes_stale(self)
             value = np.full(shape, value, dtype=self.dtype)
-        if value.dtype != self.dtype:  # handles decompressed NDArray too
-            try:
-                value = value.astype(self.dtype)
-            except ComplexWarning:
-                # numexpr type inference can lead to unnecessary type promotions
-                # when using complex functions (e.g. conj) with real arrays
-                value = value.real.astype(self.dtype)
+        else:
+            if value.dtype != self.dtype:  # handles decompressed NDArray too
+                try:
+                    value = value.astype(self.dtype, order="C")
+                except ComplexWarning:
+                    # Expression type inference can promote complex functions (e.g.
+                    # conj) applied to real arrays; preserve the destination dtype.
+                    value = value.real.astype(self.dtype, order="C")
+            if broadcast:  # after the conversion, which then converts only the given items
+                value = _broadcast_value(value, shape)
+        # set_slice() takes one C-contiguous buffer: copy views with gaps, negative or zero strides
+        # (broadcast values) and Fortran-ordered arrays (a no-op for C-contiguous ones)
+        value = np.ascontiguousarray(value)
 
-        result = super().set_slice((start, stop), value)
+        return self._mark_indexes_stale(super().set_slice((start, stop), value))
+
+    def _mark_indexes_stale(self, result):
+        """Mark the indexes of this array stale (its data changed), and return `result`."""
         from . import indexing
 
         indexing.mark_indexes_stale(self)
         return result
+
+    def _fill_chunkwise(self, start, stop, value) -> bool:
+        """Fill the region ``[start, stop)`` with a scalar in bounded pieces.
+
+        Every chunk the region fully covers gets one shared special (repeated value) chunk instead
+        of being compressed (edge chunks only for a zero value: writing them leaves zeros in their
+        padding, which a resize brings to light), and the rest is written in boxes of bounded
+        size instead of one buffer as large as the region.  Returns False without writing
+        anything when the region is smaller than a chunk (one buffer and one ``set_slice`` call is
+        cheaper there), or when the frame takes the cross-process lock: one ``set_slice`` holds
+        that from refreshing the shape to the last chunk, so the write is atomic for other
+        processes and lands where the key says even if another handle resizes the array
+        meanwhile.  (Holding it across a Python loop would make other handles of the file in this
+        process wait for it holding the GIL.)
+        """
+        # Special chunks skip compression, including its prefilter. Keep a single ordinary
+        # set_slice call with callbacks so partial chunks are filtered exactly as before.
+        if self.ndim == 0 or self.schunk._has_prefilter:
+            return False
+        region = math.prod(sp - st for st, sp in zip(start, stop, strict=True))
+        chunk_nitems = math.prod(self.chunks)
+        if region == 0 or region < chunk_nitems or self.schunk._locks_frame:
+            return False
+        fill = np.full(1, value, dtype=self.dtype)  # same conversion as filling the whole region
+        const_chunk = None
+        if self.schunk.typesize == self.dtype.itemsize and _is_lossless(self.cparams):
+            # A lossy codec would not give back `value` exactly; keep compressing for those
+            const_chunk = self._constant_chunk(fill)
+        # Last chunks first: a frame compacts its payload behind an updated chunk, and that
+        # tail then holds the (tiny) special chunks already written instead of the old ones.
+        boxes, nbuf = _chunkwise_plan(
+            self.shape,
+            self.chunks,
+            start,
+            stop,
+            self.dtype.itemsize,
+            const_chunk is not None,
+            reverse=True,
+            split_edges=fill.tobytes() == bytes(fill.nbytes),
+        )
+        # One buffer, as large as the largest box written from it (often just a few edge chunks)
+        buf = np.full(nbuf, fill[0], dtype=self.dtype)
+        # Holding the handle lock for the whole fill keeps it atomic for other threads, as a single
+        # set_slice was
+        with self._handle_lock:
+            for lo, hi, nchunk, n in boxes:
+                if nchunk is not None:
+                    self.schunk.update_chunk(nchunk, const_chunk)
+                else:
+                    super().set_slice((lo, hi), buf[:n].reshape(tuple(map(operator.sub, hi, lo))))
+        return True
+
+    def _set_array_chunkwise(self, start, stop, mask, value: NDArray) -> bool:
+        """Copy the NDArray `value` into the region ``[start, stop)`` in bounded pieces.
+
+        Instead of decompressing all of `value` first, read it box by box (boxes of bounded size,
+        along this array's chunk boundaries) and write each box with one ``set_slice``.  When both
+        arrays encode chunks the same way (dtype, chunks, blocks, cparams) and the region starts at
+        a chunk boundary, the covered chunks are copied compressed.  Returns False without writing
+        anything when `value` does not have the shape of the region (minus integer-indexed
+        dimensions), when the region is smaller than a chunk, when `value` may share storage
+        with this array or takes the cross-process frame lock (it must be read in full before
+        writing then), or when this array takes that lock (see _fill_chunkwise).
+        """
+        # One ordinary write preserves prefilter calls on the containing partial chunks too.
+        if self.ndim == 0 or self.schunk._has_prefilter:
+            return False
+        region = tuple(sp - st for st, sp in zip(start, stop, strict=True))
+        chunk_nitems = math.prod(self.chunks)
+        nitems = math.prod(region)
+        if nitems == 0 or nitems < chunk_nitems or self.schunk._locks_frame or _same_storage(self, value):
+            return False
+        if value.schunk._locks_frame:
+            # One read keeps `value` consistent
+            return False
+        value.refresh()  # as reading it with value[...] would
+        kept = (True,) * self.ndim if value.shape == region else tuple(not m for m in mask)
+        if value.shape != tuple(s for s, k in zip(region, kept, strict=True) if k):
+            return False
+        copy_compressed = (
+            value.shape == region
+            and builtins.all(st % c == 0 for st, c in zip(start, self.chunks, strict=True))
+            and _chunks_interchangeable(self, value)
+        )
+        # Covered chunks are best copied one by one (get_slice and set_slice take their fast paths
+        # for single chunks), unless that would decompress blocks of `value` more than once.
+        it = iter(value.blocks)
+        vblocks = [next(it) if k else 1 for k in kept]  # per dimension of the region
+        one_by_one = copy_compressed or builtins.all(
+            st // c == (sp - 1) // c or (c % b == 0 and st % b == 0)
+            for st, sp, c, b in zip(start, stop, self.chunks, vblocks, strict=True)
+        )
+        if copy_compressed:
+            vgrid, _ = get_chunks_idx(value.shape, self.chunks)
+        vsize, size = value.dtype.itemsize, self.dtype.itemsize
+        # Reused raw byte buffers, as large as the largest box read into them (fresh ones would
+        # page-fault in on every box)
+        itemsize = builtins.max(vsize, size)
+        # The padding of an edge chunk of `value` may hold anything (full() repeats its value
+        # there), where writing leaves zeros: only chunks without padding are copied compressed
+        boxes, buf_items = _chunkwise_plan(
+            self.shape,
+            self.chunks,
+            start,
+            stop,
+            itemsize,
+            one_by_one,
+            buffer_covered=not copy_compressed,
+            split_edges=not copy_compressed,
+        )
+        src_raw = dst_raw = None
+        # Holding the handle locks (in a fixed order) for the whole copy keeps it atomic for other
+        # threads, as a single set_slice was
+        with blosc2_ext.HandleLocks((self, value)):
+            for lo, hi, nchunk, n in boxes:
+                if nchunk is not None and copy_compressed:
+                    # A covered chunk starting at a chunk boundary of `value` holds the same items
+                    vcoords = [(l_ - st) // c for l_, st, c in zip(lo, start, self.chunks, strict=True)]
+                    vchunk = chunk_flat_index(vcoords, vgrid)
+                    self.schunk.update_chunk(nchunk, value.schunk.get_chunk(vchunk))
+                    continue
+                if src_raw is None:
+                    src_raw = np.empty(buf_items * vsize, dtype=np.uint8)
+                data = src_raw[: n * vsize]
+                vkey = [(l_ - st, h - st) for l_, h, st, k in zip(lo, hi, start, kept, strict=True) if k]
+                blosc2_ext.NDArray.get_slice_numpy(value, data, tuple(zip(*vkey, strict=True)))
+                if value.dtype != self.dtype:
+                    if dst_raw is None:
+                        dst_raw = np.empty(buf_items * size, dtype=np.uint8)
+                    src, data = data.view(value.dtype), dst_raw[: n * size]
+                    try:
+                        np.copyto(data.view(self.dtype), src, casting="unsafe")
+                    except ComplexWarning:
+                        np.copyto(data.view(self.dtype), src.real, casting="unsafe")
+                super().set_slice((lo, hi), data)
+        return True
+
+    def _constant_chunk(self, fill: np.ndarray) -> bytes:
+        """Return a special chunk for this array where every item equals ``fill[0]``."""
+        schunk = self.schunk
+        if fill.tobytes() == bytes(fill.nbytes):
+            return schunk._special_chunk(schunk.chunksize, SpecialValue.ZERO.value)
+        # Pass a void view: datetime dtypes do not export a buffer
+        void = fill.view(np.dtype((np.void, fill.itemsize)))
+        return schunk._special_chunk(schunk.chunksize, SpecialValue.VALUE.value, void)
 
     def __iter__(self):
         """Iterate over the (outer) elements of the array.
@@ -4991,6 +5574,12 @@ class NDArray(blosc2_ext.NDArray, Operand):
         :func:`~blosc2.ndarray_from_cframe`
             This function can be used to reconstruct a NDArray from the serialized bytes.
 
+        Notes
+        -----
+        The buffer holds the chunks as they are stored: a postfilter set on
+        :attr:`schunk` is not applied, and it is not part of the buffer either.
+        For a buffer with the postfiltered values, serialize a :meth:`copy`.
+
         Examples
         --------
         >>> import blosc2
@@ -5003,6 +5592,9 @@ class NDArray(blosc2_ext.NDArray, Operand):
         >>> print("Data type of the NDArray:", blosc_array.dtype)
         Data type of the NDArray: int32
         """
+        from blosc2.b2objects import preflight_persistence
+
+        preflight_persistence(self)
         return super().to_cframe()
 
     def copy(self, dtype: np.dtype | str = None, **kwargs: Any) -> NDArray:
@@ -5097,6 +5689,9 @@ class NDArray(blosc2_ext.NDArray, Operand):
         >>> # Save the array to a file
         >>> a.save("array.b2frame")
         """
+        from blosc2.b2objects import preflight_persistence
+
+        preflight_persistence(self)
         urlpath = normalize_urlpath(urlpath)
         if is_fsspec_url(urlpath):
             if not contiguous:
@@ -5460,7 +6055,9 @@ class NDArray(blosc2_ext.NDArray, Operand):
 
         Notes
         -----
-        There is a fast path for slices that are aligned with underlying chunks.
+        The result is a new array (not a view), with the storage given in `kwargs`.
+        There is a fast path for slices that are aligned with underlying chunks
+        (unless `chunks` or `blocks` are given).
         Aligned means that the slices are made entirely with complete chunks.
         """
         if "cparams" not in kwargs:
@@ -5473,28 +6070,23 @@ class NDArray(blosc2_ext.NDArray, Operand):
         key, mask = process_key(key, self.shape)
         start, stop, step, _ = get_ndarray_start_stop(self.ndim, key, self.shape)
 
-        # Fast path for slices made with aligned chunks
-        if step == (1,) * self.ndim:
+        def kept(seq):  # without the dims indexed by an int (mask), which the result drops
+            return [x for x, m in zip(seq, mask, strict=True) if not m]
+
+        # Fast path for slices made with aligned chunks (unless other chunks or blocks are asked for)
+        if step == (1,) * self.ndim and kwargs.get("chunks") is None and kwargs.get("blocks") is None:
             aligned_chunks = detect_aligned_chunks(key, self.shape, self.chunks, consecutive=False)
             if aligned_chunks:
-                # print("Aligned chunks detected", aligned_chunks)
-                # Create a new ndarray for the key slice
-                new_shape = [
-                    sp - st for sp, st in zip([k.stop for k in key], [k.start for k in key], strict=False)
-                ]
+                # Those dims have chunk and block 1 (aligned), so the chunks of self are chunks of
+                # the result too: no need to decompress and compress them again
                 newarr = blosc2.empty(
-                    shape=new_shape,
+                    shape=kept([k.stop - k.start for k in key]),
                     dtype=self.dtype,
-                    chunks=self.chunks,
-                    blocks=self.blocks,
-                    **kwargs,
+                    **(kwargs | {"chunks": kept(self.chunks), "blocks": kept(self.blocks)}),
                 )
-                # Get the chunks from the original array and update the new array
-                # No need for chunks to decompress and compress again
                 for order, nchunk in enumerate(aligned_chunks):
-                    chunk = self.schunk.get_chunk(nchunk)
-                    newarr.schunk.update_chunk(order, chunk)
-                return newarr.squeeze(axis=np.where(mask)[0])  # remove any dummy dims introduced
+                    newarr.schunk.update_chunk(order, self.schunk.get_chunk(nchunk))
+                return newarr
 
         key = (start, stop)
         ndslice = super().get_slice(key, mask, **kwargs)
@@ -5503,11 +6095,7 @@ class NDArray(blosc2_ext.NDArray, Operand):
         # TODO: perhaps add a step param in the get_slice method in the future?
         if step != (1,) * self.ndim:
             nparr = ndslice[...]
-            if len(step) == 1:
-                nparr = nparr[:: step[0]]
-            else:
-                slice_ = tuple(slice(None, None, st) for st in step)
-                nparr = nparr[slice_]
+            nparr = nparr[tuple(slice(None, None, st) for st in kept(step))]
             return asarray(nparr, **kwargs)
 
         return ndslice
@@ -6168,15 +6756,113 @@ def ones(
     return full(shape, 1, dtype, **kwargs)
 
 
-def arange(
+def _menudet_ramp(start, step, dtype, shape, *, execution, partitions=None, endpoint_stop=None):
+    """Build an input-free Menudet ramp and bind it to a logical shape."""
+    # Complex kernels have no JIT backend; use portable interpretation even
+    # when the caller requests JIT, as for the existing WASM ramp path.
+    if blosc2.IS_WASM or dtype.kind == "c":
+        execution = {**execution, "jit": False, "jit_backend": None}
+
+    if (
+        dtype == np.dtype(np.int64)
+        and isinstance(start, (int, np.integer))
+        and isinstance(step, (int, np.integer))
+    ):
+        start = int(start)
+        step = int(step)
+    elif dtype.kind == "c":
+        start = complex(start)
+        step = complex(step)
+    else:
+        start = float(start)
+        step = float(step)
+
+    @SourceKernel
+    def ramp(start, step):
+        return start + _flat_idx * step  # noqa: F821
+
+    if dtype.kind == "f":
+        ramp = SourceKernel.from_source(
+            "def ramp(start, step):\n    return float(start) + _flat_idx * float(step)\n"
+        )
+
+    constants = {"start": start, "step": step}
+    if endpoint_stop is not None:
+        # Avoid accumulated rounding at the endpoint, also for partial reads
+        # and rechunked materialization of a complex lazy linspace.
+        ramp = SourceKernel.from_source(
+            "def ramp(start, step, stop, last):\n"
+            "    if _flat_idx == last:\n"
+            "        return stop\n"
+            "    return start + _flat_idx * step\n"
+        )
+        constants.update(stop=complex(endpoint_stop), last=math.prod(shape) - 1)
+
+    backend = execution.get("jit_backend")
+    if backend in {"tcc", "cc"}:
+        ramp.dsl_source = f"# me:compiler={backend}\n" + ramp.dsl_source
+    artifact = ramp.export({}, dtype, constants=constants, ndim=len(shape))
+    jit_option = execution.get("jit")
+    jit_mode = math.prod(shape) >= 4_000_000 if jit_option is None else bool(jit_option)
+    kernel = blosc2.MenudetKernel.from_json(artifact, jit=jit_mode)
+    return kernel.lazy({}, shape=shape, partitions=partitions)
+
+
+def _menudet_ramp_supported(dtype, execution):
+    """Return whether Menudet ramp semantics/options match this constructor call."""
+    if dtype not in (
+        np.dtype(np.int64),
+        np.dtype(np.float32),
+        np.dtype(np.float64),
+        np.dtype(np.complex64),
+        np.dtype(np.complex128),
+    ):
+        return False
+    if execution.get("jit_backend") == "js":
+        return False
+    # MenudetKernel currently consumes compiler policy from the artifact pragma,
+    # not every task-local C compiler/cache override.
+    if builtins.any(execution.get(name) for name in ("compiler", "cflags", "cache_dir", "compiler_output")):
+        return False
+    return execution.get("fp_accuracy", blosc2.FPAccuracy.DEFAULT) == blosc2.FPAccuracy.DEFAULT
+
+
+def _compute_menudet_ramp(start, step, dtype, shape, execution, kwargs, *, endpoint_stop=None):
+    """Evaluate a Menudet ramp and materialize it into Blosc2 storage."""
+    storage_kwargs = {key: value for key, value in kwargs.items() if key not in execution}
+    output = blosc2.empty(shape, dtype=dtype, **storage_kwargs)
+    kernel_lazy = _menudet_ramp(
+        start,
+        step,
+        dtype,
+        shape,
+        execution=execution,
+        partitions=output.chunks,
+        endpoint_stop=endpoint_stop,
+    )
+    if blosc2.blosc2_ext.menudet_prefilter_inputs_eligible({}, output=output):
+        kernel_lazy.kernel._handle.evaluate_prefilter({}, out=output)
+        return output
+    for origin in itertools.product(*(range(0, n, c) for n, c in zip(shape, output.chunks, strict=True))):
+        extent = tuple(builtins.min(c, n - o) for o, c, n in zip(origin, output.chunks, shape, strict=True))
+        item = tuple(slice(o, o + e) for o, e in zip(origin, extent, strict=True))
+        values = kernel_lazy.kernel.evaluate_block(
+            {}, block_shape=extent, logical_shape=shape, block_origin=origin
+        )
+        output[item] = values
+    return output
+
+
+def arange(  # noqa: C901
     start: int | float,
     stop: int | float | None = None,
     step: int | float | None = 1,
     dtype: np.dtype | str = None,
     shape: int | tuple | list | None = None,
     c_order: bool = True,
+    lazy: bool = False,
     **kwargs: Any,
-) -> NDArray:
+) -> NDArray | blosc2.LazyArray:
     """
     Return evenly spaced values within a given interval.
     Due to rounding errors for chunkwise filling, may differ
@@ -6204,16 +6890,32 @@ def arange(
         following the order of chunks in the array; this is more memory
         efficient, as it does not require an intermediate copy of the array.
         Default is C order.
+    lazy: bool
+        If True, return a deferred Menudet-backed :ref:`LazyArray` instead of
+        materializing it. Storage options are supplied later to ``compute()``.
+        The lazy route supports int64, float32/64 and complex64/128, and requires
+        C order. Complex output requires real bounds and steps and is interpreter-only.
 
     Other Parameters
     ----------------
+    jit: bool or None, optional
+        Execution policy for the ramp: None (default) inherits the
+        configured JIT policy; unset uses interpretation below 4 million elements
+        and tries JIT for larger Menudet ramps. True tries JIT,
+        and False disables it. Native compilation or allocation failure falls
+        back quietly to the interpreter. See :ref:`JITOptions`.
+    jit_backend: {"tcc", "cc", "js"} or None, optional
+        Select the runtime compiler. Native defaults use bundled TCC without
+        disk caching. CC needs an installed compiler and uses persistent caching;
+        JS is WebAssembly/Pyodide-only. See :ref:`JITOptions` for limitations.
     kwargs: dict, optional
         Keyword arguments that are supported by the :func:`empty` constructor.
 
     Returns
     -------
-    out: :ref:`NDArray`
-        A :ref:`NDArray` is returned.
+    out: :ref:`NDArray` or :ref:`LazyArray`
+        Returns an :ref:`NDArray` by default or a deferred :ref:`LazyArray` when
+        ``lazy=True``.
 
     Examples
     --------
@@ -6238,7 +6940,7 @@ def arange(
         else:  # use linspace to have finer control over exclusion of endpoint for float types
             output[:] = np.linspace(start, stop, lout, endpoint=False, dtype=output.dtype)
 
-    @blosc2.dsl_kernel
+    @SourceKernel
     def ramp_arange(start, step):
         return start + _flat_idx * step  # noqa: F821  # DSL index/shape symbols resolved by miniexpr
 
@@ -6262,11 +6964,48 @@ def arange(
         )
     dtype = _check_dtype(dtype)
 
+    if type(lazy) is not bool:
+        raise TypeError("lazy must be a bool")
+
+    execution = blosc2.jit_config.execution_options()
+    execution.update(blosc2.jit_config.pop_execution_options(kwargs))
+    storage_kwargs = kwargs.copy()
+    if lazy:
+        if storage_kwargs:
+            raise TypeError("Storage options for a lazy arange belong on the returned array's compute()")
+        if not c_order:
+            raise NotImplementedError("lazy=True currently requires C-order arange traversal")
+        if is_inside_new_expr():
+            raise ValueError("lazy=True cannot be used while building another lazy expression")
+        if not _menudet_ramp_supported(dtype, execution):
+            raise NotImplementedError(
+                "lazy=True requires an int64, float32, or float64 Menudet ramp, or complex64/128"
+            )
+        return _menudet_ramp(start, step, dtype, tuple(shape), execution=execution)
+
     if is_inside_new_expr() or NUM == 0:
         # We already have the dtype and shape, so return immediately
-        return blosc2.zeros(shape, dtype=dtype, **kwargs)
+        return blosc2.zeros(shape, dtype=dtype, **storage_kwargs)
 
-    # Windows and wasm32 does not support complex numbers in DSL
+    kwargs.update(execution)
+
+    # Avoid compilation latency for small one-shot ramps unless explicitly requested.
+    if execution["jit"] is None:
+        execution["jit"] = NUM >= 4_000_000
+    if c_order and _menudet_ramp_supported(dtype, execution):
+        if dtype == np.dtype(np.int64):
+            valid_int = (
+                isinstance(start, (int, np.integer))
+                and isinstance(step, (int, np.integer))
+                and np.iinfo(np.int64).min <= start <= np.iinfo(np.int64).max
+                and np.iinfo(np.int64).min <= step <= np.iinfo(np.int64).max
+            )
+            if valid_int:
+                return _compute_menudet_ramp(start, step, dtype, tuple(shape), execution, kwargs)
+        else:
+            return _compute_menudet_ramp(start, step, dtype, tuple(shape), execution, kwargs)
+
+    # Retain the legacy path for insertion order or unsupported execution options.
     if blosc2.isdtype(dtype, "complex floating"):
         lshape = (math.prod(shape),)
         lazyarr = blosc2.lazyudf(arange_fill, (start, stop, step), dtype=dtype, shape=lshape)
@@ -6275,14 +7014,14 @@ def arange(
             # C order is guaranteed, and no reshape is needed
             return lazyarr.compute(**kwargs)
 
-        return reshape(lazyarr, shape, c_order=c_order, **kwargs)
+        return reshape(lazyarr, shape, c_order=c_order, **storage_kwargs)
     else:
         lazyarr = blosc2.lazyudf(ramp_arange, (start, step), dtype=dtype, shape=shape)
         return lazyarr.compute(**kwargs)
 
 
 # Define a numpy linspace-like function
-def linspace(
+def linspace(  # noqa: C901
     start: int | float | complex,
     stop: int | float | complex,
     num: int | None = None,
@@ -6290,8 +7029,9 @@ def linspace(
     endpoint: bool = True,
     shape=None,
     c_order: bool = True,
+    lazy: bool = False,
     **kwargs: Any,
-) -> NDArray:
+) -> NDArray | blosc2.LazyArray:
     """Return evenly spaced numbers over a specified interval.
 
     This is similar to `numpy.linspace` but it returns a `NDArray`
@@ -6319,14 +7059,32 @@ def linspace(
         following the order of chunks in the array; this is more memory
         efficient, as it does not require an intermediate copy of the array.
         Default is True.
+    lazy: bool
+        If True, return a deferred Menudet-backed :ref:`LazyArray` instead of
+        materializing it. Storage options are supplied later to ``compute()``.
+        The lazy route supports float32/64 and complex64/128, and requires C order.
+        Complex ramps are interpreter-only, even when JIT is requested.
     **kwargs: Any
-        Keyword arguments accepted by the :func:`empty` constructor.
+        Storage arguments accepted by :func:`empty`, plus the execution options below.
 
+    Other Parameters
+    ----------------
+    jit: bool or None, optional
+        Execution policy for the ramp: None (default) inherits the
+        configured JIT policy; unset uses interpretation below 4 million elements
+        and tries JIT for larger Menudet ramps. True tries JIT,
+        and False disables it. Native compilation or allocation failure falls
+        back quietly to the interpreter. See :ref:`JITOptions`.
+    jit_backend: {"tcc", "cc", "js"} or None, optional
+        Select the runtime compiler. Native defaults use bundled TCC without
+        disk caching. CC needs an installed compiler and uses persistent caching;
+        JS is WebAssembly/Pyodide-only. See :ref:`JITOptions` for limitations.
 
     Returns
     -------
-    out: :ref:`NDArray`
-        A :ref:`NDArray` is returned.
+    out: :ref:`NDArray` or :ref:`LazyArray`
+        Returns an :ref:`NDArray` by default or a deferred :ref:`LazyArray` when
+        ``lazy=True``.
     """
 
     def linspace_fill(inputs, output, offset):
@@ -6343,7 +7101,7 @@ def linspace(
         else:
             output[:] = np.linspace(start_, stop_, lout, endpoint=False, dtype=output.dtype)
 
-    @blosc2.dsl_kernel
+    @SourceKernel
     def ramp_linspace(start, step):
         return float(start) + _flat_idx * float(step)  # noqa: F821  # DSL index/shape symbols resolved by miniexpr
 
@@ -6372,11 +7130,48 @@ def linspace(
 
     dtype = _check_dtype(dtype)
 
+    if type(lazy) is not bool:
+        raise TypeError("lazy must be a bool")
+
+    nitems = num - 1 if endpoint else num
+    if dtype.kind == "c":
+        step = (complex(stop) - complex(start)) / nitems if nitems > 0 else 0j
+    else:
+        step = (float(stop) - float(start)) / float(nitems) if nitems > 0 else 0.0
+    endpoint_stop = stop if dtype.kind == "c" and endpoint and num > 1 else None
+
+    execution = blosc2.jit_config.execution_options()
+    execution.update(blosc2.jit_config.pop_execution_options(kwargs))
+    storage_kwargs = kwargs.copy()
+    if lazy:
+        if storage_kwargs:
+            raise TypeError("Storage options for a lazy linspace belong on the returned array's compute()")
+        if not c_order:
+            raise NotImplementedError("lazy=True currently requires C-order linspace traversal")
+        if is_inside_new_expr():
+            raise ValueError("lazy=True cannot be used while building another lazy expression")
+        if dtype.kind not in "fc" or not _menudet_ramp_supported(dtype, execution):
+            raise NotImplementedError(
+                "lazy=True requires a float32/64 or complex64/128 Menudet ramp for linspace"
+            )
+        return _menudet_ramp(
+            start, step, dtype, tuple(shape), execution=execution, endpoint_stop=endpoint_stop
+        )
+
     if is_inside_new_expr() or num == 0:
         # We already have the dtype and shape, so return immediately
-        return blosc2.zeros(shape, dtype=dtype, **kwargs)  # will return empty array for num == 0
+        return blosc2.zeros(shape, dtype=dtype, **storage_kwargs)  # will return empty array for num == 0
 
-    # Windows and wasm32 does not support complex numbers in DSL
+    kwargs.update(execution)
+
+    if execution["jit"] is None:
+        execution["jit"] = num >= 4_000_000
+    if c_order and _menudet_ramp_supported(dtype, execution):
+        return _compute_menudet_ramp(
+            start, step, dtype, tuple(shape), execution, kwargs, endpoint_stop=endpoint_stop
+        )
+
+    # Retain the legacy path for insertion order or unsupported execution options.
     if blosc2.isdtype(dtype, "complex floating"):
         inputs = (start, stop, num, endpoint)
         lazyarr = blosc2.lazyudf(linspace_fill, inputs, dtype=dtype, shape=(num,))
@@ -6384,10 +7179,8 @@ def linspace(
             # C order is guaranteed, and no reshape is needed
             return lazyarr.compute(**kwargs)
 
-        return reshape(lazyarr, shape, c_order=c_order, **kwargs)
+        return reshape(lazyarr, shape, c_order=c_order, **storage_kwargs)
     else:
-        nitems = num - 1 if endpoint else num
-        step = (float(stop) - float(start)) / float(nitems) if nitems > 0 else 0.0
         inputs = (start, step)
         lazyarr = blosc2.lazyudf(ramp_linspace, inputs, dtype=dtype, shape=shape)
         return lazyarr.compute(**kwargs)
@@ -6408,6 +7201,18 @@ def eye(N, M=None, k=0, dtype=np.float64, **kwargs: Any) -> NDArray:
         to a lower diagonal.
     dtype: np.dtype or list str
         The data type of the array elements in NumPy format. Default is `np.float64`.
+
+    Other Parameters
+    ----------------
+    jit: bool or None, optional
+        For Menudet numeric kernels, try JIT by default; False selects the
+        interpreter. Compilation failure falls back to interpretation.
+    jit_backend: str or None, optional
+        Select the native compiler ("tcc" or "cc").
+    **kwargs: Any
+        Storage arguments accepted by :func:`empty`. Default chunk and block
+        shapes localize the diagonal so zero-only blocks skip kernel evaluation.
+        Complex output and WebAssembly retain the chunkwise NumPy callback.
 
     Returns
     -------
@@ -6430,15 +7235,59 @@ def eye(N, M=None, k=0, dtype=np.float64, **kwargs: Any) -> NDArray:
 
     if M is None:
         M = N
-    shape = (N, M)
+    shape = (index(N), index(M))
+    k = index(k)
     dtype = _check_dtype(dtype)
 
     if is_inside_new_expr():
         # We already have the dtype and shape, so return immediately
         return blosc2.zeros(shape, dtype=dtype)
 
-    lazyarr = blosc2.lazyudf(fill_eye, (k,), dtype=dtype, shape=shape)
-    return lazyarr.compute(**kwargs)
+    execution = blosc2.jit_config.execution_options()
+    execution.update(blosc2.jit_config.pop_execution_options(kwargs))
+    # This constructor route do not yet support complex output.
+    if 0 in shape:
+        return blosc2.empty(shape, dtype=dtype, **kwargs)
+    if k >= shape[1] or k <= -shape[0]:
+        return blosc2.zeros(shape, dtype=dtype, **kwargs)
+    if (
+        dtype.kind not in "biuf"
+        or not dtype.isnative
+        or (dtype.kind == "f" and dtype.itemsize not in (4, 8))
+        or blosc2.IS_WASM
+        or execution.get("jit_backend") == "js"
+    ):
+        lazyarr = blosc2.lazyudf(fill_eye, (k,), dtype=dtype, shape=shape)
+        return lazyarr.compute(**kwargs)
+
+    @SourceKernel
+    def diagonal(k):
+        return _i1 - _i0 == k  # noqa: F821
+
+    backend = execution.get("jit_backend")
+    if backend in {"tcc", "cc"}:
+        diagonal.dsl_source = f"# me:compiler={backend}\n" + diagonal.dsl_source
+    artifact = diagonal.export({}, dtype, constants={"k": k}, ndim=2)
+    kernel = blosc2.MenudetKernel.from_json(artifact, jit=execution.get("jit"))
+    # Square blocks localize the diagonal. Row-wide default blocks would all
+    # intersect it, preventing the scheduler from skipping zero-only blocks.
+    if kwargs.get("chunks") is None:
+        kwargs["chunks"] = tuple(builtins.min(1024, builtins.max(1, n)) for n in shape)
+    if kwargs.get("blocks") is None:
+        kwargs["blocks"] = tuple(builtins.min(128, c) for c in kwargs["chunks"])
+    output = blosc2.empty(shape, dtype=dtype, **kwargs)
+    if not output.size:
+        return output
+    if blosc2.blosc2_ext.menudet_prefilter_inputs_eligible({}, output=output):
+        kernel._handle.evaluate_prefilter({}, out=output, _diagonal=k)
+        return output
+    for origin in itertools.product(*(range(0, n, c) for n, c in zip(shape, output.chunks, strict=True))):
+        extent = tuple(builtins.min(c, n - o) for o, c, n in zip(origin, output.chunks, shape, strict=True))
+        item = tuple(slice(o, o + e) for o, e in zip(origin, extent, strict=True))
+        output[item] = kernel.evaluate_block(
+            {}, block_shape=extent, logical_shape=shape, block_origin=origin
+        )
+    return output
 
 
 def fromiter(iterable, shape, dtype, c_order=True, **kwargs) -> NDArray:
@@ -6841,7 +7690,7 @@ def _ndarray_asarray_requires_copy(
     return builtins.any(key in user_kwargs for key in copy_keys)
 
 
-def asarray(
+def asarray(  # noqa: C901
     array: Sequence | blosc2.Array, copy: bool | None = None, **kwargs: Any
 ) -> NDArray | blosc2.UTF8Array:
     """Convert the `array` to an `NDArray`.
@@ -6944,6 +7793,8 @@ def asarray(
 
         # Create the empty array
         ndarr = empty(shape, dtype, chunks=chunks, blocks=blocks, **kwargs)
+        if isinstance(array, NDArray) and _copy_chunkwise(array, ndarr):
+            return ndarr
         behaved = are_partitions_behaved(shape, chunks, blocks)
 
         # Get the coordinates of the chunks
@@ -6971,6 +7822,48 @@ def asarray(
         return array
 
     return ndarr
+
+
+def _copy_chunkwise(src: NDArray, dst: NDArray) -> bool:
+    """Fill `dst` (just created) with the items of `src`, casting them to the dtype of `dst`.
+
+    Both must have the same shape, chunks and blocks, so that their chunks lay out the same items
+    the same way; returns False, writing nothing, otherwise.  Chunks without padding are
+    decompressed into one reused buffer, cast into another and compressed from there: no slicing
+    and no allocations per chunk.  Chunks encoded the same way in both arrays are copied as they are.
+    """
+    if src.ndim == 0 or src.shape != dst.shape or src.chunks != dst.chunks or src.blocks != dst.blocks:
+        return False
+    extshape = src.ext_chunks
+    nitems = math.prod(extshape)
+    if (
+        nitems * src.dtype.itemsize != src.schunk.chunksize
+        or nitems * dst.dtype.itemsize != dst.schunk.chunksize
+    ):
+        return False
+    if _chunks_interchangeable(dst, src):
+        for nchunk in range(src.schunk.nchunks):
+            dst.schunk.update_chunk(nchunk, src.schunk.get_chunk(nchunk))
+        return True
+    # Raw byte buffers: datetime dtypes do not export a buffer themselves
+    src_raw = np.empty(src.schunk.chunksize, dtype=np.uint8)
+    dst_raw = np.empty(dst.schunk.chunksize, dtype=np.uint8)
+    src_buf, dst_buf = src_raw.view(src.dtype), dst_raw.view(dst.dtype)
+    grid, _ = get_chunks_idx(src.shape, src.chunks)
+    for nchunk, coords in enumerate(np.ndindex(grid)):
+        valid = tuple(
+            builtins.min(c, s - i * c) for i, c, s in zip(coords, src.chunks, src.shape, strict=True)
+        )
+        if valid == extshape:
+            # Casting goes item by item, so the block layout inside the chunk does not matter
+            src.schunk.decompress_chunk(nchunk, src_raw)
+            np.copyto(dst_buf, src_buf, casting="unsafe")
+            dst.schunk.update_data(nchunk, dst_raw, copy=False)
+        else:
+            # Padding may hold anything (casting it could warn): go through the items only
+            box = tuple(slice(i * c, i * c + v) for i, c, v in zip(coords, src.chunks, valid, strict=True))
+            dst[box] = np.require(src[box], dtype=dst.dtype, requirements="C")
+    return True
 
 
 def array(array: Sequence | blosc2.Array, copy: bool | None = True, **kwargs: Any) -> NDArray:
@@ -7059,8 +7952,9 @@ def _check_ndarray_kwargs(**kwargs):  # noqa: C901
         else:
             kwargs = {**kwargs, **storage}
     else:
-        # Add the default storage values as long as they are not already passed
-        storage_dflts = asdict(blosc2.Storage(urlpath=kwargs.get("urlpath")))  # urlpath can affect defaults
+        # Add the default storage values as long as they are not already passed.  Its fields
+        # are plain values, so vars() gives what asdict() does, only much faster.
+        storage_dflts = vars(blosc2.Storage(urlpath=kwargs.get("urlpath")))  # urlpath can affect defaults
         # If a key appears in both operands, the one from the right-hand operand wins
         kwargs = storage_dflts | kwargs
 

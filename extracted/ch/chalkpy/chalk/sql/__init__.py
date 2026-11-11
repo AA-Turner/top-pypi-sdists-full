@@ -1551,6 +1551,8 @@ def DatabricksSource(
     client_secret: str = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
     permission_tags: list[str] | None = ...,
+    temp_catalog: Optional[str] = ...,
+    temp_schema: Optional[str] = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -1577,6 +1579,13 @@ def DatabricksSource(
         OAuth service principal client secret (alternative to access_token).
     engine_args
         Additional arguments to use when constructing the SQLAlchemy engine.
+    temp_catalog
+        Catalog for the staging tables Chalk creates when a resolver is queried with too many
+        input keys to inline in the SQL. Defaults to `db`. Only used when `temp_schema` is set.
+    temp_schema
+        Schema for those staging tables, e.g. a Chalk-owned schema separate from your warehouse
+        data. The integration's principal needs `CREATE TABLE` on it. When unset, staging tables
+        are created in the session's current schema.
 
     Returns
     -------
@@ -1617,6 +1626,8 @@ def DatabricksSource(
     client_secret: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
     permission_tags: list[str] | None = None,
+    temp_catalog: Optional[str] = None,
+    temp_schema: Optional[str] = None,
 ) -> BaseSQLSourceProtocol:
     """Create a Databricks data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -1638,6 +1649,8 @@ def DatabricksSource(
         client_secret=client_secret,
         engine_args=engine_args,
         permission_tags=permission_tags,
+        temp_catalog=temp_catalog,
+        temp_schema=temp_schema,
     )
 
 

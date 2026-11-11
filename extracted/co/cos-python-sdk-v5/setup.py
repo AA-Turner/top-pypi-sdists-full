@@ -33,13 +33,14 @@ def long_description():
 
 setup(
     name='cos_python_sdk_v5', # comply with PEP 625
-    version='1.9.44',
+    version='1.9.45',
     url='https://www.qcloud.com/',
     license='MIT',
     author='tiedu, lewzylu, channingliu',
     author_email='dutie123@qq.com',
     description='cos-python-sdk-v5',
     long_description=long_description(),
+    long_description_content_type='text/plain',
     packages=find_packages(),
     install_requires=requirements()
 )

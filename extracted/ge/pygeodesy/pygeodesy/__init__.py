@@ -161,7 +161,7 @@ and:
 License
 =======
 
-**) U{Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.<https://OpenSource.org/licenses/MIT>}
+**) U{Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.<https://OpenSource.org/licenses/MIT>}
 
 C{Permission is hereby granted, free of charge, to any person obtaining a copy of this software
 and associated documentation files (the "Software"), to deal in the Software without restriction,
@@ -538,7 +538,7 @@ else:
 
 from pygeodesy.internals import _version2,  _DOT_  # noqa: E402
 # from pygeodesy.interns import _DOT_  # from .internals
-__version__ = '26.10.26'
+__version__ = '26.11.11'
 # see setup.py for similar logic
 version     = _DOT_(*_version2(__version__, n=3))
 
@@ -546,7 +546,7 @@ del _DOT_, _lazy_import2, _os_path, _sys, _version2
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

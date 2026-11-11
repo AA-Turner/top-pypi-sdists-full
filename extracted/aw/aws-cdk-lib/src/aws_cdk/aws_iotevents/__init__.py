@@ -331,14 +331,6 @@ class CfnAlarmModel(
         return typing.cast("_aws_iotevents_949c0131.AlarmModelReference", jsii.get(self, "alarmModelRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -3217,41 +3209,6 @@ class CfnDetectorModel(
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="arnForDetectorModel")
-    @builtins.classmethod
-    def arn_for_detector_model(
-        cls,
-        resource: "_aws_iotevents_949c0131.IDetectorModelRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__33348d55e11eaefd1c7cc825fc1db475c77a3850d73ca2ed00f46f5a9be20d95)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDetectorModel", [resource]))
-
-    @jsii.member(jsii_name="fromDetectorModelName")
-    @builtins.classmethod
-    def from_detector_model_name(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        detector_model_name: builtins.str,
-    ) -> "_aws_iotevents_949c0131.IDetectorModelRef":
-        '''Creates a new IDetectorModelRef from a detectorModelName.
-
-        :param scope: -
-        :param id: -
-        :param detector_model_name: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__04cc6f160860cf8d535ff9aaf7f302530f50cadf01201747547313644bde84e7)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument detector_model_name", value=detector_model_name, expected_type=type_hints["detector_model_name"])
-        return typing.cast("_aws_iotevents_949c0131.IDetectorModelRef", jsii.sinvoke(cls, "fromDetectorModelName", [scope, id, detector_model_name]))
 
     @jsii.member(jsii_name="isCfnDetectorModel")
     @builtins.classmethod
@@ -7089,41 +7046,6 @@ class CfnInput(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="arnForInput")
-    @builtins.classmethod
-    def arn_for_input(
-        cls,
-        resource: "_aws_iotevents_949c0131.IInputRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__526272d642331e8f9bd4913d601582f31848a53f908f1c5736e34c2c673219dd)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInput", [resource]))
-
-    @jsii.member(jsii_name="fromInputName")
-    @builtins.classmethod
-    def from_input_name(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        input_name: builtins.str,
-    ) -> "_aws_iotevents_949c0131.IInputRef":
-        '''Creates a new IInputRef from a inputName.
-
-        :param scope: -
-        :param id: -
-        :param input_name: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__7435d9ce0842ad08e9b33dbbeb8321316d275c48b9389305fbd145a070876eb8)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument input_name", value=input_name, expected_type=type_hints["input_name"])
-        return typing.cast("_aws_iotevents_949c0131.IInputRef", jsii.sinvoke(cls, "fromInputName", [scope, id, input_name]))
-
     @jsii.member(jsii_name="isCfnInput")
     @builtins.classmethod
     def is_cfn_input(cls, x: typing.Any) -> builtins.bool:
@@ -7801,20 +7723,6 @@ def _typecheckingstub__7801b6324e5f272a708fd3542c09e1cc61e7621f542ce11a4795b2717
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__33348d55e11eaefd1c7cc825fc1db475c77a3850d73ca2ed00f46f5a9be20d95(
-    resource: _aws_iotevents_949c0131.IDetectorModelRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__04cc6f160860cf8d535ff9aaf7f302530f50cadf01201747547313644bde84e7(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    detector_model_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0119628e78d79891b009cfc59207ab277e17e9f6fd8d0fc2f8bd262596ca9d52(
     x: typing.Any,
 ) -> None:
@@ -8125,20 +8033,6 @@ def _typecheckingstub__11855be4f7bee53ad741f6363d8e68467f417b7f7483fc55460da1fe9
     input_description: typing.Optional[builtins.str] = None,
     input_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__526272d642331e8f9bd4913d601582f31848a53f908f1c5736e34c2c673219dd(
-    resource: _aws_iotevents_949c0131.IInputRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7435d9ce0842ad08e9b33dbbeb8321316d275c48b9389305fbd145a070876eb8(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    input_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

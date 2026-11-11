@@ -90,6 +90,7 @@ from .routes import (
 from .routes.agents import set_api_prefix
 from .routes.computer import router as computer_router
 from .specs.agents import get_agent_spec
+from .tools.decisions import decisions_info, decisions_spec
 
 # Load environment variables from .env file
 load_dotenv()
@@ -183,7 +184,7 @@ async def _create_and_register_cli_agent(
             process, 'jupyter-server' starts a per-agent Jupyter server via
             code_sandboxes, and the name of a provider — 'docker',
             'datalayer', 'google-colab', 'kaggle', 'monty', 'modal',
-            'daytona', 'cloudflare', 'coreweave', 'e2b' — runs it at that
+            'daytona', 'cloudflare', 'coreweave', 'e2b', 'agentcore' — runs it at that
             provider, under the credentials this process holds for it.
 
     Returns:
@@ -594,6 +595,7 @@ async def _create_and_register_cli_agent(
         tool_ids,
         agent_id=agent_id,
         disable_tool_approvals=tool_approvals_disabled,
+        decisions=agent_spec.decisions,
     )
 
     # Wrap with DBOS durable execution if enabled (globally or per-spec)
@@ -671,9 +673,13 @@ async def _create_and_register_cli_agent(
                         c if c.isalnum() or c == "_" else "_" for c in server.id
                     )
 
+                    from agent_runtimes.mcp.env_expansion import expand_env_vars
+
                     # Get env vars from environment
                     server_env: dict[str, str] = {}
-                    for env_key in server.required_env_vars:
+                    for env_ref in server.required_env_vars:
+                        # A reference is versioned (NAME:0.0.1): its name is the variable.
+                        env_key = env_ref.rsplit(":", 1)[0]
                         env_val = os.getenv(env_key)
                         if env_val:
                             server_env[env_key] = env_val
@@ -683,7 +689,11 @@ async def _create_and_register_cli_agent(
                             name=normalized_name,
                             url=server.url if server.transport == "http" else "",
                             command=server.command or "",
-                            args=server.args or [],
+                            # ${VAR} and ${VAR:-default}, as the lifecycle manager expands them.
+                            args=[
+                                expand_env_vars(a) if isinstance(a, str) else a
+                                for a in (server.args or [])
+                            ],
                             env=server_env,
                             enabled=server.enabled,
                         )
@@ -874,6 +884,7 @@ async def _create_and_register_cli_agent(
         "backend_tools": list(agent_spec.backend_tools)
         if agent_spec.backend_tools
         else [],
+        "decisions": agent_spec.decisions,
         "frontend_tools": list(getattr(agent_spec, "frontend_tools", []) or []),
         "icon": getattr(agent_spec, "icon", None),
         "emoji": getattr(agent_spec, "emoji", None),
@@ -1001,6 +1012,10 @@ async def _create_and_register_cli_agent(
             "codemode": enable_codemode,
             "tool_approvals_disabled": tool_approvals_disabled,
             "skills": list(skills) if skills else [],
+            # How it decides, when its spec names decisions; None when it does not.
+            "decisions": decisions_info(
+                decisions_spec(agent_spec.decisions) if agent_spec.decisions else None
+            ),
             "tools": registered_tools,
             "mcp_servers": [s.id for s in all_mcp_servers] if all_mcp_servers else [],
         },
@@ -1476,10 +1491,18 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
             else None
         )
 
-        # AgentCore's A2A contract (AC-05): the configured agent as a team
-        # seat, on port 9000 at `/`, through the runtime's A2A transport.
+        # AgentCore's A2A contract: the configured agent as a team seat, on
+        # port 9000 at `/`, through the runtime's A2A transport. A runtime
+        # that runs a deployment serves its application's sessions, not a
+        # seat, unless it was created as one (`AGENTCORE_PROTOCOL=A2A`).
         _agentcore_seat = None
-        if _agentcore and not is_reload_parent:
+        from .agentcore.settings import deployment_of_runtime, serves_seat
+
+        if (
+            _agentcore
+            and not is_reload_parent
+            and (serves_seat() or not deployment_of_runtime())
+        ):
             from .agentcore.a2a import start_seat
 
             _agentcore_seat = await start_seat()
@@ -1717,6 +1740,11 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
             "status": "ok",
             "service": config.title,
             "version": config.version,
+            # What this runtime can do, said for who talks to it: an agent
+            # made without an Appspec has its conversations kept as
+            # sessions (listed, paused, resumed). A runtime that does not
+            # say it does not.
+            "agent_sessions": True,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "api_prefix": config.api_prefix,
             "startup": startup_info,

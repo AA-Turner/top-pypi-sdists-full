@@ -175,6 +175,10 @@ def test_bounding_sample(bound, sample):
     else:
         g = Gaussian()
     ndim = g.ndim
+    # the box gives axis-aligned proposals, which mix slowly for the
+    # correlated gaussian, so the default number of slices/walks is not enough
+    slices = {('box', 'slice'): 20, ('box', 'rslice'): 10}.get((bound, sample))
+    walks = 50 if (bound, sample) == ('box', 'rwalk') else None
     bound = {
         'none': db.UnitCube(ndim),
         'multi': db.MultiEllipsoid(ndim),
@@ -189,7 +193,20 @@ def test_bounding_sample(bound, sample):
                                     nlive=nlive,
                                     bound=bound,
                                     sample=sample,
+                                    slices=slices,
+                                    walks=walks,
                                     rstate=rstate)
     sampler.run_nested(print_progress=printing)
     check_results_gau(sampler.results, g, rstate)
     print(sampler.citations)
+
+
+@pytest.mark.parametrize("bound", [db.RadFriends, db.SupFriends])
+def test_friends_mc_integrate(bound):
+    # update() with mc_integrate=True computes the overlap with the cube
+    rstate = get_rstate()
+    ndim = 2
+    points = rstate.uniform(0.3, 0.7, size=(50, ndim))
+    b = bound(ndim)
+    b.update(points, rstate=rstate, mc_integrate=True)
+    assert 0 < b.funit <= 1 + 1e-10

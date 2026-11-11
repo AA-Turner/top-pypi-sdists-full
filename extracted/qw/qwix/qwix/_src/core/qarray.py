@@ -223,7 +223,7 @@ def validate_qarray(array: QArray):
         f'Scale {array.scale.shape} should be broadcastable to qvalue'
         f' {array.qvalue.shape}.'
     )
-  if array.qvalue.dtype.itemsize > 1:
+  if array.qvalue.dtype.itemsize > 1 and array.qvalue.dtype != jnp.int16:
     raise ValueError(f'{array.qvalue.dtype} is not a valid type for qvalue.')
   if not numerics.should_quantize(array.scale.dtype):
     raise ValueError(f'{array.scale.dtype} is not a valid type for scale.')
@@ -304,13 +304,8 @@ class HowToQuantize:
   noise_fn: numerics.NoiseFn | None = None
 
   def __post_init__(self):
-    if isinstance(self.qtype, str) and self.qtype in (
-        'mxfp8',
-        'mxfp4',
-        'nvfp4',
-    ):
-      resolved_tile_size = 32 if self.qtype in ('mxfp8', 'mxfp4') else 16
-
+    resolved_tile_size = numerics.get_microscaled_block_size(self.qtype)
+    if resolved_tile_size is not None:
       if not self.tiled_axes:
         raise ValueError(
             f'Format {self.qtype} requires `tiled_axes` to be specified.'
@@ -562,9 +557,40 @@ def compute_scale_zero_point(
     zero_point = None
   else:
     raise ValueError(f'Unsupported calibration: {calibration}')
-  if qtype == 'mxfp8' or qtype == 'mxfp4':
-    log2_scale = jnp.ceil(jnp.log2(scale))
-    scale = (2**log2_scale).astype(scale.dtype)
+  if qtype in ('mxfp8', 'mxfp8_16', 'mxfp4'):
+    # Biases theoretically derived via Outlier Aware Scaling (OAS)
+    # (arxiv 2603.08713) to optimize the tradeoff between outlier clipping
+    # and subnormal quantization errors.
+    if qtype == 'mxfp4':
+      # Bias = 0.5 - log2(7/6). C = 2**(bias + 0.5) = 12 / 7.
+      c = 12.0 / 7.0
+    else:
+      # In E4M3 OCP, largest normal is 448.0 due to reserved values and
+      # max_cutoff = 464.0 which is 1/2 an ULP larger.
+      # Bias = 0.5 - log2(464.0/448.0). C = 2**(bias + 0.5) = 56 / 29.
+      c = 56.0 / 29.0
+    scale_bf16 = (scale * c).astype(jnp.bfloat16)
+    scale = (
+        (scale_bf16.view(jnp.int16) & 0x7F80)
+        .view(jnp.bfloat16)
+        .astype(scale.dtype)
+    )
+  elif qtype in ('mxint8', 'mxint4'):
+    # TODO(b/562134061): Research optimal scaling factor choice for mxint4.
+    # Efficient bit manipulation for 2 ** ceil(log2(scale)) without
+    # transcendentals:
+    # In IEEE-754 float32, adding the mantissa mask (0x007FFFFF) carries into
+    # the exponent if and only if the mantissa > 0 (scale is not already an
+    # exact power of 2). Masking with 0x7F800000 clears the mantissa, yielding
+    # the exact ceil power-of-2.
+    scale_f32 = scale.astype(jnp.float32)
+    scale_bits = scale_f32.view(jnp.int32)
+    scale_pow2 = (
+        ((scale_bits + 0x007FFFFF) & 0x7F800000)
+        .view(jnp.float32)
+        .astype(scale.dtype)
+    )
+    scale = jnp.where(scale > 0, scale_pow2, scale)
   elif qtype == 'nvfp4':
     scale = numerics.convert_to(scale, jnp.float8_e4m3fn).astype(scale.dtype)
   return scale, zero_point
@@ -714,6 +740,23 @@ def clip_to_calibration(
   return array.reshape(original_shape)
 
 
+def is_gradient_clipping_noop(calibration_method: str) -> bool:
+  """Returns whether gradient clipping is a no-op for the calibration method.
+
+  If the calibration method is data-derived (absmax/minmax) and the scale
+  factor is >= 1.0, all data is within bounds and gradient clipping is a no-op.
+
+  Args:
+    calibration_method: The string defining the method (e.g., 'absmax,0.9').
+
+  Returns:
+    True if gradient clipping is a no-op, False otherwise.
+  """
+  method, *args = calibration_method.lower().split(',')
+  args = [float(a) for a in args]
+  return method in ('absmax', 'minmax') and (not args or args[0] >= 1.0)
+
+
 def clip_gradient_to_calibration(
     g: jax.Array,
     array: jax.Array,
@@ -735,11 +778,8 @@ def clip_gradient_to_calibration(
   Returns:
     The masked gradient.
   """
-  method, *args = calibration_method.lower().split(',')
-  args = [float(a) for a in args]
-
   # Optimization: Skip clipping if method covers the full data range.
-  if method in ('absmax', 'minmax') and (not args or args[0] >= 1.0):
+  if is_gradient_clipping_noop(calibration_method):
     return g
 
   # Retrieve bounds

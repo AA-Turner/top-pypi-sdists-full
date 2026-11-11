@@ -127,48 +127,6 @@ class CfnProject(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProject", [resource]))
 
-    @jsii.member(jsii_name="fromProjectArn")
-    @builtins.classmethod
-    def from_project_arn(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        arn: builtins.str,
-    ) -> "_aws_lookoutvision_d3e2cc05.IProjectRef":
-        '''Creates a new IProjectRef from an ARN.
-
-        :param scope: -
-        :param id: -
-        :param arn: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__84fff196233367990984dbde8dbe8aa8640b040153a13a4a883d4f0528c0f0ca)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_aws_lookoutvision_d3e2cc05.IProjectRef", jsii.sinvoke(cls, "fromProjectArn", [scope, id, arn]))
-
-    @jsii.member(jsii_name="fromProjectName")
-    @builtins.classmethod
-    def from_project_name(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        project_name: builtins.str,
-    ) -> "_aws_lookoutvision_d3e2cc05.IProjectRef":
-        '''Creates a new IProjectRef from a projectName.
-
-        :param scope: -
-        :param id: -
-        :param project_name: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__10d2b4dda47960ca6ee5e6df8c5e0d918819f580de3bd335e8522dea923180a2)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
-        return typing.cast("_aws_lookoutvision_d3e2cc05.IProjectRef", jsii.sinvoke(cls, "fromProjectName", [scope, id, project_name]))
-
     @jsii.member(jsii_name="isCfnProject")
     @builtins.classmethod
     def is_cfn_project(cls, x: typing.Any) -> builtins.bool:
@@ -322,22 +280,6 @@ def _typecheckingstub__ae1299eb5a9daafd09ff98ba3e3d4056e110dde110eef801bc1e29615
 
 def _typecheckingstub__749f23ba01f7fdc53827fbcb401d225323cb8f419099c89a9c4caf4a7b7b5090(
     resource: _aws_lookoutvision_d3e2cc05.IProjectRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__84fff196233367990984dbde8dbe8aa8640b040153a13a4a883d4f0528c0f0ca(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__10d2b4dda47960ca6ee5e6df8c5e0d918819f580de3bd335e8522dea923180a2(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    project_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,6 +1,6 @@
 [project]
 name = "FalkorDB"
-version = "1.8.1"
+version = "1.8.2"
 description = "Python client for interacting with FalkorDB database"
 authors = [
     {name = "FalkorDB inc", email = "info@falkordb.com"}
@@ -30,7 +30,7 @@ dependencies = [
     # bounds once a newer release has been verified against the test suite.
     # redis is pinned to the 8.x major line only.
     "redis>=8.0.0,<9",
-    "python-dateutil>=2.9.0,<3",
+    "python-dateutil>=2.9.0,<4",
 ]
 
 [project.optional-dependencies]

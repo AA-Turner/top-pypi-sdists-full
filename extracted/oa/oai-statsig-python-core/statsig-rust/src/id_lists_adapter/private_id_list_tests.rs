@@ -99,6 +99,121 @@ fn private_sparse_batches_reverse_compact_and_preserve_pins() {
     assert!(!image(&initial.ids).has_cached_iter_keys());
 }
 
+fn rank_key(rank: u64) -> String {
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    STANDARD.encode(&rank.to_be_bytes()[2..])
+}
+
+fn rank_changes(sign: char, ranks: impl IntoIterator<Item = u64>) -> String {
+    ranks
+        .into_iter()
+        .map(|rank| format!("{sign}{}\n", rank_key(rank)))
+        .collect()
+}
+
+// Stage the same edits without finishing the private batch, so an unexpected
+// fallback cannot pass solely by producing the same final image.
+fn try_merge_batch(mut list: IdList, changes: &str) -> Option<IdListImage> {
+    list.apply_update_for_publish(update(changes));
+    let pending = list.ids.pending().unwrap();
+    assert!(pending.requires_full_base);
+    assert!(pending.changes.other.is_empty());
+    image(&pending.base).try_merge_heap(
+        &list.metadata.name,
+        list.ids.len(),
+        pending.changes.inline.iter().map(|(key, &op)| (key, op)),
+    )
+}
+
+// Compare with ordinary hash-based edit replay followed by the existing full encoder.
+fn assert_private_rebuild(list: &IdList, bodies: &[&str], compact: bool) {
+    let mut reference = IdList::new(metadata());
+    for body in bodies {
+        reference.apply_update(update(body));
+    }
+    assert_eq!(list.metadata.size, reference.metadata.size);
+    assert!(list.ids.pending().is_none());
+    assert_eq!(*list.ids, *reference.ids);
+    let expected = IdListImage::build_heap(&[0; 32], &list.metadata.name, &reference.ids).unwrap();
+    assert_eq!(image(&list.ids).is_compact(), compact);
+    assert_eq!(image(&list.ids).content_digest(), expected.content_digest());
+}
+
+#[test]
+fn private_compaction_preserves_pinned_delta_and_matches_full_encoder() {
+    let ranks = (1..=32).map(|i| i << 42);
+    let base = rank_changes('+', ranks.clone());
+    let removals = rank_changes('-', ranks.take(24));
+    let mut list = IdList::new(metadata());
+    append(&mut list, &base);
+    append(&mut list, &removals);
+    // Exactly one quarter remains. The next removal forces a rebuild even if
+    // we later restore that key and finish above the shrink threshold.
+    let pinned = list.clone();
+    assert_eq!(pinned.ids.delta_len_for_test(), 24);
+    let mut changes = rank_changes('-', [25 << 42, 25 << 42]);
+    changes += &rank_changes('+', [25 << 42, 0, 0, (26 << 42) + 1, (1 << 48) - 1]);
+    append(&mut list, &changes);
+    assert_private_rebuild(&list, &[&base, &removals, &changes], true);
+    assert_eq!(
+        try_merge_batch(pinned.clone(), &changes)
+            .unwrap()
+            .content_digest(),
+        image(&list.ids).content_digest()
+    );
+    assert_eq!(pinned.ids.len(), 8);
+    assert!(pinned.ids.contains(&rank_key(25 << 42)));
+    assert!(!pinned.ids.contains(&rank_key(0)));
+    assert_eq!(pinned.metadata.size, (base.len() + removals.len()) as u64);
+}
+
+#[test]
+fn private_compaction_preserves_noncanonical_keys_in_the_base_or_edits() {
+    for (sidecars, new_sidecars) in [
+        ("+bad!!!!!\n", ""),
+        ("+long original\n", ""),
+        ("", "+éééé\n"),
+        ("", "+long addition\n"),
+    ] {
+        let base = rank_changes('+', 0..16) + sidecars;
+        let changes = rank_changes('-', 0..16) + &rank_changes('+', [7, 20]) + new_sidecars;
+        let mut list = IdList::new(metadata());
+        append(&mut list, &base);
+        assert!(image(&list.ids).is_compact());
+        append(&mut list, &changes);
+        assert_private_rebuild(&list, &[&base, &changes], true);
+    }
+}
+
+#[test]
+fn private_compaction_observes_the_restart_block_density_limit() {
+    // A block with 32 separators can hold exactly 480 members. The first
+    // case changes the low-bit width. The second hits the last directory entry
+    // at the original width, where there is no following restart offset.
+    let distant = 1 << 47;
+    for (original_dense, start) in [(255, 0), (480, (1 << 48) - 481)] {
+        let old_ranks = (start..start + original_dense).chain([distant]);
+        let base = rank_changes('+', old_ranks.clone());
+        for members in [480, 481] {
+            let mut changes = rank_changes('-', old_ranks.clone());
+            changes += &rank_changes('+', start..start + members);
+            if members == 480 {
+                changes += &rank_changes('+', [distant + 1]);
+            }
+            let mut list = IdList::new(metadata());
+            append(&mut list, &base);
+            assert!(image(&list.ids).is_compact());
+            let merged = try_merge_batch(list.clone(), &changes);
+            append(&mut list, &changes);
+            assert_private_rebuild(&list, &[&base, &changes], members == 480);
+            assert_eq!(
+                merged.map(|result| result.content_digest()),
+                (members == 480).then(|| image(&list.ids).content_digest())
+            );
+        }
+    }
+}
+
 #[test]
 fn private_file_recreation_drops_the_overlay_and_resets_the_cursor() {
     let mut list = IdList::new(metadata());

@@ -36,11 +36,6 @@ def is_xdist_worker() -> bool:
     return bool(worker_name and worker_name != "master")
 
 
-def is_xdist_gw0() -> bool:
-    """True on the pytest-xdist worker named ``gw0`` (used for one-shot payloads)."""
-    return os.getenv("PYTEST_XDIST_WORKER") == "gw0"
-
-
 def xdist_numprocesses(config: Any) -> int | None:
     """
     Effective xdist worker count from config, if xdist is distributing work.
@@ -67,8 +62,16 @@ def xdist_numprocesses(config: Any) -> int | None:
 
 
 def compress_json(data: Any) -> bytes:
-    """JSON-encode ``data`` and zlib-compress for xdist workeroutput payloads."""
-    return zlib.compress(json.dumps(data, separators=(",", ":")).encode())
+    """JSON-encode ``data`` and zlib-compress for xdist workeroutput payloads.
+
+    Level 1 favors speed over ratio; for syrupy's repetitive snapshot-name JSON
+    it is typically as small as (or smaller than) the zlib default while much
+    faster — see #1156 / #1188.
+    """
+    return zlib.compress(
+        json.dumps(data, separators=(",", ":")).encode(),
+        level=1,
+    )
 
 
 def decompress_json(data: bytes) -> Any:
@@ -76,12 +79,25 @@ def decompress_json(data: bytes) -> Any:
     return json.loads(zlib.decompress(data))
 
 
+def should_use_snapshot_file_lock(config: Any) -> bool:
+    """
+    Whether amber writes should use an exclusive file lock.
+
+    Enabled automatically when pytest-xdist is distributing work (workers or
+    a controller with ``numprocesses > 0``). Same-machine workers only; not
+    reliable across remote workers / NFS.
+    """
+    if is_xdist_worker():
+        return True
+    return xdist_numprocesses(config) is not None
+
+
 def set_snapshot_file_lock(enabled: bool, *, timeout: float | None = None) -> None:
     """
     Enable or disable amber write locking for this context.
 
     Prefer :class:`~syrupy.session.SnapshotSession`, which sets this from
-    ``config.option.snapshot_file_lock``. Direct callers (tests, scripts) may
+    :func:`should_use_snapshot_file_lock`. Direct callers (tests, scripts) may
     set it explicitly or pass ``file_lock=`` into
     :meth:`~syrupy.extensions.amber.serializer.AmberDataSerializer.write_file`.
 
@@ -93,7 +109,7 @@ def set_snapshot_file_lock(enabled: bool, *, timeout: float | None = None) -> No
 
 
 def snapshot_file_lock_enabled() -> bool:
-    """Whether ``--snapshot-file-lock`` is active in this context."""
+    """Whether amber write locking is active in this context."""
     return _snapshot_file_lock.get()
 
 
@@ -165,48 +181,116 @@ def _lock_timeout_error(path: Path, timeout: float) -> TimeoutError:
     )
 
 
-def _ensure_lock_file(lock_path: Path) -> None:
-    """
-    Create the lock file with a single ``\\0`` byte if it does not exist.
+# Windows ERROR_LOCK_VIOLATION — write into an ``msvcrt``-locked region.
+_WINERROR_LOCK_VIOLATION = 33
 
-    ``msvcrt.locking`` requires the locked region to exist in the file. We use
-    exclusive-create then ``r+b`` (not ``a+b``) so Windows seek/write can
-    initialize byte 0 — append mode always writes at EOF regardless of seek.
+
+def _is_lock_denied_write(exc: BaseException) -> bool:
+    """True when Windows mandatory locking blocked the sentinel write."""
+    return getattr(exc, "winerror", None) == _WINERROR_LOCK_VIOLATION
+
+
+def _lock_region_ready(lock_path: Path) -> bool:
     """
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    True once byte 0 is the ``\\0`` sentinel, or a held mandatory lock makes
+    that byte unreadable (Windows) — either way ``msvcrt.locking`` can proceed.
+    """
+    try:
+        if lock_path.stat().st_size < 1:
+            return False
+    except OSError:
+        return False
+    try:
+        with open(lock_path, "rb") as lock_file:
+            return lock_file.read(1) == b"\0"
+    except OSError:
+        # Locked region on Windows — size already confirmed a lockable byte.
+        return True
+
+
+def _initialize_lock_file(lock_path: Path) -> None:
+    """
+    Write the ``\\0`` lock sentinel if missing or not at byte 0.
+
+    Exclusive-create publishes the path before this write. Callers must not
+    lock the file until :func:`_lock_region_ready` — on Windows ``msvcrt``
+    locks are mandatory and fail this write with ``PermissionError``
+    (``winerror`` ``ERROR_LOCK_VIOLATION``). Reading a held region is treated
+    as success (the sentinel already exists).
+    """
     try:
         fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_RDWR)
     except FileExistsError:
-        return
+        try:
+            fd = os.open(str(lock_path), os.O_RDWR)
+        except FileNotFoundError:
+            return
     try:
+        if os.fstat(fd).st_size >= 1:
+            try:
+                first = os.read(fd, 1)
+            except PermissionError:
+                # Another process holds the mandatory lock on byte 0.
+                return
+            if first == b"\0":
+                return
+            os.lseek(fd, 0, os.SEEK_SET)
+            os.ftruncate(fd, 0)
+        # Offset is 0. Do not append: ``a+b`` writes at EOF and leaves byte 0 missing.
         os.write(fd, b"\0")
     finally:
         os.close(fd)
 
 
-def _acquire_exclusive_lock(lock_file: Any, path: Path, *, timeout: float) -> None:
+def _ensure_lock_file(
+    lock_path: Path, path: Path, *, timeout: float, deadline: float
+) -> None:
+    """Create the lock file, waiting until its sentinel byte is visible."""
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    delay = 0.01
+    while True:
+        if _lock_region_ready(lock_path):
+            return
+        try:
+            _initialize_lock_file(lock_path)
+        except PermissionError as exc:
+            # Retry only mandatory-lock conflicts; other access errors fail fast.
+            if not _is_lock_denied_write(exc):
+                raise
+        if _lock_region_ready(lock_path):
+            return
+        if time.monotonic() >= deadline:
+            raise _lock_timeout_error(path, timeout)
+        time.sleep(delay)
+        delay = min(delay * 1.5, 0.1)
+
+
+def _acquire_exclusive_lock(
+    lock_file: Any, path: Path, *, timeout: float, deadline: float
+) -> None:
     """Block until an exclusive lock is acquired, or raise after the timeout."""
-    deadline = time.monotonic() + timeout
     delay = 0.01
     if os.name == "nt":
         import msvcrt
 
         while True:
+            acquired = False
             try:
                 lock_file.seek(0)
-                if lock_file.read(1) != b"\0":
+                # An empty file has no region to lock. Locking it anyway denies
+                # the initializer's write on Windows.
+                if lock_file.read(1) == b"\0":
                     lock_file.seek(0)
-                    lock_file.truncate(0)
-                    lock_file.write(b"\0")
-                    lock_file.flush()
-                lock_file.seek(0)
-                msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
-                return
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
+                    acquired = True
             except OSError:
-                if time.monotonic() >= deadline:
-                    raise _lock_timeout_error(path, timeout) from None
-                time.sleep(delay)
-                delay = min(delay * 1.5, 0.1)
+                acquired = False
+            if acquired:
+                return
+            if time.monotonic() >= deadline:
+                raise _lock_timeout_error(path, timeout) from None
+            time.sleep(delay)
+            delay = min(delay * 1.5, 0.1)
     else:
         import fcntl
 
@@ -255,9 +339,10 @@ def exclusive_file_lock(
     path = Path(filepath)
     lock_path, _ = snapshot_write_sidecar_paths(path)
     wait = snapshot_file_lock_timeout() if timeout is None else timeout
-    _ensure_lock_file(lock_path)
+    deadline = time.monotonic() + wait
+    _ensure_lock_file(lock_path, path, timeout=wait, deadline=deadline)
     with open(lock_path, "r+b") as lock_file:
-        _acquire_exclusive_lock(lock_file, path, timeout=wait)
+        _acquire_exclusive_lock(lock_file, path, timeout=wait, deadline=deadline)
         try:
             yield
         finally:
@@ -278,6 +363,18 @@ def warn_selected_collected_mismatch(
             "syrupy: {count} selected test(s) missing from collected items "
             "(e.g. {sample}{extra}); unused snapshot detection may be incomplete"
         ).format(count=len(missing), sample=sample, extra=extra),
+        UserWarning,
+        stacklevel=2,
+    )
+
+
+def warn_incomplete_worker_reports(*, received: int, expected: int) -> None:
+    """Warn when xdist worker syrupy reports are missing (unused detection unsafe)."""
+    warnings.warn(
+        gettext(
+            "syrupy: received {received} of {expected} xdist worker snapshot "
+            "reports; unused snapshot detection skipped to avoid false removals"
+        ).format(received=received, expected=expected),
         UserWarning,
         stacklevel=2,
     )

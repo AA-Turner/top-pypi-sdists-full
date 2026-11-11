@@ -51,8 +51,7 @@ class TableStructureEdits:
         same column in *ref_row* and, unless *blank*, its text; with *blank* it holds one empty
         paragraph of that format, as Hancom inserts it. A cell merged across the new rows grows over
         them, and next to a merged cell that ends (above: starts) at *ref_row* each new row gets an
-        empty cell of its format. A table holding a table is refused
-        (:class:`hwpx.table_patch.TableStructureError`).
+        empty cell of its format. A table nested in a copied cell is copied with fresh numbers.
         """
 
         self._restructure({
@@ -137,6 +136,7 @@ class TableStructureEdits:
         element.attrib.update(new.attrib)
         element.text = new.text
         element.extend(list(new))
+        self._grid_cache = None  # the rows and cells were replaced (HwpxOxmlTable keeps its grid here)
         self._grow_height(before)
         _clear_paragraph_layout_cache(self.paragraph.element)  # its line held the table as it was
         section.mark_dirty()
@@ -158,13 +158,20 @@ class TableStructureEdits:
     def _grow_height(self, before: int | None) -> None:
         """Move the table's saved height (``hp:sz``) by what its rows gained or lost in the edit, as
         Hancom saves the height of the rows it lays out: the rows left as they were keep the height Hancom
-        gave them. With rows the estimate does not follow, the height stays as it was."""
+        gave them. With rows the estimate does not follow, the height stays as it was.
+
+        A table saved shorter than its rows is one Hancom split across pages: it saves the height of the
+        part on the table's first page (tables of the same rows save different heights by where they start),
+        and the rows' gain or loss does not say how that part changes. Its height also stays as it was, rather
+        than moving by the whole delta, which can take it to nothing."""
 
         after = self._rows_height()
         size = self.element.find(f"{_HP}sz")
         if before is None or after is None or size is None or after == before:
             return
         height = int(size.get("height", 0) or 0)
+        if height < before:
+            return
         size.set("height", str(max(0, height + after - before)))
 
 

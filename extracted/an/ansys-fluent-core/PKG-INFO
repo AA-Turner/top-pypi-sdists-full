@@ -1,10 +1,10 @@
 Metadata-Version: 2.5
 Name: ansys-fluent-core
-Version: 0.43.0
+Version: 0.44.0
 Summary: PyFluent provides Pythonic access to Ansys Fluent.
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
-Requires-Python: >=3.10,<3.15
+Requires-Python: >=3.12,<3.15
 Description-Content-Type: text/x-rst
 License-Expression: MIT
 Classifier: Development Status :: 4 - Beta
@@ -15,7 +15,7 @@ Requires-Dist: ansys-api-fluent>=0.7.0
 Requires-Dist: ansys-platform-instancemanagement~=1.1
 Requires-Dist: ansys-tools-common>=0.4.0
 Requires-Dist: ansys-tools-filetransfer>=0.2,<1.0
-Requires-Dist: ansys-units>=0.10,<1.0
+Requires-Dist: ansys-units>=0.16,<0.17
 Requires-Dist: defusedxml>=0.7.1
 Requires-Dist: deprecated>=1.2.18
 Requires-Dist: docker>=7.1.0
@@ -28,7 +28,7 @@ Requires-Dist: pandas>=1.1.0,<3.0.0
 Requires-Dist: pandas-stubs>=1.1.0,<3.0.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: typing-extensions>=4.12
-Requires-Dist: basedpyright==1.40.1 ; extra == "ci-types"
+Requires-Dist: basedpyright==1.40.2 ; extra == "ci-types"
 Requires-Dist: ansys-fluent-visualization ; extra == "ci-types"
 Requires-Dist: h5py ; extra == "ci-types"
 Requires-Dist: pytest ; extra == "ci-types"
@@ -65,16 +65,21 @@ Requires-Dist: beautifulsoup4==4.15.0 ; extra == "docs"
 Requires-Dist: openpyxl>=3.1.5 ; extra == "docs"
 Requires-Dist: plotly>=5.22.0 ; extra == "docs"
 Requires-Dist: python-pptx>=0.6.23 ; extra == "docs"
-Requires-Dist: quarto-cli==1.10.18 ; extra == "docs"
+Requires-Dist: quarto-cli==1.10.19 ; extra == "docs"
 Requires-Dist: pdf2image==1.17.0 ; extra == "docs"
 Requires-Dist: seaborn>=0.13.2 ; extra == "docs"
 Requires-Dist: docker==7.1.0 ; extra == "docs"
 Requires-Dist: numpy==2.5.0 ; extra == "docs"
+Requires-Dist: ansys-api-fluent>=0.7.0 ; extra == "grpc"
+Requires-Dist: grpcio>=1.30.0 ; extra == "grpc"
+Requires-Dist: grpcio-health-checking>=1.30.0 ; extra == "grpc"
+Requires-Dist: grpcio-status>=1.26.0 ; extra == "grpc"
+Requires-Dist: grpcio-reflection>=1.30.0 ; extra == "grpc"
 Requires-Dist: h5py>=3.15.1 ; extra == "reader"
 Requires-Dist: nltk>=3.10.3 ; extra == "search"
-Requires-Dist: pytest==9.1.1 ; extra == "tests"
+Requires-Dist: pytest==9.2.0 ; extra == "tests"
 Requires-Dist: pytest-cov==7.1.0 ; extra == "tests"
-Requires-Dist: pytest-mock==3.15.1 ; extra == "tests"
+Requires-Dist: pytest-mock==3.17.0 ; extra == "tests"
 Requires-Dist: pytest-xdist==3.8.0 ; extra == "tests"
 Requires-Dist: pyfakefs==6.2.0 ; extra == "tests"
 Requires-Dist: docker==7.1.0 ; extra == "tests"
@@ -86,6 +91,7 @@ Project-URL: Source, https://github.com/ansys/pyfluent
 Project-URL: Tracker, https://github.com/ansys/pyfluent/issues
 Provides-Extra: ci-types
 Provides-Extra: docs
+Provides-Extra: grpc
 Provides-Extra: reader
 Provides-Extra: search
 Provides-Extra: tests
@@ -163,7 +169,7 @@ To reach the project support team, email `pyansys.core@ansys.com <pyansys.core@a
 
 Installation
 ------------
-The ``ansys-fluent-core`` package supports Python 3.10 through Python
+The ``ansys-fluent-core`` package supports Python 3.12 through Python
 3.14 on Windows and Linux.
 
 Install the latest release from `PyPI

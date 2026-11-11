@@ -13,7 +13,15 @@ from typing import Any, Never
 
 import yaml
 
-from . import memory_refs, query_compat, record_formats, record_governance, records, state_paths
+from . import (
+    collection_refs,
+    memory_refs,
+    query_compat,
+    record_formats,
+    record_governance,
+    records,
+    state_paths,
+)
 from . import structured_collections as collections
 from .collection_store import ownership
 from .collection_store.preview import QUERY_RECEIPT_BOUNDARY
@@ -689,6 +697,8 @@ def query(
                 },
                 manifest,
             )
+            # The ids go on before the projection is sealed: a sealed payload that changes is refused.
+            projected = collection_refs.mark_rows(projected, profile="planning")
             if writer is not None:
                 projected = writer._operation.query_metadata_evidence(
                     projected, writer, manifest, result, contributors=hierarchy_contributors)
@@ -1197,6 +1207,8 @@ def inspect(vault_root: Path, collection: str | collections.CollectionManifest) 
             {"lifecycle_guards": result["lifecycle_guards"]} if "lifecycle_guards" in result else {}
         ),
         **({"presentation": result["presentation"]} if "presentation" in result else {}),
+        **({"references": result["references"]} if "references" in result else {}),
+        **({"inbound": result["inbound"]} if "inbound" in result else {}),
     }
     return _project_inspection(payload, manifest)
 
@@ -1418,7 +1430,7 @@ def _validate_query_egress(value: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 #: The inspection keys a collection's shape adds: recipes in items mode, page bounds in summary mode.
-_OPTIONAL_INSPECTION_KEYS = ("presentation", "lifecycle_guards", "capacity")
+_OPTIONAL_INSPECTION_KEYS = ("presentation", "lifecycle_guards", "capacity", "references", "inbound")
 
 
 def _validate_inspection_egress(value: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -1450,7 +1462,17 @@ def _validate_inspection_egress(value: Mapping[str, Any]) -> dict[str, Any] | No
         )
     ):
         return None
-    return dict(value)
+    result = dict(value)
+    if "references" in value:
+        # The same bounded report the Records inspection admits, so one shape reaches egress.
+        result["references"] = record_governance.inspection_references(value["references"])
+        if result["references"] is None:
+            return None
+    if "inbound" in value:
+        result["inbound"] = record_governance.inspection_inbound(value["inbound"])
+        if result["inbound"] is None:
+            return None
+    return result
 
 
 def update(

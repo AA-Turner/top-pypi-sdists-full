@@ -14,13 +14,7 @@ from linkml_map.writers import (
     StreamWriter,
     TabularStreamWriter,
     YAMLStreamWriter,
-    csv_stream,
-    get_stream_writer,
-    json_stream,
-    jsonl_stream,
     make_stream_writer,
-    tsv_stream,
-    yaml_stream,
 )
 
 
@@ -50,117 +44,6 @@ def nested_chunks():
             ],
         ]
     )
-
-
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
-class TestYamlStream:
-    """Tests for the deprecated yaml_stream function."""
-
-    def test_basic_output(self, sample_chunks) -> None:
-        result = "".join(yaml_stream(sample_chunks))
-        # Should contain YAML document separators
-        assert "---" in result
-        # Should contain actual data
-        assert "id: P:001" in result
-        assert "name: Alice" in result
-
-    def test_with_key_name(self) -> None:
-        chunks = iter([[{"id": "P:001", "name": "Alice"}]])
-        result = "".join(yaml_stream(chunks, key_name="people"))
-        assert "people:" in result
-
-
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
-class TestJsonStream:
-    """Tests for the deprecated json_stream function."""
-
-    def test_basic_output(self, sample_chunks) -> None:
-        result = "".join(json_stream(sample_chunks))
-        # Should be valid JSON array
-        assert result.strip().startswith("[")
-        assert result.strip().endswith("]")
-        data = json.loads(result)
-        assert len(data) == 3
-
-    def test_with_key_name(self) -> None:
-        chunks = iter([[{"id": "P:001"}]])
-        result = "".join(json_stream(chunks, key_name="people"))
-        data = json.loads(result)
-        assert "people" in data
-        assert len(data["people"]) == 1
-
-
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
-class TestJsonlStream:
-    """Tests for the deprecated jsonl_stream function."""
-
-    def test_basic_output(self, sample_chunks) -> None:
-        result = "".join(jsonl_stream(sample_chunks))
-        lines = [line for line in result.strip().split("\n") if line]
-        assert len(lines) == 3
-        # Each line should be independently valid JSON
-        for line in lines:
-            obj = json.loads(line)
-            assert "id" in obj
-            assert "name" in obj
-
-    def test_key_name_ignored(self) -> None:
-        chunks_with_key = iter([[{"id": "P:001"}]])
-        chunks_without_key = iter([[{"id": "P:001"}]])
-        result_with_key = "".join(jsonl_stream(chunks_with_key, key_name="ignored"))
-        result_without_key = "".join(jsonl_stream(chunks_without_key))
-        # key_name should have no effect on JSONL output
-        assert result_with_key == result_without_key
-        obj = json.loads(result_with_key.strip())
-        assert obj["id"] == "P:001"
-
-
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
-class TestTsvStream:
-    """Tests for the deprecated tsv_stream function."""
-
-    def test_basic_output(self, sample_chunks) -> None:
-        result = "".join(tsv_stream(sample_chunks))
-        lines = result.strip().split("\n")
-        # First line should be headers
-        assert "id" in lines[0]
-        assert "name" in lines[0]
-        assert "age" in lines[0]
-        # Should have header + 3 data rows
-        assert len(lines) == 4
-
-    def test_tab_separated(self, sample_chunks) -> None:
-        result = "".join(tsv_stream(sample_chunks))
-        lines = result.strip().split("\n")
-        # Check tabs in data rows
-        assert "\t" in lines[1]
-
-    def test_nested_objects_flattened(self, nested_chunks) -> None:
-        result = "".join(tsv_stream(nested_chunks))
-        # Nested keys should be flattened with __
-        assert "address__street" in result
-        assert "address__city" in result
-
-
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
-class TestCsvStream:
-    """Tests for the deprecated csv_stream function."""
-
-    def test_basic_output(self) -> None:
-        chunks = iter([[{"id": "P:001", "name": "Alice"}]])
-        result = "".join(csv_stream(chunks))
-        lines = result.strip().split("\n")
-        assert "id" in lines[0]
-        assert "name" in lines[0]
-        assert "," in lines[0]  # CSV uses comma
-
-    def test_comma_separated(self) -> None:
-        chunks = iter([[{"id": "P:001", "name": "Alice", "age": 30}]])
-        result = "".join(csv_stream(chunks))
-        lines = result.strip().split("\n")
-        # Should use comma separator
-        assert "," in lines[1]
-        assert "\t" not in lines[1]
 
 
 class TestTabularStreamWriter:
@@ -204,58 +87,10 @@ class TestTabularStreamWriter:
         escaped = writer._escape_value({"key": "value"})
         assert '"key"' in escaped
 
-
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
-class TestGetStreamWriter:
-    """Tests for the deprecated get_stream_writer function."""
-
-    def test_get_yaml_writer(self) -> None:
-        writer = get_stream_writer(OutputFormat.YAML)
-        assert writer is yaml_stream
-
-    def test_get_json_writer(self) -> None:
-        writer = get_stream_writer(OutputFormat.JSON)
-        assert writer is json_stream
-
-    def test_get_jsonl_writer(self) -> None:
-        writer = get_stream_writer(OutputFormat.JSONL)
-        assert writer is jsonl_stream
-
-    def test_get_tsv_writer(self) -> None:
-        writer = get_stream_writer(OutputFormat.TSV)
-        assert writer is tsv_stream
-
-    def test_get_csv_writer(self) -> None:
-        writer = get_stream_writer(OutputFormat.CSV)
-        assert writer is csv_stream
-
-
-class TestDeprecatedFunctionAPI:
-    """The legacy function-based writers still work but emit DeprecationWarning."""
-
-    def test_yaml_stream_warns(self) -> None:
-        with pytest.warns(DeprecationWarning, match="yaml_stream"):
-            "".join(yaml_stream(iter([[{"id": "P:001"}]])))
-
-    def test_json_stream_warns(self) -> None:
-        with pytest.warns(DeprecationWarning, match="json_stream"):
-            "".join(json_stream(iter([[{"id": "P:001"}]])))
-
-    def test_jsonl_stream_warns(self) -> None:
-        with pytest.warns(DeprecationWarning, match="jsonl_stream"):
-            "".join(jsonl_stream(iter([[{"id": "P:001"}]])))
-
-    def test_tsv_stream_warns(self) -> None:
-        with pytest.warns(DeprecationWarning, match="tsv_stream"):
-            "".join(tsv_stream(iter([[{"id": "P:001"}]])))
-
-    def test_csv_stream_warns(self) -> None:
-        with pytest.warns(DeprecationWarning, match="csv_stream"):
-            "".join(csv_stream(iter([[{"id": "P:001"}]])))
-
-    def test_get_stream_writer_warns(self) -> None:
-        with pytest.warns(DeprecationWarning, match="get_stream_writer"):
-            get_stream_writer(OutputFormat.YAML)
+    def test_nested_objects_flattened(self, nested_chunks) -> None:
+        result = "".join(TabularStreamWriter(separator="\t").process(nested_chunks))
+        assert "address__street" in result
+        assert "address__city" in result
 
 
 class TestOutputFormat:
@@ -418,6 +253,15 @@ def test_yaml_stream_writer_basic_output():
     assert "name: Alice" in result
 
 
+@pytest.mark.parametrize(
+    "chunks", [[SAMPLE_DATA], [[], SAMPLE_DATA[:1], SAMPLE_DATA[1:]]], ids=["one-chunk", "chunked"]
+)
+def test_yaml_stream_writer_separates_documents_without_an_empty_one(chunks):
+    """Each record is one YAML document, with no empty document after the last (#400)."""
+    result = "".join(YAMLStreamWriter().process(iter(chunks)))
+    assert list(yaml.safe_load_all(result)) == SAMPLE_DATA
+
+
 def test_yaml_stream_writer_with_key_name():
     writer = YAMLStreamWriter(key_name="people")
     result = "".join(writer.process(iter([SAMPLE_DATA[:1]])))
@@ -453,24 +297,6 @@ DATA_WITH_NULLS = [
 ]
 
 
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
-def test_json_stream_omits_null_values():
-    result = "".join(json_stream(iter([DATA_WITH_NULLS])))
-    data = json.loads(result)
-    assert "email" not in data[0]
-    assert "name" not in data[1]
-    assert data[0]["name"] == "Alice"
-    assert data[1]["email"] == "bob@example.com"
-
-
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
-def test_jsonl_stream_omits_null_values():
-    result = "".join(jsonl_stream(iter([DATA_WITH_NULLS])))
-    lines = [json.loads(line) for line in result.strip().split("\n")]
-    assert "email" not in lines[0]
-    assert "name" not in lines[1]
-
-
 def test_json_stream_writer_omits_null_values():
     writer = JSONStreamWriter()
     result = "".join(writer.process(iter([DATA_WITH_NULLS])))
@@ -487,15 +313,6 @@ def test_jsonl_stream_writer_omits_null_values():
     assert "name" not in lines[1]
 
 
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
-def test_json_stream_omits_nested_null_values():
-    data = [{"id": "1", "address": {"city": "NYC", "zip": None}}]
-    result = "".join(json_stream(iter([data])))
-    parsed = json.loads(result)
-    assert "zip" not in parsed[0]["address"]
-    assert parsed[0]["address"]["city"] == "NYC"
-
-
 # --- TabularStreamWriter chunk-based API tests ---
 
 
@@ -508,17 +325,6 @@ def test_tabular_write_chunk_produces_header_and_rows():
     assert len(lines) == 3  # header + 2 rows
     assert "id" in lines[0]
     assert "name" in lines[0]
-
-
-def test_tabular_process_matches_stream():
-    """The deprecated ``stream`` alias warns but still matches ``process``."""
-    writer_a = TabularStreamWriter(separator="\t")
-    writer_b = TabularStreamWriter(separator="\t")
-    chunks = [SAMPLE_DATA[:2], SAMPLE_DATA[2:]]
-    result_process = "".join(writer_a.process(iter(chunks)))
-    with pytest.warns(DeprecationWarning):
-        result_stream = "".join(writer_b.stream(iter([SAMPLE_DATA[:2], SAMPLE_DATA[2:]])))
-    assert result_process == result_stream
 
 
 def test_tabular_headers_tracked_across_chunks():
@@ -663,3 +469,34 @@ def test_multi_stream_writer_with_file_handle_target(tmp_path):
     # Path target should have JSON content
     json_data = json.loads(json_path.read_text())
     assert len(json_data) == 3
+
+
+NULL_ROW = {"id": "p1", "n": None, "q": {"unit": "mg", "value": None}, "tags": ["a", None]}
+NULLS_DROPPED = {"id": "p1", "q": {"unit": "mg"}, "tags": ["a", None]}
+
+
+def _load(output_format: OutputFormat, text: str) -> list[dict]:
+    if output_format == OutputFormat.JSONL:
+        return [json.loads(line) for line in text.splitlines()]
+    if output_format == OutputFormat.JSON:
+        loaded = json.loads(text)
+        return loaded["rows"] if isinstance(loaded, dict) else loaded
+    docs = [d for d in yaml.safe_load_all(text) if d is not None]
+    return docs[0]["rows"] if "rows" in docs[0] else docs
+
+
+@pytest.mark.parametrize(
+    ("output_format", "key_name"),
+    [
+        (OutputFormat.YAML, None),
+        (OutputFormat.YAML, "rows"),
+        (OutputFormat.JSON, None),
+        (OutputFormat.JSON, "rows"),
+        (OutputFormat.JSONL, None),
+    ],
+)
+def test_writers_drop_null_slots(output_format: OutputFormat, key_name: str | None) -> None:
+    """Every writer drops null-valued keys, nested ones included, so formats agree (#354)."""
+    writer = make_stream_writer(output_format, key_name=key_name)
+    text = "".join(writer.process(iter([[NULL_ROW]])))
+    assert _load(output_format, text) == [NULLS_DROPPED]

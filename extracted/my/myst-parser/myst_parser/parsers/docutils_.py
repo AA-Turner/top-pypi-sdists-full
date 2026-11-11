@@ -24,12 +24,15 @@ from myst_parser.config.main import (
 )
 from myst_parser.mdit_to_docutils.base import DocutilsRenderer
 from myst_parser.mdit_to_docutils.transforms import (
+    AddSlugIds,
     CollectFootnotes,
+    PrioritiseExplicitIds,
     ResolveAnchorIds,
+    ResolveSectionRefs,
     SortFootnotes,
     UnreferencedFootnotesDetector,
 )
-from myst_parser.parsers.mdit import create_md_parser
+from myst_parser.parsers.mdit import create_md_parser, linkify_available
 from myst_parser.warnings_ import MystWarnings, create_warning
 
 
@@ -142,7 +145,7 @@ def _attr_to_optparse_option(at: Field, default: Any) -> tuple[dict[str, Any], s
     if at.type is str or at.name == "heading_slug_func":
         return {
             "metavar": "<str>",
-        }, f"(default: '{default}')"
+        }, f"'{default}'"
     if get_origin(at.type) is Literal and all(
         isinstance(a, str) for a in get_args(at.type)
     ):
@@ -255,7 +258,10 @@ class Parser(RstParser):
             UnreferencedFootnotesDetector,
             SortFootnotes,
             CollectFootnotes,
+            AddSlugIds,
+            PrioritiseExplicitIds,
             ResolveAnchorIds,
+            ResolveSectionRefs,
         ]
 
     def parse(self, inputstring: str, document: nodes.document) -> None:
@@ -298,6 +304,16 @@ class Parser(RstParser):
                 "The `attrs_image` extension is deprecated, "
                 "please use `attrs_inline` instead.",
                 MystWarnings.DEPRECATED,
+            )
+
+        if "linkify" in config.enable_extensions and not linkify_available():
+            create_warning(
+                document,
+                "The `linkify` extension is enabled, "
+                "but the `linkify-it-py` package is not installed, "
+                "so it has been disabled "
+                "(install it with e.g. `pip install linkify-it-py`).",
+                MystWarnings.LINKIFY,
             )
 
         # update the global config with the file-level config

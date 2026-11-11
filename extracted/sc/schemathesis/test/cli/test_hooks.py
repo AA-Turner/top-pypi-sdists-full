@@ -1,7 +1,9 @@
+import re
+from collections import Counter
+
 import pytest
 from _pytest.main import ExitCode
 from flask import jsonify
-from hypothesis import settings
 
 
 def test_before_call_no_kwargs_unpacking(ctx, cli):
@@ -43,34 +45,6 @@ def before_call(context, case, kwargs):
         """
     )
     assert cli.main("run", api.schema_url, "--phases=stateful", "--max-examples=1", hooks=module) == snapshot_cli
-
-
-def test_after_call(ctx, cli, snapshot_cli):
-    api = ctx.openapi.apps.success()
-    # When the `after_call` hook is registered
-    # And it modifies the response and making it incorrect
-    module = ctx.write_pymodule(
-        """
-import requests
-
-@schemathesis.hook
-def after_call(context, case, response):
-    data = b'{"wrong": 42}'
-    response.content = data
-        """
-    )
-    # Then the tests should fail
-    assert cli.main("run", api.schema_url, "-c", "all", hooks=module) == snapshot_cli
-
-
-@pytest.fixture
-def restore_hypothesis_profile():
-    # Hooks in these tests register and load their own profiles; later tests must keep the suite's one.
-    active = settings.get_current_profile_name()
-    original = settings.get_profile("default")
-    yield
-    settings.register_profile("default", original)
-    settings.load_profile(active)
 
 
 @pytest.mark.usefixtures("restore_hypothesis_profile")
@@ -199,21 +173,74 @@ def test_hooks_file_path_runs_once_per_call(ctx, cli, tmp_path):
     hooks_file = tmp_path / "counting_hooks.py"
     hooks_file.write_text(f"""
 import schemathesis
+
+def record(line):
+    with open({str(calls)!r}, "a") as fd:
+        fd.write(line + "\\n")
+
 @schemathesis.hook
 def before_call(context, case, **kwargs):
-    with open({str(calls)!r}, "a") as fd:
-        fd.write(".")
+    record("before_call")
+
+@schemathesis.hook
+def after_validate(context, case, response, results):
+    record(f"after_validate {{[(result.name, result.status.name) for result in results]}}")
 """)
     result = cli.main(
         "run",
         api.schema_url,
-        "--phases=fuzzing",
+        "--phases=coverage,fuzzing",
         "--max-examples=3",
+        "--checks=not_a_server_error",
         env={"SCHEMATHESIS_HOOKS": str(hooks_file)},
     )
     assert result.exit_code == ExitCode.OK, result.stdout
     api_calls = [request for request in api.requests if request.path.startswith("/api/")]
-    assert len(calls.read_text()) == len(api_calls)
+    assert Counter(calls.read_text().splitlines()) == {
+        "before_call": len(api_calls),
+        "after_validate [('not_a_server_error', 'SUCCESS')]": len(api_calls),
+    }
+
+
+def test_env_hooks_extend_cli_when_config_sets_hooks(ctx, cli):
+    api = ctx.openapi.apps.success()
+    env_hooks = ctx.write_pymodule(
+        """
+from schemathesis import cli, engine
+
+cli.add_group("Env group").add_option("--env-flag", type=int)
+
+
+@cli.handler()
+class EnvHandler(cli.EventHandler):
+    def __init__(self, *args, **params):
+        self.value = params["env_flag"]
+
+    def handle_event(self, ctx, event) -> None:
+        if isinstance(event, engine.events.EngineFinished):
+            ctx.add_summary_line(f"Env flag: {self.value}")
+""",
+        filename="env_hooks",
+    )
+    config_hooks = ctx.write_pymodule(
+        """
+@schemathesis.hook
+def before_call(context, case, **kwargs):
+    note("Config hook called")
+""",
+        filename="config_hooks",
+    )
+    result = cli.run(
+        api.schema_url,
+        "--phases=fuzzing",
+        "--max-examples=1",
+        "--env-flag=7",
+        config={"hooks": config_hooks},
+        hooks=env_hooks,
+    )
+    assert result.exit_code == ExitCode.OK, result.stdout
+    assert "Env flag: 7" in result.stdout
+    assert "Config hook called" in result.stdout
 
 
 def test_hooks_file_path_unloadable(ctx, cli, tmp_path):
@@ -269,19 +296,35 @@ def filter_failure(context, failure, case, response):
     )
 
 
-def test_filter_failure_is_summarized_in_fuzz(ctx, cli):
+def test_filter_failure_is_summarized_in_fuzz(ctx, cli, tmp_path):
     api = ctx.openapi.apps.failure()
+    calls = tmp_path / "calls.txt"
     module = ctx.write_pymodule(
-        """
+        f"""
+def record(line):
+    with open({str(calls)!r}, "a") as fd:
+        fd.write(line + "\\n")
+
 @schemathesis.hook
 def filter_failure(context, failure, case, response):
+    record("filter_failure")
     return response.status_code != 500
+
+@schemathesis.hook
+def after_validate(context, case, response, results):
+    record(f"after_validate {{[(result.name, result.status.name) for result in results]}}")
 """
     )
 
     result = cli.main("fuzz", api.schema_url, "-c", "not_a_server_error", "--max-time=1", hooks=module)
 
-    assert "Filtered: " in result.stdout, result.stdout
+    filtered = re.search(r"Filtered: (\d+)", result.stdout)
+    assert filtered is not None, result.stdout
+    # Every failure is dropped, so the check passes on each response.
+    assert Counter(calls.read_text().splitlines()) == {
+        "filter_failure": int(filtered.group(1)),
+        "after_validate [('not_a_server_error', 'SUCCESS')]": int(filtered.group(1)),
+    }
 
 
 def test_filter_failure_keeps_what_it_does_not_reject(ctx, cli):

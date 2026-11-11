@@ -130,7 +130,7 @@ class CfnCustomAction(
 ):
     '''.. epigraph::
 
-   AWS Chatbot is now  .
+   AWS Chatbot is now Amazon Q Developer .
 
     `Learn more <https://docs.aws.amazon.com//chatbot/latest/adminguide/service-rename.html>`_
     .. epigraph::
@@ -397,7 +397,7 @@ class CfnCustomAction(
         ) -> None:
             '''.. epigraph::
 
-   AWS Chatbot is now  . `Learn more <https://docs.aws.amazon.com//chatbot/latest/adminguide/service-rename.html>`_ >  > ``Type`` attribute values remain unchanged.
+   AWS Chatbot is now Amazon Q Developer . `Learn more <https://docs.aws.amazon.com//chatbot/latest/adminguide/service-rename.html>`_ >  > ``Type`` attribute values remain unchanged.
 
             A criteria for when a button should be shown based on values in the notification.
 
@@ -495,7 +495,7 @@ class CfnCustomAction(
         ) -> None:
             '''.. epigraph::
 
-   AWS Chatbot is now  . `Learn more <https://docs.aws.amazon.com//chatbot/latest/adminguide/service-rename.html>`_ >  > ``Type`` attribute values remain unchanged.
+   AWS Chatbot is now Amazon Q Developer . `Learn more <https://docs.aws.amazon.com//chatbot/latest/adminguide/service-rename.html>`_ >  > ``Type`` attribute values remain unchanged.
 
             Defines when a custom action button should be attached to a notification.
 
@@ -604,7 +604,7 @@ class CfnCustomAction(
         def __init__(self, *, command_text: builtins.str) -> None:
             '''.. epigraph::
 
-   AWS Chatbot is now  . `Learn more <https://docs.aws.amazon.com//chatbot/latest/adminguide/service-rename.html>`_ >  > ``Type`` attribute values remain unchanged.
+   AWS Chatbot is now Amazon Q Developer . `Learn more <https://docs.aws.amazon.com//chatbot/latest/adminguide/service-rename.html>`_ >  > ``Type`` attribute values remain unchanged.
 
             The definition of the command to run when invoked as an alias or as an action button.
 
@@ -812,11 +812,11 @@ class CfnMicrosoftTeamsChannelConfiguration(
 ):
     '''.. epigraph::
 
-   AWS Chatbot is now  . `Learn more <https://docs.aws.amazon.com//chatbot/latest/adminguide/service-rename.html>`_ >  > ``Type`` attribute values remain unchanged.
+   AWS Chatbot is now Amazon Q Developer . `Learn more <https://docs.aws.amazon.com//chatbot/latest/adminguide/service-rename.html>`_ >  > ``Type`` attribute values remain unchanged.
 
-    The ``AWS::Chatbot::MicrosoftTeamsChannelConfiguration`` resource configures a Microsoft Teams channel to allow users to use  with CloudFormation templates.
+    The ``AWS::Chatbot::MicrosoftTeamsChannelConfiguration`` resource configures a Microsoft Teams channel to allow users to use Amazon Q Developer with CloudFormation templates.
 
-    This resource requires some setup to be done in the  in chat applications console. To provide the required Microsoft Teams team and tenant IDs, you must perform the initial authorization flow with Microsoft Teams in the  in chat applications console, then copy and paste the IDs from the console. For more details, see steps 1-3 in `Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html#teams-client-setup>`_ in the *in chat applications Administrator Guide* .
+    This resource requires some setup to be done in the Amazon Q Developer in chat applications console. To provide the required Microsoft Teams team and tenant IDs, you must perform the initial authorization flow with Microsoft Teams in the Amazon Q Developer in chat applications console, then copy and paste the IDs from the console. For more details, see steps 1-3 in `Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html#teams-client-setup>`_ in the *Amazon Q Developer in chat applications Administrator Guide* .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-microsoftteamschannelconfiguration.html
     :cloudformationResource: AWS::Chatbot::MicrosoftTeamsChannelConfiguration
@@ -873,14 +873,14 @@ class CfnMicrosoftTeamsChannelConfiguration(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param configuration_name: The name of the configuration.
-        :param iam_role_arn: The ARN of the IAM role that defines the permissions for . This is a user-defined role that will assume. This is not the service-linked role. For more information, see `IAM Policies for in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
-        :param team_id: The ID of the Microsoft Team authorized with . To get the team ID, you must perform the initial authorization flow with Microsoft Teams in the in chat applications console. Then you can copy and paste the team ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html>`_ in the *in chat applications Administrator Guide* .
+        :param iam_role_arn: The ARN of the IAM role that defines the permissions for Amazon Q Developer . This is a user-defined role that Amazon Q Developer will assume. This is not the service-linked role. For more information, see `IAM Policies for Amazon Q Developer in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
+        :param team_id: The ID of the Microsoft Team authorized with Amazon Q Developer . To get the team ID, you must perform the initial authorization flow with Microsoft Teams in the Amazon Q Developer in chat applications console. Then you can copy and paste the team ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html>`_ in the *Amazon Q Developer in chat applications Administrator Guide* .
         :param teams_channel_id: The ID of the Microsoft Teams channel. To get the channel ID, open Microsoft Teams, right click on the channel name in the left pane, then choose *Copy* . An example of the channel ID syntax is: ``19%3ab6ef35dc342d56ba5654e6fc6d25a071%40thread.tacv2`` .
-        :param teams_tenant_id: The ID of the Microsoft Teams tenant. To get the tenant ID, you must perform the initial authorization flow with Microsoft Teams in the in chat applications console. Then you can copy and paste the tenant ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html>`_ in the *in chat applications Administrator Guide* .
-        :param customization_resource_arns: Links a list of resource ARNs (for example, custom action ARNs) to a Microsoft Teams channel configuration for .
+        :param teams_tenant_id: The ID of the Microsoft Teams tenant. To get the tenant ID, you must perform the initial authorization flow with Microsoft Teams in the Amazon Q Developer in chat applications console. Then you can copy and paste the tenant ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html>`_ in the *Amazon Q Developer in chat applications Administrator Guide* .
+        :param customization_resource_arns: Links a list of resource ARNs (for example, custom action ARNs) to a Microsoft Teams channel configuration for Amazon Q Developer .
         :param guardrail_policies: The list of IAM policy ARNs that are applied as channel guardrails. The AWS managed 'AdministratorAccess' policy is applied as a default if this is not set.
         :param logging_level: Specifies the logging level for this configuration. This property affects the log entries pushed to Amazon CloudWatch Logs. Logging levels include ``ERROR`` , ``INFO`` , or ``NONE`` . Default: - "NONE"
-        :param sns_topic_arns: The ARNs of the SNS topics that deliver notifications to .
+        :param sns_topic_arns: The ARNs of the SNS topics that deliver notifications to Amazon Q Developer .
         :param tags: The tags to add to the configuration.
         :param teams_channel_name: The name of the Microsoft Teams channel.
         :param user_role_required: Enables use of a user role requirement in your chat configuration. Default: - false
@@ -1015,7 +1015,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @builtins.property
     @jsii.member(jsii_name="iamRoleArn")
     def iam_role_arn(self) -> builtins.str:
-        '''The ARN of the IAM role that defines the permissions for  .'''
+        '''The ARN of the IAM role that defines the permissions for Amazon Q Developer .'''
         return typing.cast(builtins.str, jsii.get(self, "iamRoleArn"))
 
     @iam_role_arn.setter
@@ -1028,7 +1028,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @builtins.property
     @jsii.member(jsii_name="teamId")
     def team_id(self) -> builtins.str:
-        '''The ID of the Microsoft Team authorized with  .'''
+        '''The ID of the Microsoft Team authorized with Amazon Q Developer .'''
         return typing.cast(builtins.str, jsii.get(self, "teamId"))
 
     @team_id.setter
@@ -1067,7 +1067,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @builtins.property
     @jsii.member(jsii_name="customizationResourceArns")
     def customization_resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Links a list of resource ARNs (for example, custom action ARNs) to a Microsoft Teams channel configuration for  .'''
+        '''Links a list of resource ARNs (for example, custom action ARNs) to a Microsoft Teams channel configuration for Amazon Q Developer .'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "customizationResourceArns"))
 
     @customization_resource_arns.setter
@@ -1115,7 +1115,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
     @builtins.property
     @jsii.member(jsii_name="snsTopicArns")
     def sns_topic_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The ARNs of the SNS topics that deliver notifications to  .'''
+        '''The ARNs of the SNS topics that deliver notifications to Amazon Q Developer .'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "snsTopicArns"))
 
     @sns_topic_arns.setter
@@ -1211,14 +1211,14 @@ class CfnMicrosoftTeamsChannelConfigurationProps:
         '''Properties for defining a ``CfnMicrosoftTeamsChannelConfiguration``.
 
         :param configuration_name: The name of the configuration.
-        :param iam_role_arn: The ARN of the IAM role that defines the permissions for . This is a user-defined role that will assume. This is not the service-linked role. For more information, see `IAM Policies for in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
-        :param team_id: The ID of the Microsoft Team authorized with . To get the team ID, you must perform the initial authorization flow with Microsoft Teams in the in chat applications console. Then you can copy and paste the team ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html>`_ in the *in chat applications Administrator Guide* .
+        :param iam_role_arn: The ARN of the IAM role that defines the permissions for Amazon Q Developer . This is a user-defined role that Amazon Q Developer will assume. This is not the service-linked role. For more information, see `IAM Policies for Amazon Q Developer in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
+        :param team_id: The ID of the Microsoft Team authorized with Amazon Q Developer . To get the team ID, you must perform the initial authorization flow with Microsoft Teams in the Amazon Q Developer in chat applications console. Then you can copy and paste the team ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html>`_ in the *Amazon Q Developer in chat applications Administrator Guide* .
         :param teams_channel_id: The ID of the Microsoft Teams channel. To get the channel ID, open Microsoft Teams, right click on the channel name in the left pane, then choose *Copy* . An example of the channel ID syntax is: ``19%3ab6ef35dc342d56ba5654e6fc6d25a071%40thread.tacv2`` .
-        :param teams_tenant_id: The ID of the Microsoft Teams tenant. To get the tenant ID, you must perform the initial authorization flow with Microsoft Teams in the in chat applications console. Then you can copy and paste the tenant ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html>`_ in the *in chat applications Administrator Guide* .
-        :param customization_resource_arns: Links a list of resource ARNs (for example, custom action ARNs) to a Microsoft Teams channel configuration for .
+        :param teams_tenant_id: The ID of the Microsoft Teams tenant. To get the tenant ID, you must perform the initial authorization flow with Microsoft Teams in the Amazon Q Developer in chat applications console. Then you can copy and paste the tenant ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html>`_ in the *Amazon Q Developer in chat applications Administrator Guide* .
+        :param customization_resource_arns: Links a list of resource ARNs (for example, custom action ARNs) to a Microsoft Teams channel configuration for Amazon Q Developer .
         :param guardrail_policies: The list of IAM policy ARNs that are applied as channel guardrails. The AWS managed 'AdministratorAccess' policy is applied as a default if this is not set.
         :param logging_level: Specifies the logging level for this configuration. This property affects the log entries pushed to Amazon CloudWatch Logs. Logging levels include ``ERROR`` , ``INFO`` , or ``NONE`` . Default: - "NONE"
-        :param sns_topic_arns: The ARNs of the SNS topics that deliver notifications to .
+        :param sns_topic_arns: The ARNs of the SNS topics that deliver notifications to Amazon Q Developer .
         :param tags: The tags to add to the configuration.
         :param teams_channel_name: The name of the Microsoft Teams channel.
         :param user_role_required: Enables use of a user role requirement in your chat configuration. Default: - false
@@ -1301,9 +1301,9 @@ class CfnMicrosoftTeamsChannelConfigurationProps:
 
     @builtins.property
     def iam_role_arn(self) -> builtins.str:
-        '''The ARN of the IAM role that defines the permissions for  .
+        '''The ARN of the IAM role that defines the permissions for Amazon Q Developer .
 
-        This is a user-defined role that  will assume. This is not the service-linked role. For more information, see `IAM Policies for  in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
+        This is a user-defined role that Amazon Q Developer will assume. This is not the service-linked role. For more information, see `IAM Policies for Amazon Q Developer in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-microsoftteamschannelconfiguration.html#cfn-chatbot-microsoftteamschannelconfiguration-iamrolearn
         '''
@@ -1313,9 +1313,9 @@ class CfnMicrosoftTeamsChannelConfigurationProps:
 
     @builtins.property
     def team_id(self) -> builtins.str:
-        '''The ID of the Microsoft Team authorized with  .
+        '''The ID of the Microsoft Team authorized with Amazon Q Developer .
 
-        To get the team ID, you must perform the initial authorization flow with Microsoft Teams in the  in chat applications console. Then you can copy and paste the team ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html>`_ in the *in chat applications Administrator Guide* .
+        To get the team ID, you must perform the initial authorization flow with Microsoft Teams in the Amazon Q Developer in chat applications console. Then you can copy and paste the team ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html>`_ in the *Amazon Q Developer in chat applications Administrator Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-microsoftteamschannelconfiguration.html#cfn-chatbot-microsoftteamschannelconfiguration-teamid
         '''
@@ -1339,7 +1339,7 @@ class CfnMicrosoftTeamsChannelConfigurationProps:
     def teams_tenant_id(self) -> builtins.str:
         '''The ID of the Microsoft Teams tenant.
 
-        To get the tenant ID, you must perform the initial authorization flow with Microsoft Teams in the  in chat applications console. Then you can copy and paste the tenant ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html>`_ in the *in chat applications Administrator Guide* .
+        To get the tenant ID, you must perform the initial authorization flow with Microsoft Teams in the Amazon Q Developer in chat applications console. Then you can copy and paste the tenant ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Microsoft Teams <https://docs.aws.amazon.com/chatbot/latest/adminguide/teams-setup.html>`_ in the *Amazon Q Developer in chat applications Administrator Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-microsoftteamschannelconfiguration.html#cfn-chatbot-microsoftteamschannelconfiguration-teamstenantid
         '''
@@ -1349,7 +1349,7 @@ class CfnMicrosoftTeamsChannelConfigurationProps:
 
     @builtins.property
     def customization_resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Links a list of resource ARNs (for example, custom action ARNs) to a Microsoft Teams channel configuration for  .
+        '''Links a list of resource ARNs (for example, custom action ARNs) to a Microsoft Teams channel configuration for Amazon Q Developer .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-microsoftteamschannelconfiguration.html#cfn-chatbot-microsoftteamschannelconfiguration-customizationresourcearns
         '''
@@ -1382,7 +1382,7 @@ class CfnMicrosoftTeamsChannelConfigurationProps:
 
     @builtins.property
     def sns_topic_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The ARNs of the SNS topics that deliver notifications to  .
+        '''The ARNs of the SNS topics that deliver notifications to Amazon Q Developer .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-microsoftteamschannelconfiguration.html#cfn-chatbot-microsoftteamschannelconfiguration-snstopicarns
         '''
@@ -1440,11 +1440,11 @@ class CfnSlackChannelConfiguration(
 ):
     '''.. epigraph::
 
-   AWS Chatbot is now  . `Learn more <https://docs.aws.amazon.com//chatbot/latest/adminguide/service-rename.html>`_ >  > ``Type`` attribute values remain unchanged.
+   AWS Chatbot is now Amazon Q Developer . `Learn more <https://docs.aws.amazon.com//chatbot/latest/adminguide/service-rename.html>`_ >  > ``Type`` attribute values remain unchanged.
 
-    The ``AWS::Chatbot::SlackChannelConfiguration`` resource configures a Slack channel to allow users to use  with CloudFormation templates.
+    The ``AWS::Chatbot::SlackChannelConfiguration`` resource configures a Slack channel to allow users to use Amazon Q Developer with CloudFormation templates.
 
-    This resource requires some setup to be done in the  in chat applications console. To provide the required Slack workspace ID, you must perform the initial authorization flow with Slack in the  in chat applications console, then copy and paste the workspace ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Slack <https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup>`_ in the *in chat applications User Guide* .
+    This resource requires some setup to be done in the Amazon Q Developer in chat applications console. To provide the required Slack workspace ID, you must perform the initial authorization flow with Slack in the Amazon Q Developer in chat applications console, then copy and paste the workspace ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Slack <https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup>`_ in the *Amazon Q Developer in chat applications User Guide* .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-slackchannelconfiguration.html
     :cloudformationResource: AWS::Chatbot::SlackChannelConfiguration
@@ -1497,13 +1497,13 @@ class CfnSlackChannelConfiguration(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param configuration_name: The name of the configuration.
-        :param iam_role_arn: The ARN of the IAM role that defines the permissions for . This is a user-defined role that will assume. This is not the service-linked role. For more information, see `IAM Policies for in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
+        :param iam_role_arn: The ARN of the IAM role that defines the permissions for Amazon Q Developer . This is a user-defined role that Amazon Q Developer will assume. This is not the service-linked role. For more information, see `IAM Policies for Amazon Q Developer in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
         :param slack_channel_id: The ID of the Slack channel. To get the ID, open Slack, right click on the channel name in the left pane, then choose Copy Link. The channel ID is the character string at the end of the URL. For example, ``ABCBBLZZZ`` .
-        :param slack_workspace_id: The ID of the Slack workspace authorized with . To get the workspace ID, you must perform the initial authorization flow with Slack in the in chat applications console. Then you can copy and paste the workspace ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Slack <https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup>`_ in the *in chat applications User Guide* .
-        :param customization_resource_arns: Links a list of resource ARNs (for example, custom action ARNs) to a Slack channel configuration for .
+        :param slack_workspace_id: The ID of the Slack workspace authorized with Amazon Q Developer . To get the workspace ID, you must perform the initial authorization flow with Slack in the Amazon Q Developer in chat applications console. Then you can copy and paste the workspace ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Slack <https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup>`_ in the *Amazon Q Developer in chat applications User Guide* .
+        :param customization_resource_arns: Links a list of resource ARNs (for example, custom action ARNs) to a Slack channel configuration for Amazon Q Developer .
         :param guardrail_policies: The list of IAM policy ARNs that are applied as channel guardrails. The AWS managed 'AdministratorAccess' policy is applied as a default if this is not set.
         :param logging_level: Specifies the logging level for this configuration. This property affects the log entries pushed to Amazon CloudWatch Logs. Logging levels include ``ERROR`` , ``INFO`` , or ``NONE`` . Default: - "NONE"
-        :param sns_topic_arns: The ARNs of the SNS topics that deliver notifications to .
+        :param sns_topic_arns: The ARNs of the SNS topics that deliver notifications to Amazon Q Developer .
         :param tags: The tags to add to the configuration.
         :param user_role_required: Enables use of a user role requirement in your chat configuration. Default: - false
         '''
@@ -1632,7 +1632,7 @@ class CfnSlackChannelConfiguration(
     @builtins.property
     @jsii.member(jsii_name="iamRoleArn")
     def iam_role_arn(self) -> builtins.str:
-        '''The ARN of the IAM role that defines the permissions for  .'''
+        '''The ARN of the IAM role that defines the permissions for Amazon Q Developer .'''
         return typing.cast(builtins.str, jsii.get(self, "iamRoleArn"))
 
     @iam_role_arn.setter
@@ -1658,7 +1658,7 @@ class CfnSlackChannelConfiguration(
     @builtins.property
     @jsii.member(jsii_name="slackWorkspaceId")
     def slack_workspace_id(self) -> builtins.str:
-        '''The ID of the Slack workspace authorized with  .'''
+        '''The ID of the Slack workspace authorized with Amazon Q Developer .'''
         return typing.cast(builtins.str, jsii.get(self, "slackWorkspaceId"))
 
     @slack_workspace_id.setter
@@ -1671,7 +1671,7 @@ class CfnSlackChannelConfiguration(
     @builtins.property
     @jsii.member(jsii_name="customizationResourceArns")
     def customization_resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Links a list of resource ARNs (for example, custom action ARNs) to a Slack channel configuration for  .'''
+        '''Links a list of resource ARNs (for example, custom action ARNs) to a Slack channel configuration for Amazon Q Developer .'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "customizationResourceArns"))
 
     @customization_resource_arns.setter
@@ -1719,7 +1719,7 @@ class CfnSlackChannelConfiguration(
     @builtins.property
     @jsii.member(jsii_name="snsTopicArns")
     def sns_topic_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The ARNs of the SNS topics that deliver notifications to  .'''
+        '''The ARNs of the SNS topics that deliver notifications to Amazon Q Developer .'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "snsTopicArns"))
 
     @sns_topic_arns.setter
@@ -1798,13 +1798,13 @@ class CfnSlackChannelConfigurationProps:
         '''Properties for defining a ``CfnSlackChannelConfiguration``.
 
         :param configuration_name: The name of the configuration.
-        :param iam_role_arn: The ARN of the IAM role that defines the permissions for . This is a user-defined role that will assume. This is not the service-linked role. For more information, see `IAM Policies for in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
+        :param iam_role_arn: The ARN of the IAM role that defines the permissions for Amazon Q Developer . This is a user-defined role that Amazon Q Developer will assume. This is not the service-linked role. For more information, see `IAM Policies for Amazon Q Developer in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
         :param slack_channel_id: The ID of the Slack channel. To get the ID, open Slack, right click on the channel name in the left pane, then choose Copy Link. The channel ID is the character string at the end of the URL. For example, ``ABCBBLZZZ`` .
-        :param slack_workspace_id: The ID of the Slack workspace authorized with . To get the workspace ID, you must perform the initial authorization flow with Slack in the in chat applications console. Then you can copy and paste the workspace ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Slack <https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup>`_ in the *in chat applications User Guide* .
-        :param customization_resource_arns: Links a list of resource ARNs (for example, custom action ARNs) to a Slack channel configuration for .
+        :param slack_workspace_id: The ID of the Slack workspace authorized with Amazon Q Developer . To get the workspace ID, you must perform the initial authorization flow with Slack in the Amazon Q Developer in chat applications console. Then you can copy and paste the workspace ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Slack <https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup>`_ in the *Amazon Q Developer in chat applications User Guide* .
+        :param customization_resource_arns: Links a list of resource ARNs (for example, custom action ARNs) to a Slack channel configuration for Amazon Q Developer .
         :param guardrail_policies: The list of IAM policy ARNs that are applied as channel guardrails. The AWS managed 'AdministratorAccess' policy is applied as a default if this is not set.
         :param logging_level: Specifies the logging level for this configuration. This property affects the log entries pushed to Amazon CloudWatch Logs. Logging levels include ``ERROR`` , ``INFO`` , or ``NONE`` . Default: - "NONE"
-        :param sns_topic_arns: The ARNs of the SNS topics that deliver notifications to .
+        :param sns_topic_arns: The ARNs of the SNS topics that deliver notifications to Amazon Q Developer .
         :param tags: The tags to add to the configuration.
         :param user_role_required: Enables use of a user role requirement in your chat configuration. Default: - false
 
@@ -1879,9 +1879,9 @@ class CfnSlackChannelConfigurationProps:
 
     @builtins.property
     def iam_role_arn(self) -> typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]:
-        '''The ARN of the IAM role that defines the permissions for  .
+        '''The ARN of the IAM role that defines the permissions for Amazon Q Developer .
 
-        This is a user-defined role that  will assume. This is not the service-linked role. For more information, see `IAM Policies for  in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
+        This is a user-defined role that Amazon Q Developer will assume. This is not the service-linked role. For more information, see `IAM Policies for Amazon Q Developer in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/chatbot-iam-policies.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-slackchannelconfiguration.html#cfn-chatbot-slackchannelconfiguration-iamrolearn
         '''
@@ -1903,9 +1903,9 @@ class CfnSlackChannelConfigurationProps:
 
     @builtins.property
     def slack_workspace_id(self) -> builtins.str:
-        '''The ID of the Slack workspace authorized with  .
+        '''The ID of the Slack workspace authorized with Amazon Q Developer .
 
-        To get the workspace ID, you must perform the initial authorization flow with Slack in the  in chat applications console. Then you can copy and paste the workspace ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Slack <https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup>`_ in the *in chat applications User Guide* .
+        To get the workspace ID, you must perform the initial authorization flow with Slack in the Amazon Q Developer in chat applications console. Then you can copy and paste the workspace ID from the console. For more details, see steps 1-3 in `Tutorial: Get started with Slack <https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup>`_ in the *Amazon Q Developer in chat applications User Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-slackchannelconfiguration.html#cfn-chatbot-slackchannelconfiguration-slackworkspaceid
         '''
@@ -1915,7 +1915,7 @@ class CfnSlackChannelConfigurationProps:
 
     @builtins.property
     def customization_resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Links a list of resource ARNs (for example, custom action ARNs) to a Slack channel configuration for  .
+        '''Links a list of resource ARNs (for example, custom action ARNs) to a Slack channel configuration for Amazon Q Developer .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-slackchannelconfiguration.html#cfn-chatbot-slackchannelconfiguration-customizationresourcearns
         '''
@@ -1950,7 +1950,7 @@ class CfnSlackChannelConfigurationProps:
     def sns_topic_arns(
         self,
     ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]]:
-        '''The ARNs of the SNS topics that deliver notifications to  .
+        '''The ARNs of the SNS topics that deliver notifications to Amazon Q Developer .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chatbot-slackchannelconfiguration.html#cfn-chatbot-slackchannelconfiguration-snstopicarns
         '''

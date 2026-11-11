@@ -470,7 +470,7 @@ def _run_handed_over(door: socket.socket, connection: Connection, command_id: st
             first = _wait_for_turn(door, forwarder)
             if first is not None:
                 return first, None
-            launcher = ProgramLauncher(_send_fds(door))
+            launcher = ProgramLauncher(*_send_fds(door))
             end = _wait_for_end(door, launcher, forwarder)
             if end is None and launcher.program is not None and launcher.program.poll() is None:
                 forwarder.restore()
@@ -481,7 +481,7 @@ def _run_handed_over(door: socket.socket, connection: Connection, command_id: st
     finally:
         door.close()
         if launcher is not None:
-            launcher.channel.close()
+            launcher.close()
         connection.close()
 
 
@@ -521,9 +521,11 @@ def _wait_for_turn(door: socket.socket, forwarder) -> dict | None:
                 waiting_for = message["waiting"]
 
 
-def _send_fds(door: socket.socket) -> socket.socket:
+def _send_fds(door: socket.socket) -> tuple[socket.socket, socket.socket]:
     """Pass fds 0-2 (a closed one as /dev/null) and the command's end of its launcher channel;
-    this shim's end of the channel."""
+    `(this shim's end, our copy of the command's end)`. The copy stays open until the command
+    speaks (`ProgramLauncher`): macOS can collect a unix socket whose only reference is in
+    flight, and the command then read EOF before the program's pid (`commands/DESIGN.md`)."""
     launcher, theirs = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
     stdio, opened = [], []
     for fd in (0, 1, 2):
@@ -536,11 +538,14 @@ def _send_fds(door: socket.socket) -> socket.socket:
             stdio.append(null)
     try:
         socket.send_fds(door, [b"F"], [*stdio, theirs.fileno()])
-    finally:
+    except BaseException:
+        launcher.close()
         theirs.close()
+        raise
+    finally:
         for fd in opened:
             os.close(fd)
-    return launcher
+    return launcher, theirs
 
 
 def _wait_for_end(door: socket.socket, launcher, forwarder) -> dict | None:

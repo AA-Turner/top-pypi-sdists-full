@@ -197,6 +197,17 @@ document.addEventListener("click", (event) => {
   });
 });
 
+// Over the home screen an email's frame is not zoomed with two fingers either: Safari on iOS
+// would run out of memory (welcome.js). A picture in it is a link to itself, to be zoomed in a
+// tab of its own (message.py).
+const emailFrameTouch = new WeakSet();
+function stopEmailPinch(frame) {
+  const page = frame.contentDocument;
+  if (!page || emailFrameTouch.has(page) || !frame.closest("#welcome, .page-view")) return;
+  emailFrameTouch.add(page);
+  page.documentElement.style.touchAction = "pan-x pan-y";
+}
+
 // An email's frame is as tall as its content, so the page scrolls rather than the frame; a
 // folded message is sized when it is opened, and a frame follows its content as it changes
 // (late styles, fonts, images shown).
@@ -204,6 +215,7 @@ const emailFrameWatch = new WeakMap();
 function sizeEmailFrame(frame) {
   const page = frame.contentDocument?.documentElement;
   if (!page || !frame.offsetWidth) return;
+  stopEmailPinch(frame);
   // What scrolls around the frame (the view over the details, else the page) keeps its place:
   // the frame at no height for a moment would take it back to the top.
   const scroller = frame.closest(".page-view") || document.scrollingElement;

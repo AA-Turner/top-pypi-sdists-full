@@ -7,7 +7,10 @@ pub use event_logging_adapter::*;
 pub use gcir::gcir_formatter::GCIRResponseFormat;
 pub use gcir::gcir_options::ClientInitResponseOptions;
 pub use hashing::HashAlgorithm;
-pub use id_lists_adapter::{IdListPropagationUpdate, IdListsAdapter, StatsigHttpIdListsAdapter};
+pub use id_lists_adapter::{
+    IdListFileUpdate, IdListFileVersion, IdListMembership, IdListPropagationUpdate, IdListsAdapter,
+    StatsigHttpIdListsAdapter,
+};
 pub use init_details::{FailureDetails, InitializeDetails};
 pub use initialize_response::InitializeResponse;
 pub use instance_registry::InstanceRegistry;
@@ -44,6 +47,7 @@ pub use statsig_types::{
 };
 #[doc(hidden)]
 pub use typed_config::ConfigUpdates;
+pub use user::prepared_user::{PreparedUser, PreparedUserBase};
 pub use user::user_data::{
     UserCustomMap as StatsigUserCustomMap, UserData as StatsigUserData,
     UserDataMap as StatsigUserDataMap, UserDataStringMap as StatsigUserDataStringMap,
@@ -106,6 +110,8 @@ mod initialize_response;
 mod initialize_v2_response;
 mod observability;
 mod persistent_storage;
+#[doc(hidden)]
+pub use statsig_id_list_ef as portable_id_list_ef;
 mod scoped_evaluation_request;
 mod scoped_id_list_membership_service;
 mod scoped_snapshot_registry;

@@ -7,6 +7,7 @@ Spec: frontend/docs/superpowers/specs/2026-09-29-flujos-de-atencion-configurable
 """
 
 from .accion import Accion
+from .accion_externa import AccionExterna, CuandoAccionExterna, SiFallaAccionExterna
 from .acciones_fijas import AccionesFijas
 from .acciones_basicas import (
     TIPOS_DE_ACCION,
@@ -24,6 +25,23 @@ from .acciones_basicas import (
 from .al_responder import AlResponder, Asignacion, IaAlResponder, ModoAsignacion
 from .capacidad import Capacidad, CapacidadPreview, EjecutorDeCapacidad
 from .entradas import Entrada, EntradaPreview, ReglaDeEntrada
+from .entrega_externa import (
+    Descarte,
+    EntregaExterna,
+    EstadoEntrega,
+    IntentoDeEntrega,
+    MensajeImagen,
+    MensajeTexto,
+    PayloadDeEntrega,
+    RespuestaAplicada,
+    RespuestaExterna,
+    RespuestaLeida,
+    es_reintentable,
+    id_de_entrega,
+    leer_respuesta,
+    proximo_intento_en,
+    tipo_de_entrega,
+)
 from .precalificacion import AccionPrecalificar, DatoAPedir, ObjetivoPrecalificacion, Precalificacion, Rama
 from .recetas import (
     CLAVES_DEL_MOTIVO,
@@ -54,4 +72,12 @@ from .seguimientos import (
     SeguimientosDeIa,
     SiVuelve,
     SiVuelveA,
+)
+from .turno import (
+    AccionDelTurnoDeAgendar,
+    AvisoDelTurno,
+    AvisoFinDeTurnoAgendar,
+    PlantillaDelAviso,
+    RecordatoriosDelTurno,
+    Turno,
 )

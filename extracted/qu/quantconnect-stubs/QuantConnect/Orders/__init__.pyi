@@ -489,6 +489,14 @@ class OrderContingency(System.Object):
         ...
 
     @property
+    def quantities(self) -> typing.Sequence[float]:
+        """
+        The quantities of the orders in the set, one per order, signed. Allows a brokerage model to validate a single
+        order against the side and the size of each other order of the set. Only available at submission time
+        """
+        ...
+
+    @property
     def links(self) -> typing.Sequence[QuantConnect.Orders.ContingencyLink]:
         """The links of this order to the rest of the set: the role it plays in each contingency"""
         ...

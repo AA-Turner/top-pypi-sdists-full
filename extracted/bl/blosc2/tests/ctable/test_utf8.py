@@ -17,6 +17,7 @@ import pytest
 
 import blosc2
 from blosc2 import CTable
+from blosc2.dsl_kernel import SourceKernel as DSLKernel
 
 if not hasattr(np.dtypes, "StringDType"):
     pytest.skip("utf8 columns require NumPy >= 2.0 (StringDType)", allow_module_level=True)
@@ -52,6 +53,61 @@ SAMPLE = [
 def make_table(values=None, **kwargs):
     values = SAMPLE if values is None else values
     return CTable(Row, new_data={"name": list(values), "x": list(range(len(values)))}, **kwargs)
+
+
+@pytest.mark.parametrize("large", [False, True])
+@pytest.mark.parametrize("null_storage", ["mask", "sentinel"])
+def test_utf8_extend_arrow_buffers_and_pending_order(large, null_storage):
+    pa = pytest.importorskip("pyarrow")
+    from blosc2._utf8_array import UTF8Array
+
+    options = {"null_value": "<NULL>"} if null_storage == "sentinel" else {}
+    backend = UTF8Array(blosc2.utf8(nullable=True, null_storage=null_storage, **options))
+    backend.extend(["pending"])
+    values = ["ignored", "café", "", None, "日本語", "a\0b", "ignored"]
+    array = pa.array(values, type=pa.large_string() if large else pa.string()).slice(1, 5)
+    backend.extend_arrow(array)
+    backend.extend_arrow(pa.chunked_array([array.slice(0, 2), array.slice(2)]))
+    backend.append("last")
+    backend.flush()
+    expected = ["pending"] + [backend._coerce(value) for value in values[1:6]] * 2 + ["last"]
+    assert backend[:].tolist() == expected
+    assert len(backend) == len(expected)
+    empty = pa.array([], type=array.type)
+    backend.extend_arrow(empty)
+    assert backend[:].tolist() == expected
+
+
+@pytest.mark.parametrize("values", [[], ["", ""], [None, None]])
+@pytest.mark.parametrize("large", [False, True])
+def test_utf8_extend_arrow_empty_byte_spans(values, large):
+    pa = pytest.importorskip("pyarrow")
+    from blosc2._utf8_array import UTF8Array
+
+    backend = UTF8Array(blosc2.utf8(nullable=True, null_storage="mask"))
+    arrow_type = pa.large_string() if large else pa.string()
+    array = pa.array(["prefix", *values, "suffix"], type=arrow_type).slice(1, len(values))
+    backend.extend_arrow(array)
+    backend.extend_arrow(pa.array(["tail"], type=arrow_type))
+    assert backend[:].tolist() == [""] * len(values) + ["tail"]
+
+
+def test_utf8_extend_arrow_rejects_wrong_types_and_invalid_utf8():
+    pa = pytest.importorskip("pyarrow")
+    from blosc2._utf8_array import UTF8Array
+
+    backend = UTF8Array(blosc2.utf8())
+    for wrong in (["hello"], pa.array([1]), pa.chunked_array([], type=pa.int64())):
+        with pytest.raises(TypeError, match="Arrow string array"):
+            backend.extend_arrow(wrong)
+    with pytest.raises(TypeError, match="not nullable"):
+        backend.extend_arrow(pa.array([None], type=pa.string()))
+    invalid = pa.Array.from_buffers(
+        pa.string(), 1, [None, pa.py_buffer(np.array([0, 1], dtype="<i4")), pa.py_buffer(b"\xff")]
+    )
+    with pytest.raises(pa.ArrowInvalid):
+        backend.extend_arrow(invalid)
+    assert len(backend) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -1701,7 +1757,8 @@ def test_utf8_array_comparison_edge_cases():
     assert isinstance(hash(arr), int)
 
 
-def test_bare_utf8_expr_uses_span_driver():
+@pytest.mark.parametrize("keyword", ["eval_kwargs", "ne_args"])
+def test_bare_utf8_expr_uses_span_driver(keyword):
     """A bare UTF8Array must not evaluate through the NumPy slices_eval path.
 
     That path returns correct-looking values while never reaching miniexpr,
@@ -1710,7 +1767,10 @@ def test_bare_utf8_expr_uses_span_driver():
     values = ["hello", "world", "héllo"]
     arr = blosc2.utf8_array(values)
 
-    result = blosc2.lazyexpr("'x=' + a", {"a": arr}).compute(strict_miniexpr=True)
+    expr = blosc2.lazyexpr("'x=' + a", {"a": arr}, **{keyword: {}})
+    assert expr._eval_kwargs == {}
+    assert not hasattr(expr, "_ne_args")
+    result = expr.compute(strict_miniexpr=True)
     # Contagion: a string result over a utf8 operand stays variable-width.
     assert isinstance(result, blosc2.UTF8Array)
     assert list(result[:]) == ["x=" + v for v in values]
@@ -2081,7 +2141,7 @@ def test_ctable_utf8_column_assign_persists(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-@blosc2.dsl_kernel
+@DSLKernel
 def _shout(name):
     return name.upper()
 
@@ -2131,7 +2191,7 @@ def test_utf8_kernel_refused_at_registration():
 def test_utf8_kernel_refused_whatever_returned():
     """It is the utf8 operand that cannot work, not the string output."""
 
-    @blosc2.dsl_kernel
+    @DSLKernel
     def is_long(name):
         return name > "b"
 
@@ -2180,7 +2240,7 @@ def test_utf8_refusal_recipe_actually_works():
 def test_non_utf8_dsl_kernel_column_still_works():
     """The guard must not catch ordinary columns."""
 
-    @blosc2.dsl_kernel
+    @DSLKernel
     def double(x):
         return x * 2
 

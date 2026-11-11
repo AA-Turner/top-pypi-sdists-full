@@ -16,14 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+use tvm_ffi::collections::tensor::CPUNDAlloc;
 use tvm_ffi::*;
 
 /// Helper to create a Tensor with a specific float value and shape
 fn create_tensor(val: f32, shape: &[i64]) -> Tensor {
     let dtype = DLDataType::new(DLDataTypeCode::kDLFloat, 32, 1);
     let device = DLDevice::new(DLDeviceType::kDLCPU, 0);
-    let tensor = Tensor::from_nd_alloc(CPUNDAlloc {}, shape, dtype, device);
-    if let Ok(slice) = tensor.data_as_slice_mut::<f32>() {
+    let tensor = Tensor::from_nd_alloc(CPUNDAlloc, shape, dtype, device);
+    // SAFETY: nothing else accesses the tensor's data meanwhile.
+    if let Ok(slice) = unsafe { tensor.data_as_slice_mut::<f32>() } {
         slice[0] = val;
     }
     tensor
@@ -41,25 +43,25 @@ fn test_array_core_and_iteration() {
     let t1 = create_tensor(10.0, &[1, 2]);
     let t2 = create_tensor(20.0, &[3, 4, 5]);
 
-    let array = Array::new(vec![t1.clone(), t2.clone()]);
+    let array = Array::from_vec(vec![t1.clone(), t2.clone()]);
 
     // Core Accessors
     assert_eq!(array.len(), 2);
     assert!(!array.is_empty());
 
     // Value Integrity
-    assert_eq!(get_val(&Tensor::try_from(array[0]).unwrap()), 10.0);
-    assert_eq!(Tensor::try_from(array[0]).unwrap().ndim(), 2);
-    assert_eq!(Tensor::try_from(array[1]).unwrap().ndim(), 3);
+    assert_eq!(get_val(&array[0]), 10.0);
+    assert_eq!(array[0].ndim(), 2);
+    assert_eq!(array[1].ndim(), 3);
 
     // Iteration
-    let vals: Vec<f32> = array.iter().map(|t| get_val(&t)).collect();
+    let vals: Vec<f32> = array.iter().map(get_val).collect();
     assert_eq!(vals, vec![10.0, 20.0]);
 }
 
 #[test]
 fn test_array_any_conversions() {
-    let array = Array::new(vec![
+    let array = Array::from_vec(vec![
         create_tensor(1.0, &[1]),
         create_tensor(2.0, &[1]),
         create_tensor(3.0, &[1]),
@@ -80,10 +82,10 @@ fn test_array_any_conversions() {
 
 #[test]
 fn test_array_with_any_elements() {
-    let array = Array::new(vec![
+    let array = Array::from_vec(vec![
         Any::from(7i64),
         Any::from(String::from("value")),
-        Any::from(Array::new(vec![1i64, 2])),
+        Any::from(Array::from_vec(vec![1i64, 2])),
     ]);
 
     assert_eq!(i64::try_from(array.get(0).unwrap()).unwrap(), 7);
@@ -95,6 +97,7 @@ fn test_array_with_any_elements() {
         Array::<i64>::try_from(array.get(2).unwrap())
             .unwrap()
             .iter()
+            .copied()
             .collect::<Vec<_>>(),
         vec![1, 2]
     );
@@ -107,11 +110,11 @@ fn test_array_with_any_elements() {
     let by_reference = i64::try_from(array_size.call_tuple((&round_trip,)).unwrap()).unwrap();
     assert_eq!((by_value, by_reference), (3, 3));
 
-    let widened = Array::<Any>::try_from(Any::from(Array::new(vec![3i64, 4]))).unwrap();
+    let widened = Array::<Any>::try_from(Any::from(Array::from_vec(vec![3i64, 4]))).unwrap();
     assert_eq!(
         widened
             .iter()
-            .map(|value| i64::try_from(value).unwrap())
+            .map(|value| value.downcast_ref::<i64>().copied().unwrap())
             .collect::<Vec<_>>(),
         vec![3, 4]
     );
@@ -120,7 +123,7 @@ fn test_array_with_any_elements() {
 #[test]
 fn test_array_recursive_type_checking() {
     // 1. Create an Array of Shapes
-    let shape_array = Array::new(vec![Shape::from(vec![1, 2]), Shape::from(vec![3])]);
+    let shape_array = Array::from_vec(vec![Shape::from(vec![1, 2]), Shape::from(vec![3])]);
 
     // 2. Wrap it in Any
     let any_val = Any::from(shape_array);
@@ -144,11 +147,11 @@ fn test_array_recursive_type_checking() {
 #[test]
 fn test_array_parametric_heterogeneity() {
     // Verify Array works with different ObjectRefCore types
-    let shape_array = Array::new(vec![Shape::from(vec![1, 2, 3]), Shape::from(vec![10])]);
+    let shape_array = Array::from_vec(vec![Shape::from(vec![1, 2, 3]), Shape::from(vec![10])]);
     assert_eq!(shape_array.get(0).unwrap().as_slice(), &[1, 2, 3]);
     assert_eq!(shape_array.get(1).unwrap().as_slice(), &[10]);
 
-    let function_array = Array::new(vec![
+    let function_array = Array::from_vec(vec![
         Function::get_global("ffi.String").unwrap(),
         Function::get_global("ffi.Bytes").unwrap(),
     ]);
@@ -168,4 +171,29 @@ fn test_array_parametric_heterogeneity() {
         .unwrap(),
         &[1, 2, 3]
     );
+}
+
+#[test]
+fn test_array_copy_on_write() {
+    let ptr = |a: &Array<String>| ObjectArc::as_ptr(<Array<String> as ObjectRefCore>::data(a));
+    let s = |x: &str| String::from(x);
+    let values = |a: &Array<String>| a.iter().map(|x| x.as_str().to_owned()).collect::<Vec<_>>();
+
+    let mut array = Array::from_vec(vec![s("a"), s("b"), s("c")]);
+    let shared = array.clone();
+    array.set(0, s("x"));
+    assert_ne!(ptr(&array), ptr(&shared));
+    assert_eq!(values(&shared), ["a", "b", "c"]);
+
+    let unique = ptr(&array);
+    array.set(1, s("y"));
+    array.truncate(2);
+    assert_eq!(array.pop().unwrap().as_str(), "y");
+    assert_eq!(ptr(&array), unique);
+
+    array.push(s("z"));
+    array.insert(0, s("w"));
+    assert_eq!(values(&array), ["w", "x", "z"]);
+
+    assert!(Array::<String>::new().pop().is_none());
 }

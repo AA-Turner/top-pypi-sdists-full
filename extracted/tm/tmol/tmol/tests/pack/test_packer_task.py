@@ -1,9 +1,8 @@
 import pytest
 import torch
 
-from tmol.pack import PackerPalette, PackerTask, SetPackerTask
-from tmol.pose import PoseStackBuilder
-from tmol.io import pose_stack_from_file
+from tmol import PackerPalette, PackerTask, PoseStackBuilder, pose_stack_from_file
+from tmol.pack import SetPackerTask
 
 # choices are padded to the largest palette: an AIB position offers the 21
 #    canonical choices and AIB itself
@@ -31,6 +30,22 @@ def test_terminal_palette_keeps_glycine_and_proline_design_choices(
             )
             offered = {names[i] for i in choices[0, 0, : counts[0, 0]].tolist()}
             assert expected <= offered
+
+
+@pytest.mark.parametrize("noncanonical_design", [False, True])
+def test_noncanonical_palette_offers_aib_and_d_amino_acids(
+    fresh_default_packed_block_types, torch_device, noncanonical_design
+):
+    """Only noncanonical design offers AIB and crosses L <-> D, in both directions."""
+    pbt = fresh_default_packed_block_types
+    names = [bt.name for bt in pbt.active_block_types]
+    palette = PackerPalette(noncanonical_design=noncanonical_design)
+    for original, others in (("ALA", {"AIB", "DALA"}), ("DALA", {"AIB", "ALA"})):
+        counts, choices, _ = palette.block_types_from_original(
+            pbt, torch.tensor([[names.index(original)]], device=torch_device)
+        )
+        offered = {names[i] for i in choices[0, 0, : counts[0, 0]].tolist()}
+        assert (others <= offered) == noncanonical_design
 
 
 def test_packer_palette_design_to_canonical_aas(

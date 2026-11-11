@@ -4,12 +4,14 @@ import logging
 from abc import ABC
 from copy import deepcopy
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
 import yaml
 from curies import Converter
 from linkml_runtime import SchemaView
+from linkml_runtime.linkml_model import SchemaDefinition
 from linkml_runtime.utils.yamlutils import YAMLRoot
 from pydantic import BaseModel
 
@@ -23,6 +25,7 @@ from linkml_map.datamodel.transformer_model import (
 )
 from linkml_map.inference.inference import induce_missing_values
 from linkml_map.spec_normalizer import normalize_spec
+from linkml_map.utils.enum_index import EnumIndex, enum_index
 from linkml_map.utils.eval_utils import FUNCTIONS, INJECTED_EVAL_NAMES
 from linkml_map.utils.expression_locations import (
     extract_braced_reference_roots,
@@ -37,6 +40,79 @@ logger = logging.getLogger(__name__)
 
 OBJECT_TYPE = dict[str, Any] | BaseModel | YAMLRoot
 """An object can be a plain python dict, a pydantic object, or a linkml YAMLRoot"""
+
+
+def _to_decimal(v: Any) -> Decimal:
+    """Convert *v* to an exact, finite decimal.
+
+    Floats go through ``str`` so they keep their printed digits rather than their
+    binary expansion.
+
+    >>> _to_decimal("52.30")
+    Decimal('52.30')
+    >>> _to_decimal(0.1)
+    Decimal('0.1')
+    >>> _to_decimal("abc")
+    Traceback (most recent call last):
+    ...
+    ValueError: Cannot convert 'abc' to decimal
+    """
+    if isinstance(v, Decimal):
+        d = v
+    else:
+        try:
+            d = Decimal(str(v))
+        except InvalidOperation as err:
+            msg = f"Cannot convert {v!r} to decimal"
+            raise ValueError(msg) from err
+    if not d.is_finite():
+        msg = f"Cannot convert {v!r} to decimal: not a finite number"
+        raise ValueError(msg)
+    return d
+
+
+_BOOLEAN_STRINGS = {"true": True, "false": False, "1": True, "0": False}
+
+
+def _to_bool(v: Any) -> bool:
+    """Convert *v* to a boolean, parsing strings rather than testing their truthiness.
+
+    >>> _to_bool("False")
+    False
+    >>> _to_bool("1")
+    True
+    >>> _to_bool(5)
+    True
+    >>> _to_bool("maybe")
+    Traceback (most recent call last):
+    ...
+    ValueError: Cannot convert 'maybe' to boolean
+    """
+    if not isinstance(v, str):
+        return bool(v)
+    key = v.strip().lower()
+    if key not in _BOOLEAN_STRINGS:
+        msg = f"Cannot convert {v!r} to boolean"
+        raise ValueError(msg)
+    return _BOOLEAN_STRINGS[key]
+
+
+_COERCIBLE_TYPES = {"integer", "float", "decimal", "string", "boolean"}
+
+
+def coercible_datatype(sv: SchemaView, range_name: str | None) -> str | None:
+    """Return the built-in datatype a range coerces values to.
+
+    Custom types resolve through their ``typeof`` ancestry.
+
+    :param sv: The schema declaring the range.
+    :param range_name: A slot range, or ``None``.
+    :return: One of ``integer``, ``float``, ``decimal``, ``string``, ``boolean``, or
+        ``None`` for a class, an enum, or a type with no coercible built-in ancestor.
+    """
+    if range_name not in sv.all_types():
+        return None
+    return next((t for t in sv.type_ancestors(range_name) if t in _COERCIBLE_TYPES), None)
 
 
 @dataclass
@@ -66,11 +142,23 @@ class Transformer(ABC):
        requires ``source_schemaview`` to be set.
     """
 
-    specification: TransformationSpecification = None
-    """A specification of how to generate target objects from source objects."""
+    specification: TransformationSpecification | dict[str, Any] | str | Path | None = None
+    """A specification of how to generate target objects from source objects.
 
-    source_schemaview: SchemaView = None
-    """A view over the schema describing the input/source object."""
+    The constructor also accepts a YAML file path or a dict, which it loads as
+    ``load_transformer_specification`` and ``create_transformer_specification`` do,
+    without modifying the dict. After construction it is always a loaded
+    ``TransformationSpecification`` or ``None``. Only the constructor loads;
+    to replace the spec later, call ``load_transformer_specification``.
+    """
+
+    source_schemaview: SchemaView | SchemaDefinition | str | Path | None = None
+    """A view over the schema describing the input/source object.
+
+    The constructor also accepts a schema file path or a ``SchemaDefinition``. After construction it is
+    always a ``SchemaView`` or ``None``. Only the constructor loads; to replace
+    the schema later, call ``load_source_schema``.
+    """
 
     _derived_specification: TransformationSpecification = None
     """A specification with inferred missing values."""
@@ -78,8 +166,13 @@ class Transformer(ABC):
     _source_schema_patched: bool = field(default=False)
     """Flag to track if source schema patches have been applied."""
 
-    target_schemaview: SchemaView | None = None
-    """A view over the schema describing the output/target object."""
+    target_schemaview: SchemaView | SchemaDefinition | str | Path | None = None
+    """A view over the schema describing the output/target object.
+
+    The constructor also accepts a schema file path or a ``SchemaDefinition``. After construction it is
+    always a ``SchemaView`` or ``None``. Only the constructor loads; to replace
+    the schema later, assign a ``SchemaView``.
+    """
 
     unrestricted_eval: bool = field(default=False)
     """Set to True to allow arbitrary evals as part of transformation."""
@@ -94,9 +187,20 @@ class Transformer(ABC):
     :class:`~linkml_map.transformer.errors.TransformationError`, which
     surfaces typos, stale references, and wrong-table accesses that
     would otherwise produce silent nulls in the output.
+
+    It also governs enum-ranged target slots: a value that matches no
+    permissible value of the target enum, or more than one, raises when
+    ``True`` and passes through with a warning when ``False``.
     """
 
     _curie_converter: Converter = None
+
+    _target_datatype_cache: dict[tuple[str, str], str | None] = field(default_factory=dict, repr=False)
+
+    _target_enum_cache: dict[tuple[str, str, str | None], EnumIndex | None] = field(default_factory=dict, repr=False)
+
+    _warned_unresolved_enum_values: set[tuple[str, str]] = field(default_factory=set, repr=False)
+    """``(enum, value)`` pairs already warned about in non-strict mode, so each logs once."""
 
     spec_messages: list[Any] = field(default_factory=list)
     """Scan messages captured at spec-load time.
@@ -108,6 +212,21 @@ class Transformer(ABC):
     spec, so deprecations whose source fields were cleared by normalization
     (e.g., ``object_derivations``, PV ``sources``) are still surfaced.
     """
+
+    def __post_init__(self) -> None:
+        """Load a specification given as a path or dict, and schemas given as paths or definitions."""
+        if isinstance(self.specification, (str, Path)):
+            self.load_transformer_specification(self.specification)
+        elif isinstance(self.specification, dict):
+            self.create_transformer_specification(deepcopy(self.specification))
+        if isinstance(self.source_schemaview, (str, Path)):
+            self.load_source_schema(self.source_schemaview)
+        elif isinstance(self.source_schemaview, SchemaDefinition):
+            self.source_schemaview = SchemaView(self.source_schemaview)
+        if isinstance(self.target_schemaview, (str, Path)):
+            self.target_schemaview = SchemaView(str(self.target_schemaview))
+        elif isinstance(self.target_schemaview, SchemaDefinition):
+            self.target_schemaview = SchemaView(self.target_schemaview)
 
     def map_object(self, obj: OBJECT_TYPE, source_type: str | None = None, **kwargs: Any) -> OBJECT_TYPE:
         """
@@ -365,7 +484,8 @@ class Transformer(ABC):
     ) -> None:
         """Add an explicit ``AliasedClass`` join for *table* on *class_deriv*.
 
-        No-op when the join is already declared/synthesized. When no join key can
+        No-op when the join is already declared or synthesized, on *class_deriv* or
+        on one of its ``is_a``/``mixins`` ancestors. When no join key can
         be inferred, behavior depends on *required*:
 
         - ``required=True`` (an expression ``{table.col}`` reference): fail loud.
@@ -379,6 +499,9 @@ class Transformer(ABC):
         :raises ValueError: if *required* and *table* cannot be keyed.
         """
         if class_deriv.joins and table in class_deriv.joins:
+            return
+        # A join an is_a/mixins ancestor declares is merged in at transform time.
+        if any(a.joins and table in a.joins for a in self._class_derivation_ancestors(class_deriv).values()):
             return
         join_key = infer_join_key(sv, parent_source, table)
         if join_key is None:
@@ -460,7 +583,14 @@ class Transformer(ABC):
         if len(matching_tgt_class_derivs) != 1:
             msg = f"Could not find class derivation for {target_class_name} (results={len(matching_tgt_class_derivs)})"
             raise ValueError(msg)
-        cd = matching_tgt_class_derivs[0]
+        return self._with_inherited_fields(matching_tgt_class_derivs[0])
+
+    def _with_inherited_fields(self, cd: ClassDerivation) -> ClassDerivation:
+        """Return *cd* with fields it leaves unset filled in from its ``is_a``/``mixins`` ancestors.
+
+        Slot derivations and other collections are merged; unset scalars are copied.
+        Returns *cd* itself when it has no ancestors, otherwise a merged copy.
+        """
         ancmap = self._class_derivation_ancestors(cd)
         if ancmap:
             cd = deepcopy(cd)
@@ -502,18 +632,21 @@ class Transformer(ABC):
             ancestors.update(self._class_derivation_ancestors(parent_cd))
         return ancestors
 
-    def _get_enum_derivation(self, target_enum_name: str) -> EnumDerivation:
-        spec = self.derived_specification
-        matching_tgt_enum_derivs = [
+    def _enum_derivations_from(self, source_enum_name: str) -> list[EnumDerivation]:
+        """Return the enum derivations that read values of *source_enum_name*."""
+        return [
             deriv
-            for deriv in spec.enum_derivations.values()
-            if deriv.populated_from == target_enum_name or (not deriv.populated_from and target_enum_name == deriv.name)
+            for deriv in self.derived_specification.enum_derivations.values()
+            if deriv.populated_from == source_enum_name or (not deriv.populated_from and deriv.name == source_enum_name)
         ]
-        logger.debug(f"Target enum derivations={matching_tgt_enum_derivs}")
-        if len(matching_tgt_enum_derivs) != 1:
-            msg = f"Could not find what to derive from a source {target_enum_name}"
+
+    def _get_enum_derivation(self, source_enum_name: str) -> EnumDerivation:
+        matching = self._enum_derivations_from(source_enum_name)
+        logger.debug(f"Enum derivations from {source_enum_name}={matching}")
+        if len(matching) != 1:
+            msg = f"Could not find what to derive from a source {source_enum_name}"
             raise ValueError(msg)
-        return matching_tgt_enum_derivs[0]
+        return matching[0]
 
     def _is_coerce_to_multivalued(self, slot_derivation: SlotDerivation, class_derivation: ClassDerivation) -> bool:
         cast_as = slot_derivation.cast_collection_as
@@ -545,6 +678,28 @@ class Transformer(ABC):
                 return True
         return False
 
+    def _target_slot_datatype(self, class_name: str, slot_name: str) -> str | None:
+        """Return the built-in datatype the target schema declares for a slot.
+
+        Custom types resolve through their ``typeof`` ancestry. Returns ``None``
+        when there is no target schema, or the range is a class, an enum, or a
+        type with no coercible built-in ancestor.
+
+        :param class_name: Target class name.
+        :param slot_name: Target slot name.
+        :return: One of ``integer``, ``float``, ``decimal``, ``string``, ``boolean``, or ``None``.
+        """
+        key = (class_name, slot_name)
+        if key not in self._target_datatype_cache:
+            self._target_datatype_cache[key] = self._resolve_target_slot_datatype(class_name, slot_name)
+        return self._target_datatype_cache[key]
+
+    def _resolve_target_slot_datatype(self, class_name: str, slot_name: str) -> str | None:
+        sv = self.target_schemaview
+        if sv is None:
+            return None
+        return coercible_datatype(sv, sv.induced_slot(slot_name, class_name).range)
+
     def _coerce_datatype(self, v: Any, target_range: str | None) -> Any:
         if target_range is None:
             return v
@@ -552,19 +707,70 @@ class Transformer(ABC):
             return [self._coerce_datatype(v1, target_range) for v1 in v]
         if isinstance(v, dict):
             return {k: self._coerce_datatype(v1, target_range) for k, v1 in v.items()}
+        if target_range == "decimal":
+            return _to_decimal(v)
+        if target_range == "boolean":
+            return _to_bool(v)
         cmap = {
             "integer": int,
             "float": float,
             "string": str,
-            "boolean": bool,
         }
         cls = cmap.get(target_range)
         if not cls:
-            logger.warning(f"Unknown target range {target_range}")
+            # A class, an enum, or a type with no conversion (e.g. date): pass through.
             return v
         if isinstance(v, cls):
             return v
         return cls(v)
+
+    def _target_enum_index(self, class_name: str, slot_derivation: SlotDerivation) -> EnumIndex | None:
+        """Return the index of the target enum a slot's values must resolve to.
+
+        The spec's ``range`` wins over the target schema's, as for datatypes. Returns
+        ``None`` when there is no target schema, the range is not an enum, or the enum
+        has no closed list of permissible values.
+
+        :param class_name: Target class name.
+        :param slot_derivation: The slot derivation.
+        :return: The enum index, or ``None``.
+        """
+        key = (class_name, slot_derivation.name, slot_derivation.range)
+        if key not in self._target_enum_cache:
+            sv = self.target_schemaview
+            index = None
+            if sv is not None:
+                slot_range = slot_derivation.range or sv.induced_slot(slot_derivation.name, class_name).range
+                if slot_range in sv.all_enums():
+                    index = enum_index(sv, slot_range)
+            self._target_enum_cache[key] = index
+        return self._target_enum_cache[key]
+
+    def _resolve_enum_value(self, v: Any, index: EnumIndex | None) -> Any:
+        """Replace *v* with the key of the permissible value it spells.
+
+        A value matching no permissible value, or more than one, raises in strict mode
+        and otherwise passes through with a warning.
+
+        :param v: A slot value, or a list or dict of them.
+        :param index: The target enum's index; ``None`` leaves *v* unchanged.
+        :return: The resolved value.
+        """
+        if index is None:
+            return v
+        if isinstance(v, list):
+            return [self._resolve_enum_value(v1, index) for v1 in v]
+        if isinstance(v, dict):
+            return {k: self._resolve_enum_value(v1, index) for k, v1 in v.items()}
+        key, problem = index.resolve(str(v))
+        if key is not None:
+            return key
+        if self.strict:
+            raise ValueError(problem)
+        if (index.enum_name, str(v)) not in self._warned_unresolved_enum_values:
+            self._warned_unresolved_enum_values.add((index.enum_name, str(v)))
+            logger.warning(problem)
+        return v
 
     @property
     def curie_converter(self) -> Converter:

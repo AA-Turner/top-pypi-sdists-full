@@ -44,9 +44,6 @@ __all__ = [
     "CommandsScrollCommand",
     "CommandsFindCommand",
     "CommandsTabCommand",
-    "CommandsStatusCommand",
-    "CommandsCancelCommand",
-    "CommandsDialogCommand",
     "Observe",
 ]
 
@@ -64,9 +61,6 @@ class SessionCommandsParams(TypedDict, total=False):
 
     A retry with the same after and commands runs only once.
     """
-
-    events_after: Annotated[str, PropertyInfo(alias="eventsAfter")]
-    """c-0 the first time, then the last events.cursor."""
 
     observe: Observe
     """Returns a snapshot, or a diff against the last one, after the commands."""
@@ -569,21 +563,18 @@ class CommandsScrollCommand(TypedDict, total=False):
 
 
 class CommandsFindCommand(TypedDict, total=False):
-    """Finds elements and returns refs for up to 50 matches."""
+    """Finds elements and returns refs for up to 50 matches.
 
-    by: Required[Literal["role", "text", "label", "placeholder", "alt", "title", "testid", "css"]]
+    With nth, it returns that one match.
+    """
 
     command: Required[Literal["find"]]
 
-    value: Required[str]
-
-    exact: bool
+    target: Required[CommandTargetParam]
+    """A CSS selector or a locator, not a ref."""
 
     frame: CommandFrameParam
     """The iframe to look in. List nested iframes from the outside in."""
-
-    name: str
-    """The accessible name. Works only with by role."""
 
     tab: str
     """A tab id such as t2. A command on a ref does not need it."""
@@ -600,35 +591,6 @@ class CommandsTabCommand(TypedDict, total=False):
     """A tab id such as t2. A command on a ref does not need it."""
 
     url: str
-
-
-class CommandsStatusCommand(TypedDict, total=False):
-    """Waits for an execution and returns it. Send it alone."""
-
-    command: Required[Literal["status"]]
-
-    execution: Required[str]
-
-
-class CommandsCancelCommand(TypedDict, total=False):
-    """Stops an execution. Send it alone."""
-
-    command: Required[Literal["cancel"]]
-
-    execution: Required[str]
-
-
-class CommandsDialogCommand(TypedDict, total=False):
-    """Answers an open dialog. Send it alone."""
-
-    action: Required[Literal["accept", "dismiss"]]
-
-    command: Required[Literal["dialog"]]
-
-    dialog: Required[str]
-
-    text: str
-    """The answer to a prompt."""
 
 
 Commands: TypeAlias = Union[
@@ -661,9 +623,6 @@ Commands: TypeAlias = Union[
     CommandsScrollCommand,
     CommandsFindCommand,
     CommandsTabCommand,
-    CommandsStatusCommand,
-    CommandsCancelCommand,
-    CommandsDialogCommand,
     Iterable[CommandParam],
 ]
 

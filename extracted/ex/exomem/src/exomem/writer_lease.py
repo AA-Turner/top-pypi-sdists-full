@@ -2397,6 +2397,26 @@ def _redacted_coordinator_url(url: str) -> str:
     return urllib.parse.urlunsplit((parts.scheme, host, parts.path, "", ""))
 
 
+# Writer-authority refusals that background work (import batches, media jobs)
+# waits out instead of failing: the mutation lock is busy or cannot be taken on
+# this host, the coordinator does not answer, or this replica's lease is held
+# elsewhere or its token is no longer current. Each clears without any change
+# to the request.
+TRANSIENT_WRITER_CODES = frozenset(
+    {
+        "MUTATION_BUSY",
+        "MUTATION_LOCK_UNAVAILABLE",
+        "WRITER_COORDINATOR_UNAVAILABLE",
+        # Deliberately transient too. A misconfigured coordinator URL is not
+        # fixed by asking again, but it IS fixed by an operator without
+        # restarting anything -- so the caller waits rather than crashing.
+        "WRITER_COORDINATOR_CONTRACT_ABSENT",
+        "WRITER_FENCED",
+        "WRITER_LEASE_REQUIRED",
+    }
+)
+
+
 def _coordinator_unavailable_error(exc: BaseException) -> OpError:
     return OpError(
         "WRITER_COORDINATOR_UNAVAILABLE",
@@ -8805,6 +8825,19 @@ def invoke_command(
         # stored handle for 600 s after a cancel would hand back a dead job.
         implicit_idempotency_scope = None
         dispatch_command = replace(command, leaf=maintenance_jobs.start_leaf(command, injected, kwargs))
+    if (
+        implicit_idempotency_scope is not None
+        and command.name == "maintain_memory"
+        and kwargs.get("mode") == "curation"
+        and kwargs.get("curation_action") == "resume"
+    ):
+        # Resume advances a run by one step and every call carries the same arguments, so the
+        # call's own request id joins the scope: a new call runs the next step instead of
+        # replaying the last reply for 600 s, while a retry of one call, the busy and warm-up
+        # waits and a vocabulary binding keep a canonical identity.
+        implicit_idempotency_scope = (
+            f"{implicit_idempotency_scope}\0resume:{mutation_request_id or uuid.uuid4()}"
+        )
     if selector_error is not None:
 
         def reject_uncovered_selector(*_args: Any, **_kwargs: Any) -> Any:

@@ -48,6 +48,12 @@ def _rfc_compare(actual: str, expected: str, operator: str) -> bool:
     return _compare(actual, expected, operator)
 
 
+def _rfc_match_mode(value) -> str:
+    """Normalise a JSONPath ``match_mode``: "any" passes when at least one match
+    satisfies the comparison; anything else (absent, "", "all", unknown) is "all"."""
+    return "any" if isinstance(value, str) and value.strip().lower() == "any" else "all"
+
+
 def _stringify_match(match) -> str:
     import json as _json
 
@@ -79,7 +85,8 @@ def evaluate_sub_checks(claim: str, composite_operator: str, sub_checks: list[di
         if rfc_json_path:
             matches = _apply_rfc_json_path(sc.get("extracted_value", "") or "", rfc_json_path)
             expected_raw = str(sc.get("expected_value", "") or "")
-            passed = bool(matches) and all(
+            reduce = any if _rfc_match_mode(sc.get("match_mode")) == "any" else all
+            passed = bool(matches) and reduce(
                 _rfc_compare(_stringify_match(m), expected_raw, operator) for m in matches)
         else:
             actual = apply_transforms(sc.get("extracted_value", "") or "", transforms, json_path)

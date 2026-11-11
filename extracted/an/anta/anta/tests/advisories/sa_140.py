@@ -7,15 +7,18 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import ClassVar
 
 from anta._advisory.base import _PREVIEW_WARNING, _AntaAdvisoryTest
 from anta._advisory.eos_versions import VersionRule
 from anta._advisory.facts.eos import EosVersionFact, SecureBootFact
 from anta._advisory.facts.models import (
     Fact,
+    FactsBase,
     FeatureState,
-    FeatureValue,
     UnavailableFact,
+    fact_field,
+    facts_dataclass,
 )
 from anta._advisory.findings.assessment import assess_eos_scope
 from anta._advisory.findings.models import (
@@ -43,8 +46,8 @@ AFFECTED_VERSION_MATRIX: tuple[VersionRule, ...] = (
     VersionRule(major=4, minor=34, patch_lte=5),
     VersionRule(major=4, minor=33, patch_lte=7),
     VersionRule(major=4, minor=32, patch_lte=9),
-    VersionRule(major=4, minor=31, patch_lte=10),
-    VersionRule(major=4, minor=30, patch_lte=10),
+    VersionRule(major=4, minor=31),
+    VersionRule(major=4, minor=30),
 )
 
 FIXED_RELEASES = (
@@ -76,8 +79,8 @@ VULNERABILITY_ID = ADVISORY.vulnerabilities[0].id
 
 
 def _assess_sa140(
-    version_fact: Fact[EOSVersion],
-    secure_boot: Fact[FeatureValue],
+    version_fact: Fact[EosVersionFact],
+    secure_boot: Fact[SecureBootFact],
 ) -> VulnerabilityResult:
     """Return a structured conclusion from normalized SA140 facts."""
     release = assess_eos_scope(VULNERABILITY_ID, version_fact, AFFECTED_VERSION_MATRIX)
@@ -110,9 +113,9 @@ class SA140(_AntaAdvisoryTest):
 
     Expected Results
     ----------------
-    * Success: The test will pass if the EOS version or Secure Boot state is not affected.
-    * Failure: The test will fail if an affected EOS version has Secure Boot supported and enabled.
-    * Error: The test will error if the EOS version or Secure Boot state cannot be determined.
+    * Not Affected: EOS is outside scope or Secure Boot is not enabled.
+    * Affected: An affected EOS release has Secure Boot supported and enabled.
+    * Error: The EOS version or Secure Boot state cannot be determined.
 
     Examples
     --------
@@ -122,18 +125,22 @@ class SA140(_AntaAdvisoryTest):
     ```
     """
 
-    advisory = ADVISORY
-    required_facts = (EosVersionFact, SecureBootFact)
+    @facts_dataclass
+    class Facts(FactsBase):
+        """Collected facts required to assess the advisory."""
+
+        version: Fact[EosVersionFact] = fact_field(EosVersionFact)
+        secure_boot: Fact[SecureBootFact] = fact_field(SecureBootFact)
+
+    advisory: ClassVar[_AdvisoryMetadata] = ADVISORY
     description = "Verify whether the device is impacted by Security Advisory 0140."
     _atomic_support = True
 
     @_AntaAdvisoryTest.anta_test
     def test(self) -> None:
         """Normalize command and inventory inputs, assess facts, and project the finding."""
-        finding = _assess_sa140(
-            self.fact(EosVersionFact),
-            self.fact(SecureBootFact),
-        )
+        facts = self.Facts.collect(self)
+        finding = _assess_sa140(facts.version, facts.secure_boot)
         vulnerability = ADVISORY.vulnerabilities[0]
         atomic_result = self.result.add(
             f"Verify {vulnerability.id}.",

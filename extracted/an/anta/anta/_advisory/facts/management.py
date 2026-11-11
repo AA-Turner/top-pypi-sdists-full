@@ -10,47 +10,42 @@ import re
 import shlex
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import ClassVar
 
+from anta._advisory.eos_versions import VersionRule
 from anta._advisory.facts.models import (
     CommandsFactDefinition,
-    ConfigurationState,
-    ConfigurationValue,
+    CredentialSyntaxFact,
     CredentialSyntaxState,
-    CredentialSyntaxValue,
     Fact,
     FactProblemKind,
     FactSource,
     FactSourceKind,
+    FeatureFact,
     FeatureName,
+    FeatureRef,
     FeatureState,
-    FeatureValue,
+    MitigationFact,
     MitigationState,
-    MitigationValue,
     SubFeature,
 )
 from anta._advisory.optional_commands import OptionalAntaCommand, is_unsupported_optional_command
-from anta._eos.parsing import ParseFail, ParseFailureReason, ParseResult, ParseSuccessful
 from anta.models import AntaCommand
 
-RISKY_TRACE_SELECTORS = ("service/9", "interceptor/9", "transport_socketcli/9")
 GNMI_COMMAND = OptionalAntaCommand(command="show management api gnmi", revision=1)
-DOT1X_COMMAND = OptionalAntaCommand(command="show dot1x all", revision=1)
 RADIUS_PROXY_CONFIG_COMMAND = AntaCommand(command="show running-config section radius proxy", ofmt="text")
 GNSI_COMMAND = OptionalAntaCommand(command="show management api gnsi", revision=1)
 GNPSI_COMMAND = OptionalAntaCommand(command="show management api gnpsi", revision=1)
-GNPSI_TRACE_COMMAND = OptionalAntaCommand(command="show trace Gnpsi | grep Auth", ofmt="text", defer_errors=True)
 MIN_ENABLED_GNSI_TRANSPORTS = 2
 PATHZ_POLICY_COMMAND = OptionalAntaCommand(
     command="bash timeout 10 sh -c 'if test -f /persist/sys/gnsi/pathz/policy.json; then cat /persist/sys/gnsi/pathz/policy.json; else echo null; fi'",
     ofmt="text",
 )
 GRIBI_COMMAND = OptionalAntaCommand(command="show management api gribi", revision=1)
-TRACE_COMMAND = OptionalAntaCommand(command="show running-config section trace", ofmt="text")
 RESTCONF_COMMAND = OptionalAntaCommand(command="show management api restconf", revision=1)
 NETCONF_COMMAND = OptionalAntaCommand(command="show management api netconf", revision=1)
 SSL_PROFILE_COMMAND = OptionalAntaCommand(command="show management security ssl profile", revision=1)
 SNMP_COMMAND = AntaCommand(command="show snmp", revision=1)
-SNMPV3_USER_COMMAND = OptionalAntaCommand(command="show snmp user", revision=1)
 SNMPV3_USER_CONFIG_COMMAND = AntaCommand(command="show running-config | include ^snmp-server user", ofmt="text")
 
 
@@ -67,8 +62,10 @@ class _GnpsiTransport:
     """Deserialized gNPSI transport fields without fact-specific interpretation."""
 
     enabled: object
+    running: object
     security_type: object
     authentication_methods: object
+    config_errors: object
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,11 +107,48 @@ def _deserialize_gnpsi_config(output: Mapping[str, object]) -> _GnpsiConfig | Fa
         parsed.append(
             _GnpsiTransport(
                 enabled=transport.get("enabled"),
+                running=transport.get("running", True),
                 security_type=transport.get("securityType"),
                 authentication_methods=transport.get("authnUsernamePriority"),
+                config_errors=transport.get("configErrors"),
             )
         )
     return _GnpsiConfig(enabled=output["enabled"], transports=tuple(parsed))
+
+
+def _gnpsi_config_errors_present(value: object) -> bool | FactProblemKind:
+    """Return whether a candidate transport reports a truthy configuration error."""
+    if not isinstance(value, Mapping) or not all(isinstance(error, bool) for error in value.values()):
+        return FactProblemKind.MALFORMED
+    return any(value.values())
+
+
+def _effective_gnpsi_transports(transports: tuple[_GnpsiTransport, ...]) -> tuple[_GnpsiTransport, ...] | FactProblemKind:
+    """Return transports that can currently accept gNPSI requests.
+
+    Configured enablement is not enough: EOS can report ``enabled: true`` while ``running`` is
+    false and ``configErrors`` is populated. Explicit ``running: false`` makes the transport
+    ineffective without requiring ``configErrors``. An omitted ``running`` field defaults to true so
+    partial JSON cannot collapse into a false negative. Explicit null and any other non-boolean
+    ``running`` value are malformed, as are missing or invalid ``configErrors``.
+    """
+    if any(not isinstance(transport.enabled, bool) for transport in transports):
+        return FactProblemKind.MALFORMED
+    effective: list[_GnpsiTransport] = []
+    for transport in transports:
+        if transport.enabled is not True:
+            continue
+        if not isinstance(transport.running, bool):
+            return FactProblemKind.MALFORMED
+        if transport.running is False:
+            continue
+        config_errors = _gnpsi_config_errors_present(transport.config_errors)
+        if isinstance(config_errors, FactProblemKind):
+            return config_errors
+        if config_errors:
+            continue
+        effective.append(transport)
+    return tuple(effective)
 
 
 def _gnpsi_security_type(value: str) -> str:
@@ -123,7 +157,7 @@ def _gnpsi_security_type(value: str) -> str:
 
 
 def _gnpsi_authentication(transport: _GnpsiTransport) -> tuple[str, frozenset[str]] | FactProblemKind:
-    """Return validated security and authentication fields for one enabled transport."""
+    """Return validated security and authentication fields for one effective transport."""
     if transport.security_type is None or transport.authentication_methods is None:
         return FactProblemKind.MISSING
     if not isinstance(transport.security_type, str) or (
@@ -144,8 +178,21 @@ def _feature_source(command: AntaCommand) -> FactSource:
 
 
 _SNMPV3_CREDENTIAL_CLAUSES = frozenset({"auth", "priv"})
-_SNMPV3_LOCAL_VERSION_INDEX = 4
-_SNMPV3_REMOTE_VERSION_INDEX = 6
+_SNMPV3_AUTHENTICATION_CLAUSES = frozenset({"auth"})
+_SNMP_USER_SECURITY_MODEL_INDEX = 4
+_SNMP_USER_SECURITY_MODELS = frozenset({"v1", "v2c", "v3"})
+
+
+def _snmp_user_security_model_index(tokens: tuple[str, ...]) -> int | None:
+    """Return the security-model token index after the optional remote host and UDP port of one SNMP user line."""
+    index = _SNMP_USER_SECURITY_MODEL_INDEX
+    if tokens[index : index + 1] == ("remote",):
+        index += 2
+        if tokens[index : index + 1] == ("udp-port",):
+            index += 2
+    if index >= len(tokens) or tokens[index] not in _SNMP_USER_SECURITY_MODELS:
+        return None
+    return index
 
 
 def _snmpv3_credential_clause_states(
@@ -193,12 +240,10 @@ def _snmpv3_credential_syntax(
             return None
         if tuple(tokens[:2]) != ("snmp-server", "user"):
             return None
-        version_index = (
-            _SNMPV3_REMOTE_VERSION_INDEX
-            if len(tokens) > _SNMPV3_LOCAL_VERSION_INDEX and tokens[_SNMPV3_LOCAL_VERSION_INDEX] == "remote"
-            else _SNMPV3_LOCAL_VERSION_INDEX
-        )
-        if len(tokens) <= version_index or tokens[version_index] != "v3":
+        version_index = _snmp_user_security_model_index(tokens)
+        if version_index is None:
+            return None
+        if tokens[version_index] != "v3":
             continue
         states = _snmpv3_credential_clause_states(tokens[version_index + 1 :], observed_clauses)
         if states is None:
@@ -219,103 +264,36 @@ def _classify_snmpv3_credential_syntax(observed: set[CredentialSyntaxState]) -> 
     return CredentialSyntaxState.MIXED
 
 
-def _parse_dot1x_controlled_authenticator(output: Mapping[str, object]) -> ParseResult[bool]:  # noqa: PLR0911
-    """Parse whether system control and a controlled authenticator interface are present."""
-    system_control = output.get("systemAuthControl")
-    interfaces = output.get("interfaces")
-    if not isinstance(system_control, bool):
-        return ParseFail(ParseFailureReason.MALFORMED, "show dot1x all systemAuthControl is not a boolean")
-    if not isinstance(interfaces, Mapping):
-        return ParseFail(ParseFailureReason.MALFORMED, "show dot1x all interfaces is not a mapping")
-    if not system_control:
-        return ParseSuccessful(value=False)
-    for name, interface in interfaces.items():
-        if not isinstance(interface, Mapping):
-            return ParseFail(ParseFailureReason.MALFORMED, f"show dot1x all interface {name!r} is not a mapping")
-        port_control = interface.get("portControl")
-        if not isinstance(port_control, str):
-            return ParseFail(ParseFailureReason.MALFORMED, f"show dot1x all interface {name!r} portControl is not a string")
-        if port_control == "controlled":
-            return ParseSuccessful(value=True)
-    return ParseSuccessful(value=False)
-
-
-class Dot1xControlledAuthenticatorFact(CommandsFactDefinition[FeatureValue]):
-    """Effective 802.1X authenticator with controlled port state."""
-
-    key = "feature.dot1x.controlled_authenticator"
-    label = "802.1X controlled authenticator state"
-    commands = (DOT1X_COMMAND,)
-
-    @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
-        """Normalize system control and effective interface port-control state."""
-        (command,) = commands
-        source = _feature_source(command)
-        feature = SubFeature(FeatureName.DOT1X, "controlled authenticator")
-        if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
-        parsed = _parse_dot1x_controlled_authenticator(command.json_output)
-        if isinstance(parsed, ParseFail):
-            return cls.unavailable(FactProblemKind(parsed.reason.value), source)
-        state = FeatureState.ENABLED if parsed.value else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
-
-
-class Dot1xDynamicAuthorizationFact(CommandsFactDefinition[FeatureValue]):
-    """Effective 802.1X dynamic authorization with an authenticator interface."""
-
-    key = "feature.dot1x.dynamic_authorization"
-    label = "802.1X dynamic-authorization state"
-    commands = (DOT1X_COMMAND,)
-
-    @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
-        """Normalize the structured global and interface prerequisites."""
-        (command,) = commands
-        feature = SubFeature(FeatureName.DOT1X, "dynamic authorization authenticator")
-        source = _feature_source(command)
-        if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
-        dynamic_authorization = command.json_output.get("dynAuth")
-        if not isinstance(dynamic_authorization, bool):
-            return cls.unavailable(FactProblemKind.MALFORMED, source)
-        if not dynamic_authorization:
-            return cls.available(FeatureValue(feature, FeatureState.DISABLED), source)
-        parsed = _parse_dot1x_controlled_authenticator(command.json_output)
-        if isinstance(parsed, ParseFail):
-            return cls.unavailable(FactProblemKind(parsed.reason.value), source)
-        state = FeatureState.ENABLED if parsed.value else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
-
-
-class RadiusProxyDynamicAuthorizationFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class RadiusProxyDynamicAuthorizationFact(FeatureFact, CommandsFactDefinition["RadiusProxyDynamicAuthorizationFact"]):
     """Configured RADIUS proxy dynamic authorization with a client group."""
 
-    key = "feature.radius_proxy.dynamic_authorization"
-    label = "RADIUS proxy dynamic-authorization state"
-    commands = (RADIUS_PROXY_CONFIG_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.RADIUS_PROXY, "dynamic authorization client group")
+    key: ClassVar[str] = "feature.radius_proxy.dynamic_authorization"
+    label: ClassVar[str] = "RADIUS proxy dynamic-authorization state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (RADIUS_PROXY_CONFIG_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[RadiusProxyDynamicAuthorizationFact]:
         """Normalize the complete source-defined RADIUS proxy prerequisite."""
         (command,) = commands
         lines = tuple(line.strip() for line in command.text_output.splitlines() if line.strip() and line.strip() != "!")
         configured = "radius proxy" in lines and "dynamic-authorization" in lines and any(line.startswith("client group ") for line in lines)
         state = FeatureState.ENABLED if configured else FeatureState.DISABLED
-        feature = SubFeature(FeatureName.RADIUS_PROXY, "dynamic authorization client group")
-        return cls.available(FeatureValue(feature, state), _feature_source(command))
+        return cls(state).available(_feature_source(command))
 
 
-class SnmpAgentFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class SnmpAgentFact(FeatureFact, CommandsFactDefinition["SnmpAgentFact"]):
     """Effective SNMP agent state."""
 
-    key = "feature.snmp.agent"
-    label = "SNMP agent state"
-    commands = (SNMP_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.SNMP, "agent")
+    key: ClassVar[str] = "feature.snmp.agent"
+    label: ClassVar[str] = "SNMP agent state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (SNMP_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[SnmpAgentFact]:
         """Normalize the structured top-level SNMP enablement flag."""
         (command,) = commands
         source = _feature_source(command)
@@ -324,93 +302,70 @@ class SnmpAgentFact(CommandsFactDefinition[FeatureValue]):
             return cls.unavailable(FactProblemKind.MISSING, source)
         if not isinstance(enabled, bool):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
-        feature = SubFeature(FeatureName.SNMP, "agent")
         state = FeatureState.ENABLED if enabled else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
+        return cls(state).available(source)
 
 
-class SnmpV3AuthenticationFact(CommandsFactDefinition[FeatureValue]):
-    """Whether a local or remote SNMPv3 user has a configured authentication key."""
+@dataclass(frozen=True, slots=True)
+class SnmpV3AuthenticationFact(FeatureFact, CommandsFactDefinition["SnmpV3AuthenticationFact"]):
+    """Whether a local or remote SNMPv3 user has a configured authentication key.
 
-    key = "feature.snmpv3.authentication_key"
-    label = "SNMPv3 authentication key state"
-    commands = (SNMPV3_USER_COMMAND,)
+    ``show snmp user`` does not list remote users, so only the user configuration covers both local and remote users.
+    """
+
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.SNMPV3, "authentication key")
+    key: ClassVar[str] = "feature.snmpv3.authentication_key"
+    label: ClassVar[str] = "SNMPv3 authentication key state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (SNMPV3_USER_CONFIG_COMMAND,)
 
     @classmethod
-    # pylint: disable-next=too-many-return-statements
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:  # noqa: C901, PLR0911
-        """Normalize SNMPv3 authentication-key presence from structured operational state."""
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[SnmpV3AuthenticationFact]:
+        """Normalize authentication-key presence from the narrow SNMP user configuration output."""
         (command,) = commands
         source = _feature_source(command)
-        feature = SubFeature(FeatureName.SNMPV3, "authentication key")
-        if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
-        if "usersByVersion" not in command.json_output:
-            return cls.unavailable(FactProblemKind.MISSING, source)
-        users_by_version = command.json_output["usersByVersion"]
-        if not isinstance(users_by_version, Mapping):
+        authentication_syntax = _snmpv3_credential_syntax(command.text_output, _SNMPV3_AUTHENTICATION_CLAUSES)
+        if authentication_syntax is None:
             return cls.unavailable(FactProblemKind.MALFORMED, source)
-        version = users_by_version.get("v3")
-        if version is None:
-            return cls.available(FeatureValue(feature, FeatureState.DISABLED), source)
-        if not isinstance(version, Mapping):
-            return cls.unavailable(FactProblemKind.MALFORMED, source)
-        users = version.get("users")
-        if users is None:
-            return cls.available(FeatureValue(feature, FeatureState.DISABLED), source)
-        if not isinstance(users, Mapping):
-            return cls.unavailable(FactProblemKind.MALFORMED, source)
-        enabled = False
-        for user in users.values():
-            if not isinstance(user, Mapping):
-                return cls.unavailable(FactProblemKind.MALFORMED, source)
-            parameters = user.get("v3Params")
-            if parameters is None:
-                continue
-            if not isinstance(parameters, Mapping):
-                return cls.unavailable(FactProblemKind.MALFORMED, source)
-            authentication_type = parameters.get("authType")
-            if authentication_type is not None and not isinstance(authentication_type, str):
-                return cls.unavailable(FactProblemKind.MALFORMED, source)
-            enabled |= isinstance(authentication_type, str) and authentication_type.casefold() not in {"", "none", "noauth"}
-        state = FeatureState.ENABLED if enabled else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
+        state = FeatureState.DISABLED if authentication_syntax is CredentialSyntaxState.NOT_CONFIGURED else FeatureState.ENABLED
+        return cls(state).available(source)
 
 
-class SnmpV3CredentialSyntaxFact(CommandsFactDefinition[CredentialSyntaxValue]):
+@dataclass(frozen=True, slots=True)
+class SnmpV3CredentialSyntaxFact(CredentialSyntaxFact, CommandsFactDefinition["SnmpV3CredentialSyntaxFact"]):
     """Storage syntax used by configured local and remote SNMPv3 credentials."""
 
-    key = "configuration.snmpv3.credential_syntax"
-    label = "SNMPv3 credential syntax"
-    commands = (SNMPV3_USER_CONFIG_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.SNMPV3, "credential syntax")
+    key: ClassVar[str] = "configuration.snmpv3.credential_syntax"
+    label: ClassVar[str] = "SNMPv3 credential syntax"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (SNMPV3_USER_CONFIG_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[CredentialSyntaxValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[SnmpV3CredentialSyntaxFact]:
         """Normalize credential syntax from the narrow SNMP user configuration output."""
         (command,) = commands
         source = _feature_source(command)
         state = _snmpv3_credential_syntax(command.text_output)
         if state is None:
             return cls.unavailable(FactProblemKind.MALFORMED, source)
-        feature = SubFeature(FeatureName.SNMPV3, "credential syntax")
-        return cls.available(CredentialSyntaxValue(feature, state), source)
+        return cls(state).available(source)
 
 
-class GnsiTransportFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class GnsiTransportFact(FeatureFact, CommandsFactDefinition["GnsiTransportFact"]):
     """Effective gNSI transport state."""
 
-    key = "feature.gnsi.transport"
-    label = "gNSI transport state"
-    commands = (GNSI_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.GNSI, "transport")
+    key: ClassVar[str] = "feature.gnsi.transport"
+    label: ClassVar[str] = "gNSI transport state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNSI_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnsiTransportFact]:
         """Normalize whether at least one configured gNSI transport is enabled."""
         (command,) = commands
         source = _feature_source(command)
-        feature = SubFeature(FeatureName.GNSI, "transport")
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
 
         transports = command.json_output.get("transports")
         if transports is None:
@@ -424,24 +379,25 @@ class GnsiTransportFact(CommandsFactDefinition[FeatureValue]):
                 return cls.unavailable(FactProblemKind.MALFORMED, source)
             enabled = enabled or transport_enabled
         state = FeatureState.ENABLED if enabled else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
+        return cls(state).available(source)
 
 
-class GnsiMultipleTransportsFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class GnsiMultipleTransportsFact(FeatureFact, CommandsFactDefinition["GnsiMultipleTransportsFact"]):
     """Presence of at least two enabled gNSI transports."""
 
-    key = "feature.gnsi.multiple_transports"
-    label = "gNSI multiple-transport state"
-    commands = (GNSI_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.GNSI, "multiple-transport mode")
+    key: ClassVar[str] = "feature.gnsi.multiple_transports"
+    label: ClassVar[str] = "gNSI multiple-transport state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNSI_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnsiMultipleTransportsFact]:
         """Normalize whether at least two configured gNSI transports are enabled."""
         (command,) = commands
         source = _feature_source(command)
-        feature = SubFeature(FeatureName.GNSI, "multiple-transport mode")
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
 
         transports = command.json_output.get("transports")
         if transports is None:
@@ -455,24 +411,25 @@ class GnsiMultipleTransportsFact(CommandsFactDefinition[FeatureValue]):
                 return cls.unavailable(FactProblemKind.MALFORMED, source)
             enabled_count += transport_enabled
         state = FeatureState.ENABLED if enabled_count >= MIN_ENABLED_GNSI_TRANSPORTS else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
+        return cls(state).available(source)
 
 
-class GnsiCertzFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class GnsiCertzFact(FeatureFact, CommandsFactDefinition["GnsiCertzFact"]):
     """Effective gNSI Certz service state."""
 
-    key = "feature.gnsi.certz"
-    label = "gNSI Certz service state"
-    commands = (GNSI_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.GNSI, "Certz service")
+    key: ClassVar[str] = "feature.gnsi.certz"
+    label: ClassVar[str] = "gNSI Certz service state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNSI_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnsiCertzFact]:
         """Normalize the top-level Certz enablement flag."""
         (command,) = commands
         source = _feature_source(command)
-        feature = SubFeature(FeatureName.GNSI, "Certz service")
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
 
         enabled = command.json_output.get("certzEnabled")
         if enabled is None:
@@ -480,48 +437,50 @@ class GnsiCertzFact(CommandsFactDefinition[FeatureValue]):
         if not isinstance(enabled, bool):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
         state = FeatureState.ENABLED if enabled else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
+        return cls(state).available(source)
 
 
-class GnsiCredentialzFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class GnsiCredentialzFact(FeatureFact, CommandsFactDefinition["GnsiCredentialzFact"]):
     """Effective gNSI Credentialz service state."""
 
-    key = "feature.gnsi.credentialz"
-    label = "gNSI Credentialz service state"
-    commands = (GNSI_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.GNSI, "Credentialz service")
+    key: ClassVar[str] = "feature.gnsi.credentialz"
+    label: ClassVar[str] = "gNSI Credentialz service state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNSI_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnsiCredentialzFact]:
         """Normalize the top-level Credentialz enablement flag."""
         (command,) = commands
         source = _feature_source(command)
-        feature = SubFeature(FeatureName.GNSI, "Credentialz service")
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
         enabled = command.json_output.get("credentialzEnabled")
         if enabled is None:
             return cls.unavailable(FactProblemKind.MISSING, source)
         if not isinstance(enabled, bool):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
         state = FeatureState.ENABLED if enabled else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
+        return cls(state).available(source)
 
 
-class GnsiAuthzFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class GnsiAuthzFact(FeatureFact, CommandsFactDefinition["GnsiAuthzFact"]):
     """Effective gNSI Authz service state."""
 
-    key = "feature.gnsi.authz"
-    label = "gNSI Authz service state"
-    commands = (GNSI_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.GNSI, "Authz service")
+    key: ClassVar[str] = "feature.gnsi.authz"
+    label: ClassVar[str] = "gNSI Authz service state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNSI_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnsiAuthzFact]:
         """Normalize the top-level Authz enablement flag."""
         (command,) = commands
         source = _feature_source(command)
-        feature = SubFeature(FeatureName.GNSI, "Authz service")
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
 
         enabled = command.json_output.get("authzEnabled")
         if enabled is None:
@@ -529,56 +488,66 @@ class GnsiAuthzFact(CommandsFactDefinition[FeatureValue]):
         if not isinstance(enabled, bool):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
         state = FeatureState.ENABLED if enabled else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
+        return cls(state).available(source)
 
 
-class GnsiAcctzFact(CommandsFactDefinition[FeatureValue]):
-    """Effective gNSI Acctz service state."""
+@dataclass(frozen=True, slots=True)
+class GnsiAcctzFact(FeatureFact, CommandsFactDefinition["GnsiAcctzFact"]):
+    """Effective gNSI Acctz service state, exposed by EOS starting in release 4.33.2."""
 
-    key = "feature.gnsi.acctz"
-    label = "gNSI Acctz service state"
-    commands = (GNSI_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.GNSI, "Acctz service")
+    key: ClassVar[str] = "feature.gnsi.acctz"
+    label: ClassVar[str] = "gNSI Acctz service state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNSI_COMMAND,)
+    supported_versions: ClassVar[tuple[VersionRule, ...]] = (
+        VersionRule(major=4, minor=33, patch_gte=2),
+        VersionRule(major=4, minor_gt=33),
+    )
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnsiAcctzFact]:
         """Normalize the top-level Acctz enablement flag."""
         (command,) = commands
         source = _feature_source(command)
-        feature = SubFeature(FeatureName.GNSI, "Acctz service")
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
-        enabled = command.json_output.get("acctzEnabled")
-        if enabled is None:
+            return cls(FeatureState.UNSUPPORTED).available(source)
+        if "acctzEnabled" not in command.json_output:
             return cls.unavailable(FactProblemKind.MISSING, source)
+        enabled = command.json_output["acctzEnabled"]
         if not isinstance(enabled, bool):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
         state = FeatureState.ENABLED if enabled else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
+        return cls(state).available(source)
 
 
-class GnsiPathzFact(CommandsFactDefinition[FeatureValue]):
-    """Effective gNSI Pathz service state."""
+@dataclass(frozen=True, slots=True)
+class GnsiPathzFact(FeatureFact, CommandsFactDefinition["GnsiPathzFact"]):
+    """Effective gNSI Pathz service state, exposed by EOS starting in release 4.33.2."""
 
-    key = "feature.gnsi.pathz"
-    label = "gNSI Pathz service state"
-    commands = (GNSI_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.GNSI, "Pathz service")
+    key: ClassVar[str] = "feature.gnsi.pathz"
+    label: ClassVar[str] = "gNSI Pathz service state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNSI_COMMAND,)
+    supported_versions: ClassVar[tuple[VersionRule, ...]] = (
+        VersionRule(major=4, minor=33, patch_gte=2),
+        VersionRule(major=4, minor_gt=33),
+    )
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnsiPathzFact]:
         """Normalize the top-level Pathz enablement flag."""
         (command,) = commands
         source = _feature_source(command)
-        feature = SubFeature(FeatureName.GNSI, "Pathz service")
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
 
-        enabled = command.json_output.get("pathzEnabled")
-        if enabled is None:
+        if "pathzEnabled" not in command.json_output:
             return cls.unavailable(FactProblemKind.MISSING, source)
+        enabled = command.json_output["pathzEnabled"]
         if not isinstance(enabled, bool):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
         state = FeatureState.ENABLED if enabled else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
+        return cls(state).available(source)
 
 
 def _pathz_policy_has_user_group_overlap(output: str) -> bool | None:
@@ -620,15 +589,17 @@ def _pathz_policy_rule_paths(rules: list[object]) -> tuple[set[str], set[str]] |
     return user_paths, group_paths
 
 
-class GnsiPathzPolicyOverlapFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class GnsiPathzPolicyOverlapFact(FeatureFact, CommandsFactDefinition["GnsiPathzPolicyOverlapFact"]):
     """Presence of Pathz user and group rules applying to the same path."""
 
-    key = "feature.gnsi.pathz_policy_user_group_overlap"
-    label = "Pathz policy user/group overlap"
-    commands = (PATHZ_POLICY_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.GNSI, "Pathz policy user/group overlap")
+    key: ClassVar[str] = "feature.gnsi.pathz_policy_user_group_overlap"
+    label: ClassVar[str] = "Pathz policy user/group overlap"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (PATHZ_POLICY_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnsiPathzPolicyOverlapFact]:
         """Normalize the persisted Pathz policy without retaining policy contents."""
         (command,) = commands
         source = _feature_source(command)
@@ -640,24 +611,25 @@ class GnsiPathzPolicyOverlapFact(CommandsFactDefinition[FeatureValue]):
         if overlap is None:
             problem = FactProblemKind.MISSING if not command.text_output.strip() else FactProblemKind.MALFORMED
             return cls.unavailable(problem, source)
-        feature = SubFeature(FeatureName.GNSI, "Pathz policy user/group overlap")
         state = FeatureState.ENABLED if overlap else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
+        return cls(state).available(source)
 
 
-class GnmiTransportFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class GnmiTransportFact(FeatureFact, CommandsFactDefinition["GnmiTransportFact"]):
     """Effective gNMI transport state."""
 
-    key = "feature.gnmi.transport"
-    label = "gNMI transport state"
-    commands = (GNMI_COMMAND,)
+    feature: ClassVar[FeatureRef] = FeatureName.GNMI
+    key: ClassVar[str] = "feature.gnmi.transport"
+    label: ClassVar[str] = "gNMI transport state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNMI_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnmiTransportFact]:
         (command,) = commands
         source = _feature_source(command)
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(FeatureName.GNMI, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
         config = _deserialize_gnmi_config(command.json_output)
         if config is None:
             return cls.unavailable(FactProblemKind.MALFORMED, source)
@@ -670,76 +642,31 @@ class GnmiTransportFact(CommandsFactDefinition[FeatureValue]):
                 continue
             enabled = transport.get("enabled")
             if enabled is True:
-                return cls.available(FeatureValue(FeatureName.GNMI, FeatureState.ENABLED), source)
+                return cls(FeatureState.ENABLED).available(source)
             if enabled is not False:
                 unknown = True
         if unknown:
             return cls.unavailable(FactProblemKind.MALFORMED, source)
         state = FeatureState.DISABLED
-        return cls.available(FeatureValue(FeatureName.GNMI, state), source)
+        return cls(state).available(source)
 
 
-class GnmiAccountingFact(CommandsFactDefinition[FeatureValue]):
-    """Accounting state across enabled gNMI transports."""
-
-    key = "feature.gnmi.accounting"
-    label = "gNMI transport accounting state"
-    commands = (GNMI_COMMAND,)
-
-    @staticmethod
-    def _state(config: _GnmiConfig) -> FeatureState | FactProblemKind:
-        """Interpret accounting state from neutral gNMI configuration."""
-        if config.service_enabled is False and any(isinstance(transport, Mapping) and transport.get("enabled") is True for transport in config.transports):
-            return FactProblemKind.MALFORMED
-        unknown = False
-        for transport in config.transports:
-            if not isinstance(transport, Mapping):
-                unknown = True
-                continue
-            enabled = transport.get("enabled")
-            if enabled is False:
-                continue
-            if enabled is not True:
-                unknown = True
-                continue
-            accounting = transport.get("accounting")
-            if accounting is True:
-                return FeatureState.ENABLED
-            if accounting is not False:
-                unknown = True
-        return FactProblemKind.MISSING if unknown else FeatureState.DISABLED
-
-    @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
-        (command,) = commands
-        source = _feature_source(command)
-        feature = SubFeature(FeatureName.GNMI, "transport accounting")
-        if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
-        config = _deserialize_gnmi_config(command.json_output)
-        if config is None:
-            return cls.unavailable(FactProblemKind.MALFORMED, source)
-        state = cls._state(config)
-        if isinstance(state, FactProblemKind):
-            return cls.unavailable(state, source)
-        return cls.available(FeatureValue(feature, state), source)
-
-
-class GnmiAuthorizationFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class GnmiAuthorizationFact(FeatureFact, CommandsFactDefinition["GnmiAuthorizationFact"]):
     """Request authorization on at least one enabled gNMI transport."""
 
-    key = "feature.gnmi.authorization"
-    label = "gNMI request-authorization state"
-    commands = (GNMI_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.GNMI, "request authorization")
+    key: ClassVar[str] = "feature.gnmi.authorization"
+    label: ClassVar[str] = "gNMI request-authorization state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNMI_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnmiAuthorizationFact]:
         """Normalize authorization state across enabled transports."""
         (command,) = commands
         source = _feature_source(command)
-        feature = SubFeature(FeatureName.GNMI, "request authorization")
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
         config = _deserialize_gnmi_config(command.json_output)
         if config is None:
             return cls.unavailable(FactProblemKind.MALFORMED, source)
@@ -753,112 +680,123 @@ class GnmiAuthorizationFact(CommandsFactDefinition[FeatureValue]):
             enabled = transport.get("enabled")
             authorization = transport.get("authorization")
             if enabled is True and authorization is True:
-                return cls.available(FeatureValue(feature, FeatureState.ENABLED), source)
+                return cls(FeatureState.ENABLED).available(source)
             if enabled not in {True, False} or (enabled is True and authorization not in {True, False}):
                 unknown = True
         if unknown:
             return cls.unavailable(FactProblemKind.MISSING, source)
-        return cls.available(FeatureValue(feature, FeatureState.DISABLED), source)
+        return cls(FeatureState.DISABLED).available(source)
 
 
-class RestconfTransportFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class RestconfTransportFact(FeatureFact, CommandsFactDefinition["RestconfTransportFact"]):
     """Effective RESTCONF transport state."""
 
-    key = "feature.restconf.transport"
-    label = "RESTCONF transport state"
-    commands = (RESTCONF_COMMAND,)
+    feature: ClassVar[FeatureRef] = FeatureName.RESTCONF
+    key: ClassVar[str] = "feature.restconf.transport"
+    label: ClassVar[str] = "RESTCONF transport state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (RESTCONF_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[RestconfTransportFact]:
         """Normalize structured RESTCONF enablement."""
         (command,) = commands
         source = _feature_source(command)
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(FeatureName.RESTCONF, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
         if "enabled" not in command.json_output:
             return cls.unavailable(FactProblemKind.MISSING, source)
         enabled = command.json_output["enabled"]
         if not isinstance(enabled, bool):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
-        return cls.available(FeatureValue(FeatureName.RESTCONF, FeatureState.ENABLED if enabled else FeatureState.DISABLED), source)
+        return cls(FeatureState.ENABLED if enabled else FeatureState.DISABLED).available(source)
 
 
-class NetconfTransportFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class NetconfTransportFact(FeatureFact, CommandsFactDefinition["NetconfTransportFact"]):
     """Effective NETCONF transport state."""
 
-    key = "feature.netconf.transport"
-    label = "NETCONF transport state"
-    commands = (NETCONF_COMMAND,)
+    feature: ClassVar[FeatureRef] = FeatureName.NETCONF
+    key: ClassVar[str] = "feature.netconf.transport"
+    label: ClassVar[str] = "NETCONF transport state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (NETCONF_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[NetconfTransportFact]:
         """Normalize structured NETCONF enablement."""
         (command,) = commands
         source = _feature_source(command)
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(FeatureName.NETCONF, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
         if "enabled" not in command.json_output:
             return cls.unavailable(FactProblemKind.MISSING, source)
         enabled = command.json_output["enabled"]
         if not isinstance(enabled, bool):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
-        return cls.available(FeatureValue(FeatureName.NETCONF, FeatureState.ENABLED if enabled else FeatureState.DISABLED), source)
+        return cls(FeatureState.ENABLED if enabled else FeatureState.DISABLED).available(source)
 
 
-class GnpsiTransportFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class GnpsiTransportFact(FeatureFact, CommandsFactDefinition["GnpsiTransportFact"]):
     """Effective gNPSI transport state."""
 
-    key = "feature.gnpsi.transport"
-    label = "gNPSI transport state"
-    commands = (GNPSI_COMMAND,)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.GNPSI, "transport")
+    key: ClassVar[str] = "feature.gnpsi.transport"
+    label: ClassVar[str] = "gNPSI transport state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNPSI_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
-        """Normalize enabled transports and the explicit disabled state."""
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnpsiTransportFact]:
+        """Normalize running transports and the explicit disabled state."""
         (command,) = commands
         source = _feature_source(command)
-        feature = SubFeature(FeatureName.GNPSI, "transport")
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
-        config = _deserialize_gnpsi_config(command.json_output)
-        if isinstance(config, FactProblemKind):
-            return cls.unavailable(config, source)
-        if not isinstance(config.enabled, bool):
-            return cls.unavailable(FactProblemKind.MALFORMED, source)
-        state = FeatureState.ENABLED if config.enabled else FeatureState.DISABLED
-        return cls.available(FeatureValue(feature, state), source)
-
-
-class GnpsiAuthenticationExposureFact(CommandsFactDefinition[FeatureValue]):
-    """gNPSI authentication combinations exposed to request execution."""
-
-    key = "feature.gnpsi.authentication_exposure"
-    label = "gNPSI authentication exposure state"
-    commands = (GNPSI_COMMAND,)
-
-    @classmethod
-    # pylint: disable-next=too-many-return-statements
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:  # noqa: C901, PLR0911
-        """Normalize TLS metadata and mTLS common-name authentication paths."""
-        (command,) = commands
-        source = _feature_source(command)
-        feature = SubFeature(FeatureName.GNPSI, "exposed authentication mode")
-        if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
         config = _deserialize_gnpsi_config(command.json_output)
         if isinstance(config, FactProblemKind):
             return cls.unavailable(config, source)
         if not isinstance(config.enabled, bool):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
         if not config.enabled:
-            return cls.available(FeatureValue(feature, FeatureState.DISABLED), source)
-        if any(not isinstance(transport.enabled, bool) for transport in config.transports):
+            return cls(FeatureState.DISABLED).available(source)
+        effective = _effective_gnpsi_transports(config.transports)
+        if isinstance(effective, FactProblemKind):
+            return cls.unavailable(effective, source)
+        state = FeatureState.ENABLED if effective else FeatureState.DISABLED
+        return cls(state).available(source)
+
+
+@dataclass(frozen=True, slots=True)
+class GnpsiAuthenticationExposureFact(FeatureFact, CommandsFactDefinition["GnpsiAuthenticationExposureFact"]):
+    """gNPSI authentication combinations exposed to request execution."""
+
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.GNPSI, "exposed authentication mode")
+    key: ClassVar[str] = "feature.gnpsi.authentication_exposure"
+    label: ClassVar[str] = "gNPSI authentication exposure state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNPSI_COMMAND,)
+
+    @classmethod
+    # pylint: disable-next=too-many-return-statements
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnpsiAuthenticationExposureFact]:  # noqa: C901, PLR0911
+        """Normalize TLS metadata and mTLS common-name authentication paths."""
+        (command,) = commands
+        source = _feature_source(command)
+        if is_unsupported_optional_command(command):
+            return cls(FeatureState.UNSUPPORTED).available(source)
+        config = _deserialize_gnpsi_config(command.json_output)
+        if isinstance(config, FactProblemKind):
+            return cls.unavailable(config, source)
+        if not isinstance(config.enabled, bool):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
-        enabled_transports = tuple(transport for transport in config.transports if transport.enabled is True)
-        if not enabled_transports:
-            return cls.available(FeatureValue(feature, FeatureState.DISABLED), source)
+        if not config.enabled:
+            return cls(FeatureState.DISABLED).available(source)
+        effective_transports = _effective_gnpsi_transports(config.transports)
+        if isinstance(effective_transports, FactProblemKind):
+            return cls.unavailable(effective_transports, source)
+        if not effective_transports:
+            return cls(FeatureState.DISABLED).available(source)
         problem: FactProblemKind | None = None
-        for transport in enabled_transports:
+        for transport in effective_transports:
             authentication = _gnpsi_authentication(transport)
             if isinstance(authentication, FactProblemKind):
                 problem = authentication if problem is None or authentication is FactProblemKind.MALFORMED else problem
@@ -867,23 +805,24 @@ class GnpsiAuthenticationExposureFact(CommandsFactDefinition[FeatureValue]):
             mutual_tls = security_type in {"mtls", "mutualtls", "tlsmutual"}
             tls = security_type == "tls"
             if (mutual_tls and "x509-common-name" in methods) or (tls and "metadata" in methods):
-                return cls.available(FeatureValue(feature, FeatureState.ENABLED), source)
+                return cls(FeatureState.ENABLED).available(source)
         if problem is not None:
             return cls.unavailable(problem, source)
-        return cls.available(FeatureValue(feature, FeatureState.DISABLED), source)
+        return cls(FeatureState.DISABLED).available(source)
 
 
-class GnpsiMutualTlsSpiffeMitigationFact(CommandsFactDefinition[MitigationValue]):
-    """Mutual TLS with exclusively x509-spiffe authentication on every enabled gNPSI transport."""
+@dataclass(frozen=True, slots=True)
+class GnpsiMutualTlsSpiffeMitigationFact(MitigationFact, CommandsFactDefinition["GnpsiMutualTlsSpiffeMitigationFact"]):
+    """Mutual TLS with exclusively x509-spiffe authentication on every effective gNPSI transport."""
 
-    key = "mitigation.gnpsi.mutual_tls_spiffe"
-    label = "gNPSI mutual TLS with only x509-spiffe authentication"
-    commands = (GNPSI_COMMAND,)
+    key: ClassVar[str] = "mitigation.gnpsi.mutual_tls_spiffe"
+    label: ClassVar[str] = "gNPSI mutual TLS with only x509-spiffe authentication"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNPSI_COMMAND,)
 
     @classmethod
     # pylint: disable-next=too-many-return-statements
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[MitigationValue]:  # noqa: C901, PLR0911
-        """Verify the exact authentication control across every enabled transport."""
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnpsiMutualTlsSpiffeMitigationFact]:  # noqa: C901, PLR0911
+        """Verify the exact authentication control across every effective transport."""
         (command,) = commands
         source = _feature_source(command)
         if is_unsupported_optional_command(command):
@@ -894,51 +833,24 @@ class GnpsiMutualTlsSpiffeMitigationFact(CommandsFactDefinition[MitigationValue]
         if not isinstance(config.enabled, bool):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
         if not config.enabled:
-            return cls.available(MitigationValue(MitigationState.INEFFECTIVE), source)
-        if any(not isinstance(transport.enabled, bool) for transport in config.transports):
-            return cls.unavailable(FactProblemKind.MALFORMED, source)
-        enabled_transports = tuple(transport for transport in config.transports if transport.enabled is True)
-        if not enabled_transports:
-            return cls.available(MitigationValue(MitigationState.INEFFECTIVE), source)
+            return cls(MitigationState.INEFFECTIVE).available(source)
+        effective_transports = _effective_gnpsi_transports(config.transports)
+        if isinstance(effective_transports, FactProblemKind):
+            return cls.unavailable(effective_transports, source)
+        if not effective_transports:
+            return cls(MitigationState.INEFFECTIVE).available(source)
         problem: FactProblemKind | None = None
-        for transport in enabled_transports:
+        for transport in effective_transports:
             authentication = _gnpsi_authentication(transport)
             if isinstance(authentication, FactProblemKind):
                 problem = authentication if problem is None or authentication is FactProblemKind.MALFORMED else problem
                 continue
             security_type, methods = authentication
             if security_type not in {"mtls", "mutualtls", "tlsmutual"} or methods != {"x509-spiffe"}:
-                return cls.available(MitigationValue(MitigationState.INEFFECTIVE), source)
+                return cls(MitigationState.INEFFECTIVE).available(source)
         if problem is not None:
             return cls.unavailable(problem, source)
-        return cls.available(MitigationValue(MitigationState.EFFECTIVE), source)
-
-
-class GnpsiEosRpcAuthTraceFact(CommandsFactDefinition[FeatureValue]):
-    """Explicit gNPSI EosRpcAuth trace state."""
-
-    key = "feature.gnpsi.eos_rpc_auth_trace"
-    label = "gNPSI EosRpcAuth trace state"
-    commands = (GNPSI_TRACE_COMMAND,)
-
-    @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
-        """Normalize the explicit trace-facility status."""
-        (command,) = commands
-        source = _feature_source(command)
-        feature = SubFeature(FeatureName.GNPSI, "EosRpcAuth trace")
-        if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
-        if command.error:
-            return cls.unavailable(FactProblemKind.COLLECTION_FAILED, source)
-        output = command.text_output.strip()
-        if not output:
-            return cls.available(FeatureValue(feature, FeatureState.DISABLED), source)
-        enabled = re.search(r"^EosRpcAuth\s+enabled\b", output, re.MULTILINE) is not None
-        disabled = re.search(r"^EosRpcAuth\s+disabled\b", output, re.MULTILINE) is not None
-        if enabled == disabled:
-            return cls.unavailable(FactProblemKind.MALFORMED, source)
-        return cls.available(FeatureValue(feature, FeatureState.ENABLED if enabled else FeatureState.DISABLED), source)
+        return cls(MitigationState.EFFECTIVE).available(source)
 
 
 @dataclass(frozen=True, slots=True)
@@ -967,20 +879,21 @@ def _gnmi_authorization_candidate(transport: object) -> tuple[str | None, bool]:
     return profile_name, False
 
 
-class GnmiMtlsAuthorizationFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class GnmiMtlsAuthorizationFact(FeatureFact, CommandsFactDefinition["GnmiMtlsAuthorizationFact"]):
     """Enabled gNMI transport with both request authorization and mutual TLS."""
 
-    key = "feature.gnmi.mtls_authorization"
-    label = "gNMI mTLS request authorization state"
-    commands = (GNMI_COMMAND, SSL_PROFILE_COMMAND)
+    feature: ClassVar[FeatureRef] = SubFeature(FeatureName.GNMI, "mTLS request authorization")
+    key: ClassVar[str] = "feature.gnmi.mtls_authorization"
+    label: ClassVar[str] = "gNMI mTLS request authorization state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNMI_COMMAND, SSL_PROFILE_COMMAND)
 
     @classmethod
-    def _candidates(cls, gnmi: AntaCommand) -> Fact[FeatureValue] | _GnmiAuthorizationCandidates:
+    def _candidates(cls, gnmi: AntaCommand) -> Fact[GnmiMtlsAuthorizationFact] | _GnmiAuthorizationCandidates:
         """Return candidate profiles or a result decided by gNMI output alone."""
         source = _feature_source(gnmi)
-        feature = SubFeature(FeatureName.GNMI, "mTLS request authorization")
         if is_unsupported_optional_command(gnmi):
-            return cls.available(FeatureValue(feature, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
         config = _deserialize_gnmi_config(gnmi.json_output)
         if config is None:
             return cls.unavailable(FactProblemKind.MALFORMED, source)
@@ -999,27 +912,26 @@ class GnmiMtlsAuthorizationFact(CommandsFactDefinition[FeatureValue]):
             return _GnmiAuthorizationCandidates(tuple(profile_names), incomplete)
         if incomplete:
             return cls.unavailable(FactProblemKind.MISSING, source)
-        return cls.available(FeatureValue(feature, FeatureState.DISABLED), source)
+        return cls(FeatureState.DISABLED).available(source)
 
     @classmethod
-    def _evaluate_candidates(cls, candidates: _GnmiAuthorizationCandidates, ssl: AntaCommand, gnmi: AntaCommand) -> Fact[FeatureValue]:
+    def _evaluate_candidates(cls, candidates: _GnmiAuthorizationCandidates, ssl: AntaCommand, gnmi: AntaCommand) -> Fact[GnmiMtlsAuthorizationFact]:
         """Evaluate candidate profiles and retain the command causing uncertainty."""
         ssl_source = _feature_source(ssl)
-        feature = SubFeature(FeatureName.GNMI, "mTLS request authorization")
         if is_unsupported_optional_command(ssl):
             return cls.unavailable(FactProblemKind.UNSUPPORTED, ssl_source)
 
         states = tuple(_ssl_profile_has_mtls(profile_name, ssl.json_output) for profile_name in candidates.profile_names)
         if True in states:
-            return cls.available(FeatureValue(feature, FeatureState.ENABLED), ssl_source)
+            return cls(FeatureState.ENABLED).available(ssl_source)
         if None in states:
             return cls.unavailable(FactProblemKind.MISSING, ssl_source)
         if candidates.incomplete_transport:
             return cls.unavailable(FactProblemKind.MISSING, _feature_source(gnmi))
-        return cls.available(FeatureValue(feature, FeatureState.DISABLED), ssl_source)
+        return cls(FeatureState.DISABLED).available(ssl_source)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnmiMtlsAuthorizationFact]:
         """Normalize exposure without combining state from different transports."""
         gnmi, ssl = commands
         candidates = cls._candidates(gnmi)
@@ -1028,50 +940,25 @@ class GnmiMtlsAuthorizationFact(CommandsFactDefinition[FeatureValue]):
         return cls._evaluate_candidates(candidates, ssl, gnmi)
 
 
-class RiskyOpenConfigTraceFact(CommandsFactDefinition[ConfigurationValue]):
-    """Presence of an advisory-identified OpenConfig trace selector."""
-
-    key = "configuration.openconfig.risky_trace_selector"
-    label = "OpenConfig trace selector configuration"
-    commands = (TRACE_COMMAND,)
-
-    @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[ConfigurationValue]:
-        (command,) = commands
-        source = _feature_source(command)
-        if is_unsupported_optional_command(command):
-            return cls.unavailable(FactProblemKind.UNSUPPORTED, source)
-        prefix = "trace OpenConfig setting "
-        configured = False
-        for line in command.text_output.splitlines():
-            candidate = line.lstrip()
-            if candidate.startswith(prefix):
-                selectors = {selector.strip() for selector in candidate.removeprefix(prefix).split(",")}
-                configured = any(selector in selectors for selector in RISKY_TRACE_SELECTORS)
-                if configured:
-                    break
-        feature = SubFeature(FeatureName.TRACE, "advisory-identified selector")
-        state = ConfigurationState.CONFIGURED if configured else ConfigurationState.NOT_CONFIGURED
-        return cls.available(ConfigurationValue(feature, state), source)
-
-
-class GribiTransportFact(CommandsFactDefinition[FeatureValue]):
+@dataclass(frozen=True, slots=True)
+class GribiTransportFact(FeatureFact, CommandsFactDefinition["GribiTransportFact"]):
     """Effective gRIBI service state."""
 
-    key = "feature.gribi.transport"
-    label = "gRIBI service state"
-    commands = (GRIBI_COMMAND,)
+    feature: ClassVar[FeatureRef] = FeatureName.GRIBI
+    key: ClassVar[str] = "feature.gribi.transport"
+    label: ClassVar[str] = "gRIBI service state"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GRIBI_COMMAND,)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[FeatureValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GribiTransportFact]:
         (command,) = commands
         source = _feature_source(command)
         if is_unsupported_optional_command(command):
-            return cls.available(FeatureValue(FeatureName.GRIBI, FeatureState.UNSUPPORTED), source)
+            return cls(FeatureState.UNSUPPORTED).available(source)
         enabled = command.json_output.get("enabled")
         if not isinstance(enabled, bool):
             return cls.unavailable(FactProblemKind.MALFORMED, source)
-        return cls.available(FeatureValue(FeatureName.GRIBI, FeatureState.ENABLED if enabled else FeatureState.DISABLED), source)
+        return cls(FeatureState.ENABLED if enabled else FeatureState.DISABLED).available(source)
 
 
 def _ssl_profile_is_valid(profile: Mapping[str, object]) -> bool:
@@ -1107,12 +994,13 @@ def _ssl_profile_has_mtls(profile_name: object, ssl_output: Mapping[str, object]
     return _ssl_profile_trust_is_valid(profile)
 
 
-class GnmiMtlsFact(CommandsFactDefinition[MitigationValue]):
+@dataclass(frozen=True, slots=True)
+class GnmiMtlsFact(MitigationFact, CommandsFactDefinition["GnmiMtlsFact"]):
     """mTLS coverage across enabled gNMI transports."""
 
-    key = "mitigation.gnmi.mtls"
-    label = "gNMI mTLS"
-    commands = (GNMI_COMMAND, SSL_PROFILE_COMMAND)
+    key: ClassVar[str] = "mitigation.gnmi.mtls"
+    label: ClassVar[str] = "gNMI mTLS"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GNMI_COMMAND, SSL_PROFILE_COMMAND)
 
     @staticmethod
     def _enabled_transports(config: _GnmiConfig) -> tuple[Mapping[str, object], ...] | None:
@@ -1128,7 +1016,7 @@ class GnmiMtlsFact(CommandsFactDefinition[MitigationValue]):
         return tuple(transports)
 
     @classmethod
-    def _profile_names(cls, gnmi: AntaCommand) -> Fact[MitigationValue] | tuple[str, ...]:
+    def _profile_names(cls, gnmi: AntaCommand) -> Fact[GnmiMtlsFact] | tuple[str, ...]:
         """Return configured gNMI SSL profiles or a result decided by gNMI output alone."""
         source = _feature_source(gnmi)
         if is_unsupported_optional_command(gnmi):
@@ -1142,13 +1030,13 @@ class GnmiMtlsFact(CommandsFactDefinition[MitigationValue]):
 
         profile_names = tuple(transport.get("sslProfile") for transport in transports)
         if any(profile_name in (None, "") for profile_name in profile_names):
-            return cls.available(MitigationValue(MitigationState.INEFFECTIVE), source)
+            return cls(MitigationState.INEFFECTIVE).available(source)
         if any(not isinstance(profile_name, str) for profile_name in profile_names):
             return cls.unavailable(FactProblemKind.MISSING, source)
         return tuple(profile_name for profile_name in profile_names if isinstance(profile_name, str))
 
     @classmethod
-    def _evaluate_profiles(cls, profile_names: tuple[str, ...], ssl: AntaCommand) -> Fact[MitigationValue]:
+    def _evaluate_profiles(cls, profile_names: tuple[str, ...], ssl: AntaCommand) -> Fact[GnmiMtlsFact]:
         """Evaluate configured gNMI profiles using SSL-profile output."""
         source = _feature_source(ssl)
         if is_unsupported_optional_command(ssl):
@@ -1156,13 +1044,13 @@ class GnmiMtlsFact(CommandsFactDefinition[MitigationValue]):
 
         states = tuple(_ssl_profile_has_mtls(profile_name, ssl.json_output) for profile_name in profile_names)
         if False in states:
-            return cls.available(MitigationValue(MitigationState.INEFFECTIVE), source)
+            return cls(MitigationState.INEFFECTIVE).available(source)
         if None in states:
             return cls.unavailable(FactProblemKind.MISSING, source)
-        return cls.available(MitigationValue(MitigationState.EFFECTIVE), source)
+        return cls(MitigationState.EFFECTIVE).available(source)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[MitigationValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GnmiMtlsFact]:
         gnmi, ssl = commands
         profile_names = cls._profile_names(gnmi)
         if not isinstance(profile_names, tuple):
@@ -1170,15 +1058,16 @@ class GnmiMtlsFact(CommandsFactDefinition[MitigationValue]):
         return cls._evaluate_profiles(profile_names, ssl)
 
 
-class GribiMtlsFact(CommandsFactDefinition[MitigationValue]):
+@dataclass(frozen=True, slots=True)
+class GribiMtlsFact(MitigationFact, CommandsFactDefinition["GribiMtlsFact"]):
     """mTLS state for the gRIBI service."""
 
-    key = "mitigation.gribi.mtls"
-    label = "gRIBI mTLS"
-    commands = (GRIBI_COMMAND, SSL_PROFILE_COMMAND)
+    key: ClassVar[str] = "mitigation.gribi.mtls"
+    label: ClassVar[str] = "gRIBI mTLS"
+    commands: ClassVar[tuple[AntaCommand, ...]] = (GRIBI_COMMAND, SSL_PROFILE_COMMAND)
 
     @classmethod
-    def _profile_name(cls, gribi: AntaCommand) -> Fact[MitigationValue] | str:
+    def _profile_name(cls, gribi: AntaCommand) -> Fact[GribiMtlsFact] | str:
         """Return the gRIBI SSL profile or a result decided by gRIBI output alone."""
         source = _feature_source(gribi)
         if is_unsupported_optional_command(gribi):
@@ -1187,17 +1076,17 @@ class GribiMtlsFact(CommandsFactDefinition[MitigationValue]):
         if not isinstance(enabled, bool):
             return cls.unavailable(FactProblemKind.MISSING, source)
         if not enabled:
-            return cls.available(MitigationValue(MitigationState.INEFFECTIVE), source)
+            return cls(MitigationState.INEFFECTIVE).available(source)
 
         profile_name = gribi.json_output.get("sslProfile")
         if profile_name in (None, ""):
-            return cls.available(MitigationValue(MitigationState.INEFFECTIVE), source)
+            return cls(MitigationState.INEFFECTIVE).available(source)
         if not isinstance(profile_name, str):
             return cls.unavailable(FactProblemKind.MISSING, source)
         return profile_name
 
     @classmethod
-    def _evaluate_profile(cls, profile_name: str, ssl: AntaCommand) -> Fact[MitigationValue]:
+    def _evaluate_profile(cls, profile_name: str, ssl: AntaCommand) -> Fact[GribiMtlsFact]:
         """Evaluate the configured gRIBI profile using SSL-profile output."""
         source = _feature_source(ssl)
         if is_unsupported_optional_command(ssl):
@@ -1206,10 +1095,10 @@ class GribiMtlsFact(CommandsFactDefinition[MitigationValue]):
         if mtls is None:
             return cls.unavailable(FactProblemKind.MISSING, source)
         state = MitigationState.EFFECTIVE if mtls else MitigationState.INEFFECTIVE
-        return cls.available(MitigationValue(state), source)
+        return cls(state).available(source)
 
     @classmethod
-    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[MitigationValue]:
+    def parse(cls, commands: tuple[AntaCommand, ...]) -> Fact[GribiMtlsFact]:
         gribi, ssl = commands
         profile_name = cls._profile_name(gribi)
         if not isinstance(profile_name, str):

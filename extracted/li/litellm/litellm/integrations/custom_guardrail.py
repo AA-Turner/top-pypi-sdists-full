@@ -1,16 +1,16 @@
 import contextvars
 import copy
 import hashlib
-import json
 import os
 import secrets
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
+from itertools import chain
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, Optional, cast, get_args
 
 import httpx
-from pydantic import BaseModel, TypeAdapter
+from pydantic import TypeAdapter
 
 from litellm._internal_context import with_service_target
 from litellm._logging import verbose_logger
@@ -73,7 +73,6 @@ GUARDRAIL_SESSIONS_TARGET: Final = "guardrail_sessions"
 _PRE_CALL_EXECUTED_TOKEN: Final = secrets.token_hex(16)
 _PRE_CALL_RAISED_TOKEN: Final = secrets.token_hex(16)
 _DEPLOYMENT_HOOK_RAN_TOKEN: Final = secrets.token_hex(16)
-_POST_CALL_CHECKED_TOKEN: Final = secrets.token_hex(16)
 
 _GUARDRAIL_BLOCK_STATUS_CODES: Final = frozenset({400, 403, 422})
 
@@ -212,6 +211,46 @@ def guardrail_request_data_with_streaming(
     }
 
 
+_GUARDRAIL_ENTRY_WITH_SETTINGS: Final = TypeAdapter(Mapping[str, object])
+
+
+def merged_guardrail_entries(*entry_lists: Iterable[object]) -> list[object]:
+    """Merges guardrail lists so each guardrail is named once: the first ``{name: settings}`` entry naming it wins over
+    any plain name in either order, else its first plain name stays"""
+    entries: Final = tuple(chain.from_iterable(entry_lists))
+    settings_names: Final = tuple(_settings_entry_names(entry) for entry in entries)
+    named_with_settings: Final = frozenset[str]().union(*settings_names)
+    return [
+        entry
+        for index, entry in enumerate(entries)
+        if not _superseded_guardrail_entry(entries, settings_names, named_with_settings, index)
+    ]
+
+
+def guardrail_entry_names(entry: object) -> tuple[str, ...]:
+    if isinstance(entry, str):
+        return (entry,)
+    if isinstance(entry, dict):
+        return tuple(_GUARDRAIL_ENTRY_WITH_SETTINGS.validate_python(entry))
+    return ()
+
+
+def _settings_entry_names(entry: object) -> frozenset[str]:
+    return frozenset(guardrail_entry_names(entry)) if isinstance(entry, dict) else frozenset()
+
+
+def _superseded_guardrail_entry(
+    entries: tuple[object, ...],
+    settings_names: tuple[frozenset[str], ...],
+    named_with_settings: frozenset[str],
+    index: int,
+) -> bool:
+    entry: Final = entries[index]
+    if isinstance(entry, str):
+        return entry in named_with_settings or entry in entries[:index]
+    return bool(settings_names[index]) and settings_names[index] <= frozenset[str]().union(*settings_names[:index])
+
+
 def _request_is_streaming(data: object, event_type: GuardrailEventHooks | None = None) -> bool:
     if event_type in _REALTIME_STREAMING_HOOKS:
         return True
@@ -242,96 +281,13 @@ def _request_carries_marker(data: Mapping[str, object], marker: str | None) -> b
     return False
 
 
-def _record_guardrail_marker(
-    data: dict[str, object],  # mutable-ok: the request payload the marker is recorded on
-    marker: str | None,
-) -> None:
-    if marker is None:
-        return
-    for meta_key in ("metadata", "litellm_metadata"):
-        meta = data.get(meta_key)
-        if isinstance(meta, dict):
-            executed = meta.get(PRE_CALL_EXECUTED_GUARDRAILS_KEY)
-            if isinstance(executed, list):
-                if marker not in executed:
-                    executed.append(marker)
-            else:
-                meta[PRE_CALL_EXECUTED_GUARDRAILS_KEY] = [marker]
-            return
-    data["metadata"] = {PRE_CALL_EXECUTED_GUARDRAILS_KEY: [marker]}
-
-
-_RESPONSE_METADATA_KEYS: Final = frozenset(
-    {
-        "id",
-        "created",
-        "created_at",
-        "model",
-        "usage",
-        "usage_info",
-        "system_fingerprint",
-        "_hidden_params",
-        "_response_ms",
-    }
-)
-
-
-def _response_fingerprint(response: object) -> str | None:
-    """Digest of everything but metadata set between layers, so an unknown field counts as content."""
-    try:
-        fields: Final[Mapping[str, object]] = (
-            response.model_dump(mode="json")
-            if isinstance(response, BaseModel)
-            else _REQUEST_FIELDS.validate_python(response)
-        )
-        content: Final = {key: value for key, value in fields.items() if key not in _RESPONSE_METADATA_KEYS}
-        if not content:
-            return None
-        return hashlib.sha256(
-            json.dumps(content, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
-        ).hexdigest()
-    except (TypeError, ValueError):
-        return None
-
-
-_RESPONSE_GUARDRAIL_CHECKS_KEY: Final = "guardrail_checks"
-
-
-def _str_keyed_dict(value: object) -> Mapping[str, object] | None:
-    if not isinstance(value, dict):
-        return None
-    return cast("Mapping[str, object]", value)  # cast-ok: response bodies and _hidden_params are keyed by field name
-
-
-def _response_hidden_params(response: object) -> Mapping[str, object] | None:
-    as_dict: Final = _str_keyed_dict(response)
-    return _str_keyed_dict(
-        as_dict.get("_hidden_params") if as_dict is not None else getattr(response, "_hidden_params", None)
-    )
-
-
-def _write_response_marker(response: object, marker: str | None) -> None:
-    """Record a check on the response itself, so it survives the router copying request metadata per hop."""
-    if marker is None:
-        return
-    hidden: Final = _response_hidden_params(response)
-    if not isinstance(hidden, dict):
-        return
-    hidden[_RESPONSE_GUARDRAIL_CHECKS_KEY] = tuple(
-        _str_collection(hidden.get(_RESPONSE_GUARDRAIL_CHECKS_KEY)) | {marker}
-    )
-
-
-def _response_carries_marker(response: object, marker: str | None) -> bool:
-    hidden: Final = _response_hidden_params(response)
-    return (
-        marker is not None
-        and hidden is not None
-        and marker in _str_collection(hidden.get(_RESPONSE_GUARDRAIL_CHECKS_KEY))
-    )
-
-
 _REQUEST_FIELDS: Final = TypeAdapter(Mapping[str, object])
+
+
+def _guardrails_listed_in(metadata: object) -> list[str | dict[str, DynamicGuardrailParams]]:
+    if not isinstance(metadata, dict):
+        return []
+    return metadata.get("guardrails") or []
 
 
 class CustomGuardrail(CustomLogger):
@@ -468,7 +424,7 @@ class CustomGuardrail(CustomLogger):
         self,
         violation_message: str,
         request_data: dict[str, Any],
-        detection_info: dict[str, Any] | None = None,
+        detection_info: Mapping[str, object] | None = None,
         original_response: object = None,
     ) -> None:
         """
@@ -907,28 +863,22 @@ class CustomGuardrail(CustomLogger):
                 return True
             raise
 
-    def get_guardrail_from_metadata(self, data: dict) -> list[str] | list[dict[str, DynamicGuardrailParams]]:
+    def get_guardrail_from_metadata(self, data: dict) -> list[str | dict[str, DynamicGuardrailParams]]:
         """
-        Returns the guardrail(s) to be run from the metadata or root
+        Returns the guardrail(s) to be run from the root, else from both metadata fields together
         """
 
         if "guardrails" in data:
             return data["guardrails"]
-        # Check both metadata locations. For regular endpoints move_guardrails_to_metadata
-        # writes to "metadata"; for thread/assistant endpoints it writes to
-        # "litellm_metadata". We check the one that actually contains the "guardrails"
-        # key so that a non-empty litellm_metadata without guardrails does not shadow
-        # the merged list stored in metadata (which would cause team guardrails to be
-        # silently skipped while default_on=True policy guardrails still fire).
-        for meta_key in ("metadata", "litellm_metadata"):
-            meta = data.get(meta_key) or {}
-            if isinstance(meta, dict) and "guardrails" in meta:
-                return meta.get("guardrails") or []
-        return []
+        request_fields: Final = _REQUEST_FIELDS.validate_python(data)
+        return [
+            *_guardrails_listed_in(request_fields.get("metadata")),
+            *_guardrails_listed_in(request_fields.get("litellm_metadata")),
+        ]
 
     def _guardrail_is_in_requested_guardrails(
         self,
-        requested_guardrails: list[str] | list[dict[str, DynamicGuardrailParams]],
+        requested_guardrails: Sequence[str | dict[str, DynamicGuardrailParams]],
     ) -> bool:
         for _guardrail in requested_guardrails:
             if isinstance(_guardrail, dict):
@@ -962,7 +912,20 @@ class CustomGuardrail(CustomLogger):
         With ``raised``, records instead that the hook raised as a policy pipeline
         step the pipeline then moved past. The deployment-level hook still runs it.
         """
-        _record_guardrail_marker(data, self._pre_call_marker(raised=raised))
+        marker: Final = self._pre_call_marker(raised=raised)
+        if marker is None:
+            return
+        for meta_key in ("metadata", "litellm_metadata"):
+            meta = data.get(meta_key)
+            if isinstance(meta, dict):
+                executed = meta.get(PRE_CALL_EXECUTED_GUARDRAILS_KEY)
+                if isinstance(executed, list):
+                    if marker not in executed:
+                        executed.append(marker)
+                else:
+                    meta[PRE_CALL_EXECUTED_GUARDRAILS_KEY] = [marker]
+                return
+        data["metadata"] = {PRE_CALL_EXECUTED_GUARDRAILS_KEY: [marker]}
 
     def pre_call_hook_ran_or_raised(self, data: Mapping[str, object]) -> bool:
         """Whether this guardrail's ``async_pre_call_hook`` ran for this request, whatever it decided."""
@@ -1159,26 +1122,10 @@ class CustomGuardrail(CustomLogger):
                 cast("dict[str, object]", request_data)  # cast-ok: proxy request payloads are str-keyed
             )
 
-        returned: Final = result if self._is_valid_response_type(result) else None
-        if target is self:
-            return returned
-        checked: Final = returned if returned is not None else response
-        marker: Final = self._post_call_check_marker(checked)
-        _record_guardrail_marker(
-            cast("dict[str, object]", request_data),  # cast-ok: proxy request payloads are str-keyed
-            marker,
-        )
-        _write_response_marker(checked, marker)
-        return returned
+        if not self._is_valid_response_type(result):
+            return None
 
-    def _post_call_check_marker(self, response: object) -> str | None:
-        fingerprint: Final = _response_fingerprint(response)
-        return self._marker(f"{_POST_CALL_CHECKED_TOKEN}:{fingerprint}") if fingerprint is not None else None
-
-    def post_call_already_checked(self, data: Mapping[str, object], response: object) -> bool:
-        """Whether a deployment-level hook of this request already ran this guardrail on this exact response."""
-        marker: Final = self._post_call_check_marker(response)
-        return _request_carries_marker(data, marker) or _response_carries_marker(response, marker)
+        return result
 
     async def async_logging_hook(
         self,
@@ -1539,7 +1486,10 @@ class CustomGuardrail(CustomLogger):
         if event_type is not None:
             guardrail_mode = event_type
         elif isinstance(self.event_hook, Mode):
-            guardrail_mode = GuardrailMode(**dict(self.event_hook.model_dump()))
+            guardrail_mode = GuardrailMode(
+                tags=copy.deepcopy(self.event_hook.tags),
+                default=copy.deepcopy(self.event_hook.default),
+            )
         else:
             guardrail_mode = self.event_hook
 

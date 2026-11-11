@@ -117,7 +117,10 @@ class CfnApplication(
                     key_id="keyId"
                 ),
                 application_snapshot_configuration=kinesisanalyticsv2.CfnApplication.ApplicationSnapshotConfigurationProperty(
-                    snapshots_enabled=False
+                    snapshots_enabled=False,
+        
+                    # the properties below are optional
+                    snapshot_mode="snapshotMode"
                 ),
                 application_system_rollback_configuration=kinesisanalyticsv2.CfnApplication.ApplicationSystemRollbackConfigurationProperty(
                     rollback_enabled=False
@@ -253,6 +256,7 @@ class CfnApplication(
                     application_restore_type="applicationRestoreType",
         
                     # the properties below are optional
+                    snapshot_arn="snapshotArn",
                     snapshot_name="snapshotName"
                 ),
                 flink_run_configuration=kinesisanalyticsv2.CfnApplication.FlinkRunConfigurationProperty(
@@ -708,7 +712,10 @@ class CfnApplication(
                         key_id="keyId"
                     ),
                     application_snapshot_configuration=kinesisanalyticsv2.CfnApplication.ApplicationSnapshotConfigurationProperty(
-                        snapshots_enabled=False
+                        snapshots_enabled=False,
+                
+                        # the properties below are optional
+                        snapshot_mode="snapshotMode"
                     ),
                     application_system_rollback_configuration=kinesisanalyticsv2.CfnApplication.ApplicationSystemRollbackConfigurationProperty(
                         rollback_enabled=False
@@ -1113,6 +1120,7 @@ class CfnApplication(
         jsii_struct_bases=[],
         name_mapping={
             "application_restore_type": "applicationRestoreType",
+            "snapshot_arn": "snapshotArn",
             "snapshot_name": "snapshotName",
         },
     )
@@ -1121,11 +1129,13 @@ class CfnApplication(
             self,
             *,
             application_restore_type: builtins.str,
+            snapshot_arn: typing.Optional[builtins.str] = None,
             snapshot_name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies the method and snapshot to use when restarting an application using previously saved application state.
 
             :param application_restore_type: Specifies how the application should be restored.
+            :param snapshot_arn: The ARN of an existing snapshot to use to restart an application. The application uses this value if RESTORE_FROM_CUSTOM_SNAPSHOT is specified for the ApplicationRestoreType. Specify either SnapshotName or SnapshotArn, not both.
             :param snapshot_name: The identifier of an existing snapshot of application state to use to restart an application. The application uses this value if ``RESTORE_FROM_CUSTOM_SNAPSHOT`` is specified for the ``ApplicationRestoreType`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationrestoreconfiguration.html
@@ -1141,16 +1151,20 @@ class CfnApplication(
                     application_restore_type="applicationRestoreType",
                 
                     # the properties below are optional
+                    snapshot_arn="snapshotArn",
                     snapshot_name="snapshotName"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__aa11ca5b3cb9e953739ca116efd815c623e2e273a8c77830905f37abe7d1592a)
                 check_type(argname="argument application_restore_type", value=application_restore_type, expected_type=type_hints["application_restore_type"])
+                check_type(argname="argument snapshot_arn", value=snapshot_arn, expected_type=type_hints["snapshot_arn"])
                 check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "application_restore_type": application_restore_type,
             }
+            if snapshot_arn is not None:
+                self._values["snapshot_arn"] = snapshot_arn
             if snapshot_name is not None:
                 self._values["snapshot_name"] = snapshot_name
 
@@ -1163,6 +1177,17 @@ class CfnApplication(
             result = self._values.get("application_restore_type")
             assert result is not None, "Required property 'application_restore_type' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def snapshot_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of an existing snapshot to use to restart an application.
+
+            The application uses this value if RESTORE_FROM_CUSTOM_SNAPSHOT is specified for the ApplicationRestoreType. Specify either SnapshotName or SnapshotArn, not both.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationrestoreconfiguration.html#cfn-kinesisanalyticsv2-application-applicationrestoreconfiguration-snapshotarn
+            '''
+            result = self._values.get("snapshot_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def snapshot_name(self) -> typing.Optional[builtins.str]:
@@ -1189,17 +1214,22 @@ class CfnApplication(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnApplication.ApplicationSnapshotConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"snapshots_enabled": "snapshotsEnabled"},
+        name_mapping={
+            "snapshots_enabled": "snapshotsEnabled",
+            "snapshot_mode": "snapshotMode",
+        },
     )
     class ApplicationSnapshotConfigurationProperty:
         def __init__(
             self,
             *,
             snapshots_enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            snapshot_mode: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes whether snapshots are enabled for a Managed Service for Apache Flink application.
 
             :param snapshots_enabled: Describes whether snapshots are enabled for a Managed Service for Apache Flink application.
+            :param snapshot_mode: The snapshot mode of a Flink-based Kinesis Data Analytics application. Changing from APPLICATION_SNAPSHOTS_LEGACY to ENHANCED_SNAPSHOTS is one-way; an application in ENHANCED_SNAPSHOTS mode cannot return to APPLICATION_SNAPSHOTS_LEGACY.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationsnapshotconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1211,15 +1241,21 @@ class CfnApplication(
                 from aws_cdk import aws_kinesisanalyticsv2 as kinesisanalyticsv2
                 
                 application_snapshot_configuration_property = kinesisanalyticsv2.CfnApplication.ApplicationSnapshotConfigurationProperty(
-                    snapshots_enabled=False
+                    snapshots_enabled=False,
+                
+                    # the properties below are optional
+                    snapshot_mode="snapshotMode"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__5f66e88b392ad6e96fd8993aab7ebfcb6114196e28b0010ff3dd9f341da30b3e)
                 check_type(argname="argument snapshots_enabled", value=snapshots_enabled, expected_type=type_hints["snapshots_enabled"])
+                check_type(argname="argument snapshot_mode", value=snapshot_mode, expected_type=type_hints["snapshot_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "snapshots_enabled": snapshots_enabled,
             }
+            if snapshot_mode is not None:
+                self._values["snapshot_mode"] = snapshot_mode
 
         @builtins.property
         def snapshots_enabled(
@@ -1232,6 +1268,17 @@ class CfnApplication(
             result = self._values.get("snapshots_enabled")
             assert result is not None, "Required property 'snapshots_enabled' is missing"
             return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def snapshot_mode(self) -> typing.Optional[builtins.str]:
+            '''The snapshot mode of a Flink-based Kinesis Data Analytics application.
+
+            Changing from APPLICATION_SNAPSHOTS_LEGACY to ENHANCED_SNAPSHOTS is one-way; an application in ENHANCED_SNAPSHOTS mode cannot return to APPLICATION_SNAPSHOTS_LEGACY.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-application-applicationsnapshotconfiguration.html#cfn-kinesisanalyticsv2-application-applicationsnapshotconfiguration-snapshotmode
+            '''
+            result = self._values.get("snapshot_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3460,6 +3507,7 @@ class CfnApplication(
                         application_restore_type="applicationRestoreType",
                 
                         # the properties below are optional
+                        snapshot_arn="snapshotArn",
                         snapshot_name="snapshotName"
                     ),
                     flink_run_configuration=kinesisanalyticsv2.CfnApplication.FlinkRunConfigurationProperty(
@@ -5047,7 +5095,10 @@ class CfnApplicationProps:
                         key_id="keyId"
                     ),
                     application_snapshot_configuration=kinesisanalyticsv2.CfnApplication.ApplicationSnapshotConfigurationProperty(
-                        snapshots_enabled=False
+                        snapshots_enabled=False,
+            
+                        # the properties below are optional
+                        snapshot_mode="snapshotMode"
                     ),
                     application_system_rollback_configuration=kinesisanalyticsv2.CfnApplication.ApplicationSystemRollbackConfigurationProperty(
                         rollback_enabled=False
@@ -5183,6 +5234,7 @@ class CfnApplicationProps:
                         application_restore_type="applicationRestoreType",
             
                         # the properties below are optional
+                        snapshot_arn="snapshotArn",
                         snapshot_name="snapshotName"
                     ),
                     flink_run_configuration=kinesisanalyticsv2.CfnApplication.FlinkRunConfigurationProperty(
@@ -6494,6 +6546,7 @@ def _typecheckingstub__f3c92164cbdeb93d721e3ad077b7cfaf7e3fe963e4d848fcb982da0e2
 def _typecheckingstub__aa11ca5b3cb9e953739ca116efd815c623e2e273a8c77830905f37abe7d1592a(
     *,
     application_restore_type: builtins.str,
+    snapshot_arn: typing.Optional[builtins.str] = None,
     snapshot_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6502,6 +6555,7 @@ def _typecheckingstub__aa11ca5b3cb9e953739ca116efd815c623e2e273a8c77830905f37abe
 def _typecheckingstub__5f66e88b392ad6e96fd8993aab7ebfcb6114196e28b0010ff3dd9f341da30b3e(
     *,
     snapshots_enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    snapshot_mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

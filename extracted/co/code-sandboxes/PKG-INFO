@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code_sandboxes
-Version: 1.11.5
+Version: 1.12.0
 Project-URL: Home, https://github.com/datalayer/code-sandboxes
 Author-email: Datalayer <info@datalayer.io>
 License: BSD 3-Clause License
@@ -48,8 +48,11 @@ Requires-Dist: pydantic>=2.0
 Requires-Dist: pyyaml
 Requires-Dist: rich
 Requires-Dist: typer>=0.12.0
+Provides-Extra: agentcore
+Requires-Dist: boto3>=1.39; extra == 'agentcore'
 Provides-Extra: all
 Requires-Dist: agent-runtimes; extra == 'all'
+Requires-Dist: boto3>=1.39; extra == 'all'
 Requires-Dist: cwsandbox>=1.6; extra == 'all'
 Requires-Dist: daytona>=0.205.1; extra == 'all'
 Requires-Dist: docker>=6.0; extra == 'all'
@@ -117,6 +120,7 @@ Code Sandboxes (`code_sandboxes`) is a Python package for running code in isolat
 
 Canonical variant names:
 
+- `agentcore`
 - `cloudflare`
 - `coreweave`
 - `datalayer`

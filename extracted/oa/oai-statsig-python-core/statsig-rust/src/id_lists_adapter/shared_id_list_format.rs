@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::ops::{Deref, Range};
@@ -8,8 +9,7 @@ use memmap2::Mmap;
 use sha2::{Digest, Sha256};
 
 use super::IdListIds;
-#[path = "elias_fano.rs"]
-mod elias_fano;
+use crate::portable_id_list_ef::packed as elias_fano;
 
 const MAGIC: &[u8; 8] = b"STGIDLS\0";
 const VERSION: u32 = 2;
@@ -157,6 +157,25 @@ pub(crate) struct IdListImage {
 }
 
 impl IdListImage {
+    /// Adopt a fully validated portable EF section. It contains only canonical
+    /// keys, so the local hash partitions are empty and no replay is needed.
+    pub(super) fn from_ef_v1_snapshot(bytes: Vec<u8>, raw_end: u64) -> io::Result<Self> {
+        let ef = crate::portable_id_list_ef::validate_v1(&bytes)?;
+        if ef.count as u64 > raw_end / crate::portable_id_list_ef::RECORD_BYTES as u64 {
+            return Err(invalid("ID-list snapshot count exceeds its raw prefix"));
+        }
+        let (empty, end) = Table::new(bytes.len(), 0, 0, 8)?;
+        Ok(Self {
+            map: ImageBytes::Heap(bytes.into_boxed_slice()),
+            ef: Some(ef),
+            iter_keys: OnceLock::new(),
+            content_digest: OnceLock::new(),
+            inline: empty,
+            other: empty,
+            blob_start: end,
+        })
+    }
+
     pub(super) fn open(path: &Path, namespace: &[u8; 32], name: &str) -> io::Result<Self> {
         let file = File::open(path)?;
         if file.metadata()?.len() < HEADER_LEN as u64 {
@@ -222,11 +241,11 @@ impl IdListImage {
     }
 
     /// The caller has an empty base. A rejected changeset goes through the ordinary parser.
-    pub(super) fn try_heap_from_adds(
+    pub(super) fn try_heap_from_adds<'a>(
         namespace: &[u8; 32],
         name: &str,
-        body: String,
-    ) -> Result<Self, String> {
+        body: Cow<'a, str>,
+    ) -> Result<Self, Cow<'a, str>> {
         const RECORD_BYTES: usize = 10; // '+' + eight Base64 bytes + LF
         const MIN_DIRECT_ADDS: usize = 1_000;
         let (records, tail) = body.as_bytes().as_chunks::<RECORD_BYTES>();
@@ -239,7 +258,7 @@ impl IdListImage {
             return Err(body);
         }
         // Eight-byte ranks fit behind the next unread ten-byte record.
-        let mut bytes = body.into_bytes();
+        let mut bytes = body.into_owned().into_bytes();
         for i in 0..count {
             let start = i * RECORD_BYTES + 1;
             let key = bytes[start..start + 8].try_into().unwrap();
@@ -268,7 +287,63 @@ impl IdListImage {
             line[1..9].copy_from_slice(&elias_fano::encode(rank));
             line[9] = b'\n';
         }
-        Err(String::from_utf8(bytes).expect("canonical add records"))
+        Err(Cow::Owned(
+            String::from_utf8(bytes).expect("canonical add records"),
+        ))
+    }
+
+    /// Compact a canonical private EF base using only the normalized edits as scratch.
+    /// A mixed or overly dense result goes through the general image builder.
+    pub(super) fn try_merge_heap<'a>(
+        &self,
+        name: &str,
+        count: usize,
+        changes: impl ExactSizeIterator<Item = (&'a [u8; 8], bool)>,
+    ) -> Option<Self> {
+        let base = self.ef?;
+        if self.is_mapped() || self.inline.count != 0 || self.other.count != 0 {
+            return None;
+        }
+        let layout = elias_fano::Ef::layout(count, 8).ok()?;
+        let mut edits = Vec::new();
+        edits.try_reserve_exact(changes.len()).ok()?;
+        for (key, present) in changes {
+            edits.push(elias_fano::RankEdit::new(elias_fano::decode(key)?, present));
+        }
+        edits.sort_unstable();
+        if base.density_rejects_edits(&self.map, layout, &edits) {
+            return None;
+        }
+
+        let namespace = &[0; 32];
+        let length = checked_add(HEADER_LEN, layout.end).ok()?;
+        let mut bytes = Vec::new();
+        bytes.try_reserve_exact(length).ok()?;
+        write_header(&mut bytes, namespace, name, COMPACT_VERSION, [0; 5]).ok()?;
+        bytes.resize(length, 0);
+        let mut output = layout.stream(&mut bytes[HEADER_LEN..]);
+        let mut edits = edits.into_iter().peekable();
+        let walked = base
+            .walk(&self.map, |rank| {
+                while let Some(edit) = edits.next_if(|edit| edit.rank() <= rank) {
+                    // A normalized edit at an existing rank is a removal. Ranks
+                    // between consecutive base members can only be insertions.
+                    if edit.rank() == rank {
+                        return !edit.present();
+                    }
+                    if !edit.present() || !output.push(edit.rank()) {
+                        return false;
+                    }
+                }
+                output.push(rank)
+            })
+            .ok()?;
+        if walked && edits.all(|edit| edit.present() && output.push(edit.rank())) && output.finish()
+        {
+            Self::parse(ImageBytes::Heap(bytes.into_boxed_slice()), namespace, name).ok()
+        } else {
+            None
+        }
     }
 
     fn heap_from_sorted_ranks(

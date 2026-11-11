@@ -75,6 +75,10 @@ DEFAULT_ATTENTION_CATEGORIES: tuple[str, ...] = (
     # is authored work waiting on its author, so it is in the default union; a vault with
     # no store collection never sees it.
     "collection_view_corrections",
+    # A stored original that fixity found missing or damaged, or restored. Its bytes
+    # are what every note citing it rests on, so the owner sees it unasked; a vault
+    # whose originals all verify never sees it.
+    "original_fixity",
 )
 # Registered — selectable via `categories` — but deliberately NOT default,
 # because these read old fields that a long-lived vault can already hold a large
@@ -92,10 +96,9 @@ _RRF_K: int = 60  # the conventional default `fusion` and `find` use
 
 _PROPOSED_FIX: str = (
     "Surfaced for REVIEW only — this ranking is a deterministic measurement, not a "
-    "judgment that anything conflicts or is wrong. You decide per reason: keep / "
-    "`replace` (supersede) / `reconcile` / `propose_compilation` / "
-    "`connect_memory` / archive. Nothing is "
-    "auto-acted; `find` ordering is unchanged."
+    "judgment that anything conflicts or is wrong. You decide per reason: keep, "
+    "supersede with `supersede_note`, reconcile, compile the sources, connect the pages "
+    "or archive. Nothing is auto-acted; search order is unchanged."
 )
 
 _ACTIVATION_FIX: str = (

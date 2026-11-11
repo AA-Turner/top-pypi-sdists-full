@@ -6,6 +6,9 @@ use prost::Message;
 use crate::{
     StatsigErr, log_error_to_statsig_and_console,
     observability::{ops_stats::OpsStatsForInstance, sdk_errors_observer::ErrorBoundaryEvent},
+    specs_adapter::remote_config_value_hydrator::{
+        declares_unsupported_remote_metadata, unsupported_entity_error,
+    },
     specs_response::{
         proto_stream_reader::ProtoStreamReader,
         spec_types::SpecsResponseFull,
@@ -140,6 +143,9 @@ impl<'a> ProtobufParser<'a> {
                     .map_err(|e| map_unknown_enum_value("SpecsEnvelopeKind", e))
             });
         match log_parse_result(self.ops_stats, result) {
+            Ok((kind, envelope)) if declares_unsupported_remote_metadata(kind, &envelope) => {
+                log_parse_result(self.ops_stats, Err(unsupported_entity_error()))
+            }
             Ok(envelope) => Ok(Some(envelope)),
             Err(error) if self.state.is_delta() => Err(error),
             Err(_) => Ok(None),

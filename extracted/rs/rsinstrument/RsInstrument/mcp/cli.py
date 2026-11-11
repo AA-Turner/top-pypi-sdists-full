@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from RsInstrument import __version__
 from RsInstrument.mcp.file_transfer import FileTransferPolicy
-from RsInstrument.mcp.scpi_write_policy import ScpiWritePolicy
+from RsInstrument.mcp.scpi_write_policy import ScpiWritePolicy, _ExclusionRecord
 from RsInstrument.mcp.server import DEFAULT_MCP_HEALTH_ENDPOINT, run
 from RsInstrument.mcp.tool_specs import BuiltinToolSettings
 
@@ -135,31 +135,100 @@ def create_parser() -> argparse.ArgumentParser:
             "(repeatable; requires --file-root and --transport stdio)"
         ),
     )
+    parser.add_argument(
+        "--exclude-write-rule",
+        dest="exclude_write_rules",
+        action="append",
+        default=[],
+        metavar="RULE_ID[@GLOB]",
+        help=(
+            "Exclude a write rule globally or for matching resources (repeatable). "
+            "RULE_ID excludes the rule for all resources; RULE_ID@GLOB excludes it "
+            "only when the VISA resource string matches the fnmatch glob. "
+            "Split on the first '@' — VISA resource strings normally do not contain '@'."
+        ),
+    )
     return parser
+
+
+def _parse_instrument_file_roots(
+    roots: tuple[str, ...],
+) -> tuple[tuple[str, ...], bool]:
+    auto_allow = False
+    explicit: list[str] = []
+    for entry in roots:
+        if entry.strip().lower() == "auto":
+            auto_allow = True
+        else:
+            explicit.append(entry)
+    return tuple(explicit), auto_allow
+
+
+def _parse_exclude_write_rules(
+    entries: list[str],
+) -> tuple[list[str], list[_ExclusionRecord]]:
+    """Split ``--exclude-write-rule`` values into global ids and scoped records.
+
+    A plain ``RULE_ID`` becomes a global exclusion; ``RULE_ID@GLOB`` becomes a
+    resource-scoped exclusion (split on the first ``@``).
+    """
+    global_ids: list[str] = []
+    scoped: list[_ExclusionRecord] = []
+    for entry in entries:
+        if "@" in entry:
+            rule_id, glob = entry.split("@", 1)
+            scoped.append(
+                _ExclusionRecord(
+                    rule_id=rule_id.strip(),
+                    models=(),
+                    resources=(glob.strip(),),
+                )
+            )
+        else:
+            global_ids.append(entry.strip())
+    return global_ids, scoped
 
 
 def _build_settings_from_args(args: argparse.Namespace) -> BuiltinToolSettings:
     file_root = args.file_root
-    instrument_roots = tuple(args.instrument_file_roots or ())
-    if file_root or instrument_roots:
+    instrument_roots, auto_allow_default_dir = _parse_instrument_file_roots(
+        tuple(args.instrument_file_roots or ())
+    )
+    if file_root or instrument_roots or auto_allow_default_dir:
         if args.transport != "stdio":
             raise SystemExit(
                 "--file-root / --instrument-file-root require --transport stdio"
             )
-        if not file_root or not instrument_roots:
+        if not file_root or (not instrument_roots and not auto_allow_default_dir):
             raise SystemExit(
-                "Both --file-root and at least one --instrument-file-root are required"
+                "Both --file-root and at least one --instrument-file-root "
+                "(or 'auto') are required"
             )
         file_transfer = FileTransferPolicy(
             enabled=True,
             local_root=Path(file_root).resolve(),
             instrument_allowed_dirs=instrument_roots,
+            auto_allow_default_dir=auto_allow_default_dir,
         )
     else:
         file_transfer = FileTransferPolicy.disabled()
 
+    global_excl_ids, scoped_excls = _parse_exclude_write_rules(
+        list(args.exclude_write_rules or [])
+    )
+
+    write_policy: ScpiWritePolicy | None = args.write_policy
+    if global_excl_ids or scoped_excls or write_policy is not None:
+        if write_policy is None:
+            write_policy = ScpiWritePolicy.defaults(exclude_rule_ids=global_excl_ids)
+        else:
+            if global_excl_ids:
+                write_policy = write_policy.without_rules(global_excl_ids)
+        if scoped_excls:
+            write_policy = write_policy.with_exclusions(scoped_excls)
+
     return BuiltinToolSettings.create(
-        write_policy=args.write_policy,
+        write_policy=write_policy,
         file_transfer=file_transfer,
     )
 

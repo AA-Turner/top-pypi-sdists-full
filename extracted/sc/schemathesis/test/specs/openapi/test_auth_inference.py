@@ -7,9 +7,7 @@ from schemathesis.core.error_feedback import (
     RequiresAuthPayload,
 )
 from schemathesis.core.parameters import ParameterLocation
-from schemathesis.engine import events
 from schemathesis.engine.recorder import ScenarioRecorder
-from schemathesis.engine.run import PhaseName
 from schemathesis.specs.openapi.auth_inference import record_auth_inference
 from test.apps.catalog.openapi.modifiers.stateful import RequireBearerAuth
 from test.apps.catalog.openapi.modifiers.under_declared_security import (
@@ -245,23 +243,34 @@ def test_engine_run_attaches_token_after_inference(ctx):
     api = ctx.openapi.apps.under_declared_security()
     schema = _load_schema_with_creds(api.schema_url)
 
-    successful_protected_statuses: list[int] = []
-    for event in schemathesis.engine.from_schema(schema).execute():
-        if not isinstance(event, (events.ScenarioFinished, events.FuzzScenarioFinished)):
-            continue
-        for case_id, interaction in event.recorder.interactions.items():
-            if interaction.response is None:
-                continue
-            if not (200 <= interaction.response.status_code < 300):
-                continue
-            case_node = event.recorder.cases.get(case_id)
-            if case_node is None:
-                continue
-            generated_case = case_node.value
-            if generated_case.operation.label == "GET /protected" and generated_case.method == "GET":
-                successful_protected_statuses.append(interaction.response.status_code)
+    for _ in schemathesis.engine.from_schema(schema).execute():
+        pass
 
-    assert successful_protected_statuses, "expected at least one 2xx /protected response after inference"
+    token = f"Bearer {VALID_TOKEN}"
+    credentials = [request.headers.get("Authorization") for request in api.requests if request.path == "/protected"]
+    # The first request carrying the token is the retry that confirms it; every request after it needs the token too.
+    after_inference = credentials[credentials.index(token) + 1 :]
+    assert after_inference
+    assert set(after_inference) == {token}, credentials
+
+
+def test_engine_run_keeps_hook_authorization_header_after_inference(ctx):
+    api = ctx.openapi.apps.under_declared_security()
+    schema = _load_schema_with_creds(api.schema_url)
+
+    @schema.hook
+    def map_case(context, case):
+        case.headers["Authorization"] = "Bearer user-token"
+        return case
+
+    for _ in schemathesis.engine.from_schema(schema).execute():
+        pass
+
+    token = f"Bearer {VALID_TOKEN}"
+    credentials = [request.headers.get("Authorization") for request in api.requests if request.path == "/protected"]
+    # Only the retry that confirms the inferred scheme carries the configured credentials.
+    assert credentials.count(token) == 1
+    assert set(credentials) - {token} == {"Bearer user-token"}, credentials
 
 
 def test_record_auth_inference_skips_when_retry_returns_5xx(ctx):
@@ -300,20 +309,12 @@ def test_stateful_phase_attaches_token_after_inference(ctx):
     schema.config.phases.fuzzing.enabled = False
     schema.config.generation.update(max_examples=5)
 
-    saw_2xx_in_stateful_phase = False
-    for event in schemathesis.engine.from_schema(schema).execute():
-        if not isinstance(event, events.ScenarioFinished):
-            continue
-        if event.phase != PhaseName.STATEFUL_TESTING:
-            continue
-        for interaction in event.recorder.interactions.values():
-            if interaction.response is None:
-                continue
-            if 200 <= interaction.response.status_code < 300:
-                saw_2xx_in_stateful_phase = True
-                break
+    for _ in schemathesis.engine.from_schema(schema).execute():
+        pass
 
-    assert saw_2xx_in_stateful_phase, "expected at least one 2xx during stateful phase after inference"
+    credentials = [request.headers.get("Authorization") for request in api.requests]
+    # An operation goes out without credentials only until a rejection is retried with them.
+    assert credentials.count(f"Bearer {VALID_TOKEN}") > credentials.count(None), credentials
 
 
 def test_send_with_scheme_forwards_wsgi_app_to_retry(ctx):

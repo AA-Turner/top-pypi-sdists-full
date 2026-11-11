@@ -120,6 +120,59 @@ async fn recovery_cancels_only_the_current_fallback_even_during_http() {
     assert_eq!(http.received_requests().await.unwrap().len(), 1);
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn start_accepts_updates_before_recording_the_worker_handle() {
+    let proxy = MockForwardProxy::spawn().await;
+    let http = MockServer::start().await;
+    let adapter = make_adapter(&proxy, &http);
+    let runtime = StatsigRuntime::get_runtime();
+    let (updates_tx, mut updates_rx) = mpsc::unbounded_channel();
+    adapter.initialize(Arc::new(UpdateSender(updates_tx)));
+    let mut published = adapter.initialization_tx.subscribe();
+
+    let start = tokio::task::block_in_place(|| {
+        let _guard = adapter.task_handle_id.lock();
+        let stream = adapter.clone();
+        let runtime = runtime.clone();
+        let start = tokio::task::spawn_blocking(move || {
+            tokio::runtime::Handle::current().block_on(stream.start(&runtime))
+        });
+        // Pause startup while two stream results are published to its one-slot channel.
+        tokio::runtime::Handle::current()
+            .block_on(timeout(Duration::from_secs(4), async {
+                for version in [1, 2] {
+                    proxy
+                        .send_stream_update(Ok(ConfigSpecResponse {
+                            spec: version.to_string(),
+                            last_updated: version,
+                            zstd_dict_id: None,
+                        }))
+                        .await;
+                    published.recv().await.unwrap().unwrap();
+                }
+            }))
+            .unwrap();
+        start
+    });
+    for expected in ["1", "2"] {
+        assert_eq!(
+            updates_rx
+                .try_recv()
+                .unwrap()
+                .data
+                .read_to_string()
+                .unwrap(),
+            expected
+        );
+    }
+    let result = start.await.unwrap();
+    adapter
+        .shutdown(Duration::from_secs(1), &runtime)
+        .await
+        .unwrap();
+    result.unwrap();
+}
+
 #[tokio::test]
 async fn shutdown_joins_retrying_stream_and_stops_active_fallback() {
     let proxy = MockForwardProxy::spawn().await;

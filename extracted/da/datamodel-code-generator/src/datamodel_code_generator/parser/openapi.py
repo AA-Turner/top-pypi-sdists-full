@@ -1136,7 +1136,7 @@ class OpenAPIParser(JsonSchemaParser):
         )
 
     def _operation_enum_applies(self, site: SchemaSite[JsonSchemaObject]) -> bool:
-        return bool(site.obj.enum and not self.ignore_enum_constraints and not self._reads_enum_as_const(site.obj))
+        return self._reads_enum_class(site.obj)
 
     def _operation_literal_enum_applies(self, site: SchemaSite[JsonSchemaObject]) -> bool:
         """Return whether a body or response enum is a root model of a Literal, as a definition's enum would be.
@@ -1445,6 +1445,12 @@ class OpenAPIParser(JsonSchemaParser):
                             "document by itself, reading files and URLs that --untrusted-input does not read."
                         )
                         raise Error(msg)
+                    if self.allow_remote_refs is False:
+                        msg = (
+                            "--validation is refused under --no-allow-remote-refs: its validator resolves the $ref of "
+                            "the document by itself and fetches the URLs that --no-allow-remote-refs blocks."
+                        )
+                        raise Error(msg)
                     warn_deprecated("cli.validation", stacklevel=2)
 
                     if source.raw_data is not None and not source.text:
@@ -1479,7 +1485,7 @@ class OpenAPIParser(JsonSchemaParser):
                 self.raw_obj = specification = _schema_documents.prepare_schema_resources(
                     self, specification, path_parts
                 )
-                self._specification_documents.add(self._schema_resource_document(path_parts))
+                self._specification_documents.add(_schema_documents.schema_resource_document(self, path_parts))
                 with self.openapi_self_context(specification):
                     self._parse_specification(specification, path_parts)
 

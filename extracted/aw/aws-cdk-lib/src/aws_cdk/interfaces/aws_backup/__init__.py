@@ -39,6 +39,55 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_backup.BackupAccessPointReference",
+    jsii_struct_bases=[],
+    name_mapping={"backup_access_point_arn": "backupAccessPointArn"},
+)
+class BackupAccessPointReference:
+    def __init__(self, *, backup_access_point_arn: builtins.str) -> None:
+        '''A reference to a BackupAccessPoint resource.
+
+        :param backup_access_point_arn: The Arn of the BackupAccessPoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_backup as interfaces_backup
+            
+            backup_access_point_reference = interfaces_backup.BackupAccessPointReference(
+                backup_access_point_arn="backupAccessPointArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__513ad3fab66522a879f36774ce84b4f01bfc52e222ea585b26392ee2d6b79b46)
+            check_type(argname="argument backup_access_point_arn", value=backup_access_point_arn, expected_type=type_hints["backup_access_point_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "backup_access_point_arn": backup_access_point_arn,
+        }
+
+    @builtins.property
+    def backup_access_point_arn(self) -> builtins.str:
+        '''The Arn of the BackupAccessPoint resource.'''
+        result = self._values.get("backup_access_point_arn")
+        assert result is not None, "Required property 'backup_access_point_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BackupAccessPointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_backup.BackupPlanReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -270,6 +319,51 @@ class FrameworkReference:
         return "FrameworkReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_backup.IBackupAccessPointRef")
+class IBackupAccessPointRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a BackupAccessPoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="backupAccessPointRef")
+    def backup_access_point_ref(self) -> "BackupAccessPointReference":
+        '''(experimental) A reference to a BackupAccessPoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBackupAccessPointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BackupAccessPoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_backup.IBackupAccessPointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="backupAccessPointRef")
+    def backup_access_point_ref(self) -> "BackupAccessPointReference":
+        '''(experimental) A reference to a BackupAccessPoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("BackupAccessPointReference", jsii.get(self, "backupAccessPointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBackupAccessPointRef).__jsii_proxy_class__ = lambda : _IBackupAccessPointRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_backup.IBackupPlanRef")
@@ -1082,10 +1176,12 @@ class TieringConfigurationReference:
 
 
 __all__ = [
+    "BackupAccessPointReference",
     "BackupPlanReference",
     "BackupSelectionReference",
     "BackupVaultReference",
     "FrameworkReference",
+    "IBackupAccessPointRef",
     "IBackupPlanRef",
     "IBackupSelectionRef",
     "IBackupVaultRef",
@@ -1105,6 +1201,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__513ad3fab66522a879f36774ce84b4f01bfc52e222ea585b26392ee2d6b79b46(
+    *,
+    backup_access_point_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__6a77079e1b20aa3ac92fe146c61c7fbe6e5dbf5c8e182f93cd84530d8527a86c(
     *,
@@ -1181,5 +1284,5 @@ def _typecheckingstub__1c4ffd604d0acac2ed3572f6ad959173a1356f2c2bbb020e85ed859de
     """Type checking stubs"""
     pass
 
-for cls in [IBackupPlanRef, IBackupSelectionRef, IBackupVaultRef, IFrameworkRef, ILegalHoldRef, ILogicallyAirGappedBackupVaultRef, IReportPlanRef, IRestoreTestingPlanRef, IRestoreTestingSelectionRef, ITieringConfigurationRef]:
+for cls in [IBackupAccessPointRef, IBackupPlanRef, IBackupSelectionRef, IBackupVaultRef, IFrameworkRef, ILegalHoldRef, ILogicallyAirGappedBackupVaultRef, IReportPlanRef, IRestoreTestingPlanRef, IRestoreTestingSelectionRef, ITieringConfigurationRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

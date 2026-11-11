@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
@@ -30,7 +29,6 @@ from ..log_events import log_event
 from . import authorization_sessions, connector_boundary
 from . import principal as principal_module
 from .authorization_request import (
-    ABSENT_CREDENTIAL,
     INVALID_CREDENTIAL,
     AuthorizationContextUnavailable,
     AuthorizationRouteUnclassified,
@@ -38,6 +36,7 @@ from .authorization_request import (
     enforce_credential_rule,
     verify_authorization_context,
 )
+from .credential_carrier import CredentialCarrier
 
 AUTHORIZATION_SESSION_HEADER_NAME: Final = "X-Exomem-Authorization-Session"
 AUTHORIZATION_SESSION_HEADER: Final = AUTHORIZATION_SESSION_HEADER_NAME.lower().encode()
@@ -74,77 +73,6 @@ class AuthorizationEnvelopeUnavailable(RuntimeError):
 
 class _ObjectPairs(list[tuple[str, object]]):
     """JSON object retaining duplicate keys until credential extraction."""
-
-
-class CredentialCarrier:
-    """One-shot, redacted storage for a bounded canonical bearer."""
-
-    __slots__ = ("_payload", "_state")
-
-    def __init__(self, payload: bytes | None, *, state: str) -> None:
-        self._payload = bytearray(payload) if payload is not None else None
-        self._state = state
-
-    @classmethod
-    def absent(cls) -> CredentialCarrier:
-        return cls(None, state="absent")
-
-    @classmethod
-    def invalid(cls) -> CredentialCarrier:
-        return cls(None, state="invalid")
-
-    @classmethod
-    def from_value(cls, value: object) -> CredentialCarrier:
-        if not isinstance(value, str):
-            return cls.invalid()
-        try:
-            encoded = value.encode("ascii")
-        except UnicodeEncodeError:
-            return cls.invalid()
-        if (
-            len(encoded) != authorization_sessions.AUTHORIZATION_SESSION_CREDENTIAL_BYTES
-            or authorization_sessions.parse_credential(value) is None
-        ):
-            return cls.invalid()
-        return cls(encoded, state="present")
-
-    def consume(self) -> object:
-        state = self._state
-        self._state = "consumed"
-        if state == "absent":
-            return ABSENT_CREDENTIAL
-        if state != "present" or self._payload is None:
-            return INVALID_CREDENTIAL
-        try:
-            return self._payload.decode("ascii")
-        finally:
-            for index in range(len(self._payload)):
-                self._payload[index] = 0
-            self._payload = None
-
-    @property
-    def is_absent(self) -> bool:
-        """Whether no credential was presented at the protected boundary."""
-
-        return self._state == "absent"
-
-    @property
-    def is_invalid(self) -> bool:
-        """Whether a credential was presented but failed canonical parsing."""
-
-        return self._state == "invalid"
-
-    def discard(self) -> None:
-        """Destroy any retained bytes without materializing an immutable string."""
-
-        if self._payload is not None:
-            for index in range(len(self._payload)):
-                self._payload[index] = 0
-            self._payload = None
-        self._state = "consumed"
-
-    def __repr__(self) -> str:
-        return f"CredentialCarrier(state={self._state!r})"
 
 
 class _StdioAuthorizationRequest:
@@ -550,44 +478,6 @@ def strip_sensitive_authorization_header(
     return sanitized, carrier
 
 
-def read_cli_authorization_fd(fd_spec: str) -> CredentialCarrier:
-    """Read at most one canonical bearer from a caller-owned descriptor."""
-
-    if fd_spec == "-":
-        descriptor = 0
-    elif isinstance(fd_spec, str) and fd_spec.isascii() and fd_spec.isdecimal():
-        descriptor = int(fd_spec)
-    else:
-        return CredentialCarrier.invalid()
-    if descriptor < 0:
-        return CredentialCarrier.invalid()
-
-    limit = authorization_sessions.AUTHORIZATION_SESSION_CREDENTIAL_BYTES + 1
-    payload = bytearray()
-    try:
-        while len(payload) < limit:
-            chunk = os.read(descriptor, limit - len(payload))
-            if not chunk:
-                break
-            payload.extend(chunk)
-        if len(payload) != authorization_sessions.AUTHORIZATION_SESSION_CREDENTIAL_BYTES:
-            return CredentialCarrier.invalid()
-        try:
-            decoded: object = payload.decode("ascii")
-        except UnicodeDecodeError:
-            decoded = INVALID_CREDENTIAL
-        return (
-            CredentialCarrier.invalid()
-            if decoded is INVALID_CREDENTIAL
-            else CredentialCarrier.from_value(decoded)
-        )
-    except OSError:
-        return CredentialCarrier.invalid()
-    finally:
-        for index in range(len(payload)):
-            payload[index] = 0
-
-
 async def _read_asgi_body(receive: Receive) -> bytes:
     body = bytearray()
     more = True
@@ -701,6 +591,53 @@ class AuthorizationCarrierMiddleware:
             await self.app(sanitized_scope, request_receive, send)
 
 
+def take_presented_carrier(context: Any, arguments: dict[str, object]) -> CredentialCarrier:
+    """The bearer a tool call presents, popped off `arguments` (stdio) or read from the request (HTTP)."""
+    if MCP_CREDENTIAL_PARAMETER in arguments:
+        return CredentialCarrier.from_value(arguments.pop(MCP_CREDENTIAL_PARAMETER))
+    request_context = context.fastmcp_context.request_context
+    if request_context is not None:
+        candidate = getattr(request_context.request, "authorization_carrier", None)
+        if isinstance(candidate, CredentialCarrier):
+            return candidate
+    return current_request_authorization_carrier() or CredentialCarrier.absent()
+
+
+async def refuse_unverified_credential(vault_root: Path, context: Any) -> None:
+    """Raise the common credential refusal when a call presents a credential that does not verify.
+
+    A call refused before authorization (an unlisted tool, or arguments that no operation owns)
+    still answers an invalid credential with the credential refusal, never with a validation
+    detail. A call that presents none passes: no route was classified, so none requires one.
+    """
+    carrier = take_presented_carrier(context, dict(context.message.arguments or {}))
+    if carrier.is_absent:
+        return
+    started = time.perf_counter()
+    with mcp_request_correlation() as request_id:
+        try:
+            await anyio.to_thread.run_sync(partial(
+                verify_authorization_context, vault_root,
+                principal=principal_module.resolve_mcp_principal(),
+                credential=carrier.consume(), now=int(time.time()),
+            ))
+        except AuthorizationContextUnavailable as error:
+            _observe_authorization(request_id, "entry", (time.perf_counter() - started) * 1000, None)
+            raise ToolError(str(error)) from None
+
+
+def _observe_authorization(request_id: str, phase: str, entry_ms: float, post_ms: float | None) -> None:
+    try:
+        log_event(_call_log, logging.INFO, "authorization_observation", fields={
+            "request_id": request_id,
+            "phase": phase,
+            "entry_ms": round(entry_ms, 2),
+            "post_ms": round(post_ms, 2) if post_ms is not None else None,
+        })
+    except Exception:  # noqa: BLE001 - observation must not change the call outcome
+        pass
+
+
 class AuthorizationSessionMiddleware(Middleware):
     """Verify MCP capability context before tracing and FunctionTool validation."""
 
@@ -720,21 +657,7 @@ class AuthorizationSessionMiddleware(Middleware):
         with mcp_request_correlation() as request_id:
             try:
                 arguments = dict(context.message.arguments or {})
-                request_context = context.fastmcp_context.request_context
-                protected_carrier = None
-                if request_context is not None:
-                    request = request_context.request
-                    candidate = getattr(request, "authorization_carrier", None)
-                    if isinstance(candidate, CredentialCarrier):
-                        protected_carrier = candidate
-                if MCP_CREDENTIAL_PARAMETER in arguments:
-                    carrier = CredentialCarrier.from_value(
-                        arguments.pop(MCP_CREDENTIAL_PARAMETER)
-                    )
-                elif protected_carrier is not None:
-                    carrier = protected_carrier
-                else:
-                    carrier = current_request_authorization_carrier() or CredentialCarrier.absent()
+                carrier = take_presented_carrier(context, arguments)
                 try:
                     principal = principal_module.resolve_mcp_principal()
                     admission = await anyio.to_thread.run_sync(
@@ -785,15 +708,7 @@ class AuthorizationSessionMiddleware(Middleware):
                 if entry_ms is None:
                     entry_ms = (finished - entry_started) * 1000
                 post_ms = (finished - post_started) * 1000 if post_started is not None else None
-                try:
-                    log_event(_call_log, logging.INFO, "authorization_observation", fields={
-                        "request_id": request_id,
-                        "phase": phase,
-                        "entry_ms": round(entry_ms, 2),
-                        "post_ms": round(post_ms, 2) if post_ms is not None else None,
-                    })
-                except Exception:  # noqa: BLE001 - observation must not change the call outcome
-                    pass
+                _observe_authorization(request_id, phase, entry_ms, post_ms)
 
     async def _read_content(self, context, call_next, error_type):
         who = principal_module.resolve_mcp_principal()

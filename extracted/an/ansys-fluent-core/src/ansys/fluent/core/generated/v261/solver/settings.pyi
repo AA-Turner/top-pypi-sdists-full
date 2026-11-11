@@ -1532,7 +1532,7 @@ class predicates(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class manage_criteria_child(Group):
+class manage_criteria_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -1552,7 +1552,7 @@ class manage_criteria_child(Group):
     refinement_layers: refinement_layers
     predicates: predicates
 
-class manage_criteria(NamedObject[manage_criteria_child]):
+class manage_criteria(NamedObject[manage_criteria_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -1611,7 +1611,7 @@ class manage_criteria(NamedObject[manage_criteria_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: manage_criteria_child
+    child_object_type: manage_criteria_item
 
 class shock_indicator(Group):
     exposure_level: ExposureLevel
@@ -1895,7 +1895,7 @@ class geometry_3(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class manage_child(Group):
+class manage_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -1906,7 +1906,7 @@ class manage_child(Group):
     exponent: exponent
     geometry: geometry_3
 
-class manage(NamedObject[manage_child]):
+class manage(NamedObject[manage_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -1965,7 +1965,7 @@ class manage(NamedObject[manage_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: manage_child
+    child_object_type: manage_item
 
 class reconstruct_geometry(Boolean):
     exposure_level: ExposureLevel
@@ -2290,7 +2290,7 @@ class type_3(Group):
     surface_mesh: surface_mesh_1
     reconstruction: reconstruction
 
-class geometry_1_child(Group):
+class geometry_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -2299,7 +2299,7 @@ class geometry_1_child(Group):
     name: name_3
     type: type_3
 
-class geometry_1(NamedObject[geometry_1_child]):
+class geometry_1(NamedObject[geometry_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -2358,7 +2358,7 @@ class geometry_1(NamedObject[geometry_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: geometry_1_child
+    child_object_type: geometry_1_item
 
 class coarsen(Boolean):
     exposure_level: ExposureLevel
@@ -3631,7 +3631,7 @@ class offset_5(Real):
     fluent_name: str
     _python_name: str
 
-class units_child(Group):
+class units_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -3641,7 +3641,7 @@ class units_child(Group):
     scale_factor: scale_factor
     offset: offset_5
 
-class units(NamedObject[units_child]):
+class units(NamedObject[units_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -3700,7 +3700,7 @@ class units(NamedObject[units_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: units_child
+    child_object_type: units_item
 
 class units_settings(Group):
     exposure_level: ExposureLevel
@@ -4322,7 +4322,7 @@ class iac_props(Group):
     iac_nucleation_udf: iac_nucleation_udf
     iac_sftc: iac_sftc
 
-class phases_child(Group):
+class phases_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4338,7 +4338,7 @@ class phases_child(Group):
     iac: iac
     iac_props: iac_props
 
-class phases(NamedObject[phases_child]):
+class phases(NamedObject[phases_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4397,7 +4397,7 @@ class phases(NamedObject[phases_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phases_child
+    child_object_type: phases_item
 
 class surface_tension_model(Boolean):
     exposure_level: ExposureLevel
@@ -4474,7 +4474,7 @@ class drag_mod_udf(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class drag_mixture_child(Group):
+class drag_mixture_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4488,7 +4488,7 @@ class drag_mixture_child(Group):
     drag_mod_constant: drag_mod_constant
     drag_mod_udf: drag_mod_udf
 
-class drag_mixture(ListObject[drag_mixture_child]):
+class drag_mixture(ListObject[drag_mixture_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4512,9 +4512,9 @@ class drag_mixture(ListObject[drag_mixture_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: drag_mixture_child
+    child_object_type: drag_mixture_item
 
-class drag_euler_child(Group):
+class drag_euler_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4528,7 +4528,7 @@ class drag_euler_child(Group):
     drag_mod_constant: drag_mod_constant
     drag_mod_udf: drag_mod_udf
 
-class drag_euler(ListObject[drag_euler_child]):
+class drag_euler(ListObject[drag_euler_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4552,7 +4552,7 @@ class drag_euler(ListObject[drag_euler_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: drag_euler_child
+    child_object_type: drag_euler_item
 
 class ppt_methods(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -4624,7 +4624,7 @@ class coefficients_1(RealList):
     fluent_name: str
     _python_name: str
 
-class range_child(Group):
+class range_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4634,7 +4634,7 @@ class range_child(Group):
     maximum: maximum
     coefficients: coefficients_1
 
-class range(ListObject[range_child]):
+class range(ListObject[range_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4658,7 +4658,7 @@ class range(ListObject[range_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: range_child
+    child_object_type: range_item
 
 class ppt_piecewise_polynomial(Group):
     exposure_level: ExposureLevel
@@ -4700,7 +4700,7 @@ class value_1(Real):
     fluent_name: str
     _python_name: str
 
-class data_points_child(Group):
+class data_points_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4709,7 +4709,7 @@ class data_points_child(Group):
     item: item
     value: value_1
 
-class data_points(ListObject[data_points_child]):
+class data_points(ListObject[data_points_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4733,7 +4733,7 @@ class data_points(ListObject[data_points_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: data_points_child
+    child_object_type: data_points_item
 
 class ppt_piecewise_linear(Group):
     exposure_level: ExposureLevel
@@ -4870,7 +4870,7 @@ class td_coeff_udf(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class lift_euler_child(Group):
+class lift_euler_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4903,7 +4903,7 @@ class lift_euler_child(Group):
     td_coeff_const: td_coeff_const
     td_coeff_udf: td_coeff_udf
 
-class lift_euler(ListObject[lift_euler_child]):
+class lift_euler(ListObject[lift_euler_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4927,9 +4927,9 @@ class lift_euler(ListObject[lift_euler_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: lift_euler_child
+    child_object_type: lift_euler_item
 
-class wall_lub_euler_child(Group):
+class wall_lub_euler_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4962,7 +4962,7 @@ class wall_lub_euler_child(Group):
     td_coeff_const: td_coeff_const
     td_coeff_udf: td_coeff_udf
 
-class wall_lub_euler(ListObject[wall_lub_euler_child]):
+class wall_lub_euler(ListObject[wall_lub_euler_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4986,9 +4986,9 @@ class wall_lub_euler(ListObject[wall_lub_euler_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: wall_lub_euler_child
+    child_object_type: wall_lub_euler_item
 
-class turb_disp_euler_child(Group):
+class turb_disp_euler_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -5021,7 +5021,7 @@ class turb_disp_euler_child(Group):
     td_coeff_const: td_coeff_const
     td_coeff_udf: td_coeff_udf
 
-class turb_disp_euler(ListObject[turb_disp_euler_child]):
+class turb_disp_euler(ListObject[turb_disp_euler_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -5045,9 +5045,9 @@ class turb_disp_euler(ListObject[turb_disp_euler_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: turb_disp_euler_child
+    child_object_type: turb_disp_euler_item
 
-class slip_velocity_child(Group):
+class slip_velocity_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -5080,7 +5080,7 @@ class slip_velocity_child(Group):
     td_coeff_const: td_coeff_const
     td_coeff_udf: td_coeff_udf
 
-class slip_velocity(ListObject[slip_velocity_child]):
+class slip_velocity(ListObject[slip_velocity_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -5104,9 +5104,9 @@ class slip_velocity(ListObject[slip_velocity_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: slip_velocity_child
+    child_object_type: slip_velocity_item
 
-class surface_tension_child(Group):
+class surface_tension_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -5139,7 +5139,7 @@ class surface_tension_child(Group):
     td_coeff_const: td_coeff_const
     td_coeff_udf: td_coeff_udf
 
-class surface_tension(ListObject[surface_tension_child]):
+class surface_tension(ListObject[surface_tension_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -5163,15 +5163,15 @@ class surface_tension(ListObject[surface_tension_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: surface_tension_child
+    child_object_type: surface_tension_item
 
-class rest_coeff_child(Real):
+class rest_coeff_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class rest_coeff(ListObject[rest_coeff_child]):
+class rest_coeff(ListObject[rest_coeff_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -5195,7 +5195,7 @@ class rest_coeff(ListObject[rest_coeff_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: rest_coeff_child
+    child_object_type: rest_coeff_item
 
 class forces(Group):
     exposure_level: ExposureLevel
@@ -6579,7 +6579,7 @@ class mt_species_group(Group):
     mt_species_model_parameters: mt_species_model_parameters
     mt_species_int_phase_mt: mt_species_int_phase_mt
 
-class mass_transfer_list_child(Group):
+class mass_transfer_list_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -6596,7 +6596,7 @@ class mass_transfer_list_child(Group):
     mt_evap_cond_group: mt_evap_cond_group
     mt_species_group: mt_species_group
 
-class mass_transfer_list(ListObject[mass_transfer_list_child]):
+class mass_transfer_list(ListObject[mass_transfer_list_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -6620,9 +6620,9 @@ class mass_transfer_list(ListObject[mass_transfer_list_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: mass_transfer_list_child
+    child_object_type: mass_transfer_list_item
 
-class intf_area_child(Group):
+class intf_area_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -6655,7 +6655,7 @@ class intf_area_child(Group):
     td_coeff_const: td_coeff_const
     td_coeff_udf: td_coeff_udf
 
-class intf_area(ListObject[intf_area_child]):
+class intf_area(ListObject[intf_area_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -6679,7 +6679,7 @@ class intf_area(ListObject[intf_area_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: intf_area_child
+    child_object_type: intf_area_item
 
 class phase_localized_compressive_scheme(Boolean):
     exposure_level: ExposureLevel
@@ -6687,7 +6687,7 @@ class phase_localized_compressive_scheme(Boolean):
     fluent_name: str
     _python_name: str
 
-class slope_limiter_child(Group):
+class slope_limiter_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -6720,7 +6720,7 @@ class slope_limiter_child(Group):
     td_coeff_const: td_coeff_const
     td_coeff_udf: td_coeff_udf
 
-class slope_limiter(ListObject[slope_limiter_child]):
+class slope_limiter(ListObject[slope_limiter_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -6744,7 +6744,7 @@ class slope_limiter(ListObject[slope_limiter_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: slope_limiter_child
+    child_object_type: slope_limiter_item
 
 class interfacial_discretization(Group):
     exposure_level: ExposureLevel
@@ -6956,7 +6956,7 @@ class coefficient_2(Real):
     fluent_name: str
     _python_name: str
 
-class expert_child(Group):
+class expert_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -6967,7 +6967,7 @@ class expert_child(Group):
     coefficient_1: coefficient_1
     coefficient_2: coefficient_2
 
-class expert(ListObject[expert_child]):
+class expert(ListObject[expert_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -6995,7 +6995,7 @@ class expert(ListObject[expert_child]):
         """
         List all the constants used in the Parks model.
         """
-    child_object_type: expert_child
+    child_object_type: expert_item
 
 class translational_vibrational_energy_relaxation(Group):
     exposure_level: ExposureLevel
@@ -8558,13 +8558,13 @@ class subgrid_scale_turb_visc(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class turb_visc_mf_child(String, AllowedValuesMixin):
+class turb_visc_mf_item(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class turb_visc_mf(NamedObject[turb_visc_mf_child]):
+class turb_visc_mf(NamedObject[turb_visc_mf_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -8623,7 +8623,7 @@ class turb_visc_mf(NamedObject[turb_visc_mf_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: turb_visc_mf_child
+    child_object_type: turb_visc_mf_item
 
 class turb_visc(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -9316,7 +9316,7 @@ class end(Real):
     fluent_name: str
     _python_name: str
 
-class multiband_child(Group):
+class multiband_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -9326,7 +9326,7 @@ class multiband_child(Group):
     start: start_2
     end: end
 
-class multiband(NamedObject[multiband_child]):
+class multiband(NamedObject[multiband_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -9385,7 +9385,7 @@ class multiband(NamedObject[multiband_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: multiband_child
+    child_object_type: multiband_item
 
 class method_2(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -9837,13 +9837,13 @@ class material_1(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class phase_material_child(String, AllowedValuesMixin):
+class phase_material_item(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class phase_material(NamedObject[phase_material_child]):
+class phase_material(NamedObject[phase_material_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -9902,7 +9902,7 @@ class phase_material(NamedObject[phase_material_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_material_child
+    child_object_type: phase_material_item
 
 class number_volumetric_species(Integer):
     exposure_level: ExposureLevel
@@ -9960,13 +9960,13 @@ class diffusion_energy_source(Boolean):
     fluent_name: str
     _python_name: str
 
-class multi_component_diffusion_mf_child(Boolean):
+class multi_component_diffusion_mf_item(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class multi_component_diffusion_mf(NamedObject[multi_component_diffusion_mf_child]):
+class multi_component_diffusion_mf(NamedObject[multi_component_diffusion_mf_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -10025,7 +10025,7 @@ class multi_component_diffusion_mf(NamedObject[multi_component_diffusion_mf_chil
             to : str
                 The name of the new object.
         """
-    child_object_type: multi_component_diffusion_mf_child
+    child_object_type: multi_component_diffusion_mf_item
 
 class multi_component_diffusion(Boolean):
     exposure_level: ExposureLevel
@@ -10860,7 +10860,7 @@ class oxidizer(Real):
     fluent_name: str
     _python_name: str
 
-class species_boundary_child(Group):
+class species_boundary_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -10869,7 +10869,7 @@ class species_boundary_child(Group):
     fuel: fuel
     oxidizer: oxidizer
 
-class species_boundary(NamedObject[species_boundary_child]):
+class species_boundary(NamedObject[species_boundary_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -10928,7 +10928,7 @@ class species_boundary(NamedObject[species_boundary_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: species_boundary_child
+    child_object_type: species_boundary_item
 
 class default_progress_variable(Boolean):
     exposure_level: ExposureLevel
@@ -10942,7 +10942,7 @@ class weight(Real):
     fluent_name: str
     _python_name: str
 
-class definition_child(Group):
+class definition_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -10950,7 +10950,7 @@ class definition_child(Group):
     child_names: list[str]
     weight: weight
 
-class definition(NamedObject[definition_child]):
+class definition(NamedObject[definition_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -11009,7 +11009,7 @@ class definition(NamedObject[definition_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: definition_child
+    child_object_type: definition_item
 
 class progress_variable_definition(Group):
     exposure_level: ExposureLevel
@@ -12204,7 +12204,7 @@ class mf(Real):
     fluent_name: str
     _python_name: str
 
-class user_defined_comp_child(Group):
+class user_defined_comp_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -12213,7 +12213,7 @@ class user_defined_comp_child(Group):
     name: name_6
     mf: mf
 
-class user_defined_comp(NamedObject[user_defined_comp_child]):
+class user_defined_comp(NamedObject[user_defined_comp_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -12272,7 +12272,7 @@ class user_defined_comp(NamedObject[user_defined_comp_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: user_defined_comp_child
+    child_object_type: user_defined_comp_item
 
 class inert_stream_composition(Group):
     exposure_level: ExposureLevel
@@ -14477,7 +14477,7 @@ class evaporating_stream_1(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class components_1_child(Group):
+class components_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -14487,7 +14487,7 @@ class components_1_child(Group):
     evaporating_species: evaporating_species_1
     evaporating_stream: evaporating_stream_1
 
-class components_1(NamedObject[components_1_child]):
+class components_1(NamedObject[components_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -14546,7 +14546,7 @@ class components_1(NamedObject[components_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: components_1_child
+    child_object_type: components_1_item
 
 class temperature_1(Real, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -15070,7 +15070,7 @@ class user_defined_functions_2(Group):
     injection_init: injection_init
     heat_mass_transfer: heat_mass_transfer
 
-class injections_child(Group):
+class injections_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -15088,7 +15088,7 @@ class injections_child(Group):
     user_defined_functions: user_defined_functions_2
     _child_aliases: dict
 
-class injections(NamedObject[injections_child]):
+class injections(NamedObject[injections_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -15147,7 +15147,7 @@ class injections(NamedObject[injections_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: injections_child
+    child_object_type: injections_item
 
 class discrete_phase(Group):
     exposure_level: ExposureLevel
@@ -15497,7 +15497,7 @@ class airfoil_data_file(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class geometry_5_child(Group):
+class geometry_5_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -15509,7 +15509,7 @@ class geometry_5_child(Group):
     twist: twist
     airfoil_data_file: airfoil_data_file
 
-class geometry_5(NamedObject[geometry_5_child]):
+class geometry_5(NamedObject[geometry_5_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -15577,7 +15577,7 @@ class geometry_5(NamedObject[geometry_5_child]):
             name : str
                 Object name to add.
         """
-    child_object_type: geometry_5_child
+    child_object_type: geometry_5_item
 
 class trim_option(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -15633,7 +15633,7 @@ class trimming(Group):
     roll_moment_coef: roll_moment_coef
     pitch_moment_coef: pitch_moment_coef
 
-class rotor_child(Group):
+class rotor_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -15644,7 +15644,7 @@ class rotor_child(Group):
     geometry: geometry_5
     trimming: trimming
 
-class rotor(NamedObject[rotor_child]):
+class rotor(NamedObject[rotor_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -15703,7 +15703,7 @@ class rotor(NamedObject[rotor_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: rotor_child
+    child_object_type: rotor_item
 
 class virtual_blade_model(Group):
     exposure_level: ExposureLevel
@@ -15734,7 +15734,7 @@ class ap_face_zone_1(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class beams_child(Group):
+class beams_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -15746,7 +15746,7 @@ class beams_child(Group):
     ray_points_count: ray_points_count
     beam_vector: beam_vector
 
-class beams(NamedObject[beams_child]):
+class beams(NamedObject[beams_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -15836,7 +15836,7 @@ class beams(NamedObject[beams_child]):
             z_beam_vector : real
                 The z-component of the beam propagation vector.
         """
-    child_object_type: beams_child
+    child_object_type: beams_item
 
 class reset_statistics(Boolean):
     exposure_level: ExposureLevel
@@ -17795,7 +17795,7 @@ class value_16(Real):
     fluent_name: str
     _python_name: str
 
-class contact_resis_child(Group):
+class contact_resis_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -17805,7 +17805,7 @@ class contact_resis_child(Group):
     zone_name: zone_name_6
     value: value_16
 
-class contact_resis(ListObject[contact_resis_child]):
+class contact_resis(ListObject[contact_resis_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -17853,7 +17853,7 @@ class contact_resis(ListObject[contact_resis_child]):
             face_name : str
                 Pick a zone you want to delete.
         """
-    child_object_type: contact_resis_child
+    child_object_type: contact_resis_item
 
 class enable_14(Boolean):
     exposure_level: ExposureLevel
@@ -17867,7 +17867,7 @@ class species_name_3(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class setup_1_child(Group):
+class setup_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -17876,7 +17876,7 @@ class setup_1_child(Group):
     species_name: species_name_3
     value: value_16
 
-class setup_1(ListObject[setup_1_child]):
+class setup_1(ListObject[setup_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -17924,7 +17924,7 @@ class setup_1(ListObject[setup_1_child]):
             species_name : str
                 Pick a species you want to delete.
         """
-    child_object_type: setup_1_child
+    child_object_type: setup_1_item
 
 class membrane_diffusion(Group):
     exposure_level: ExposureLevel
@@ -18249,7 +18249,7 @@ class y_table(Group):
         2D table printing command.
         """
 
-class internal_resistance_table_child(Group):
+class internal_resistance_table_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -18265,7 +18265,7 @@ class internal_resistance_table_child(Group):
     z_label: z_label
     table_label: table_label
 
-class internal_resistance_table(ListObject[internal_resistance_table_child]):
+class internal_resistance_table(ListObject[internal_resistance_table_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -18301,7 +18301,7 @@ class internal_resistance_table(ListObject[internal_resistance_table_child]):
         """
         3D table-printing command.
         """
-    child_object_type: internal_resistance_table_child
+    child_object_type: internal_resistance_table_item
 
 class limit_current_enabled(Boolean):
     exposure_level: ExposureLevel
@@ -18315,7 +18315,7 @@ class provide_utable_enabled(Boolean):
     fluent_name: str
     _python_name: str
 
-class limit_current_table_child(Group):
+class limit_current_table_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -18331,7 +18331,7 @@ class limit_current_table_child(Group):
     z_label: z_label
     table_label: table_label
 
-class limit_current_table(ListObject[limit_current_table_child]):
+class limit_current_table(ListObject[limit_current_table_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -18367,7 +18367,7 @@ class limit_current_table(ListObject[limit_current_table_child]):
         """
         3D table-printing command.
         """
-    child_object_type: limit_current_table_child
+    child_object_type: limit_current_table_item
 
 class monitor_names(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -19783,7 +19783,7 @@ class profile_2(Filename, _InputFile):
     fluent_name: str
     _python_name: str
 
-class energy_source_active_child(Group):
+class energy_source_active_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -19794,7 +19794,7 @@ class energy_source_active_child(Group):
     profile: profile_2
     _child_aliases: dict
 
-class energy_source_active(NamedObject[energy_source_active_child]):
+class energy_source_active(NamedObject[energy_source_active_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -19853,7 +19853,7 @@ class energy_source_active(NamedObject[energy_source_active_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: energy_source_active_child
+    child_object_type: energy_source_active_item
 
 class option_41(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -19895,13 +19895,13 @@ class cht_model_settings(Group):
     energy_source_active: energy_source_active
     tab_elec_current: tab_elec_current
 
-class energy_source_active_1_child(String, AllowedValuesMixin):
+class energy_source_active_1_item(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class energy_source_active_1(NamedObject[energy_source_active_1_child]):
+class energy_source_active_1(NamedObject[energy_source_active_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -19960,7 +19960,7 @@ class energy_source_active_1(NamedObject[energy_source_active_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: energy_source_active_1_child
+    child_object_type: energy_source_active_1_item
 
 class option_42(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -20073,7 +20073,7 @@ class udf_profile_name(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class fast_charging_table_child(Group):
+class fast_charging_table_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -20089,7 +20089,7 @@ class fast_charging_table_child(Group):
     z_label: z_label
     table_label: table_label
 
-class fast_charging_table(ListObject[fast_charging_table_child]):
+class fast_charging_table(ListObject[fast_charging_table_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -20125,7 +20125,7 @@ class fast_charging_table(ListObject[fast_charging_table_child]):
         """
         3D table-printing command.
         """
-    child_object_type: fast_charging_table_child
+    child_object_type: fast_charging_table_item
 
 class monitor_names_1(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -20470,7 +20470,7 @@ class solution_option(Group):
     option_settings: option_settings
     cell_clustering: cell_clustering
 
-class contact_resistance_child(Group):
+class contact_resistance_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -20479,7 +20479,7 @@ class contact_resistance_child(Group):
     zone_name: zone_name_6
     value: value_16
 
-class contact_resistance(ListObject[contact_resistance_child]):
+class contact_resistance(ListObject[contact_resistance_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -20527,7 +20527,7 @@ class contact_resistance(ListObject[contact_resistance_child]):
             face_name : str
                 Object name when deleting a thread-real-pair object.
         """
-    child_object_type: contact_resistance_child
+    child_object_type: contact_resistance_item
 
 class location_2(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -20535,7 +20535,7 @@ class location_2(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class contact_resistance_locations_child(Group):
+class contact_resistance_locations_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -20545,7 +20545,7 @@ class contact_resistance_locations_child(Group):
     location: location_2
     value: value_22
 
-class contact_resistance_locations(NamedObject[contact_resistance_locations_child]):
+class contact_resistance_locations(NamedObject[contact_resistance_locations_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -20606,7 +20606,7 @@ class contact_resistance_locations(NamedObject[contact_resistance_locations_chil
             to : str
                 The name of the new object.
         """
-    child_object_type: contact_resistance_locations_child
+    child_object_type: contact_resistance_locations_item
 
 class enabled_31(Boolean):
     exposure_level: ExposureLevel
@@ -21005,13 +21005,13 @@ class four_equation(Group):
     w_e: w_e
     e0: e0
 
-class abuse_rate_matrix_child(RealList):
+class abuse_rate_matrix_item(RealList):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class abuse_rate_matrix(ListObject[abuse_rate_matrix_child]):
+class abuse_rate_matrix(ListObject[abuse_rate_matrix_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -21035,7 +21035,7 @@ class abuse_rate_matrix(ListObject[abuse_rate_matrix_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: abuse_rate_matrix_child
+    child_object_type: abuse_rate_matrix_item
 
 class n_equation(Group):
     exposure_level: ExposureLevel
@@ -21955,7 +21955,7 @@ class range_temp(Real):
     fluent_name: str
     _python_name: str
 
-class test_data_sets_child(Group):
+class test_data_sets_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -21971,7 +21971,7 @@ class test_data_sets_child(Group):
     range_temp: range_temp
     _child_aliases: dict
 
-class test_data_sets(ListObject[test_data_sets_child]):
+class test_data_sets(ListObject[test_data_sets_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -21995,7 +21995,7 @@ class test_data_sets(ListObject[test_data_sets_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: test_data_sets_child
+    child_object_type: test_data_sets_item
 
 class rhocp(Real):
     exposure_level: ExposureLevel
@@ -22439,13 +22439,13 @@ class nci_face_list(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class translation_rotation_matrix_child(RealList):
+class translation_rotation_matrix_item(RealList):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class translation_rotation_matrix(ListObject[translation_rotation_matrix_child]):
+class translation_rotation_matrix(ListObject[translation_rotation_matrix_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -22469,7 +22469,7 @@ class translation_rotation_matrix(ListObject[translation_rotation_matrix_child])
             size : int
                 New size for list-object.
         """
-    child_object_type: translation_rotation_matrix_child
+    child_object_type: translation_rotation_matrix_item
 
 class pack_builder(Group):
     exposure_level: ExposureLevel
@@ -22622,7 +22622,7 @@ class input_variable_name(String):
     fluent_name: str
     _python_name: str
 
-class user_defined_coupling_variables_via_udm_child(Group):
+class user_defined_coupling_variables_via_udm_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -22636,7 +22636,7 @@ class user_defined_coupling_variables_via_udm_child(Group):
     output_variable_name: output_variable_name
     input_variable_name: input_variable_name
 
-class user_defined_coupling_variables_via_udm(ListObject[user_defined_coupling_variables_via_udm_child]):
+class user_defined_coupling_variables_via_udm(ListObject[user_defined_coupling_variables_via_udm_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -22660,7 +22660,7 @@ class user_defined_coupling_variables_via_udm(ListObject[user_defined_coupling_v
             size : int
                 New size for list-object.
         """
-    child_object_type: user_defined_coupling_variables_via_udm_child
+    child_object_type: user_defined_coupling_variables_via_udm_item
 
 class use_face_or_element_based_data_transfer(Boolean):
     exposure_level: ExposureLevel
@@ -23160,7 +23160,7 @@ class cathode_interface_locations(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class tortuosity_interface_child(Group):
+class tortuosity_interface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -23170,7 +23170,7 @@ class tortuosity_interface_child(Group):
     physics_name: physics_name
     value: value_16
 
-class tortuosity_interface(ListObject[tortuosity_interface_child]):
+class tortuosity_interface(ListObject[tortuosity_interface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -23218,9 +23218,9 @@ class tortuosity_interface(ListObject[tortuosity_interface_child]):
             face_name : str
                 Pick a zone you want to delete.
         """
-    child_object_type: tortuosity_interface_child
+    child_object_type: tortuosity_interface_item
 
-class pore_size_interface_child(Group):
+class pore_size_interface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -23230,7 +23230,7 @@ class pore_size_interface_child(Group):
     physics_name: physics_name
     value: value_16
 
-class pore_size_interface(ListObject[pore_size_interface_child]):
+class pore_size_interface(ListObject[pore_size_interface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -23278,7 +23278,7 @@ class pore_size_interface(ListObject[pore_size_interface_child]):
             face_name : str
                 Pick a zone you want to delete.
         """
-    child_object_type: pore_size_interface_child
+    child_object_type: pore_size_interface_item
 
 class electrolyte_porous(Group):
     exposure_level: ExposureLevel
@@ -23317,7 +23317,7 @@ class current_tap_locations(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class conductive_regions_child(Group):
+class conductive_regions_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -23327,7 +23327,7 @@ class conductive_regions_child(Group):
     physics_name: physics_name
     value: value_16
 
-class conductive_regions(ListObject[conductive_regions_child]):
+class conductive_regions(ListObject[conductive_regions_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -23375,9 +23375,9 @@ class conductive_regions(ListObject[conductive_regions_child]):
             face_name : str
                 Pick a zone you want to delete.
         """
-    child_object_type: conductive_regions_child
+    child_object_type: conductive_regions_item
 
-class contact_resistance_regions_child(Group):
+class contact_resistance_regions_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -23387,7 +23387,7 @@ class contact_resistance_regions_child(Group):
     physics_name: physics_name
     value: value_16
 
-class contact_resistance_regions(ListObject[contact_resistance_regions_child]):
+class contact_resistance_regions(ListObject[contact_resistance_regions_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -23435,7 +23435,7 @@ class contact_resistance_regions(ListObject[contact_resistance_regions_child]):
             face_name : str
                 Pick a zone you want to delete.
         """
-    child_object_type: contact_resistance_regions_child
+    child_object_type: contact_resistance_regions_item
 
 class electric_field(Group):
     exposure_level: ExposureLevel
@@ -24872,7 +24872,7 @@ class cathode_1(Group):
     cathode_mpl_zone: cathode_mpl_zone
     cathode_ca_zone: cathode_ca_zone
 
-class contact_resis_1_child(Group):
+class contact_resis_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -24882,7 +24882,7 @@ class contact_resis_1_child(Group):
     zone_name: zone_name_6
     value: value_16
 
-class contact_resis_1(ListObject[contact_resis_1_child]):
+class contact_resis_1(ListObject[contact_resis_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -24930,7 +24930,7 @@ class contact_resis_1(ListObject[contact_resis_1_child]):
             face_name : str
                 Pick a zone you want to delete.
         """
-    child_object_type: contact_resis_1_child
+    child_object_type: contact_resis_1_item
 
 class enabled_44(Boolean):
     exposure_level: ExposureLevel
@@ -25039,7 +25039,7 @@ class material_3(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class init_value_child(Group):
+class init_value_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -25048,7 +25048,7 @@ class init_value_child(Group):
     species_name: species_name_3
     value: value_16
 
-class init_value(ListObject[init_value_child]):
+class init_value(ListObject[init_value_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -25096,7 +25096,7 @@ class init_value(ListObject[init_value_child]):
             species_name : str
                 Pick a species you want to delete.
         """
-    child_object_type: init_value_child
+    child_object_type: init_value_item
 
 class time_step_1(Real):
     exposure_level: ExposureLevel
@@ -26742,7 +26742,7 @@ class cyl_orthotropic(Group):
     tangential_diffusivity: tangential_diffusivity
     axial_diffusivity: axial_diffusivity
 
-class uds_diffusivities_child(Group):
+class uds_diffusivities_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -26756,7 +26756,7 @@ class uds_diffusivities_child(Group):
     orthotropic: orthotropic
     cyl_orthotropic: cyl_orthotropic
 
-class uds_diffusivities(NamedObject[uds_diffusivities_child]):
+class uds_diffusivities(NamedObject[uds_diffusivities_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -26815,7 +26815,7 @@ class uds_diffusivities(NamedObject[uds_diffusivities_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: uds_diffusivities_child
+    child_object_type: uds_diffusivities_item
 
 class uds_diffusivity(Group):
     exposure_level: ExposureLevel
@@ -26829,7 +26829,7 @@ class uds_diffusivity(Group):
     user_defined_function: user_defined_function
     _child_aliases: dict
 
-class fluid_child(Group):
+class fluid_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -26893,7 +26893,7 @@ class fluid_child(Group):
     charge: charge
     uds_diffusivity: uds_diffusivity
 
-class fluid(NamedObject[fluid_child]):
+class fluid(NamedObject[fluid_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -26952,7 +26952,7 @@ class fluid(NamedObject[fluid_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: fluid_child
+    child_object_type: fluid_item
 
 class density_4(Group):
     exposure_level: ExposureLevel
@@ -27434,7 +27434,7 @@ class struct_damping_beta(Group):
     value: value_24
     _child_aliases: dict
 
-class solid_child(Group):
+class solid_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -27462,7 +27462,7 @@ class solid_child(Group):
     struct_damping_beta: struct_damping_beta
     uds_diffusivity: uds_diffusivity
 
-class solid(NamedObject[solid_child]):
+class solid(NamedObject[solid_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -27521,9 +27521,9 @@ class solid(NamedObject[solid_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: solid_child
+    child_object_type: solid_item
 
-class volumetric_species_child(Group):
+class volumetric_species_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -27587,7 +27587,7 @@ class volumetric_species_child(Group):
     charge: charge
     uds_diffusivity: uds_diffusivity
 
-class volumetric_species(NamedObject[volumetric_species_child]):
+class volumetric_species(NamedObject[volumetric_species_item]):
     _deprecated_version: str
     exposure_level: ExposureLevel
     _version: str
@@ -27647,7 +27647,7 @@ class volumetric_species(NamedObject[volumetric_species_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: volumetric_species_child
+    child_object_type: volumetric_species_item
 
 class volumetric(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -27673,7 +27673,7 @@ class last_species(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class material_4_child(Group):
+class material_4_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -27737,7 +27737,7 @@ class material_4_child(Group):
     charge: charge
     uds_diffusivity: uds_diffusivity
 
-class material_4(NamedObject[material_4_child]):
+class material_4(NamedObject[material_4_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -27796,7 +27796,7 @@ class material_4(NamedObject[material_4_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: material_4_child
+    child_object_type: material_4_item
 
 class species_4(Group):
     exposure_level: ExposureLevel
@@ -28004,7 +28004,7 @@ class constant_mass_diffusivity(Real):
     fluent_name: str
     _python_name: str
 
-class species_diffusivity_child(Group):
+class species_diffusivity_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -28014,7 +28014,7 @@ class species_diffusivity_child(Group):
     value: value_24
     polynomial: polynomial_1
 
-class species_diffusivity(NamedObject[species_diffusivity_child]):
+class species_diffusivity(NamedObject[species_diffusivity_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -28073,9 +28073,9 @@ class species_diffusivity(NamedObject[species_diffusivity_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: species_diffusivity_child
+    child_object_type: species_diffusivity_item
 
-class multicomponent_child_child(Group):
+class multicomponent_item_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -28085,7 +28085,7 @@ class multicomponent_child_child(Group):
     value: value_24
     polynomial: polynomial_1
 
-class multicomponent_child(NamedObject[multicomponent_child_child]):
+class multicomponent_item(NamedObject[multicomponent_item_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -28144,9 +28144,9 @@ class multicomponent_child(NamedObject[multicomponent_child_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: multicomponent_child_child
+    child_object_type: multicomponent_item_item
 
-class multicomponent(NamedObject[multicomponent_child]):
+class multicomponent(NamedObject[multicomponent_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -28205,7 +28205,7 @@ class multicomponent(NamedObject[multicomponent_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: multicomponent_child
+    child_object_type: multicomponent_item
 
 class mass_diffusivity(Group):
     exposure_level: ExposureLevel
@@ -28284,7 +28284,7 @@ class charged_particle_interaction(String, AllowedValuesMixin):
     REPULSIVE_POTENTIAL: Final[str] = 'repulsive-potential'
     _allowed_values: list[str]
 
-class cross_section_multicomponent_child_child(Group):
+class cross_section_multicomponent_item_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -28294,7 +28294,7 @@ class cross_section_multicomponent_child_child(Group):
     neutral_involved_interaction: neutral_involved_interaction
     charged_particle_interaction: charged_particle_interaction
 
-class cross_section_multicomponent_child(NamedObject[cross_section_multicomponent_child_child]):
+class cross_section_multicomponent_item(NamedObject[cross_section_multicomponent_item_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -28353,9 +28353,9 @@ class cross_section_multicomponent_child(NamedObject[cross_section_multicomponen
             to : str
                 The name of the new object.
         """
-    child_object_type: cross_section_multicomponent_child_child
+    child_object_type: cross_section_multicomponent_item_item
 
-class cross_section_multicomponent(NamedObject[cross_section_multicomponent_child]):
+class cross_section_multicomponent(NamedObject[cross_section_multicomponent_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -28414,7 +28414,7 @@ class cross_section_multicomponent(NamedObject[cross_section_multicomponent_chil
             to : str
                 The name of the new object.
         """
-    child_object_type: cross_section_multicomponent_child
+    child_object_type: cross_section_multicomponent_item
 
 class collision_cross_section(Group):
     exposure_level: ExposureLevel
@@ -28426,7 +28426,7 @@ class collision_cross_section(Group):
     cross_section_multicomponent: cross_section_multicomponent
     _child_aliases: dict
 
-class mixture_child(Group):
+class mixture_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -28469,7 +28469,7 @@ class mixture_child(Group):
     collision_cross_section: collision_cross_section
     uds_diffusivity: uds_diffusivity
 
-class mixture(NamedObject[mixture_child]):
+class mixture(NamedObject[mixture_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -28528,7 +28528,7 @@ class mixture(NamedObject[mixture_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mixture_child
+    child_object_type: mixture_item
 
 class density_6(Group):
     exposure_level: ExposureLevel
@@ -28645,7 +28645,7 @@ class charge_density(Group):
     user_defined_function: user_defined_function
     _child_aliases: dict
 
-class inert_particle_child(Group):
+class inert_particle_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -28666,7 +28666,7 @@ class inert_particle_child(Group):
     magnetic_permeability: magnetic_permeability
     charge_density: charge_density
 
-class inert_particle(NamedObject[inert_particle_child]):
+class inert_particle(NamedObject[inert_particle_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -28725,7 +28725,7 @@ class inert_particle(NamedObject[inert_particle_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: inert_particle_child
+    child_object_type: inert_particle_item
 
 class use_vapor_species_heat_capacity(Boolean):
     exposure_level: ExposureLevel
@@ -29010,7 +29010,7 @@ class dpm_surften_1(Group):
     user_defined_function: user_defined_function
     _child_aliases: dict
 
-class droplet_particle_child(Group):
+class droplet_particle_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -29047,7 +29047,7 @@ class droplet_particle_child(Group):
     formation_enthalpy: formation_enthalpy
     reference_temperature: reference_temperature
 
-class droplet_particle(NamedObject[droplet_particle_child]):
+class droplet_particle(NamedObject[droplet_particle_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -29106,7 +29106,7 @@ class droplet_particle(NamedObject[droplet_particle_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: droplet_particle_child
+    child_object_type: droplet_particle_item
 
 class density_7(Group):
     exposure_level: ExposureLevel
@@ -29415,7 +29415,7 @@ class combustion_model(Group):
     multiple_surface_reactions: multiple_surface_reactions
     _child_aliases: dict
 
-class combusting_particle_child(Group):
+class combusting_particle_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -29442,7 +29442,7 @@ class combusting_particle_child(Group):
     scattering_factor: scattering_factor_1
     emissivity: emissivity_1
 
-class combusting_particle(NamedObject[combusting_particle_child]):
+class combusting_particle(NamedObject[combusting_particle_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -29501,9 +29501,9 @@ class combusting_particle(NamedObject[combusting_particle_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: combusting_particle_child
+    child_object_type: combusting_particle_item
 
-class particle_species_child(Group):
+class particle_species_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -29540,7 +29540,7 @@ class particle_species_child(Group):
     formation_enthalpy: formation_enthalpy
     reference_temperature: reference_temperature
 
-class particle_species(NamedObject[particle_species_child]):
+class particle_species(NamedObject[particle_species_item]):
     _deprecated_version: str
     exposure_level: ExposureLevel
     _version: str
@@ -29600,7 +29600,7 @@ class particle_species(NamedObject[particle_species_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: particle_species_child
+    child_object_type: particle_species_item
 
 class particle(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -29608,7 +29608,7 @@ class particle(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class material_5_child(Group):
+class material_5_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -29645,7 +29645,7 @@ class material_5_child(Group):
     formation_enthalpy: formation_enthalpy
     reference_temperature: reference_temperature
 
-class material_5(NamedObject[material_5_child]):
+class material_5(NamedObject[material_5_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -29704,7 +29704,7 @@ class material_5(NamedObject[material_5_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: material_5_child
+    child_object_type: material_5_item
 
 class species_5(Group):
     exposure_level: ExposureLevel
@@ -29777,7 +29777,7 @@ class reaction_model(Group):
     option: option_43
     _child_aliases: dict
 
-class particle_mixture_child(Group):
+class particle_mixture_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -29800,7 +29800,7 @@ class particle_mixture_child(Group):
     thermophoretic_co: thermophoretic_co
     reaction_model: reaction_model
 
-class particle_mixture(NamedObject[particle_mixture_child]):
+class particle_mixture(NamedObject[particle_mixture_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -29859,7 +29859,7 @@ class particle_mixture(NamedObject[particle_mixture_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: particle_mixture_child
+    child_object_type: particle_mixture_item
 
 class materials(Group):
     exposure_level: ExposureLevel
@@ -30007,7 +30007,7 @@ class mrf_omega(Group):
     udf: udf
     _child_aliases: dict
 
-class reference_frame_velocity_child(Group):
+class reference_frame_velocity_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30020,7 +30020,7 @@ class reference_frame_velocity_child(Group):
     udf: udf
     _child_aliases: dict
 
-class reference_frame_velocity(ListObject[reference_frame_velocity_child]):
+class reference_frame_velocity(ListObject[reference_frame_velocity_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30044,9 +30044,9 @@ class reference_frame_velocity(ListObject[reference_frame_velocity_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: reference_frame_velocity_child
+    child_object_type: reference_frame_velocity_item
 
-class reference_frame_axis_origin_child(Group):
+class reference_frame_axis_origin_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30059,7 +30059,7 @@ class reference_frame_axis_origin_child(Group):
     udf: udf
     _child_aliases: dict
 
-class reference_frame_axis_origin(ListObject[reference_frame_axis_origin_child]):
+class reference_frame_axis_origin(ListObject[reference_frame_axis_origin_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30083,9 +30083,9 @@ class reference_frame_axis_origin(ListObject[reference_frame_axis_origin_child])
             size : int
                 New size for list-object.
         """
-    child_object_type: reference_frame_axis_origin_child
+    child_object_type: reference_frame_axis_origin_item
 
-class reference_frame_axis_direction_child(Group):
+class reference_frame_axis_direction_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30098,7 +30098,7 @@ class reference_frame_axis_direction_child(Group):
     udf: udf
     _child_aliases: dict
 
-class reference_frame_axis_direction(ListObject[reference_frame_axis_direction_child]):
+class reference_frame_axis_direction(ListObject[reference_frame_axis_direction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30122,7 +30122,7 @@ class reference_frame_axis_direction(ListObject[reference_frame_axis_direction_c
             size : int
                 New size for list-object.
         """
-    child_object_type: reference_frame_axis_direction_child
+    child_object_type: reference_frame_axis_direction_item
 
 class reference_frame_zone_motion_function(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -30181,7 +30181,7 @@ class mgrid_omega(Group):
     udf: udf
     _child_aliases: dict
 
-class moving_mesh_velocity_child(Group):
+class moving_mesh_velocity_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30194,7 +30194,7 @@ class moving_mesh_velocity_child(Group):
     udf: udf
     _child_aliases: dict
 
-class moving_mesh_velocity(ListObject[moving_mesh_velocity_child]):
+class moving_mesh_velocity(ListObject[moving_mesh_velocity_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30218,9 +30218,9 @@ class moving_mesh_velocity(ListObject[moving_mesh_velocity_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: moving_mesh_velocity_child
+    child_object_type: moving_mesh_velocity_item
 
-class moving_mesh_axis_origin_child(Group):
+class moving_mesh_axis_origin_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30233,7 +30233,7 @@ class moving_mesh_axis_origin_child(Group):
     udf: udf
     _child_aliases: dict
 
-class moving_mesh_axis_origin(ListObject[moving_mesh_axis_origin_child]):
+class moving_mesh_axis_origin(ListObject[moving_mesh_axis_origin_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30257,9 +30257,9 @@ class moving_mesh_axis_origin(ListObject[moving_mesh_axis_origin_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: moving_mesh_axis_origin_child
+    child_object_type: moving_mesh_axis_origin_item
 
-class moving_mesh_axis_direction_child(Group):
+class moving_mesh_axis_direction_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30272,7 +30272,7 @@ class moving_mesh_axis_direction_child(Group):
     udf: udf
     _child_aliases: dict
 
-class moving_mesh_axis_direction(ListObject[moving_mesh_axis_direction_child]):
+class moving_mesh_axis_direction(ListObject[moving_mesh_axis_direction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30296,7 +30296,7 @@ class moving_mesh_axis_direction(ListObject[moving_mesh_axis_direction_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: moving_mesh_axis_direction_child
+    child_object_type: moving_mesh_axis_direction_item
 
 class moving_mesh_zone_motion_function(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -30405,7 +30405,7 @@ class cursys_name(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class direction_1_vector_child(Group):
+class direction_1_vector_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30418,7 +30418,7 @@ class direction_1_vector_child(Group):
     udf: udf
     _child_aliases: dict
 
-class direction_1_vector(ListObject[direction_1_vector_child]):
+class direction_1_vector(ListObject[direction_1_vector_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30442,9 +30442,9 @@ class direction_1_vector(ListObject[direction_1_vector_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: direction_1_vector_child
+    child_object_type: direction_1_vector_item
 
-class direction_2_vector_child(Group):
+class direction_2_vector_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30457,7 +30457,7 @@ class direction_2_vector_child(Group):
     udf: udf
     _child_aliases: dict
 
-class direction_2_vector(ListObject[direction_2_vector_child]):
+class direction_2_vector(ListObject[direction_2_vector_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30481,47 +30481,15 @@ class direction_2_vector(ListObject[direction_2_vector_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: direction_2_vector_child
+    child_object_type: direction_2_vector_item
 
-class cone_axis_vector_child(Real):
+class cone_axis_vector_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class cone_axis_vector(ListObject[cone_axis_vector_child]):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def list_properties(self, object_at: int):
-        """
-        List properties of selected object.
-        
-        Parameters
-        ----------
-            object_at : int
-                Object index to delete.
-        """
-    def resize(self, size: int):
-        """
-        Set number of objects for list-object.
-        
-        Parameters
-        ----------
-            size : int
-                New size for list-object.
-        """
-    child_object_type: cone_axis_vector_child
-
-class point_on_cone_axis_child(Real):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class point_on_cone_axis(ListObject[point_on_cone_axis_child]):
+class cone_axis_vector(ListObject[cone_axis_vector_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30545,7 +30513,39 @@ class point_on_cone_axis(ListObject[point_on_cone_axis_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: point_on_cone_axis_child
+    child_object_type: cone_axis_vector_item
+
+class point_on_cone_axis_item(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class point_on_cone_axis(ListObject[point_on_cone_axis_item]):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def list_properties(self, object_at: int):
+        """
+        List properties of selected object.
+        
+        Parameters
+        ----------
+            object_at : int
+                Object index to delete.
+        """
+    def resize(self, size: int):
+        """
+        Set number of objects for list-object.
+        
+        Parameters
+        ----------
+            size : int
+                New size for list-object.
+        """
+    child_object_type: point_on_cone_axis_item
 
 class cone_angle(Real):
     exposure_level: ExposureLevel
@@ -30559,7 +30559,7 @@ class rel_vel_resistance(Boolean):
     fluent_name: str
     _python_name: str
 
-class viscous_resistance_child(Group):
+class viscous_resistance_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30572,7 +30572,7 @@ class viscous_resistance_child(Group):
     udf: udf
     _child_aliases: dict
 
-class viscous_resistance(ListObject[viscous_resistance_child]):
+class viscous_resistance(ListObject[viscous_resistance_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30596,7 +30596,7 @@ class viscous_resistance(ListObject[viscous_resistance_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: viscous_resistance_child
+    child_object_type: viscous_resistance_item
 
 class alt_inertial_form(Boolean):
     exposure_level: ExposureLevel
@@ -30604,7 +30604,7 @@ class alt_inertial_form(Boolean):
     fluent_name: str
     _python_name: str
 
-class inertial_resistance_child(Group):
+class inertial_resistance_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30617,7 +30617,7 @@ class inertial_resistance_child(Group):
     udf: udf
     _child_aliases: dict
 
-class inertial_resistance(ListObject[inertial_resistance_child]):
+class inertial_resistance(ListObject[inertial_resistance_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30641,15 +30641,15 @@ class inertial_resistance(ListObject[inertial_resistance_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: inertial_resistance_child
+    child_object_type: inertial_resistance_item
 
-class power_law_model_child(Real):
+class power_law_model_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class power_law_model(ListObject[power_law_model_child]):
+class power_law_model(ListObject[power_law_model_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -30673,7 +30673,7 @@ class power_law_model(ListObject[power_law_model_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: power_law_model_child
+    child_object_type: power_law_model_item
 
 class porosity(Group):
     exposure_level: ExposureLevel
@@ -31267,13 +31267,13 @@ class fan_inflection_point(Real):
     fluent_name: str
     _python_name: str
 
-class fan_origin_child(Real):
+class fan_origin_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class fan_origin(ListObject[fan_origin_child]):
+class fan_origin(ListObject[fan_origin_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -31297,7 +31297,7 @@ class fan_origin(ListObject[fan_origin_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: fan_origin_child
+    child_object_type: fan_origin_item
 
 class fan_rot_dir(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -31532,7 +31532,7 @@ class enable_17(Boolean):
     fluent_name: str
     _python_name: str
 
-class terms_child_child(Group):
+class terms_item_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -31545,7 +31545,7 @@ class terms_child_child(Group):
     udf: udf
     _child_aliases: dict
 
-class terms_child(ListObject[terms_child_child]):
+class terms_item(ListObject[terms_item_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -31569,9 +31569,9 @@ class terms_child(ListObject[terms_child_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: terms_child_child
+    child_object_type: terms_item_item
 
-class terms(NamedObject[terms_child]):
+class terms(NamedObject[terms_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -31630,7 +31630,7 @@ class terms(NamedObject[terms_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: terms_child
+    child_object_type: terms_item
 
 class sources_1(Group):
     exposure_level: ExposureLevel
@@ -31654,7 +31654,7 @@ class cylindrical_fixed_var(Boolean):
     fluent_name: str
     _python_name: str
 
-class variables_child(Group):
+class variables_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -31667,7 +31667,7 @@ class variables_child(Group):
     udf: udf
     _child_aliases: dict
 
-class variables(NamedObject[variables_child]):
+class variables(NamedObject[variables_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -31726,7 +31726,7 @@ class variables(NamedObject[variables_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: variables_child
+    child_object_type: variables_item
 
 class fixed_values(Group):
     exposure_level: ExposureLevel
@@ -31877,7 +31877,7 @@ class len(Real):
     fluent_name: str
     _python_name: str
 
-class beach_dir_list_child(Group):
+class beach_dir_list_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -31889,7 +31889,7 @@ class beach_dir_list_child(Group):
     xe: xe
     len: len
 
-class beach_dir_list(ListObject[beach_dir_list_child]):
+class beach_dir_list(ListObject[beach_dir_list_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -31913,7 +31913,7 @@ class beach_dir_list(ListObject[beach_dir_list_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: beach_dir_list_child
+    child_object_type: beach_dir_list_item
 
 class beach_damp_relative(Boolean):
     exposure_level: ExposureLevel
@@ -32009,7 +32009,7 @@ class udf_zmotion_name(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class axis_direction_1_child(Group):
+class axis_direction_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32022,7 +32022,7 @@ class axis_direction_1_child(Group):
     udf: udf
     _child_aliases: dict
 
-class axis_direction_1(ListObject[axis_direction_1_child]):
+class axis_direction_1(ListObject[axis_direction_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32046,9 +32046,9 @@ class axis_direction_1(ListObject[axis_direction_1_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: axis_direction_1_child
+    child_object_type: axis_direction_1_item
 
-class axis_origin_1_child(Group):
+class axis_origin_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32061,7 +32061,7 @@ class axis_origin_1_child(Group):
     udf: udf
     _child_aliases: dict
 
-class axis_origin_1(ListObject[axis_origin_1_child]):
+class axis_origin_1(ListObject[axis_origin_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32085,7 +32085,7 @@ class axis_origin_1(ListObject[axis_origin_1_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: axis_origin_1_child
+    child_object_type: axis_origin_1_item
 
 class cursys(Boolean):
     exposure_level: ExposureLevel
@@ -32118,7 +32118,7 @@ class enable_19(Boolean):
     fluent_name: str
     _python_name: str
 
-class solid_motion_axis_direction_child(Group):
+class solid_motion_axis_direction_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32131,7 +32131,7 @@ class solid_motion_axis_direction_child(Group):
     udf: udf
     _child_aliases: dict
 
-class solid_motion_axis_direction(ListObject[solid_motion_axis_direction_child]):
+class solid_motion_axis_direction(ListObject[solid_motion_axis_direction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32155,9 +32155,9 @@ class solid_motion_axis_direction(ListObject[solid_motion_axis_direction_child])
             size : int
                 New size for list-object.
         """
-    child_object_type: solid_motion_axis_direction_child
+    child_object_type: solid_motion_axis_direction_item
 
-class solid_motion_axis_origin_child(Group):
+class solid_motion_axis_origin_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32170,7 +32170,7 @@ class solid_motion_axis_origin_child(Group):
     udf: udf
     _child_aliases: dict
 
-class solid_motion_axis_origin(ListObject[solid_motion_axis_origin_child]):
+class solid_motion_axis_origin(ListObject[solid_motion_axis_origin_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32194,9 +32194,9 @@ class solid_motion_axis_origin(ListObject[solid_motion_axis_origin_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: solid_motion_axis_origin_child
+    child_object_type: solid_motion_axis_origin_item
 
-class solid_motion_velocity_child(Group):
+class solid_motion_velocity_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32209,7 +32209,7 @@ class solid_motion_velocity_child(Group):
     udf: udf
     _child_aliases: dict
 
-class solid_motion_velocity(ListObject[solid_motion_velocity_child]):
+class solid_motion_velocity(ListObject[solid_motion_velocity_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32233,7 +32233,7 @@ class solid_motion_velocity(ListObject[solid_motion_velocity_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: solid_motion_velocity_child
+    child_object_type: solid_motion_velocity_item
 
 class solid_motion_zone_motion_function(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -32292,7 +32292,7 @@ class disabled(Group):
     motion_spec: motion_spec
     _child_aliases: dict
 
-class phase_child(Group):
+class phase_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32322,7 +32322,7 @@ class phase_child(Group):
         """
     _child_aliases: dict
 
-class phase(NamedObject[phase_child]):
+class phase(NamedObject[phase_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32381,9 +32381,9 @@ class phase(NamedObject[phase_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_child
+    child_object_type: phase_item
 
-class fluid_1_child(Group):
+class fluid_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32424,7 +32424,7 @@ class fluid_1_child(Group):
         """
     _child_aliases: dict
 
-class fluid_1(NamedObject[fluid_1_child]):
+class fluid_1(NamedObject[fluid_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32483,7 +32483,7 @@ class fluid_1(NamedObject[fluid_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: fluid_1_child
+    child_object_type: fluid_1_item
 
 class general_3(Group):
     exposure_level: ExposureLevel
@@ -32648,7 +32648,7 @@ class internal(Group):
     wetsteam_young_beta: wetsteam_young_beta
     _child_aliases: dict
 
-class phase_1_child(Group):
+class phase_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32674,7 +32674,7 @@ class phase_1_child(Group):
         """
     _child_aliases: dict
 
-class phase_1(NamedObject[phase_1_child]):
+class phase_1(NamedObject[phase_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32733,9 +32733,9 @@ class phase_1(NamedObject[phase_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_1_child
+    child_object_type: phase_1_item
 
-class solid_2_child(Group):
+class solid_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32772,7 +32772,7 @@ class solid_2_child(Group):
         """
     _child_aliases: dict
 
-class solid_2(NamedObject[solid_2_child]):
+class solid_2(NamedObject[solid_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32831,7 +32831,7 @@ class solid_2(NamedObject[solid_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: solid_2_child
+    child_object_type: solid_2_item
 
 class cell_zone_conditions(Group):
     exposure_level: ExposureLevel
@@ -32963,7 +32963,7 @@ class name_17(String):
     fluent_name: str
     _python_name: str
 
-class faces_child(Group):
+class faces_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -32971,7 +32971,7 @@ class faces_child(Group):
     child_names: list[str]
     name: name_17
 
-class faces(NamedObject[faces_child]):
+class faces(NamedObject[faces_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33030,9 +33030,9 @@ class faces(NamedObject[faces_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: faces_child
+    child_object_type: faces_item
 
-class bodies_child(Group):
+class bodies_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33051,7 +33051,7 @@ class bodies_child(Group):
                 Input new baffle name.
         """
 
-class bodies(NamedObject[bodies_child]):
+class bodies(NamedObject[bodies_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33110,7 +33110,7 @@ class bodies(NamedObject[bodies_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: bodies_child
+    child_object_type: bodies_item
 
 class components_2(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -33118,7 +33118,7 @@ class components_2(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class groups_child(Group):
+class groups_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33127,7 +33127,7 @@ class groups_child(Group):
     name: name_5
     components: components_2
 
-class groups(NamedObject[groups_child]):
+class groups(NamedObject[groups_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33186,9 +33186,9 @@ class groups(NamedObject[groups_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: groups_child
+    child_object_type: groups_item
 
-class parts_child(Group):
+class parts_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33214,7 +33214,7 @@ class parts_child(Group):
         Display topology part command.
         """
 
-class parts(NamedObject[parts_child]):
+class parts(NamedObject[parts_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33273,7 +33273,7 @@ class parts(NamedObject[parts_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: parts_child
+    child_object_type: parts_item
 
 class model_topology(Group):
     exposure_level: ExposureLevel
@@ -33294,7 +33294,7 @@ class locations_2(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class phase_2_child(Group):
+class phase_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33314,7 +33314,7 @@ class phase_2_child(Group):
     multiphase: multiphase_2
     disabled: disabled
 
-class phase_2(NamedObject[phase_2_child]):
+class phase_2(NamedObject[phase_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33373,9 +33373,9 @@ class phase_2(NamedObject[phase_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_2_child
+    child_object_type: phase_2_item
 
-class fluid_2_child(Group):
+class fluid_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33433,7 +33433,7 @@ class fluid_2_child(Group):
         """
     _child_aliases: dict
 
-class fluid_2(NamedObject[fluid_2_child]):
+class fluid_2(NamedObject[fluid_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33492,9 +33492,9 @@ class fluid_2(NamedObject[fluid_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: fluid_2_child
+    child_object_type: fluid_2_item
 
-class phase_3_child(Group):
+class phase_3_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33510,7 +33510,7 @@ class phase_3_child(Group):
     disabled: disabled_1
     internal: internal
 
-class phase_3(NamedObject[phase_3_child]):
+class phase_3(NamedObject[phase_3_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33569,9 +33569,9 @@ class phase_3(NamedObject[phase_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_3_child
+    child_object_type: phase_3_item
 
-class solid_3_child(Group):
+class solid_3_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33625,7 +33625,7 @@ class solid_3_child(Group):
         """
     _child_aliases: dict
 
-class solid_3(NamedObject[solid_3_child]):
+class solid_3(NamedObject[solid_3_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33684,7 +33684,7 @@ class solid_3(NamedObject[solid_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: solid_3_child
+    child_object_type: solid_3_item
 
 class volumes(Group):
     exposure_level: ExposureLevel
@@ -33784,7 +33784,7 @@ class geometry_7(Group):
     geom_levels: geom_levels
     geom_bgthread: geom_bgthread
 
-class phase_4_child(Group):
+class phase_4_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33792,7 +33792,7 @@ class phase_4_child(Group):
     child_names: list[str]
     geometry: geometry_7
 
-class phase_4(NamedObject[phase_4_child]):
+class phase_4(NamedObject[phase_4_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33851,9 +33851,9 @@ class phase_4(NamedObject[phase_4_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_4_child
+    child_object_type: phase_4_item
 
-class axis_6_child(Group):
+class axis_6_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33900,7 +33900,7 @@ class axis_6_child(Group):
         """
     _child_aliases: dict
 
-class axis_6(NamedObject[axis_6_child]):
+class axis_6(NamedObject[axis_6_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -33961,9 +33961,9 @@ class axis_6(NamedObject[axis_6_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: axis_6_child
+    child_object_type: axis_6_item
 
-class degassing_child(Group):
+class degassing_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -34010,7 +34010,7 @@ class degassing_child(Group):
         """
     _child_aliases: dict
 
-class degassing(NamedObject[degassing_child]):
+class degassing(NamedObject[degassing_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -34071,7 +34071,7 @@ class degassing(NamedObject[degassing_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: degassing_child
+    child_object_type: degassing_item
 
 class system_coupling_1(Boolean):
     exposure_level: ExposureLevel
@@ -34136,7 +34136,7 @@ class coordinate_system(String, AllowedValuesMixin):
     LOCAL_CYLINDRICAL__RADIAL__TANGENTIAL__AXIAL_: Final[str] = 'Local Cylindrical (Radial, Tangential, Axial)'
     _allowed_values: list[str]
 
-class flow_direction_child(Group):
+class flow_direction_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -34149,7 +34149,7 @@ class flow_direction_child(Group):
     udf: udf
     _child_aliases: dict
 
-class flow_direction(ListObject[flow_direction_child]):
+class flow_direction(ListObject[flow_direction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -34173,7 +34173,7 @@ class flow_direction(ListObject[flow_direction_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: flow_direction_child
+    child_object_type: flow_direction_item
 
 class backflow_pressure_spec(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -34193,13 +34193,13 @@ class backflow_pressure_specification(String, AllowedValuesMixin):
     TOTAL_PRESSURE: Final[str] = 'Total Pressure'
     _allowed_values: list[str]
 
-class axis_direction_2_child(Real):
+class axis_direction_2_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class axis_direction_2(ListObject[axis_direction_2_child]):
+class axis_direction_2(ListObject[axis_direction_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -34223,15 +34223,15 @@ class axis_direction_2(ListObject[axis_direction_2_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: axis_direction_2_child
+    child_object_type: axis_direction_2_item
 
-class axis_origin_2_child(Real):
+class axis_origin_2_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class axis_origin_2(ListObject[axis_origin_2_child]):
+class axis_origin_2(ListObject[axis_origin_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -34255,7 +34255,7 @@ class axis_origin_2(ListObject[axis_origin_2_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: axis_origin_2_child
+    child_object_type: axis_origin_2_item
 
 class prevent_reverse_flow(Boolean):
     exposure_level: ExposureLevel
@@ -34390,7 +34390,7 @@ class amplitude(Real):
     fluent_name: str
     _python_name: str
 
-class real_pole_series_child(Group):
+class real_pole_series_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -34399,7 +34399,7 @@ class real_pole_series_child(Group):
     pole: pole
     amplitude: amplitude
 
-class real_pole_series(ListObject[real_pole_series_child]):
+class real_pole_series(ListObject[real_pole_series_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -34423,7 +34423,7 @@ class real_pole_series(ListObject[real_pole_series_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: real_pole_series_child
+    child_object_type: real_pole_series_item
 
 class pole_real(Real):
     exposure_level: ExposureLevel
@@ -34449,7 +34449,7 @@ class amplitude_imag(Real):
     fluent_name: str
     _python_name: str
 
-class complex_pole_series_child(Group):
+class complex_pole_series_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -34460,7 +34460,7 @@ class complex_pole_series_child(Group):
     amplitude_real: amplitude_real
     amplitude_imag: amplitude_imag
 
-class complex_pole_series(ListObject[complex_pole_series_child]):
+class complex_pole_series(ListObject[complex_pole_series_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -34484,7 +34484,7 @@ class complex_pole_series(ListObject[complex_pole_series_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: complex_pole_series_child
+    child_object_type: complex_pole_series_item
 
 class incoming_wave(Group):
     exposure_level: ExposureLevel
@@ -34936,7 +34936,7 @@ class use_irradiation_from_solar_soad_model_settings(Boolean):
     fluent_name: str
     _python_name: str
 
-class direct_irradiation_child(Group):
+class direct_irradiation_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -34949,7 +34949,7 @@ class direct_irradiation_child(Group):
     udf: udf
     _child_aliases: dict
 
-class direct_irradiation(NamedObject[direct_irradiation_child]):
+class direct_irradiation(NamedObject[direct_irradiation_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -35008,7 +35008,7 @@ class direct_irradiation(NamedObject[direct_irradiation_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: direct_irradiation_child
+    child_object_type: direct_irradiation_item
 
 class parallel_collimated_beam(Boolean):
     exposure_level: ExposureLevel
@@ -35016,7 +35016,7 @@ class parallel_collimated_beam(Boolean):
     fluent_name: str
     _python_name: str
 
-class beam_direction_child(Group):
+class beam_direction_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -35029,7 +35029,7 @@ class beam_direction_child(Group):
     udf: udf
     _child_aliases: dict
 
-class beam_direction(ListObject[beam_direction_child]):
+class beam_direction(ListObject[beam_direction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -35053,7 +35053,7 @@ class beam_direction(ListObject[beam_direction_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: beam_direction_child
+    child_object_type: beam_direction_item
 
 class direct_irradiation_settings(Group):
     exposure_level: ExposureLevel
@@ -35066,7 +35066,7 @@ class direct_irradiation_settings(Group):
     beam_direction: beam_direction
     _child_aliases: dict
 
-class diffuse_irradiation_child(Group):
+class diffuse_irradiation_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -35079,7 +35079,7 @@ class diffuse_irradiation_child(Group):
     udf: udf
     _child_aliases: dict
 
-class diffuse_irradiation(NamedObject[diffuse_irradiation_child]):
+class diffuse_irradiation(NamedObject[diffuse_irradiation_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -35138,7 +35138,7 @@ class diffuse_irradiation(NamedObject[diffuse_irradiation_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: diffuse_irradiation_child
+    child_object_type: diffuse_irradiation_item
 
 class diffuse_irradiation_settings(Group):
     exposure_level: ExposureLevel
@@ -35273,7 +35273,7 @@ class specify_species_in_mole_fractions(Boolean):
     fluent_name: str
     _python_name: str
 
-class backflow_species_mass_fraction_child(Group):
+class backflow_species_mass_fraction_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -35286,7 +35286,7 @@ class backflow_species_mass_fraction_child(Group):
     udf: udf
     _child_aliases: dict
 
-class backflow_species_mass_fraction(NamedObject[backflow_species_mass_fraction_child]):
+class backflow_species_mass_fraction(NamedObject[backflow_species_mass_fraction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -35345,9 +35345,9 @@ class backflow_species_mass_fraction(NamedObject[backflow_species_mass_fraction_
             to : str
                 The name of the new object.
         """
-    child_object_type: backflow_species_mass_fraction_child
+    child_object_type: backflow_species_mass_fraction_item
 
-class species_mole_fraction_child(Group):
+class species_mole_fraction_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -35360,7 +35360,7 @@ class species_mole_fraction_child(Group):
     udf: udf
     _child_aliases: dict
 
-class species_mole_fraction(NamedObject[species_mole_fraction_child]):
+class species_mole_fraction(NamedObject[species_mole_fraction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -35419,7 +35419,7 @@ class species_mole_fraction(NamedObject[species_mole_fraction_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: species_mole_fraction_child
+    child_object_type: species_mole_fraction_item
 
 class backflow_mixture_fraction(Group):
     exposure_level: ExposureLevel
@@ -35811,7 +35811,7 @@ class backflow_pollutant_hocl_mass_fraction(Group):
     udf: udf
     _child_aliases: dict
 
-class tss_scalar_child(Group):
+class tss_scalar_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -35824,7 +35824,7 @@ class tss_scalar_child(Group):
     udf: udf
     _child_aliases: dict
 
-class tss_scalar(NamedObject[tss_scalar_child]):
+class tss_scalar(NamedObject[tss_scalar_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -35883,7 +35883,7 @@ class tss_scalar(NamedObject[tss_scalar_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: tss_scalar_child
+    child_object_type: tss_scalar_item
 
 class species_6(Group):
     exposure_level: ExposureLevel
@@ -36108,13 +36108,13 @@ class backflow_volume_fraction(Group):
     udf: udf
     _child_aliases: dict
 
-class discrete_boundary_condition_child(String, AllowedValuesMixin):
+class discrete_boundary_condition_item(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class discrete_boundary_condition(NamedObject[discrete_boundary_condition_child]):
+class discrete_boundary_condition(NamedObject[discrete_boundary_condition_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36173,9 +36173,9 @@ class discrete_boundary_condition(NamedObject[discrete_boundary_condition_child]
             to : str
                 The name of the new object.
         """
-    child_object_type: discrete_boundary_condition_child
+    child_object_type: discrete_boundary_condition_item
 
-class discrete_boundary_value_child(Group):
+class discrete_boundary_value_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36188,7 +36188,7 @@ class discrete_boundary_value_child(Group):
     udf: udf
     _child_aliases: dict
 
-class discrete_boundary_value(NamedObject[discrete_boundary_value_child]):
+class discrete_boundary_value(NamedObject[discrete_boundary_value_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36247,15 +36247,15 @@ class discrete_boundary_value(NamedObject[discrete_boundary_value_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: discrete_boundary_value_child
+    child_object_type: discrete_boundary_value_item
 
-class quadrature_moment_boundary_condition_child(String, AllowedValuesMixin):
+class quadrature_moment_boundary_condition_item(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class quadrature_moment_boundary_condition(NamedObject[quadrature_moment_boundary_condition_child]):
+class quadrature_moment_boundary_condition(NamedObject[quadrature_moment_boundary_condition_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36314,9 +36314,9 @@ class quadrature_moment_boundary_condition(NamedObject[quadrature_moment_boundar
             to : str
                 The name of the new object.
         """
-    child_object_type: quadrature_moment_boundary_condition_child
+    child_object_type: quadrature_moment_boundary_condition_item
 
-class quadrature_moment_boundary_value_child(Group):
+class quadrature_moment_boundary_value_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36329,7 +36329,7 @@ class quadrature_moment_boundary_value_child(Group):
     udf: udf
     _child_aliases: dict
 
-class quadrature_moment_boundary_value(NamedObject[quadrature_moment_boundary_value_child]):
+class quadrature_moment_boundary_value(NamedObject[quadrature_moment_boundary_value_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36388,15 +36388,15 @@ class quadrature_moment_boundary_value(NamedObject[quadrature_moment_boundary_va
             to : str
                 The name of the new object.
         """
-    child_object_type: quadrature_moment_boundary_value_child
+    child_object_type: quadrature_moment_boundary_value_item
 
-class qbmm_boundary_condition_child(String, AllowedValuesMixin):
+class qbmm_boundary_condition_item(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class qbmm_boundary_condition(NamedObject[qbmm_boundary_condition_child]):
+class qbmm_boundary_condition(NamedObject[qbmm_boundary_condition_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36455,9 +36455,9 @@ class qbmm_boundary_condition(NamedObject[qbmm_boundary_condition_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: qbmm_boundary_condition_child
+    child_object_type: qbmm_boundary_condition_item
 
-class qbmm_boundary_value_child(Group):
+class qbmm_boundary_value_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36470,7 +36470,7 @@ class qbmm_boundary_value_child(Group):
     udf: udf
     _child_aliases: dict
 
-class qbmm_boundary_value(NamedObject[qbmm_boundary_value_child]):
+class qbmm_boundary_value(NamedObject[qbmm_boundary_value_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36529,15 +36529,15 @@ class qbmm_boundary_value(NamedObject[qbmm_boundary_value_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: qbmm_boundary_value_child
+    child_object_type: qbmm_boundary_value_item
 
-class std_moment_boundary_condition_child(String, AllowedValuesMixin):
+class std_moment_boundary_condition_item(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class std_moment_boundary_condition(NamedObject[std_moment_boundary_condition_child]):
+class std_moment_boundary_condition(NamedObject[std_moment_boundary_condition_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36596,9 +36596,9 @@ class std_moment_boundary_condition(NamedObject[std_moment_boundary_condition_ch
             to : str
                 The name of the new object.
         """
-    child_object_type: std_moment_boundary_condition_child
+    child_object_type: std_moment_boundary_condition_item
 
-class std_moment_boundary_value_child(Group):
+class std_moment_boundary_value_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36611,7 +36611,7 @@ class std_moment_boundary_value_child(Group):
     udf: udf
     _child_aliases: dict
 
-class std_moment_boundary_value(NamedObject[std_moment_boundary_value_child]):
+class std_moment_boundary_value(NamedObject[std_moment_boundary_value_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36670,15 +36670,15 @@ class std_moment_boundary_value(NamedObject[std_moment_boundary_value_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: std_moment_boundary_value_child
+    child_object_type: std_moment_boundary_value_item
 
-class dqmom_boundary_condition_child(String, AllowedValuesMixin):
+class dqmom_boundary_condition_item(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class dqmom_boundary_condition(NamedObject[dqmom_boundary_condition_child]):
+class dqmom_boundary_condition(NamedObject[dqmom_boundary_condition_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36737,9 +36737,9 @@ class dqmom_boundary_condition(NamedObject[dqmom_boundary_condition_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: dqmom_boundary_condition_child
+    child_object_type: dqmom_boundary_condition_item
 
-class dqmom_boundary_value_child(Group):
+class dqmom_boundary_value_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36752,7 +36752,7 @@ class dqmom_boundary_value_child(Group):
     udf: udf
     _child_aliases: dict
 
-class dqmom_boundary_value(NamedObject[dqmom_boundary_value_child]):
+class dqmom_boundary_value(NamedObject[dqmom_boundary_value_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -36811,7 +36811,7 @@ class dqmom_boundary_value(NamedObject[dqmom_boundary_value_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: dqmom_boundary_value_child
+    child_object_type: dqmom_boundary_value_item
 
 class population_balance(Group):
     exposure_level: ExposureLevel
@@ -37038,13 +37038,13 @@ class structure_1(Group):
     z_disp_boundary_value: z_disp_boundary_value
     _child_aliases: dict
 
-class uds_bc_child(String, AllowedValuesMixin):
+class uds_bc_item(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class uds_bc(NamedObject[uds_bc_child]):
+class uds_bc(NamedObject[uds_bc_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37103,9 +37103,9 @@ class uds_bc(NamedObject[uds_bc_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: uds_bc_child
+    child_object_type: uds_bc_item
 
-class uds_1_child(Group):
+class uds_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37118,7 +37118,7 @@ class uds_1_child(Group):
     udf: udf
     _child_aliases: dict
 
-class uds_1(NamedObject[uds_1_child]):
+class uds_1(NamedObject[uds_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37177,7 +37177,7 @@ class uds_1(NamedObject[uds_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: uds_1_child
+    child_object_type: uds_1_item
 
 class uds(Group):
     exposure_level: ExposureLevel
@@ -37230,7 +37230,7 @@ class icing(Group):
     fensapice_drop_vrh: fensapice_drop_vrh
     fensapice_drop_vc: fensapice_drop_vc
 
-class phase_5_child(Group):
+class phase_5_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37249,7 +37249,7 @@ class phase_5_child(Group):
     icing: icing
     geometry: geometry_7
 
-class phase_5(NamedObject[phase_5_child]):
+class phase_5(NamedObject[phase_5_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37308,9 +37308,9 @@ class phase_5(NamedObject[phase_5_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_5_child
+    child_object_type: phase_5_item
 
-class exhaust_fan_child(Group):
+class exhaust_fan_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37368,7 +37368,7 @@ class exhaust_fan_child(Group):
         """
     _child_aliases: dict
 
-class exhaust_fan(NamedObject[exhaust_fan_child]):
+class exhaust_fan(NamedObject[exhaust_fan_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37429,7 +37429,7 @@ class exhaust_fan(NamedObject[exhaust_fan_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: exhaust_fan_child
+    child_object_type: exhaust_fan_item
 
 class porous_jump_turb_wall_treatment(Boolean):
     exposure_level: ExposureLevel
@@ -37461,13 +37461,13 @@ class dir_z(Real):
     fluent_name: str
     _python_name: str
 
-class zone_average_direction_child(Real):
+class zone_average_direction_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class zone_average_direction(ListObject[zone_average_direction_child]):
+class zone_average_direction(ListObject[zone_average_direction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37491,7 +37491,7 @@ class zone_average_direction(ListObject[zone_average_direction_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: zone_average_direction_child
+    child_object_type: zone_average_direction_item
 
 class profile_specification_of_pressure_jump(Boolean):
     exposure_level: ExposureLevel
@@ -37565,13 +37565,13 @@ class specify_swirl_velocity(Boolean):
     fluent_name: str
     _python_name: str
 
-class fan_axis_child(Real):
+class fan_axis_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class fan_axis(ListObject[fan_axis_child]):
+class fan_axis(ListObject[fan_axis_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37595,15 +37595,15 @@ class fan_axis(ListObject[fan_axis_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: fan_axis_child
+    child_object_type: fan_axis_item
 
-class fan_origin_1_child(Real):
+class fan_origin_1_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class fan_origin_1(ListObject[fan_origin_1_child]):
+class fan_origin_1(ListObject[fan_origin_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37627,7 +37627,7 @@ class fan_origin_1(ListObject[fan_origin_1_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: fan_origin_1_child
+    child_object_type: fan_origin_1_item
 
 class fan_hub_radius(Real):
     exposure_level: ExposureLevel
@@ -37722,7 +37722,7 @@ class discrete_phase_2(Group):
     dem_collision_partner: dem_collision_partner
     _child_aliases: dict
 
-class phase_6_child(Group):
+class phase_6_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37733,7 +37733,7 @@ class phase_6_child(Group):
     discrete_phase: discrete_phase_2
     geometry: geometry_7
 
-class phase_6(NamedObject[phase_6_child]):
+class phase_6(NamedObject[phase_6_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37792,9 +37792,9 @@ class phase_6(NamedObject[phase_6_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_6_child
+    child_object_type: phase_6_item
 
-class fan_child(Group):
+class fan_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37844,7 +37844,7 @@ class fan_child(Group):
         """
     _child_aliases: dict
 
-class fan(NamedObject[fan_child]):
+class fan(NamedObject[fan_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37905,9 +37905,9 @@ class fan(NamedObject[fan_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: fan_child
+    child_object_type: fan_item
 
-class geometry_6_child(Group):
+class geometry_6_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -37954,7 +37954,7 @@ class geometry_6_child(Group):
         """
     _child_aliases: dict
 
-class geometry_6(NamedObject[geometry_6_child]):
+class geometry_6(NamedObject[geometry_6_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -38015,7 +38015,7 @@ class geometry_6(NamedObject[geometry_6_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: geometry_6_child
+    child_object_type: geometry_6_item
 
 class reference_frame_4(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -38072,7 +38072,7 @@ class coordinate_system_1(String, AllowedValuesMixin):
     LOCAL_CYLINDRICAL_SWIRL: Final[str] = 'Local Cylindrical Swirl'
     _allowed_values: list[str]
 
-class direction_vector_child(Group):
+class direction_vector_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -38085,7 +38085,7 @@ class direction_vector_child(Group):
     udf: udf
     _child_aliases: dict
 
-class direction_vector(ListObject[direction_vector_child]):
+class direction_vector(ListObject[direction_vector_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -38109,7 +38109,7 @@ class direction_vector(ListObject[direction_vector_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: direction_vector_child
+    child_object_type: direction_vector_item
 
 class prevent_reverse_flow_1(Boolean):
     exposure_level: ExposureLevel
@@ -38596,7 +38596,7 @@ class equilibrate_inlet_stream(Boolean):
     fluent_name: str
     _python_name: str
 
-class species_mass_fraction_child(Group):
+class species_mass_fraction_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -38609,7 +38609,7 @@ class species_mass_fraction_child(Group):
     udf: udf
     _child_aliases: dict
 
-class species_mass_fraction(NamedObject[species_mass_fraction_child]):
+class species_mass_fraction(NamedObject[species_mass_fraction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -38668,7 +38668,7 @@ class species_mass_fraction(NamedObject[species_mass_fraction_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: species_mass_fraction_child
+    child_object_type: species_mass_fraction_item
 
 class progress_variable(Group):
     exposure_level: ExposureLevel
@@ -39422,7 +39422,7 @@ class icing_1(Group):
     fensapice_drop_vrh_1: fensapice_drop_vrh_1_1
     fensapice_drop_vc: fensapice_drop_vc_1
 
-class phase_7_child(Group):
+class phase_7_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -39441,7 +39441,7 @@ class phase_7_child(Group):
     icing: icing_1
     geometry: geometry_7
 
-class phase_7(NamedObject[phase_7_child]):
+class phase_7(NamedObject[phase_7_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -39500,9 +39500,9 @@ class phase_7(NamedObject[phase_7_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_7_child
+    child_object_type: phase_7_item
 
-class inlet_vent_child(Group):
+class inlet_vent_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -39560,7 +39560,7 @@ class inlet_vent_child(Group):
         """
     _child_aliases: dict
 
-class inlet_vent(NamedObject[inlet_vent_child]):
+class inlet_vent(NamedObject[inlet_vent_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -39621,7 +39621,7 @@ class inlet_vent(NamedObject[inlet_vent_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: inlet_vent_child
+    child_object_type: inlet_vent_item
 
 class swirl_velocity_specification_1(Boolean):
     exposure_level: ExposureLevel
@@ -39665,7 +39665,7 @@ class momentum_2(Group):
     new_fan_definition: new_fan_definition
     _child_aliases: dict
 
-class phase_8_child(Group):
+class phase_8_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -39684,7 +39684,7 @@ class phase_8_child(Group):
     icing: icing_1
     geometry: geometry_7
 
-class phase_8(NamedObject[phase_8_child]):
+class phase_8(NamedObject[phase_8_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -39743,9 +39743,9 @@ class phase_8(NamedObject[phase_8_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_8_child
+    child_object_type: phase_8_item
 
-class intake_fan_child(Group):
+class intake_fan_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -39803,7 +39803,7 @@ class intake_fan_child(Group):
         """
     _child_aliases: dict
 
-class intake_fan(NamedObject[intake_fan_child]):
+class intake_fan(NamedObject[intake_fan_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -39864,7 +39864,7 @@ class intake_fan(NamedObject[intake_fan_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: intake_fan_child
+    child_object_type: intake_fan_item
 
 class non_overlap_zone_name(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -39880,7 +39880,7 @@ class interface_1(Group):
     child_names: list[str]
     non_overlap_zone_name: non_overlap_zone_name
 
-class phase_9_child(Group):
+class phase_9_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -39889,7 +39889,7 @@ class phase_9_child(Group):
     interface: interface_1
     geometry: geometry_7
 
-class phase_9(NamedObject[phase_9_child]):
+class phase_9(NamedObject[phase_9_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -39948,9 +39948,9 @@ class phase_9(NamedObject[phase_9_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_9_child
+    child_object_type: phase_9_item
 
-class interface_child(Group):
+class interface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -39998,7 +39998,7 @@ class interface_child(Group):
         """
     _child_aliases: dict
 
-class interface(NamedObject[interface_child]):
+class interface(NamedObject[interface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -40059,7 +40059,7 @@ class interface(NamedObject[interface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: interface_child
+    child_object_type: interface_item
 
 class is_not_a_rans_les_interface(Boolean):
     exposure_level: ExposureLevel
@@ -40075,7 +40075,7 @@ class interior_1(Group):
     child_names: list[str]
     is_not_a_rans_les_interface: is_not_a_rans_les_interface
 
-class phase_10_child(Group):
+class phase_10_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -40083,7 +40083,7 @@ class phase_10_child(Group):
     child_names: list[str]
     interior: interior_1
 
-class phase_10(NamedObject[phase_10_child]):
+class phase_10(NamedObject[phase_10_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -40142,9 +40142,9 @@ class phase_10(NamedObject[phase_10_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_10_child
+    child_object_type: phase_10_item
 
-class interior_child(Group):
+class interior_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -40191,7 +40191,7 @@ class interior_child(Group):
         """
     _child_aliases: dict
 
-class interior(NamedObject[interior_child]):
+class interior(NamedObject[interior_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -40252,7 +40252,7 @@ class interior(NamedObject[interior_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: interior_child
+    child_object_type: interior_item
 
 class mass_flow_specification(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -40588,7 +40588,7 @@ class multiphase_5(Group):
     log10_droplets_per_unit_volume: log10_droplets_per_unit_volume
     _child_aliases: dict
 
-class phase_11_child(Group):
+class phase_11_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -40607,7 +40607,7 @@ class phase_11_child(Group):
     icing: icing_1
     geometry: geometry_7
 
-class phase_11(NamedObject[phase_11_child]):
+class phase_11(NamedObject[phase_11_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -40666,9 +40666,9 @@ class phase_11(NamedObject[phase_11_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_11_child
+    child_object_type: phase_11_item
 
-class mass_flow_inlet_child(Group):
+class mass_flow_inlet_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -40726,7 +40726,7 @@ class mass_flow_inlet_child(Group):
         """
     _child_aliases: dict
 
-class mass_flow_inlet(NamedObject[mass_flow_inlet_child]):
+class mass_flow_inlet(NamedObject[mass_flow_inlet_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -40787,7 +40787,7 @@ class mass_flow_inlet(NamedObject[mass_flow_inlet_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mass_flow_inlet_child
+    child_object_type: mass_flow_inlet_item
 
 class reference_frame_5(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -40881,7 +40881,7 @@ class potential_1(Group):
     fluent_name: str
     _python_name: str
 
-class phase_12_child(Group):
+class phase_12_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -40900,7 +40900,7 @@ class phase_12_child(Group):
     icing: icing_1
     geometry: geometry_7
 
-class phase_12(NamedObject[phase_12_child]):
+class phase_12(NamedObject[phase_12_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -40959,9 +40959,9 @@ class phase_12(NamedObject[phase_12_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_12_child
+    child_object_type: phase_12_item
 
-class mass_flow_outlet_child(Group):
+class mass_flow_outlet_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41019,7 +41019,7 @@ class mass_flow_outlet_child(Group):
         """
     _child_aliases: dict
 
-class mass_flow_outlet(NamedObject[mass_flow_outlet_child]):
+class mass_flow_outlet(NamedObject[mass_flow_outlet_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41080,15 +41080,15 @@ class mass_flow_outlet(NamedObject[mass_flow_outlet_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mass_flow_outlet_child
+    child_object_type: mass_flow_outlet_item
 
-class phase_13_child(Group):
+class phase_13_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class phase_13(NamedObject[phase_13_child]):
+class phase_13(NamedObject[phase_13_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41147,9 +41147,9 @@ class phase_13(NamedObject[phase_13_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_13_child
+    child_object_type: phase_13_item
 
-class network_child(Group):
+class network_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41195,7 +41195,7 @@ class network_child(Group):
         """
     _child_aliases: dict
 
-class network(NamedObject[network_child]):
+class network(NamedObject[network_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41256,7 +41256,7 @@ class network(NamedObject[network_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: network_child
+    child_object_type: network_item
 
 class thermal_bc(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -41303,7 +41303,7 @@ class network_end_1(Group):
     temperature: temperature_3
     q: q
 
-class phase_14_child(Group):
+class phase_14_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41311,7 +41311,7 @@ class phase_14_child(Group):
     child_names: list[str]
     network_end: network_end_1
 
-class phase_14(NamedObject[phase_14_child]):
+class phase_14(NamedObject[phase_14_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41370,9 +41370,9 @@ class phase_14(NamedObject[phase_14_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_14_child
+    child_object_type: phase_14_item
 
-class network_end_child(Group):
+class network_end_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41419,7 +41419,7 @@ class network_end_child(Group):
         """
     _child_aliases: dict
 
-class network_end(NamedObject[network_end_child]):
+class network_end(NamedObject[network_end_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41480,7 +41480,7 @@ class network_end(NamedObject[network_end_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: network_end_child
+    child_object_type: network_end_item
 
 class flowrate_frac(Real):
     exposure_level: ExposureLevel
@@ -41517,7 +41517,7 @@ class discrete_phase_4(Group):
     dem_collision_partner: dem_collision_partner
     _child_aliases: dict
 
-class phase_15_child(Group):
+class phase_15_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41531,7 +41531,7 @@ class phase_15_child(Group):
     discrete_phase: discrete_phase_4
     geometry: geometry_7
 
-class phase_15(NamedObject[phase_15_child]):
+class phase_15(NamedObject[phase_15_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41590,9 +41590,9 @@ class phase_15(NamedObject[phase_15_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_15_child
+    child_object_type: phase_15_item
 
-class outflow_child(Group):
+class outflow_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41645,7 +41645,7 @@ class outflow_child(Group):
         """
     _child_aliases: dict
 
-class outflow(NamedObject[outflow_child]):
+class outflow(NamedObject[outflow_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41706,7 +41706,7 @@ class outflow(NamedObject[outflow_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: outflow_child
+    child_object_type: outflow_item
 
 class momentum_6(Group):
     exposure_level: ExposureLevel
@@ -41747,7 +41747,7 @@ class momentum_6(Group):
     strength: strength
     _child_aliases: dict
 
-class phase_16_child(Group):
+class phase_16_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41766,7 +41766,7 @@ class phase_16_child(Group):
     icing: icing
     geometry: geometry_7
 
-class phase_16(NamedObject[phase_16_child]):
+class phase_16(NamedObject[phase_16_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41825,9 +41825,9 @@ class phase_16(NamedObject[phase_16_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_16_child
+    child_object_type: phase_16_item
 
-class outlet_vent_child(Group):
+class outlet_vent_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41885,7 +41885,7 @@ class outlet_vent_child(Group):
         """
     _child_aliases: dict
 
-class outlet_vent(NamedObject[outlet_vent_child]):
+class outlet_vent(NamedObject[outlet_vent_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41946,9 +41946,9 @@ class outlet_vent(NamedObject[outlet_vent_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: outlet_vent_child
+    child_object_type: outlet_vent_item
 
-class overset_1_child(Group):
+class overset_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -41995,7 +41995,7 @@ class overset_1_child(Group):
         """
     _child_aliases: dict
 
-class overset_1(NamedObject[overset_1_child]):
+class overset_1(NamedObject[overset_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42056,7 +42056,7 @@ class overset_1(NamedObject[overset_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: overset_1_child
+    child_object_type: overset_1_item
 
 class rotationally_periodic(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -42073,13 +42073,13 @@ class p_jump(Real):
     fluent_name: str
     _python_name: str
 
-class axis_direction_3_child(Real):
+class axis_direction_3_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class axis_direction_3(ListObject[axis_direction_3_child]):
+class axis_direction_3(ListObject[axis_direction_3_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42103,47 +42103,15 @@ class axis_direction_3(ListObject[axis_direction_3_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: axis_direction_3_child
+    child_object_type: axis_direction_3_item
 
-class axis_origin_3_child(Real):
+class axis_origin_3_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class axis_origin_3(ListObject[axis_origin_3_child]):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def list_properties(self, object_at: int):
-        """
-        List properties of selected object.
-        
-        Parameters
-        ----------
-            object_at : int
-                Object index to delete.
-        """
-    def resize(self, size: int):
-        """
-        Set number of objects for list-object.
-        
-        Parameters
-        ----------
-            size : int
-                New size for list-object.
-        """
-    child_object_type: axis_origin_3_child
-
-class shift_component_child(Real):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class shift_component(ListObject[shift_component_child]):
+class axis_origin_3(ListObject[axis_origin_3_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42167,7 +42135,39 @@ class shift_component(ListObject[shift_component_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: shift_component_child
+    child_object_type: axis_origin_3_item
+
+class shift_component_item(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class shift_component(ListObject[shift_component_item]):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def list_properties(self, object_at: int):
+        """
+        List properties of selected object.
+        
+        Parameters
+        ----------
+            object_at : int
+                Object index to delete.
+        """
+    def resize(self, size: int):
+        """
+        Set number of objects for list-object.
+        
+        Parameters
+        ----------
+            size : int
+                New size for list-object.
+        """
+    child_object_type: shift_component_item
 
 class per_angle(Real):
     exposure_level: ExposureLevel
@@ -42203,7 +42203,7 @@ class geometry_8(Group):
     geom_levels: geom_levels
     geom_bgthread: geom_bgthread
 
-class phase_17_child(Group):
+class phase_17_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42212,7 +42212,7 @@ class phase_17_child(Group):
     periodic: periodic_1
     geometry: geometry_8
 
-class phase_17(NamedObject[phase_17_child]):
+class phase_17(NamedObject[phase_17_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42271,9 +42271,9 @@ class phase_17(NamedObject[phase_17_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_17_child
+    child_object_type: phase_17_item
 
-class periodic_child(Group):
+class periodic_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42321,7 +42321,7 @@ class periodic_child(Group):
         """
     _child_aliases: dict
 
-class periodic(NamedObject[periodic_child]):
+class periodic(NamedObject[periodic_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42382,7 +42382,7 @@ class periodic(NamedObject[periodic_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: periodic_child
+    child_object_type: periodic_item
 
 class alpha(Real):
     exposure_level: ExposureLevel
@@ -42478,7 +42478,7 @@ class adhesion_constrained(Boolean):
     fluent_name: str
     _python_name: str
 
-class contact_angles_child(Group):
+class contact_angles_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42491,7 +42491,7 @@ class contact_angles_child(Group):
     udf: udf
     _child_aliases: dict
 
-class contact_angles(NamedObject[contact_angles_child]):
+class contact_angles(NamedObject[contact_angles_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42550,7 +42550,7 @@ class contact_angles(NamedObject[contact_angles_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: contact_angles_child
+    child_object_type: contact_angles_item
 
 class porous_jump_1(Group):
     exposure_level: ExposureLevel
@@ -42580,7 +42580,7 @@ class porous_jump_1(Group):
     z_disp_boundary_value: z_disp_boundary_value
     _child_aliases: dict
 
-class phase_18_child(Group):
+class phase_18_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42590,7 +42590,7 @@ class phase_18_child(Group):
     discrete_phase: discrete_phase_2
     geometry: geometry_7
 
-class phase_18(NamedObject[phase_18_child]):
+class phase_18(NamedObject[phase_18_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42649,9 +42649,9 @@ class phase_18(NamedObject[phase_18_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_18_child
+    child_object_type: phase_18_item
 
-class porous_jump_child(Group):
+class porous_jump_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42700,7 +42700,7 @@ class porous_jump_child(Group):
         """
     _child_aliases: dict
 
-class porous_jump(NamedObject[porous_jump_child]):
+class porous_jump(NamedObject[porous_jump_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42761,7 +42761,7 @@ class porous_jump(NamedObject[porous_jump_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: porous_jump_child
+    child_object_type: porous_jump_item
 
 class mach_number(Group):
     exposure_level: ExposureLevel
@@ -42881,7 +42881,7 @@ class species_10(Group):
     pollutant_hocl_mass_fraction: pollutant_hocl_mass_fraction
     _child_aliases: dict
 
-class phase_19_child(Group):
+class phase_19_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42899,7 +42899,7 @@ class phase_19_child(Group):
     icing: icing_1
     geometry: geometry_7
 
-class phase_19(NamedObject[phase_19_child]):
+class phase_19(NamedObject[phase_19_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -42958,9 +42958,9 @@ class phase_19(NamedObject[phase_19_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_19_child
+    child_object_type: phase_19_item
 
-class pressure_far_field_child(Group):
+class pressure_far_field_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43017,7 +43017,7 @@ class pressure_far_field_child(Group):
         """
     _child_aliases: dict
 
-class pressure_far_field(NamedObject[pressure_far_field_child]):
+class pressure_far_field(NamedObject[pressure_far_field_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43078,7 +43078,7 @@ class pressure_far_field(NamedObject[pressure_far_field_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: pressure_far_field_child
+    child_object_type: pressure_far_field_item
 
 class momentum_8(Group):
     exposure_level: ExposureLevel
@@ -43103,7 +43103,7 @@ class momentum_8(Group):
     incoming_wave: incoming_wave
     _child_aliases: dict
 
-class phase_20_child(Group):
+class phase_20_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43122,7 +43122,7 @@ class phase_20_child(Group):
     icing: icing_1
     geometry: geometry_7
 
-class phase_20(NamedObject[phase_20_child]):
+class phase_20(NamedObject[phase_20_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43181,9 +43181,9 @@ class phase_20(NamedObject[phase_20_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_20_child
+    child_object_type: phase_20_item
 
-class pressure_inlet_child(Group):
+class pressure_inlet_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43241,7 +43241,7 @@ class pressure_inlet_child(Group):
         """
     _child_aliases: dict
 
-class pressure_inlet(NamedObject[pressure_inlet_child]):
+class pressure_inlet(NamedObject[pressure_inlet_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43302,7 +43302,7 @@ class pressure_inlet(NamedObject[pressure_inlet_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: pressure_inlet_child
+    child_object_type: pressure_inlet_item
 
 class momentum_9(Group):
     exposure_level: ExposureLevel
@@ -43341,7 +43341,7 @@ class momentum_9(Group):
     incoming_wave: incoming_wave
     _child_aliases: dict
 
-class phase_21_child(Group):
+class phase_21_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43360,7 +43360,7 @@ class phase_21_child(Group):
     icing: icing
     geometry: geometry_7
 
-class phase_21(NamedObject[phase_21_child]):
+class phase_21(NamedObject[phase_21_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43419,9 +43419,9 @@ class phase_21(NamedObject[phase_21_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_21_child
+    child_object_type: phase_21_item
 
-class pressure_outlet_child(Group):
+class pressure_outlet_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43479,7 +43479,7 @@ class pressure_outlet_child(Group):
         """
     _child_aliases: dict
 
-class pressure_outlet(NamedObject[pressure_outlet_child]):
+class pressure_outlet(NamedObject[pressure_outlet_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43540,7 +43540,7 @@ class pressure_outlet(NamedObject[pressure_outlet_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: pressure_outlet_child
+    child_object_type: pressure_outlet_item
 
 class hc(Group):
     exposure_level: ExposureLevel
@@ -43582,7 +43582,7 @@ class radiator_1(Group):
     strength: strength
     _child_aliases: dict
 
-class phase_22_child(Group):
+class phase_22_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43592,7 +43592,7 @@ class phase_22_child(Group):
     discrete_phase: discrete_phase_2
     geometry: geometry_7
 
-class phase_22(NamedObject[phase_22_child]):
+class phase_22(NamedObject[phase_22_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43651,9 +43651,9 @@ class phase_22(NamedObject[phase_22_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_22_child
+    child_object_type: phase_22_item
 
-class radiator_child(Group):
+class radiator_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43702,7 +43702,7 @@ class radiator_child(Group):
         """
     _child_aliases: dict
 
-class radiator(NamedObject[radiator_child]):
+class radiator(NamedObject[radiator_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43763,7 +43763,7 @@ class radiator(NamedObject[radiator_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: radiator_child
+    child_object_type: radiator_item
 
 class les_spec_name(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -43808,7 +43808,7 @@ class turbulence_4(Group):
     vm_nvortices: vm_nvortices
     les_embedded_fluctuations: les_embedded_fluctuations
 
-class phase_23_child(Group):
+class phase_23_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43817,7 +43817,7 @@ class phase_23_child(Group):
     turbulence: turbulence_4
     geometry: geometry_7
 
-class phase_23(NamedObject[phase_23_child]):
+class phase_23(NamedObject[phase_23_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43876,9 +43876,9 @@ class phase_23(NamedObject[phase_23_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_23_child
+    child_object_type: phase_23_item
 
-class rans_les_interface_child(Group):
+class rans_les_interface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43926,7 +43926,7 @@ class rans_les_interface_child(Group):
         """
     _child_aliases: dict
 
-class rans_les_interface(NamedObject[rans_les_interface_child]):
+class rans_les_interface(NamedObject[rans_les_interface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -43987,7 +43987,7 @@ class rans_les_interface(NamedObject[rans_les_interface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: rans_les_interface_child
+    child_object_type: rans_les_interface_item
 
 class outlet_zone(Group):
     exposure_level: ExposureLevel
@@ -44059,7 +44059,7 @@ class transfer_coefficient(Group):
     piecewise_linear: piecewise_linear_2
     polynomial: polynomial_2
 
-class species_mass_fractions_child(Group):
+class species_mass_fractions_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44072,7 +44072,7 @@ class species_mass_fractions_child(Group):
     udf: udf
     _child_aliases: dict
 
-class species_mass_fractions(NamedObject[species_mass_fractions_child]):
+class species_mass_fractions(NamedObject[species_mass_fractions_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44131,7 +44131,7 @@ class species_mass_fractions(NamedObject[species_mass_fractions_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: species_mass_fractions_child
+    child_object_type: species_mass_fractions_item
 
 class recirculation_inlet_1(Group):
     exposure_level: ExposureLevel
@@ -44177,7 +44177,7 @@ class recirculation_inlet_1(Group):
     solar_transmissivity_factor: solar_transmissivity_factor
     _child_aliases: dict
 
-class phase_24_child(Group):
+class phase_24_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44186,7 +44186,7 @@ class phase_24_child(Group):
     recirculation_inlet: recirculation_inlet_1
     geometry: geometry_7
 
-class phase_24(NamedObject[phase_24_child]):
+class phase_24(NamedObject[phase_24_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44245,9 +44245,9 @@ class phase_24(NamedObject[phase_24_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_24_child
+    child_object_type: phase_24_item
 
-class recirculation_inlet_child(Group):
+class recirculation_inlet_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44295,7 +44295,7 @@ class recirculation_inlet_child(Group):
         """
     _child_aliases: dict
 
-class recirculation_inlet(NamedObject[recirculation_inlet_child]):
+class recirculation_inlet(NamedObject[recirculation_inlet_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44356,7 +44356,7 @@ class recirculation_inlet(NamedObject[recirculation_inlet_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: recirculation_inlet_child
+    child_object_type: recirculation_inlet_item
 
 class recirculation_outlet_1(Group):
     exposure_level: ExposureLevel
@@ -44371,7 +44371,7 @@ class recirculation_outlet_1(Group):
     solar_transmissivity_factor: solar_transmissivity_factor
     _child_aliases: dict
 
-class phase_25_child(Group):
+class phase_25_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44380,7 +44380,7 @@ class phase_25_child(Group):
     recirculation_outlet: recirculation_outlet_1
     geometry: geometry_7
 
-class phase_25(NamedObject[phase_25_child]):
+class phase_25(NamedObject[phase_25_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44439,9 +44439,9 @@ class phase_25(NamedObject[phase_25_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_25_child
+    child_object_type: phase_25_item
 
-class recirculation_outlet_child(Group):
+class recirculation_outlet_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44489,7 +44489,7 @@ class recirculation_outlet_child(Group):
         """
     _child_aliases: dict
 
-class recirculation_outlet(NamedObject[recirculation_outlet_child]):
+class recirculation_outlet(NamedObject[recirculation_outlet_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44550,9 +44550,9 @@ class recirculation_outlet(NamedObject[recirculation_outlet_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: recirculation_outlet_child
+    child_object_type: recirculation_outlet_item
 
-class shadow_child(Group):
+class shadow_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44599,7 +44599,7 @@ class shadow_child(Group):
         """
     _child_aliases: dict
 
-class shadow(NamedObject[shadow_child]):
+class shadow(NamedObject[shadow_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44660,9 +44660,9 @@ class shadow(NamedObject[shadow_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: shadow_child
+    child_object_type: shadow_item
 
-class symmetry_child(Group):
+class symmetry_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44709,7 +44709,7 @@ class symmetry_child(Group):
         """
     _child_aliases: dict
 
-class symmetry(NamedObject[symmetry_child]):
+class symmetry(NamedObject[symmetry_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44770,7 +44770,7 @@ class symmetry(NamedObject[symmetry_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: symmetry_child
+    child_object_type: symmetry_item
 
 class open_channel_wave_bc(Boolean):
     exposure_level: ExposureLevel
@@ -44852,7 +44852,7 @@ class initial_gauge_pressure(Group):
     udf: udf
     _child_aliases: dict
 
-class velocity_components_child(Group):
+class velocity_components_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44865,7 +44865,7 @@ class velocity_components_child(Group):
     udf: udf
     _child_aliases: dict
 
-class velocity_components(ListObject[velocity_components_child]):
+class velocity_components(ListObject[velocity_components_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44889,7 +44889,7 @@ class velocity_components(ListObject[velocity_components_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: velocity_components_child
+    child_object_type: velocity_components_item
 
 class swirl_angular_velocity(Real):
     exposure_level: ExposureLevel
@@ -44919,7 +44919,7 @@ class moving_object_velocity(Group):
     udf: udf
     _child_aliases: dict
 
-class moving_object_direction_child(Group):
+class moving_object_direction_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44932,7 +44932,7 @@ class moving_object_direction_child(Group):
     udf: udf
     _child_aliases: dict
 
-class moving_object_direction(ListObject[moving_object_direction_child]):
+class moving_object_direction(ListObject[moving_object_direction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -44956,7 +44956,7 @@ class moving_object_direction(ListObject[moving_object_direction_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: moving_object_direction_child
+    child_object_type: moving_object_direction_item
 
 class moving_object_velocity_inputs(Group):
     exposure_level: ExposureLevel
@@ -44993,7 +44993,7 @@ class primary_phase_velocity(Group):
     udf: udf
     _child_aliases: dict
 
-class primary_phase_direction_child(Group):
+class primary_phase_direction_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45006,7 +45006,7 @@ class primary_phase_direction_child(Group):
     udf: udf
     _child_aliases: dict
 
-class primary_phase_direction(ListObject[primary_phase_direction_child]):
+class primary_phase_direction(ListObject[primary_phase_direction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45030,7 +45030,7 @@ class primary_phase_direction(ListObject[primary_phase_direction_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: primary_phase_direction_child
+    child_object_type: primary_phase_direction_item
 
 class primary_phase_velocity_inputs(Group):
     exposure_level: ExposureLevel
@@ -45065,7 +45065,7 @@ class secondary_phase_velocity(Group):
     udf: udf
     _child_aliases: dict
 
-class secondary_phase_direction_child(Group):
+class secondary_phase_direction_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45078,7 +45078,7 @@ class secondary_phase_direction_child(Group):
     udf: udf
     _child_aliases: dict
 
-class secondary_phase_direction(ListObject[secondary_phase_direction_child]):
+class secondary_phase_direction(ListObject[secondary_phase_direction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45102,7 +45102,7 @@ class secondary_phase_direction(ListObject[secondary_phase_direction_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: secondary_phase_direction_child
+    child_object_type: secondary_phase_direction_item
 
 class secondary_phase_velocity_inputs(Group):
     exposure_level: ExposureLevel
@@ -45247,7 +45247,7 @@ class radiation_6(Group):
     solar_transmissivity_factor: solar_transmissivity_factor
     _child_aliases: dict
 
-class flow_velocity_child(Group):
+class flow_velocity_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45260,7 +45260,7 @@ class flow_velocity_child(Group):
     udf: udf
     _child_aliases: dict
 
-class flow_velocity(ListObject[flow_velocity_child]):
+class flow_velocity(ListObject[flow_velocity_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45284,7 +45284,7 @@ class flow_velocity(ListObject[flow_velocity_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: flow_velocity_child
+    child_object_type: flow_velocity_item
 
 class primary_phase_reference_height_above_free_surface(Real):
     exposure_level: ExposureLevel
@@ -45332,7 +45332,7 @@ class reference_wave_direction(String, AllowedValuesMixin):
     NORMAL_TO_BOUNDARY: Final[str] = 'Normal to Boundary'
     _allowed_values: list[str]
 
-class reference_direction_child(Group):
+class reference_direction_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45345,7 +45345,7 @@ class reference_direction_child(Group):
     udf: udf
     _child_aliases: dict
 
-class reference_direction(ListObject[reference_direction_child]):
+class reference_direction(ListObject[reference_direction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45369,7 +45369,7 @@ class reference_direction(ListObject[reference_direction_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: reference_direction_child
+    child_object_type: reference_direction_item
 
 class wave_modeling_option(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -45444,7 +45444,7 @@ class heading_angle(Group):
     udf: udf
     _child_aliases: dict
 
-class wave_group_inputs_child(Group):
+class wave_group_inputs_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45456,7 +45456,7 @@ class wave_group_inputs_child(Group):
     phase_diff: phase_diff
     heading_angle: heading_angle
 
-class wave_group_inputs(ListObject[wave_group_inputs_child]):
+class wave_group_inputs(ListObject[wave_group_inputs_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45480,7 +45480,7 @@ class wave_group_inputs(ListObject[wave_group_inputs_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: wave_group_inputs_child
+    child_object_type: wave_group_inputs_item
 
 class theory_1(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -45504,7 +45504,7 @@ class offset_7(Group):
     udf: udf
     _child_aliases: dict
 
-class shallow_wave_inputs_child(Group):
+class shallow_wave_inputs_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45516,7 +45516,7 @@ class shallow_wave_inputs_child(Group):
     offset: offset_7
     heading_angle: heading_angle
 
-class shallow_wave_inputs(ListObject[shallow_wave_inputs_child]):
+class shallow_wave_inputs(ListObject[shallow_wave_inputs_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45540,7 +45540,7 @@ class shallow_wave_inputs(ListObject[shallow_wave_inputs_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: shallow_wave_inputs_child
+    child_object_type: shallow_wave_inputs_item
 
 class frequency_spectrum_method(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -45670,7 +45670,7 @@ class mean_and_std_deviation(RealList):
     fluent_name: str
     _python_name: str
 
-class pb_disc_components_child(Group):
+class pb_disc_components_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45683,7 +45683,7 @@ class pb_disc_components_child(Group):
     udf: udf
     _child_aliases: dict
 
-class pb_disc_components(ListObject[pb_disc_components_child]):
+class pb_disc_components(ListObject[pb_disc_components_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45707,7 +45707,7 @@ class pb_disc_components(ListObject[pb_disc_components_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: pb_disc_components_child
+    child_object_type: pb_disc_components_item
 
 class pb_disc(Group):
     exposure_level: ExposureLevel
@@ -45765,7 +45765,7 @@ class multiphase_7(Group):
     dqmom_boundary_value: dqmom_boundary_value
     _child_aliases: dict
 
-class phase_26_child(Group):
+class phase_26_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45784,7 +45784,7 @@ class phase_26_child(Group):
     icing: icing_1
     geometry: geometry_7
 
-class phase_26(NamedObject[phase_26_child]):
+class phase_26(NamedObject[phase_26_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45843,9 +45843,9 @@ class phase_26(NamedObject[phase_26_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_26_child
+    child_object_type: phase_26_item
 
-class velocity_inlet_child(Group):
+class velocity_inlet_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45903,7 +45903,7 @@ class velocity_inlet_child(Group):
         """
     _child_aliases: dict
 
-class velocity_inlet(NamedObject[velocity_inlet_child]):
+class velocity_inlet(NamedObject[velocity_inlet_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -45964,7 +45964,7 @@ class velocity_inlet(NamedObject[velocity_inlet_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: velocity_inlet_child
+    child_object_type: velocity_inlet_item
 
 class wall_motion(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -46041,13 +46041,13 @@ class rotation_speed(Group):
     udf: udf
     _child_aliases: dict
 
-class rotation_axis_origin_child(Real):
+class rotation_axis_origin_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class rotation_axis_origin(ListObject[rotation_axis_origin_child]):
+class rotation_axis_origin(ListObject[rotation_axis_origin_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46071,47 +46071,15 @@ class rotation_axis_origin(ListObject[rotation_axis_origin_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: rotation_axis_origin_child
+    child_object_type: rotation_axis_origin_item
 
-class rotation_axis_direction_child(Real):
+class rotation_axis_direction_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class rotation_axis_direction(ListObject[rotation_axis_direction_child]):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def list_properties(self, object_at: int):
-        """
-        List properties of selected object.
-        
-        Parameters
-        ----------
-            object_at : int
-                Object index to delete.
-        """
-    def resize(self, size: int):
-        """
-        Set number of objects for list-object.
-        
-        Parameters
-        ----------
-            size : int
-                New size for list-object.
-        """
-    child_object_type: rotation_axis_direction_child
-
-class direction_3_child(Real):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-
-class direction_3(ListObject[direction_3_child]):
+class rotation_axis_direction(ListObject[rotation_axis_direction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46135,7 +46103,39 @@ class direction_3(ListObject[direction_3_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: direction_3_child
+    child_object_type: rotation_axis_direction_item
+
+class direction_3_item(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class direction_3(ListObject[direction_3_item]):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def list_properties(self, object_at: int):
+        """
+        List properties of selected object.
+        
+        Parameters
+        ----------
+            object_at : int
+                Object index to delete.
+        """
+    def resize(self, size: int):
+        """
+        Set number of objects for list-object.
+        
+        Parameters
+        ----------
+            size : int
+                New size for list-object.
+        """
+    child_object_type: direction_3_item
 
 class shear_condition(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -46154,7 +46154,7 @@ class fsi_interface(Boolean):
     fluent_name: str
     _python_name: str
 
-class periodic_displacement_child(Group):
+class periodic_displacement_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46167,7 +46167,7 @@ class periodic_displacement_child(Group):
     udf: udf
     _child_aliases: dict
 
-class periodic_displacement(ListObject[periodic_displacement_child]):
+class periodic_displacement(ListObject[periodic_displacement_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46191,9 +46191,9 @@ class periodic_displacement(ListObject[periodic_displacement_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: periodic_displacement_child
+    child_object_type: periodic_displacement_item
 
-class periodic_imaginary_displacement_child(Group):
+class periodic_imaginary_displacement_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46206,7 +46206,7 @@ class periodic_imaginary_displacement_child(Group):
     udf: udf
     _child_aliases: dict
 
-class periodic_imaginary_displacement(ListObject[periodic_imaginary_displacement_child]):
+class periodic_imaginary_displacement(ListObject[periodic_imaginary_displacement_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46230,7 +46230,7 @@ class periodic_imaginary_displacement(ListObject[periodic_imaginary_displacement
             size : int
                 New size for list-object.
         """
-    child_object_type: periodic_imaginary_displacement_child
+    child_object_type: periodic_imaginary_displacement_item
 
 class frequency_1(Group):
     exposure_level: ExposureLevel
@@ -46325,7 +46325,7 @@ class eom_initial_period(Integer):
     fluent_name: str
     _python_name: str
 
-class force_real_component_child(Group):
+class force_real_component_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46338,7 +46338,7 @@ class force_real_component_child(Group):
     udf: udf
     _child_aliases: dict
 
-class force_real_component(ListObject[force_real_component_child]):
+class force_real_component(ListObject[force_real_component_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46362,9 +46362,9 @@ class force_real_component(ListObject[force_real_component_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: force_real_component_child
+    child_object_type: force_real_component_item
 
-class force_imaginary_component_child(Group):
+class force_imaginary_component_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46377,7 +46377,7 @@ class force_imaginary_component_child(Group):
     udf: udf
     _child_aliases: dict
 
-class force_imaginary_component(ListObject[force_imaginary_component_child]):
+class force_imaginary_component(ListObject[force_imaginary_component_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46401,7 +46401,7 @@ class force_imaginary_component(ListObject[force_imaginary_component_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: force_imaginary_component_child
+    child_object_type: force_imaginary_component_item
 
 class force_cmplx(Boolean):
     exposure_level: ExposureLevel
@@ -46415,7 +46415,7 @@ class force_norm(Boolean):
     fluent_name: str
     _python_name: str
 
-class shear_stress_child(Group):
+class shear_stress_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46428,7 +46428,7 @@ class shear_stress_child(Group):
     udf: udf
     _child_aliases: dict
 
-class shear_stress(ListObject[shear_stress_child]):
+class shear_stress(ListObject[shear_stress_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46452,7 +46452,7 @@ class shear_stress(ListObject[shear_stress_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: shear_stress_child
+    child_object_type: shear_stress_item
 
 class fslip(Real):
     exposure_level: ExposureLevel
@@ -46931,7 +46931,7 @@ class qdot(Group):
     udf: udf
     _child_aliases: dict
 
-class conduction_layers_child(Group):
+class conduction_layers_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46941,7 +46941,7 @@ class conduction_layers_child(Group):
     material: material_7
     qdot: qdot
 
-class conduction_layers(ListObject[conduction_layers_child]):
+class conduction_layers(ListObject[conduction_layers_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46965,7 +46965,7 @@ class conduction_layers(ListObject[conduction_layers_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: conduction_layers_child
+    child_object_type: conduction_layers_item
 
 class thickness_1(Group):
     exposure_level: ExposureLevel
@@ -46980,7 +46980,7 @@ class thickness_1(Group):
     udf: udf
     _child_aliases: dict
 
-class thin_wall_child(Group):
+class thin_wall_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -46990,7 +46990,7 @@ class thin_wall_child(Group):
     material: material_7
     qdot: qdot
 
-class thin_wall(ListObject[thin_wall_child]):
+class thin_wall(ListObject[thin_wall_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -47014,7 +47014,7 @@ class thin_wall(ListObject[thin_wall_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: thin_wall_child
+    child_object_type: thin_wall_item
 
 class radiating_to_fixed_temp(Boolean):
     exposure_level: ExposureLevel
@@ -47181,7 +47181,7 @@ class polar_real_intensity(Real):
     fluent_name: str
     _python_name: str
 
-class polar_data_pairs_child(Group):
+class polar_data_pairs_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -47190,7 +47190,7 @@ class polar_data_pairs_child(Group):
     polar_real_angle: polar_real_angle
     polar_real_intensity: polar_real_intensity
 
-class polar_data_pairs(ListObject[polar_data_pairs_child]):
+class polar_data_pairs(ListObject[polar_data_pairs_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -47214,7 +47214,7 @@ class polar_data_pairs(ListObject[polar_data_pairs_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: polar_data_pairs_child
+    child_object_type: polar_data_pairs_item
 
 class polar_distribution_function_settings(Group):
     exposure_level: ExposureLevel
@@ -47291,13 +47291,13 @@ class direct_irradiation_settings_1(Group):
     beam_direction: beam_direction
     _child_aliases: dict
 
-class diffuse_fraction_band_child(Real):
+class diffuse_fraction_band_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class diffuse_fraction_band(NamedObject[diffuse_fraction_band_child]):
+class diffuse_fraction_band(NamedObject[diffuse_fraction_band_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -47356,7 +47356,7 @@ class diffuse_fraction_band(NamedObject[diffuse_fraction_band_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: diffuse_fraction_band_child
+    child_object_type: diffuse_fraction_band_item
 
 class diffuse_irradiation_settings_1(Group):
     exposure_level: ExposureLevel
@@ -47368,7 +47368,7 @@ class diffuse_irradiation_settings_1(Group):
     diffuse_fraction_band: diffuse_fraction_band
     _child_aliases: dict
 
-class internal_emissivity_band_child(Group):
+class internal_emissivity_band_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -47381,7 +47381,7 @@ class internal_emissivity_band_child(Group):
     udf: udf
     _child_aliases: dict
 
-class internal_emissivity_band(NamedObject[internal_emissivity_band_child]):
+class internal_emissivity_band(NamedObject[internal_emissivity_band_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -47440,7 +47440,7 @@ class internal_emissivity_band(NamedObject[internal_emissivity_band_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: internal_emissivity_band_child
+    child_object_type: internal_emissivity_band_item
 
 class critical_zone(Boolean):
     exposure_level: ExposureLevel
@@ -47662,13 +47662,13 @@ class partially_catalytic_recombination_model(String, AllowedValuesMixin):
     SCOTT__AIR_: Final[str] = 'Scott (Air)'
     _allowed_values: list[str]
 
-class species_boundary_conditions_child(String, AllowedValuesMixin):
+class species_boundary_conditions_item(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class species_boundary_conditions(NamedObject[species_boundary_conditions_child]):
+class species_boundary_conditions(NamedObject[species_boundary_conditions_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -47727,9 +47727,9 @@ class species_boundary_conditions(NamedObject[species_boundary_conditions_child]
             to : str
                 The name of the new object.
         """
-    child_object_type: species_boundary_conditions_child
+    child_object_type: species_boundary_conditions_item
 
-class species_mass_fraction_or_flux_child(Group):
+class species_mass_fraction_or_flux_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -47742,7 +47742,7 @@ class species_mass_fraction_or_flux_child(Group):
     udf: udf
     _child_aliases: dict
 
-class species_mass_fraction_or_flux(NamedObject[species_mass_fraction_or_flux_child]):
+class species_mass_fraction_or_flux(NamedObject[species_mass_fraction_or_flux_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -47801,7 +47801,7 @@ class species_mass_fraction_or_flux(NamedObject[species_mass_fraction_or_flux_ch
             to : str
                 The name of the new object.
         """
-    child_object_type: species_mass_fraction_or_flux_child
+    child_object_type: species_mass_fraction_or_flux_item
 
 class surf_washcoat_factor(Real):
     exposure_level: ExposureLevel
@@ -48114,13 +48114,13 @@ class film_height(Real):
     fluent_name: str
     _python_name: str
 
-class film_velocity_child(Real):
+class film_velocity_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class film_velocity(ListObject[film_velocity_child]):
+class film_velocity(ListObject[film_velocity_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -48144,7 +48144,7 @@ class film_velocity(ListObject[film_velocity_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: film_velocity_child
+    child_object_type: film_velocity_item
 
 class film_temperature(Real):
     exposure_level: ExposureLevel
@@ -48621,7 +48621,7 @@ class film_height_1(Group):
     udf: udf
     _child_aliases: dict
 
-class flux_momentum_child(Group):
+class flux_momentum_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -48634,7 +48634,7 @@ class flux_momentum_child(Group):
     udf: udf
     _child_aliases: dict
 
-class flux_momentum(ListObject[flux_momentum_child]):
+class flux_momentum(ListObject[flux_momentum_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -48658,7 +48658,7 @@ class flux_momentum(ListObject[flux_momentum_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: flux_momentum_child
+    child_object_type: flux_momentum_item
 
 class relative_initial_film_velocity(Boolean):
     exposure_level: ExposureLevel
@@ -48717,7 +48717,7 @@ class film_mass_source(Group):
     udf: udf
     _child_aliases: dict
 
-class momentum_source_child(Group):
+class momentum_source_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -48730,7 +48730,7 @@ class momentum_source_child(Group):
     udf: udf
     _child_aliases: dict
 
-class momentum_source(ListObject[momentum_source_child]):
+class momentum_source(ListObject[momentum_source_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -48754,7 +48754,7 @@ class momentum_source(ListObject[momentum_source_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: momentum_source_child
+    child_object_type: momentum_source_item
 
 class film_heat_source(Group):
     exposure_level: ExposureLevel
@@ -49177,7 +49177,7 @@ class receding_angle_limit(Group):
     udf: udf
     _child_aliases: dict
 
-class dynamic_contact_angle_list_child(Group):
+class dynamic_contact_angle_list_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -49189,7 +49189,7 @@ class dynamic_contact_angle_list_child(Group):
     receding_angle_method: receding_angle_method
     receding_angle_limit: receding_angle_limit
 
-class dynamic_contact_angle_list(ListObject[dynamic_contact_angle_list_child]):
+class dynamic_contact_angle_list(ListObject[dynamic_contact_angle_list_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -49213,7 +49213,7 @@ class dynamic_contact_angle_list(ListObject[dynamic_contact_angle_list_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: dynamic_contact_angle_list_child
+    child_object_type: dynamic_contact_angle_list_item
 
 class multiphase_8(Group):
     exposure_level: ExposureLevel
@@ -49598,7 +49598,7 @@ class ablation_surfacerxn_density(Real):
     fluent_name: str
     _python_name: str
 
-class species_mass_fraction_1_child(Group):
+class species_mass_fraction_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -49611,7 +49611,7 @@ class species_mass_fraction_1_child(Group):
     udf: udf
     _child_aliases: dict
 
-class species_mass_fraction_1(NamedObject[species_mass_fraction_1_child]):
+class species_mass_fraction_1(NamedObject[species_mass_fraction_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -49670,7 +49670,7 @@ class species_mass_fraction_1(NamedObject[species_mass_fraction_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: species_mass_fraction_1_child
+    child_object_type: species_mass_fraction_1_item
 
 class ablation_1(Group):
     exposure_level: ExposureLevel
@@ -49686,7 +49686,7 @@ class ablation_1(Group):
     species_mass_fraction: species_mass_fraction_1
     _child_aliases: dict
 
-class phase_27_child(Group):
+class phase_27_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -49707,7 +49707,7 @@ class phase_27_child(Group):
     ablation: ablation_1
     geometry: geometry_7
 
-class phase_27(NamedObject[phase_27_child]):
+class phase_27(NamedObject[phase_27_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -49766,9 +49766,9 @@ class phase_27(NamedObject[phase_27_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_27_child
+    child_object_type: phase_27_item
 
-class wall_child(Group):
+class wall_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -49828,7 +49828,7 @@ class wall_child(Group):
         """
     _child_aliases: dict
 
-class wall(NamedObject[wall_child]):
+class wall(NamedObject[wall_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -49889,7 +49889,7 @@ class wall(NamedObject[wall_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: wall_child
+    child_object_type: wall_item
 
 class boundaries(Group):
     exposure_level: ExposureLevel
@@ -49976,7 +49976,7 @@ class boundary_2_1(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class overlapping_boundaries_child(Group):
+class overlapping_boundaries_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -49998,7 +49998,7 @@ class overlapping_boundaries_child(Group):
     ablation: ablation_1
     geometry: geometry_7
 
-class overlapping_boundaries(NamedObject[overlapping_boundaries_child]):
+class overlapping_boundaries(NamedObject[overlapping_boundaries_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50057,7 +50057,7 @@ class overlapping_boundaries(NamedObject[overlapping_boundaries_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: overlapping_boundaries_child
+    child_object_type: overlapping_boundaries_item
 
 class fan_settings(Group):
     exposure_level: ExposureLevel
@@ -50136,7 +50136,7 @@ class periodicity_1(Group):
     origin: origin_7
     direction: direction_4
 
-class interfaces_child(Group):
+class interfaces_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50162,7 +50162,7 @@ class interfaces_child(Group):
         Display mesh interface.
         """
 
-class interfaces(NamedObject[interfaces_child]):
+class interfaces(NamedObject[interfaces_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50235,7 +50235,7 @@ class interfaces(NamedObject[interfaces_child]):
         """
         Create mesh interfaces.
         """
-    child_object_type: interfaces_child
+    child_object_type: interfaces_item
 
 class physics_1(Group):
     exposure_level: ExposureLevel
@@ -50262,7 +50262,7 @@ class physics_1(Group):
         Get the state of physics objects.
         """
 
-class phase_28_child(Group):
+class phase_28_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50279,7 +50279,7 @@ class phase_28_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class phase_28(NamedObject[phase_28_child]):
+class phase_28(NamedObject[phase_28_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50338,98 +50338,9 @@ class phase_28(NamedObject[phase_28_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_28_child
+    child_object_type: phase_28_item
 
-class axis_7_child(Group):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    query_names: list[str]
-    name: name_5
-    phase: phase_28
-    geometry: geometry_7
-    def display(self):
-        """
-        Show the selected zone surface. If the surface does not exist, this command creates it first and then displays it.
-        """
-    def create_surface(self):
-        """
-        Create surface for selected zone.
-        """
-    def adjacent_cell_zone(self):
-        """
-        Get adjacent cell zone for this face zone.
-        """
-    def shadow_face_zone(self):
-        """
-        Get shadow zone for this wall zone.
-        """
-
-class axis_7(NamedObject[axis_7_child]):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : list
-                Objects to be deleted.
-        """
-    def rename(self, old: str, new: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            old : str
-                Object to rename.
-            new : str
-                New name for the object.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: axis_7_child
-
-class degassing_1_child(Group):
+class axis_7_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50457,7 +50368,7 @@ class degassing_1_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class degassing_1(NamedObject[degassing_1_child]):
+class axis_7(NamedObject[axis_7_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50516,9 +50427,98 @@ class degassing_1(NamedObject[degassing_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: degassing_1_child
+    child_object_type: axis_7_item
 
-class phase_29_child(Group):
+class degassing_1_item(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    command_names: list[str]
+    query_names: list[str]
+    name: name_5
+    phase: phase_28
+    geometry: geometry_7
+    def display(self):
+        """
+        Show the selected zone surface. If the surface does not exist, this command creates it first and then displays it.
+        """
+    def create_surface(self):
+        """
+        Create surface for selected zone.
+        """
+    def adjacent_cell_zone(self):
+        """
+        Get adjacent cell zone for this face zone.
+        """
+    def shadow_face_zone(self):
+        """
+        Get shadow zone for this wall zone.
+        """
+
+class degassing_1(NamedObject[degassing_1_item]):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str):
+        """
+        Create a new instance of the current object type.
+        
+        Parameters
+        ----------
+            name : str
+                Object name.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : list
+                Objects to be deleted.
+        """
+    def rename(self, old: str, new: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            old : str
+                Object to rename.
+            new : str
+                New name for the object.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: degassing_1_item
+
+class phase_29_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50547,7 +50547,7 @@ class phase_29_child(Group):
         """
     _child_aliases: dict
 
-class phase_29(NamedObject[phase_29_child]):
+class phase_29(NamedObject[phase_29_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50606,9 +50606,9 @@ class phase_29(NamedObject[phase_29_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_29_child
+    child_object_type: phase_29_item
 
-class exhaust_fan_1_child(Group):
+class exhaust_fan_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50648,7 +50648,7 @@ class exhaust_fan_1_child(Group):
         """
     _child_aliases: dict
 
-class exhaust_fan_1(NamedObject[exhaust_fan_1_child]):
+class exhaust_fan_1(NamedObject[exhaust_fan_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50707,9 +50707,9 @@ class exhaust_fan_1(NamedObject[exhaust_fan_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: exhaust_fan_1_child
+    child_object_type: exhaust_fan_1_item
 
-class phase_30_child(Group):
+class phase_30_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50730,7 +50730,7 @@ class phase_30_child(Group):
         """
     _child_aliases: dict
 
-class phase_30(NamedObject[phase_30_child]):
+class phase_30(NamedObject[phase_30_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50789,9 +50789,9 @@ class phase_30(NamedObject[phase_30_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_30_child
+    child_object_type: phase_30_item
 
-class fan_1_child(Group):
+class fan_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50823,7 +50823,7 @@ class fan_1_child(Group):
         """
     _child_aliases: dict
 
-class fan_1(NamedObject[fan_1_child]):
+class fan_1(NamedObject[fan_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50882,9 +50882,9 @@ class fan_1(NamedObject[fan_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: fan_1_child
+    child_object_type: fan_1_item
 
-class geometry_9_child(Group):
+class geometry_9_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50912,7 +50912,7 @@ class geometry_9_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class geometry_9(NamedObject[geometry_9_child]):
+class geometry_9(NamedObject[geometry_9_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -50971,9 +50971,9 @@ class geometry_9(NamedObject[geometry_9_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: geometry_9_child
+    child_object_type: geometry_9_item
 
-class phase_31_child(Group):
+class phase_31_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51002,7 +51002,7 @@ class phase_31_child(Group):
         """
     _child_aliases: dict
 
-class phase_31(NamedObject[phase_31_child]):
+class phase_31(NamedObject[phase_31_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51061,9 +51061,9 @@ class phase_31(NamedObject[phase_31_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_31_child
+    child_object_type: phase_31_item
 
-class inlet_vent_1_child(Group):
+class inlet_vent_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51103,7 +51103,7 @@ class inlet_vent_1_child(Group):
         """
     _child_aliases: dict
 
-class inlet_vent_1(NamedObject[inlet_vent_1_child]):
+class inlet_vent_1(NamedObject[inlet_vent_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51162,9 +51162,9 @@ class inlet_vent_1(NamedObject[inlet_vent_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: inlet_vent_1_child
+    child_object_type: inlet_vent_1_item
 
-class phase_32_child(Group):
+class phase_32_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51193,7 +51193,7 @@ class phase_32_child(Group):
         """
     _child_aliases: dict
 
-class phase_32(NamedObject[phase_32_child]):
+class phase_32(NamedObject[phase_32_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51252,9 +51252,9 @@ class phase_32(NamedObject[phase_32_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_32_child
+    child_object_type: phase_32_item
 
-class intake_fan_1_child(Group):
+class intake_fan_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51294,7 +51294,7 @@ class intake_fan_1_child(Group):
         """
     _child_aliases: dict
 
-class intake_fan_1(NamedObject[intake_fan_1_child]):
+class intake_fan_1(NamedObject[intake_fan_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51353,9 +51353,9 @@ class intake_fan_1(NamedObject[intake_fan_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: intake_fan_1_child
+    child_object_type: intake_fan_1_item
 
-class phase_33_child(Group):
+class phase_33_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51373,7 +51373,7 @@ class phase_33_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class phase_33(NamedObject[phase_33_child]):
+class phase_33(NamedObject[phase_33_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51432,9 +51432,9 @@ class phase_33(NamedObject[phase_33_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_33_child
+    child_object_type: phase_33_item
 
-class interface_2_child(Group):
+class interface_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51463,7 +51463,7 @@ class interface_2_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class interface_2(NamedObject[interface_2_child]):
+class interface_2(NamedObject[interface_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51522,9 +51522,9 @@ class interface_2(NamedObject[interface_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: interface_2_child
+    child_object_type: interface_2_item
 
-class phase_34_child(Group):
+class phase_34_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51541,7 +51541,7 @@ class phase_34_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class phase_34(NamedObject[phase_34_child]):
+class phase_34(NamedObject[phase_34_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51600,9 +51600,9 @@ class phase_34(NamedObject[phase_34_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_34_child
+    child_object_type: phase_34_item
 
-class interior_2_child(Group):
+class interior_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51630,7 +51630,7 @@ class interior_2_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class interior_2(NamedObject[interior_2_child]):
+class interior_2(NamedObject[interior_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51689,9 +51689,9 @@ class interior_2(NamedObject[interior_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: interior_2_child
+    child_object_type: interior_2_item
 
-class phase_35_child(Group):
+class phase_35_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51720,7 +51720,7 @@ class phase_35_child(Group):
         """
     _child_aliases: dict
 
-class phase_35(NamedObject[phase_35_child]):
+class phase_35(NamedObject[phase_35_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51779,9 +51779,9 @@ class phase_35(NamedObject[phase_35_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_35_child
+    child_object_type: phase_35_item
 
-class mass_flow_inlet_1_child(Group):
+class mass_flow_inlet_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51821,7 +51821,7 @@ class mass_flow_inlet_1_child(Group):
         """
     _child_aliases: dict
 
-class mass_flow_inlet_1(NamedObject[mass_flow_inlet_1_child]):
+class mass_flow_inlet_1(NamedObject[mass_flow_inlet_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51880,9 +51880,9 @@ class mass_flow_inlet_1(NamedObject[mass_flow_inlet_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mass_flow_inlet_1_child
+    child_object_type: mass_flow_inlet_1_item
 
-class phase_36_child(Group):
+class phase_36_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51911,7 +51911,7 @@ class phase_36_child(Group):
         """
     _child_aliases: dict
 
-class phase_36(NamedObject[phase_36_child]):
+class phase_36(NamedObject[phase_36_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -51970,9 +51970,9 @@ class phase_36(NamedObject[phase_36_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_36_child
+    child_object_type: phase_36_item
 
-class mass_flow_outlet_1_child(Group):
+class mass_flow_outlet_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52012,7 +52012,7 @@ class mass_flow_outlet_1_child(Group):
         """
     _child_aliases: dict
 
-class mass_flow_outlet_1(NamedObject[mass_flow_outlet_1_child]):
+class mass_flow_outlet_1(NamedObject[mass_flow_outlet_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52071,9 +52071,9 @@ class mass_flow_outlet_1(NamedObject[mass_flow_outlet_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mass_flow_outlet_1_child
+    child_object_type: mass_flow_outlet_1_item
 
-class phase_37_child(Group):
+class phase_37_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52088,7 +52088,7 @@ class phase_37_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class phase_37(NamedObject[phase_37_child]):
+class phase_37(NamedObject[phase_37_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52147,9 +52147,9 @@ class phase_37(NamedObject[phase_37_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_37_child
+    child_object_type: phase_37_item
 
-class network_1_child(Group):
+class network_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52176,7 +52176,7 @@ class network_1_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class network_1(NamedObject[network_1_child]):
+class network_1(NamedObject[network_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52235,9 +52235,9 @@ class network_1(NamedObject[network_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: network_1_child
+    child_object_type: network_1_item
 
-class phase_38_child(Group):
+class phase_38_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52254,7 +52254,7 @@ class phase_38_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class phase_38(NamedObject[phase_38_child]):
+class phase_38(NamedObject[phase_38_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52313,9 +52313,9 @@ class phase_38(NamedObject[phase_38_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_38_child
+    child_object_type: phase_38_item
 
-class network_end_2_child(Group):
+class network_end_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52343,7 +52343,7 @@ class network_end_2_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class network_end_2(NamedObject[network_end_2_child]):
+class network_end_2(NamedObject[network_end_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52402,9 +52402,9 @@ class network_end_2(NamedObject[network_end_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: network_end_2_child
+    child_object_type: network_end_2_item
 
-class phase_39_child(Group):
+class phase_39_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52428,7 +52428,7 @@ class phase_39_child(Group):
         """
     _child_aliases: dict
 
-class phase_39(NamedObject[phase_39_child]):
+class phase_39(NamedObject[phase_39_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52487,9 +52487,9 @@ class phase_39(NamedObject[phase_39_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_39_child
+    child_object_type: phase_39_item
 
-class outflow_1_child(Group):
+class outflow_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52524,7 +52524,7 @@ class outflow_1_child(Group):
         """
     _child_aliases: dict
 
-class outflow_1(NamedObject[outflow_1_child]):
+class outflow_1(NamedObject[outflow_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52583,9 +52583,9 @@ class outflow_1(NamedObject[outflow_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: outflow_1_child
+    child_object_type: outflow_1_item
 
-class phase_40_child(Group):
+class phase_40_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52614,7 +52614,7 @@ class phase_40_child(Group):
         """
     _child_aliases: dict
 
-class phase_40(NamedObject[phase_40_child]):
+class phase_40(NamedObject[phase_40_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52673,9 +52673,9 @@ class phase_40(NamedObject[phase_40_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_40_child
+    child_object_type: phase_40_item
 
-class outlet_vent_1_child(Group):
+class outlet_vent_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52715,7 +52715,7 @@ class outlet_vent_1_child(Group):
         """
     _child_aliases: dict
 
-class outlet_vent_1(NamedObject[outlet_vent_1_child]):
+class outlet_vent_1(NamedObject[outlet_vent_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52774,9 +52774,9 @@ class outlet_vent_1(NamedObject[outlet_vent_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: outlet_vent_1_child
+    child_object_type: outlet_vent_1_item
 
-class overset_2_child(Group):
+class overset_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52804,7 +52804,7 @@ class overset_2_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class overset_2(NamedObject[overset_2_child]):
+class overset_2(NamedObject[overset_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52863,9 +52863,9 @@ class overset_2(NamedObject[overset_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: overset_2_child
+    child_object_type: overset_2_item
 
-class phase_41_child(Group):
+class phase_41_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52883,7 +52883,7 @@ class phase_41_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class phase_41(NamedObject[phase_41_child]):
+class phase_41(NamedObject[phase_41_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52942,9 +52942,9 @@ class phase_41(NamedObject[phase_41_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_41_child
+    child_object_type: phase_41_item
 
-class periodic_2_child(Group):
+class periodic_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -52973,7 +52973,7 @@ class periodic_2_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class periodic_2(NamedObject[periodic_2_child]):
+class periodic_2(NamedObject[periodic_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53032,9 +53032,9 @@ class periodic_2(NamedObject[periodic_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: periodic_2_child
+    child_object_type: periodic_2_item
 
-class phase_42_child(Group):
+class phase_42_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53054,7 +53054,7 @@ class phase_42_child(Group):
         """
     _child_aliases: dict
 
-class phase_42(NamedObject[phase_42_child]):
+class phase_42(NamedObject[phase_42_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53113,9 +53113,9 @@ class phase_42(NamedObject[phase_42_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_42_child
+    child_object_type: phase_42_item
 
-class porous_jump_2_child(Group):
+class porous_jump_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53146,7 +53146,7 @@ class porous_jump_2_child(Group):
         """
     _child_aliases: dict
 
-class porous_jump_2(NamedObject[porous_jump_2_child]):
+class porous_jump_2(NamedObject[porous_jump_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53205,9 +53205,9 @@ class porous_jump_2(NamedObject[porous_jump_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: porous_jump_2_child
+    child_object_type: porous_jump_2_item
 
-class phase_43_child(Group):
+class phase_43_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53235,7 +53235,7 @@ class phase_43_child(Group):
         """
     _child_aliases: dict
 
-class phase_43(NamedObject[phase_43_child]):
+class phase_43(NamedObject[phase_43_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53294,9 +53294,9 @@ class phase_43(NamedObject[phase_43_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_43_child
+    child_object_type: phase_43_item
 
-class pressure_far_field_1_child(Group):
+class pressure_far_field_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53335,7 +53335,7 @@ class pressure_far_field_1_child(Group):
         """
     _child_aliases: dict
 
-class pressure_far_field_1(NamedObject[pressure_far_field_1_child]):
+class pressure_far_field_1(NamedObject[pressure_far_field_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53394,9 +53394,9 @@ class pressure_far_field_1(NamedObject[pressure_far_field_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: pressure_far_field_1_child
+    child_object_type: pressure_far_field_1_item
 
-class phase_44_child(Group):
+class phase_44_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53425,7 +53425,7 @@ class phase_44_child(Group):
         """
     _child_aliases: dict
 
-class phase_44(NamedObject[phase_44_child]):
+class phase_44(NamedObject[phase_44_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53484,9 +53484,9 @@ class phase_44(NamedObject[phase_44_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_44_child
+    child_object_type: phase_44_item
 
-class pressure_inlet_1_child(Group):
+class pressure_inlet_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53526,7 +53526,7 @@ class pressure_inlet_1_child(Group):
         """
     _child_aliases: dict
 
-class pressure_inlet_1(NamedObject[pressure_inlet_1_child]):
+class pressure_inlet_1(NamedObject[pressure_inlet_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53585,9 +53585,9 @@ class pressure_inlet_1(NamedObject[pressure_inlet_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: pressure_inlet_1_child
+    child_object_type: pressure_inlet_1_item
 
-class phase_45_child(Group):
+class phase_45_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53616,7 +53616,7 @@ class phase_45_child(Group):
         """
     _child_aliases: dict
 
-class phase_45(NamedObject[phase_45_child]):
+class phase_45(NamedObject[phase_45_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53675,9 +53675,9 @@ class phase_45(NamedObject[phase_45_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_45_child
+    child_object_type: phase_45_item
 
-class pressure_outlet_1_child(Group):
+class pressure_outlet_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53717,7 +53717,7 @@ class pressure_outlet_1_child(Group):
         """
     _child_aliases: dict
 
-class pressure_outlet_1(NamedObject[pressure_outlet_1_child]):
+class pressure_outlet_1(NamedObject[pressure_outlet_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53776,9 +53776,9 @@ class pressure_outlet_1(NamedObject[pressure_outlet_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: pressure_outlet_1_child
+    child_object_type: pressure_outlet_1_item
 
-class phase_46_child(Group):
+class phase_46_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53798,7 +53798,7 @@ class phase_46_child(Group):
         """
     _child_aliases: dict
 
-class phase_46(NamedObject[phase_46_child]):
+class phase_46(NamedObject[phase_46_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53857,9 +53857,9 @@ class phase_46(NamedObject[phase_46_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_46_child
+    child_object_type: phase_46_item
 
-class radiator_2_child(Group):
+class radiator_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53890,7 +53890,7 @@ class radiator_2_child(Group):
         """
     _child_aliases: dict
 
-class radiator_2(NamedObject[radiator_2_child]):
+class radiator_2(NamedObject[radiator_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53949,9 +53949,9 @@ class radiator_2(NamedObject[radiator_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: radiator_2_child
+    child_object_type: radiator_2_item
 
-class phase_47_child(Group):
+class phase_47_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -53969,7 +53969,7 @@ class phase_47_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class phase_47(NamedObject[phase_47_child]):
+class phase_47(NamedObject[phase_47_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54028,9 +54028,9 @@ class phase_47(NamedObject[phase_47_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_47_child
+    child_object_type: phase_47_item
 
-class rans_les_interface_1_child(Group):
+class rans_les_interface_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54059,7 +54059,7 @@ class rans_les_interface_1_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class rans_les_interface_1(NamedObject[rans_les_interface_1_child]):
+class rans_les_interface_1(NamedObject[rans_les_interface_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54118,9 +54118,9 @@ class rans_les_interface_1(NamedObject[rans_les_interface_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: rans_les_interface_1_child
+    child_object_type: rans_les_interface_1_item
 
-class phase_48_child(Group):
+class phase_48_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54138,7 +54138,7 @@ class phase_48_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class phase_48(NamedObject[phase_48_child]):
+class phase_48(NamedObject[phase_48_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54197,9 +54197,9 @@ class phase_48(NamedObject[phase_48_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_48_child
+    child_object_type: phase_48_item
 
-class recirculation_inlet_2_child(Group):
+class recirculation_inlet_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54228,7 +54228,7 @@ class recirculation_inlet_2_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class recirculation_inlet_2(NamedObject[recirculation_inlet_2_child]):
+class recirculation_inlet_2(NamedObject[recirculation_inlet_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54287,9 +54287,9 @@ class recirculation_inlet_2(NamedObject[recirculation_inlet_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: recirculation_inlet_2_child
+    child_object_type: recirculation_inlet_2_item
 
-class phase_49_child(Group):
+class phase_49_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54307,7 +54307,7 @@ class phase_49_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class phase_49(NamedObject[phase_49_child]):
+class phase_49(NamedObject[phase_49_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54366,9 +54366,9 @@ class phase_49(NamedObject[phase_49_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_49_child
+    child_object_type: phase_49_item
 
-class recirculation_outlet_2_child(Group):
+class recirculation_outlet_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54397,7 +54397,7 @@ class recirculation_outlet_2_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class recirculation_outlet_2(NamedObject[recirculation_outlet_2_child]):
+class recirculation_outlet_2(NamedObject[recirculation_outlet_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54456,9 +54456,9 @@ class recirculation_outlet_2(NamedObject[recirculation_outlet_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: recirculation_outlet_2_child
+    child_object_type: recirculation_outlet_2_item
 
-class shadow_1_child(Group):
+class shadow_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54486,7 +54486,7 @@ class shadow_1_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class shadow_1(NamedObject[shadow_1_child]):
+class shadow_1(NamedObject[shadow_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54545,9 +54545,9 @@ class shadow_1(NamedObject[shadow_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: shadow_1_child
+    child_object_type: shadow_1_item
 
-class symmetry_1_child(Group):
+class symmetry_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54575,7 +54575,7 @@ class symmetry_1_child(Group):
         Get shadow zone for this wall zone.
         """
 
-class symmetry_1(NamedObject[symmetry_1_child]):
+class symmetry_1(NamedObject[symmetry_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54634,9 +54634,9 @@ class symmetry_1(NamedObject[symmetry_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: symmetry_1_child
+    child_object_type: symmetry_1_item
 
-class phase_50_child(Group):
+class phase_50_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54665,7 +54665,7 @@ class phase_50_child(Group):
         """
     _child_aliases: dict
 
-class phase_50(NamedObject[phase_50_child]):
+class phase_50(NamedObject[phase_50_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54724,9 +54724,9 @@ class phase_50(NamedObject[phase_50_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_50_child
+    child_object_type: phase_50_item
 
-class velocity_inlet_1_child(Group):
+class velocity_inlet_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54766,7 +54766,7 @@ class velocity_inlet_1_child(Group):
         """
     _child_aliases: dict
 
-class velocity_inlet_1(NamedObject[velocity_inlet_1_child]):
+class velocity_inlet_1(NamedObject[velocity_inlet_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54825,9 +54825,9 @@ class velocity_inlet_1(NamedObject[velocity_inlet_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: velocity_inlet_1_child
+    child_object_type: velocity_inlet_1_item
 
-class phase_51_child(Group):
+class phase_51_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54858,7 +54858,7 @@ class phase_51_child(Group):
         """
     _child_aliases: dict
 
-class phase_51(NamedObject[phase_51_child]):
+class phase_51(NamedObject[phase_51_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54917,9 +54917,9 @@ class phase_51(NamedObject[phase_51_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_51_child
+    child_object_type: phase_51_item
 
-class wall_1_child(Group):
+class wall_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -54961,7 +54961,7 @@ class wall_1_child(Group):
         """
     _child_aliases: dict
 
-class wall_1(NamedObject[wall_1_child]):
+class wall_1(NamedObject[wall_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -55020,7 +55020,7 @@ class wall_1(NamedObject[wall_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: wall_1_child
+    child_object_type: wall_1_item
 
 class sigma(Real):
     exposure_level: ExposureLevel
@@ -55236,7 +55236,7 @@ class diameter_3(Real):
     fluent_name: str
     _python_name: str
 
-class injection_hole_child(Group):
+class injection_hole_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -55246,7 +55246,7 @@ class injection_hole_child(Group):
     point2_or_vector: point2_or_vector
     diameter: diameter_3
 
-class injection_hole(ListObject[injection_hole_child]):
+class injection_hole(ListObject[injection_hole_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -55270,7 +55270,7 @@ class injection_hole(ListObject[injection_hole_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: injection_hole_child
+    child_object_type: injection_hole_item
 
 class holes_setup(Group):
     exposure_level: ExposureLevel
@@ -55319,7 +55319,7 @@ class angle_4(RealList):
     fluent_name: str
     _python_name: str
 
-class dynamic_injection_child(Group):
+class dynamic_injection_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -55330,7 +55330,7 @@ class dynamic_injection_child(Group):
     direction: direction_5
     angle: angle_4
 
-class dynamic_injection(ListObject[dynamic_injection_child]):
+class dynamic_injection(ListObject[dynamic_injection_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -55354,7 +55354,7 @@ class dynamic_injection(ListObject[dynamic_injection_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: dynamic_injection_child
+    child_object_type: dynamic_injection_item
 
 class dynamic_setup(Group):
     exposure_level: ExposureLevel
@@ -55412,7 +55412,7 @@ class species_12(RealList):
     fluent_name: str
     _python_name: str
 
-class static_injection_child(Group):
+class static_injection_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -55425,7 +55425,7 @@ class static_injection_child(Group):
     progress_variable: progress_variable_1
     species: species_12
 
-class static_injection(ListObject[static_injection_child]):
+class static_injection(ListObject[static_injection_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -55449,7 +55449,7 @@ class static_injection(ListObject[static_injection_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: static_injection_child
+    child_object_type: static_injection_item
 
 class static_setup(Group):
     exposure_level: ExposureLevel
@@ -55460,7 +55460,7 @@ class static_setup(Group):
     method: method_9
     static_injection: static_injection
 
-class injection_1_child(Group):
+class injection_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -55479,7 +55479,7 @@ class injection_1_child(Group):
     dynamic_setup: dynamic_setup
     static_setup: static_setup
 
-class injection_1(ListObject[injection_1_child]):
+class injection_1(ListObject[injection_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -55503,7 +55503,7 @@ class injection_1(ListObject[injection_1_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: injection_1_child
+    child_object_type: injection_1_item
 
 class model_setup(Group):
     exposure_level: ExposureLevel
@@ -55913,7 +55913,7 @@ class area_percentage2(Real):
     fluent_name: str
     _python_name: str
 
-class interface_3_child(Group):
+class interface_3_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -55946,7 +55946,7 @@ class interface_3_child(Group):
         Display mesh interface with parent.
         """
 
-class interface_3(NamedObject[interface_3_child]):
+class interface_3(NamedObject[interface_3_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -56071,7 +56071,7 @@ class interface_3(NamedObject[interface_3_child]):
             interface_zones : list
                 Interface zones for display.
         """
-    child_object_type: interface_3_child
+    child_object_type: interface_3_item
 
 class proximity_tolerance(Real):
     exposure_level: ExposureLevel
@@ -56218,7 +56218,7 @@ class turbo_non_overlap_1(Boolean):
     fluent_name: str
     _python_name: str
 
-class turbo_interface_child(Group):
+class turbo_interface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -56233,7 +56233,7 @@ class turbo_interface_child(Group):
     turbo_choice: turbo_choice_1
     turbo_non_overlap: turbo_non_overlap_1
 
-class turbo_interface(NamedObject[turbo_interface_child]):
+class turbo_interface(NamedObject[turbo_interface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -56306,7 +56306,7 @@ class turbo_interface(NamedObject[turbo_interface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: turbo_interface_child
+    child_object_type: turbo_interface_item
 
 class verbosity_8(Integer):
     exposure_level: ExposureLevel
@@ -56658,7 +56658,7 @@ class mesh_interfaces(Group):
         """
     _child_aliases: dict
 
-class turbo_interfaces_child(Group):
+class turbo_interfaces_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -56673,7 +56673,7 @@ class turbo_interfaces_child(Group):
     turbo_choice: turbo_choice_1
     turbo_non_overlap: turbo_non_overlap_1
 
-class turbo_interfaces(NamedObject[turbo_interfaces_child]):
+class turbo_interfaces(NamedObject[turbo_interfaces_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -56746,7 +56746,7 @@ class turbo_interfaces(NamedObject[turbo_interfaces_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: turbo_interfaces_child
+    child_object_type: turbo_interfaces_item
 
 class enabled_57(Boolean):
     exposure_level: ExposureLevel
@@ -57544,7 +57544,7 @@ class inertia_tensor(Group):
     ixz: ixz
     iyz: iyz
 
-class sdof_properties_child(Group):
+class sdof_properties_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -57556,7 +57556,7 @@ class sdof_properties_child(Group):
     one_dof_rotation: one_dof_rotation
     inertia_tensor: inertia_tensor
 
-class sdof_properties(NamedObject[sdof_properties_child]):
+class sdof_properties(NamedObject[sdof_properties_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -57619,7 +57619,7 @@ class sdof_properties(NamedObject[sdof_properties_child]):
         """
         'list_properties_all' command.
         """
-    child_object_type: sdof_properties_child
+    child_object_type: sdof_properties_item
 
 class six_dof(Group):
     exposure_level: ExposureLevel
@@ -58221,7 +58221,7 @@ class solver_1(Group):
     child_names: list[str]
     stabilization: stabilization
 
-class dynamic_zones_child(Group):
+class dynamic_zones_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -58236,7 +58236,7 @@ class dynamic_zones_child(Group):
     geometry: geometry_10
     solver: solver_1
 
-class dynamic_zones(NamedObject[dynamic_zones_child]):
+class dynamic_zones(NamedObject[dynamic_zones_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -58301,7 +58301,7 @@ class dynamic_zones(NamedObject[dynamic_zones_child]):
         """
         'list_properties_all' command.
         """
-    child_object_type: dynamic_zones_child
+    child_object_type: dynamic_zones_item
 
 class dynamic_mesh(Group):
     exposure_level: ExposureLevel
@@ -58707,7 +58707,7 @@ class display_state(String, AllowedValuesMixin):
     CURRENT: Final[str] = 'current'
     _allowed_values: list[str]
 
-class reference_frames_child(Group):
+class reference_frames_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -58720,7 +58720,7 @@ class reference_frames_child(Group):
     current_state: current_state
     display_state: display_state
 
-class reference_frames(NamedObject[reference_frames_child]):
+class reference_frames(NamedObject[reference_frames_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -58797,7 +58797,7 @@ class reference_frames(NamedObject[reference_frames_child]):
             name : str
                 Hide a reference frame.
         """
-    child_object_type: reference_frames_child
+    child_object_type: reference_frames_item
 
 class definition_2(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -58835,7 +58835,7 @@ class output_parameter(Boolean):
     fluent_name: str
     _python_name: str
 
-class named_expressions_child(Group):
+class named_expressions_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -58859,7 +58859,7 @@ class named_expressions_child(Group):
         Provide summary of expression properties.
         """
 
-class named_expressions(NamedObject[named_expressions_child]):
+class named_expressions(NamedObject[named_expressions_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -58927,7 +58927,7 @@ class named_expressions(NamedObject[named_expressions_child]):
             names : list
                 The named expression to compute.
         """
-    child_object_type: named_expressions_child
+    child_object_type: named_expressions_item
 
 class enabled_64(Boolean):
     exposure_level: ExposureLevel
@@ -59226,7 +59226,7 @@ class harmonic_1(Integer):
     fluent_name: str
     _python_name: str
 
-class objects_child(Group):
+class objects_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -59268,7 +59268,7 @@ class objects_child(Group):
     ibfreq: ibfreq_1
     harmonic: harmonic_1
 
-class objects(NamedObject[objects_child]):
+class objects(NamedObject[objects_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -59411,7 +59411,7 @@ class objects(NamedObject[objects_child]):
         """
         Process all generalized forces objects by recreating and mapping them.
         """
-    child_object_type: objects_child
+    child_object_type: objects_item
 
 class generalized_forces(Group):
     exposure_level: ExposureLevel
@@ -59492,7 +59492,7 @@ class repeats_in_360_degrees(Integer):
     fluent_name: str
     _python_name: str
 
-class periodic_instances_child(Group):
+class periodic_instances_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -59508,7 +59508,7 @@ class periodic_instances_child(Group):
     repeats: repeats
     repeats_in_360_degrees: repeats_in_360_degrees
 
-class periodic_instances(NamedObject[periodic_instances_child]):
+class periodic_instances(NamedObject[periodic_instances_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -59580,7 +59580,7 @@ class periodic_instances(NamedObject[periodic_instances_child]):
         """
         Clear the periodic instance repeats.
         """
-    child_object_type: periodic_instances_child
+    child_object_type: periodic_instances_item
 
 class turbomachinery(Group):
     exposure_level: ExposureLevel
@@ -59939,7 +59939,7 @@ class unsteady_fcn(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class scalar_child(Group):
+class scalar_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -59951,7 +59951,7 @@ class scalar_child(Group):
     flux_fcn: flux_fcn
     unsteady_fcn: unsteady_fcn
 
-class scalar(ListObject[scalar_child]):
+class scalar(ListObject[scalar_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -59975,7 +59975,7 @@ class scalar(ListObject[scalar_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: scalar_child
+    child_object_type: scalar_item
 
 class scalars(Group):
     exposure_level: ExposureLevel
@@ -60356,13 +60356,13 @@ class gradient_scheme(String, AllowedValuesMixin):
     GREEN_GAUSS_CELL_BASED: Final[str] = 'green-gauss-cell-based'
     _allowed_values: list[str]
 
-class discretization_scheme_child(String, AllowedValuesMixin):
+class discretization_scheme_item(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class discretization_scheme(NamedObject[discretization_scheme_child]):
+class discretization_scheme(NamedObject[discretization_scheme_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -60421,7 +60421,7 @@ class discretization_scheme(NamedObject[discretization_scheme_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: discretization_scheme_child
+    child_object_type: discretization_scheme_item
 
 class spatial_discretization(Group):
     exposure_level: ExposureLevel
@@ -61197,7 +61197,7 @@ class turb_disp_limit_upper_vof(Real):
     fluent_name: str
     _python_name: str
 
-class turbulent_dispersion_limit_vof_child(Group):
+class turbulent_dispersion_limit_vof_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -61206,7 +61206,7 @@ class turbulent_dispersion_limit_vof_child(Group):
     turb_disp_limit_lower_vof: turb_disp_limit_lower_vof
     turb_disp_limit_upper_vof: turb_disp_limit_upper_vof
 
-class turbulent_dispersion_limit_vof(NamedObject[turbulent_dispersion_limit_vof_child]):
+class turbulent_dispersion_limit_vof(NamedObject[turbulent_dispersion_limit_vof_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -61265,7 +61265,7 @@ class turbulent_dispersion_limit_vof(NamedObject[turbulent_dispersion_limit_vof_
             to : str
                 The name of the new object.
         """
-    child_object_type: turbulent_dispersion_limit_vof_child
+    child_object_type: turbulent_dispersion_limit_vof_item
 
 class exclude_td_boundary(Boolean):
     exposure_level: ExposureLevel
@@ -61749,7 +61749,7 @@ class vol_frac_cutoff(Real):
     fluent_name: str
     _python_name: str
 
-class set_velocity_and_vof_cutoffs_child(Group):
+class set_velocity_and_vof_cutoffs_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -61758,7 +61758,7 @@ class set_velocity_and_vof_cutoffs_child(Group):
     max_vel_mag: max_vel_mag
     vol_frac_cutoff: vol_frac_cutoff
 
-class set_velocity_and_vof_cutoffs(NamedObject[set_velocity_and_vof_cutoffs_child]):
+class set_velocity_and_vof_cutoffs(NamedObject[set_velocity_and_vof_cutoffs_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -61817,15 +61817,15 @@ class set_velocity_and_vof_cutoffs(NamedObject[set_velocity_and_vof_cutoffs_chil
             to : str
                 The name of the new object.
         """
-    child_object_type: set_velocity_and_vof_cutoffs_child
+    child_object_type: set_velocity_and_vof_cutoffs_item
 
-class set_damping_strengths_child(Real):
+class set_damping_strengths_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class set_damping_strengths(NamedObject[set_damping_strengths_child]):
+class set_damping_strengths(NamedObject[set_damping_strengths_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -61884,7 +61884,7 @@ class set_damping_strengths(NamedObject[set_damping_strengths_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: set_damping_strengths_child
+    child_object_type: set_damping_strengths_item
 
 class set_velocity_cutoff(Real):
     exposure_level: ExposureLevel
@@ -62132,13 +62132,13 @@ class overset_3(Group):
     orphan_cell_treatment: orphan_cell_treatment
     expert: expert_7
 
-class phase_based_vof_discretization_child(Real):
+class phase_based_vof_discretization_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class phase_based_vof_discretization(NamedObject[phase_based_vof_discretization_child]):
+class phase_based_vof_discretization(NamedObject[phase_based_vof_discretization_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -62197,7 +62197,7 @@ class phase_based_vof_discretization(NamedObject[phase_based_vof_discretization_
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_based_vof_discretization_child
+    child_object_type: phase_based_vof_discretization_item
 
 class reduced_rank_extrapolation(Boolean):
     exposure_level: ExposureLevel
@@ -62878,13 +62878,13 @@ class residual_smoothing(Group):
     residual_smoothing_factor: residual_smoothing_factor
     residual_smoothing_iter_count: residual_smoothing_iter_count
 
-class relaxation_factor_4_child(Real):
+class relaxation_factor_4_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class relaxation_factor_4(NamedObject[relaxation_factor_4_child]):
+class relaxation_factor_4(NamedObject[relaxation_factor_4_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -62943,15 +62943,15 @@ class relaxation_factor_4(NamedObject[relaxation_factor_4_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: relaxation_factor_4_child
+    child_object_type: relaxation_factor_4_item
 
-class under_relaxation_2_child(Real):
+class under_relaxation_2_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class under_relaxation_2(NamedObject[under_relaxation_2_child]):
+class under_relaxation_2(NamedObject[under_relaxation_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -63010,7 +63010,7 @@ class under_relaxation_2(NamedObject[under_relaxation_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: under_relaxation_2_child
+    child_object_type: under_relaxation_2_item
 
 class pseudo_time_courant_number(Real):
     exposure_level: ExposureLevel
@@ -63040,13 +63040,13 @@ class pseudo_time_method_local_time_step(Group):
     pseudo_time_step_method_solid_zone: pseudo_time_step_method_solid_zone
     time_step_size_scale_factor: time_step_size_scale_factor
 
-class local_dt_dualts_relax_child(Real):
+class local_dt_dualts_relax_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class local_dt_dualts_relax(NamedObject[local_dt_dualts_relax_child]):
+class local_dt_dualts_relax(NamedObject[local_dt_dualts_relax_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -63105,15 +63105,15 @@ class local_dt_dualts_relax(NamedObject[local_dt_dualts_relax_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: local_dt_dualts_relax_child
+    child_object_type: local_dt_dualts_relax_item
 
-class global_dt_pseudo_relax_child(Real):
+class global_dt_pseudo_relax_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class global_dt_pseudo_relax(NamedObject[global_dt_pseudo_relax_child]):
+class global_dt_pseudo_relax(NamedObject[global_dt_pseudo_relax_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -63172,7 +63172,7 @@ class global_dt_pseudo_relax(NamedObject[global_dt_pseudo_relax_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: global_dt_pseudo_relax_child
+    child_object_type: global_dt_pseudo_relax_item
 
 class pseudo_time_explicit_relaxation_factor(Group):
     exposure_level: ExposureLevel
@@ -63349,7 +63349,7 @@ class dual_ts_cycle_type(String, AllowedValuesMixin):
     F_CYCLE: Final[str] = 'f-cycle'
     _allowed_values: list[str]
 
-class mg_controls_child(Group):
+class mg_controls_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -63359,7 +63359,7 @@ class mg_controls_child(Group):
     pseudo_cycle_type: pseudo_cycle_type
     dual_ts_cycle_type: dual_ts_cycle_type
 
-class mg_controls(NamedObject[mg_controls_child]):
+class mg_controls(NamedObject[mg_controls_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -63418,7 +63418,7 @@ class mg_controls(NamedObject[mg_controls_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mg_controls_child
+    child_object_type: mg_controls_item
 
 class global_dt_post_sweeps(Integer):
     exposure_level: ExposureLevel
@@ -63911,13 +63911,13 @@ class contact_solution_controls(Group):
         Set contact solution stabilization to default.
         """
 
-class equations_child(Boolean):
+class equations_item(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class equations(NamedObject[equations_child]):
+class equations(NamedObject[equations_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -63976,7 +63976,7 @@ class equations(NamedObject[equations_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: equations_child
+    child_object_type: equations_item
 
 class min_pressure(Real):
     exposure_level: ExposureLevel
@@ -64116,7 +64116,7 @@ class stabilization_1(String, AllowedValuesMixin):
     GMRES: Final[str] = 'gmres'
     _allowed_values: list[str]
 
-class mg_controls_1_child(Group):
+class mg_controls_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -64128,7 +64128,7 @@ class mg_controls_1_child(Group):
     method: method_13
     stabilization: stabilization_1
 
-class mg_controls_1(NamedObject[mg_controls_1_child]):
+class mg_controls_1(NamedObject[mg_controls_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -64187,7 +64187,7 @@ class mg_controls_1(NamedObject[mg_controls_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mg_controls_1_child
+    child_object_type: mg_controls_1_item
 
 class pre_sweeps_1(Integer):
     exposure_level: ExposureLevel
@@ -64533,7 +64533,7 @@ class smoother(String, AllowedValuesMixin):
     JACOBI: Final[str] = 'JACOBI'
     _allowed_values: list[str]
 
-class amg_gpgpu_options_child(Group):
+class amg_gpgpu_options_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -64548,7 +64548,7 @@ class amg_gpgpu_options_child(Group):
     post_sweep: post_sweep
     smoother: smoother
 
-class amg_gpgpu_options(NamedObject[amg_gpgpu_options_child]):
+class amg_gpgpu_options(NamedObject[amg_gpgpu_options_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -64607,7 +64607,7 @@ class amg_gpgpu_options(NamedObject[amg_gpgpu_options_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: amg_gpgpu_options_child
+    child_object_type: amg_gpgpu_options_item
 
 class multi_grid(Group):
     exposure_level: ExposureLevel
@@ -64638,7 +64638,7 @@ class update_viscous(Boolean):
     fluent_name: str
     _python_name: str
 
-class multi_stage_child(Group):
+class multi_stage_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -64648,7 +64648,7 @@ class multi_stage_child(Group):
     update_dissipation: update_dissipation
     update_viscous: update_viscous
 
-class multi_stage(ListObject[multi_stage_child]):
+class multi_stage(ListObject[multi_stage_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -64672,7 +64672,7 @@ class multi_stage(ListObject[multi_stage_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: multi_stage_child
+    child_object_type: multi_stage_item
 
 class limiter_type(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -64728,7 +64728,7 @@ class implicit_under_relaxation_factor(Real):
     fluent_name: str
     _python_name: str
 
-class pseudo_time_method_usage_child(Group):
+class pseudo_time_method_usage_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -64738,7 +64738,7 @@ class pseudo_time_method_usage_child(Group):
     pseudo_time_scale_factor: pseudo_time_scale_factor
     implicit_under_relaxation_factor: implicit_under_relaxation_factor
 
-class pseudo_time_method_usage(NamedObject[pseudo_time_method_usage_child]):
+class pseudo_time_method_usage(NamedObject[pseudo_time_method_usage_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -64797,7 +64797,7 @@ class pseudo_time_method_usage(NamedObject[pseudo_time_method_usage_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: pseudo_time_method_usage_child
+    child_object_type: pseudo_time_method_usage_item
     _child_aliases: dict
 
 class linearized_mass_transfer_udf(Boolean):
@@ -65035,13 +65035,13 @@ class boundary_presto_treatment(Boolean):
     fluent_name: str
     _python_name: str
 
-class nci_secondary_gradient_child(Boolean):
+class nci_secondary_gradient_item(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class nci_secondary_gradient(NamedObject[nci_secondary_gradient_child]):
+class nci_secondary_gradient(NamedObject[nci_secondary_gradient_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -65100,7 +65100,7 @@ class nci_secondary_gradient(NamedObject[nci_secondary_gradient_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: nci_secondary_gradient_child
+    child_object_type: nci_secondary_gradient_item
 
 class relaxation_method_1(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -65112,13 +65112,13 @@ class relaxation_method_1(String, AllowedValuesMixin):
     ILU: Final[str] = 'ilu'
     _allowed_values: list[str]
 
-class correction_tolerance_child(Real):
+class correction_tolerance_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class correction_tolerance(NamedObject[correction_tolerance_child]):
+class correction_tolerance(NamedObject[correction_tolerance_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -65177,7 +65177,7 @@ class correction_tolerance(NamedObject[correction_tolerance_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: correction_tolerance_child
+    child_object_type: correction_tolerance_item
 
 class relaxation(Real):
     exposure_level: ExposureLevel
@@ -65483,7 +65483,7 @@ class create_report_plot(Boolean):
     fluent_name: str
     _python_name: str
 
-class mesh_1_child(Group):
+class mesh_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -65507,7 +65507,7 @@ class mesh_1_child(Group):
         """
     _child_aliases: dict
 
-class mesh_1(NamedObject[mesh_1_child]):
+class mesh_1(NamedObject[mesh_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -65566,7 +65566,7 @@ class mesh_1(NamedObject[mesh_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mesh_1_child
+    child_object_type: mesh_1_item
 
 class field(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -65592,7 +65592,7 @@ class phase_53(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class surface_1_child(Group):
+class surface_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -65618,7 +65618,7 @@ class surface_1_child(Group):
         """
     _child_aliases: dict
 
-class surface_1(NamedObject[surface_1_child]):
+class surface_1(NamedObject[surface_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -65677,7 +65677,7 @@ class surface_1(NamedObject[surface_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: surface_1_child
+    child_object_type: surface_1_item
 
 class cell_zones_9(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -65685,7 +65685,7 @@ class cell_zones_9(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class volume_3_child(Group):
+class volume_3_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -65710,7 +65710,7 @@ class volume_3_child(Group):
         """
     _child_aliases: dict
 
-class volume_3(NamedObject[volume_3_child]):
+class volume_3(NamedObject[volume_3_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -65769,7 +65769,7 @@ class volume_3(NamedObject[volume_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: volume_3_child
+    child_object_type: volume_3_item
 
 class force_vector(RealList):
     exposure_level: ExposureLevel
@@ -65802,7 +65802,7 @@ class report_output_type(String, AllowedValuesMixin):
     MOMENT: Final[str] = 'Moment'
     _allowed_values: list[str]
 
-class force_child(Group):
+class force_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -65828,7 +65828,7 @@ class force_child(Group):
         """
     _child_aliases: dict
 
-class force(NamedObject[force_child]):
+class force(NamedObject[force_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -65887,9 +65887,9 @@ class force(NamedObject[force_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: force_child
+    child_object_type: force_item
 
-class lift_child(Group):
+class lift_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -65915,7 +65915,7 @@ class lift_child(Group):
         """
     _child_aliases: dict
 
-class lift(NamedObject[lift_child]):
+class lift(NamedObject[lift_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -65974,9 +65974,9 @@ class lift(NamedObject[lift_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: lift_child
+    child_object_type: lift_item
 
-class drag_child(Group):
+class drag_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66002,7 +66002,7 @@ class drag_child(Group):
         """
     _child_aliases: dict
 
-class drag(NamedObject[drag_child]):
+class drag(NamedObject[drag_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66061,7 +66061,7 @@ class drag(NamedObject[drag_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: drag_child
+    child_object_type: drag_item
 
 class mom_center(RealList):
     exposure_level: ExposureLevel
@@ -66075,7 +66075,7 @@ class mom_axis(RealList):
     fluent_name: str
     _python_name: str
 
-class moment_child(Group):
+class moment_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66102,7 +66102,7 @@ class moment_child(Group):
         """
     _child_aliases: dict
 
-class moment(NamedObject[moment_child]):
+class moment(NamedObject[moment_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66161,9 +66161,9 @@ class moment(NamedObject[moment_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: moment_child
+    child_object_type: moment_item
 
-class time_1_child(Group):
+class time_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66179,7 +66179,7 @@ class time_1_child(Group):
         """
     _child_aliases: dict
 
-class time_1(NamedObject[time_1_child]):
+class time_1(NamedObject[time_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66238,7 +66238,7 @@ class time_1(NamedObject[time_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: time_1_child
+    child_object_type: time_1_item
 
 class boundaries_2(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -66246,7 +66246,7 @@ class boundaries_2(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class flux_1_child(Group):
+class flux_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66270,7 +66270,7 @@ class flux_1_child(Group):
         """
     _child_aliases: dict
 
-class flux_1(NamedObject[flux_1_child]):
+class flux_1(NamedObject[flux_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66329,7 +66329,7 @@ class flux_1(NamedObject[flux_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: flux_1_child
+    child_object_type: flux_1_item
 
 class vbm_rotor_name(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -66350,7 +66350,7 @@ class report_output_type_1(String, AllowedValuesMixin):
     MOMENT: Final[str] = 'Moment'
     _allowed_values: list[str]
 
-class vbm_child(Group):
+class vbm_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66370,7 +66370,7 @@ class vbm_child(Group):
         """
     _child_aliases: dict
 
-class vbm(NamedObject[vbm_child]):
+class vbm(NamedObject[vbm_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66429,7 +66429,7 @@ class vbm(NamedObject[vbm_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: vbm_child
+    child_object_type: vbm_item
 
 class injection_list(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -66485,7 +66485,7 @@ class inj_mass_rate_last_tstp(Real):
     fluent_name: str
     _python_name: str
 
-class injection_2_child(Group):
+class injection_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66518,7 +66518,7 @@ class injection_2_child(Group):
         """
     _child_aliases: dict
 
-class injection_2(NamedObject[injection_2_child]):
+class injection_2(NamedObject[injection_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66577,7 +66577,7 @@ class injection_2(NamedObject[injection_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: injection_2_child
+    child_object_type: injection_2_item
 
 class function_name_1(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -66591,7 +66591,7 @@ class input_params(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class user_defined_21_child(Group):
+class user_defined_21_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66612,7 +66612,7 @@ class user_defined_21_child(Group):
         """
     _child_aliases: dict
 
-class user_defined_21(NamedObject[user_defined_21_child]):
+class user_defined_21(NamedObject[user_defined_21_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66671,7 +66671,7 @@ class user_defined_21(NamedObject[user_defined_21_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: user_defined_21_child
+    child_object_type: user_defined_21_item
 
 class nodal_diameters(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -66721,7 +66721,7 @@ class component_type(Integer):
     fluent_name: str
     _python_name: str
 
-class aeromechanics_child(Group):
+class aeromechanics_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66750,7 +66750,7 @@ class aeromechanics_child(Group):
         """
     _child_aliases: dict
 
-class aeromechanics(NamedObject[aeromechanics_child]):
+class aeromechanics(NamedObject[aeromechanics_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66809,9 +66809,9 @@ class aeromechanics(NamedObject[aeromechanics_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: aeromechanics_child
+    child_object_type: aeromechanics_item
 
-class icing_3_child(Group):
+class icing_3_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66829,7 +66829,7 @@ class icing_3_child(Group):
         """
     _child_aliases: dict
 
-class icing_3(NamedObject[icing_3_child]):
+class icing_3(NamedObject[icing_3_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66888,7 +66888,7 @@ class icing_3(NamedObject[icing_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: icing_3_child
+    child_object_type: icing_3_item
 
 class expr_value(Real):
     exposure_level: ExposureLevel
@@ -66902,7 +66902,7 @@ class define(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class expression_7_child(Group):
+class expression_7_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66922,7 +66922,7 @@ class expression_7_child(Group):
         """
     _child_aliases: dict
 
-class expression_7(NamedObject[expression_7_child]):
+class expression_7(NamedObject[expression_7_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -66981,9 +66981,9 @@ class expression_7(NamedObject[expression_7_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: expression_7_child
+    child_object_type: expression_7_item
 
-class single_valued_expression_child(Group):
+class single_valued_expression_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67003,7 +67003,7 @@ class single_valued_expression_child(Group):
         """
     _child_aliases: dict
 
-class single_valued_expression(NamedObject[single_valued_expression_child]):
+class single_valued_expression(NamedObject[single_valued_expression_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67062,9 +67062,9 @@ class single_valued_expression(NamedObject[single_valued_expression_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: single_valued_expression_child
+    child_object_type: single_valued_expression_item
 
-class custom_child(Group):
+class custom_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67081,7 +67081,7 @@ class custom_child(Group):
         """
     _child_aliases: dict
 
-class custom(NamedObject[custom_child]):
+class custom(NamedObject[custom_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67140,7 +67140,7 @@ class custom(NamedObject[custom_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: custom_child
+    child_object_type: custom_item
 
 class report_definitions(Group):
     exposure_level: ExposureLevel
@@ -67230,7 +67230,7 @@ class relative_criteria(Real):
     fluent_name: str
     _python_name: str
 
-class equations_1_child(Group):
+class equations_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67242,7 +67242,7 @@ class equations_1_child(Group):
     absolute_criteria: absolute_criteria
     relative_criteria: relative_criteria
 
-class equations_1(NamedObject[equations_1_child]):
+class equations_1(NamedObject[equations_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67301,7 +67301,7 @@ class equations_1(NamedObject[equations_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: equations_1_child
+    child_object_type: equations_1_item
 
 class criterion_type(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -67809,7 +67809,7 @@ class marker_in_file(Group):
     size: size_1
     color: color_2
 
-class curves_child(Group):
+class curves_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67820,7 +67820,7 @@ class curves_child(Group):
     marker: marker
     marker_in_file: marker_in_file
 
-class curves(NamedObject[curves_child]):
+class curves(NamedObject[curves_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67879,7 +67879,7 @@ class curves(NamedObject[curves_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: curves_child
+    child_object_type: curves_item
 
 class residual(Group):
     exposure_level: ExposureLevel
@@ -67974,7 +67974,7 @@ class write_instantaneous_values(Boolean):
     fluent_name: str
     _python_name: str
 
-class report_files_child(Group):
+class report_files_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -67992,7 +67992,7 @@ class report_files_child(Group):
     active: active_1
     write_instantaneous_values: write_instantaneous_values
 
-class report_files(NamedObject[report_files_child]):
+class report_files(NamedObject[report_files_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -68064,7 +68064,7 @@ class report_files(NamedObject[report_files_child]):
             report_files : list
                 The Report files.
         """
-    child_object_type: report_files_child
+    child_object_type: report_files_item
 
 class plot_window(Integer):
     exposure_level: ExposureLevel
@@ -68111,7 +68111,7 @@ class plot_instantaneous_values(Boolean):
     fluent_name: str
     _python_name: str
 
-class report_plots_child(Group):
+class report_plots_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -68142,7 +68142,7 @@ class report_plots_child(Group):
         Get the data points present in this plot object.
         """
 
-class report_plots(NamedObject[report_plots_child]):
+class report_plots(NamedObject[report_plots_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -68205,7 +68205,7 @@ class report_plots(NamedObject[report_plots_child]):
         """
         Delete all the report plots.
         """
-    child_object_type: report_plots_child
+    child_object_type: report_plots_item
 
 class previous_values_to_consider(Integer):
     exposure_level: ExposureLevel
@@ -68255,7 +68255,7 @@ class previous_values(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class convergence_reports_child(Group):
+class convergence_reports_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -68274,7 +68274,7 @@ class convergence_reports_child(Group):
     x_label: x_label
     previous_values: previous_values
 
-class convergence_reports(NamedObject[convergence_reports_child]):
+class convergence_reports(NamedObject[convergence_reports_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -68333,7 +68333,7 @@ class convergence_reports(NamedObject[convergence_reports_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: convergence_reports_child
+    child_object_type: convergence_reports_item
 
 class frequency_3(Integer):
     exposure_level: ExposureLevel
@@ -68984,7 +68984,7 @@ class display_options(Group):
     wireframe: wireframe
     color: color_3
 
-class cell_registers_child(Group):
+class cell_registers_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69016,7 +69016,7 @@ class cell_registers_child(Group):
         Create a volume surface.
         """
 
-class cell_registers(NamedObject[cell_registers_child]):
+class cell_registers(NamedObject[cell_registers_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69075,7 +69075,7 @@ class cell_registers(NamedObject[cell_registers_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: cell_registers_child
+    child_object_type: cell_registers_item
 
 class initialization_type(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -69095,13 +69095,13 @@ class reference_frame_8(String, AllowedValuesMixin):
     ABSOLUTE: Final[str] = 'absolute'
     _allowed_values: list[str]
 
-class defaults_child(Real):
+class defaults_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class defaults(NamedObject[defaults_child]):
+class defaults(NamedObject[defaults_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69160,7 +69160,7 @@ class defaults(NamedObject[defaults_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: defaults_child
+    child_object_type: defaults_item
 
 class enabled_67(Boolean):
     exposure_level: ExposureLevel
@@ -69269,13 +69269,13 @@ class user_specified_species(Boolean):
     fluent_name: str
     _python_name: str
 
-class species_fraction_mf_child_child(Real):
+class species_fraction_mf_item_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class species_fraction_mf_child(NamedObject[species_fraction_mf_child_child]):
+class species_fraction_mf_item(NamedObject[species_fraction_mf_item_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69334,9 +69334,9 @@ class species_fraction_mf_child(NamedObject[species_fraction_mf_child_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: species_fraction_mf_child_child
+    child_object_type: species_fraction_mf_item_item
 
-class species_fraction_mf(NamedObject[species_fraction_mf_child]):
+class species_fraction_mf(NamedObject[species_fraction_mf_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69395,15 +69395,15 @@ class species_fraction_mf(NamedObject[species_fraction_mf_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: species_fraction_mf_child
+    child_object_type: species_fraction_mf_item
 
-class species_fraction_child(Real):
+class species_fraction_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class species_fraction(NamedObject[species_fraction_child]):
+class species_fraction(NamedObject[species_fraction_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69462,7 +69462,7 @@ class species_fraction(NamedObject[species_fraction_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: species_fraction_child
+    child_object_type: species_fraction_item
 
 class species_setting(Group):
     exposure_level: ExposureLevel
@@ -69935,7 +69935,7 @@ class python_cmd(Boolean):
     fluent_name: str
     _python_name: str
 
-class execute_commands_child(Group):
+class execute_commands_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -69949,7 +69949,7 @@ class execute_commands_child(Group):
     frequency_cmd: frequency_cmd
     python_cmd: python_cmd
 
-class execute_commands(NamedObject[execute_commands_child]):
+class execute_commands(NamedObject[execute_commands_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70016,7 +70016,7 @@ class execute_commands(NamedObject[execute_commands_child]):
         """
         Import commands from .tsv file.
         """
-    child_object_type: execute_commands_child
+    child_object_type: execute_commands_item
 
 class name_37(String):
     exposure_level: ExposureLevel
@@ -70116,7 +70116,7 @@ class appended_flowtime_precision(Integer):
     fluent_name: str
     _python_name: str
 
-class solution_animations_child(Group):
+class solution_animations_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70142,7 +70142,7 @@ class solution_animations_child(Group):
         Displays the selected graphics object type in the graphics viewer.
         """
 
-class solution_animations(NamedObject[solution_animations_child]):
+class solution_animations(NamedObject[solution_animations_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70232,7 +70232,7 @@ class solution_animations(NamedObject[solution_animations_child]):
             object_name : str
                 Clears the display history of the specified graphics object from the graphics window.
         """
-    child_object_type: solution_animations_child
+    child_object_type: solution_animations_item
     _child_aliases: dict
 
 class enable_strategy(Boolean):
@@ -70271,7 +70271,7 @@ class flowtime(Real):
     fluent_name: str
     _python_name: str
 
-class automatic_case_modification_child(Group):
+class automatic_case_modification_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70285,7 +70285,7 @@ class automatic_case_modification_child(Group):
     ftselected: ftselected
     flowtime: flowtime
 
-class automatic_case_modification(NamedObject[automatic_case_modification_child]):
+class automatic_case_modification(NamedObject[automatic_case_modification_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70366,7 +70366,7 @@ class automatic_case_modification(NamedObject[automatic_case_modification_child]
         """
         Define a single case modification.
         """
-    child_object_type: automatic_case_modification_child
+    child_object_type: automatic_case_modification_item
     _child_aliases: dict
 
 class case_modification(Group):
@@ -70482,7 +70482,7 @@ class monitor_2(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class register_based_child(Group):
+class register_based_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70495,7 +70495,7 @@ class register_based_child(Group):
     verbosity: verbosity_18
     monitor: monitor_2
 
-class register_based(NamedObject[register_based_child]):
+class register_based(NamedObject[register_based_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70558,7 +70558,7 @@ class register_based(NamedObject[register_based_child]):
         """
         Applies numerical diagnostic settings to a specific cell register.
         """
-    child_object_type: register_based_child
+    child_object_type: register_based_item
 
 class poor_mesh_numerics_2(Group):
     exposure_level: ExposureLevel
@@ -70615,7 +70615,7 @@ class file_name_24(Filename, _OutputFile):
     fluent_name: str
     _python_name: str
 
-class ascii_1_child(Group):
+class ascii_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70632,7 +70632,7 @@ class ascii_1_child(Group):
     flow_frequency: flow_frequency_1
     file_name: file_name_24
 
-class ascii_1(NamedObject[ascii_1_child]):
+class ascii_1(NamedObject[ascii_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70691,7 +70691,7 @@ class ascii_1(NamedObject[ascii_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: ascii_1_child
+    child_object_type: ascii_1_item
 
 class file_format(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -70702,7 +70702,7 @@ class file_format(String, AllowedValuesMixin):
     ADF: Final[str] = 'ADF'
     _allowed_values: list[str]
 
-class cgns_1_child(Group):
+class cgns_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70720,7 +70720,7 @@ class cgns_1_child(Group):
     flow_frequency: flow_frequency_1
     file_name: file_name_24
 
-class cgns_1(NamedObject[cgns_1_child]):
+class cgns_1(NamedObject[cgns_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70779,9 +70779,9 @@ class cgns_1(NamedObject[cgns_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: cgns_1_child
+    child_object_type: cgns_1_item
 
-class visualize_child(Group):
+class visualize_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70798,7 +70798,7 @@ class visualize_child(Group):
     flow_frequency: flow_frequency_1
     file_name: file_name_24
 
-class visualize(NamedObject[visualize_child]):
+class visualize(NamedObject[visualize_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70857,7 +70857,7 @@ class visualize(NamedObject[visualize_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: visualize_child
+    child_object_type: visualize_item
 
 class analysis(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -70888,7 +70888,7 @@ class thermal_loads(StringList, AllowedValuesMixin):
     HEAT_TRANSFER_COEF: Final[str] = 'heat-transfer-coef'
     _allowed_values: list[str]
 
-class mapdl_child(Group):
+class mapdl_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70904,7 +70904,7 @@ class mapdl_child(Group):
     flow_frequency: flow_frequency_1
     file_name: file_name_24
 
-class mapdl(NamedObject[mapdl_child]):
+class mapdl(NamedObject[mapdl_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70963,9 +70963,9 @@ class mapdl(NamedObject[mapdl_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mapdl_child
+    child_object_type: mapdl_item
 
-class nastran_1_child(Group):
+class nastran_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -70982,7 +70982,7 @@ class nastran_1_child(Group):
     flow_frequency: flow_frequency_1
     file_name: file_name_24
 
-class nastran_1(NamedObject[nastran_1_child]):
+class nastran_1(NamedObject[nastran_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -71041,9 +71041,9 @@ class nastran_1(NamedObject[nastran_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: nastran_1_child
+    child_object_type: nastran_1_item
 
-class tecplot_1_child(Group):
+class tecplot_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -71057,7 +71057,7 @@ class tecplot_1_child(Group):
     flow_frequency: flow_frequency_1
     file_name: file_name_24
 
-class tecplot_1(NamedObject[tecplot_1_child]):
+class tecplot_1(NamedObject[tecplot_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -71116,7 +71116,7 @@ class tecplot_1(NamedObject[tecplot_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: tecplot_1_child
+    child_object_type: tecplot_1_item
 
 class automatic_exports(Group):
     exposure_level: ExposureLevel
@@ -71873,13 +71873,13 @@ class extrapolate_variables(Boolean):
     fluent_name: str
     _python_name: str
 
-class extrapolate_eqn_vars_child(Boolean):
+class extrapolate_eqn_vars_item(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class extrapolate_eqn_vars(NamedObject[extrapolate_eqn_vars_child]):
+class extrapolate_eqn_vars(NamedObject[extrapolate_eqn_vars_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -71938,7 +71938,7 @@ class extrapolate_eqn_vars(NamedObject[extrapolate_eqn_vars_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: extrapolate_eqn_vars_child
+    child_object_type: extrapolate_eqn_vars_item
 
 class enable_solid_time_step(Boolean):
     exposure_level: ExposureLevel
@@ -72156,7 +72156,7 @@ class average_over_1(Integer):
     fluent_name: str
     _python_name: str
 
-class data_sets_child(Group):
+class data_sets_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -72171,7 +72171,7 @@ class data_sets_child(Group):
     moving_average: moving_average
     average_over: average_over_1
 
-class data_sets(NamedObject[data_sets_child]):
+class data_sets(NamedObject[data_sets_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -72230,7 +72230,7 @@ class data_sets(NamedObject[data_sets_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: data_sets_child
+    child_object_type: data_sets_item
 
 class data_sampling_options(Group):
     exposure_level: ExposureLevel
@@ -72278,7 +72278,7 @@ class residual_verbosity(Integer):
     fluent_name: str
     _python_name: str
 
-class compute_resources_child(Group):
+class compute_resources_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -72288,7 +72288,7 @@ class compute_resources_child(Group):
     url: url
     default_cluster: default_cluster
 
-class compute_resources(NamedObject[compute_resources_child]):
+class compute_resources(NamedObject[compute_resources_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -72377,7 +72377,7 @@ class compute_resources(NamedObject[compute_resources_child]):
             password : str
                 Password to Connect to Compute Resource.
         """
-    child_object_type: compute_resources_child
+    child_object_type: compute_resources_item
 
 class job_name(String):
     exposure_level: ExposureLevel
@@ -72823,7 +72823,7 @@ class custom_field_function_1(String):
     fluent_name: str
     _python_name: str
 
-class custom_field_functions_1_child(Group):
+class custom_field_functions_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -72832,7 +72832,7 @@ class custom_field_functions_1_child(Group):
     name: name_42
     custom_field_function: custom_field_function_1
 
-class custom_field_functions_1(NamedObject[custom_field_functions_1_child]):
+class custom_field_functions_1(NamedObject[custom_field_functions_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -72916,7 +72916,7 @@ class custom_field_functions_1(NamedObject[custom_field_functions_1_child]):
         """
         List the names of cell functions that can be used in a custom field function.
         """
-    child_object_type: custom_field_functions_1_child
+    child_object_type: custom_field_functions_1_item
 
 class x_component(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -72936,7 +72936,7 @@ class z_component(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class custom_vectors_child(Group):
+class custom_vectors_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -72947,7 +72947,7 @@ class custom_vectors_child(Group):
     y_component: y_component
     z_component: z_component
 
-class custom_vectors(NamedObject[custom_vectors_child]):
+class custom_vectors(NamedObject[custom_vectors_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73006,7 +73006,7 @@ class custom_vectors(NamedObject[custom_vectors_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: custom_vectors_child
+    child_object_type: custom_vectors_item
 
 class reference_frame_10(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -73063,7 +73063,7 @@ class dynamic(Boolean, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class point_surface_child(Group):
+class point_surface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73084,7 +73084,7 @@ class point_surface_child(Group):
         Display a surface.
         """
 
-class point_surface(NamedObject[point_surface_child]):
+class point_surface(NamedObject[point_surface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73143,7 +73143,7 @@ class point_surface(NamedObject[point_surface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: point_surface_child
+    child_object_type: point_surface_item
 
 class p0(RealList):
     exposure_level: ExposureLevel
@@ -73157,7 +73157,7 @@ class p1(RealList):
     fluent_name: str
     _python_name: str
 
-class line_surface_child(Group):
+class line_surface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73172,7 +73172,7 @@ class line_surface_child(Group):
         Display a surface.
         """
 
-class line_surface(NamedObject[line_surface_child]):
+class line_surface(NamedObject[line_surface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73231,7 +73231,7 @@ class line_surface(NamedObject[line_surface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: line_surface_child
+    child_object_type: line_surface_item
 
 class number_of_points(Integer):
     exposure_level: ExposureLevel
@@ -73239,7 +73239,7 @@ class number_of_points(Integer):
     fluent_name: str
     _python_name: str
 
-class rake_surface_child(Group):
+class rake_surface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73255,7 +73255,7 @@ class rake_surface_child(Group):
         Display a surface.
         """
 
-class rake_surface(NamedObject[rake_surface_child]):
+class rake_surface(NamedObject[rake_surface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73314,7 +73314,7 @@ class rake_surface(NamedObject[rake_surface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: rake_surface_child
+    child_object_type: rake_surface_item
 
 class method_15(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -73404,7 +73404,7 @@ class edges(IntegerList):
     fluent_name: str
     _python_name: str
 
-class plane_surface_child(Group):
+class plane_surface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73432,7 +73432,7 @@ class plane_surface_child(Group):
         """
     _child_aliases: dict
 
-class plane_surface(NamedObject[plane_surface_child]):
+class plane_surface(NamedObject[plane_surface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73491,7 +73491,7 @@ class plane_surface(NamedObject[plane_surface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: plane_surface_child
+    child_object_type: plane_surface_item
 
 class field_2(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -73543,7 +73543,7 @@ class zones_5(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class iso_surface_child(Group):
+class iso_surface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73564,7 +73564,7 @@ class iso_surface_child(Group):
         """
     _child_aliases: dict
 
-class iso_surface(NamedObject[iso_surface_child]):
+class iso_surface(NamedObject[iso_surface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73623,7 +73623,7 @@ class iso_surface(NamedObject[iso_surface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: iso_surface_child
+    child_object_type: iso_surface_item
 
 class surfaces_11(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -73657,7 +73657,7 @@ class range_4(Group):
         Sets minimum and maximum to the current minimum and maximum values for the selected surfaces.
         """
 
-class iso_clip_child(Group):
+class iso_clip_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73675,7 +73675,7 @@ class iso_clip_child(Group):
         """
     _child_aliases: dict
 
-class iso_clip(NamedObject[iso_clip_child]):
+class iso_clip(NamedObject[iso_clip_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73734,7 +73734,7 @@ class iso_clip(NamedObject[iso_clip_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: iso_clip_child
+    child_object_type: iso_clip_item
 
 class zone_name_10(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -73742,7 +73742,7 @@ class zone_name_10(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class zone_surface_child(Group):
+class zone_surface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73756,7 +73756,7 @@ class zone_surface_child(Group):
         Display a surface.
         """
 
-class zone_surface(NamedObject[zone_surface_child]):
+class zone_surface(NamedObject[zone_surface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73815,7 +73815,7 @@ class zone_surface(NamedObject[zone_surface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: zone_surface_child
+    child_object_type: zone_surface_item
 
 class partition_1(Integer):
     exposure_level: ExposureLevel
@@ -73835,7 +73835,7 @@ class interior_cell_faces(Boolean):
     fluent_name: str
     _python_name: str
 
-class partition_surface_child(Group):
+class partition_surface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73851,7 +73851,7 @@ class partition_surface_child(Group):
         Display a surface.
         """
 
-class partition_surface(NamedObject[partition_surface_child]):
+class partition_surface(NamedObject[partition_surface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73910,7 +73910,7 @@ class partition_surface(NamedObject[partition_surface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: partition_surface_child
+    child_object_type: partition_surface_item
 
 class surface_2(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -73942,7 +73942,7 @@ class iso_distance(Real):
     fluent_name: str
     _python_name: str
 
-class transform_surface_child(Group):
+class transform_surface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -73961,7 +73961,7 @@ class transform_surface_child(Group):
         Display a surface.
         """
 
-class transform_surface(NamedObject[transform_surface_child]):
+class transform_surface(NamedObject[transform_surface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74020,7 +74020,7 @@ class transform_surface(NamedObject[transform_surface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: transform_surface_child
+    child_object_type: transform_surface_item
 
 class surface_3(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -74040,7 +74040,7 @@ class volumes_3(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class imprint_surface_child(Group):
+class imprint_surface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74056,7 +74056,7 @@ class imprint_surface_child(Group):
         Display a surface.
         """
 
-class imprint_surface(NamedObject[imprint_surface_child]):
+class imprint_surface(NamedObject[imprint_surface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74115,7 +74115,7 @@ class imprint_surface(NamedObject[imprint_surface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: imprint_surface_child
+    child_object_type: imprint_surface_item
 
 class distance_from_origin(Real):
     exposure_level: ExposureLevel
@@ -74123,7 +74123,7 @@ class distance_from_origin(Real):
     fluent_name: str
     _python_name: str
 
-class plane_slice_child(Group):
+class plane_slice_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74138,7 +74138,7 @@ class plane_slice_child(Group):
         Display a surface.
         """
 
-class plane_slice(NamedObject[plane_slice_child]):
+class plane_slice(NamedObject[plane_slice_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74197,7 +74197,7 @@ class plane_slice(NamedObject[plane_slice_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: plane_slice_child
+    child_object_type: plane_slice_item
 
 class center_2(RealList):
     exposure_level: ExposureLevel
@@ -74205,7 +74205,7 @@ class center_2(RealList):
     fluent_name: str
     _python_name: str
 
-class sphere_slice_child(Group):
+class sphere_slice_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74220,7 +74220,7 @@ class sphere_slice_child(Group):
         Display a surface.
         """
 
-class sphere_slice(NamedObject[sphere_slice_child]):
+class sphere_slice(NamedObject[sphere_slice_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74279,7 +74279,7 @@ class sphere_slice(NamedObject[sphere_slice_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: sphere_slice_child
+    child_object_type: sphere_slice_item
 
 class attribute(RealList):
     exposure_level: ExposureLevel
@@ -74293,7 +74293,7 @@ class value_27(Real):
     fluent_name: str
     _python_name: str
 
-class quadric_surface_child(Group):
+class quadric_surface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74308,7 +74308,7 @@ class quadric_surface_child(Group):
         Display a surface.
         """
 
-class quadric_surface(NamedObject[quadric_surface_child]):
+class quadric_surface(NamedObject[quadric_surface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74367,7 +74367,7 @@ class quadric_surface(NamedObject[quadric_surface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: quadric_surface_child
+    child_object_type: quadric_surface_item
 
 class surface_4(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -74375,7 +74375,7 @@ class surface_4(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class surface_cells_child(Group):
+class surface_cells_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74389,7 +74389,7 @@ class surface_cells_child(Group):
         Display a surface.
         """
 
-class surface_cells(NamedObject[surface_cells_child]):
+class surface_cells(NamedObject[surface_cells_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74448,7 +74448,7 @@ class surface_cells(NamedObject[surface_cells_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: surface_cells_child
+    child_object_type: surface_cells_item
 
 class expression_definition(String):
     exposure_level: ExposureLevel
@@ -74456,7 +74456,7 @@ class expression_definition(String):
     fluent_name: str
     _python_name: str
 
-class expression_volume_child(Group):
+class expression_volume_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74470,7 +74470,7 @@ class expression_volume_child(Group):
         Display a surface.
         """
 
-class expression_volume(NamedObject[expression_volume_child]):
+class expression_volume(NamedObject[expression_volume_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74529,9 +74529,9 @@ class expression_volume(NamedObject[expression_volume_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: expression_volume_child
+    child_object_type: expression_volume_item
 
-class group_surface_child(Group):
+class group_surface_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74545,7 +74545,7 @@ class group_surface_child(Group):
         Display the surface.
         """
 
-class group_surface(NamedObject[group_surface_child]):
+class group_surface(NamedObject[group_surface_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -74615,7 +74615,7 @@ class group_surface(NamedObject[group_surface_child]):
             surface : str
                 The surface to ungroup.
         """
-    child_object_type: group_surface_child
+    child_object_type: group_surface_item
 
 class surfaces_9(Group):
     exposure_level: ExposureLevel
@@ -75072,7 +75072,7 @@ class annotations_list(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class mesh_2_child(Group):
+class mesh_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -75095,7 +75095,7 @@ class mesh_2_child(Group):
         Displays the selected graphics object type in the graphics viewer.
         """
 
-class mesh_2(NamedObject[mesh_2_child]):
+class mesh_2(NamedObject[mesh_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -75181,7 +75181,7 @@ class mesh_2(NamedObject[mesh_2_child]):
             object_name : str
                 Clears the display history of the specified graphics object from the graphics window.
         """
-    child_object_type: mesh_2_child
+    child_object_type: mesh_2_item
     _child_aliases: dict
 
 class field_3(String, AllowedValuesMixin):
@@ -75534,7 +75534,7 @@ class deformation_scale(Real):
     fluent_name: str
     _python_name: str
 
-class contour_child(Group):
+class contour_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -75567,7 +75567,7 @@ class contour_child(Group):
         """
     _child_aliases: dict
 
-class contour(NamedObject[contour_child]):
+class contour(NamedObject[contour_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -75653,7 +75653,7 @@ class contour(NamedObject[contour_child]):
             object_name : str
                 Clears the display history of the specified graphics object from the graphics window.
         """
-    child_object_type: contour_child
+    child_object_type: contour_item
     _child_aliases: dict
 
 class vector_field(String, AllowedValuesMixin):
@@ -75796,7 +75796,7 @@ class vector_opt(Group):
     tessellation: tessellation
     color: color_5
 
-class vector_1_child(Group):
+class vector_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -75826,7 +75826,7 @@ class vector_1_child(Group):
         """
     _child_aliases: dict
 
-class vector_1(NamedObject[vector_1_child]):
+class vector_1(NamedObject[vector_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -75912,7 +75912,7 @@ class vector_1(NamedObject[vector_1_child]):
             object_name : str
                 Clears the display history of the specified graphics object from the graphics window.
         """
-    child_object_type: vector_1_child
+    child_object_type: vector_1_item
     _child_aliases: dict
 
 class velocity_domain(String, AllowedValuesMixin):
@@ -76864,7 +76864,7 @@ class marker_2(Group):
     size: size_3
     color: color_9
 
-class curves_1_child(Group):
+class curves_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -76873,7 +76873,7 @@ class curves_1_child(Group):
     line: line_1
     marker: marker_2
 
-class curves_1(NamedObject[curves_1_child]):
+class curves_1(NamedObject[curves_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -76932,9 +76932,9 @@ class curves_1(NamedObject[curves_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: curves_1_child
+    child_object_type: curves_1_item
 
-class pathline_child(Group):
+class pathline_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -76977,7 +76977,7 @@ class pathline_child(Group):
         """
     _child_aliases: dict
 
-class pathline(NamedObject[pathline_child]):
+class pathline(NamedObject[pathline_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -77063,7 +77063,7 @@ class pathline(NamedObject[pathline_child]):
             object_name : str
                 Clears the display history of the specified graphics object from the graphics window.
         """
-    child_object_type: pathline_child
+    child_object_type: pathline_item
     _child_aliases: dict
 
 class field_7(String, AllowedValuesMixin):
@@ -77617,7 +77617,7 @@ class track_pdf_particles(Boolean):
     fluent_name: str
     _python_name: str
 
-class particle_track_child(Group):
+class particle_track_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -77662,7 +77662,7 @@ class particle_track_child(Group):
         """
     _child_aliases: dict
 
-class particle_track(NamedObject[particle_track_child]):
+class particle_track(NamedObject[particle_track_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -77748,7 +77748,7 @@ class particle_track(NamedObject[particle_track_child]):
             object_name : str
                 Clears the display history of the specified graphics object from the graphics window.
         """
-    child_object_type: particle_track_child
+    child_object_type: particle_track_item
     _child_aliases: dict
 
 class vector_field_1(String, AllowedValuesMixin):
@@ -77853,7 +77853,7 @@ class image_to_display(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class lic_child(Group):
+class lic_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -77893,7 +77893,7 @@ class lic_child(Group):
         """
     _child_aliases: dict
 
-class lic(NamedObject[lic_child]):
+class lic(NamedObject[lic_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -77979,10 +77979,10 @@ class lic(NamedObject[lic_child]):
             object_name : str
                 Clears the display history of the specified graphics object from the graphics window.
         """
-    child_object_type: lic_child
+    child_object_type: lic_item
     _child_aliases: dict
 
-class olic_child(Group):
+class olic_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78021,7 +78021,7 @@ class olic_child(Group):
         Displays the selected graphics object type in the graphics viewer.
         """
 
-class olic(NamedObject[olic_child]):
+class olic(NamedObject[olic_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78107,7 +78107,7 @@ class olic(NamedObject[olic_child]):
             object_name : str
                 Clears the display history of the specified graphics object from the graphics window.
         """
-    child_object_type: olic_child
+    child_object_type: olic_item
     _child_aliases: dict
 
 class field_11(String, AllowedValuesMixin):
@@ -78206,7 +78206,7 @@ class max_transparency_value(Real):
     fluent_name: str
     _python_name: str
 
-class settings_5_child(Group):
+class settings_5_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78218,7 +78218,7 @@ class settings_5_child(Group):
     min_transparency_value: min_transparency_value
     max_transparency_value: max_transparency_value
 
-class settings_5(ListObject[settings_5_child]):
+class settings_5(ListObject[settings_5_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78242,7 +78242,7 @@ class settings_5(ListObject[settings_5_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: settings_5_child
+    child_object_type: settings_5_item
 
 class reset_2(Boolean):
     exposure_level: ExposureLevel
@@ -78291,7 +78291,7 @@ class color_12(IntegerList):
     fluent_name: str
     _python_name: str
 
-class settings_6_child(Group):
+class settings_6_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78302,7 +78302,7 @@ class settings_6_child(Group):
     transparency: transparency
     color: color_12
 
-class settings_6(ListObject[settings_6_child]):
+class settings_6(ListObject[settings_6_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78326,7 +78326,7 @@ class settings_6(ListObject[settings_6_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: settings_6_child
+    child_object_type: settings_6_item
 
 class isovalue_options(Group):
     exposure_level: ExposureLevel
@@ -78383,7 +78383,7 @@ class z_max(Real):
     fluent_name: str
     _python_name: str
 
-class settings_7_child(Group):
+class settings_7_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78397,7 +78397,7 @@ class settings_7_child(Group):
     y_max: y_max
     z_max: z_max
 
-class settings_7(ListObject[settings_7_child]):
+class settings_7(ListObject[settings_7_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78421,7 +78421,7 @@ class settings_7(ListObject[settings_7_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: settings_7_child
+    child_object_type: settings_7_item
 
 class clip_box_options(Group):
     exposure_level: ExposureLevel
@@ -78457,7 +78457,7 @@ class radius_7(Real):
     fluent_name: str
     _python_name: str
 
-class settings_8_child(Group):
+class settings_8_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78469,7 +78469,7 @@ class settings_8_child(Group):
     z_center: z_center_1
     radius: radius_7
 
-class settings_8(ListObject[settings_8_child]):
+class settings_8(ListObject[settings_8_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78493,7 +78493,7 @@ class settings_8(ListObject[settings_8_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: settings_8_child
+    child_object_type: settings_8_item
 
 class clip_sphere_options(Group):
     exposure_level: ExposureLevel
@@ -78511,7 +78511,7 @@ class compute_node_count(Integer):
     fluent_name: str
     _python_name: str
 
-class volumes_4_child(Group):
+class volumes_4_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78530,7 +78530,7 @@ class volumes_4_child(Group):
         Displays the selected graphics object type in the graphics viewer.
         """
 
-class volumes_4(NamedObject[volumes_4_child]):
+class volumes_4(NamedObject[volumes_4_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78616,7 +78616,7 @@ class volumes_4(NamedObject[volumes_4_child]):
             object_name : str
                 Clears the display history of the specified graphics object from the graphics window.
         """
-    child_object_type: volumes_4_child
+    child_object_type: volumes_4_item
     _child_aliases: dict
 
 class background_1(String):
@@ -78675,7 +78675,7 @@ class material_9(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class type_name_child(Group):
+class type_name_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78684,7 +78684,7 @@ class type_name_child(Group):
     color: color_13
     material: material_9
 
-class type_name(NamedObject[type_name_child]):
+class type_name(NamedObject[type_name_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78743,7 +78743,7 @@ class type_name(NamedObject[type_name_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: type_name_child
+    child_object_type: type_name_item
 
 class by_type(Group):
     exposure_level: ExposureLevel
@@ -78778,7 +78778,7 @@ class material_10(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class surface_name_child(Group):
+class surface_name_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78787,7 +78787,7 @@ class surface_name_child(Group):
     color: color_14
     material: material_10
 
-class surface_name(NamedObject[surface_name_child]):
+class surface_name(NamedObject[surface_name_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -78846,7 +78846,7 @@ class surface_name(NamedObject[surface_name_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: surface_name_child
+    child_object_type: surface_name_item
 
 class by_surface(Group):
     exposure_level: ExposureLevel
@@ -79164,7 +79164,7 @@ class direction_7(RealList):
     fluent_name: str
     _python_name: str
 
-class lights_child(Group):
+class lights_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -79179,7 +79179,7 @@ class lights_child(Group):
         Set the light direction to the current view vector.
         """
 
-class lights(ListObject[lights_child]):
+class lights(ListObject[lights_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -79203,7 +79203,7 @@ class lights(ListObject[lights_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: lights_child
+    child_object_type: lights_item
 
 class lighting(Group):
     exposure_level: ExposureLevel
@@ -79633,7 +79633,7 @@ class light_id(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class display_states_child(Group):
+class display_states_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -79656,7 +79656,7 @@ class display_states_child(Group):
     view_name: view_name
     light_id: light_id
 
-class display_states(NamedObject[display_states_child]):
+class display_states(NamedObject[display_states_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -79762,7 +79762,7 @@ class display_states(NamedObject[display_states_child]):
             state_name : list
                 Display state names to write to file.
         """
-    child_object_type: display_states_child
+    child_object_type: display_states_item
 
 class animation_option(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -79933,7 +79933,7 @@ class visible_1(Boolean):
     fluent_name: str
     _python_name: str
 
-class mirror_planes_child(Group):
+class mirror_planes_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -79943,7 +79943,7 @@ class mirror_planes_child(Group):
     distance: distance
     visible: visible_1
 
-class mirror_planes(NamedObject[mirror_planes_child]):
+class mirror_planes(NamedObject[mirror_planes_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -80004,7 +80004,7 @@ class mirror_planes(NamedObject[mirror_planes_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mirror_planes_child
+    child_object_type: mirror_planes_item
 
 class mirror_zones(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -81095,7 +81095,7 @@ class type_22(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class material_8_child(Group):
+class material_8_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -81116,7 +81116,7 @@ class material_8_child(Group):
     editable: editable
     type: type_22
 
-class material_8(NamedObject[material_8_child]):
+class material_8(NamedObject[material_8_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -81186,7 +81186,7 @@ class material_8(NamedObject[material_8_child]):
             base_mat_name : str
                 Name of the base material from which you want to create new material.
         """
-    child_object_type: material_8_child
+    child_object_type: material_8_item
     _child_aliases: dict
 
 class graphics(Group):
@@ -81423,7 +81423,7 @@ class plot_direction_1(Group):
     direction_vector: direction_vector_1
     curve_length: curve_length_1
 
-class xy_plot_child(Group):
+class xy_plot_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -81479,7 +81479,7 @@ class xy_plot_child(Group):
         Get the data points present in this plot object.
         """
 
-class xy_plot(NamedObject[xy_plot_child]):
+class xy_plot(NamedObject[xy_plot_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -81565,7 +81565,7 @@ class xy_plot(NamedObject[xy_plot_child]):
             object_name : str
                 Clears the display history of the specified graphics object from the graphics window.
         """
-    child_object_type: xy_plot_child
+    child_object_type: xy_plot_item
     _child_aliases: dict
 
 class cell_function(String, AllowedValuesMixin):
@@ -81712,7 +81712,7 @@ class compute_from_stats(Boolean):
     fluent_name: str
     _python_name: str
 
-class cumulative_plot_child(Group):
+class cumulative_plot_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -81751,7 +81751,7 @@ class cumulative_plot_child(Group):
         Get the data points present in this plot object.
         """
 
-class cumulative_plot(NamedObject[cumulative_plot_child]):
+class cumulative_plot(NamedObject[cumulative_plot_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -81839,7 +81839,7 @@ class cumulative_plot(NamedObject[cumulative_plot_child]):
             object_name : str
                 Object name.
         """
-    child_object_type: cumulative_plot_child
+    child_object_type: cumulative_plot_item
 
 class field_13(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -82234,7 +82234,7 @@ class frf_filename(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class receiver_1_child_child(Group):
+class receiver_1_item_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -82243,7 +82243,7 @@ class receiver_1_child_child(Group):
     input_filename: input_filename
     frf_filename: frf_filename
 
-class receiver_1_child(ListObject[receiver_1_child_child]):
+class receiver_1_item(ListObject[receiver_1_item_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -82267,9 +82267,9 @@ class receiver_1_child(ListObject[receiver_1_child_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: receiver_1_child_child
+    child_object_type: receiver_1_item_item
 
-class receiver_1(NamedObject[receiver_1_child]):
+class receiver_1(NamedObject[receiver_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -82328,7 +82328,7 @@ class receiver_1(NamedObject[receiver_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: receiver_1_child
+    child_object_type: receiver_1_item
 
 class sound_duration(Real):
     exposure_level: ExposureLevel
@@ -82417,7 +82417,7 @@ class colormap_height(Real):
     fluent_name: str
     _python_name: str
 
-class graphics_objects_child(Group):
+class graphics_objects_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -82431,7 +82431,7 @@ class graphics_objects_child(Group):
     colormap_width: colormap_width
     colormap_height: colormap_height
 
-class graphics_objects(NamedObject[graphics_objects_child]):
+class graphics_objects(NamedObject[graphics_objects_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -82499,9 +82499,9 @@ class graphics_objects(NamedObject[graphics_objects_child]):
             name : str
                 Object name to add.
         """
-    child_object_type: graphics_objects_child
+    child_object_type: graphics_objects_item
 
-class scene_child(Group):
+class scene_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -82518,7 +82518,7 @@ class scene_child(Group):
         Displays the selected graphics object type in the graphics viewer.
         """
 
-class scene(NamedObject[scene_child]):
+class scene(NamedObject[scene_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -82604,7 +82604,7 @@ class scene(NamedObject[scene_child]):
             object_name : str
                 Clears the display history of the specified graphics object from the graphics window.
         """
-    child_object_type: scene_child
+    child_object_type: scene_item
     _child_aliases: dict
 
 class name_46(String):
@@ -82713,7 +82713,7 @@ class position_2(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class annotation_child(Group):
+class annotation_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -82730,7 +82730,7 @@ class annotation_child(Group):
     number_format: number_format_2
     position: position_2
 
-class annotation(NamedObject[annotation_child]):
+class annotation(NamedObject[annotation_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -82808,7 +82808,7 @@ class annotation(NamedObject[annotation_child]):
         """
         Toggle visibility of annotation texts on the active graphics window.
         """
-    child_object_type: annotation_child
+    child_object_type: annotation_item
 
 class start_frame(Integer):
     exposure_level: ExposureLevel
@@ -85981,13 +85981,13 @@ class enabled_79(Boolean):
     fluent_name: str
     _python_name: str
 
-class definition_3_child(Group):
+class definition_3_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class definition_3(NamedObject[definition_3_child]):
+class definition_3(NamedObject[definition_3_item]):
     _deprecated_version: str
     exposure_level: ExposureLevel
     _version: str
@@ -86047,7 +86047,7 @@ class definition_3(NamedObject[definition_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: definition_3_child
+    child_object_type: definition_3_item
 
 class walls(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -86061,7 +86061,7 @@ class vector_2(RealList):
     fluent_name: str
     _python_name: str
 
-class force_1_child(Group):
+class force_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86072,7 +86072,7 @@ class force_1_child(Group):
     location: location_3
     vector: vector_2
 
-class force_1(NamedObject[force_1_child]):
+class force_1(NamedObject[force_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86131,7 +86131,7 @@ class force_1(NamedObject[force_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: force_1_child
+    child_object_type: force_1_item
 
 class center_3(RealList):
     exposure_level: ExposureLevel
@@ -86145,7 +86145,7 @@ class axis_10(RealList):
     fluent_name: str
     _python_name: str
 
-class moment_of_force_child(Group):
+class moment_of_force_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86157,7 +86157,7 @@ class moment_of_force_child(Group):
     center: center_3
     axis: axis_10
 
-class moment_of_force(NamedObject[moment_of_force_child]):
+class moment_of_force(NamedObject[moment_of_force_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86216,7 +86216,7 @@ class moment_of_force(NamedObject[moment_of_force_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: moment_of_force_child
+    child_object_type: moment_of_force_item
 
 class fluid_zones(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -86230,7 +86230,7 @@ class normalized(Boolean):
     fluent_name: str
     _python_name: str
 
-class swirl_child(Group):
+class swirl_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86243,7 +86243,7 @@ class swirl_child(Group):
     axis: axis_10
     normalized: normalized
 
-class swirl(NamedObject[swirl_child]):
+class swirl(NamedObject[swirl_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86302,7 +86302,7 @@ class swirl(NamedObject[swirl_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: swirl_child
+    child_object_type: swirl_item
 
 class inlets_2(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -86324,7 +86324,7 @@ class location2(Group):
     child_names: list[str]
     physics: physics
 
-class pressure_drop_child(Group):
+class pressure_drop_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86336,7 +86336,7 @@ class pressure_drop_child(Group):
     location: location_3
     location2: location2
 
-class pressure_drop(NamedObject[pressure_drop_child]):
+class pressure_drop(NamedObject[pressure_drop_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86395,7 +86395,7 @@ class pressure_drop(NamedObject[pressure_drop_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: pressure_drop_child
+    child_object_type: pressure_drop_item
 
 class numerator(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -86409,7 +86409,7 @@ class denominator(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class ratio_2_child(Group):
+class ratio_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86419,7 +86419,7 @@ class ratio_2_child(Group):
     numerator: numerator
     denominator: denominator
 
-class ratio_2(NamedObject[ratio_2_child]):
+class ratio_2(NamedObject[ratio_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86478,7 +86478,7 @@ class ratio_2(NamedObject[ratio_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: ratio_2_child
+    child_object_type: ratio_2_item
 
 class factor_1(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -86492,7 +86492,7 @@ class factor_2(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class product_child(Group):
+class product_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86502,7 +86502,7 @@ class product_child(Group):
     factor_1: factor_1
     factor_2: factor_2
 
-class product(NamedObject[product_child]):
+class product(NamedObject[product_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86561,7 +86561,7 @@ class product(NamedObject[product_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: product_child
+    child_object_type: product_item
 
 class penalized_observable(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -86581,7 +86581,7 @@ class normalization_1(Real):
     fluent_name: str
     _python_name: str
 
-class quadratic_penalty_child(Group):
+class quadratic_penalty_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86592,7 +86592,7 @@ class quadratic_penalty_child(Group):
     target_value: target_value
     normalization: normalization_1
 
-class quadratic_penalty(NamedObject[quadratic_penalty_child]):
+class quadratic_penalty(NamedObject[quadratic_penalty_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86651,7 +86651,7 @@ class quadratic_penalty(NamedObject[quadratic_penalty_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: quadratic_penalty_child
+    child_object_type: quadratic_penalty_item
 
 class constant_3(Real):
     exposure_level: ExposureLevel
@@ -86691,7 +86691,7 @@ class power(Real):
     fluent_name: str
     _python_name: str
 
-class entries_child(Group):
+class entries_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86701,7 +86701,7 @@ class entries_child(Group):
     observable: observable
     power: power
 
-class entries(ListObject[entries_child]):
+class entries(ListObject[entries_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86725,9 +86725,9 @@ class entries(ListObject[entries_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: entries_child
+    child_object_type: entries_item
 
-class linear_combination_child(Group):
+class linear_combination_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86738,7 +86738,7 @@ class linear_combination_child(Group):
     combination_type: combination_type
     entries: entries
 
-class linear_combination(NamedObject[linear_combination_child]):
+class linear_combination(NamedObject[linear_combination_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86797,7 +86797,7 @@ class linear_combination(NamedObject[linear_combination_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: linear_combination_child
+    child_object_type: linear_combination_item
 
 class observable_list(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -86805,7 +86805,7 @@ class observable_list(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class arithmetic_average_child(Group):
+class arithmetic_average_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86814,7 +86814,7 @@ class arithmetic_average_child(Group):
     name: name_5
     observable_list: observable_list
 
-class arithmetic_average(NamedObject[arithmetic_average_child]):
+class arithmetic_average(NamedObject[arithmetic_average_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86873,9 +86873,9 @@ class arithmetic_average(NamedObject[arithmetic_average_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: arithmetic_average_child
+    child_object_type: arithmetic_average_item
 
-class mean_variance_child(Group):
+class mean_variance_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86884,7 +86884,7 @@ class mean_variance_child(Group):
     name: name_5
     observable_list: observable_list
 
-class mean_variance(NamedObject[mean_variance_child]):
+class mean_variance(NamedObject[mean_variance_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86943,7 +86943,7 @@ class mean_variance(NamedObject[mean_variance_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mean_variance_child
+    child_object_type: mean_variance_item
 
 class operator(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -86969,7 +86969,7 @@ class observable_1(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class unary_operation_child(Group):
+class unary_operation_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -86979,7 +86979,7 @@ class unary_operation_child(Group):
     operator: operator
     observable: observable_1
 
-class unary_operation(NamedObject[unary_operation_child]):
+class unary_operation(NamedObject[unary_operation_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87038,7 +87038,7 @@ class unary_operation(NamedObject[unary_operation_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: unary_operation_child
+    child_object_type: unary_operation_item
 
 class fixed_value_1(Real):
     exposure_level: ExposureLevel
@@ -87046,7 +87046,7 @@ class fixed_value_1(Real):
     fluent_name: str
     _python_name: str
 
-class fixed_value_child(Group):
+class fixed_value_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87055,7 +87055,7 @@ class fixed_value_child(Group):
     name: name_5
     fixed_value: fixed_value_1
 
-class fixed_value(NamedObject[fixed_value_child]):
+class fixed_value(NamedObject[fixed_value_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87114,7 +87114,7 @@ class fixed_value(NamedObject[fixed_value_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: fixed_value_child
+    child_object_type: fixed_value_item
 
 class integral_type(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -87134,7 +87134,7 @@ class field_variable_1(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class surface_integral_child(Group):
+class surface_integral_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87146,7 +87146,7 @@ class surface_integral_child(Group):
     surfaces: surfaces_17
     field_variable: field_variable_1
 
-class surface_integral(NamedObject[surface_integral_child]):
+class surface_integral(NamedObject[surface_integral_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87205,7 +87205,7 @@ class surface_integral(NamedObject[surface_integral_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: surface_integral_child
+    child_object_type: surface_integral_item
 
 class integral_type_1(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -87259,7 +87259,7 @@ class field_direction(RealList):
     fluent_name: str
     _python_name: str
 
-class volume_integral_1_child(Group):
+class volume_integral_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87276,7 +87276,7 @@ class volume_integral_1_child(Group):
     cell_register: cell_register
     field_direction: field_direction
 
-class volume_integral_1(NamedObject[volume_integral_1_child]):
+class volume_integral_1(NamedObject[volume_integral_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87335,7 +87335,7 @@ class volume_integral_1(NamedObject[volume_integral_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: volume_integral_1_child
+    child_object_type: volume_integral_1_item
 
 class definitions(Group):
     exposure_level: ExposureLevel
@@ -87423,7 +87423,7 @@ class adjoint_activation_1(Boolean):
     fluent_name: str
     _python_name: str
 
-class adjoint_equations_child(Group):
+class adjoint_equations_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87433,7 +87433,7 @@ class adjoint_equations_child(Group):
     adjoint_solver: adjoint_solver
     adjoint_activation: adjoint_activation_1
 
-class adjoint_equations(NamedObject[adjoint_equations_child]):
+class adjoint_equations(NamedObject[adjoint_equations_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87492,9 +87492,9 @@ class adjoint_equations(NamedObject[adjoint_equations_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: adjoint_equations_child
+    child_object_type: adjoint_equations_item
 
-class methods_4_child(Group):
+class methods_4_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87505,7 +87505,7 @@ class methods_4_child(Group):
     adjoint_activation: adjoint_activation
     adjoint_equations: adjoint_equations
 
-class methods_4(NamedObject[methods_4_child]):
+class methods_4(NamedObject[methods_4_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87576,7 +87576,7 @@ class methods_4(NamedObject[methods_4_child]):
         """
         Set methods to best match flow solver settings for accuracy.
         """
-    child_object_type: methods_4_child
+    child_object_type: methods_4_item
 
 class solution_based_initialization(Boolean):
     exposure_level: ExposureLevel
@@ -87602,13 +87602,13 @@ class apply_precondition(Boolean):
     fluent_name: str
     _python_name: str
 
-class advancement_child(Real):
+class advancement_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class advancement(NamedObject[advancement_child]):
+class advancement(NamedObject[advancement_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87667,15 +87667,15 @@ class advancement(NamedObject[advancement_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: advancement_child
+    child_object_type: advancement_item
 
-class under_relaxation_3_child(Real):
+class under_relaxation_3_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class under_relaxation_3(NamedObject[under_relaxation_3_child]):
+class under_relaxation_3(NamedObject[under_relaxation_3_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87734,7 +87734,7 @@ class under_relaxation_3(NamedObject[under_relaxation_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: under_relaxation_3_child
+    child_object_type: under_relaxation_3_item
 
 class tolerance_6(Real):
     exposure_level: ExposureLevel
@@ -87977,7 +87977,7 @@ class controls_2(Group):
     stabilization: stabilization_2
     _child_aliases: dict
 
-class adjoint_equations_1_child(Group):
+class adjoint_equations_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -87986,7 +87986,7 @@ class adjoint_equations_1_child(Group):
     check_convergence: check_convergence
     absolute_criteria: absolute_criteria
 
-class adjoint_equations_1(NamedObject[adjoint_equations_1_child]):
+class adjoint_equations_1(NamedObject[adjoint_equations_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -88045,7 +88045,7 @@ class adjoint_equations_1(NamedObject[adjoint_equations_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: adjoint_equations_1_child
+    child_object_type: adjoint_equations_1_item
 
 class print_8(Boolean):
     exposure_level: ExposureLevel
@@ -88139,7 +88139,7 @@ class autosave(Group):
     frequency: frequency_8
     max_files: max_files_1
 
-class execute_commands_1_child(Group):
+class execute_commands_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -88153,7 +88153,7 @@ class execute_commands_1_child(Group):
     frequency_cmd: frequency_cmd
     python_cmd: python_cmd
 
-class execute_commands_1(NamedObject[execute_commands_1_child]):
+class execute_commands_1(NamedObject[execute_commands_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -88220,7 +88220,7 @@ class execute_commands_1(NamedObject[execute_commands_1_child]):
         """
         Import commands from .tsv file.
         """
-    child_object_type: execute_commands_1_child
+    child_object_type: execute_commands_1_item
 
 class calculation_activities(Group):
     exposure_level: ExposureLevel
@@ -88720,13 +88720,13 @@ class invariant(Boolean):
     fluent_name: str
     _python_name: str
 
-class invariant_expert_controls_child(Boolean):
+class invariant_expert_controls_item(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class invariant_expert_controls(ListObject[invariant_expert_controls_child]):
+class invariant_expert_controls(ListObject[invariant_expert_controls_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -88750,7 +88750,7 @@ class invariant_expert_controls(ListObject[invariant_expert_controls_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: invariant_expert_controls_child
+    child_object_type: invariant_expert_controls_item
 
 class symmetric(Boolean):
     exposure_level: ExposureLevel
@@ -88968,7 +88968,7 @@ class axial_continuity(Integer):
     fluent_name: str
     _python_name: str
 
-class specify_boundary_child(Group):
+class specify_boundary_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -88988,7 +88988,7 @@ class specify_boundary_child(Group):
     axial_motion: axial_motion
     axial_continuity: axial_continuity
 
-class specify_boundary(NamedObject[specify_boundary_child]):
+class specify_boundary(NamedObject[specify_boundary_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89047,7 +89047,7 @@ class specify_boundary(NamedObject[specify_boundary_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: specify_boundary_child
+    child_object_type: specify_boundary_item
 
 class boundary_continuity(Group):
     exposure_level: ExposureLevel
@@ -89187,13 +89187,13 @@ class region(Group):
         Shrink current region extent.
         """
 
-class definition_5_child(Group):
+class definition_5_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class definition_5(NamedObject[definition_5_child]):
+class definition_5(NamedObject[definition_5_item]):
     _deprecated_version: str
     exposure_level: ExposureLevel
     _version: str
@@ -89253,7 +89253,7 @@ class definition_5(NamedObject[definition_5_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: definition_5_child
+    child_object_type: definition_5_item
 
 class location_5(Group):
     exposure_level: ExposureLevel
@@ -89264,7 +89264,7 @@ class location_5(Group):
     physics: physics
     surfaces: surfaces_4
 
-class fixed_walls_constraint_child(Group):
+class fixed_walls_constraint_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89279,7 +89279,7 @@ class fixed_walls_constraint_child(Group):
         Display design condition.
         """
 
-class fixed_walls_constraint(NamedObject[fixed_walls_constraint_child]):
+class fixed_walls_constraint(NamedObject[fixed_walls_constraint_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89338,7 +89338,7 @@ class fixed_walls_constraint(NamedObject[fixed_walls_constraint_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: fixed_walls_constraint_child
+    child_object_type: fixed_walls_constraint_item
 
 class distance_1(Real):
     exposure_level: ExposureLevel
@@ -89352,7 +89352,7 @@ class normal_5(RealList):
     fluent_name: str
     _python_name: str
 
-class bounded_by_plane_child(Group):
+class bounded_by_plane_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89369,7 +89369,7 @@ class bounded_by_plane_child(Group):
         Display design condition.
         """
 
-class bounded_by_plane(NamedObject[bounded_by_plane_child]):
+class bounded_by_plane(NamedObject[bounded_by_plane_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89428,7 +89428,7 @@ class bounded_by_plane(NamedObject[bounded_by_plane_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: bounded_by_plane_child
+    child_object_type: bounded_by_plane_item
 
 class surfaces_18(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -89491,7 +89491,7 @@ class orientation_2(Group):
                 Surfaces orientations to be reverse.
         """
 
-class bounded_by_surfaces_child(Group):
+class bounded_by_surfaces_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89543,7 +89543,7 @@ class bounded_by_surfaces_child(Group):
         """
     _child_aliases: dict
 
-class bounded_by_surfaces(NamedObject[bounded_by_surfaces_child]):
+class bounded_by_surfaces(NamedObject[bounded_by_surfaces_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89602,7 +89602,7 @@ class bounded_by_surfaces(NamedObject[bounded_by_surfaces_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: bounded_by_surfaces_child
+    child_object_type: bounded_by_surfaces_item
 
 class deformation_profile(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -89631,7 +89631,7 @@ class factor_3(Group):
     prescribed: prescribed
     value: value_29
 
-class parameters_11_child(Group):
+class parameters_11_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89640,7 +89640,7 @@ class parameters_11_child(Group):
     prescribed: prescribed
     value: value_29
 
-class parameters_11(NamedObject[parameters_11_child]):
+class parameters_11(NamedObject[parameters_11_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89699,9 +89699,9 @@ class parameters_11(NamedObject[parameters_11_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: parameters_11_child
+    child_object_type: parameters_11_item
 
-class prescribed_profile_child(Group):
+class prescribed_profile_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89719,7 +89719,7 @@ class prescribed_profile_child(Group):
         Display design condition.
         """
 
-class prescribed_profile(NamedObject[prescribed_profile_child]):
+class prescribed_profile(NamedObject[prescribed_profile_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89778,7 +89778,7 @@ class prescribed_profile(NamedObject[prescribed_profile_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: prescribed_profile_child
+    child_object_type: prescribed_profile_item
 
 class angle_8(Group):
     exposure_level: ExposureLevel
@@ -89801,7 +89801,7 @@ class axis_12(RealList):
     fluent_name: str
     _python_name: str
 
-class rotation_child(Group):
+class rotation_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89823,7 +89823,7 @@ class rotation_child(Group):
         Set the origin fields to the coordinates of the center of the selected surfaces.
         """
 
-class rotation(NamedObject[rotation_child]):
+class rotation(NamedObject[rotation_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89882,7 +89882,7 @@ class rotation(NamedObject[rotation_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: rotation_child
+    child_object_type: rotation_item
 
 class x_11(Group):
     exposure_level: ExposureLevel
@@ -89921,7 +89921,7 @@ class displacement(Group):
     y: y_11
     z: z_10
 
-class translation_1_child(Group):
+class translation_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89937,7 +89937,7 @@ class translation_1_child(Group):
         Display design condition.
         """
 
-class translation_1(NamedObject[translation_1_child]):
+class translation_1(NamedObject[translation_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -89996,7 +89996,7 @@ class translation_1(NamedObject[translation_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: translation_1_child
+    child_object_type: translation_1_item
 
 class scaling_type(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -90070,7 +90070,7 @@ class axis_2_1(RealList):
     fluent_name: str
     _python_name: str
 
-class scaling_1_child(Group):
+class scaling_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90097,7 +90097,7 @@ class scaling_1_child(Group):
         Set the origin fields to the coordinates of the center of the selected surfaces.
         """
 
-class scaling_1(NamedObject[scaling_1_child]):
+class scaling_1(NamedObject[scaling_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90156,9 +90156,9 @@ class scaling_1(NamedObject[scaling_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: scaling_1_child
+    child_object_type: scaling_1_item
 
-class rigid_body_child(Group):
+class rigid_body_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90173,7 +90173,7 @@ class rigid_body_child(Group):
         Display design condition.
         """
 
-class rigid_body(NamedObject[rigid_body_child]):
+class rigid_body(NamedObject[rigid_body_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90232,7 +90232,7 @@ class rigid_body(NamedObject[rigid_body_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: rigid_body_child
+    child_object_type: rigid_body_item
 
 class method_23(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -90254,7 +90254,7 @@ class conditions_1(StringList, AllowedValuesMixin):
     PRESCRIBED_PROFILE: Final[str] = 'prescribed-profile'
     _allowed_values: list[str]
 
-class compound_child(Group):
+class compound_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90269,7 +90269,7 @@ class compound_child(Group):
         Display design condition.
         """
 
-class compound(NamedObject[compound_child]):
+class compound(NamedObject[compound_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90328,7 +90328,7 @@ class compound(NamedObject[compound_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: compound_child
+    child_object_type: compound_item
 
 class definitions_1(Group):
     exposure_level: ExposureLevel
@@ -90526,7 +90526,7 @@ class weight_6(Real):
     fluent_name: str
     _python_name: str
 
-class objectives_1_child(Group):
+class objectives_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90539,7 +90539,7 @@ class objectives_1_child(Group):
     change_as_percentage: change_as_percentage
     weight: weight_6
 
-class objectives_1(NamedObject[objectives_1_child]):
+class objectives_1(NamedObject[objectives_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90598,7 +90598,7 @@ class objectives_1(NamedObject[objectives_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: objectives_1_child
+    child_object_type: objectives_1_item
 
 class freeform_scaling_scheme(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -90683,7 +90683,7 @@ class affected_conditions(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class parameters_12_child(Group):
+class parameters_12_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90692,7 +90692,7 @@ class parameters_12_child(Group):
     value: value_31
     affected_conditions: affected_conditions
 
-class parameters_12(NamedObject[parameters_12_child]):
+class parameters_12(NamedObject[parameters_12_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90751,7 +90751,7 @@ class parameters_12(NamedObject[parameters_12_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: parameters_12_child
+    child_object_type: parameters_12_item
 
 class file_name_50(String):
     exposure_level: ExposureLevel
@@ -90771,7 +90771,7 @@ class expected_change(Real):
     fluent_name: str
     _python_name: str
 
-class results_1_child(Group):
+class results_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90783,7 +90783,7 @@ class results_1_child(Group):
     weight: weight_7
     expected_change: expected_change
 
-class results_1(NamedObject[results_1_child]):
+class results_1(NamedObject[results_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -90842,7 +90842,7 @@ class results_1(NamedObject[results_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: results_1_child
+    child_object_type: results_1_item
 
 class export_2(Group):
     exposure_level: ExposureLevel
@@ -91126,13 +91126,13 @@ class parameters_count(Integer):
     fluent_name: str
     _python_name: str
 
-class parameters_13_child(String, AllowedValuesMixin):
+class parameters_13_item(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class parameters_13(ListObject[parameters_13_child]):
+class parameters_13(ListObject[parameters_13_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -91156,7 +91156,7 @@ class parameters_13(ListObject[parameters_13_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: parameters_13_child
+    child_object_type: parameters_13_item
 
 class id_1(Integer):
     exposure_level: ExposureLevel
@@ -91170,13 +91170,13 @@ class active_4(Boolean):
     fluent_name: str
     _python_name: str
 
-class parameters_14_child(Real):
+class parameters_14_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class parameters_14(NamedObject[parameters_14_child]):
+class parameters_14(NamedObject[parameters_14_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -91235,9 +91235,9 @@ class parameters_14(NamedObject[parameters_14_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: parameters_14_child
+    child_object_type: parameters_14_item
 
-class conditions_2_child(Group):
+class conditions_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -91247,7 +91247,7 @@ class conditions_2_child(Group):
     active: active_4
     parameters: parameters_14
 
-class conditions_2(ListObject[conditions_2_child]):
+class conditions_2(ListObject[conditions_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -91271,7 +91271,7 @@ class conditions_2(ListObject[conditions_2_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: conditions_2_child
+    child_object_type: conditions_2_item
 
 class operating_conditions_1(Group):
     exposure_level: ExposureLevel
@@ -91351,7 +91351,7 @@ class tolerance_as_percentage(Boolean):
     fluent_name: str
     _python_name: str
 
-class objectives_3_child(Group):
+class objectives_3_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -91369,7 +91369,7 @@ class objectives_3_child(Group):
     tolerance_as_percentage: tolerance_as_percentage
     _child_aliases: dict
 
-class objectives_3(ListObject[objectives_3_child]):
+class objectives_3(ListObject[objectives_3_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -91393,7 +91393,7 @@ class objectives_3(ListObject[objectives_3_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: objectives_3_child
+    child_object_type: objectives_3_item
 
 class objectives_2(Group):
     exposure_level: ExposureLevel
@@ -91497,13 +91497,13 @@ class options_25(Group):
     child_names: list[str]
     enable_turbulence_source_term: enable_turbulence_source_term
 
-class limits_1_child(RealList):
+class limits_1_item(RealList):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class limits_1(NamedObject[limits_1_child]):
+class limits_1(NamedObject[limits_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -91566,7 +91566,7 @@ class limits_1(NamedObject[limits_1_child]):
         """
         Reset design variables limits to default.
         """
-    child_object_type: limits_1_child
+    child_object_type: limits_1_item
 
 class design_variables(Group):
     exposure_level: ExposureLevel
@@ -91613,13 +91613,13 @@ class activation_function(String, AllowedValuesMixin):
     LOGISTIC: Final[str] = 'logistic'
     _allowed_values: list[str]
 
-class neural_network_topology_child(Integer):
+class neural_network_topology_item(Integer):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class neural_network_topology(ListObject[neural_network_topology_child]):
+class neural_network_topology(ListObject[neural_network_topology_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -91643,7 +91643,7 @@ class neural_network_topology(ListObject[neural_network_topology_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: neural_network_topology_child
+    child_object_type: neural_network_topology_item
 
 class input_features(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -92004,7 +92004,7 @@ class autosave_1(Group):
     save_optimal: save_optimal
     export_stl: export_stl_1
 
-class execute_commands_2_child(Group):
+class execute_commands_2_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -92018,7 +92018,7 @@ class execute_commands_2_child(Group):
     frequency_cmd: frequency_cmd
     python_cmd: python_cmd
 
-class execute_commands_2(NamedObject[execute_commands_2_child]):
+class execute_commands_2(NamedObject[execute_commands_2_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -92085,7 +92085,7 @@ class execute_commands_2(NamedObject[execute_commands_2_child]):
         """
         Import commands from .tsv file.
         """
-    child_object_type: execute_commands_2_child
+    child_object_type: execute_commands_2_item
 
 class calculation_activities_1(Group):
     exposure_level: ExposureLevel
@@ -92312,13 +92312,13 @@ class design(Group):
     gradient_based: gradient_based
     geometry: geometry_13
 
-class input_parameters_1_child(Real):
+class input_parameters_1_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class input_parameters_1(NamedObject[input_parameters_1_child]):
+class input_parameters_1(NamedObject[input_parameters_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -92377,15 +92377,15 @@ class input_parameters_1(NamedObject[input_parameters_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: input_parameters_1_child
+    child_object_type: input_parameters_1_item
 
-class output_parameters_child(Real):
+class output_parameters_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class output_parameters(NamedObject[output_parameters_child]):
+class output_parameters(NamedObject[output_parameters_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -92444,7 +92444,7 @@ class output_parameters(NamedObject[output_parameters_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: output_parameters_child
+    child_object_type: output_parameters_item
 
 class status_1(String):
     exposure_level: ExposureLevel
@@ -92452,7 +92452,7 @@ class status_1(String):
     fluent_name: str
     _python_name: str
 
-class design_points_child(Group):
+class design_points_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -92465,7 +92465,7 @@ class design_points_child(Group):
     write_data: write_data_3
     capture_simulation_report_data: capture_simulation_report_data
 
-class design_points(NamedObject[design_points_child]):
+class design_points(NamedObject[design_points_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -92635,7 +92635,7 @@ class design_points(NamedObject[design_points_child]):
         """
         Refresh Status of Concurrent Design Points.
         """
-    child_object_type: design_points_child
+    child_object_type: design_points_item
     _child_aliases: dict
 
 class current_design_point(String):
@@ -92958,7 +92958,7 @@ class criteria_4(String, AllowedValuesMixin):
     __: Final[str] = '>='
     _allowed_values: list[str]
 
-class criteria_1_child(Group):
+class criteria_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -92970,7 +92970,7 @@ class criteria_1_child(Group):
     criteria: criteria_4
     limit: limit
 
-class criteria_1(NamedObject[criteria_1_child]):
+class criteria_1(NamedObject[criteria_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93057,7 +93057,7 @@ class criteria_1(NamedObject[criteria_1_child]):
             limit : real
                 Criterion Limit.
         """
-    child_object_type: criteria_1_child
+    child_object_type: criteria_1_item
 
 class optimize_1(Group):
     exposure_level: ExposureLevel
@@ -93242,7 +93242,7 @@ class auto_parametric_report_html_export(Boolean):
     fluent_name: str
     _python_name: str
 
-class parametric_studies_child(Group):
+class parametric_studies_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93265,7 +93265,7 @@ class parametric_studies_child(Group):
     auto_parametric_report_update_dp_data: auto_parametric_report_update_dp_data
     auto_parametric_report_html_export: auto_parametric_report_html_export
 
-class parametric_studies(NamedObject[parametric_studies_child]):
+class parametric_studies(NamedObject[parametric_studies_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93371,7 +93371,7 @@ class parametric_studies(NamedObject[parametric_studies_child]):
             delete_existing : bool
                 Specifies whether to delete existing design points before importing the design point table.
         """
-    child_object_type: parametric_studies_child
+    child_object_type: parametric_studies_item
 
 class current_parametric_study(String):
     exposure_level: ExposureLevel
@@ -93397,7 +93397,7 @@ class apply_function(String):
     fluent_name: str
     _python_name: str
 
-class scheme_proc_child(Group):
+class scheme_proc_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93407,7 +93407,7 @@ class scheme_proc_child(Group):
     value: value_33
     apply_function: apply_function
 
-class scheme_proc(NamedObject[scheme_proc_child]):
+class scheme_proc(NamedObject[scheme_proc_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93466,7 +93466,7 @@ class scheme_proc(NamedObject[scheme_proc_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: scheme_proc_child
+    child_object_type: scheme_proc_item
 
 class value_34(Real):
     exposure_level: ExposureLevel
@@ -93474,7 +93474,7 @@ class value_34(Real):
     fluent_name: str
     _python_name: str
 
-class udf_side_child(Group):
+class udf_side_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93483,7 +93483,7 @@ class udf_side_child(Group):
     name: name_5
     value: value_34
 
-class udf_side(NamedObject[udf_side_child]):
+class udf_side(NamedObject[udf_side_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93542,7 +93542,7 @@ class udf_side(NamedObject[udf_side_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: udf_side_child
+    child_object_type: udf_side_item
 
 class value_35(Real):
     exposure_level: ExposureLevel
@@ -93550,7 +93550,7 @@ class value_35(Real):
     fluent_name: str
     _python_name: str
 
-class expression_9_child(Group):
+class expression_9_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93559,7 +93559,7 @@ class expression_9_child(Group):
     name: name_5
     value: value_35
 
-class expression_9(NamedObject[expression_9_child]):
+class expression_9(NamedObject[expression_9_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93618,7 +93618,7 @@ class expression_9(NamedObject[expression_9_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: expression_9_child
+    child_object_type: expression_9_item
 
 class input_parameters_2(Group):
     exposure_level: ExposureLevel
@@ -93641,7 +93641,7 @@ class report_definition(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class report_definitions_1_child(Group):
+class report_definitions_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93650,7 +93650,7 @@ class report_definitions_1_child(Group):
     name: name_5
     report_definition: report_definition
 
-class report_definitions_1(NamedObject[report_definitions_1_child]):
+class report_definitions_1(NamedObject[report_definitions_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93731,7 +93731,7 @@ class report_definitions_1(NamedObject[report_definitions_1_child]):
             append_data : bool
                 Yes if you want to append data to file .
         """
-    child_object_type: report_definitions_1_child
+    child_object_type: report_definitions_1_item
 
 class named_expression(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -93739,7 +93739,7 @@ class named_expression(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
-class named_expressions_1_child(Group):
+class named_expressions_1_item(Group):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93748,7 +93748,7 @@ class named_expressions_1_child(Group):
     name: name_5
     named_expression: named_expression
 
-class named_expressions_1(NamedObject[named_expressions_1_child]):
+class named_expressions_1(NamedObject[named_expressions_1_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -93829,7 +93829,7 @@ class named_expressions_1(NamedObject[named_expressions_1_child]):
             append_data : bool
                 Yes if you want to append data to file .
         """
-    child_object_type: named_expressions_1_child
+    child_object_type: named_expressions_1_item
 
 class output_parameters_1(Group):
     exposure_level: ExposureLevel
@@ -93982,13 +93982,13 @@ class merge(Group):
     merge_small_regions: merge_small_regions
     max_merge_iterations: max_merge_iterations
 
-class partition_origin_vector_child(Real):
+class partition_origin_vector_item(Real):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
     _python_name: str
 
-class partition_origin_vector(ListObject[partition_origin_vector_child]):
+class partition_origin_vector(ListObject[partition_origin_vector_item]):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -94012,7 +94012,7 @@ class partition_origin_vector(ListObject[partition_origin_vector_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: partition_origin_vector_child
+    child_object_type: partition_origin_vector_item
 
 class pre_test_1(Boolean):
     exposure_level: ExposureLevel

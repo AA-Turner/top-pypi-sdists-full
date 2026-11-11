@@ -1238,6 +1238,33 @@ def parse_review_from_agent(
     return _parse_review_from_lines(lines, stream_json=stream_json)
 
 
+def _review_findings_from_comments(
+    comments: list[dict], assignment_id: str
+) -> ReviewFindings | None:
+    """Shared core of :func:`fetch_review_findings_from_github` and
+    :func:`fetch_review_findings_from_github_many` — extracts *one*
+    assignment's findings out of an already-fetched comment list, so a
+    multi-round fold (:func:`coord.merge_queue._issue_resolution_for_entry`)
+    can fetch the comment list ONCE and look up every round in it, instead
+    of one full `gh` round trip per round (#3966).
+    """
+    from coord.comments import extract_findings_block  # noqa: PLC0415
+
+    if not assignment_id:
+        return None
+    # Newest-first so a re-review's findings win over an earlier iteration's.
+    for c in reversed(comments):
+        hit = extract_findings_block(c.get("body", ""), assignment_id)
+        if hit is not None:
+            verdict, body = hit
+            return ReviewFindings(
+                verdict=verdict or "request-changes",
+                body=body,
+                issue_resolution=parse_issue_resolution(body),
+            )
+    return None
+
+
 def fetch_review_findings_from_github(
     repo_github: str,
     issue_number: int,
@@ -1255,11 +1282,15 @@ def fetch_review_findings_from_github(
     Routed through :func:`coord.github_ops.get_issue_comments` (#1483) rather
     than shelling out to ``gh`` directly — ``github_ops`` is the single ``gh``
     sink so a GitLab/bare-DB backend has one seam to sit beside.
+
+    Fetches the comment list on every call — a caller recovering MULTIPLE
+    assignments' findings off the same issue (e.g. folding a whole review
+    chain) should use :func:`fetch_review_findings_from_github_many` instead,
+    which does exactly one fetch for all of them.
     """
     import subprocess as _sp  # noqa: PLC0415
 
     from coord import github_ops  # noqa: PLC0415
-    from coord.comments import extract_findings_block  # noqa: PLC0415
 
     if not (repo_github and assignment_id):
         return None
@@ -1267,17 +1298,38 @@ def fetch_review_findings_from_github(
         comments = github_ops.get_issue_comments(repo_github, issue_number)
     except (RuntimeError, _sp.TimeoutExpired, OSError, ValueError):
         return None
-    # Newest-first so a re-review's findings win over an earlier iteration's.
-    for c in reversed(comments):
-        hit = extract_findings_block(c.get("body", ""), assignment_id)
-        if hit is not None:
-            verdict, body = hit
-            return ReviewFindings(
-                verdict=verdict or "request-changes",
-                body=body,
-                issue_resolution=parse_issue_resolution(body),
-            )
-    return None
+    return _review_findings_from_comments(comments, assignment_id)
+
+
+def fetch_review_findings_from_github_many(
+    repo_github: str,
+    issue_number: int,
+    assignment_ids: Iterable[str],
+) -> dict[str, ReviewFindings]:
+    """Batch form of :func:`fetch_review_findings_from_github` (#3966):
+    one `gh` comment-list fetch covering every *assignment_ids* entry,
+    instead of one fetch per entry — the cost a multi-round review-chain
+    fold (:func:`coord.merge_queue._issue_resolution_for_entry`) would
+    otherwise pay on every tick. Missing/unrecoverable entries are simply
+    absent from the returned dict rather than raising.
+    """
+    import subprocess as _sp  # noqa: PLC0415
+
+    from coord import github_ops  # noqa: PLC0415
+
+    ids = [a for a in assignment_ids if a]
+    if not (repo_github and ids):
+        return {}
+    try:
+        comments = github_ops.get_issue_comments(repo_github, issue_number)
+    except (RuntimeError, _sp.TimeoutExpired, OSError, ValueError):
+        return {}
+    result: dict[str, ReviewFindings] = {}
+    for assignment_id in ids:
+        findings = _review_findings_from_comments(comments, assignment_id)
+        if findings is not None:
+            result[assignment_id] = findings
+    return result
 
 
 # ── Test-gate verdict output parsing (#1351) ────────────────────────────────
@@ -5933,6 +5985,7 @@ def build_scoped_review_briefing(
     prior_verdict: str = "approve",
     prior_findings_body: str | None = None,
     is_base_move: bool = False,
+    prior_issue_resolution: "IssueResolution | None" = None,
 ) -> str:
     """Assemble a SCOPED re-review briefing (#1476, widened by #3161).
     Pure function — testable.
@@ -5954,6 +6007,23 @@ def build_scoped_review_briefing(
       handed the prior review's findings (*prior_findings_body*) alongside
       the delta, and is asked to confirm each blocking finding was actually
       addressed rather than told to avoid re-litigating anything.
+
+    *prior_issue_resolution* (#3966): the prior review's own separate
+    `ISSUE_RESOLUTION:` judgment (:func:`coord.models.parse_issue_resolution`
+    applied to *prior_findings_body* — not a `## Blocking findings` entry,
+    so a reviewer told only to "check each blocking finding"/"this PR was
+    already approved" never re-checks it on its own). When it is
+    `partial`/`investigation`, this briefing echoes it verbatim — after
+    whichever of the three premises above applies (fix round, base move,
+    or conflict-fix rebase; a prior APPROVING review can carry a `partial`
+    judgment too, see #3502) — and instructs the reviewer to re-check it
+    explicitly, and to state their own `ISSUE_RESOLUTION:` line either way
+    — never just drop it. A `None` or `resolved` prior resolution adds
+    nothing here; this function always asks for the reviewer's own
+    `ISSUE_RESOLUTION:` line regardless, since
+    :func:`coord.merge_queue._issue_resolution_for_entry` carries the prior
+    round's value forward when a re-review's own line is missing, and a
+    missing line must never silently read as "resolved".
     """
     is_fix_round = prior_verdict != "approve"
     lines: list[str] = []
@@ -6028,6 +6098,50 @@ def build_scoped_review_briefing(
             "doesn't touch. Your ONLY job is to judge whether the conflict-fix "
             "resolution itself introduced a real bug or silently dropped "
             "something either side of the conflict needed."
+        )
+        lines.append("")
+    if prior_issue_resolution is not None and prior_issue_resolution.value != "resolved":
+        # #3966: the prior review's `ISSUE_RESOLUTION:` judgment is a
+        # SEPARATE line from `## Blocking findings`/the approval itself, so
+        # neither "check each blocking finding" (fix-round path) nor "this
+        # PR was already approved" (base-move/conflict-rebase paths) ever
+        # re-checks it on its own — call it out explicitly as its own
+        # outstanding finding, regardless of which of the three premises
+        # above applies.
+        lines.append("## Prior ISSUE_RESOLUTION judgment (still outstanding)")
+        lines.append("")
+        reason_suffix = (
+            f" — {prior_issue_resolution.reason}"
+            if prior_issue_resolution.reason
+            else ""
+        )
+        lines.append(
+            f"`ISSUE_RESOLUTION: {prior_issue_resolution.value}{reason_suffix}`"
+        )
+        lines.append("")
+        recheck_subject = "the delta" if is_fix_round else "the current branch"
+        resolved_clause = (
+            "If the fix round actually completed what was missing, say so"
+            if is_fix_round
+            else "If the issue is in fact now fully resolved, say so"
+        )
+        lines.append(
+            "The prior review also recorded this SEPARATE judgment: "
+            "merging the PR as it stood did NOT fully resolve the "
+            "issue (code quality and 'does this actually fix the "
+            "reported bug' are different questions — see the "
+            "`ISSUE_RESOLUTION:` instructions below). Treat this "
+            f"exactly like a blocking finding: re-check it against {recheck_subject}. "
+            f"{resolved_clause} and record your own `ISSUE_RESOLUTION: "
+            "resolved`. If it is still not fully resolved — including "
+            "when this repo's own CLAUDE.md only allows specific "
+            "narrow partials (e.g. a declared tranche, a one-backend "
+            "leftover, an upstream blocker) and this one doesn't "
+            "qualify — restate it explicitly with your own "
+            "`ISSUE_RESOLUTION: partial` or `investigation` line and "
+            "`request-changes`, naming what's still missing. Do NOT "
+            "just omit the line: a missing line is read as carrying "
+            "this judgment forward UNCHANGED, not as 'resolved'."
         )
         lines.append("")
     lines.append("## Context")
@@ -6125,6 +6239,7 @@ def build_scoped_review_briefing(
     lines.append("```")
     lines.append("REVIEW_VERDICT: approve")
     lines.append("REVIEW_BODY:")
+    lines.append("ISSUE_RESOLUTION: resolved")
     lines.append("<your full review text in markdown>")
     lines.append("END_REVIEW")
     lines.append("```")
@@ -6132,6 +6247,21 @@ def build_scoped_review_briefing(
     lines.append(
         "Use `REVIEW_VERDICT: request-changes` if the resolution introduced "
         "a real bug."
+    )
+    lines.append("")
+    lines.append(
+        "ALWAYS include your own `ISSUE_RESOLUTION:` line inside "
+        "`REVIEW_BODY:` (shown above), one of `resolved` | `partial` | "
+        "`investigation` — exactly the same judgment a normal review "
+        "states, and separate from `REVIEW_VERDICT:` (code quality and "
+        "'does this actually fix the reported bug' are different "
+        "questions). State it even when you have nothing new to add: a "
+        "missing line is read as carrying the PRIOR review's own "
+        "`ISSUE_RESOLUTION:` judgment forward UNCHANGED (#3966), never as "
+        "`resolved` by default — so omitting it does not clear a prior "
+        "`partial`/`investigation`, it only leaves the coordinator "
+        "guessing. If the prior review's judgment was already `resolved` "
+        "(or absent), `resolved` is the right default here too."
     )
     lines.append(
         "BODY STRUCTURE — same three headings as a normal review, always "
@@ -6423,6 +6553,18 @@ def dispatch_scoped_review(
         if _prior_findings is not None:
             prior_findings_body = _prior_findings.body
 
+    # #3966: re-parsed from the recovered body text rather than trusting
+    # `_prior_findings.issue_resolution` — `_load_review_findings`'s DB-cache
+    # fast path (the common case: `notify`/`report-result` already cached
+    # verdict+body for this exact row) constructs its `ReviewFindings`
+    # without ever parsing one, so that attribute silently defaults to
+    # "resolved" regardless of what the body actually says. Re-parsing the
+    # body text here is the one parse both paths (DB-cache and log/agent
+    # fallback) can rely on alike.
+    prior_issue_resolution = (
+        parse_issue_resolution(prior_findings_body) if prior_findings_body else None
+    )
+
     # #1476 fix: rank candidates against the machine that authored the code
     # under review — the WORK assignment behind *entry* — not the prior
     # reviewer's machine. ``QueuedMerge`` doesn't carry the worker's machine
@@ -6607,6 +6749,7 @@ def dispatch_scoped_review(
                 prior_verdict=prior_review_verdict,
                 prior_findings_body=prior_findings_body,
                 is_base_move=is_base_move,
+                prior_issue_resolution=prior_issue_resolution,
             )
 
             payload = {

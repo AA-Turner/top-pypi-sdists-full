@@ -10,6 +10,7 @@ import pytest
 import requests
 from google.protobuf import json_format, message_factory
 from google.rpc import error_details_pb2
+from requests.auth import HTTPBasicAuth
 
 import schemathesis
 from schemathesis.config import OutputConfig
@@ -127,6 +128,20 @@ def test_malformed_ok_body_is_reported_as_binary(ctx):
 
 
 @pytest.mark.parametrize(
+    ("headers", "expected"),
+    [({}, '{\n  "duration": "1.500s"\n}'), ({"x-details": "invalid-duration"}, BINARY_PAYLOAD)],
+    ids=["valid-duration", "invalid-duration"],
+)
+def test_ok_response_payload(ctx, headers, expected):
+    response = (
+        load(ctx.grpc.apps.envelope())["types.Types"]["WellKnown"]
+        .Case(body={"duration": "1.500s"}, headers=headers)
+        .call()
+    )
+    assert format_response_payload(response, config=OutputConfig()) == expected
+
+
+@pytest.mark.parametrize(
     ("user_id", "expected"),
     [(503, (14, "UNAVAILABLE")), (504, (4, "DEADLINE_EXCEEDED: upstream timed out"))],
     ids=["unavailable", "deadline-exceeded"],
@@ -222,6 +237,24 @@ def test_basic_auth_from_session(ctx):
     assert ("authorization", "Basic dXNlcjpwYXNz") in server.calls[-1].metadata
 
 
+@pytest.mark.parametrize(
+    ("schema_auth", "session_auth"),
+    [(HTTPBasicAuth("user", "pass"), None), (None, HTTPBasicAuth("user", "pass"))],
+    ids=["set-from-requests", "session"],
+)
+def test_requests_auth_object_is_rejected(ctx, schema_auth, session_auth):
+    server = ctx.grpc.apps.users()
+    schema = load(server)
+    if schema_auth is not None:
+        schema.auth.set_from_requests(schema_auth)
+    session = requests.Session()
+    session.auth = session_auth
+    (case,) = generate_many(schema["pkg.Users"]["GetUser"].as_strategy(), 1)
+    with pytest.raises(IncorrectUsage, match="`requests` auth objects are not supported for gRPC targets"):
+        case.call(session=session)
+    assert server.calls == []
+
+
 def test_deadline_raises_timeout(ctx):
     with pytest.raises(requests.exceptions.ReadTimeout):
         get_user(ctx.grpc.apps.users(), 13, timeout=0.1)
@@ -245,6 +278,20 @@ def test_stopped_server_raises_connection_error_until_it_restarts(ctx):
     server.held_port.close()
     ctx.grpc.apps.users(port=int(server.target.rsplit(":", 1)[1]))
     assert operation.Case(body={"userId": 7}).call().status_line == "OK"
+
+
+# A call fails on the network only once a new connection to the target fails as well, so each proxy resets two.
+def test_request_retries_resend_calls_that_failed_on_the_network(ctx, app_runner):
+    server = ctx.grpc.apps.users()
+    port = int(server.target.rsplit(":", 1)[1])
+
+    def behind_flapping_proxy(retries):
+        return {"base-url": f"grpc://127.0.0.1:{app_runner.run_port_proxy(port, resets=2)}", "request-retries": retries}
+
+    with pytest.raises(requests.exceptions.ConnectionError):
+        get_user(server, 7, config=behind_flapping_proxy(0))
+    _, response = get_user(server, 7, config=behind_flapping_proxy(1))
+    assert (response.status_line, [call.method for call in server.calls]) == ("OK", ["GetUser"])
 
 
 @pytest.mark.parametrize(
@@ -521,6 +568,40 @@ def missing(*path):
 def test_rejected_fields_are_observed(ctx, tmp_path, body, expected):
     case = create_account(ctx, tmp_path).Case(body=body)
     assert parse_observations(case.operation, case, case.call()) == expected
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        (
+            {},
+            json.dumps(
+                {
+                    "code": 3,
+                    "message": "invalid account",
+                    "details": [
+                        {
+                            "@type": f"{ANY_URL}google.rpc.BadRequest",
+                            "fieldViolations": [
+                                {"field": "display_name", "description": "must not be empty"},
+                                {"field": "profile.contact_email", "description": "must not be empty"},
+                            ],
+                        },
+                        {"@type": f"{ANY_URL}example.Unknown", "value": "CAE="},
+                    ],
+                },
+                indent=2,
+            ),
+        ),
+        ({"x-details": "malformed"}, BINARY_PAYLOAD),
+        ({"x-details": "invalid-retry-info"}, BINARY_PAYLOAD),
+        ({"x-details": "invalid-duration"}, BINARY_PAYLOAD),
+    ],
+    ids=["decoded", "malformed", "invalid-retry-info", "invalid-duration"],
+)
+def test_status_details_are_shown_in_place_of_the_body(ctx, tmp_path, headers, expected):
+    response = create_account(ctx, tmp_path).Case(body={}, headers=headers).call()
+    assert format_response_payload(response, config=OutputConfig()) == expected
 
 
 def test_observed_fields_are_filled(ctx, tmp_path):

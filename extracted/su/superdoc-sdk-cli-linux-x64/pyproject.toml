@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "superdoc-sdk-cli-linux-x64"
+version = "2.27.0"
+description = "SuperDoc CLI runtime for Linux x64"
+requires-python = ">=3.9"
+license = "AGPL-3.0-only AND LicenseRef-SuperDoc-Document-Engine"
+license-files = ["superdoc_sdk_cli_linux_x64/bin/LICENSES.md", "superdoc_sdk_cli_linux_x64/bin/DOCX-ENGINE-LICENSE.md", "superdoc_sdk_cli_linux_x64/bin/NOTICE.md", "superdoc_sdk_cli_linux_x64/bin/THIRD_PARTY_NOTICES"]
+authors = [{ name = "SuperDoc" }]
+
+[tool.setuptools]
+packages = ["superdoc_sdk_cli_linux_x64"]
+include-package-data = false
+
+[tool.setuptools.package-data]
+superdoc_sdk_cli_linux_x64 = ["bin/*", "bin/assets/*", "bin/tools/*", "bin/native-runtime-notices/*"]

@@ -8,6 +8,9 @@ import numpy as np
 from .metrics import SimMetrics
 from .timing import RealtimePacer
 
+# Without count_holds: an episode's ticks, holds included, stop at this many times its budget.
+TICK_CEILING = 4
+
 
 def run_stateful_episode(
     *,
@@ -31,6 +34,7 @@ def run_stateful_episode(
     feedback_description=None,
     drain_pending=False,
     pause_for_inference=False,
+    count_holds=True,
 ):
     """Execute every model action; preserve full post-action camera history.
 
@@ -39,6 +43,9 @@ def run_stateful_episode(
     Holds are reported separately and never mislabeled as policy actions.
     With pause_for_inference, physics instead stops until the reply arrives and
     the real-time cadence resumes afterwards, as in synchronous evaluation.
+    Without count_holds, max_steps budgets the policy's actions only, as a synchronous
+    evaluation's does; the ticks held while a request is in flight run outside it, up to
+    TICK_CEILING times max_steps in all, so a stalled session still ends.
     """
     metrics = metrics or SimMetrics(
         max_steps=max_steps,
@@ -54,6 +61,10 @@ def run_stateful_episode(
     holds = 0
     executed = 0
     first = True
+    max_ticks = max_steps if count_holds else max_steps * TICK_CEILING
+
+    def budget_left():
+        return result.steps < max_ticks and (count_holds or executed < max_steps)
 
     def cameras(obs):
         return np.stack([env.agent_frame(obs), env.wrist_frame(obs)])
@@ -66,6 +77,10 @@ def run_stateful_episode(
             raise ValueError("Policy returned an invalid complete action chunk")
         actions.extend(value.tolist())
         first = False
+        # The next request comes once these actions have run: a window sent ahead starts now.
+        expect = getattr(env, "expect_request", None)
+        if callable(expect):
+            expect(len(actions))
         result.policy_calls += 1
         metrics.policy_calls = result.policy_calls
 
@@ -78,7 +93,7 @@ def run_stateful_episode(
         accept(pending)
         pending = None
         metrics.start_episode(pacer.start())
-        while result.steps < max_steps:
+        while budget_left():
             if real_time:
                 metrics.note_realtime_tick(pacer.wait(result.steps, sleep=sleep))
             if pending is not None and (pending.done() or not real_time or pause_for_inference):
@@ -104,13 +119,14 @@ def run_stateful_episode(
                 feedback.append(cameras(obs))
             if on_frame:
                 on_frame(obs, result.steps, pending is not None)
-            metrics.note_step(steps=result.steps, buffer_remaining=len(actions))
+            metrics.note_step(steps=result.steps, buffer_remaining=len(actions),
+                              **({} if count_holds else {"policy_action_steps": executed}))
             if on_buffer:
                 on_buffer(result.steps, len(actions))
             if done:
                 result.done = True
                 break
-            if not actions and pending is None and result.steps < max_steps:
+            if not actions and pending is None and budget_left():
                 pending = submit(request_input(obs) if request_input else np.stack(feedback))
                 feedback = []
         if real_time:
@@ -136,4 +152,8 @@ def run_stateful_episode(
                 if request_input else "one raw camera pair after every policy action"
             ),
             "hold_behavior": hold_description,
+            "budget": (
+                f"{max_steps} steps, holds included" if count_holds else
+                f"{max_steps} policy actions; holds outside it, {max_ticks} steps in all"
+            ),
         }

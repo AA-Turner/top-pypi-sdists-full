@@ -32,10 +32,13 @@ the bridge carries only the readiness handshake.
 
 from __future__ import annotations
 
+import logging
 import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -45,15 +48,34 @@ class AutowareBridgeConfig:
     Attributes:
         address: ``host:port`` the bridge gRPC server (hosted by the framework)
             binds to and that the ``autoware_carla_interface`` client dials.
-        timeout_s: Per-RPC timeout in seconds.
+        timeout_s: Deprecated, and never had an effect: ``None`` (the default)
+            or a positive, finite number, which is logged as ignored.  The
+            ``scenario_bridge`` node's RPC timeouts are its own ROS parameters
+            (``rpc_timeout_s``, ``mission_poll_timeout_s``), set with the
+            launcher's ``bridge_parameters`` -- the one place the node's
+            settings live, and the only one that reaches a node the framework
+            did not start.
         ready_timeout_ticks: Maximum world ticks to wait for Autoware to become
             ready before the scenario fails.  At 20 Hz, ``1200`` is ~60 s.  When
             the framework launches Autoware itself, they are counted from when
-            the stack reaches the bridge, not from when it was started.
+            the stack reaches the bridge, not from when it was started: what
+            they cover is routing and engaging.
         boot_timeout_s: When the framework launches Autoware itself, the
             wall-clock seconds the stack has to reach the bridge before the
             scenario ends.  Launching Autoware takes as long as it takes,
             whatever the world does meanwhile, so it is not measured in ticks.
+            The stack reaches the bridge when its interface node first reports
+            its readiness, ready or not
+            (:attr:`AutowareBridge.client_connected`), which the
+            ``scenario_bridge`` node does once Autoware can be routed: its
+            localization is INITIALIZED -- the pointcloud map loaded and NDT
+            aligned at the mission's initial pose, or a GNSS fix taken -- or,
+            when it does not initialize localization, the mission planner has
+            left UNKNOWN.  Not when the node has started, nor when it first
+            asks for the mission, which it does as soon as Autoware's AD API is
+            up, to have the initial pose to localize at.  A node that never
+            reports until it is ready (one older than this, or a client of
+            your own) keeps the whole startup under this timeout.
         boot_tick_period_s: How long each tick waits while the stack is still
             starting, so the world advances at about real time rather than
             hundreds of simulated seconds before Autoware is there to see them.
@@ -65,20 +87,41 @@ class AutowareBridgeConfig:
             :func:`~autoware_carla_scenario.driver.observation.rear_axle_offset`);
             set it to the half wheelbase Autoware's vehicle model uses when the
             two must agree to the centimetre.
+        liveness_timeout_s: Once the stack is ready, the wall-clock seconds it
+            may go without asking for the mission before the run ends: the
+            ``scenario_bridge`` node keeps asking every ``route_watch_period_s``
+            of wall-clock time (a steady-clock timer, whatever
+            ``use_sim_time`` says, so a world slower than real time is not
+            taken for a dead stack) while the AD API is up, so silence means
+            the node, or the AD API behind it, is gone, and the ego would drive on the last control it
+            was given.  Watched only once the stack has asked after it became
+            ready, so a node that stops asking then (``route_watch_period_s``
+            of 0 or less) is not mistaken for a dead one.  ``0`` turns it off.
+            It must be comfortably above the longest wall-clock gap between
+            two polls of a healthy node: one period plus one poll's timeout
+            (``route_watch_period_s + mission_poll_timeout_s``, 1 s + 1 s by
+            default), and twice that so a single lost poll is not a dead
+            stack.  A launcher the framework ships refuses a smaller one when
+            its ``bridge_parameters`` set those
+            (:func:`~autoware_carla_scenario.autoware_stack.bridge_node.liveness_timeout_problem`);
+            a node started elsewhere is not seen, so keep to it there by
+            hand.
 
     Raises:
         ValueError: Naming the field, when ``ready_timeout_ticks`` is not a
-            positive whole number, ``timeout_s`` or ``boot_timeout_s`` is not
-            positive and finite, ``boot_tick_period_s`` is negative or not
+            positive whole number, ``timeout_s`` (when given) or
+            ``boot_timeout_s`` is not positive and finite,
+            ``boot_tick_period_s`` or ``liveness_timeout_s`` is negative or not
             finite, or ``base_link_offset_m`` is not finite.
     """
 
     address: str = "localhost:50052"
-    timeout_s: float = 60.0
+    timeout_s: Optional[float] = None
     ready_timeout_ticks: int = 1200
     base_link_offset_m: Optional[float] = None
     boot_timeout_s: float = 300.0
     boot_tick_period_s: float = 0.05
+    liveness_timeout_s: float = 30.0
 
     def __post_init__(self) -> None:
         # Hydra reads ``=nan`` and ``=inf`` as floats, and a NaN fails every
@@ -91,19 +134,32 @@ class AutowareBridgeConfig:
                 "ready_timeout_ticks must be a positive whole number, "
                 f"got {self.ready_timeout_ticks}"
             )
-        if not math.isfinite(self.timeout_s) or self.timeout_s <= 0.0:
-            raise ValueError(
-                f"timeout_s must be positive and finite, got {self.timeout_s}"
+        if self.timeout_s is not None:
+            # An annotated local: Codon unwraps the Optional there.
+            timeout_s: float = self.timeout_s
+            if not math.isfinite(timeout_s) or timeout_s <= 0.0:
+                raise ValueError(
+                    f"timeout_s must be positive and finite, got {timeout_s}"
+                )
+            logger.warning(
+                "timeout_s (%s) is deprecated and has no effect: set the "
+                "scenario_bridge node's rpc_timeout_s in the launcher's "
+                "bridge_parameters instead",
+                timeout_s,
             )
         if not math.isfinite(self.boot_timeout_s) or self.boot_timeout_s <= 0.0:
             raise ValueError(
-                "boot_timeout_s must be positive and finite, "
-                f"got {self.boot_timeout_s}"
+                f"boot_timeout_s must be positive and finite, got {self.boot_timeout_s}"
             )
         if not math.isfinite(self.boot_tick_period_s) or self.boot_tick_period_s < 0.0:
             raise ValueError(
                 "boot_tick_period_s must be finite and not negative, "
                 f"got {self.boot_tick_period_s}"
+            )
+        liveness = self.liveness_timeout_s
+        if not math.isfinite(liveness) or liveness < 0.0:
+            raise ValueError(
+                f"liveness_timeout_s must be finite and not negative, got {liveness}"
             )
         offset = self.base_link_offset_m
         if offset is not None and not math.isfinite(offset):
@@ -330,14 +386,31 @@ class AutowareBridge(ABC):
 
     @property
     def client_connected(self) -> bool:
-        """Whether the interface node has reached this bridge yet.
+        """Whether the stack has reached this bridge yet.
 
-        Tells a stack that is still starting from one that is localizing: the
-        first takes as long as Autoware takes to launch, in wall-clock time,
-        and only the second is measured in ticks.  A bridge that cannot tell
-        says ``True``.
+        Tells a stack that is still starting from one that is routing and
+        engaging: the first takes as long as Autoware takes to launch, load
+        its maps and localize, in wall-clock time, and only the second is
+        measured in ticks.  A stack reaches the bridge when its interface node
+        first reports its readiness, ready or not, which a client does once
+        its stack can be routed -- the ``scenario_bridge`` node once
+        localization is INITIALIZED (or, when it does not initialize
+        localization, once the mission planner is up).  Asking for the
+        mission does not count: the node needs the mission's initial pose to
+        localize.  A bridge that cannot tell says ``True``.
         """
         return True
+
+    def seconds_since_mission_poll(self) -> Optional[float]:
+        """Wall-clock seconds since the interface node last asked for the mission.
+
+        How the stack is known to be alive once it is ready: the
+        ``scenario_bridge`` node keeps asking, for a re-route, while the AD
+        API is up.  ``None`` before it first asked, and from a bridge that
+        cannot tell (the default), which turns the liveness check off.  Must
+        be non-blocking, as :meth:`is_ready`.
+        """
+        return None
 
     @property
     def client_address(self) -> Optional[str]:

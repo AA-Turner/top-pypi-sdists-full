@@ -35,7 +35,7 @@
 
 namespace pyopencl {
 #if PYOPENCL_CL_VERSION >= 0x1020
-  py::object image_desc_dummy_getter(cl_image_desc &desc)
+  py::object image_desc_dummy_getter([[maybe_unused]] cl_image_desc &desc)
   {
     return py::none();
   }
@@ -65,6 +65,8 @@ namespace pyopencl {
   }
 
 #endif
+
+  struct device_pointer_dummy { };
 }
 
 
@@ -73,8 +75,8 @@ namespace pyopencl {
 using namespace pyopencl;
 
 
-static PyCFunctionWithKeywords dummy_init = [](PyObject *, PyObject *,
-                                        PyObject *) -> PyObject * {
+static PyCFunctionWithKeywords dummy_init =
+    [](PyObject *, PyObject *, PyObject *) -> PyObject * {
     PyErr_SetString(PyExc_RuntimeError, "This should never be called!");
     return nullptr;
 };
@@ -83,7 +85,7 @@ static PyType_Slot init_slots[] {
     // the presence of this slot enables normal object construction via __init__ and __new__
     // instead of an optimized codepath within nanobind that skips these. That in turn
     // makes it possible to intercept calls and implement custom logic.
-    { Py_tp_init, (void *) dummy_init },
+    { Py_tp_init, reinterpret_cast<void *>(dummy_init) },
     { 0, nullptr }
 };
 
@@ -332,7 +334,7 @@ void pyopencl_expose_part_2(py::module_ &m)
       // that would work on both buffers and SVM, and passing a buffer pointer to
       // a kernel is going to lead to a bad time.
       .def_prop_ro("svm_ptr",
-          [](cls &self) { return (intptr_t) self.svm_ptr(); })
+          [](cls &self) { return reinterpret_cast<intptr_t>(self.svm_ptr()); })
       .def_prop_ro("size", [](cls &self) -> py::object
           {
             try
@@ -399,7 +401,7 @@ void pyopencl_expose_part_2(py::module_ &m)
           py::arg("wait_for").none()=py::none()
           )
       PYOPENCL_EXPOSE_EQUALITY_TESTS
-      .def("__hash__", [](cls &self) { return (intptr_t) self.svm_ptr(); })
+      .def("__hash__", [](cls &self) { return reinterpret_cast<intptr_t>(self.svm_ptr()); })
       .def("bind_to_queue", &cls::bind_to_queue,
           py::arg("queue"))
       .DEF_SIMPLE_METHOD(unbind_from_queue)
@@ -505,7 +507,7 @@ void pyopencl_expose_part_2(py::module_ &m)
           "__init__",
           [](cls *self, context &ctx, py::bytes const &src)
           {
-            create_program_with_source(self, ctx, std::string((const char *) src.data(), src.size()));
+            create_program_with_source(self, ctx, std::string(reinterpret_cast<const char *>(src.data()), src.size()));
           },
           py::arg("context"),
           py::arg("src"))
@@ -637,6 +639,22 @@ void pyopencl_expose_part_2(py::module_ &m)
       .def_prop_ro("size", &cls::size)
       ;
   }
+
+#ifdef cl_ext_buffer_device_address
+  {
+    typedef device_pointer_ext cls;
+    py::class_<cls>(m, "DevicePointerEXT", py::dynamic_attr())
+      .def(py::init<cl_mem_device_address_ext>(), py::arg("address"))
+      .def_prop_ro("address", &cls::address)
+      ;
+  }
+#else
+  {
+    typedef device_pointer_dummy cls;
+    py::class_<cls>(m, "DevicePointerEXT", py::dynamic_attr())
+      ;
+  }
+#endif
 
   m.def("enqueue_nd_range_kernel", enqueue_nd_range_kernel,
       py::arg("queue"),

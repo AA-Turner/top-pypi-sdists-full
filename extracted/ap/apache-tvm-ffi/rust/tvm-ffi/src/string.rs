@@ -16,8 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+//! [`String`] and [`Bytes`], immutable reference-counted strings.
+
 use crate::derive::Object;
-use crate::object::{unsafe_, Object, ObjectArc, ObjectCoreWithExtraItems};
+use crate::object::{Object, ObjectArc, ObjectCoreWithExtraItems, unsafe_};
 use crate::type_traits::AnyCompatible;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display};
@@ -29,24 +31,37 @@ use tvm_ffi_sys::{TVMFFIAny, TVMFFIAnyDataUnion, TVMFFIByteArray, TVMFFIObject};
 //-----------------------------------------------------
 // Bytes
 //-----------------------------------------------------
-/// ABI stable Bytes container for ffi
+/// An immutable byte string, passed across languages as `ffi.Bytes` (Python
+/// `bytes`).
+///
+/// # Examples
+///
+/// ```
+/// use tvm_ffi::Bytes;
+///
+/// let bytes = Bytes::from(&b"abc"[..]);
+/// assert_eq!(bytes.as_slice(), b"abc");
+/// ```
 #[repr(C)]
 pub struct Bytes {
     data: TVMFFIAny,
 }
 
+// SAFETY: `Bytes` is immutable: inline bytes or an immutable bytes object.
+unsafe impl Send for Bytes {}
+unsafe impl Sync for Bytes {}
+
 // BytesObj for heap-allocated bytes
 #[repr(C)]
 #[derive(Object)]
-#[type_key = "ffi.Bytes"]
-#[type_index(TypeIndex::kTVMFFIBytes)]
+#[object(type_key = "ffi.Bytes", unsafe type_index = TypeIndex::kTVMFFIBytes)]
 pub(crate) struct BytesObj {
     object: Object,
     data: TVMFFIByteArray,
 }
 
 impl Bytes {
-    /// Create a new empty Bytes container
+    /// An empty byte string.
     pub fn new() -> Self {
         Self {
             data: TVMFFIAny {
@@ -57,12 +72,17 @@ impl Bytes {
         }
     }
 
-    /// Get the length of the bytes
+    /// The number of bytes.
     pub fn len(&self) -> usize {
         self.as_slice().len()
     }
 
-    /// Get the bytes as a slice
+    /// Whether there are no bytes.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The bytes as a slice.
     pub fn as_slice(&self) -> &[u8] {
         unsafe {
             if self.data.type_index == TypeIndex::kTVMFFISmallBytes as i32 {
@@ -87,22 +107,16 @@ impl Default for Bytes {
 
 unsafe impl ObjectCoreWithExtraItems for BytesObj {
     type ExtraItem = u8;
-    // extra item is the trailing \0 for ffi compatibility
+    /// The bytes plus a trailing NUL, so the data is also a C string.
     #[inline]
-    /// Get the count of extra items (trailing null byte for FFI compatibility)
     fn extra_items_count(this: &Self) -> usize {
-        return this.data.size + 1;
+        this.data.size + 1
     }
 }
 
-impl<T> From<T> for Bytes
-where
-    T: AsRef<[u8]>,
-{
-    #[inline]
-    /// Create Bytes from any type that can be converted to a byte slice
-    fn from(src: T) -> Self {
-        let value: &[u8] = src.as_ref();
+impl From<&[u8]> for Bytes {
+    /// Copy the bytes of `value`.
+    fn from(value: &[u8]) -> Self {
         // to be compatible with normal c++
         const MAX_SMALL_BYTES_LEN: usize = 7;
         unsafe {
@@ -114,7 +128,7 @@ where
                     data: TVMFFIAny {
                         type_index: TypeIndex::kTVMFFISmallBytes as i32,
                         small_str_len: value.len() as u32,
-                        data_union: data_union,
+                        data_union,
                     },
                 }
             } else {
@@ -126,12 +140,13 @@ where
                         size: value.len(),
                     },
                 });
-                // reset the data ptr correctly after Arc is created
-                obj_arc.data.data = BytesObj::extra_items(&obj_arc).as_ptr();
-                let extra_items = BytesObj::extra_items_mut(&mut obj_arc);
-                extra_items[..value.len()].copy_from_slice(value);
+                // The fresh allocation is unique and has not been exposed.
+                let object = ObjectArc::as_mut_ptr(&mut obj_arc);
+                let items = BytesObj::extra_items_ptr(object);
+                std::ptr::copy_nonoverlapping(value.as_ptr(), items, value.len());
                 // write the trailing \0 for ffi compatibility
-                extra_items[value.len()] = 0;
+                items.add(value.len()).write(0);
+                (*object).data.data = items;
                 Self {
                     data: TVMFFIAny {
                         type_index: TypeIndex::kTVMFFIBytes as i32,
@@ -186,7 +201,7 @@ impl Eq for Bytes {}
 impl PartialOrd for Bytes {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.as_slice().partial_cmp(other.as_slice())
+        Some(self.cmp(other))
     }
 }
 
@@ -204,17 +219,64 @@ impl Hash for Bytes {
     }
 }
 
-impl Display for Bytes {
+/// Formats as `[u8]` does, such as `[97, 98]`.
+impl Debug for Bytes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.as_slice(), f)
+        Debug::fmt(self.as_slice(), f)
     }
 }
 
-impl Debug for Bytes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ffi.Bytes")
-            .field("data", &self.as_slice())
-            .finish()
+macro_rules! impl_bytes_from {
+    ($([$($g:tt)*] $t:ty),* $(,)?) => {
+        $(impl<$($g)*> From<$t> for Bytes {
+            #[inline]
+            fn from(value: $t) -> Self {
+                Self::from(&value[..])
+            }
+        })*
+    };
+}
+
+impl_bytes_from!([] &mut [u8], [] Vec<u8>, [] &Vec<u8>, [] Box<[u8]>, [const N: usize] [u8; N], [const N: usize] &[u8; N]);
+
+macro_rules! impl_bytes_eq {
+    ($([$($g:tt)*] $t:ty),* $(,)?) => {
+        $(impl<$($g)*> PartialEq<$t> for Bytes {
+            #[inline]
+            fn eq(&self, other: &$t) -> bool {
+                self.as_slice() == &other[..]
+            }
+        }
+
+        impl<$($g)*> PartialEq<Bytes> for $t {
+            #[inline]
+            fn eq(&self, other: &Bytes) -> bool {
+                &self[..] == other.as_slice()
+            }
+        })*
+    };
+}
+
+impl_bytes_eq!([] [u8], ['a] &'a [u8], [] Vec<u8>, [const N: usize] [u8; N], ['a, const N: usize] &'a [u8; N]);
+
+impl AsRef<[u8]> for Bytes {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+
+impl std::borrow::Borrow<[u8]> for Bytes {
+    #[inline]
+    fn borrow(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+
+impl From<Bytes> for Vec<u8> {
+    #[inline]
+    fn from(value: Bytes) -> Self {
+        value.as_slice().to_vec()
     }
 }
 
@@ -222,17 +284,38 @@ impl Debug for Bytes {
 // String
 //-----------------------------------------------------
 
-/// ABI stable String container for ffi
+/// An immutable UTF-8 string, passed across languages as `ffi.String`
+/// (Python `str`).
+///
+/// An `ffi.String` holds UTF-8 by contract, which other languages keep, so
+/// [`as_str`](Self::as_str) does not validate strings received through FFI.
+///
+/// Short strings are stored inline in an [`Any`](crate::Any) without an
+/// allocation.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_ffi::String;
+///
+/// let text = String::from("hello");
+/// assert_eq!(text.as_str(), "hello");
+/// assert_eq!(text.len(), 5);
+/// assert_eq!(text, "hello");
+/// ```
 #[repr(C)]
 pub struct String {
     data: TVMFFIAny,
 }
 
+// SAFETY: a `String` is immutable: an inline small string or an immutable string object.
+unsafe impl Send for String {}
+unsafe impl Sync for String {}
+
 // StringObj for heap-allocated string
 #[repr(C)]
 #[derive(Object)]
-#[type_key = "ffi.String"]
-#[type_index(TypeIndex::kTVMFFIStr)]
+#[object(type_key = "ffi.String", unsafe type_index = TypeIndex::kTVMFFIStr)]
 pub(crate) struct StringObj {
     object: Object,
     data: TVMFFIByteArray,
@@ -240,16 +323,15 @@ pub(crate) struct StringObj {
 
 unsafe impl ObjectCoreWithExtraItems for StringObj {
     type ExtraItem = u8;
+    /// The bytes plus a trailing NUL, so the data is also a C string.
     #[inline]
-    /// Get the count of extra items (trailing null byte for FFI compatibility)
     fn extra_items_count(this: &Self) -> usize {
-        // extra item is the trailing \0 for ffi compatibility
-        return this.data.size + 1;
+        this.data.size + 1
     }
 }
 
 impl String {
-    /// Create a new empty String container
+    /// An empty string.
     pub fn new() -> Self {
         Self {
             data: TVMFFIAny {
@@ -260,12 +342,17 @@ impl String {
         }
     }
 
-    /// Get the length of the string in bytes
+    /// The length in bytes.
     pub fn len(&self) -> usize {
         self.as_bytes().len()
     }
 
-    /// Get the string as a byte slice
+    /// Whether the string is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The string as bytes.
     pub fn as_bytes(&self) -> &[u8] {
         unsafe {
             if self.data.type_index == TypeIndex::kTVMFFISmallStr as i32 {
@@ -280,21 +367,16 @@ impl String {
         }
     }
 
-    /// Get the string as a str slice
+    /// The string as a `str`.
     pub fn as_str(&self) -> &str {
         unsafe { std::str::from_utf8_unchecked(self.as_bytes()) }
     }
 }
 
-impl<T> From<T> for String
-where
-    T: AsRef<str>,
-{
-    #[inline]
-    /// Create String from any type that can be converted to a string slice
-    fn from(src: T) -> Self {
+impl From<&str> for String {
+    /// Copy the string `value`.
+    fn from(value: &str) -> Self {
         unsafe {
-            let value: &str = src.as_ref();
             let bytes = value.as_bytes();
             const MAX_SMALL_BYTES_LEN: usize = 7;
             if bytes.len() <= MAX_SMALL_BYTES_LEN {
@@ -304,7 +386,7 @@ where
                     data: TVMFFIAny {
                         type_index: TypeIndex::kTVMFFISmallStr as i32,
                         small_str_len: bytes.len() as u32,
-                        data_union: data_union,
+                        data_union,
                     },
                 }
             } else {
@@ -315,11 +397,13 @@ where
                         size: bytes.len(),
                     },
                 });
-                obj_arc.data.data = StringObj::extra_items(&obj_arc).as_ptr();
-                let extra_items = StringObj::extra_items_mut(&mut obj_arc);
-                extra_items[..bytes.len()].copy_from_slice(bytes);
+                // The fresh allocation is unique and has not been exposed.
+                let object = ObjectArc::as_mut_ptr(&mut obj_arc);
+                let items = StringObj::extra_items_ptr(object);
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), items, bytes.len());
                 // write the trailing \0 for ffi compatibility
-                extra_items[bytes.len()] = 0;
+                items.add(bytes.len()).write(0);
+                (*object).data.data = items;
                 Self {
                     data: TVMFFIAny {
                         type_index: TypeIndex::kTVMFFIStr as i32,
@@ -376,33 +460,73 @@ impl PartialEq for String {
     }
 }
 
-// Allows `my_string == "hello"`
-impl<T> PartialEq<T> for String
-where
-    T: AsRef<str>,
-{
+macro_rules! impl_string_from {
+    ($([$($g:tt)*] $t:ty),* $(,)?) => {
+        $(impl<$($g)*> From<$t> for String {
+            #[inline]
+            fn from(value: $t) -> Self {
+                Self::from(&value[..])
+            }
+        })*
+    };
+}
+
+impl_string_from!([] &mut str, [] std::string::String, [] &std::string::String, [] Box<str>, ['a] std::borrow::Cow<'a, str>);
+
+macro_rules! impl_string_eq {
+    ($([$($g:tt)*] $t:ty),* $(,)?) => {
+        $(impl<$($g)*> PartialEq<$t> for String {
+            #[inline]
+            fn eq(&self, other: &$t) -> bool {
+                self.as_str() == &other[..]
+            }
+        }
+
+        impl<$($g)*> PartialEq<String> for $t {
+            #[inline]
+            fn eq(&self, other: &String) -> bool {
+                &self[..] == other.as_str()
+            }
+        })*
+    };
+}
+
+impl_string_eq!([] str, ['a] &'a str, [] std::string::String, ['a] std::borrow::Cow<'a, str>);
+
+impl AsRef<str> for String {
     #[inline]
-    fn eq(&self, other: &T) -> bool {
-        self.as_str() == other.as_ref()
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl AsRef<[u8]> for String {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        self.as_bytes()
+    }
+}
+
+impl std::borrow::Borrow<str> for String {
+    #[inline]
+    fn borrow(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl From<String> for std::string::String {
+    #[inline]
+    fn from(value: String) -> Self {
+        value.as_str().to_owned()
     }
 }
 
 impl Eq for String {}
 
-impl<T> PartialEq<T> for Bytes
-where
-    T: AsRef<[u8]>,
-{
-    #[inline]
-    fn eq(&self, other: &T) -> bool {
-        self.as_slice() == other.as_ref()
-    }
-}
-
 impl PartialOrd for String {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.as_str().partial_cmp(other.as_str())
+        Some(self.cmp(other))
     }
 }
 
@@ -422,15 +546,14 @@ impl Hash for String {
 
 impl Display for String {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.as_str(), f)
+        Display::fmt(self.as_str(), f)
     }
 }
 
+/// Formats as `str` does, such as `"hi"`.
 impl Debug for String {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ffi.String")
-            .field("data", &self.as_str())
-            .finish()
+        Debug::fmt(self.as_str(), f)
     }
 }
 
@@ -445,7 +568,7 @@ unsafe impl AnyCompatible for Bytes {
     // Bytes are small bytes or a bytes object, never None.
     #[inline]
     unsafe fn is_undefined(field: *const Self) -> bool {
-        (*std::ptr::addr_of!((*field).data.type_index)) == TypeIndex::kTVMFFINone as i32
+        unsafe { (*std::ptr::addr_of!((*field).data.type_index)) == TypeIndex::kTVMFFINone as i32 }
     }
 
     unsafe fn copy_to_any_view(this: &Self, data: &mut TVMFFIAny) {
@@ -458,8 +581,8 @@ unsafe impl AnyCompatible for Bytes {
     }
 
     unsafe fn check_any_strict(data: &TVMFFIAny) -> bool {
-        return data.type_index == TypeIndex::kTVMFFISmallBytes as i32
-            || data.type_index == TypeIndex::kTVMFFIBytes as i32;
+        data.type_index == TypeIndex::kTVMFFISmallBytes as i32
+            || data.type_index == TypeIndex::kTVMFFIBytes as i32
     }
 
     unsafe fn copy_from_any_view_after_check(data: &TVMFFIAny) -> Self {
@@ -476,10 +599,12 @@ unsafe impl AnyCompatible for Bytes {
     unsafe fn try_cast_from_any_view(data: &TVMFFIAny) -> Result<Self, ()> {
         if data.type_index == TypeIndex::kTVMFFIByteArrayPtr as i32 {
             // deep copy from bytearray ptr
-            let bytes = &*(data.data_union.v_ptr as *const TVMFFIByteArray);
-            Ok(Self::from(std::slice::from_raw_parts(
-                bytes.data, bytes.size,
-            )))
+            let bytes = unsafe { &*(data.data_union.v_ptr as *const TVMFFIByteArray) };
+            Ok(unsafe {
+                Self::from(crate::util::slice_from_nullable_raw_parts(
+                    bytes.data, bytes.size,
+                ))
+            })
         } else if data.type_index == TypeIndex::kTVMFFISmallBytes as i32 {
             Ok(Self { data: *data })
         } else if data.type_index == TypeIndex::kTVMFFIBytes as i32 {
@@ -499,7 +624,7 @@ unsafe impl AnyCompatible for String {
     // A string is a small string or a string object, never None.
     #[inline]
     unsafe fn is_undefined(field: *const Self) -> bool {
-        (*std::ptr::addr_of!((*field).data.type_index)) == TypeIndex::kTVMFFINone as i32
+        unsafe { (*std::ptr::addr_of!((*field).data.type_index)) == TypeIndex::kTVMFFINone as i32 }
     }
 
     unsafe fn copy_to_any_view(this: &Self, data: &mut TVMFFIAny) {
@@ -512,8 +637,8 @@ unsafe impl AnyCompatible for String {
     }
 
     unsafe fn check_any_strict(data: &TVMFFIAny) -> bool {
-        return data.type_index == TypeIndex::kTVMFFISmallStr as i32
-            || data.type_index == TypeIndex::kTVMFFIStr as i32;
+        data.type_index == TypeIndex::kTVMFFISmallStr as i32
+            || data.type_index == TypeIndex::kTVMFFIStr as i32
     }
 
     unsafe fn copy_from_any_view_after_check(data: &TVMFFIAny) -> Self {
@@ -529,10 +654,10 @@ unsafe impl AnyCompatible for String {
 
     unsafe fn try_cast_from_any_view(data: &TVMFFIAny) -> Result<Self, ()> {
         if data.type_index == TypeIndex::kTVMFFIRawStr as i32 {
-            // 1. Create a CStr wrapper from the raw pointer.
-            let c_str =
-                std::ffi::CStr::from_ptr(data.data_union.v_c_str as *const std::os::raw::c_char);
-            Ok(Self::from(c_str.to_str().expect("Invalid UTF-8")))
+            let c_str = unsafe {
+                std::ffi::CStr::from_ptr(data.data_union.v_c_str as *const std::os::raw::c_char)
+            };
+            c_str.to_str().map(Self::from).map_err(|_| ())
         } else if data.type_index == TypeIndex::kTVMFFISmallStr as i32 {
             Ok(Self { data: *data })
         } else if data.type_index == TypeIndex::kTVMFFIStr as i32 {

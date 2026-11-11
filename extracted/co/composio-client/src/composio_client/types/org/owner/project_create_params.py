@@ -15,11 +15,13 @@ class ApiKeyPermission(TypedDict, total=False):
 
 
 class Config(TypedDict, total=False):
-    "Configuration for the project. Use zdr_enabled for Zero Data Retention; log_visibility_setting remains supported for existing clients. Do not send both fields."
+    "Configuration for the project. Use display_name and logo_url to brand the hosted Connect Link page. Use zdr_enabled for Zero Data Retention; log_visibility_setting remains supported for existing clients. Do not send both fields."
 
     is_2FA_enabled: NotRequired[bool]
     logo_url: NotRequired[str]
+    "URL of the logo shown to end users on the hosted Connect Link page. Use a publicly reachable https image URL. The Composio logo is shown when omitted."
     display_name: NotRequired[str]
+    "App name shown to end users on the hosted Connect Link page, up to 75 characters. The page shows Composio when omitted."
     mask_secret_keys_in_connected_account: NotRequired[bool]
     log_visibility_setting: NotRequired[Literal["show_all", "dont_store_data"]]
     is_composio_link_enabled_for_managed_auth: NotRequired[bool]

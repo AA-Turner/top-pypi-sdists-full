@@ -14,16 +14,21 @@ import numpy
 import torch
 import pytest
 
-from tmol.io import pose_stack_from_file
-from tmol.pack import PackerPalette, PackerTask, SetPackerTask
-from tmol.pack.rotamer import (
+from tmol import (
+    pose_stack_from_file,
+    PackerPalette,
+    PackerTask,
+    KinematicRelaxMinimizer,
+    MoveMap,
+    fast_relax,
+)
+from tmol.pack import (
+    SetPackerTask,
     build_rotamers,
     FixedAAChiSampler,
     IncludeCurrentSampler,
 )
-from tmol.score.backbone_torsion import BackboneTorsionEnergyTerm
-from tmol.kinematics import FoldForest, MoveMap
-from tmol.relax import fast_relax
+from tmol.score import BackboneTorsionEnergyTerm
 from tmol.tests.data import data_path
 from tmol.tests.relax.test_fast_relax import get_relax_sfxn
 
@@ -158,9 +163,7 @@ def test_relax_maintains_backbone_bonds(default_database, dun_sampler, torch_dev
     relaxed = fast_relax(
         pose_stack,
         sfxn,
-        PackerPalette(),
-        move_map,
-        FoldForest.reasonable_fold_forest(pose_stack),
+        minimizer=KinematicRelaxMinimizer(move_map),
         task_operations=[task_op],
         num_repeats=1,
     )

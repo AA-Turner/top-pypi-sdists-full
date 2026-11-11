@@ -1,12 +1,16 @@
-use std::{hint::black_box, time::Instant};
+use std::{collections::HashMap, hint::black_box, io::Read, path::Path, time::Instant};
 
+#[path = "utils/synthetic_specs_fixture.rs"]
+mod synthetic_specs_fixture;
+
+use bytes::Bytes;
 use prost::Message;
 use statsig_rust::{
     OPS_STATS,
     networking::ResponseData,
     specs_response::{
-        proto_specs::deserialize_protobuf, proto_stream_reader::ProtoStreamReader,
-        spec_types::SpecsResponseFull, statsig_config_specs as pb,
+        proto_specs::deserialize_protobuf, spec_types::SpecsResponseFull,
+        statsig_config_specs as pb,
     },
 };
 
@@ -20,23 +24,33 @@ fn benchmark_protobuf_copies() {
         .unwrap_or(100);
     let ops = OPS_STATS.get_for_instance("protobuf-copy-bench");
     let current = SpecsResponseFull::default();
-    for (name, compressed) in [
-        (
-            "eval",
-            include_bytes!("data/eval_proj_dcs.pb.br").as_slice(),
-        ),
-        (
-            "perf",
-            include_bytes!("data/perf_proj_dcs.pb.br").as_slice(),
-        ),
-    ] {
-        let mut data = ResponseData::from_bytes(compressed.to_vec());
-        let mut reader = ProtoStreamReader::new(&mut data);
+    let benchmark_case = |name: &str, compressed: &[u8], encoding: &str| {
+        println!(
+            "{name} content_encoding={encoding} bytes={}",
+            compressed.len()
+        );
+        let headers = HashMap::from([
+            ("content-type".into(), "application/octet-stream".into()),
+            ("content-encoding".into(), encoding.to_owned()),
+        ]);
+        let decoded = match encoding {
+            "statsig-zstd" => zstd::stream::decode_all(compressed).unwrap(),
+            "statsig-br" => {
+                let mut bytes = Vec::new();
+                brotli::Decompressor::new(compressed, 4096)
+                    .read_to_end(&mut bytes)
+                    .unwrap();
+                bytes
+            }
+            _ => panic!("unsupported protobuf content encoding: {encoding}"),
+        };
+        let mut remaining = Bytes::from(decoded);
         let mut frames = Vec::new();
         let mut dynamic_payloads = Vec::new();
         loop {
-            let frame = reader.read_next_delimited_proto().unwrap().freeze();
-            let envelope = pb::SpecsEnvelope::decode_length_delimited(frame.clone()).unwrap();
+            let start = remaining.clone();
+            let envelope = pb::SpecsEnvelope::decode_length_delimited(&mut remaining).unwrap();
+            let frame = start.slice(..start.len() - remaining.len());
             if envelope.kind == pb::SpecsEnvelopeKind::DynamicConfig as i32 {
                 dynamic_payloads.push(envelope.data.unwrap());
             }
@@ -91,7 +105,10 @@ fn benchmark_protobuf_copies() {
             let started = Instant::now();
             for _ in 0..iterations {
                 let mut next = SpecsResponseFull::default();
-                let mut data = ResponseData::from_bytes(compressed.to_vec());
+                let mut data = ResponseData::from_bytes_with_headers(
+                    compressed.to_vec(),
+                    Some(headers.clone()),
+                );
                 deserialize_protobuf(&ops, &current, &mut next, &mut data).unwrap();
                 black_box(next);
             }
@@ -99,6 +116,35 @@ fn benchmark_protobuf_copies() {
                 "{name} sync-full round={round} us/update={:.3}",
                 started.elapsed().as_micros() as f64 / iterations as f64
             );
+        }
+    };
+
+    if let Some(path) = std::env::var_os("STATSIG_BENCH_MANIFEST") {
+        let fixture = synthetic_specs_fixture::load_inline_protobuf(Path::new(&path))
+            .unwrap_or_else(|error| panic!("invalid STATSIG_BENCH_MANIFEST: {error}"));
+        println!(
+            "synthetic-inline product={} seed={} sha256={}",
+            fixture.product, fixture.seed, fixture.sha256
+        );
+        benchmark_case(
+            "synthetic-inline",
+            &fixture.bytes,
+            &fixture.content_encoding,
+        );
+    } else {
+        for (name, fixture) in [
+            (
+                "eval",
+                include_bytes!("data/eval_proj_dcs.pb.br").as_slice(),
+            ),
+            (
+                "perf",
+                include_bytes!("data/perf_proj_dcs.pb.br").as_slice(),
+            ),
+        ] {
+            let zstd =
+                zstd::stream::encode_all(brotli::Decompressor::new(fixture, 4096), 3).unwrap();
+            benchmark_case(name, &zstd, "statsig-zstd");
         }
     }
 }

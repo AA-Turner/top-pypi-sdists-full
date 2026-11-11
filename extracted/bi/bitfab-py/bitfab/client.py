@@ -11,9 +11,11 @@ import json
 import logging
 import math
 import os
+import re
 import sys
 import threading
 import time
+import urllib.parse
 import uuid
 import weakref
 from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
@@ -409,6 +411,41 @@ def _reported_cost_of(call: Any) -> float | None:
         return None
 
 
+_MODEL_IN_URL = re.compile(r"/models?/([^/:?]+)")
+
+
+def _model_from_url(url: Any) -> str | None:
+    if not isinstance(url, str):
+        return None
+    match = _MODEL_IN_URL.search(url)
+    return urllib.parse.unquote(match.group(1)) if match else None
+
+
+def _string_field(body: Any, key: str) -> str | None:
+    value = body.get(key) if isinstance(body, dict) else None
+    return value if isinstance(value, str) and value else None
+
+
+def _body_or_none(raw_body: Any) -> dict[str, Any] | None:
+    try:
+        return _parse_http_body(raw_body)
+    except Exception:
+        return None
+
+
+def _model_of(call: Any) -> str | None:
+    http_request = getattr(call, "http_request", None)
+    http_response = getattr(call, "http_response", None)
+    request_body = _body_or_none(getattr(http_request, "body", None))
+    response_body = _body_or_none(getattr(http_response, "body", None))
+    return (
+        _string_field(request_body, "model")
+        or _string_field(response_body, "model")
+        or _string_field(response_body, "modelVersion")
+        or _model_from_url(getattr(http_request, "url", None))
+    )
+
+
 def _extract_context_from_collector(collector: Any) -> dict[str, Any] | None:
     try:
         last_log = collector.last
@@ -426,11 +463,9 @@ def _extract_context_from_collector(collector: Any) -> dict[str, Any] | None:
             if provider:
                 context["provider"] = provider
 
-            http_request = getattr(selected_call, "http_request", None)
-            if http_request is not None:
-                body = _parse_http_body(getattr(http_request, "body", None))
-                if isinstance(body, dict) and isinstance(body.get("model"), str):
-                    context["model"] = body["model"]
+            model = _model_of(selected_call)
+            if model:
+                context["model"] = model
 
         call_usage = getattr(selected_call, "usage", None) if selected_call else None
         input_tokens = getattr(usage, "input_tokens", None) or getattr(

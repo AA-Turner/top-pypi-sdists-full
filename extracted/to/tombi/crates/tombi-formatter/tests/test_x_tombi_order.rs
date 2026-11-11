@@ -720,13 +720,13 @@ mod table_keys_order {
                 SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
-                [dependencies]
-                clap = { version = "4.5.0" }
-                serde = { version = "^1.0.0", features = ["derive"] }
-
                 [features]
                 default = ["clap"]
                 clap = ["clap/derive"]
+
+                [dependencies]
+                clap = { version = "4.5.0" }
+                serde = { version = "^1.0.0", features = ["derive"] }
                 "#
             )
         }
@@ -749,6 +749,24 @@ mod table_keys_order {
                 clap = ["dep:clap"]
                 native = ["tombi-schema-store/native"]
                 wasm = ["tombi-schema-store/wasm"]
+                "#
+            )
+        }
+
+        test_format! {
+            #[tokio::test]
+            async fn test_cargo_feature_values_grouped_by_default_dependency_and_name(
+                r#"
+                [features]
+                default = ["zeta10", "dep:zeta10", "alpha", "dep:alpha", "zeta2", "dep:zeta2"]
+                bundle = ["zeta", "dep:zeta", "default", "alpha", "dep:alpha"]
+                "#,
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [features]
+                default = ["dep:alpha", "dep:zeta2", "dep:zeta10", "alpha", "zeta2", "zeta10"]
+                bundle = ["default", "dep:alpha", "dep:zeta", "alpha", "zeta"]
                 "#
             )
         }

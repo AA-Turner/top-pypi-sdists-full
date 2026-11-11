@@ -8,7 +8,7 @@ from __future__ import annotations
 import base64
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from ._whitespace import trim_json_whitespace
@@ -25,6 +25,7 @@ ChangeMode = Literal['direct', 'tracked']
 HOST_PROTOCOL_VERSION = SDK_POLICY['protocolVersion']
 REQUIRED_FEATURES = tuple(SDK_POLICY['cliRequiredFeatures'])
 COLLABORATION_AUTH_PER_OPEN_FEATURE = SDK_POLICY['features']['collaborationAuthPerOpen']
+IDENTITY_CLAIM_PER_OPEN_FEATURE = SDK_POLICY['features'].get('identityClaimPerOpen')
 WATCHDOG_HEADROOM_MS = SDK_POLICY['watchdogHeadroomMs']
 
 
@@ -48,6 +49,7 @@ class JsonRpcError:
 class JsonRpcNotification:
     method: str
     params: Any
+    frame: Optional[Dict[str, Any]] = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)
@@ -98,7 +100,7 @@ def parse_jsonrpc_line(line: str) -> ParsedMessage:
 
     # Notification: has method but no id.
     if 'method' in parsed and 'id' not in parsed:
-        return JsonRpcNotification(method=parsed['method'], params=parsed.get('params'))
+        return JsonRpcNotification(method=parsed['method'], params=parsed.get('params'), frame=parsed)
 
     raw_id = parsed.get('id')
     if type(raw_id) is not int:
@@ -351,16 +353,25 @@ def normalize_collaboration_auth(value: Any) -> Dict[str, str]:
     return {'type': 'token', 'token': token}
 
 
+def normalize_identity_claim(value: Any) -> str:
+    if not isinstance(value, str) or len(value) == 0:
+        raise SuperDocError('identity_claim must be a non-empty string.', code='INVALID_ARGUMENT')
+    return value
+
+
 def build_cli_invoke_payload(
     argv: List[str],
     stdin_bytes: Optional[bytes] = None,
     collaboration_auth: Optional[Dict[str, str]] = None,
+    identity_claim: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build the params dict for a cli.invoke JSON-RPC request."""
     payload: Dict[str, Any] = {'argv': argv}
     payload['stdinBase64'] = base64.b64encode(stdin_bytes).decode('ascii') if stdin_bytes else ''
     if collaboration_auth is not None:
         payload['collaborationAuth'] = normalize_collaboration_auth(collaboration_auth)
+    if identity_claim is not None:
+        payload['identityClaim'] = normalize_identity_claim(identity_claim)
     return payload
 
 

@@ -51,7 +51,7 @@ class vlmeta(MutableMapping, blosc2_ext.vlmeta):
       :class:`blosc2.BatchArray`, and :class:`blosc2.EmbedStore`
     - structured references and lazy objects such as :class:`blosc2.Ref`,
       :class:`blosc2.C2Array`, :class:`blosc2.LazyExpr`, and
-      :class:`blosc2.LazyUDF` backed by :func:`blosc2.dsl_kernel`
+      lazy Menudet results authored with :func:`blosc2.menudet`
 
     Lazy expressions and supported lazy UDFs still require durable operand
     references only; purely in-memory operands are intentionally rejected.
@@ -450,8 +450,9 @@ class SChunk(blosc2_ext.SChunk):
             default = DeserializeMode.SAFE if opens_existing else DeserializeMode.FULL
             set_deserialize(self, default if deserialize is None else deserialize)
         self._vlmeta = vlmeta(self, super().c_schunk)
-        self._cparams = super().get_cparams()
-        self._dparams = super().get_dparams()
+        # Built on first use: most handles (e.g. those of NDArrays) never need them
+        self._cparams = None
+        self._dparams = None
 
     def __enter__(self) -> SChunk:
         """Enter a context manager and return this super-chunk."""
@@ -470,6 +471,8 @@ class SChunk(blosc2_ext.SChunk):
         """
         :class:`blosc2.CParams` instance with the compression parameters.
         """
+        if self._cparams is None:
+            self._cparams = super().get_cparams()
         return self._cparams
 
     @cparams.setter
@@ -477,13 +480,15 @@ class SChunk(blosc2_ext.SChunk):
         if blosc2.IS_WASM and value.nthreads != 1:
             value = replace(value, nthreads=1)
         super().update_cparams(value)
-        self._cparams = super().get_cparams()
+        self._cparams = None
 
     @property
     def dparams(self) -> blosc2.DParams:
         """
         :class:`blosc2.DParams` instance with the decompression parameters.
         """
+        if self._dparams is None:
+            self._dparams = super().get_dparams()
         return self._dparams
 
     @dparams.setter
@@ -491,7 +496,7 @@ class SChunk(blosc2_ext.SChunk):
         if blosc2.IS_WASM and value.nthreads != 1:
             value = replace(value, nthreads=1)
         super().update_dparams(value)
-        self._dparams = super().get_dparams()
+        self._dparams = None
 
     @contextmanager
     def holding_lock(self) -> Iterator[SChunk]:
@@ -815,13 +820,12 @@ class SChunk(blosc2_ext.SChunk):
         total_items = self.nbytes // self.typesize
         nitems = min(chunk_items, total_items - nchunk * chunk_items)
 
-        tmp = SChunk(chunksize=self.chunksize, cparams=blosc2.CParams(typesize=self.typesize))
-        tmp.fill_special(nitems, special_value, value)
+        chunk = super()._special_chunk(nitems * self.typesize, special_value.value, value)
         # A special chunk is indistinguishable from one that was never written, so
         # a reader that keeps its own record of what it has (:ref:`Proxy` does)
         # cannot see this happen. Counting it lets such a reader notice for free.
         self.nspecialized += 1
-        nchunks = self.update_chunk(nchunk, tmp.get_chunk(0))
+        nchunks = self.update_chunk(nchunk, chunk)
         self._forget_fetched(nchunk)
         return nchunks
 
@@ -856,8 +860,8 @@ class SChunk(blosc2_ext.SChunk):
             The index of the chunk that will be decompressed.
         dst: NumPy object or bytearray
             The destination NumPy object or bytearray to fill, the length
-            of which must be greater than 0. The user must ensure
-            that it has enough capacity to host the decompressed
+            of which must be greater than 0. It must be writable and
+            have enough capacity to host the decompressed
             chunk. Default is None, meaning that a new bytes object
             is created, filled and returned.
 
@@ -870,8 +874,12 @@ class SChunk(blosc2_ext.SChunk):
 
         Raises
         ------
+        BufferError
+            If :paramref:`dst` is read-only, like a `bytes` object or a read-only memoryview.
         RunTimeError
             If a problem is detected.
+        ValueError
+            If the length of :paramref:`dst` is 0, or if it is a read-only NumPy array.
 
         Examples
         --------
@@ -1023,7 +1031,8 @@ class SChunk(blosc2_ext.SChunk):
         data: bytes object
             The data that will be compressed and inserted as a chunk.
         copy: bool
-            Whether to make an internal copy of the chunk to insert it or not.
+            Kept for backward compatibility; it has no effect. The chunk compressed
+            from :paramref:`data` stays internal, so it never needs a copy.
 
         Returns
         -------
@@ -1157,7 +1166,8 @@ class SChunk(blosc2_ext.SChunk):
         data: bytes object
             The data to be compressed and will replace the old chunk.
         copy: bool
-             Whether to make an internal copy of the chunk before updating it.
+            Kept for backward compatibility; it has no effect. The chunk compressed
+            from :paramref:`data` stays internal, so it never needs a copy.
 
         Returns
         -------
@@ -1377,6 +1387,13 @@ class SChunk(blosc2_ext.SChunk):
         --------
         :func:`~blosc2.schunk_from_cframe`
 
+        Notes
+        -----
+        The buffer holds the chunks as they are stored: a postfilter (see
+        :meth:`postfilter`) is not applied, and it is not part of the buffer
+        either. Set it again on the deserialized :ref:`SChunk` to read the same
+        values as from this one.
+
         Examples
         --------
         >>> import blosc2
@@ -1532,7 +1549,8 @@ class SChunk(blosc2_ext.SChunk):
         * `nthreads` must be 1 when decompressing.
 
         * The :paramref:`input_dtype` itemsize must be the same as the
-          :paramref:`output_dtype` itemsize.
+          :paramref:`output_dtype` itemsize, and the typesize of the chunks:
+          decompressing a chunk with another typesize fails.
 
         See Also
         --------
@@ -1634,6 +1652,7 @@ class SChunk(blosc2_ext.SChunk):
         Notes
         -----
         * Compression `nthreads` must be 1 when using this.
+        * The :paramref:`schunk_dtype` itemsize must be the typesize of the SChunk.
         * This does not need to be removed from the created `SChunk` instance.
 
         See Also
@@ -1668,16 +1687,19 @@ class SChunk(blosc2_ext.SChunk):
                 raise ValueError("Cannot apply a filler to a non empty SChunk")
             nelem_ = blosc2_ext.nelem_from_inputs(inputs_tuple, nelem)
             super(SChunk, self)._set_filler(func, id(inputs_tuple), schunk_dtype)
-            chunksize = self.chunksize
-            written_nbytes = 0
-            nbytes = nelem_ * self.typesize
-            while written_nbytes < nbytes:
-                chunk = np.zeros(chunksize // self.typesize, dtype=schunk_dtype)
-                self.append_data(chunk)
-                written_nbytes += chunksize
-                if (nbytes - written_nbytes) < self.chunksize:
-                    chunksize = nbytes - written_nbytes
-            self.remove_prefilter(func.__name__)
+            try:
+                chunksize = self.chunksize
+                written_nbytes = 0
+                nbytes = nelem_ * self.typesize
+                while written_nbytes < nbytes:
+                    chunk = np.zeros(chunksize // self.typesize, dtype=schunk_dtype)
+                    self.append_data(chunk)
+                    written_nbytes += chunksize
+                    if (nbytes - written_nbytes) < self.chunksize:
+                        chunksize = nbytes - written_nbytes
+            finally:
+                # Also after a failed append: the filler only keeps the id of inputs_tuple
+                self.remove_prefilter(func.__name__)
 
             def exec_func(*args):
                 func(*args)
@@ -1713,7 +1735,8 @@ class SChunk(blosc2_ext.SChunk):
         * `nthreads` must be 1 when compressing.
 
         * The :paramref:`input_dtype` itemsize must be the same as the
-          :paramref:`output_dtype` itemsize.
+          :paramref:`output_dtype` itemsize, and the typesize of the SChunk:
+          compressing with another typesize fails.
 
         See Also
         --------
@@ -1868,12 +1891,9 @@ def _open_special_store(urlpath, mode, offset, *, deserialize=DeserializeMode.SA
             from blosc2.remote_store import RemoteStore
 
             return RemoteStore._open_artifact(urlpath, mode=mode, **kwargs)
-        if "b2embed" in schunk_meta:
-            if offset != 0:
-                raise ValueError("Offset must be 0 for EmbedStore")
-            from blosc2.embed_store import EmbedStore
-
-            return EmbedStore(urlpath, mode=mode, deserialize=deserialize, **kwargs)
+        # No "b2embed" check: the embed.b2e of a .b2d/.b2z written by python-blosc2
+        # <= 4.0.0 carries that marker too (b2dict and b2tree came in 4.1.0), so it
+        # does not tell the store type.  Those stores and .b2e files go by extension.
         if "b2dict" in schunk_meta:
             if offset != 0:
                 raise ValueError("Offset must be 0 for DictStore")
@@ -1968,36 +1988,48 @@ def process_opened_object(res, *, deserialize=DeserializeMode.SAFE):
     deserialize = normalize_deserialize(deserialize)
     set_deserialize(res, deserialize)
     meta = getattr(res, "schunk", res).meta
-    if "proxy-source" in meta:
+    # All the metalayer names at once, instead of one locked call per check below.  Names that are not
+    # UTF-8 (the C API allows them) cannot be listed: then the checks go one by one.
+    try:
+        names = meta.keys()
+    except UnicodeDecodeError:
+        names = meta
+    if "proxy-source" in names:
         if deserialize is DeserializeMode.SAFE:
             raise UnsafeDeserializationError("proxy")
         proxy = _reconstruct_legacy_proxy(res, meta["proxy-source"])
         if proxy is not None:
             return proxy
 
-    if "b2o" in meta:
-        if deserialize is DeserializeMode.SAFE:
+    if "b2o" in names:
+        if isinstance(meta["b2o"], dict) and meta["b2o"].get("kind") == "lazyudf":
+            raise blosc2.UnsupportedLegacyRecipeError()
+        if deserialize is DeserializeMode.SAFE and (
+            not isinstance(meta["b2o"], dict) or meta["b2o"].get("kind") not in {"menudet", "lazyexpr"}
+        ):
             marker = meta["b2o"]
             kind = marker.get("kind", "b2o") if isinstance(marker, dict) else "b2o"
             raise UnsafeDeserializationError(str(kind))
         return blosc2.open_b2object(res)
 
-    if "listarray" in meta:
+    if "listarray" in names:
         from blosc2.list_array import ListArray
 
         return ListArray(_from_schunk=getattr(res, "schunk", res))
 
-    if "vlarray" in meta:
+    if "vlarray" in names:
         from blosc2.objectarray import ObjectArray
 
         return ObjectArray(_from_schunk=getattr(res, "schunk", res))
 
-    if "batcharray" in meta:
+    if "batcharray" in names:
         from blosc2.batch_array import BatchArray
 
         return BatchArray(_from_schunk=getattr(res, "schunk", res))
 
-    if isinstance(res, blosc2.NDArray) and "LazyArray" in res.schunk.meta:
+    if isinstance(res, blosc2.NDArray) and "LazyArray" in names:
+        if meta["LazyArray"] == 1:
+            raise blosc2.UnsupportedLegacyRecipeError()
         if deserialize is DeserializeMode.SAFE:
             raise UnsafeDeserializationError("LazyArray")
         return blosc2.open_lazyarray(res)
@@ -2159,7 +2191,12 @@ def _open_non_lazy_c2(
         raise NotImplementedError("cache_dir and cache_path for a Caterva2 array require lazy=True")
     if max_concurrency is not None:
         raise NotImplementedError("max_concurrency is only supported with lazy=True")
-    return blosc2.C2Array(urlpath.path, urlbase=urlpath.urlbase, auth_token=urlpath.auth_token)
+    metadata = blosc2.c2array.info(urlpath.path, urlpath.urlbase, auth_token=urlpath.auth_token)
+    if "shape" not in metadata or "dtype" not in metadata:
+        raise NotImplementedError("Caterva2 group/table access requires lazy=True")
+    return blosc2.C2Array(
+        urlpath.path, urlbase=urlpath.urlbase, auth_token=urlpath.auth_token, _meta=metadata
+    )
 
 
 def _open_c2_urlpath(urlpath: blosc2.URLPath, mode: str, offset: int, kwargs: dict):  # noqa: C901
@@ -2197,7 +2234,25 @@ def _open_c2_urlpath(urlpath: blosc2.URLPath, mode: str, offset: int, kwargs: di
         if remote_array_options["assume_immutable"] is not True:
             raise ValueError("shared_cache=True requires assume_immutable=True")
     metadata = blosc2.c2array.info(urlpath.path, urlpath.urlbase, auth_token=urlpath.auth_token)
-    kind = metadata.get("kind")
+    from blosc2.remote_store import RemoteDiscovery
+
+    kind = RemoteDiscovery._caterva2_kind(metadata)
+    if kind == "file":
+        if remote_array_options.get("assume_immutable") is not True:
+            raise ValueError("RemoteFile requires assume_immutable=True")
+        if cache_path is not None or shared_cache or max_concurrency is not None:
+            raise NotImplementedError(
+                "RemoteFile uses cache_dir; shared_cache and max_concurrency are unsupported"
+            )
+        options = {
+            key: remote_array_options[key]
+            for key in ("cache_policy", "max_cache_bytes")
+            if key in remote_array_options
+        }
+        with blosc2.RemoteStore(
+            urlpath, cache_dir=cache_dir, _allow_array_root=True, _root_info=metadata, **options
+        ) as store:
+            return store[""]
     if kind == "group":
         if cache_path is not None:
             raise ValueError("Caterva2 groups use cache_dir, not cache_path")
@@ -2213,6 +2268,7 @@ def _open_c2_urlpath(urlpath: blosc2.URLPath, mode: str, offset: int, kwargs: di
         return blosc2.RemoteStore(
             urlpath,
             cache_dir=cache_dir,
+            _root_info=metadata,
             **store_options,
         )
     if kind == "ctable":
@@ -2777,6 +2833,49 @@ def _validate_shared_cache_request(urlpath, shared_cache, kwargs):
             kwargs["lazy"] = True
 
 
+def _open_service_base(urlpath, roots, mode, offset, shared_cache, kwargs, auth_token=None):
+    """Open one visible root or a lazy repository facade, without a second probe."""
+    if mode != "r" or offset != 0:
+        raise ValueError("Caterva2 services require mode='r' and offset=0")
+    if kwargs.get("lazy") is False:
+        raise NotImplementedError(
+            "Repository/group access requires lazy=True; select an array for lazy=False"
+        )
+    if len(roots) == 1:
+        target = blosc2.URLPath(next(iter(roots)), urlbase=urlpath.rstrip("/"), auth_token=auth_token)
+        kwargs.setdefault("lazy", True)
+        _validate_shared_cache_request(target, shared_cache, kwargs)
+        return _open_c2_urlpath(target, mode, offset, kwargs)
+    if shared_cache:
+        raise NotImplementedError("shared_cache requires a specific repository root")
+    cache_dir, cache_path = _remote_cache_options(kwargs)
+    if cache_path is not None:
+        raise ValueError("Repositories use cache_dir, not cache_path")
+    _validate_c2_urlpath_options(kwargs)
+    lazy = kwargs.pop("lazy", None)
+    if lazy is not None and not isinstance(lazy, bool):
+        raise TypeError("lazy must be a bool")
+    if kwargs.pop("assume_immutable", True) is not True:
+        raise ValueError("Repositories currently require assume_immutable=True")
+    from blosc2.remote_array import CACHE_POLICY_DEFAULT
+
+    policy, limit = blosc2.RemoteStore._validate_cache_config(
+        kwargs.pop("cache_policy", CACHE_POLICY_DEFAULT),
+        kwargs.pop("max_cache_bytes", CACHE_POLICY_DEFAULT),
+        cache_dir,
+    )
+    if kwargs:
+        raise NotImplementedError(f"{', '.join(sorted(kwargs))} is unsupported for repositories")
+    return blosc2.RemoteRepository(
+        urlpath,
+        roots,
+        auth_token=auth_token,
+        cache_dir=cache_dir,
+        cache_policy=policy,
+        max_cache_bytes=limit,
+    )
+
+
 def open(  # noqa: C901
     urlpath: str | pathlib.Path | blosc2.URLPath,
     mode: str = "r",
@@ -2787,6 +2886,7 @@ def open(  # noqa: C901
     path: str | None = None,
     shared_cache: bool = False,
     deserialize: str = "safe",
+    remote_service: str = "auto",
     **kwargs: dict,
 ) -> (
     blosc2.SChunk
@@ -2798,6 +2898,7 @@ def open(  # noqa: C901
     | blosc2.CTable
     | blosc2.RemoteCTable
     | blosc2.RemoteStore
+    | blosc2.RemoteFile
     | blosc2.LazyArray
     | blosc2.Proxy
     | blosc2.DictStore
@@ -2959,6 +3060,21 @@ def open(  # noqa: C901
             a ``.b2z`` path selects B2Z automatically. An explicit value supports
             suffix-free paths. Zarr, HDF5, B2Z and Parquet sources automatically enable
             ``lazy=True``.
+        remote_service: {"auto", "caterva2", "fsspec"}, optional
+            Select remote access independently of the source format. In auto mode,
+            HTTP(S) URLs with an @-prefixed root component are Caterva2 dataset
+            references and default to lazy access. Use ``"fsspec"`` to open an
+            ordinary remote source containing such a component without service
+            recognition. Explicit :ref:`URLPath` inputs retain their lazy defaults.
+            Ambiguous HTTP(S) base URLs are probed through ``api/roots`` with a
+            short timeout. One root opens directly; zero or multiple roots return
+            :class:`RemoteRepository`. ``"caterva2"`` requires service access and
+            disables ordinary-file fallback. Client cache budgets on a repository
+            are per root, independent of the server's shared cache.
+            Regular fixed-chunk Caterva2 SChunk leaves return :class:`RemoteFile`
+            with lazy access. ``read_bytes`` reads bounded original-byte ranges;
+            ``download`` streams the original file without exporting its Blosc
+            carrier. Irregular streams and oversized chunks are refused explicitly.
         parquet_options: dict, optional
             PyArrow ``ParquetFile`` reader options for a Parquet source. Conversion
             options such as ``columns`` and ``max_rows`` are passed separately.
@@ -3025,6 +3141,10 @@ def open(  # noqa: C901
 
     * When opening a :ref:`LazyExpr` keep in mind the note above regarding operands.
 
+    * Files on network storage (NFS, SMB, ...): turn on read-ahead with
+      :func:`blosc2.set_prefetch` (or the ``BLOSC_PREFETCH`` environment variable), so that
+      slices fetch the chunks they need in parallel instead of one block after the other.
+
     Examples
     --------
     >>> import blosc2
@@ -3064,6 +3184,44 @@ def open(  # noqa: C901
     """
     deserialize = normalize_deserialize(deserialize)
     dataset = blosc2.core.resolve_dataset_path(dataset, path)
+    if remote_service not in {"auto", "caterva2", "fsspec"}:
+        raise ValueError("remote_service must be 'auto', 'caterva2', or 'fsspec'")
+    if isinstance(urlpath, blosc2.URLPath):
+        if remote_service == "fsspec":
+            raise ValueError("remote_service='fsspec' conflicts with URLPath")
+    else:
+        from blosc2.caterva2_url import caterva2_urlpath, discover_service, service_probe_candidate
+
+        service_path = None if remote_service == "fsspec" else caterva2_urlpath(urlpath)
+        if service_path is not None:
+            urlpath = service_path
+            kwargs.setdefault("lazy", True)
+        elif remote_service == "caterva2" or (
+            remote_service == "auto"
+            and service_probe_candidate(urlpath)
+            and dataset is None
+            and hdf5_index is None
+            and kwargs.get("source_format") is None
+            and kwargs.get("storage_options") is None
+        ):
+            if mode != "r" or offset:
+                raise ValueError("Remote service discovery requires mode='r' and offset=0")
+            if dataset is not None or hdf5_index is not None:
+                raise ValueError("dataset/path and hdf5_index are unsupported for Caterva2 services")
+            from blosc2.caterva2_url import discovery_auth_token
+
+            auth_token = discovery_auth_token(urlpath, required=remote_service == "caterva2")
+            roots = discover_service(urlpath, required=remote_service == "caterva2", auth_token=auth_token)
+            if roots is not None:
+                return _open_service_base(urlpath, roots, mode, offset, shared_cache, kwargs, auth_token)
+        elif remote_service == "fsspec" and not is_fsspec_url(urlpath):
+            raise ValueError("remote_service='fsspec' requires a remote URL")
+    if isinstance(urlpath, blosc2.URLPath):
+        if dataset is not None or hdf5_index is not None:
+            raise ValueError("dataset/path and hdf5_index are unsupported for Caterva2 sources")
+        _reject_table_buffer_options(kwargs)
+        _validate_shared_cache_request(urlpath, shared_cache, kwargs)
+        return _open_c2_urlpath(urlpath, mode, offset, kwargs)
     if kwargs.get("source_format") == "parquet" or (
         isinstance(urlpath, (str, pathlib.Path))
         and str(urlpath).split("?", 1)[0].lower().endswith(".parquet")

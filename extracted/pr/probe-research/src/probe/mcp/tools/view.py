@@ -140,6 +140,10 @@ _VIEWS: dict[tuple[str, str], str] = {
     # branches header's one current pick cannot show). Projects only: the best route takes a
     # project; a workspace's history rides `browse mode=branches`.
     (EntityType.PROJECT, View.PICKS): "_view_project_picks",
+    # The panes on its page (agent-friendly commands B8): what each shows and reads, never its HTML (up to
+    # 300k characters each). Read-only; `probe pane push` writes. An experiment is served as a project.
+    (EntityType.PROJECT, View.PANES): "_build_project_panes_view",
+    (EntityType.EXPERIMENT, View.PANES): "_build_experiment_panes_view",
     (EntityType.GROUP, View.CARD): "_view_card",
     # One rollout as an entity (0135). NO `notes` view or card excerpt, unlike every other entity: a
     # Trial has no notes document. A rollout ran once and is immutable, so `description` holds what

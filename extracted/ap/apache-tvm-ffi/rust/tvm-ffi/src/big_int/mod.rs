@@ -20,8 +20,8 @@
 mod int_ops;
 
 use crate::derive::Object;
-use crate::error::{Error, Result, OVERFLOW_ERROR, VALUE_ERROR};
-use crate::object::{unsafe_, Object, ObjectArc, ObjectCoreWithExtraItems};
+use crate::error::{Error, OVERFLOW_ERROR, Result, VALUE_ERROR};
+use crate::object::{Object, ObjectArc, ObjectCoreWithExtraItems, unsafe_};
 use crate::type_traits::AnyCompatible;
 use std::alloc::Layout;
 use std::cmp::Ordering;
@@ -36,14 +36,15 @@ use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use tvm_ffi_sys::TVMFFIObjectDeleterFlagBitMask::kTVMFFIObjectDeleterFlagBitMaskWeak;
 use tvm_ffi_sys::TVMFFITypeIndex as TypeIndex;
-use tvm_ffi_sys::{TVMFFIAny, TVMFFIAnyDataUnion, TVMFFIObject, COMBINED_REF_COUNT_BOTH_ONE};
+use tvm_ffi_sys::{COMBINED_REF_COUNT_BOTH_ONE, TVMFFIAny, TVMFFIAnyDataUnion, TVMFFIObject};
 
-/// ABI stable arbitrary-precision signed integer for ffi.
+/// An arbitrary-precision signed integer.
 ///
-/// Mirrors C++ `tvm::ffi::BigInt`: a value that fits `i64` is stored inline as
-/// `kTVMFFIInt`, and any wider value owns a `kTVMFFIBigInt` object holding its
-/// minimal two's-complement `i64` words, least-significant word first. Every
-/// operation returns that canonical form, so word-wise comparison decides equality.
+/// Its layout is part of the stable FFI ABI, so a `BigInt` passes across
+/// languages without conversion. A value that fits `i64` is stored inline, and
+/// a wider value uses a heap object of its minimal two's-complement `i64`
+/// words, least-significant word first. Results are always in that canonical
+/// form, so equality is word-wise.
 ///
 /// Arithmetic is unbounded and signed. `/` and `%` truncate toward zero;
 /// [`floor_div`](Self::floor_div) and [`floor_mod`](Self::floor_mod) round down.
@@ -56,13 +57,15 @@ pub struct BigInt {
     data: TVMFFIAny,
 }
 
+// SAFETY: a `BigInt` is immutable: an inline `i64` or an immutable big-integer object.
+unsafe impl Send for BigInt {}
+unsafe impl Sync for BigInt {}
+
 // BigIntObj for heap-allocated integers: the word count, then the canonical
 // two's-complement words as trailing items. Mirrors C++ `detail::BigIntObj`.
 #[repr(C)]
 #[derive(Object)]
-#[type_key = "ffi.BigInt"]
-#[type_index(TypeIndex::kTVMFFIBigInt)]
-#[type_final]
+#[object(type_key = "ffi.BigInt", unsafe type_index = TypeIndex::kTVMFFIBigInt, final)]
 struct BigIntObj {
     object: Object,
     size: usize,
@@ -80,16 +83,16 @@ unsafe impl ObjectCoreWithExtraItems for BigIntObj {
 // `BigInt::try_build` allocates from the C allocator like C++
 // `make_inplace_array_object`, so it can prune the logical size in place (C++
 // `ShrinkSize`): `free` needs no layout, unlike Rust's global allocator.
-extern "C" {
+unsafe extern "C" {
     fn malloc(size: usize) -> *mut c_void;
     fn free(ptr: *mut c_void);
 }
 
-/// Release an object from `BigInt::try_build` like C++ `ArrayHandler::Deleter_`;
-/// the words need no destructor.
+/// Release an object from `BigInt::try_build`: free the allocation; the words
+/// need no destructor.
 unsafe extern "C" fn delete_obj(ptr: *mut c_void, flags: i32) {
     if flags & kTVMFFIObjectDeleterFlagBitMaskWeak as i32 != 0 {
-        free(ptr);
+        unsafe { free(ptr) };
     }
 }
 
@@ -134,6 +137,7 @@ impl BigInt {
     ///
     /// Redundant sign-extension words are pruned and a value that fits `i64`
     /// is stored inline; an empty slice is zero.
+    #[doc(hidden)]
     #[inline]
     pub fn from_words(words: &[i64]) -> Self {
         let size = int_ops::normalized_len(words);
@@ -146,14 +150,15 @@ impl BigInt {
                 object: Object::new(),
                 size,
             });
-            BigIntObj::extra_items_mut(&mut obj).copy_from_slice(&words[..size]);
+            let items = BigIntObj::extra_items_ptr(ObjectArc::as_mut_ptr(&mut obj));
+            std::ptr::copy_nonoverlapping(words.as_ptr(), items, size);
             Self::from_obj(ObjectArc::into_raw(obj) as *mut BigIntObj)
         }
     }
 
     /// Build from `len` words, word `i` being `word(i)` called in increasing order,
-    /// written straight into a fresh object that is then pruned in place like C++
-    /// `Normalize`; `None` when the object cannot be allocated.
+    /// written straight into a fresh object whose redundant sign words are then
+    /// pruned in place; `None` when the object cannot be allocated.
     #[inline]
     fn try_build(len: usize, mut word: impl FnMut(usize) -> i64) -> Option<Self> {
         let layout = obj_layout(len)?;
@@ -194,13 +199,13 @@ impl BigInt {
     /// Borrow the canonical two's-complement words, least-significant word first.
     ///
     /// The slice is never empty and its last word carries the sign.
+    #[doc(hidden)]
     pub fn words(&self) -> &[i64] {
         unsafe {
             if self.data.type_index == TypeIndex::kTVMFFIInt as i32 {
                 std::slice::from_ref(&self.data.data_union.v_int64)
             } else {
-                let obj: &BigIntObj = &*(self.data.data_union.v_obj as *const BigIntObj);
-                BigIntObj::extra_items(obj)
+                BigIntObj::extra_items(self.data.data_union.v_obj as *const BigIntObj)
             }
         }
     }
@@ -217,6 +222,8 @@ impl BigInt {
     }
 
     /// Return the value when it fits `i64`.
+    ///
+    /// See also `i64::try_from(&big)`, which returns an `OverflowError` instead.
     #[inline]
     pub fn to_i64(&self) -> Option<i64> {
         if self.data.type_index == TypeIndex::kTVMFFIInt as i32 {
@@ -277,10 +284,10 @@ impl BigInt {
 
     /// Truncating quotient and remainder in one pass; raises `ZeroDivisionError`.
     pub fn div_rem(&self, rhs: &BigInt) -> Result<(BigInt, BigInt)> {
-        if let (Some(x), Some(y)) = (self.to_i64(), rhs.to_i64()) {
-            if let Some(q) = int_ops::trunc_div_i64(x, y)? {
-                return Ok((Self::from_i64(q), Self::from_i64(x.wrapping_rem(y))));
-            }
+        if let (Some(x), Some(y)) = (self.to_i64(), rhs.to_i64())
+            && let Some(q) = int_ops::trunc_div_i64(x, y)?
+        {
+            return Ok((Self::from_i64(q), Self::from_i64(x.wrapping_rem(y))));
         }
         int_ops::div_rem(self.words(), rhs.words())
     }
@@ -372,6 +379,23 @@ impl From<u128> for BigInt {
     }
 }
 
+// Narrowing to a primitive integer, as std's `TryFrom` between integer types.
+macro_rules! impl_try_from_big_int {
+    ($($t:ty => $to:ident),*) => {$(
+        impl TryFrom<&BigInt> for $t {
+            type Error = Error;
+
+            fn try_from(value: &BigInt) -> Result<Self> {
+                value.$to().ok_or_else(|| {
+                    Error::new(OVERFLOW_ERROR, &format!("{} does not fit in {}", value, stringify!($t)))
+                })
+            }
+        }
+    )*};
+}
+
+impl_try_from_big_int!(i64 => to_i64, u64 => to_u64, i128 => to_i128, u128 => to_u128);
+
 impl TryFrom<f64> for BigInt {
     type Error = Error;
 
@@ -385,13 +409,12 @@ impl TryFrom<f64> for BigInt {
             return Ok(Self::from_i64(value as i64));
         }
         if value.is_nan() {
-            return Err(Error::new(VALUE_ERROR, "Cannot convert NaN to BigInt", ""));
+            return Err(Error::new(VALUE_ERROR, "Cannot convert NaN to BigInt"));
         }
         if value.is_infinite() {
             return Err(Error::new(
                 OVERFLOW_ERROR,
                 "Cannot convert infinity to BigInt",
-                "",
             ));
         }
         // |value| >= 2^63 is an integer: shift the 53-bit significand to its binary exponent.
@@ -417,11 +440,7 @@ impl FromStr for BigInt {
             _ => (false, text),
         };
         if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
-            return Err(Error::new(
-                VALUE_ERROR,
-                "Invalid decimal string for BigInt",
-                "",
-            ));
+            return Err(Error::new(VALUE_ERROR, "Invalid decimal string for BigInt"));
         }
         // Accumulate 19-digit chunks: magnitude = magnitude * 10^len + chunk.
         let mut magnitude = Vec::new();
@@ -550,80 +569,80 @@ impl Debug for BigInt {
 // ---- Arithmetic: an inline fast path, then the word fallbacks.
 #[inline]
 fn add_impl(a: &BigInt, b: &BigInt) -> BigInt {
-    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64()) {
-        if let Some(result) = x.checked_add(y) {
-            return BigInt::from_i64(result);
-        }
+    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64())
+        && let Some(result) = x.checked_add(y)
+    {
+        return BigInt::from_i64(result);
     }
     int_ops::add(a.words(), b.words())
 }
 
 #[inline]
 fn sub_impl(a: &BigInt, b: &BigInt) -> BigInt {
-    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64()) {
-        if let Some(result) = x.checked_sub(y) {
-            return BigInt::from_i64(result);
-        }
+    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64())
+        && let Some(result) = x.checked_sub(y)
+    {
+        return BigInt::from_i64(result);
     }
     int_ops::sub(a.words(), b.words())
 }
 
 #[inline]
 fn mul_impl(a: &BigInt, b: &BigInt) -> BigInt {
-    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64()) {
-        if let Some(result) = x.checked_mul(y) {
-            return BigInt::from_i64(result);
-        }
+    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64())
+        && let Some(result) = x.checked_mul(y)
+    {
+        return BigInt::from_i64(result);
     }
     int_ops::mul(a.words(), b.words())
 }
 
 #[inline]
 fn div_impl(a: &BigInt, b: &BigInt) -> Result<BigInt> {
-    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64()) {
-        if let Some(result) = int_ops::trunc_div_i64(x, y)? {
-            return Ok(BigInt::from_i64(result));
-        }
+    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64())
+        && let Some(result) = int_ops::trunc_div_i64(x, y)?
+    {
+        return Ok(BigInt::from_i64(result));
     }
     int_ops::trunc_div(a.words(), b.words())
 }
 
 #[inline]
 fn rem_impl(a: &BigInt, b: &BigInt) -> Result<BigInt> {
-    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64()) {
-        if let Some(result) = int_ops::trunc_mod_i64(x, y)? {
-            return Ok(BigInt::from_i64(result));
-        }
+    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64())
+        && let Some(result) = int_ops::trunc_mod_i64(x, y)?
+    {
+        return Ok(BigInt::from_i64(result));
     }
     int_ops::trunc_mod(a.words(), b.words())
 }
 
 #[inline]
 fn floor_div_impl(a: &BigInt, b: &BigInt) -> Result<BigInt> {
-    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64()) {
-        if let Some(result) = int_ops::floor_div_i64(x, y)? {
-            return Ok(BigInt::from_i64(result));
-        }
+    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64())
+        && let Some(result) = int_ops::floor_div_i64(x, y)?
+    {
+        return Ok(BigInt::from_i64(result));
     }
     int_ops::floor_div(a.words(), b.words())
 }
 
 #[inline]
 fn floor_mod_impl(a: &BigInt, b: &BigInt) -> Result<BigInt> {
-    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64()) {
-        if let Some(result) = int_ops::floor_mod_i64(x, y)? {
-            return Ok(BigInt::from_i64(result));
-        }
+    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64())
+        && let Some(result) = int_ops::floor_mod_i64(x, y)?
+    {
+        return Ok(BigInt::from_i64(result));
     }
     int_ops::floor_mod(a.words(), b.words())
 }
 
 #[inline]
 fn shl_impl(a: &BigInt, b: &BigInt) -> Result<BigInt> {
-    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64()) {
-        if let Some(result) = int_ops::shl_i64(x, y)? {
-            return Ok(BigInt::from_i64(result));
-        }
+    if let (Some(x), Some(y)) = (a.to_i64(), b.to_i64())
+        && let Some(result) = int_ops::shl_i64(x, y)?
+    {
+        return Ok(BigInt::from_i64(result));
     }
     int_ops::shl(a.words(), b.words())
 }
@@ -696,7 +715,7 @@ define_op_or_panic!(
 );
 
 /// Forward an operator to its implementation for owned and borrowed operands,
-/// with `i64` accepted on either side as C++ does.
+/// with `i64` accepted on either side.
 macro_rules! forward_binop {
     ($Trait:ident::$method:ident, $Assign:ident::$assign:ident, $imp:ident) => {
         impl $Trait<&BigInt> for &BigInt {
@@ -828,7 +847,7 @@ unsafe impl AnyCompatible for BigInt {
     // A big integer is an inline integer or a big integer object, never None.
     #[inline]
     unsafe fn is_undefined(field: *const Self) -> bool {
-        (*std::ptr::addr_of!((*field).data.type_index)) == TypeIndex::kTVMFFINone as i32
+        unsafe { (*std::ptr::addr_of!((*field).data.type_index)) == TypeIndex::kTVMFFINone as i32 }
     }
 
     fn type_schema() -> std::string::String {
@@ -861,10 +880,10 @@ unsafe impl AnyCompatible for BigInt {
     }
 
     unsafe fn try_cast_from_any_view(data: &TVMFFIAny) -> std::result::Result<Self, ()> {
-        if Self::check_any_strict(data) {
-            Ok(Self::copy_from_any_view_after_check(data))
+        if unsafe { Self::check_any_strict(data) } {
+            Ok(unsafe { Self::copy_from_any_view_after_check(data) })
         } else if data.type_index == TypeIndex::kTVMFFIBool as i32 {
-            Ok(Self::from_i64(data.data_union.v_int64))
+            Ok(unsafe { Self::from_i64(data.data_union.v_int64) })
         } else {
             Err(())
         }

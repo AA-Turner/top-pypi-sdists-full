@@ -7798,14 +7798,72 @@ def _work_assignment_for_entry(entry: QueuedMerge, board) -> Assignment | None:
     return None
 
 
+def _review_chain_for_entry(entry: QueuedMerge, board) -> list[Assignment]:
+    """Every ``type="review"`` :class:`Assignment` covering *entry*'s work
+    chain (:func:`_chain_work_ids`), oldest first.
+
+    A scoped re-review (#1476/#3161) carries the SAME
+    ``review_of_assignment_id`` as the round it supersedes (see
+    :func:`coord.review.dispatch_scoped_review`'s docstring) rather than
+    chaining to the previous review row, so there is no parent/child link
+    between successive review rounds to walk — only ``dispatched_at`` order
+    distinguishes "this round" from "the one before it". Used by
+    :func:`_issue_resolution_for_entry` (#3966) to fold EVERY round's own
+    `ISSUE_RESOLUTION:` judgment forward, not just the one that ended up
+    approving.
+    """
+    if board is None:
+        return []
+    pool = list(getattr(board, "completed", []) or []) + list(getattr(board, "active", []) or [])
+    branch_work_ids = _chain_work_ids(entry, pool)
+    if not branch_work_ids:
+        return []
+    reviews = [
+        a for a in pool
+        if getattr(a, "type", None) == "review"
+        and getattr(a, "review_of_assignment_id", None) in branch_work_ids
+    ]
+    reviews.sort(key=lambda a: getattr(a, "dispatched_at", None) or 0.0)
+    return reviews
+
+
 def _issue_resolution_for_entry(
     entry: QueuedMerge, board, gh_ops: "GhOps | None" = None, config=None,
 ) -> IssueResolution:
-    """(#3502) The EFFECTIVE `ISSUE_RESOLUTION:` verdict for *entry* — the
-    worker's own judgment (its `completion_summary`), folded with the
-    approving reviewer's judgment (when one exists), reviewer winning any
-    disagreement that makes it MORE cautious, never less
-    (:func:`coord.models.effective_issue_resolution`).
+    """(#3502, widened by #3966) The EFFECTIVE `ISSUE_RESOLUTION:` verdict
+    for *entry*, computed in two stages so the settled #3502 "never the
+    reverse" guarantee (a REVIEWER can never silently downgrade the
+    WORKER's own `partial`/`investigation` self-report back to "resolved")
+    stays intact while also fixing #3966 (a scoped re-review that drops a
+    PRIOR REVIEW ROUND's `partial`):
+
+    1. Fold every review round's own judgment together, chronologically,
+       among THEMSELVES. Each fold normally wins any disagreement that
+       makes it MORE cautious, never less
+       (:func:`coord.models.effective_issue_resolution`) — UNLESS a later
+       round's judgment is an EXPLICIT `ISSUE_RESOLUTION: resolved` (its
+       ``explicit`` bit set, meaning that reviewer actually wrote the
+       marker rather than leaving it out), in which case that later,
+       independent opinion wins outright and clears whatever an earlier
+       round accumulated. A round that states no `ISSUE_RESOLUTION:` line
+       of its own parses to the same "resolved" VALUE but with
+       ``explicit=False``, indistinguishable from silence, so it can never
+       drop a prior round's `partial`/`investigation` — only an explicit
+       restatement can.
+    2. Combine that folded reviewer verdict with the WORKER's own judgment
+       (its `completion_summary`) exactly once, via the same
+       :func:`coord.models.effective_issue_resolution` — which is where
+       "never the reverse" actually lives: even an explicit, unanimous
+       "resolved" from every review round can never undo the worker's own
+       `partial`/`investigation` admission.
+
+    Folds the WHOLE review chain, not just the rounds up to the one that
+    happened to approve: `scan_approved_reviews` can pick an arbitrary
+    approving round among several with no recorded `review_patch_id`
+    (pre-#821 rows), and truncating there risked silently dropping a
+    LATER round's more-cautious judgment. Since the fold is monotonically
+    cautious except for the explicit-"resolved" escape hatch above,
+    folding everything is strictly safer than guessing a cutoff.
 
     Both halves degrade gracefully to "resolved" (today's unconditional
     behaviour) when unavailable:
@@ -7813,11 +7871,14 @@ def _issue_resolution_for_entry(
     * *board* is ``None``, or the originating `work` assignment can't be
       found on it (:func:`_work_assignment_for_entry`) — no worker claim to
       read.
-    * No approving review is found (:func:`scan_approved_reviews`), or its
-      findings can't be recovered from the GitHub message bus
-      (:func:`coord.review.fetch_review_findings_from_github` — the one
-      review-findings source this module can reach without a notify.py/
-      state.py DB round trip) — no reviewer claim to read.
+    * No approving review is found (:func:`scan_approved_reviews`) — no
+      reviewer claim to read at all. When one is found, every round's
+      findings are recovered from the GitHub message bus in a SINGLE fetch
+      (:func:`coord.review.fetch_review_findings_from_github_many` — the
+      one review-findings source this module can reach without a
+      notify.py/state.py DB round trip); a round missing from the result
+      (comment never posted, or the fetch failed outright) simply doesn't
+      contribute to the fold.
 
     Deferred-imports `coord.review` to avoid a circular import (`review.py`
     does not import `merge_queue.py` at module level, but keeping the
@@ -7837,20 +7898,39 @@ def _issue_resolution_for_entry(
     reviewer_resolution: IssueResolution | None = None
     if board is not None:
         scan = scan_approved_reviews(entry, board, gh_ops, config=config)
-        review_assignment = scan.review_assignment
-        if scan.approved and review_assignment is not None:
-            from coord.review import fetch_review_findings_from_github  # noqa: PLC0415
+        if scan.approved and scan.review_assignment is not None:
+            from coord.review import fetch_review_findings_from_github_many  # noqa: PLC0415
 
+            # Fold EVERY round in the chain (not just up to the one that
+            # approved — see the docstring above on why no cutoff is used).
+            chain = _review_chain_for_entry(entry, board)
             try:
-                findings = fetch_review_findings_from_github(
+                findings_by_id = fetch_review_findings_from_github_many(
                     entry.repo_github,
                     entry.issue_number,
-                    review_assignment.assignment_id,
+                    (a.assignment_id for a in chain),
                 )
-            except Exception:  # noqa: BLE001 — best-effort; falls back to the worker's claim
-                findings = None
-            if findings is not None:
-                reviewer_resolution = findings.issue_resolution
+            except Exception:  # noqa: BLE001 — best-effort; keeps the running fold
+                findings_by_id = {}
+
+            for round_assignment in chain:
+                findings = findings_by_id.get(round_assignment.assignment_id)
+                if findings is None:
+                    continue
+                candidate = findings.issue_resolution
+                if reviewer_resolution is None:
+                    reviewer_resolution = candidate
+                elif candidate.explicit and candidate.value == "resolved":
+                    # A later, independent review round that DELIBERATELY
+                    # restates "resolved" (not a missing line defaulting to
+                    # it) may clear what an earlier review round
+                    # accumulated — reviewer rounds re-checking each other
+                    # is exactly what #3966 asks for.
+                    reviewer_resolution = candidate
+                else:
+                    reviewer_resolution = effective_issue_resolution(
+                        reviewer_resolution, candidate
+                    )
 
     return effective_issue_resolution(worker_resolution, reviewer_resolution)
 

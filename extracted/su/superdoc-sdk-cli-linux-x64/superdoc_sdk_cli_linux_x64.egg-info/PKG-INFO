@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: superdoc-sdk-cli-linux-x64
+Version: 2.27.0
+Summary: SuperDoc CLI runtime for Linux x64
+Author: SuperDoc
+License-Expression: AGPL-3.0-only AND LicenseRef-SuperDoc-Document-Engine
+Requires-Python: >=3.9
+License-File: superdoc_sdk_cli_linux_x64/bin/LICENSES.md
+License-File: superdoc_sdk_cli_linux_x64/bin/DOCX-ENGINE-LICENSE.md
+License-File: superdoc_sdk_cli_linux_x64/bin/NOTICE.md
+License-File: superdoc_sdk_cli_linux_x64/bin/THIRD_PARTY_NOTICES
+Dynamic: license-file

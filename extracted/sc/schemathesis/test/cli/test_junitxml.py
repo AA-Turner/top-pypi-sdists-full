@@ -6,6 +6,7 @@ import pytest
 from _pytest.main import ExitCode
 from flask import Response, jsonify
 
+from test.apps.catalog.openapi import basic
 from test.utils import allure_results
 
 
@@ -29,7 +30,7 @@ def test_junitxml_option(ctx, cli, hypothesis_max_examples, tmp_path):
 @pytest.mark.parametrize("in_config", [True, False])
 @pytest.mark.parametrize("path", ["junit.xml", "does-not-exist/junit.xml"])
 def test_junitxml_file(ctx, cli, hypothesis_max_examples, tmp_path, path, in_config):
-    api = ctx.openapi.apps.success_failure_unsatisfiable_empty_string()
+    api = ctx.openapi.serve(basic.success_failure_unsatisfiable_empty_string())
     server_host = api.base_url.removeprefix("http://")
     xml_path = tmp_path / path
     args = [
@@ -90,16 +91,6 @@ def test_junitxml_file(ctx, cli, hypothesis_max_examples, tmp_path, path, in_con
         .text.replace("\n", " ")
         .startswith("Schema Error  Cannot generate test data for request body (application/json) Schema:")
     )
-
-
-@pytest.fixture
-def with_error(ctx):
-    with ctx.check("""
-@schemathesis.check
-def with_error(ctx, response, case):
-    1 / 0
-""") as module:
-        yield module
 
 
 @pytest.mark.skipif(

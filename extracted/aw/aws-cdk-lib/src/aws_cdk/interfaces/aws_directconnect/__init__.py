@@ -468,6 +468,53 @@ typing.cast(typing.Any, IPublicVirtualInterfaceRef).__jsii_proxy_class__ = lambd
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_directconnect.IResiliencyGroupRef"
+)
+class IResiliencyGroupRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResiliencyGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resiliencyGroupRef")
+    def resiliency_group_ref(self) -> "ResiliencyGroupReference":
+        '''(experimental) A reference to a ResiliencyGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResiliencyGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResiliencyGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_directconnect.IResiliencyGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resiliencyGroupRef")
+    def resiliency_group_ref(self) -> "ResiliencyGroupReference":
+        '''(experimental) A reference to a ResiliencyGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResiliencyGroupReference", jsii.get(self, "resiliencyGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResiliencyGroupRef).__jsii_proxy_class__ = lambda : _IResiliencyGroupRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_directconnect.ITransitVirtualInterfaceRef"
 )
 class ITransitVirtualInterfaceRef(
@@ -700,6 +747,55 @@ class PublicVirtualInterfaceReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_directconnect.ResiliencyGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"resiliency_group_arn": "resiliencyGroupArn"},
+)
+class ResiliencyGroupReference:
+    def __init__(self, *, resiliency_group_arn: builtins.str) -> None:
+        '''A reference to a ResiliencyGroup resource.
+
+        :param resiliency_group_arn: The ResiliencyGroupArn of the ResiliencyGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_directconnect as interfaces_directconnect
+            
+            resiliency_group_reference = interfaces_directconnect.ResiliencyGroupReference(
+                resiliency_group_arn="resiliencyGroupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0b108aa72e73ef9dec298188bfcedae19b18ed9a8f9701ccf1cd14ea3c27b901)
+            check_type(argname="argument resiliency_group_arn", value=resiliency_group_arn, expected_type=type_hints["resiliency_group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resiliency_group_arn": resiliency_group_arn,
+        }
+
+    @builtins.property
+    def resiliency_group_arn(self) -> builtins.str:
+        '''The ResiliencyGroupArn of the ResiliencyGroup resource.'''
+        result = self._values.get("resiliency_group_arn")
+        assert result is not None, "Required property 'resiliency_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResiliencyGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_directconnect.TransitVirtualInterfaceReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -777,10 +873,12 @@ __all__ = [
     "ILagRef",
     "IPrivateVirtualInterfaceRef",
     "IPublicVirtualInterfaceRef",
+    "IResiliencyGroupRef",
     "ITransitVirtualInterfaceRef",
     "LagReference",
     "PrivateVirtualInterfaceReference",
     "PublicVirtualInterfaceReference",
+    "ResiliencyGroupReference",
     "TransitVirtualInterfaceReference",
 ]
 
@@ -830,6 +928,13 @@ def _typecheckingstub__931652cc8f8bd991d36eef258ac37b8e6d4b98d35ddec1b4412f379d3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0b108aa72e73ef9dec298188bfcedae19b18ed9a8f9701ccf1cd14ea3c27b901(
+    *,
+    resiliency_group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0705d8064ea639011f2ee10d0baa0493bf0fc5c5bc6553bf778c002e716eaaa9(
     *,
     virtual_interface_arn: builtins.str,
@@ -838,5 +943,5 @@ def _typecheckingstub__0705d8064ea639011f2ee10d0baa0493bf0fc5c5bc6553bf778c002e7
     """Type checking stubs"""
     pass
 
-for cls in [IConnectionRef, IDirectConnectGatewayAssociationRef, IDirectConnectGatewayRef, ILagRef, IPrivateVirtualInterfaceRef, IPublicVirtualInterfaceRef, ITransitVirtualInterfaceRef]:
+for cls in [IConnectionRef, IDirectConnectGatewayAssociationRef, IDirectConnectGatewayRef, ILagRef, IPrivateVirtualInterfaceRef, IPublicVirtualInterfaceRef, IResiliencyGroupRef, ITransitVirtualInterfaceRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

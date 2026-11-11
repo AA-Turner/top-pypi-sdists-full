@@ -21,10 +21,4 @@ class CommandDialog(BaseModel):
 
     type: Literal["alert", "confirm", "prompt", "beforeunload"]
 
-    accepted: Optional[bool] = None
-
-    by: Optional[Literal["command", "client", "closed"]] = None
-
     default_prompt: Optional[str] = FieldInfo(alias="defaultPrompt", default=None)
-
-    text: Optional[str] = None

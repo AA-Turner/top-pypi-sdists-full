@@ -1395,6 +1395,20 @@ fn zoom_row(
     let mask_upscale =
         ctx.opts.mask_aa && ctx.mask_shift == 0 && (fx_step < FRAC || fy_step < FRAC);
 
+    // #963: on a native render the FG44 sample is a whole cell
+    // ([`fg_native_frac`]: tx = ty = 0), where `sample_bilinear` returns
+    // pixel (px / red, row) exactly. Hoist that row and read the cell
+    // directly: no per-pixel row division, no four-tap blend.
+    let fg_native = match (ctx.fg44, ctx.fg_palette) {
+        (Some(fg), None) if ctx.fg_red != 0 => {
+            let row = fg_native_frac(0, py, page_h, ctx.fg_red, fg).1 >> FRACBITS;
+            let stride = fg.width as usize * 4;
+            let row = fg.data.get(row as usize * stride..).unwrap_or(&[]);
+            Some(FgNativeRow::new(row, fg.width, ctx.fg_red))
+        }
+        _ => None,
+    };
+
     // The loop is expanded once per `BgRow` variant, so each copy calls its
     // background sampler directly. A per-pixel match on the variant cost
     // 11-13 % on zoomed renders (#831).
@@ -1437,15 +1451,11 @@ fn zoom_row(
                     let (fr, fg_g, fb) = if let Some(pal) = ctx.fg_palette {
                         let color = lookup_palette_color(pal, ctx.blit_map, ctx.mask, px, py);
                         (color.r, color.g, color.b)
+                    } else if let Some(n) = &fg_native {
+                        n.at(px)
                     } else if let Some(fg) = ctx.fg44 {
-                        let (fg_fx, fg_fy) = if ctx.fg_red != 0 {
-                            fg_native_frac(px, py, page_h, ctx.fg_red, fg)
-                        } else {
-                            (
-                                map_plane_center_frac(fx, ctx.fg_x_q24),
-                                map_plane_center_frac(fy, ctx.fg_y_q24),
-                            )
-                        };
+                        let fg_fx = map_plane_center_frac(fx, ctx.fg_x_q24);
+                        let fg_fy = map_plane_center_frac(fy, ctx.fg_y_q24);
                         sample_bilinear(fg, fg_fx, fg_fy)
                     } else {
                         (0, 0, 0)
@@ -1494,6 +1504,37 @@ fn zoom_row(
                 q,
             )
         }),
+    }
+}
+
+/// One FG44 row of a native render, for [`zoom_row`] (#963): the cell under
+/// page column `px` is `px / red`, as [`fg_native_frac`] maps it.
+pub(super) struct FgNativeRow<'a> {
+    row: &'a [u8],
+    last: u32,
+    /// `floor(2^32 / red) + 1`: `(px * recip) >> 32 == px / red` for every
+    /// `px < 2^32 / red`, far above any page width (INFO widths are 16-bit),
+    /// so the per-pixel division becomes a multiply.
+    recip: u64,
+}
+
+impl<'a> FgNativeRow<'a> {
+    pub(super) fn new(row: &'a [u8], width: u32, red: u32) -> Self {
+        Self {
+            row,
+            last: width.saturating_sub(1),
+            recip: (1u64 << 32) / red as u64 + 1,
+        }
+    }
+
+    /// `sample_bilinear` at the whole cell: the clamped pixel itself, or
+    /// black past a truncated plane, as `Pixmap::get_rgb` reads it.
+    #[inline(always)]
+    pub(super) fn at(&self, px: u32) -> (u8, u8, u8) {
+        let cell = (((px as u64 * self.recip) >> 32) as u32).min(self.last) as usize;
+        self.row
+            .get(cell * 4..cell * 4 + 3)
+            .map_or((0, 0, 0), |q| (q[0], q[1], q[2]))
     }
 }
 
@@ -1606,15 +1647,41 @@ pub(super) fn composite_rows_area_avg_one(
     // mask footprint's y-band [y0, y1) is row-invariant; if it has no foreground
     // bits, `mask_box_any` would return false for every output pixel, so the
     // `!mask_all_bg &&` short-circuit skips the per-pixel footprint scan entirely.
-    // Only the `mask_shift == 0` (mask_box_any) path is covered — the max-pool
-    // sub-path indexes a coarser mask. The y range matches `mask_box_any`.
-    let mask_all_bg = ctx.mask_shift == 0
-        && ctx.mask.is_none_or(|m| {
+    // For `mask_shift == 0` the y range matches `mask_box_coverage`.
+    //
+    // AREA_AVG_ROW_HOIST: the max-pool sub-path (mask_shift > 0) reads one
+    // coarse-mask row per output row, so take that row once here and give it
+    // the same blank-row short-circuit. `None` with `mask_shift > 0` means the
+    // row is outside the mask, where `Bitmap::get` would never be reached.
+    let shifted_row: Option<&[u8]> = match ctx.mask {
+        Some(m) if ctx.mask_shift > 0 => {
+            let pym = fy >> (FRACBITS + ctx.mask_shift);
+            let stride = m.row_stride();
+            let start = pym as usize * stride;
+            (pym < m.height)
+                .then(|| m.data.get(start..start + stride))
+                .flatten()
+        }
+        _ => None,
+    };
+    let mask_all_bg = if ctx.mask_shift == 0 {
+        ctx.mask.is_none_or(|m| {
             let stride = m.row_stride();
             let y0 = (fy >> FRACBITS).min(m.height.saturating_sub(1)) as usize;
             let y1 = ((fy + fy_step) >> FRACBITS).min(m.height) as usize;
             y1 <= y0 || !m.data[y0 * stride..y1 * stride].iter().any(|&b| b != 0)
-        });
+        })
+    } else {
+        shifted_row.is_none_or(|row| !row.iter().any(|&b| b != 0))
+    };
+
+    // AREA_AVG_ROW_HOIST: when the background footprint is one row tall
+    // (`sample_area_avg_bounds`'s 1x1 fast path for every 1-column pixel),
+    // fetch that row once instead of per pixel.
+    let bg_row1: Option<&[u8]> = match (ctx.bg, bg_y) {
+        (Some(bg), Some((bg_y0, bg_y1))) if bg_y1 - bg_y0 <= 1 => Some(bg.row(bg_y0)),
+        _ => None,
+    };
 
     for (ox, pixel) in row_buf.as_chunks_mut::<4>().0.iter_mut().enumerate() {
         let fallback;
@@ -1639,13 +1706,12 @@ pub(super) fn composite_rows_area_avg_one(
             0
         } else if let Some(m) = ctx.mask {
             if ctx.mask_shift > 0 {
+                // Same bit as `m.get(px, pym)`; `shifted_row` is that row.
                 let px = fx >> (FRACBITS + ctx.mask_shift);
-                let pym = fy >> (FRACBITS + ctx.mask_shift);
-                if px < m.width && pym < m.height && m.get(px, pym) {
-                    255
-                } else {
-                    0
-                }
+                let set = px < m.width
+                    && shifted_row
+                        .is_some_and(|row| (row[(px / 8) as usize] >> (7 - (px % 8))) & 1 == 1);
+                if set { 255 } else { 0 }
             } else {
                 mask_box_coverage(m, fx, fy, fx_step, fy_step)
             }
@@ -1655,6 +1721,15 @@ pub(super) fn composite_rows_area_avg_one(
 
         let bg_sample = || -> (u8, u8, u8) {
             // `bg_y` is `Some` exactly when `ctx.bg` is.
+            if let Some(row) = bg_row1
+                && ax.bg_x1 - ax.bg_x0 <= 1
+            {
+                // `sample_area_avg_bounds`'s 1x1 fast path on the hoisted row.
+                let off = ax.bg_x0 as usize * 4;
+                return row
+                    .get(off..off + 4)
+                    .map_or((0, 0, 0), |q| (q[0], q[1], q[2]));
+            }
             match (ctx.bg, bg_y) {
                 (Some(bg), Some((bg_y0, bg_y1))) => {
                     sample_area_avg_bounds(bg, ax.bg_x0, ax.bg_x1, bg_y0, bg_y1)

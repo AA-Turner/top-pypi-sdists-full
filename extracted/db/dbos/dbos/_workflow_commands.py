@@ -16,7 +16,7 @@ from typing import (
 from dbos._context import DBOSContext, take_assigned_workflow_id
 from dbos._datasource import AsyncSQLAlchemyDatasource, SQLAlchemyDatasource
 from dbos._error import DBOSException, DBOSNonExistentWorkflowError
-from dbos._utils import generate_uuid
+from dbos._utils import GlobalParams, generate_uuid
 
 from ._sys_db import SystemDatabase, WorkflowStatus, workflow_is_active
 
@@ -93,8 +93,27 @@ _SWEEP_BATCH_SIZE = 1000
 
 # How often one of an application's processes runs its background jobs.
 _BACKGROUND_JOBS_INTERVAL_SEC = 1.0
+# How long a holder keeps one lock transaction before retaking the lock: a peer can win it then.
+_BACKGROUND_JOBS_HOLD_SEC = 60.0
 
 BACKGROUND_JOBS_THREAD_NAME = "dbos-background-jobs"
+
+
+class BackgroundLease:
+    """Whether this process holds the background-jobs lock, until its loop fails to retake
+    it: kept past a stalled hold's idle timeout, as two holders only duplicate work."""
+
+    def __init__(self) -> None:
+        self._held = False
+
+    def renew(self) -> None:
+        self._held = True
+
+    def lose(self) -> None:
+        self._held = False
+
+    def held(self) -> bool:
+        return self._held
 
 
 def _run_background_jobs(
@@ -103,27 +122,61 @@ def _run_background_jobs(
     lock_name: str,
     interval_sec: float,
     jobs: Dict[str, Callable[[], None]],
+    lease: Optional[BackgroundLease] = None,
+    hold_sec: float = _BACKGROUND_JOBS_HOLD_SEC,
 ) -> None:
     """Run jobs once per interval across all of this application's processes: whichever
-    takes their lock runs them, holding the lock for the rest of the interval."""
+    takes their lock runs them, holding it up to hold_sec before retaking it."""
+    try:
+        _hold_background_jobs(
+            stop_event, dbos, lock_name, interval_sec, jobs, lease, hold_sec
+        )
+    finally:
+        if lease is not None:
+            lease.lose()
+
+
+def _hold_background_jobs(
+    stop_event: threading.Event,
+    dbos: "DBOS",
+    lock_name: str,
+    interval_sec: float,
+    jobs: Dict[str, Callable[[], None]],
+    lease: Optional[BackgroundLease],
+    hold_sec: float,
+) -> None:
     while not stop_event.is_set():
-        started = time.monotonic()
         held = False
         try:
-            with dbos._sys_db.background_job_lock(lock_name) as acquired:
-                if acquired:
-                    for job_name, job in jobs.items():
-                        try:
-                            job()
-                        except Exception as e:
-                            dbos.logger.warning(
-                                f"Exception in background job {job_name}: {e}"
-                            )
-                    stop_event.wait(
-                        max(0.0, interval_sec - (time.monotonic() - started))
-                    )
+            with dbos._sys_db.background_job_lock(lock_name) as renew:
+                if lease is not None and renew is not None:
+                    lease.renew()
+                elif lease is not None:
+                    lease.lose()
+                if renew is not None:
+                    hold_until = time.monotonic() + hold_sec
+                    while True:
+                        # Timed from the pass's start, so slow jobs can't shorten the interval.
+                        started = time.monotonic()
+                        for job_name, job in jobs.items():
+                            try:
+                                job()
+                            except Exception as e:
+                                dbos.logger.warning(
+                                    f"Exception in background job {job_name}: {e}"
+                                )
+                        if stop_event.wait(
+                            max(0.0, interval_sec - (time.monotonic() - started))
+                        ):
+                            break
+                        if time.monotonic() >= hold_until:
+                            break
+                        # In place, so the lock is never free mid-hold.
+                        renew()
                     held = True
         except Exception as e:
+            if lease is not None:
+                lease.lose()
             dbos.logger.warning(f"Exception taking the {lock_name} lock: {e}")
         # The holder tries again at once and so keeps the jobs; the rest poll for them.
         wait = 0.0 if held else interval_sec * random.uniform(0.9, 1.1)
@@ -143,15 +196,21 @@ def background_jobs_thread(stop_event: threading.Event, dbos: "DBOS") -> None:
             if len(cancelled) < _SWEEP_BATCH_SIZE:
                 break
 
+    jobs: Dict[str, Callable[[], None]] = {
+        "delayed_workflows": lambda: dbos._sys_db.transition_delayed_workflows(),
+        "workflow_timeout": sweep,
+    }
+    suspend = dbos._sys_db.suspend
+    if suspend is not None:
+        jobs["suspended_workflows"] = suspend.transition_suspended_workflows
     _run_background_jobs(
         stop_event,
         dbos,
-        "background_jobs",
+        # One holder per application version, so the latest code always runs them; they tolerate overlap.
+        f"background_jobs.{GlobalParams.app_version}",
         _BACKGROUND_JOBS_INTERVAL_SEC,
-        {
-            "delayed_workflows": lambda: dbos._sys_db.transition_delayed_workflows(),
-            "workflow_timeout": sweep,
-        },
+        jobs,
+        dbos._background_lease,
     )
 
 

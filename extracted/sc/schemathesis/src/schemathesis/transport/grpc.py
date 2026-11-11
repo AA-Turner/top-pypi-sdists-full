@@ -5,23 +5,27 @@ import json
 import socket
 import ssl
 import threading
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlsplit
 
 import grpc
 import requests
-from google.protobuf import message, message_factory
+from google.protobuf import json_format, message, message_factory
+
+# googleapis-common-protos ships no type information.
+from google.rpc import status_pb2  # type: ignore[import-untyped]
 from typing_extensions import override
 
 from schemathesis.core import Body
-from schemathesis.core.errors import read_timeout_error
+from schemathesis.core.errors import IncorrectUsage, read_timeout_error
 from schemathesis.core.rate_limit import ratelimit
 from schemathesis.core.timing import Instant
 from schemathesis.core.transport import Response
 from schemathesis.specs.grpc.converter import message_to_json
 from schemathesis.specs.grpc.schemas import MEDIA_TYPE, parse_target, prepare_call_kwargs, request_metadata
-from schemathesis.transport import BaseTransport, SerializationContext
+from schemathesis.transport import BaseTransport, SerializationContext, retry_on_transport_errors
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -101,9 +105,12 @@ class GrpcTransport(BaseTransport["requests.Session"]):
             # Headers from config and CLI options override the case's own, so they replace values a crash file masked.
             headers = {**session.headers, **(headers or {})}
         request_headers = request_metadata(case, headers)
-        auth = (
-            session.auth if session is not None and isinstance(session.auth, tuple) and len(session.auth) == 2 else None
-        )
+        auth = case._auth or (session.auth if session is not None else None)
+        if auth is not None and not isinstance(auth, tuple):
+            raise IncorrectUsage(
+                "`requests` auth objects are not supported for gRPC targets; "
+                "pass credentials as headers, basic auth or an `@schemathesis.auth()` class"
+            )
         address, tls = prepare_target(
             base_url, verify, request_headers, uses_proxy=bool(proxies or settings.proxy), auth=auth
         )
@@ -118,56 +125,22 @@ class GrpcTransport(BaseTransport["requests.Session"]):
         channel = self._channel(address, tls, verify, cert)
         # No serializers: the call sends and receives bytes, or no message at all.
         call: grpc.UnaryUnaryMultiCallable[bytes, bytes | None] = channel.unary_unary(case.path)
-        # Whether the server refused a new connection, once a call fails before being sent.
-        unreachable = False
-        try:
-            try:
-                with ratelimit(config.rate_limit_for(operation=case.operation), config.base_url):
-                    started_at = Instant()
-                    content, outcome = call.with_call(**call_kwargs, timeout=timeout)
-            except grpc.RpcError as error:
-                if not (cast(grpc.Call, error).details() or "").startswith(NOT_CONNECTED):
-                    raise
-                unreachable = not _is_reachable(address, tls, verify, cert)
-                if unreachable:
-                    raise
-                # The server is up, but a channel that failed to connect waits before trying again and fails calls in
-                # the meantime without sending them.
-                started_at = Instant()
-                content, outcome = call.with_call(**call_kwargs, timeout=timeout, wait_for_ready=True)
-        except grpc.RpcError as error:
-            # Taken before the reachability check, which is not part of the response time.
-            elapsed = started_at.elapsed
-            # Every error a unary call raises is also the call itself.
-            outcome = cast(grpc.Call, error)
-            code = outcome.code()
-            # Errors are wrapped the way `requests` wraps its own, so error reports read the inner one.
-            # Servers send DEADLINE_EXCEEDED with any text too; only one arriving at the timeout is a read timeout.
-            if code == grpc.StatusCode.DEADLINE_EXCEEDED and started_at.elapsed >= timeout - DEADLINE_CLOCK_SLACK:
-                raise read_timeout_error(base_url, timeout, request) from error
-            if code == grpc.StatusCode.UNAVAILABLE and (unreachable or not _is_reachable(address, tls, verify, cert)):
-                details = outcome.details() or ""
-                failed_to_connect = "failed to connect" in details.lower()
-                if any(marker in details for marker in TLS_FAILURE_MARKERS):
-                    failure = ConnectionError(TLS_FAILED.format(address=address, details=details))
-                    raise requests.exceptions.ConnectionError(failure, request=request) from failure
-                # Once the server has answered, a call that did not fail on reconnecting reached it and may be
-                # what brought it down; gRPC's own message is the only sign of a call retried on a new connection.
-                if channel in self._answered and not failed_to_connect:
-                    aborted = ConnectionAbortedError(f"Connection aborted. {details}")
-                    raise requests.exceptions.ConnectionError(aborted, request=request) from aborted
-                # A port proxy accepts the connection even when the server behind it is gone, then resets it.
-                if failed_to_connect and "connection reset by peer" in details.lower():
-                    reset = ConnectionResetError(f"Connection reset. {details}")
-                    raise requests.exceptions.ConnectionError(reset, request=request) from reset
-                if hint := connection_configuration_hint(address, tls, details):
-                    mismatch = ConnectionError(f"{details}. {hint}")
-                    raise requests.exceptions.ConnectionError(mismatch, request=request) from mismatch
-                refused = ConnectionRefusedError(f"Failed to connect to {base_url}: {details}")
-                raise requests.exceptions.ConnectionError(refused, request=request) from refused
-            content = b""
-        else:
-            elapsed = started_at.elapsed
+        retries = config.request_retries_for(operation=case.operation) or 0
+        attempt = partial(
+            self._call,
+            call,
+            call_kwargs,
+            request,
+            channel=channel,
+            address=address,
+            tls=tls,
+            verify=verify,
+            cert=cert,
+            base_url=base_url,
+            timeout=timeout,
+        )
+        with ratelimit(config.rate_limit_for(operation=case.operation), config.base_url):
+            content, outcome, elapsed = retry_on_transport_errors(attempt, retries)
         self._answered.add(channel)
         code = outcome.code()
         details = outcome.details() or ""
@@ -190,8 +163,21 @@ class GrpcTransport(BaseTransport["requests.Session"]):
                 try:
                     rendered = message_to_json(output_class.FromString(content), method.output_type.file.pool)
                     return json.dumps(rendered, indent=2, ensure_ascii=False)
-                except message.DecodeError:
-                    # Shown as binary; response conformance reports the message or packed value that does not decode.
+                except (message.DecodeError, json_format.Error, ValueError):
+                    # Shown as binary when it does not decode or holds a value JSON cannot express.
+                    return None
+
+        elif "grpc-status-details-bin" in response_headers:
+            encoded = response_headers["grpc-status-details-bin"][0]
+
+            # An error carries no message, so its status details show in its place.
+            def render_content(content: bytes) -> str | None:
+                try:
+                    status = status_pb2.Status.FromString(base64.b64decode(encoded))
+                    rendered = message_to_json(status, status.DESCRIPTOR.file.pool)
+                    return json.dumps(rendered, indent=2, ensure_ascii=False)
+                except (message.DecodeError, json_format.Error, ValueError):
+                    # Shown as binary when the details do not decode or hold a value JSON cannot express.
                     return None
 
         return Response(
@@ -215,6 +201,59 @@ class GrpcTransport(BaseTransport["requests.Session"]):
                 channel = create_channel(address, tls, verify, cert)
                 self._channels[key] = channel
             return channel
+
+    def _call(
+        self,
+        call: grpc.UnaryUnaryMultiCallable[bytes, bytes | None],
+        call_kwargs: dict[str, Any],
+        request: requests.PreparedRequest,
+        *,
+        channel: grpc.Channel,
+        address: str,
+        tls: bool,
+        verify: bool | str,
+        cert: str | tuple[str, str] | None,
+        base_url: str,
+        timeout: float,
+    ) -> tuple[bytes | None, grpc.Call, float]:
+        """Content, outcome and response time of one call; network-level failures raise `requests` errors."""
+        # Whether the server refused a new connection, once a call fails before being sent.
+        unreachable = False
+        try:
+            try:
+                started_at = Instant()
+                content, outcome = call.with_call(**call_kwargs, timeout=timeout)
+            except grpc.RpcError as error:
+                if not (cast(grpc.Call, error).details() or "").startswith(NOT_CONNECTED):
+                    raise
+                unreachable = not _is_reachable(address, tls, verify, cert)
+                if unreachable:
+                    raise
+                # The server is up, but a channel that failed to connect waits before trying again and fails calls in
+                # the meantime without sending them.
+                started_at = Instant()
+                content, outcome = call.with_call(**call_kwargs, timeout=timeout, wait_for_ready=True)
+        except grpc.RpcError as error:
+            # Taken before the reachability check, which is not part of the response time.
+            elapsed = started_at.elapsed
+            # Every error a unary call raises is also the call itself.
+            outcome = cast(grpc.Call, error)
+            code = outcome.code()
+            # Errors are wrapped the way `requests` wraps its own, so error reports read the inner one.
+            # Servers send DEADLINE_EXCEEDED with any text too; only one arriving at the timeout is a read timeout.
+            if code == grpc.StatusCode.DEADLINE_EXCEEDED and started_at.elapsed >= timeout - DEADLINE_CLOCK_SLACK:
+                raise read_timeout_error(base_url, timeout, request) from error
+            if code == grpc.StatusCode.UNAVAILABLE and (unreachable or not _is_reachable(address, tls, verify, cert)):
+                cause = _unavailable_error(
+                    outcome.details() or "",
+                    address=address,
+                    tls=tls,
+                    base_url=base_url,
+                    answered=channel in self._answered,
+                )
+                raise requests.exceptions.ConnectionError(cause, request=request) from cause
+            return b"", outcome, elapsed
+        return content, outcome, started_at.elapsed
 
 
 def serialize_message(context: SerializationContext, body: Body) -> dict[str, bytes]:
@@ -275,6 +314,23 @@ def accepts_tls(address: str) -> bool:
     except (OSError, ValueError):
         return False
     return True
+
+
+def _unavailable_error(details: str, *, address: str, tls: bool, base_url: str, answered: bool) -> OSError:
+    """Why a call to a server that is not there failed, as the network error `requests` would wrap."""
+    failed_to_connect = "failed to connect" in details.lower()
+    if any(marker in details for marker in TLS_FAILURE_MARKERS):
+        return ConnectionError(TLS_FAILED.format(address=address, details=details))
+    # Once the server has answered, a call that did not fail on reconnecting reached it and may be
+    # what brought it down; gRPC's own message is the only sign of a call retried on a new connection.
+    if answered and not failed_to_connect:
+        return ConnectionAbortedError(f"Connection aborted. {details}")
+    # A port proxy accepts the connection even when the server behind it is gone, then resets it.
+    if failed_to_connect and "connection reset by peer" in details.lower():
+        return ConnectionResetError(f"Connection reset. {details}")
+    if hint := connection_configuration_hint(address, tls, details):
+        return ConnectionError(f"{details}. {hint}")
+    return ConnectionRefusedError(f"Failed to connect to {base_url}: {details}")
 
 
 def connection_configuration_hint(address: str, tls: bool, details: str) -> str | None:

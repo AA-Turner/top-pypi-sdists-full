@@ -1,13 +1,15 @@
 """Manage follower executors inside the leader's process scope.
 
 Each follower has a framed JSON command socket and joins the group's distributed
-collectives. A failed run or lost follower breaks the group and terminates its
-remaining followers, allowing blocked collectives to unwind. A wait ends with the reply or the
+collectives. A follower whose handler failed ends the attempt on every GPU (`interrupt`); a lost
+follower or a device fault breaks the group and terminates its remaining followers, allowing
+blocked collectives to unwind. A wait ends with the reply or the
 follower's death, and one that blocks says which GPU it waits on; only a store meeting has a clock
 (`gather`), since a GPU that left the call sets no key. A group forms only after every follower
 said it is ready; a follower that fails while GPU 0 is inside group init (which nothing can
 interrupt) ends GPU 0's process, so TensorD sees the exit at
-once. torch's own deadlines (`NEVER`) never end a group.
+once. torch's own deadlines (`NEVER`) never end a group. A formation still unfinished after
+`FORMATION` names the GPUs that never formed and ends the attempt (cr-263).
 """
 
 from __future__ import annotations
@@ -20,21 +22,22 @@ import socket
 import sys
 import threading
 import time
-from collections import Counter
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
 from types import ModuleType
-from typing import Any, Protocol, TypedDict
+from typing import TYPE_CHECKING, Any, Protocol
 
 import msgspec
 
-from cozy_runtime.author._errors import DEVICE_OOM, DOES_NOT_FIT, MEMORY_EXHAUSTED
 from cozy_runtime.internal import execution_evidence, spawn
 from cozy_runtime.internal.config import inherited_environment, update_environment
 from cozy_runtime.internal.exits import Exit
 from cozy_runtime.internal.parallel.plan import GroupRefusal
 from cozy_runtime.internal.seam import Channel, SeamError
+
+if TYPE_CHECKING:
+    from torch._C._distributed_c10d import ProcessGroup, Store, TCPStore
 
 #: NCCL reads this once, at communicator creation. NVLink SHARP multicast needs a privilege
 #: our containers do not have and Ulysses' all-to-all never uses it (pgw#929: CUDA 401 on
@@ -42,9 +45,6 @@ from cozy_runtime.internal.seam import Channel, SeamError
 #: then written, never "only when unset" - and every rank REQUIRES it before forming a
 #: communicator: the executor asserts the seal, it does not write its own environment.
 NVLS_ENV = "NCCL_NVLS_ENABLE"
-#: A GPU's part of a call ended short of memory, or was refused it up front: the attempt fails,
-#: the group stays whole.
-SHORT = frozenset({DEVICE_OOM, MEMORY_EXHAUSTED, DOES_NOT_FIT})
 #: Another GPU ended the collective this one waited in (`RankGroup.interrupt`).
 ENDED = "group_call_ended"
 #: Every group wait's deadline. torch has no "none": its store gives up after 5 min, group init and
@@ -55,6 +55,16 @@ NEVER = timedelta(days=36500)
 #: How long a GPU waits at a store meeting for the others (`gather`). They run the same call, so one
 #: arrives within its peers' work on that call; past this the GPUs no longer run the same calls.
 GATHER = timedelta(minutes=5)
+#: How long a meeting waits for a GPU that said it computes what the meeting crosses (`gather`)
+WORKING = timedelta(minutes=30)
+#: How long the GPUs may take to form the group, from the join to every GPU's proof. Each runs the
+#: same few steps (reach the store, group init, one barrier, one of each collective), so a GPU still
+#: forming past what a store meeting allows (`GATHER`) never will: 2x A40 sat in formation until
+#: cancelled, both GPUs alive, billing (cr-263).
+FORMATION = GATHER
+#: Rank 0's formation steps that wait in Python on followers' replies, which a follower's death
+#: ends; every other step waits inside torch, where an abort may not reach.
+_REPLY_STEPS = frozenset({"join", "proof"})
 #: A store wait's slice: how soon an ended formation ends it.
 _SLICE = timedelta(seconds=1)
 #: This process's formation ended (`abort_process_group`); cleared as the next one forms.
@@ -107,15 +117,6 @@ class _Hello(msgspec.Struct, frozen=True):
     sealed: dict[str, str]
 
 
-class SpreadLog(TypedDict):
-    """One spread method this attempt: the calls each rank ran, why a rank declined, and
-    whether the spread was optional. Keys are rank numbers as strings: it crosses as JSON."""
-
-    calls: dict[str, int]
-    declined: dict[str, str]
-    spare: bool
-
-
 @dataclass(slots=True)
 class Follower:
     """One follower rank as rank 0 holds it: the process and its command seam."""
@@ -131,6 +132,8 @@ class Follower:
     gone: str = ""
     #: a byte here aborts its collectives (its watcher thread; `RankGroup.interrupt`)
     abort: socket.socket | None = None
+    #: the formation step it last answered: "" none, "joined" its store, "formed" with its proof
+    forming: str = ""
 
     @property
     def pid(self) -> int:
@@ -194,7 +197,7 @@ def route(nccl: Mapping[str, str]) -> None:
     update_environment(nccl)
 
 
-def ready_rank(torch: Any, spec: RankSpec, sealed: Mapping[str, str]) -> Any:
+def ready_rank(torch: ModuleType, spec: RankSpec, sealed: Mapping[str, str]) -> TCPStore:
     """A follower's first half of joining: its route set and rank 0's store reached. Returns the
     store `form_rank` forms the group on once every follower said it is ready.
 
@@ -204,9 +207,10 @@ def ready_rank(torch: Any, spec: RankSpec, sealed: Mapping[str, str]) -> Any:
     require_nvls_off(sealed, spec.backend)
     abortable(spec.backend)
     route(spec.nccl)
-    return torch.distributed.TCPStore(
+    store: TCPStore = torch.distributed.TCPStore(
         "127.0.0.1", spec.port, spec.world, is_master=False, timeout=NEVER
     )
+    return store
 
 
 def form_rank(torch: Any, spec: RankSpec, store: Any) -> Any:
@@ -257,27 +261,51 @@ def warm(torch: ModuleType, backend: str, rank: int, world: int) -> None:
     torch.cuda.synchronize()
 
 
-def gather(store: Any, keys: Sequence[str], what: str) -> list[bytes]:
+def gather(
+    store: Store,
+    keys: Sequence[str],
+    what: str,
+    ended: Sequence[str] = (),
+    working: Sequence[str] = (),
+) -> list[bytes]:
     """Every key's value, once every GPU has set its own. The store's own read waits for a missing
-    key for as long as the store lives; this ends as a collective does when the formation ends
-    (`abort_process_group`: an interrupt, or a GPU that failed), and after `GATHER` names the
-    GPUs that never arrived (`keys` are in GPU order)."""
+    key for as long as the store lives; this ends (code `ENDED`) when the formation ends
+    (`abort_process_group`: an interrupt, or a GPU that failed) or a missing GPU's `ended` key says
+    it failed; a missing GPU that returned is a divergence, named; and after `GATHER` it names the
+    GPUs that never arrived, unless each still missing set its `working` key (it computes what
+    this meeting crosses, a hosted call's result): those are waited for up to `WORKING` (`keys`,
+    `ended` and `working` are in GPU order)."""
     import torch.distributed as dist
 
     keys = list(keys)
-    deadline = time.monotonic() + GATHER.total_seconds()
+    began = time.monotonic()
+    deadline = began + GATHER.total_seconds()
     while True:
         if _ENDED.is_set():
-            raise dist.DistBackendError(f"{what}: another GPU ended this call")
+            raise GroupRefusal(f"{what}: another GPU ended this call", code=ENDED)
         try:
             store.wait(keys, _SLICE)
         except dist.DistStoreError:  # the slice passed
-            if time.monotonic() < deadline:
+            for rank, key in enumerate(ended):
+                if store.check([key]) and not store.check([keys[rank]]):
+                    if store.get(key) == b"failed":
+                        raise GroupRefusal(f"{what}: GPU {rank} failed", code=ENDED) from None
+                    raise GroupRefusal(
+                        f"{what}: GPU {rank} had already returned; the GPUs no longer run the "
+                        "same calls",
+                        code="group_diverged",
+                    ) from None
+            now = time.monotonic()
+            if now < deadline:
                 continue
-            missing = [f"GPU {rank}" for rank, key in enumerate(keys) if not store.check([key])]
+            absent = [rank for rank, key in enumerate(keys) if not store.check([key])]
+            busy = working and all(store.check([working[rank]]) for rank in absent)
+            if busy and now < began + WORKING.total_seconds():
+                continue
+            waited = int(now - began)
             raise GroupRefusal(
-                f"{what}: {', '.join(missing)} did not arrive in "
-                f"{int(GATHER.total_seconds())} s; the GPUs no longer run the same calls",
+                f"{what}: {', '.join(f'GPU {rank}' for rank in absent)} did not arrive in "
+                f"{waited} s; the GPUs no longer run the same calls",
                 code="group_diverged",
             ) from None
         return list(store.multi_get(keys))
@@ -335,18 +363,18 @@ class RankGroup:
         #: rank 0's own environment, or the suite's launcher for the gloo arms
         self._launch = launch or self._spawn_follower
         self.followers: list[Follower] = []
-        self.store: Any = None
+        self.store: TCPStore | None = None
         self.port = 0
-        self.pg: Any = None
+        self.pg: ProcessGroup | None = None
         #: the NCCL route every formation of this group uses (`links.Links.nccl`)
         self.nccl: dict[str, str] = {}
         self.formed = False
         #: GPU 0 is inside group init, which no abort reaches: a follower's failure ends it
         self.initializing = False
+        #: rank 0's formation step while a formation runs (`_overdue`), "" otherwise
+        self.forming = ""
         #: the first fault, latched: a broken group never heals, it is rebuilt
         self.broken = ""
-        #: a call in flight may run again when a GPU runs out of memory (`mirror.mirrored`)
-        self.rerunnable = False
         #: `interrupt` ended this formation's collectives; `form(again=...)` clears it
         self.interrupted = False
         #: set once this formation's interrupt has aborted its communicator (set: none due)
@@ -357,19 +385,13 @@ class RankGroup:
         #: per follower rank, its executor's plane facts as its latest reply stated them
         #: per follower rank, its `execution_evidence` record folded over this attempt's calls
         self.rank_records: dict[int, execution_evidence.GpuEvidence] = {}
-        #: per spread method this attempt
-        self.spread_log: dict[str, SpreadLog] = {}
+        #: per follower rank, its exchanges and step points this attempt (`wire.RunReply`)
+        self.rank_timing: dict[int, dict[str, object]] = {}
         #: each kernel a follower began serving at a command (`kernel_ready.boundary`), and its
         #: rank, until the attempt's record takes them
         self.began: list[tuple[int, str]] = []
         self._readers: list[threading.Thread] = []
-        #: Followers with a command in flight. A follower answers one command at a time, so
-        #: every caller that sends one holds its rank until the reply is read: calls made
-        #: from overlapped threads (`author.concurrently`) never interleave on one seam.
-        self._busy: set[int] = set()
-        #: ranks homing a component whose remote scope is open: kept free for its calls
-        self._reserved: Counter[int] = Counter()
-        self._leases = threading.Condition()
+        self._lock = threading.Lock()
 
     def gpu(self, rank: int) -> str:
         """How people name the GPU process `rank` drives: `GPU 3`, as nvidia-smi numbers it."""
@@ -433,18 +455,18 @@ class RankGroup:
                         self.forward({**frame, "name": f"{follower.gpu}:{head.name}"})
                 continue
             follower.replies.put((head, frame))
+            if head.reply in ("join", "form") and head.ok:
+                follower.forming = "joined" if head.reply == "join" else "formed"
             if head.reply == "form" and not head.ok:
                 self._break(
                     f"{follower.gpu} could not form the group: {head.code}: {head.detail}"[:600]
                 )
             if head.reply != "run" or head.ok:
                 continue
-            if "rerun" in frame and self.rerunnable:
-                self.interrupt()  # GPU 0 may wait on it in a collective
-            elif "rerun" in frame or head.code not in SHORT:
-                self._break(
-                    f"{follower.gpu} failed its part of the call: {head.code}: {head.detail}"[:600]
-                )
+            if frame.get("poisoned"):
+                self._break(f"{follower.gpu} failed: {head.code}: {head.detail}"[:600])
+            else:
+                self.interrupt()  # its handler ended: every GPU's attempt ends with it
         follower.replies.put(None)
         self._break(follower.gone)
 
@@ -483,7 +505,7 @@ class RankGroup:
         caller (the reader thread and the call's own thread both may) returns only once the
         first one's abort is done, so the group is never formed again under an abort still
         in progress (that deadlocks torch's process-group teardown)."""
-        with self._leases:
+        with self._lock:
             first = not self.interrupted
             if first:
                 self.interrupted = True
@@ -531,12 +553,13 @@ class RankGroup:
         again: bool = False,
         nccl: Mapping[str, str] | None = None,
         exchange: str = "",
-        formed: Callable[[Any], None] | None = None,
-    ) -> Any:
+        formed: Callable[[ProcessGroup], None] | None = None,
+    ) -> ProcessGroup | None:
         """Form the process group in two steps, so a partial group never forms. `join`: every
         follower reaches the store on a kernel-chosen loopback port and says it is ready (or
         refuses, or dies), each followed by the socket its watcher reads (`interrupt`). `form`:
-        only then do all GPUs enter group init, rank 0 last, with one barrier as the proof.
+        only then do all GPUs enter group init, rank 0 last, with one barrier as the proof. All of
+        it within `FORMATION`, or it ends naming the GPUs that never formed (`_overdue`).
         `again` forms it AGAIN after an `interrupt`: every follower joins a new store.
         `nccl` is the route every GPU forms under; `formed` runs on rank 0 right after the
         barrier, while each follower runs its half before it answers `form`: there, every GPU
@@ -557,6 +580,25 @@ class RankGroup:
             "127.0.0.1", 0, self.degree, is_master=True, wait_for_workers=False, timeout=NEVER
         )
         self.port = int(self.store.port)
+        done = threading.Event()
+        threading.Thread(target=self._watch, args=(done,), name="formation", daemon=True).start()
+        try:
+            return self._form(torch, again, exchange, formed)
+        finally:
+            self.forming = ""
+            done.set()
+
+    def _form(
+        self,
+        torch: ModuleType,
+        again: bool,
+        exchange: str,
+        formed: Callable[[ProcessGroup], None] | None,
+    ) -> ProcessGroup | None:
+        dist = torch.distributed
+        self.forming = "join"
+        for follower in self.followers:
+            follower.forming = ""
         join = {"cmd": "join", "port": self.port, "backend": self.backend, "nccl": self.nccl}
         for follower in self.followers:
             if again:
@@ -573,7 +615,7 @@ class RankGroup:
             finally:
                 watcher.close()
         self._unformed(self.collect("join"), "join")
-        self.initializing = True
+        self.initializing, self.forming = True, "init"
         try:
             self.broadcast({"cmd": "form", "exchange": exchange})
             self.waiting(f"forming the group: {self.gpu(0)} and {len(self.followers)} more in init")
@@ -590,15 +632,52 @@ class RankGroup:
             self.initializing = False
         if self.broken:
             raise GroupRefusal(self.broken, code="group_unformed")
-        dist.barrier()
-        warm(torch, self.backend, 0, self.degree)
-        if formed is not None:
-            formed(self.pg)
+        try:
+            self.forming = "barrier"
+            dist.barrier()
+            self.forming = "warm"
+            warm(torch, self.backend, 0, self.degree)
+            if formed is not None:
+                self.forming = "exchange"
+                formed(self.pg)
+        except Exception as exc:
+            if self.broken:  # `_break` aborted these collectives
+                raise GroupRefusal(self.verdict(), code="group_unformed") from exc
+            raise
+        self.forming = "proof"
         self._unformed(self.collect("form"), "form")
         self.formed, self.interrupted = True, False
         return self.pg
 
-    def _unformed(self, replies: list[dict[str, Any]], step: str) -> None:
+    def _watch(self, done: threading.Event) -> None:
+        """End a formation that is not done within `FORMATION`."""
+        if not done.wait(FORMATION.total_seconds()):
+            self._overdue(done)
+
+    def _overdue(self, done: threading.Event) -> None:
+        """The formation outlived `FORMATION`: name each GPU that never formed and the step it
+        last answered, and end it. Followers are killed; a wait on their replies then refuses,
+        and a wait inside torch, where an abort may not reach, ends GPU 0's process, so TensorD
+        fails the call on its exit and the machine's idle rules apply."""
+        step = self.forming
+        if not step or done.is_set():
+            return
+        never = [
+            f"{f.gpu} ({'joined its store, then nothing' if f.forming else 'never joined'})"
+            for f in self.followers
+            if f.forming != "formed" and not (step == "join" and f.forming)
+        ]
+        if step not in _REPLY_STEPS:
+            never.append(f"{self.gpu(0)} (in {step})")
+        seconds = int(FORMATION.total_seconds())
+        why = f"the group did not form in {seconds} s: {', '.join(never)}"[:600]
+        self._break(why)  # GPU 0's process ends here when it is in group init
+        if step not in _REPLY_STEPS:
+            sys.stderr.write(f"group_unformed: {why}; GPU 0 cannot leave {step}, so it ends\n")
+            sys.stderr.flush()
+            os._exit(int(Exit.failed))
+
+    def _unformed(self, replies: Sequence[Mapping[str, object]], step: str) -> None:
         """Refuse the group on any follower's refusal of `step`."""
         for follower, reply in zip(self.followers, replies, strict=True):
             if not reply.get("ok"):
@@ -630,50 +709,6 @@ class RankGroup:
         reply or the follower's death, observed through its seam, never inferred from silence.
         A call's replies follow its collectives every step, so those waits are not `shown`."""
         return [self._reply(follower, name, shown) for follower in self.followers]
-
-    def call_one(self, rank: int, command: Mapping[str, object]) -> dict[str, Any]:
-        """One command to ONE follower and its reply: a hosted component's call."""
-        with self.hold((rank,)):
-            self.send_one(rank, command)
-            return self.reply_one(rank, str(command["cmd"]))
-
-    @contextlib.contextmanager
-    def hold(self, ranks: Iterable[int]) -> Iterator[None]:
-        """Wait until every rank in `ranks` is free, then keep them until the block ends."""
-        wanted = frozenset(ranks)
-        with self._leases:
-            busy = wanted & self._busy
-        if busy:  # told outside the lock; the wait below reads it again
-            self.waiting(f"waiting for {', '.join(map(self.gpu, sorted(busy)))}: another call")
-        with self._leases:
-            self._leases.wait_for(lambda: not wanted & self._busy)
-            self._busy |= wanted
-        try:
-            yield
-        finally:
-            self.give(wanted)
-
-    def take(self, ranks: Iterable[int]) -> tuple[int, ...]:
-        """The ranks among `ranks` that are free and not reserved, now kept by the caller.
-        Never waits: a spread round runs on whoever is idle."""
-        with self._leases:
-            taken = tuple(r for r in ranks if r not in self._busy and not self._reserved[r])
-            self._busy.update(taken)
-        return taken
-
-    def give(self, ranks: Iterable[int]) -> None:
-        with self._leases:
-            self._busy.difference_update(ranks)
-            self._leases.notify_all()
-
-    def reserve(self, ranks: Iterable[int]) -> None:
-        """Keep `ranks` out of spread rounds while a remote scope homed there is open."""
-        with self._leases:
-            self._reserved.update(ranks)
-
-    def unreserve(self, ranks: Iterable[int]) -> None:
-        with self._leases:
-            self._reserved.subtract(ranks)
 
     def send_one(self, rank: int, command: Mapping[str, object]) -> None:
         self.check_alive()

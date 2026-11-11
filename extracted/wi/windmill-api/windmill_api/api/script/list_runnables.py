@@ -19,6 +19,7 @@ def _get_kwargs(
     show_archived: Union[Unset, None, bool] = UNSET,
     include_without_main: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    paths: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
     search: Union[Unset, None, str] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
@@ -43,6 +44,8 @@ def _get_kwargs(
     params["include_without_main"] = include_without_main
 
     params["path_start"] = path_start
+
+    params["paths"] = paths
 
     params["label"] = label
 
@@ -99,6 +102,7 @@ def sync_detailed(
     show_archived: Union[Unset, None, bool] = UNSET,
     include_without_main: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    paths: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
     search: Union[Unset, None, str] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
@@ -115,6 +119,7 @@ def sync_detailed(
         show_archived (Union[Unset, None, bool]):
         include_without_main (Union[Unset, None, bool]):
         path_start (Union[Unset, None, str]):
+        paths (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
         search (Union[Unset, None, str]):
         per_page (Union[Unset, None, int]):
@@ -137,6 +142,7 @@ def sync_detailed(
         show_archived=show_archived,
         include_without_main=include_without_main,
         path_start=path_start,
+        paths=paths,
         label=label,
         search=search,
         per_page=per_page,
@@ -161,6 +167,7 @@ def sync(
     show_archived: Union[Unset, None, bool] = UNSET,
     include_without_main: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    paths: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
     search: Union[Unset, None, str] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
@@ -177,6 +184,7 @@ def sync(
         show_archived (Union[Unset, None, bool]):
         include_without_main (Union[Unset, None, bool]):
         path_start (Union[Unset, None, str]):
+        paths (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
         search (Union[Unset, None, str]):
         per_page (Union[Unset, None, int]):
@@ -200,6 +208,7 @@ def sync(
         show_archived=show_archived,
         include_without_main=include_without_main,
         path_start=path_start,
+        paths=paths,
         label=label,
         search=search,
         per_page=per_page,
@@ -218,6 +227,7 @@ async def asyncio_detailed(
     show_archived: Union[Unset, None, bool] = UNSET,
     include_without_main: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    paths: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
     search: Union[Unset, None, str] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
@@ -234,6 +244,7 @@ async def asyncio_detailed(
         show_archived (Union[Unset, None, bool]):
         include_without_main (Union[Unset, None, bool]):
         path_start (Union[Unset, None, str]):
+        paths (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
         search (Union[Unset, None, str]):
         per_page (Union[Unset, None, int]):
@@ -256,6 +267,7 @@ async def asyncio_detailed(
         show_archived=show_archived,
         include_without_main=include_without_main,
         path_start=path_start,
+        paths=paths,
         label=label,
         search=search,
         per_page=per_page,
@@ -278,6 +290,7 @@ async def asyncio(
     show_archived: Union[Unset, None, bool] = UNSET,
     include_without_main: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    paths: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
     search: Union[Unset, None, str] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
@@ -294,6 +307,7 @@ async def asyncio(
         show_archived (Union[Unset, None, bool]):
         include_without_main (Union[Unset, None, bool]):
         path_start (Union[Unset, None, str]):
+        paths (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
         search (Union[Unset, None, str]):
         per_page (Union[Unset, None, int]):
@@ -318,6 +332,7 @@ async def asyncio(
             show_archived=show_archived,
             include_without_main=include_without_main,
             path_start=path_start,
+            paths=paths,
             label=label,
             search=search,
             per_page=per_page,

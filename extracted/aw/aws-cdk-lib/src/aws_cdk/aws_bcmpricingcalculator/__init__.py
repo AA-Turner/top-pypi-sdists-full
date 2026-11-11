@@ -77,6 +77,458 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_bcmpricingcalculator_e6bc1cfa.IBillEstimateRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnBillEstimate(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bcmpricingcalculator.CfnBillEstimate",
+):
+    '''Resource Type definition for AWS::BcmPricingCalculator::BillEstimate.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmpricingcalculator-billestimate.html
+    :cloudformationResource: AWS::BcmPricingCalculator::BillEstimate
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bcmpricingcalculator as bcmpricingcalculator
+        
+        cfn_bill_estimate = bcmpricingcalculator.CfnBillEstimate(self, "MyCfnBillEstimate",
+            name="name",
+        
+            # the properties below are optional
+            bill_scenario_id="billScenarioId",
+            expires_at="expiresAt",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        bill_scenario_id: typing.Optional[builtins.str] = None,
+        expires_at: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::BcmPricingCalculator::BillEstimate``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the bill estimate.
+        :param bill_scenario_id: The unique identifier of the bill scenario this estimate is based on.
+        :param expires_at: The timestamp when the bill estimate expires.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__59b0d50aa6bc7c04540c9cdefc66f4e79e30a2c4db2ca80c4b08be517c5b0bbb)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnBillEstimateProps(
+            name=name,
+            bill_scenario_id=bill_scenario_id,
+            expires_at=expires_at,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForBillEstimate")
+    @builtins.classmethod
+    def arn_for_bill_estimate(
+        cls,
+        resource: "_aws_bcmpricingcalculator_e6bc1cfa.IBillEstimateRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e7f590cc58fa97c19c6538f9499b347568b7cfff7f4c1c121903e76693b66c38)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBillEstimate", [resource]))
+
+    @jsii.member(jsii_name="isCfnBillEstimate")
+    @builtins.classmethod
+    def is_cfn_bill_estimate(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBillEstimate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__27ac9dc30366470b94f8abee696a463b0b76bafd0840aefd93b980e8a5a3875c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBillEstimate", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1913bf41059e72a8cbf43ab9ca16180843e7aa1534695cac1c56fefaf34362cc)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6cf8868307649b9892f0a8b59e320e95ccbcecbe49595911efdb1e99515cbbd9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the bill estimate.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBillInterval")
+    def attr_bill_interval(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''
+        :cloudformationAttribute: BillInterval
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrBillInterval"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCostCategoryGroupSharingPreferenceArn")
+    def attr_cost_category_group_sharing_preference_arn(self) -> builtins.str:
+        '''The ARN of the cost category group sharing preference.
+
+        :cloudformationAttribute: CostCategoryGroupSharingPreferenceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCostCategoryGroupSharingPreferenceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCostCategoryGroupSharingPreferenceEffectiveDate")
+    def attr_cost_category_group_sharing_preference_effective_date(
+        self,
+    ) -> builtins.str:
+        '''The effective date of the cost category group sharing preference.
+
+        :cloudformationAttribute: CostCategoryGroupSharingPreferenceEffectiveDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCostCategoryGroupSharingPreferenceEffectiveDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the bill estimate was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGroupSharingPreference")
+    def attr_group_sharing_preference(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: GroupSharingPreference
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrGroupSharingPreference"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The unique identifier of the bill estimate.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="billEstimateRef")
+    def bill_estimate_ref(
+        self,
+    ) -> "_aws_bcmpricingcalculator_e6bc1cfa.BillEstimateReference":
+        '''A reference to a BillEstimate resource.'''
+        return typing.cast("_aws_bcmpricingcalculator_e6bc1cfa.BillEstimateReference", jsii.get(self, "billEstimateRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the bill estimate.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c800bb760981168e3ce539bd27c974725b0ed77aa72f4c362a3a9397c331e567)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="billScenarioId")
+    def bill_scenario_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the bill scenario this estimate is based on.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "billScenarioId"))
+
+    @bill_scenario_id.setter
+    def bill_scenario_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__73883afc9cab81546f1e2bcf8ae7d32a7a0dba7e4a2d29ec98a95b9a31bd21a1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "billScenarioId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="expiresAt")
+    def expires_at(self) -> typing.Optional[builtins.str]:
+        '''The timestamp when the bill estimate expires.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "expiresAt"))
+
+    @expires_at.setter
+    def expires_at(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bbd9f95ef6f7045ced2eeef046b3f792a3bf707d771eacebafb256878999e906)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "expiresAt", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__93246a9dbc2e0c5c04001bc682e813d24988610a19371066f70295674cdf0bb9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bcmpricingcalculator.CfnBillEstimate.BillIntervalProperty",
+        jsii_struct_bases=[],
+        name_mapping={"end": "end", "start": "start"},
+    )
+    class BillIntervalProperty:
+        def __init__(
+            self,
+            *,
+            end: typing.Optional[builtins.str] = None,
+            start: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param end: 
+            :param start: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bcmpricingcalculator-billestimate-billinterval.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bcmpricingcalculator as bcmpricingcalculator
+                
+                bill_interval_property = bcmpricingcalculator.CfnBillEstimate.BillIntervalProperty(
+                    end="end",
+                    start="start"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0d7e5f41d1828e677218199b19cb4b5dc2b1d18ef337aa97f42d3292ce4ec9ee)
+                check_type(argname="argument end", value=end, expected_type=type_hints["end"])
+                check_type(argname="argument start", value=start, expected_type=type_hints["start"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if end is not None:
+                self._values["end"] = end
+            if start is not None:
+                self._values["start"] = start
+
+        @builtins.property
+        def end(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bcmpricingcalculator-billestimate-billinterval.html#cfn-bcmpricingcalculator-billestimate-billinterval-end
+            '''
+            result = self._values.get("end")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def start(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bcmpricingcalculator-billestimate-billinterval.html#cfn-bcmpricingcalculator-billestimate-billinterval-start
+            '''
+            result = self._values.get("start")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BillIntervalProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bcmpricingcalculator.CfnBillEstimateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "bill_scenario_id": "billScenarioId",
+        "expires_at": "expiresAt",
+        "tags": "tags",
+    },
+)
+class CfnBillEstimateProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        bill_scenario_id: typing.Optional[builtins.str] = None,
+        expires_at: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBillEstimate``.
+
+        :param name: The name of the bill estimate.
+        :param bill_scenario_id: The unique identifier of the bill scenario this estimate is based on.
+        :param expires_at: The timestamp when the bill estimate expires.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmpricingcalculator-billestimate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bcmpricingcalculator as bcmpricingcalculator
+            
+            cfn_bill_estimate_props = bcmpricingcalculator.CfnBillEstimateProps(
+                name="name",
+            
+                # the properties below are optional
+                bill_scenario_id="billScenarioId",
+                expires_at="expiresAt",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e29802b25d4c43813cfc0df4964a278333e02dc1d249f3438d8c2b4f16b10d5f)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument bill_scenario_id", value=bill_scenario_id, expected_type=type_hints["bill_scenario_id"])
+            check_type(argname="argument expires_at", value=expires_at, expected_type=type_hints["expires_at"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if bill_scenario_id is not None:
+            self._values["bill_scenario_id"] = bill_scenario_id
+        if expires_at is not None:
+            self._values["expires_at"] = expires_at
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the bill estimate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmpricingcalculator-billestimate.html#cfn-bcmpricingcalculator-billestimate-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bill_scenario_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the bill scenario this estimate is based on.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmpricingcalculator-billestimate.html#cfn-bcmpricingcalculator-billestimate-billscenarioid
+        '''
+        result = self._values.get("bill_scenario_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expires_at(self) -> typing.Optional[builtins.str]:
+        '''The timestamp when the bill estimate expires.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmpricingcalculator-billestimate.html#cfn-bcmpricingcalculator-billestimate-expiresat
+        '''
+        result = self._values.get("expires_at")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmpricingcalculator-billestimate.html#cfn-bcmpricingcalculator-billestimate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBillEstimateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_bcmpricingcalculator_e6bc1cfa.IBillScenarioRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnBillScenario(
     _aws_cdk_0cae9daa.CfnResource,
@@ -923,6 +1375,8 @@ class CfnWorkloadEstimateProps:
 
 
 __all__ = [
+    "CfnBillEstimate",
+    "CfnBillEstimateProps",
     "CfnBillScenario",
     "CfnBillScenarioProps",
     "CfnWorkloadEstimate",
@@ -930,6 +1384,84 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__59b0d50aa6bc7c04540c9cdefc66f4e79e30a2c4db2ca80c4b08be517c5b0bbb(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    bill_scenario_id: typing.Optional[builtins.str] = None,
+    expires_at: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e7f590cc58fa97c19c6538f9499b347568b7cfff7f4c1c121903e76693b66c38(
+    resource: _aws_bcmpricingcalculator_e6bc1cfa.IBillEstimateRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27ac9dc30366470b94f8abee696a463b0b76bafd0840aefd93b980e8a5a3875c(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1913bf41059e72a8cbf43ab9ca16180843e7aa1534695cac1c56fefaf34362cc(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6cf8868307649b9892f0a8b59e320e95ccbcecbe49595911efdb1e99515cbbd9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c800bb760981168e3ce539bd27c974725b0ed77aa72f4c362a3a9397c331e567(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73883afc9cab81546f1e2bcf8ae7d32a7a0dba7e4a2d29ec98a95b9a31bd21a1(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbd9f95ef6f7045ced2eeef046b3f792a3bf707d771eacebafb256878999e906(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93246a9dbc2e0c5c04001bc682e813d24988610a19371066f70295674cdf0bb9(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d7e5f41d1828e677218199b19cb4b5dc2b1d18ef337aa97f42d3292ce4ec9ee(
+    *,
+    end: typing.Optional[builtins.str] = None,
+    start: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e29802b25d4c43813cfc0df4964a278333e02dc1d249f3438d8c2b4f16b10d5f(
+    *,
+    name: builtins.str,
+    bill_scenario_id: typing.Optional[builtins.str] = None,
+    expires_at: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__3a715e57ee3488b858266784f2bf4dd323fc5058e2331b29290293c29b387383(
     scope: _constructs_77d1e7e8.Construct,

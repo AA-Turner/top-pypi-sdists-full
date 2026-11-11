@@ -1077,6 +1077,29 @@ def test_view(ctx_factory: cl.CtxFactory):
 # }}}
 
 
+# {{{ test_view_0d
+
+def test_view_0d(ctx_factory: cl.CtxFactory):
+    context = ctx_factory()
+    queue = cl.CommandQueue(context)
+
+    a = cl_array.to_device(queue, np.array(42, dtype=np.int8))
+
+    # same dtype
+    view = a.view()
+    assert view.shape == () and view.dtype == np.int8
+
+    # same itemsize
+    view = a.view(np.bool_)
+    assert view.shape == () and view.dtype == np.bool_
+
+    # changing the itemsize of a 0-d array is not allowed
+    with pytest.raises(ValueError):
+        a.view(np.int16)
+
+# }}}
+
+
 # {{{ test_diff
 
 def test_diff(ctx_factory: cl.CtxFactory):
@@ -1495,6 +1518,29 @@ def test_newaxis(ctx_factory: cl.CtxFactory):
 # }}}
 
 
+# {{{ test_ellipsis_newaxis
+
+@pytest.mark.parametrize(
+    ("shape", "index"),
+    [
+        ((), (Ellipsis, None)),
+        ((0,), (Ellipsis, None)),
+        ((2, 3), (Ellipsis, None)),
+        ((2, 3), (0, Ellipsis, None)),
+    ],
+)
+def test_ellipsis_newaxis(ctx_factory: cl.CtxFactory, shape, index):
+    context = ctx_factory()
+    queue = cl.CommandQueue(context)
+
+    a_host = np.zeros(shape, dtype=np.float32)
+    a = cl_array.to_device(queue, a_host)
+
+    assert a[index].shape == a_host[index].shape
+
+# }}}
+
+
 # {{{ test_squeeze
 
 def test_squeeze(ctx_factory: cl.CtxFactory):
@@ -1610,7 +1656,7 @@ def test_multi_put(ctx_factory: cl.CtxFactory):
     ]
 
     out_compare = [np.zeros((10,), np.float32) for i in range(9)]
-    for _i, ary in enumerate(out_compare):
+    for ary in out_compare:
         ary[idx.get()] = np.arange(0, 6, dtype=np.float32)
 
     cl_array.multi_put(cl_arrays, idx, out=out_arrays)
@@ -1878,6 +1924,17 @@ def test_branch_operations_on_pure_scalars():
                                cl_array.minimum(x, y))
     np.testing.assert_allclose(np.where(cond, x, y),
                                cl_array.if_positive(cond, x, y))
+
+
+def test_branch_operations_on_numpy_boolean_scalars() -> None:
+    cond: cl_array.ScalarLike = np.bool_(True)
+    then: cl_array.ScalarLike = np.bool_(False)
+    else_: cl_array.ScalarLike = np.bool_(True)
+
+    np.testing.assert_array_equal(
+        cl_array.if_positive(cond, then, else_),
+        np.where(cond, then, else_),
+    )
 
 # }}}
 
@@ -2346,8 +2403,8 @@ def test_logical_not(ctx_factory: cl.CtxFactory):
                     reason="XDG_CACHE_HOME is not used on Windows")
 def test_xdg_cache_home(ctx_factory: cl.CtxFactory):
     import os
+    import pathlib
     import shutil
-    from os.path import join
 
     context = ctx_factory()
     queue = cl.CommandQueue(context)
@@ -2355,13 +2412,13 @@ def test_xdg_cache_home(ctx_factory: cl.CtxFactory):
     a = np.array([1, 2, 3, 4, 5]).astype(np.float32)
     a_gpu = cl_array.to_device(queue, a)
 
-    xdg_dir = "tmpdir_pyopencl_xdg_test"
+    xdg_dir = pathlib.Path("tmpdir_pyopencl_xdg_test").resolve()
 
     # PyOpenCL uses pytools.PersistentDict for invoker caches,
     # which is why xdg_dir will always exist. Therefore, check
     # whether xdg_pyopencl_dir exists.
-    xdg_pyopencl_dir = join(xdg_dir, "pyopencl")
-    assert not os.path.exists(xdg_dir)
+    xdg_pyopencl_dir = xdg_dir / "pyopencl"
+    assert not xdg_dir.exists()
 
     old_xdg_cache_home = None
     old_characterize_has_src_build_cache = None
@@ -2373,12 +2430,12 @@ def test_xdg_cache_home(ctx_factory: cl.CtxFactory):
         cl_characterize.has_src_build_cache = lambda dev: False
 
         old_xdg_cache_home = os.getenv("XDG_CACHE_HOME")
-        os.environ["XDG_CACHE_HOME"] = xdg_dir
+        os.environ["XDG_CACHE_HOME"] = str(xdg_dir)
 
         result = pow(a_gpu, a_gpu).get()
         assert (np.abs(a ** a - result) < 3e-3).all()
 
-        assert os.path.exists(xdg_pyopencl_dir)
+        assert xdg_pyopencl_dir.exists()
     finally:
         cl_characterize.has_src_build_cache = \
             old_characterize_has_src_build_cache

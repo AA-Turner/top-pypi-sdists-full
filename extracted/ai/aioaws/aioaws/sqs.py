@@ -1,9 +1,9 @@
-from collections.abc import AsyncIterator, Iterable, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Iterable, Mapping
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from httpx import AsyncClient, Timeout
+from httpx2 import AsyncClient, Timeout
 from pydantic import BaseModel, Field
 
 from .core import AWSV4AuthFlow
@@ -169,7 +169,7 @@ async def create_sqs_client(
     auth: AWSAuthConfig,
     *,
     client: AsyncClient | None = None,
-) -> AsyncIterator[SQSClient]:
+) -> AsyncGenerator[SQSClient]:
     async with AsyncExitStack() as stack:
         if client is None:
             client = await stack.enter_async_context(AsyncClient())

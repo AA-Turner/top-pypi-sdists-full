@@ -8,7 +8,7 @@ use ahash::{HashMap, HashMapExt};
 use rkyv::{primitive::ArchivedU64, vec::ArchivedVec};
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
-    de::Error as SerdeError,
+    de::{Error as SerdeError, MapAccess, Visitor},
     ser::{SerializeSeq, SerializeStruct},
 };
 use serde_json::value::RawValue;
@@ -33,40 +33,116 @@ use crate::{
 };
 
 const TAG: &str = "SpecsHashMap";
+// Keys inside authored parameter and return values are user data. Only entity/rule
+// declarations directly inside these maps participate in the remote-value contract.
+pub(crate) const INLINE_ONLY_ENTITY_MAPS: &[&str] = &[
+    "feature_gates",
+    "layer_configs",
+    "param_stores",
+    "condition_map",
+    "override_rules",
+];
+
 const REMOTE_CONFIG_METADATA_JSON_KEY: &str = "remoteConfigMetadata";
 const UNHYDRATED_JSON_REMOTE_CONFIG_METADATA_MESSAGE: &str =
     "Remote config metadata reached the JSON decoder before hydration";
 
-type RawJsonObject = HashMap<String, Box<RawValue>>;
+type RawJsonObject<'a> = HashMap<String, &'a RawValue>;
 
 pub(crate) fn raw_spec_has_unhydrated_remote_config_metadata(json_string: &str) -> bool {
     // The producer emits the literal key, while the unicode-escape fallback
     // keeps manually supplied bootstrap JSON from bypassing this guard.
-    if !json_string.contains(REMOTE_CONFIG_METADATA_JSON_KEY) && !json_string.contains("\\u") {
+    if !may_mention_remote_metadata(json_string.as_bytes()) {
         return false;
     }
 
     // Decode only producer-owned object structure. Values stay raw so a valid
     // return-value number lexeme that serde_json::Value cannot represent does
     // not make this guard incorrectly conclude that metadata is absent.
-    let Ok(spec) = serde_json::from_str::<RawJsonObject>(json_string) else {
+    let Ok(spec) = serde_json::from_str::<RawJsonObject<'_>>(json_string) else {
         return false;
     };
-    if spec.contains_key(REMOTE_CONFIG_METADATA_JSON_KEY) {
-        return true;
+    spec.contains_key(REMOTE_CONFIG_METADATA_JSON_KEY)
+        || spec
+            .get("rules")
+            .is_some_and(|rules| raw_rules_have_remote_metadata(rules))
+}
+
+pub(super) fn raw_rules_have_remote_metadata(rules: &RawValue) -> bool {
+    let Ok(rules) = serde_json::from_str::<Vec<&RawValue>>(rules.get()) else {
+        return false;
+    };
+    rules.iter().any(|rule| {
+        serde_json::from_str::<RawJsonObject<'_>>(rule.get())
+            .is_ok_and(|fields| fields.contains_key(REMOTE_CONFIG_METADATA_JSON_KEY))
+    })
+}
+
+pub(crate) fn raw_map_has_unhydrated_remote_config_metadata(raw: &str) -> serde_json::Result<bool> {
+    if !may_mention_remote_metadata(raw.as_bytes()) || !raw.trim_start().starts_with('{') {
+        return Ok(false);
+    }
+    struct CheckEntries;
+
+    impl<'de> Visitor<'de> for CheckEntries {
+        type Value = bool;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("an entity map")
+        }
+
+        fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<bool, A::Error> {
+            // A later duplicate replaces the entire entry. Retain only the names
+            // that currently declare metadata, never a copy of their specs.
+            let mut forbidden = std::collections::HashSet::new();
+            while let Some((name, spec)) = map.next_entry::<String, &RawValue>()? {
+                if raw_spec_has_unhydrated_remote_config_metadata(spec.get()) {
+                    forbidden.insert(name);
+                } else {
+                    forbidden.remove(&name);
+                }
+            }
+            Ok(!forbidden.is_empty())
+        }
     }
 
-    let Some(rules) = spec.get("rules") else {
+    serde_json::Deserializer::from_str(raw).deserialize_map(CheckEntries)
+}
+
+pub(crate) fn may_mention_remote_metadata(bytes: &[u8]) -> bool {
+    memchr::memmem::find(bytes, REMOTE_CONFIG_METADATA_JSON_KEY.as_bytes()).is_some()
+        || memchr::memmem::find(bytes, br"\u").is_some()
+}
+
+pub(crate) fn json_maps_have_remote_metadata<'a>(
+    bytes: &[u8],
+    keys: impl IntoIterator<Item = &'a str>,
+) -> bool {
+    if !may_mention_remote_metadata(bytes) {
+        return false;
+    }
+    let Ok(payload) = serde_json::from_slice::<RawJsonObject<'_>>(bytes) else {
         return false;
     };
-    let Ok(rules) = serde_json::from_str::<Vec<RawJsonObject>>(rules.get()) else {
-        // Malformed specs are handled by the existing tolerant full-response
-        // path; they cannot publish a placeholder because they are skipped.
-        return false;
-    };
-    rules
-        .iter()
-        .any(|rule| rule.contains_key(REMOTE_CONFIG_METADATA_JSON_KEY))
+    keys.into_iter().any(|key| {
+        payload.get(key).is_some_and(|map| {
+            raw_map_has_unhydrated_remote_config_metadata(map.get()).unwrap_or(false)
+        })
+    })
+}
+
+pub(super) fn deserialize_inline_only_map<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: serde::de::DeserializeOwned,
+{
+    let raw = crate::evaluation::raw_json::RawJson::deserialize(deserializer)?.0;
+    if raw_map_has_unhydrated_remote_config_metadata(&raw).map_err(D::Error::custom)? {
+        return Err(D::Error::custom(
+            crate::specs_adapter::remote_config_value_hydrator::unsupported_entity_error(),
+        ));
+    }
+    serde_json::from_str(&raw).map_err(D::Error::custom)
 }
 
 #[derive(PartialEq, Debug, Default)] /* DO_NOT_CLONE */

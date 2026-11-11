@@ -48,7 +48,7 @@ except ImportError:  # Python 3.11-
         return pow(_2_0, x)
 
 __all__ = ()
-__version__ = '26.01.20'
+__version__ = '26.11.08'
 
 _TRIPS = 1024  # XXX 2 or 3?
 
@@ -131,7 +131,7 @@ class AuxLat(AuxAngle):
             _update_all(self)
             self._mAL = m
 
-    def _atanhee(self, tphi):  # see Ellipsoid._es_atanh, .albers._atanhee
+    def _atanhee(self, tphi):  # see _Taus.eatanhe, .albers._atanheE
         # atanh(e * sphi) = asinh(e' * sbeta)
         f =  self.f
         s = _sn(self._fm1 * tphi) if f > 0 else _sn(tphi)
@@ -240,10 +240,11 @@ class AuxLat(AuxAngle):
 
         i  =  0
         cs = []
+        _c =  cs.append
         _p = _polynomial
-        for m in _m(aL):
-            j  = i + m + 1  # order m = j - i - 1
-            cs.append(_p(x, Cx, i, j) * d)
+        for j in _m(aL):
+            j += i + 1  # order m = j - i - 1
+            _c(_p(x, Cx, i, j) * d)
             d *= n
             i  = j
         # assert i == len(Cx) and len(cs) == aL
@@ -846,7 +847,7 @@ __all__ += _ALL_DOCS(AuxLat)
 
 # **) MIT License
 #
-# Copyright (C) 2023-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2023-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

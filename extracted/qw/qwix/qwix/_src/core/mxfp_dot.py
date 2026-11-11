@@ -14,9 +14,8 @@
 """Block-scaled dot_general dispatch for eligible hardware devices."""
 
 from collections.abc import Sequence
-import functools
 import math
-from typing import Any
+from typing import Any, TypeGuard
 import jax
 from jax import numpy as jnp
 from qwix._src.core import qarray
@@ -28,15 +27,25 @@ def mxfp_dot_general(
     dimension_numbers: jax.lax.DotDimensionNumbers,
     preferred_element_type: jax.typing.DTypeLike | None = None,
 ) -> jax.Array | None:
-  """Handles MXFP dot_general on ZFC and Blackwell GPUs.
+  """Handles MXFP dot_general using `jax.lax.scaled_dot`.
 
-  This dispatcher attempts to accelerate OCP/NVIDIA microscaled matmuls using
-  GPU hardware Tensor Cores via `jax.nn.scaled_matmul`.
+  This dispatcher attempts to accelerate or decompose OCP/NVIDIA microscaled
+  matmuls using `jax.lax.scaled_dot` (hardware Tensor Cores on Blackwell, or
+  JAX emulation/decomposition on TPUs, CPUs, and legacy GPUs).
 
-  Note that hardware acceleration is strictly supported only when BOTH operands
-  are microscaled formats (MXFP8, MXFP4, or NVFP4). One-sided microscaled
-  operations are not supported by the hardware, and will cleanly return `None`
-  to fall back to standard float emulation.
+  Note that `scaled_dot` is supported when BOTH operands are microscaled
+  formats (MXFP8, MXFP4, or NVFP4) with matching batch and contracting scale
+  dimensions. One-sided microscaled operations or mismatched scale dimensions
+  will cleanly return `None` to fall back to standard float emulation.
+
+  Note: `jax.lax.scaled_dot` only supports floating-point microscaled formats
+  and does not support integer microscaled formats (e.g. mxint8). Integer
+  microscaled formats bypass this dispatcher and fall back to Qwix's reference
+  dot_general path.
+
+  Note: scaled_dot hardware acceleration is currently restricted to
+  single-axis contraction (len(ca) == 1). For multi-axis contractions use
+  reference emulation for numerical precision.
 
   Args:
     lhs: Left hand side operand.
@@ -47,48 +56,108 @@ def mxfp_dot_general(
   Returns:
     A jax.Array with the result, or None to fall back to emulation.
   """
-  # jax.nn.scaled_matmul is currently only supported on GPU (natively on
-  # Blackwell, emulated on legacy devices). Once scaled_matmul supports TPU, we
-  # will enable it for TPU as well.
-  if _get_primary_platform() == "gpu":
-    return _gpu_mxfp_dot(lhs, rhs, dimension_numbers, preferred_element_type)
-
-  return None
-
-
-def _is_mxfp(operand: Any) -> bool:
-  """Verifies whether the operand is an OCP/NVIDIA microscaled format."""
-  if isinstance(operand, qarray.QArray):
-    return operand.qtype in ("mxfp8", "mxfp4", "nvfp4")
-  return False
-
-
-@functools.cache
-def _get_primary_platform() -> str:
-  """Returns the JAX platform name cached to avoid tracer round-trips."""
-  return jax.devices()[0].platform
-
-
-def _gpu_mxfp_dot(lhs, rhs, dimension_numbers, preferred_element_type):
-  """GPU specific MXFP dot."""
   if not (_is_mxfp(lhs) and _is_mxfp(rhs)):
     return None
 
   (lhs_ca, rhs_ca), (lhs_ba, rhs_ba) = dimension_numbers
+
+  # jax.lax.scaled_dot (and underlying hardware like NVIDIA Blackwell Tensor
+  # Cores) natively operates on a single contiguous 1D reduction axis (K).
+  # Attempting to flatten multiple contracting dimensions (such as batch and
+  # sequence axes in backward pass weight gradient computations g^T y) into 1D
+  # causes tile-scale boundary misalignment:
+  # 1) If the inner contracting axis is not a multiple of the tile size, 1D
+  #    blocks straddle across outer dimension boundaries, grouping elements
+  #    from different slices under a single scale factor.
+  # 2) If scale factors are shared/broadcast along an outer contracting axis
+  #    (e.g., the batch axis in Qwix's backward pass), 1D flattening distorts
+  #    the inferred block size (to B * T) and stride-shifts scales across
+  #    slices, corrupting gradients (e.g., ~13 dB SQNR vs > 25 dB).
+  # We therefore fall back to Qwix's reference microscaled dot_general
+  # emulation for multi-axis contractions, preserving exact numerical accuracy.
+  if len(lhs_ca) > 1 or len(rhs_ca) > 1:
+    return None
+
   lhs_val_3d, lhs_scale_3d = _flatten_to_3d(lhs, lhs_ca, lhs_ba)
   rhs_val_3d, rhs_scale_3d = _flatten_to_3d(rhs, rhs_ca, rhs_ba)
 
-  # jax.nn.scaled_matmul is natively accelerated on Blackwell GPUs (via cuDNN
-  # scaled matmul kernels) and emulated/decomposed on legacy GPUs (like H100).
-  out_3d = jax.nn.scaled_matmul(
-      lhs_val_3d,
-      rhs_val_3d,
-      lhs_scale_3d,
-      rhs_scale_3d,
-      preferred_element_type=preferred_element_type or jnp.float32,
+  if not _inputs_compatible(lhs_val_3d, rhs_val_3d, lhs_scale_3d, rhs_scale_3d):
+    return None
+
+  _, result_type = qarray.get_accumulator_and_result_type(
+      lhs, rhs, preferred_element_type=preferred_element_type
   )
 
+  # TODO(b/538686860): Migrate to new API once it's available.
+  # jax.lax.scaled_dot is natively accelerated on Blackwell GPUs (via cuDNN
+  # scaled dot kernels, Triton kernels, or cuBLASLt as a fallback) and
+  # emulated/decomposed on TPUs, CPUs, and legacy GPUs (like H100).
+  try:
+    out_3d = jax.lax.scaled_dot(
+        lhs_val_3d,
+        rhs_val_3d,
+        lhs_scale=lhs_scale_3d,
+        rhs_scale=rhs_scale_3d,
+        dimension_numbers=(((2,), (2,)), ((0,), (0,))),
+        preferred_element_type=result_type,
+    )
+  except Exception:  # pylint: disable=broad-except
+    return None
+
   return _unflatten_from_3d(out_3d, lhs, rhs, dimension_numbers)
+
+
+def _is_mxfp(operand: Any) -> TypeGuard[qarray.QArray]:
+  """Verifies whether the operand is an OCP/NVIDIA microscaled format.
+
+  Note that `jax.lax.scaled_dot` only supports floating-point microscaled
+  types, so integer microscaled formats like mxint8 are excluded.
+
+  Args:
+    operand: The operand to check.
+
+  Returns:
+    True if the operand is an OCP/NVIDIA microscaled format.
+  """
+  return isinstance(operand, qarray.QArray) and operand.qtype in (
+      "mxfp8",
+      "mxfp8_16",
+      "mxfp4",
+      "nvfp4",
+  )
+
+
+def _inputs_compatible(
+    lhs_val_3d: jax.Array,
+    rhs_val_3d: jax.Array,
+    lhs_scale_3d: jax.Array,
+    rhs_scale_3d: jax.Array,
+) -> bool:
+  """Checks 3D value and scale tensors are compatible for scaled_dot."""
+  # Batch dimensions (dim 0), contracting dimensions (dim 2), and scale block
+  # counts along the contracting dimension must align between LHS and RHS.
+  # Note that free/output dimensions (dim 1) do not need to match.
+  if not (
+      lhs_val_3d.shape[0] == rhs_val_3d.shape[0]
+      and lhs_val_3d.shape[2] == rhs_val_3d.shape[2]
+      and lhs_scale_3d.shape[0] == rhs_scale_3d.shape[0]
+      and lhs_scale_3d.shape[2] == rhs_scale_3d.shape[2]
+  ):
+    return False
+
+  # Contracting dimension K must be an exact multiple of scale count K_scale so
+  # elements are partitioned into uniform, integer-sized blocks.
+  k = lhs_val_3d.shape[2]
+  k_scale = lhs_scale_3d.shape[2]
+  if k_scale <= 0 or k % k_scale != 0:
+    return False
+
+  # Hardware Tensor Cores (e.g. NVIDIA Blackwell via cuDNN) and microscaling
+  # standards (OCP MXFP8, MXFP4, MXINT8, NVFP4) strictly require block sizes
+  # of 32 or 16 along the reduction dimension. Incompatible tile sizes (e.g. 8,
+  # 24, 64) fall back to Qwix's reference software emulation.
+  block_size = k // k_scale
+  return block_size in (16, 32)
 
 
 def _flatten_to_3d(
@@ -96,7 +165,7 @@ def _flatten_to_3d(
     ca: Sequence[int],
     ba: Sequence[int],
 ) -> tuple[jax.Array, jax.Array]:
-  """Flattens a QArray operand and its scale to 3D for scaled_matmul."""
+  """Flattens a QArray operand and its scale to 3D for scaled_dot."""
   val = operand.qvalue
   scale = operand.scale
   ndim = operand.ndim
@@ -132,7 +201,7 @@ def _unflatten_from_3d(
     rhs: qarray.QArray,
     dimension_numbers: jax.lax.DotDimensionNumbers,
 ) -> jax.Array:
-  """Reshapes the 3D scaled_matmul output back to the expected target shape."""
+  """Reshapes the 3D scaled_dot output back to the expected target shape."""
   (lhs_ca, rhs_ca), (lhs_ba, rhs_ba) = dimension_numbers
   batch_shape = [lhs.shape[i] for i in lhs_ba]
   lhs_free_shape = [

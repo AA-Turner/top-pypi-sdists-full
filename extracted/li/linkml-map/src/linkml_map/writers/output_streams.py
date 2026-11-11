@@ -3,35 +3,23 @@
 import json
 import logging
 import os
-import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
+from decimal import Decimal
 from enum import Enum
 from pathlib import Path
 from typing import IO, Any
 
-import yaml
 from flatten_dict import flatten
 from flatten_dict.reducers import make_reducer
+
+from linkml_map.utils.serialization import dump_yaml, dumps_json, format_decimal
 
 logger = logging.getLogger(__name__)
 
 
-def _warn_deprecated(name: str, replacement: str) -> None:
-    """Emit a ``DeprecationWarning`` for a legacy function-based writer entry point.
-
-    :param name: The deprecated callable's name.
-    :param replacement: The class-based API to use instead.
-    """
-    warnings.warn(
-        f"{name} is deprecated and will be removed in a future version; use {replacement} instead.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-
-
 def _strip_nulls(obj: Any) -> Any:
-    """Remove None values from dicts so JSON output matches YAML behavior.
+    """Drop None-valued dict keys, recursively; None elements in lists are kept.
 
     :param obj: Object to strip nulls from.
     :returns: Cleaned object with None values removed from dicts.
@@ -154,7 +142,7 @@ class JSONStreamWriter(StreamWriter):
         for obj in chunk:
             prefix = "" if self._first_object else ",\n"
             self._first_object = False
-            yield prefix + json.dumps(_strip_nulls(obj), ensure_ascii=False, indent=2)
+            yield prefix + dumps_json(_strip_nulls(obj), indent=2)
 
     def finalize(self) -> Iterator[str]:
         """
@@ -186,7 +174,7 @@ class JSONLStreamWriter(StreamWriter):
         :yield: JSONL string lines.
         """
         for obj in chunk:
-            yield json.dumps(_strip_nulls(obj), ensure_ascii=False) + "\n"
+            yield dumps_json(_strip_nulls(obj)) + "\n"
 
     def finalize(self) -> Iterator[str]:
         """
@@ -226,7 +214,7 @@ class YAMLStreamWriter(StreamWriter):
             return
 
         if self.key_name:
-            yaml_str = yaml.dump({self.key_name: chunk}, default_flow_style=False, allow_unicode=True)
+            yaml_str = dump_yaml({self.key_name: _strip_nulls(chunk)})
             if self._first_chunk:
                 yield yaml_str
                 self._first_chunk = False
@@ -235,8 +223,10 @@ class YAMLStreamWriter(StreamWriter):
                 yield "\n".join(lines[1:]) + "\n"
         else:
             for obj in chunk:
-                yield yaml.dump(obj, default_flow_style=False, allow_unicode=True)
-                yield "---\n"
+                if not self._first_chunk:
+                    yield "---\n"
+                yield dump_yaml(_strip_nulls(obj))
+                self._first_chunk = False
 
     def finalize(self) -> Iterator[str]:
         """
@@ -245,105 +235,6 @@ class YAMLStreamWriter(StreamWriter):
         :yield: Nothing.
         """
         return iter(())
-
-
-def yaml_stream(
-    chunks: Iterator[list[dict[str, Any]]],
-    key_name: str | None = None,
-) -> Iterator[str]:
-    """
-    Convert chunks of objects to YAML format.
-
-    If key_name is provided, wraps all objects under that key as a list.
-    Otherwise, outputs each object as a separate YAML document.
-
-    .. deprecated::
-        Use ``make_stream_writer(OutputFormat.YAML)`` and drive it via
-        ``MultiStreamWriter`` or ``StreamWriter.process``. This function will be
-        removed in a future version.
-
-    :param chunks: Iterator of lists of dictionaries
-    :param key_name: Optional key name to wrap all objects
-    :yield: YAML formatted strings
-    """
-    _warn_deprecated("yaml_stream", "YAMLStreamWriter (via make_stream_writer)")
-    if key_name:
-        first_chunk = True
-        for chunk in chunks:
-            yaml_str = yaml.dump({key_name: chunk}, default_flow_style=False, allow_unicode=True)
-            if first_chunk:
-                yield yaml_str
-                first_chunk = False
-            else:
-                # Remove the key line and adjust indentation for continuation
-                lines = yaml_str.splitlines()
-                yield "\n".join(lines[1:]) + "\n"
-    else:
-        for chunk in chunks:
-            for obj in chunk:
-                yield yaml.dump(obj, default_flow_style=False, allow_unicode=True)
-                yield "---\n"
-
-
-def json_stream(
-    chunks: Iterator[list[dict[str, Any]]],
-    key_name: str | None = None,
-) -> Iterator[str]:
-    """
-    Convert chunks of objects to JSON format.
-
-    Outputs a single JSON object/array containing all transformed data.
-
-    .. deprecated::
-        Use ``make_stream_writer(OutputFormat.JSON)`` and drive it via
-        ``MultiStreamWriter`` or ``StreamWriter.process``. This function will be
-        removed in a future version.
-
-    :param chunks: Iterator of lists of dictionaries
-    :param key_name: Optional key name to wrap all objects
-    :yield: JSON formatted strings
-    """
-    _warn_deprecated("json_stream", "JSONStreamWriter (via make_stream_writer)")
-    first_chunk = True
-    if key_name:
-        yield f"{{{json.dumps(key_name)}: [\n"
-    else:
-        yield "[\n"
-
-    for chunk in chunks:
-        for obj in chunk:
-            prefix = "" if first_chunk else ",\n"
-            first_chunk = False
-            yield prefix + json.dumps(_strip_nulls(obj), ensure_ascii=False, indent=2)
-
-    if key_name:
-        yield "\n]}\n"
-    else:
-        yield "\n]\n"
-
-
-def jsonl_stream(
-    chunks: Iterator[list[dict[str, Any]]],
-    key_name: str | None = None,  # noqa: ARG001
-) -> Iterator[str]:
-    """
-    Convert chunks of objects to JSON Lines format.
-
-    Each object is written as a single line of JSON.
-
-    .. deprecated::
-        Use ``make_stream_writer(OutputFormat.JSONL)`` and drive it via
-        ``MultiStreamWriter`` or ``StreamWriter.process``. This function will be
-        removed in a future version.
-
-    :param chunks: Iterator of lists of dictionaries
-    :param key_name: Unused, kept for API consistency
-    :yield: JSONL formatted strings (one JSON object per line)
-    """
-    _warn_deprecated("jsonl_stream", "JSONLStreamWriter (via make_stream_writer)")
-    for chunk in chunks:
-        for obj in chunk:
-            yield json.dumps(_strip_nulls(obj), ensure_ascii=False) + "\n"
 
 
 class TabularStreamWriter(StreamWriter):
@@ -407,24 +298,6 @@ class TabularStreamWriter(StreamWriter):
             self._headers_changed = True
         return iter(())
 
-    def stream(
-        self,
-        chunks: Iterator[list[dict[str, Any]]],
-        key_name: str | None = None,  # noqa: ARG002
-    ) -> Iterator[str]:
-        """
-        Stream objects as tabular data. Backward-compatible alias for ``process``.
-
-        .. deprecated::
-            Use :meth:`process` instead. This alias will be removed in a future version.
-
-        :param chunks: Iterator of lists of dictionaries
-        :param key_name: Unused, kept for API consistency
-        :yield: TSV/CSV formatted strings
-        """
-        _warn_deprecated("TabularStreamWriter.stream", "TabularStreamWriter.process")
-        yield from self.process(chunks)
-
     def _escape_value(self, value: Any) -> str:
         """
         Escape a value for tabular output.
@@ -434,9 +307,11 @@ class TabularStreamWriter(StreamWriter):
         if value is None:
             return ""
         if isinstance(value, list | dict):
-            # Serialize complex values as JSON
-            return json.dumps(value, ensure_ascii=False)
-        str_value = str(value)
+            str_value = dumps_json(value)
+        elif isinstance(value, Decimal):
+            str_value = format_decimal(value)
+        else:
+            str_value = str(value)
         # Quote values containing separator, quotes, or newlines
         if self.separator in str_value or '"' in str_value or "\n" in str_value:
             return '"' + str_value.replace('"', '""') + '"'
@@ -470,56 +345,6 @@ class TabularStreamWriter(StreamWriter):
             for line in rewrite_header_and_pad(iter(src), self.get_final_headers(), self.separator):
                 dst.write(line)
         os.replace(tmp_path, str(target))
-
-
-def tsv_stream(
-    chunks: Iterator[list[dict[str, Any]]],
-    key_name: str | None = None,
-) -> Iterator[str]:
-    """
-    Convert chunks of objects to TSV format.
-
-    .. deprecated::
-        Use ``make_stream_writer(OutputFormat.TSV)`` and drive it via
-        ``MultiStreamWriter`` or ``StreamWriter.process``. This function will be
-        removed in a future version.
-
-    :param chunks: Iterator of lists of dictionaries
-    :param key_name: Unused, kept for API consistency
-    :yield: TSV formatted strings
-    """
-    _warn_deprecated("tsv_stream", "TabularStreamWriter (via make_stream_writer)")
-    writer = TabularStreamWriter(separator="\t")
-    yield from writer.process(chunks)
-
-    # Store headers on the function for post-processing if needed
-    if writer.headers_changed:
-        tsv_stream.headers = writer.get_final_headers()  # type: ignore[attr-defined]
-
-
-def csv_stream(
-    chunks: Iterator[list[dict[str, Any]]],
-    key_name: str | None = None,
-) -> Iterator[str]:
-    """
-    Convert chunks of objects to CSV format.
-
-    .. deprecated::
-        Use ``make_stream_writer(OutputFormat.CSV)`` and drive it via
-        ``MultiStreamWriter`` or ``StreamWriter.process``. This function will be
-        removed in a future version.
-
-    :param chunks: Iterator of lists of dictionaries
-    :param key_name: Unused, kept for API consistency
-    :yield: CSV formatted strings
-    """
-    _warn_deprecated("csv_stream", "TabularStreamWriter (via make_stream_writer)")
-    writer = TabularStreamWriter(separator=",")
-    yield from writer.process(chunks)
-
-    # Store headers on the function for post-processing if needed
-    if writer.headers_changed:
-        csv_stream.headers = writer.get_final_headers()  # type: ignore[attr-defined]
 
 
 def rewrite_header_and_pad(
@@ -589,28 +414,83 @@ class ColumnarStreamWriter(StreamWriter):
 
     Staging keeps the streaming contract intact: transformed objects are never all held in
     memory, and the target path only ever contains the finished artifact.
+
+    ``read_json_auto`` would infer ``DOUBLE`` for a decimal, so decimals are staged as
+    strings instead, and the widest integer part and scale seen at each decimal's path
+    are recorded.  The conversion then casts those paths to an exact ``DECIMAL(p,s)``.
     """
 
     def __init__(self) -> None:
-        """Initialize the writer with a JSONL writer to stage through."""
-        self._jsonl = JSONLStreamWriter()
+        """Initialize the writer with no decimals seen yet."""
+        self._decimal_digits: dict[tuple[str | None, ...], tuple[int, int]] = {}
 
     def write_chunk(self, chunk: list[dict]) -> Iterator[str]:
         """
-        Emit staged JSONL for a chunk.
+        Emit staged JSONL for a chunk, recording where decimals occur.
 
         :param chunk: A list of dictionaries.
         :yield: JSONL fragments destined for the staging file.
         """
-        yield from self._jsonl.write_chunk(chunk)
+        for obj in chunk:
+            stripped = _strip_nulls(obj)
+            self._record_decimals(stripped, ())
+            yield json.dumps(stripped, ensure_ascii=False, default=_decimal_as_string) + "\n"
 
     def finalize(self) -> Iterator[str]:
         """
-        Emit any trailing staged content.
+        No trailing content needed for staged JSONL.
 
-        :yield: Trailing JSONL fragments.
+        :yield: Nothing.
         """
-        yield from self._jsonl.finalize()
+        return iter(())
+
+    def _record_decimals(self, value: Any, path: tuple[str | None, ...]) -> None:
+        """
+        Widen the recorded integer digits and scale for every decimal within *value*.
+
+        :param value: A staged value.
+        :param path: Keys leading to *value*, with ``_LIST_ITEM`` for each list level.
+        """
+        if isinstance(value, dict):
+            for key, item in value.items():
+                self._record_decimals(item, (*path, key))
+        elif isinstance(value, list):
+            for item in value:
+                self._record_decimals(item, (*path, _LIST_ITEM))
+        elif isinstance(value, Decimal):
+            _, digits, exponent = value.as_tuple()
+            # Seeding with (0, 0) clamps integer digits at 0 for values below 0.1, keeping precision >= scale.
+            int_digits, scale = self._decimal_digits.get(path, (0, 0))
+            self._decimal_digits[path] = (max(int_digits, len(digits) + exponent), max(scale, -exponent))
+
+    def _select_sql(self, connection: Any, staged: Path) -> str:
+        """
+        SQL selecting the staged rows, with decimal paths cast to exact ``DECIMAL`` types.
+
+        :param connection: An open DuckDB connection, used to read the inferred types.
+        :param staged: The staging JSONL path.
+        :return: A ``SELECT`` statement.
+        :raises ValueError: If a decimal needs more digits than DuckDB's ``DECIMAL`` holds.
+        """
+        source = f"read_json_auto({_sql_literal(staged)})"
+        if not self._decimal_digits:
+            return f"SELECT * FROM {source}"
+        for path, (int_digits, scale) in self._decimal_digits.items():
+            if int_digits + scale > _MAX_DECIMAL_PRECISION:
+                where = ".".join("[]" if step is _LIST_ITEM else step for step in path)
+                msg = (
+                    f"Decimal values at {where} need {int_digits + scale} digits; "
+                    f"{type(self).__name__} supports at most {_MAX_DECIMAL_PRECISION}"
+                )
+                raise ValueError(msg)
+        relation = connection.sql(f"SELECT * FROM {source}")
+        casts = []
+        for name, column_type in zip(relation.columns, relation.types, strict=True):
+            digits = _descend(self._decimal_digits, name)
+            if digits:
+                column = _quote_identifier(name)
+                casts.append(f"CAST({column} AS {_with_decimals(column_type, digits)}) AS {column}")
+        return f"SELECT * REPLACE ({', '.join(casts)}) FROM {source}"
 
     def staging_path(self, target: Path) -> Path:
         """
@@ -636,7 +516,7 @@ class ColumnarStreamWriter(StreamWriter):
 
         connection = duckdb.connect(*self._connect_args(target))
         try:
-            connection.execute(self._conversion_sql(target, staged))
+            connection.execute(self._conversion_sql(target, self._select_sql(connection, staged)))
         finally:
             connection.close()
         staged.unlink()
@@ -650,12 +530,12 @@ class ColumnarStreamWriter(StreamWriter):
         """
         return ()
 
-    def _conversion_sql(self, target: Path, staged: Path) -> str:
+    def _conversion_sql(self, target: Path, select: str) -> str:
         """
-        SQL converting *staged* into the final artifact.
+        SQL writing the rows of *select* into the final artifact.
 
         :param target: The final output path.
-        :param staged: The staging JSONL path.
+        :param select: A ``SELECT`` over the staged rows.
         :return: A DuckDB statement.
         """
         raise NotImplementedError
@@ -664,15 +544,15 @@ class ColumnarStreamWriter(StreamWriter):
 class ParquetStreamWriter(ColumnarStreamWriter):
     """Writes a single Parquet file, readable outside the DuckDB ecosystem."""
 
-    def _conversion_sql(self, target: Path, staged: Path) -> str:
+    def _conversion_sql(self, target: Path, select: str) -> str:
         """
         Build the ``COPY ... TO ... (FORMAT PARQUET)`` statement.
 
         :param target: The Parquet file to write.
-        :param staged: The staging JSONL path.
+        :param select: A ``SELECT`` over the staged rows.
         :return: A DuckDB statement.
         """
-        return f"COPY (SELECT * FROM read_json_auto({_sql_literal(staged)})) TO {_sql_literal(target)} (FORMAT PARQUET)"
+        return f"COPY ({select}) TO {_sql_literal(target)} (FORMAT PARQUET)"
 
 
 class DuckDBStreamWriter(ColumnarStreamWriter):
@@ -699,19 +579,77 @@ class DuckDBStreamWriter(ColumnarStreamWriter):
         """
         return (str(target),)
 
-    def _conversion_sql(self, target: Path, staged: Path) -> str:
+    def _conversion_sql(self, target: Path, select: str) -> str:
         """
         Build the ``CREATE OR REPLACE TABLE ... AS SELECT`` statement.
 
         :param target: The DuckDB file being written.
-        :param staged: The staging JSONL path.
+        :param select: A ``SELECT`` over the staged rows.
         :return: A DuckDB statement.
         """
         table = self.table_name or target.stem
-        return (
-            f"CREATE OR REPLACE TABLE {_quote_identifier(table)} AS "
-            f"SELECT * FROM read_json_auto({_sql_literal(staged)})"
+        return f"CREATE OR REPLACE TABLE {_quote_identifier(table)} AS {select}"
+
+
+#: Path step standing for "each item of a list" when recording where decimals occur.
+_LIST_ITEM = None
+
+#: The widest ``DECIMAL`` DuckDB supports.
+_MAX_DECIMAL_PRECISION = 38
+
+
+def _decimal_as_string(value: Any) -> str:
+    """
+    ``json.dumps`` fallback staging a decimal as its exact text.
+
+    :param value: A value ``json`` cannot serialize itself.
+    :return: The decimal in fixed-point notation.
+    :raises TypeError: If *value* is not a decimal.
+    """
+    if isinstance(value, Decimal):
+        return format_decimal(value)
+    msg = f"Object of type {type(value).__name__} is not JSON serializable"
+    raise TypeError(msg)
+
+
+def _descend(
+    digits: dict[tuple[str | None, ...], tuple[int, int]], step: str | None
+) -> dict[tuple[str | None, ...], tuple[int, int]]:
+    """
+    The decimal paths below *step*, relative to it.
+
+    :param digits: Recorded ``(integer digits, scale)`` per path.
+    :param step: A key, or ``_LIST_ITEM``.
+    :return: The paths that start with *step*, with *step* removed.
+    """
+    return {path[1:]: value for path, value in digits.items() if path and path[0] == step}
+
+
+def _with_decimals(column_type: Any, digits: dict[tuple[str | None, ...], tuple[int, int]]) -> Any:
+    """
+    Rebuild *column_type* with an exact ``DECIMAL`` at every recorded decimal path.
+
+    :param column_type: The ``DuckDBPyType`` DuckDB inferred for the staged column.
+    :param digits: Recorded ``(integer digits, scale)`` per path, relative to this type.
+    :return: The rebuilt ``DuckDBPyType``.
+    :raises ValueError: If a decimal sits inside a type other than a struct or list.
+    """
+    import duckdb
+
+    if () in digits:
+        int_digits, scale = digits[()]
+        return duckdb.decimal_type(max(int_digits + scale, 1), scale)
+    if not digits:
+        return column_type
+    if column_type.id == "struct":
+        return duckdb.struct_type(
+            {name: _with_decimals(field_type, _descend(digits, name)) for name, field_type in column_type.children}
         )
+    if column_type.id == "list":
+        (_, item_type) = column_type.children[0]
+        return duckdb.list_type(_with_decimals(item_type, _descend(digits, _LIST_ITEM)))
+    msg = f"Cannot place a DECIMAL inside a {column_type} column"
+    raise ValueError(msg)
 
 
 def _sql_literal(path: Path) -> str:
@@ -732,32 +670,6 @@ def _quote_identifier(name: str) -> str:
     :return: A double-quoted SQL identifier.
     """
     return '"' + name.replace('"', '""') + '"'
-
-
-def get_stream_writer(output_format: OutputFormat) -> Any:
-    """
-    Get the appropriate stream writer for the given format.
-
-    .. deprecated::
-        Use :func:`make_stream_writer`, which returns a ``StreamWriter`` instance.
-        This function will be removed in a future version.
-
-    :param output_format: The desired output format
-    :return: Stream writer function
-    """
-    _warn_deprecated("get_stream_writer", "make_stream_writer")
-    writers = {
-        OutputFormat.YAML: yaml_stream,
-        OutputFormat.JSON: json_stream,
-        OutputFormat.JSONL: jsonl_stream,
-        OutputFormat.TSV: tsv_stream,
-        OutputFormat.CSV: csv_stream,
-    }
-    writer = writers.get(output_format)
-    if writer is None:
-        msg = f"No stream writer available for format: {output_format}"
-        raise ValueError(msg)
-    return writer
 
 
 # Extension-to-format mapping used by make_stream_writer and CLI

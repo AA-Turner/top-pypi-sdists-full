@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ormar
-Version: 0.28.0
+Version: 0.29.0
 Summary: An async ORM with fastapi in mind and pydantic validation.
 License: MIT
 License-File: LICENSE.md
@@ -656,6 +656,7 @@ asyncio.run(cleanup_database())
 *  `prefetch_related(related: Union[list, str]) -> QuerySet`
 *  `limit(limit_count: int) -> QuerySet`
 *  `offset(offset: int) -> QuerySet`
+*  `select_for_update(nowait: bool = False, skip_locked: bool = False, read: bool = False, no_key: bool = False) -> QuerySet`
 *  `count(distinct: bool = True) -> int`
 *  `exists() -> bool`
 *  `max(columns: list[str]) -> Any`
@@ -667,6 +668,7 @@ asyncio.run(cleanup_database())
 *  `order_by(columns:Union[list, str]) -> QuerySet`
 *  `values(fields: Union[list, str, set, dict])`
 *  `values_list(fields: Union[list, str, set, dict])`
+*  column expressions: `Model.field` or `ormar.F("field")` with `+ - *` as values of `filter()` and `update()`
 
 
 #### Relation types

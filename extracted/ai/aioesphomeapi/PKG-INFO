@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: aioesphomeapi
-Version: 46.28.0
+Version: 46.29.1
 Summary: Python API for interacting with ESPHome devices.
 Home-page: https://esphome.io/
-Download-URL: https://github.com/esphome/aioesphomeapi/archive/46.28.0.zip
+Download-URL: https://github.com/esphome/aioesphomeapi/archive/46.29.1.zip
 Author: Otto Winter
 Author-email: esphome@nabucasa.com
 License: MIT
@@ -17,7 +17,7 @@ Requires-Dist: tzdata>=2026.3
 Requires-Dist: tzlocal<6,>=5.3.1
 Requires-Dist: zeroconf<2.0,>=0.152.0
 Requires-Dist: chacha20poly1305-reuseable>=0.13.2
-Requires-Dist: cryptography>=48.0.0
+Requires-Dist: cryptography>=50.0.2
 Requires-Dist: cryptography<49.0.0; platform_system == "Darwin" and platform_machine == "x86_64"
 Requires-Dist: noiseprotocol<1.0,>=0.3.1
 Dynamic: author

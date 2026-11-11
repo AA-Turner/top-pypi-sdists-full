@@ -5,11 +5,12 @@ class MockOutputLoggerProvider(OutputLoggerProvider):
     init_called = False
     shutdown_called = False
     error_count = 0
-    logs: List[Tuple[str,str, str]] = [] # (level, tag, msg)
+    logs: List[Tuple[str, str, str]]  # (level, tag, msg)
 
     def __new__(cls, test_param: str = ""):
         instance = super().__new__(cls)
         instance.test_param = test_param
+        instance.logs = []
         return instance
 
     def init(self):

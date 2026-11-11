@@ -37,6 +37,7 @@ BenefitVisibility: typing.TypeAlias = typing.Literal["draft", "private", "public
 BillingAddressFieldMode: typing.TypeAlias = typing.Literal[
     "required", "optional", "disabled"
 ]
+CatalogStatus: typing.TypeAlias = typing.Literal["draft", "live", "archived"]
 CheckoutLinkSortProperty: typing.TypeAlias = typing.Literal[
     "created_at",
     "-created_at",
@@ -972,6 +973,8 @@ RefundReason: typing.TypeAlias = typing.Literal[
     "service_disruption",
     "satisfaction_guarantee",
     "dispute_prevention",
+    "tax_refund",
+    "vat_reverse_charge_correction",
     "other",
 ]
 RefundSortProperty: typing.TypeAlias = typing.Literal[

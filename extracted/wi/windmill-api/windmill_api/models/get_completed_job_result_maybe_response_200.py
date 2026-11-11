@@ -16,12 +16,15 @@ class GetCompletedJobResultMaybeResponse200:
         result (Any):
         success (Union[Unset, bool]):
         started (Union[Unset, bool]):
+        is_skipped (Union[Unset, bool]): set when the job is completed; true if it ended as skipped (also counted as
+            success)
     """
 
     completed: bool
     result: Any
     success: Union[Unset, bool] = UNSET
     started: Union[Unset, bool] = UNSET
+    is_skipped: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -29,6 +32,7 @@ class GetCompletedJobResultMaybeResponse200:
         result = self.result
         success = self.success
         started = self.started
+        is_skipped = self.is_skipped
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -42,6 +46,8 @@ class GetCompletedJobResultMaybeResponse200:
             field_dict["success"] = success
         if started is not UNSET:
             field_dict["started"] = started
+        if is_skipped is not UNSET:
+            field_dict["is_skipped"] = is_skipped
 
         return field_dict
 
@@ -56,11 +62,14 @@ class GetCompletedJobResultMaybeResponse200:
 
         started = d.pop("started", UNSET)
 
+        is_skipped = d.pop("is_skipped", UNSET)
+
         get_completed_job_result_maybe_response_200 = cls(
             completed=completed,
             result=result,
             success=success,
             started=started,
+            is_skipped=is_skipped,
         )
 
         get_completed_job_result_maybe_response_200.additional_properties = d

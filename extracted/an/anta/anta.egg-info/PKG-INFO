@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anta
-Version: 1.10.0
+Version: 1.11.0
 Summary: Arista Network Test Automation (ANTA) Framework
 Author-email: Arista Networks ANTA maintainers <anta-dev@arista.com>
 Maintainer-email: Arista Networks ANTA maintainers <anta-dev@arista.com>, Khelil Sator <ksator@arista.com>, Matthieu Tâche <mtache@arista.com>, Thomas Grimonet <tgrimonet@arista.com>, Guillaume Mulocher <gmulocher@arista.com>, Carl Baillargeon <carl.baillargeon@arista.com>
@@ -16,16 +16,16 @@ Classifier: Intended Audience :: System Administrators
 Classifier: Intended Audience :: Information Technology
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Networking
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: asyncssh>=2.16
@@ -67,7 +67,9 @@ ANTA is a Python framework that automates tests for Arista devices.
   - As a [Python library](https://anta.arista.com/stable/advanced_usages/as-python-lib/) in your own application
   - Via the [ANTA CLI](https://anta.arista.com/stable/cli/overview/)
 
-![anta nrfu](https://raw.githubusercontent.com/aristanetworks/anta/main/docs/imgs/anta-nrfu.svg)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aristanetworks/anta/main/docs/imgs/anta-nrfu.gif" alt="anta nrfu">
+</p>
 
 ## Install ANTA library
 
@@ -91,8 +93,11 @@ If you plan to use ANTA only as a CLI tool you can use `pipx` to install it.
 ```bash
 # Install ANTA CLI with pipx
 $ pipx install anta[cli]
+```
 
-# Run ANTA CLI
+Run the ANTA CLI:
+
+```bash
 $ anta --help
 Usage: anta [OPTIONS] COMMAND [ARGS]...
 
@@ -114,7 +119,7 @@ Commands:
   exec   Commands to execute various scripts on EOS devices.
   get    Commands to get information from or generate inventories.
   nrfu   Run ANTA tests on selected inventory devices.
-  psirt  Run ANTA tests for Arista security advisories.
+  psirt  [PREVIEW] Run ANTA tests for Arista security advisories.
 ```
 
 You can also still choose to install it directly with `pip`:

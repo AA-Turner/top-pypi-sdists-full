@@ -25,6 +25,7 @@ NOTE:
 
 import json
 import os
+import time
 from pathlib import Path
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
@@ -74,10 +75,10 @@ def create_index():
         SearchableField(name="Description", type=SearchFieldDataType.STRING),
         SearchField(
             name="DescriptionVector",
-            type=SearchFieldDataType.Collection(SearchFieldDataType.SINGLE),  # type: ignore[operator]
+            type=SearchFieldDataType.Collection(SearchFieldDataType.SINGLE),
             searchable=True,
             vector_search_dimensions=1536,
-            vector_search_profile_name="my-vector-profile",
+            vector_search_profile_name="hotels-sample-vector-profile",
         ),
         SearchableField(
             name="Category",
@@ -88,7 +89,7 @@ def create_index():
         ),
         SearchField(
             name="Tags",
-            type=SearchFieldDataType.Collection(SearchFieldDataType.STRING),  # type: ignore[operator]
+            type=SearchFieldDataType.Collection(SearchFieldDataType.STRING),
             searchable=True,
             filterable=True,
             facetable=True,
@@ -97,13 +98,13 @@ def create_index():
 
     vector_search = VectorSearch(
         algorithms=[
-            HnswAlgorithmConfiguration(name="my-hnsw-vector-config-1"),
-            ExhaustiveKnnAlgorithmConfiguration(name="my-eknn-vector-config"),
+            HnswAlgorithmConfiguration(name="hotels-sample-hnsw-config"),
+            ExhaustiveKnnAlgorithmConfiguration(name="hotels-sample-eknn-config"),
         ],
         profiles=[
             VectorSearchProfile(
-                name="my-vector-profile",
-                algorithm_configuration_name="my-hnsw-vector-config-1",
+                name="hotels-sample-vector-profile",
+                algorithm_configuration_name="hotels-sample-hnsw-config",
             )
         ],
     )
@@ -141,11 +142,24 @@ def load_documents():
 
 
 def upload_documents():
-    """Upload documents to the search index."""
+    """Upload documents to the search index and wait for indexing to complete."""
     search_client = SearchClient(service_endpoint, index_name, AzureKeyCredential(key))
     documents = load_documents()
     result = search_client.upload_documents(documents=documents)
+    if not all(item.succeeded for item in result):
+        raise RuntimeError("Some vector documents could not be uploaded.")
     print(f"Uploaded: {len(result)} documents to index '{index_name}'")
+
+    # Wait for indexing to complete so the first query returns hits.
+    expected = len(documents)
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        if search_client.get_document_count() >= expected:
+            break
+        time.sleep(2)
+    else:
+        raise TimeoutError("Vector documents were not queryable within 60 seconds.")
+    print(f"Indexed: {search_client.get_document_count()} documents are queryable")
 
 
 def single_vector_search():
@@ -176,6 +190,9 @@ def single_vector_search():
 def single_vector_search_with_filter():
     """Perform a vector search with a filter applied."""
     # [START single_vector_search_with_filter]
+    from azure.search.documents.models import VectorQueryKind
+    from azure.search.documents.types import VectorQuery as VectorQueryInput, VectorizedQuery as VectorizedQueryInput
+
     search_client = SearchClient(service_endpoint, index_name, AzureKeyCredential(key))
 
     vector_query = VectorizedQuery(
@@ -194,6 +211,22 @@ def single_vector_search_with_filter():
     print("Results: vector search with filter")
     for result in results:
         print(f"  HotelId: {result['HotelId']}, HotelName: {result['HotelName']}, " f"Tags: {result.get('Tags')}")
+
+    typed_query: VectorizedQueryInput = {
+        "kind": VectorQueryKind.VECTOR,
+        "vector": vector,
+        "k": 5,
+        "fields": "DescriptionVector",
+    }
+    query_input: VectorQueryInput = typed_query
+    typed_results = search_client.search(
+        vector_queries=[query_input],
+        filter="Tags/any(tag: tag eq 'free wifi')",
+        select=["HotelId", "HotelName", "Description", "Category", "Tags"],
+        top=5,
+    )
+    for result in typed_results:
+        print(f"TypedDict vector result: {result['HotelId']}: {result['HotelName']}")
     # [END single_vector_search_with_filter]
 
 

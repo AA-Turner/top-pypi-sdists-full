@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 
 '''Generate header file for nanopb from a ProtoBuf FileDescriptorSet.'''
-nanopb_version = "nanopb-0.4.9.1"
+nanopb_version = "nanopb-0.4.9.3"
 
 import sys
 import re
@@ -25,13 +25,8 @@ if not os.getenv("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"):
     os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
 try:
-    # Make sure grpc_tools gets included in binary package if it is available
-    import grpc_tools.protoc
-except:
-    pass
-
-try:
     import google.protobuf.text_format as text_format
+    import google.protobuf.text_encoding as text_encoding
     import google.protobuf.descriptor_pb2 as descriptor
     import google.protobuf.compiler.plugin_pb2 as plugin_pb2
     import google.protobuf.descriptor
@@ -74,14 +69,6 @@ else:
     # Import nanopb_pb2.py, rebuilds if necessary and not disabled
     # by env variable NANOPB_PB2_NO_REBUILD
     nanopb_pb2 = proto.load_nanopb_pb2()
-
-try:
-    # Add some dummy imports to keep packaging tools happy.
-    import google # bbfreeze seems to need these
-    from proto import nanopb_pb2 # pyinstaller seems to need this
-except:
-    # Don't care, we will error out later if it is actually important.
-    pass
 
 # ---------------------------------------------------------------------------
 #                     Generation of single fields
@@ -618,6 +605,7 @@ class Field(ProtoElement):
         self.callback_datatype = field_options.callback_datatype
         self.math_include_required = False
         self.sort_by_tag = field_options.sort_by_tag
+        self.submsg_callback_requested = False
 
         if field_options.type == nanopb_pb2.FT_INLINE:
             # Before nanopb-0.3.8, fixed length bytes arrays were specified
@@ -649,7 +637,18 @@ class Field(ProtoElement):
 
         # Check field rules, i.e. required/optional/repeated.
         if field_options.HasField("label_override"):
+            # Process overrides from nanopb options
             desc.label = field_options.label_override
+        elif hasattr(desc.options, "features"):
+            # For protobuf 'editions', the field presence is set under features
+            field_presence = desc.options.features.field_presence
+            if field_presence == descriptor.FeatureSet.LEGACY_REQUIRED:
+                desc.label = FieldD.LABEL_REQUIRED
+            elif field_presence == descriptor.FeatureSet.EXPLICIT:
+                desc.label = FieldD.LABEL_OPTIONAL
+            elif field_presence == descriptor.FeatureSet.IMPLICIT:
+                desc.label = FieldD.LABEL_OPTIONAL
+                field_options.proto3 = True
 
         can_be_static = True
         if desc.label == FieldD.LABEL_REPEATED:
@@ -759,7 +758,20 @@ class Field(ProtoElement):
             self.pbtype = 'MESSAGE'
             self.ctype = self.submsgname = names_from_type_name(desc.type_name)
             self.enc_size = None # Needs to be filled in after the message type is available
+            self.submsg_callback_requested = field_options.submsg_callback
+
+            # Add submessage callback for statically allocated fields inside or
+            # outside oneofs. This can be used for repeated fields and oneofs.
             if field_options.submsg_callback and self.allocation == 'STATIC':
+                # The callback is stored in a pb_callback_t placed in front of
+                # the field's _count (repeated) or which_ (oneof) member. Fixed
+                # count arrays have neither, so pSize points at the iterator's
+                # array_size instead and pb_dec_submessage()/pb_enc_submessage()
+                # would read the callback out of bounds.
+                if self.rules == 'FIXARRAY':
+                    raise Exception("Field '%s' sets both fixed_count and submsg_callback, "
+                                    "but submsg_callback is not supported for fixed count "
+                                    "arrays." % self.name)
                 self.pbtype = 'MSG_W_CB'
         else:
             raise NotImplementedError(desc.type)
@@ -864,8 +876,9 @@ class Field(ProtoElement):
                 inner_init = '0'
         else:
             if self.pbtype == 'STRING':
-                data = codecs.escape_encode(self.default.encode('utf-8'))[0]
-                inner_init = '"' + data.decode('ascii') + '"'
+                data = text_encoding.CEscape(self.default.encode('utf-8'), False)
+                # Escape question marks to prevent C trigraph conversion.
+                inner_init = '"' + data.replace('?', r'\?') + '"'
             elif self.pbtype == 'BYTES':
                 data = codecs.escape_decode(self.default)[0]
                 data = ["0x%02x" % c for c in bytearray(data)]
@@ -892,7 +905,7 @@ class Field(ProtoElement):
                     inner_init = inner_init.replace('inf', 'INFINITY')
                 elif 'nan' in inner_init:
                     inner_init = inner_init.replace('nan', 'NAN')
-                elif (not '.' in inner_init) and self.pbtype == 'FLOAT':
+                elif (not '.' in inner_init) and (not 'e' in inner_init) and self.pbtype == 'FLOAT':
                     inner_init += '.0f'
                 elif self.pbtype == 'FLOAT':
                     inner_init += 'f'
@@ -1218,6 +1231,12 @@ class OneOf(Field):
 
         if self.sort_by_tag:
             self.fields.sort()
+
+        # Add submessage callback for callback fields inside oneofs.
+        # This is done here because the Field() initializer doesn't know
+        # whether the field will end up inside oneof or not.
+        if field.submsg_callback_requested and field.allocation == 'CALLBACK':
+            field.pbtype = 'MSG_W_CB'
 
         if field.pbtype == 'MSG_W_CB':
             self.has_msg_cb = True
@@ -1569,15 +1588,18 @@ class Message(ProtoElement):
 
         size_define = "%s_size" % (self.name)
         if size_define in local_defines:
+            result += '/* The size define we are using may be defined conditionally guarded. */\n'
+            result += '#if defined %s\n' % size_define
             result += '    static PB_INLINE_CONSTEXPR const pb_size_t size = %s;\n' % (size_define)
+            result += '#endif\n'
 
-        result += '    static inline const pb_msgdesc_t* fields() {\n'
+        result += '    static PB_INLINE_CONSTEXPR const pb_msgdesc_t* fields() {\n'
         result += '        return &%s_msg;\n' % (self.name)
         result += '    }\n'
-        result += '    static inline bool has_msgid() {\n'
+        result += '    static PB_INLINE_CONSTEXPR bool has_msgid() {\n'
         result += '        return %s;\n' % ("true" if hasattr(self, "msgid") else "false", )
         result += '    }\n'
-        result += '    static inline uint32_t msgid() {\n'
+        result += '    static PB_INLINE_CONSTEXPR uint32_t msgid() {\n'
         result += '        return %d;\n' % (getattr(self, "msgid", 0), )
         result += '    }\n'
         result += '};'
@@ -1873,7 +1895,7 @@ class MangleNames:
             return "." + typename.split(".")[-1]
 
         canonical_mangled_typename = str(Names(typename.strip(".").split(".")))
-        if not canonical_mangled_typename.startswith(str(self.canonical_base) + "_"):
+        if not canonical_mangled_typename.startswith(str(self.canonical_base) + "_") and self.canonical_base != Names():
             return typename
 
         if self.strip_prefix is not None and typename.startswith(self.strip_prefix):
@@ -2343,15 +2365,45 @@ class ProtoFile:
 
 from fnmatch import fnmatchcase
 
+def validate_options_namemask(namemask, filename, line_number):
+    '''Verify that an options pattern contains only protobuf path and fnmatch characters.'''
+    # File options match .proto paths, which can contain punctuation that is
+    # not valid in field names.
+    if '/' in namemask or namemask.endswith('.proto'):
+        invalid = re.search(r'[\s:]', namemask)
+    else:
+        invalid = re.search(r'[^A-Za-z0-9_.*?\[\]!-]', namemask)
+    if invalid:
+        hint = ""
+        if invalid.group(0) == ':':
+            hint = " Did you mean to separate the field pattern from options with whitespace?"
+
+        sys.stderr.write("%s:%d: " % (filename, line_number) +
+                         "Invalid character %r in option field pattern %r.%s\n" %
+                         (invalid.group(0), namemask, hint))
+        sys.exit(1)
+
+def strip_options_comments(data):
+    '''Remove comments from .options data without touching quoted strings.'''
+    string_or_comment = re.compile(
+        r'''(?P<string>"(?:\\.|[^"\\\r\n])*(?:"|$)|'(?:\\.|[^'\\\r\n])*(?:'|$))'''
+        r'''|(?P<comment>(?:^|(?<=\s))/\*.*?(?:\*/|\Z)|/\*[^\r\n]*?\*/|//[^\r\n]*|#[^\r\n]*)''',
+        flags = re.MULTILINE | re.DOTALL)
+
+    def strip_comment(match):
+        if match.group('string'):
+            return match.group('string')
+
+        return re.sub(r'[^\r\n]', '', match.group('comment'))
+
+    return string_or_comment.sub(strip_comment, data)
+
 def read_options_file(infile):
     '''Parse a separate options file to list:
         [(namemask, options), ...]
     '''
     results = []
-    data = infile.read()
-    data = re.sub(r'/\*.*?\*/', '', data, flags = re.MULTILINE)
-    data = re.sub(r'//.*?$', '', data, flags = re.MULTILINE)
-    data = re.sub(r'#.*?$', '', data, flags = re.MULTILINE)
+    data = strip_options_comments(infile.read())
     for i, line in enumerate(data.split('\n')):
         line = line.strip()
         if not line:
@@ -2364,6 +2416,8 @@ def read_options_file(infile):
                              "Option lines should have space between field name and options. " +
                              "Skipping line: '%s'\n" % line)
             sys.exit(1)
+
+        validate_options_namemask(parts[0], infile.name, i + 1)
 
         opts = nanopb_pb2.NanoPBOptions()
 
@@ -2761,6 +2815,15 @@ def main_plugin():
 
     if hasattr(plugin_pb2.CodeGeneratorResponse, "FEATURE_PROTO3_OPTIONAL"):
         response.supported_features = plugin_pb2.CodeGeneratorResponse.FEATURE_PROTO3_OPTIONAL
+
+    if (hasattr(plugin_pb2.CodeGeneratorResponse, "FEATURE_SUPPORTS_EDITIONS")
+            and hasattr(response, "minimum_edition")):
+        # Some protobuf versions expose the FEATURE_SUPPORTS_EDITIONS enum value on
+        # CodeGeneratorResponse before also adding the minimum_edition/maximum_edition
+        # fields to the same message, so the two have to be checked independently.
+        response.supported_features |= plugin_pb2.CodeGeneratorResponse.FEATURE_SUPPORTS_EDITIONS
+        response.minimum_edition = descriptor.EDITION_PROTO2
+        response.maximum_edition = descriptor.EDITION_2024
 
     io.open(sys.stdout.fileno(), "wb").write(response.SerializeToString())
 

@@ -71,7 +71,7 @@ from pygeodesy.utily import asin1, atan1, atan2, atan2b, atan2d, \
 from math import acos, degrees, fabs, sin, sqrt
 
 __all__ = _ALL_LAZY.azimuthal
-__version__ = '25.11.29'
+__version__ = '26.10.30'
 
 _EPS_K         = _EPStol * _0_1  # Karney's eps_ or _EPSmin * _0_1?
 _over_horizon_ = 'over horizon'
@@ -824,8 +824,8 @@ class _GnomonicBase(_AzimuthalGeodesic):
             s, d = _S2(_d(r, q))
         else:  # PYCHOK no cover
             self._iteration = _TRIPS
-            raise AzimuthalError(Fmt.no_convergence(d, a),
-                                 txt=unstr(self.reverse, x, y))
+            t = unstr(self.reverse, x, y)
+            raise AzimuthalError(Fmt.no_convergence(d, a), txt=t)
 
         t = self._7Tuple(e, n, r, name_LatLon_kwds, M=r.M12) if LatLon is None else \
             self._toLatLon(r.lat2, r.lon2, LatLon, name_LatLon_kwds)
@@ -1119,7 +1119,7 @@ __all__ += _ALL_DOCS(_AzimuthalBase, _AzimuthalGeodesic, _EquidistantBase, _Gnom
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

@@ -95,6 +95,7 @@ class Exceptions(BaseClientExceptions):
     IllegalStateException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    RetryableConflictException: type[BotocoreClientError]
 
 
 class ARCRegionswitchClient(BaseClient):

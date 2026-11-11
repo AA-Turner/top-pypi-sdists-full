@@ -80,7 +80,7 @@ class Options(object):
 			m = re.match(Options.PARSE_PATTERN, x)
 			if m:
 				kb_weight = '02' if m.group(2) == 'B' else '01'
-				sort_value = '{0}{1}{2:09d}{3}'.format(m.group(1), kb_weight, int(m.group(3)), m.group(4))
+				sort_value = f'{m.group(1)}{kb_weight}{int(m.group(3)):09d}{m.group(4)}'
 
 			result.append('{0} -> {1}'.format(sort_value, x))
 

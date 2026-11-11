@@ -552,8 +552,7 @@ class _HotineObliqueAB(_HotineObliqueBase):
                     X = a
                 else:  # PYCHOK no cover
                     t = unstr(self.reverse, x, y, triPhi=n)
-                    e = Fmt.no_convergence(d, _TOL)
-                    raise HotineError(e, txt=t)
+                    raise HotineError(Fmt.no_convergence(d, _TOL), txt=t)
 
             else:  # Horner-like e2-sin(X2) series, 3-5
                 sX4 = [sin(X * _) for _ in range(2, 9, 2)]
@@ -758,7 +757,7 @@ def _tesB(e, s, B, *a):  # t(e, s) power B!
 
 # **) MIT License
 #
-# Copyright (C) 2026-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2026-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

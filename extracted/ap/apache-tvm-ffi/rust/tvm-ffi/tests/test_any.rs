@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+use tvm_ffi::tvm_ffi_sys::TVMFFIObject;
 use tvm_ffi::*;
 
 /// Macro to test integer types with both Any and AnyView
@@ -70,8 +71,8 @@ macro_rules! test_any_float {
 
 // Test all float types with both Any and AnyView
 test_any_float!(
-    f32: 3.14f32, test_any_float_f32, test_any_view_float_f32,
-    f64: 3.14f64, test_any_float_f64, test_any_view_float_f64
+    f32: 2.5f32, test_any_float_f32, test_any_view_float_f32,
+    f64: 2.5f64, test_any_float_f64, test_any_view_float_f64
 );
 
 #[test]
@@ -88,14 +89,14 @@ fn test_any_bool() {
     // Test Any
     assert_eq!(any_true.type_index(), TypeIndex::kTVMFFIBool as i32);
     assert_eq!(any_false.type_index(), TypeIndex::kTVMFFIBool as i32);
-    assert_eq!(bool::try_from(any_true).unwrap(), true);
-    assert_eq!(bool::try_from(any_false).unwrap(), false);
+    assert!(bool::try_from(any_true).unwrap());
+    assert!(!bool::try_from(any_false).unwrap());
 
     // Test AnyView
     assert_eq!(any_view_true.type_index(), TypeIndex::kTVMFFIBool as i32);
     assert_eq!(any_view_false.type_index(), TypeIndex::kTVMFFIBool as i32);
-    assert_eq!(bool::try_from(any_view_true).unwrap(), true);
-    assert_eq!(bool::try_from(any_view_false).unwrap(), false);
+    assert!(bool::try_from(any_view_true).unwrap());
+    assert!(!bool::try_from(any_view_false).unwrap());
 }
 
 #[test]
@@ -105,15 +106,15 @@ fn test_type_mismatch_error() {
     // Try to convert int to bool - should be ok
     let result: Result<bool, _> = bool::try_from(any);
     assert!(result.is_ok());
-    // try_as is more strict and do not allow conversion from int to bool
+    // The value is still stored as an int; only the converting `TryFrom` reads
+    // it as a bool.
     let any = Any::from(42i32);
-    let opt_try_as = any.try_as::<bool>();
-    assert!(opt_try_as.is_none());
+    assert_eq!(any.type_index(), TypeIndex::kTVMFFIInt as i32);
 }
 
 #[test]
 fn test_type_mismatch_error_message() {
-    let any_none = Any::from(Option::<i32>::from(None));
+    let any_none = Any::from(None::<i32>);
     // try from will try casting when possible
     // Try to convert int to bool - should be ok
     let err = i32::try_from(any_none).unwrap_err();
@@ -138,8 +139,8 @@ fn test_cross_type_conversion_int_to_bool() {
 
     // Note: This test might fail depending on how try_cast_from_any_view is implemented
     // If it fails, it means the conversion isn't implemented yet
-    assert_eq!(bool_true.unwrap(), true);
-    assert_eq!(bool_false.unwrap(), false);
+    assert!(bool_true.unwrap());
+    assert!(!bool_false.unwrap());
 }
 
 #[test]
@@ -171,6 +172,8 @@ fn test_any_option_i32() {
 
     // Test Any with Some value
     assert_eq!(any_some.type_index(), TypeIndex::kTVMFFIInt as i32);
+    assert!(any_some.downcast_ref::<Object>().is_none());
+    assert!(any_view_some.downcast_ref::<Object>().is_none());
     assert_eq!(Option::<i32>::try_from(any_some).unwrap(), Some(42i32));
 
     // Test AnyView with Some value
@@ -184,6 +187,8 @@ fn test_any_option_i32() {
 
     // Test Any with None value
     assert_eq!(any_none.type_index(), TypeIndex::kTVMFFINone as i32);
+    assert!(any_none.downcast_ref::<Object>().is_none());
+    assert!(any_view_none.downcast_ref::<Object>().is_none());
     assert_eq!(Option::<i32>::try_from(any_none).unwrap(), None::<i32>);
 
     // Test AnyView with None value
@@ -266,6 +271,7 @@ fn test_anyview_any_conversion_and_cloning() {
     assert_eq!(any_view.debug_strong_count(), Some(1));
 
     // Test AnyView cloning - should not affect reference count
+    #[allow(clippy::clone_on_copy)] // exercises AnyView::clone explicitly
     let any_view_clone = any_view.clone();
     assert_eq!(any_view.debug_strong_count(), Some(1));
     assert_eq!(any_view_clone.debug_strong_count(), Some(1));
@@ -321,13 +327,13 @@ fn test_any_dl_device() {
     // Test Any with CPU device
     assert_eq!(any_cpu.type_index(), TypeIndex::kTVMFFIDevice as i32);
     let converted_cpu = DLDevice::try_from(any_cpu).unwrap();
-    assert_eq!(converted_cpu.device_type, DLDeviceType::kDLCPU);
+    assert_eq!(converted_cpu.device_type, DLDeviceType::kDLCPU as i32);
     assert_eq!(converted_cpu.device_id, 0);
 
     // Test AnyView with CPU device
     assert_eq!(any_view_cpu.type_index(), TypeIndex::kTVMFFIDevice as i32);
     let converted_cpu_view = DLDevice::try_from(any_view_cpu).unwrap();
-    assert_eq!(converted_cpu_view.device_type, DLDeviceType::kDLCPU);
+    assert_eq!(converted_cpu_view.device_type, DLDeviceType::kDLCPU as i32);
     assert_eq!(converted_cpu_view.device_id, 0);
 
     // Test DLDevice with CUDA device
@@ -338,13 +344,16 @@ fn test_any_dl_device() {
     // Test Any with CUDA device
     assert_eq!(any_cuda.type_index(), TypeIndex::kTVMFFIDevice as i32);
     let converted_cuda = DLDevice::try_from(any_cuda).unwrap();
-    assert_eq!(converted_cuda.device_type, DLDeviceType::kDLCUDA);
+    assert_eq!(converted_cuda.device_type, DLDeviceType::kDLCUDA as i32);
     assert_eq!(converted_cuda.device_id, 1);
 
     // Test AnyView with CUDA device
     assert_eq!(any_view_cuda.type_index(), TypeIndex::kTVMFFIDevice as i32);
     let converted_cuda_view = DLDevice::try_from(any_view_cuda).unwrap();
-    assert_eq!(converted_cuda_view.device_type, DLDeviceType::kDLCUDA);
+    assert_eq!(
+        converted_cuda_view.device_type,
+        DLDeviceType::kDLCUDA as i32
+    );
     assert_eq!(converted_cuda_view.device_id, 1);
 }
 
@@ -355,13 +364,14 @@ fn test_any_dl_device() {
 // Fields only reachable through `Deref`, where `Any::from` is not applicable.
 #[repr(C)]
 struct FieldHolderObj {
-    base: Object,
+    base_: Object,
     lhs: String,
     rhs: Option<String>,
     count: i64,
 }
 
 unsafe impl ObjectCore for FieldHolderObj {
+    type Parent = Object;
     const TYPE_KEY: &'static str = Object::TYPE_KEY;
     const TYPE_DEPTH: i32 = Object::TYPE_DEPTH;
     #[inline]
@@ -370,7 +380,7 @@ unsafe impl ObjectCore for FieldHolderObj {
     }
     #[inline]
     unsafe fn object_header_mut(this: &mut Self) -> &mut TVMFFIObject {
-        Object::object_header_mut(&mut this.base)
+        unsafe { Object::object_header_mut(&mut this.base_) }
     }
 }
 
@@ -382,7 +392,7 @@ fn test_to_any_matches_from_value() {
             let any = value.to_any();
             assert_eq!(any.type_index(), TypeIndex::$type_index as i32);
             assert_eq!(any.type_index(), Any::from(value).type_index());
-            assert_eq!(any.try_as::<$ty>(), Some($value));
+            assert_eq!(<$ty>::try_from(&any).unwrap(), $value);
             assert_eq!(any.debug_strong_count(), None);
         }};
     }
@@ -404,7 +414,7 @@ fn test_to_any_matches_from_value() {
     let any = s.to_any();
     assert_eq!(any.type_index(), TypeIndex::kTVMFFIStr as i32);
     assert_eq!(any.debug_strong_count(), Some(2));
-    assert_eq!(any.try_as::<String>().unwrap(), s);
+    assert_eq!(any.downcast_ref::<String>().cloned().unwrap(), s);
     drop(any);
     assert_eq!(AnyView::from(&s).debug_strong_count(), Some(1));
 }
@@ -414,7 +424,7 @@ fn test_to_any_matches_from_value() {
 fn test_to_any_from_borrowed_object_field() {
     let lhs = String::from("hello world this is a long string");
     let holder = ObjectArc::new(FieldHolderObj {
-        base: Object::new(),
+        base_: Object::new(),
         lhs: lhs.clone(),
         rhs: Some(lhs.clone()),
         count: 11,
@@ -424,14 +434,17 @@ fn test_to_any_from_borrowed_object_field() {
 
     let any = holder.lhs.to_any();
     assert_eq!(any.debug_strong_count(), Some(4));
-    assert_eq!(any.try_as::<String>().unwrap(), lhs);
+    assert_eq!(any.downcast_ref::<String>().cloned().unwrap(), lhs);
 
     let any_opt = holder.rhs.to_any();
     assert_eq!(
-        any_opt.try_as::<Option<String>>().unwrap(),
+        Option::<String>::try_from(&any_opt).unwrap(),
         Some(lhs.clone())
     );
-    assert_eq!(holder.count.to_any().try_as::<i64>(), Some(11));
+    assert_eq!(
+        holder.count.to_any().downcast_ref::<i64>().copied(),
+        Some(11)
+    );
 
     drop(any);
     drop(any_opt);

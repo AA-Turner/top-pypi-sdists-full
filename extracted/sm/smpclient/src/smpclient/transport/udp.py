@@ -119,25 +119,26 @@ class SMPUDPTransport(SMPTransport):
                 raise SMPClientException(error)
 
         logger.debug(f"Finished receiving message of length {message_length} B")
-        return message
+        return bytes(message)
 
     @override
     async def send_and_receive(self, data: bytes) -> bytes:
         await self.send(data)
         return await self.receive()
 
-    @override
     @property
+    @override
     def mtu(self) -> int:
         return self._mtu
 
-    @override
     @property
+    @override
     def max_unencoded_size(self) -> int:
         """Maximum UDP payload size (MSS) to avoid fragmentation.
 
         Subtracts IPv4/IPv6 and UDP header overhead from MTU per RFC 8085 section 3.2.
-        The IP version is auto-detected after connection.
+        The IP version is auto-detected after connection.  Once the server's MCUmgr
+        parameters are known, the payload is also capped at its advertised buffer.
         """
         overhead = IPV6_UDP_OVERHEAD if self._is_ipv6 else IPV4_UDP_OVERHEAD
-        return self._mtu - overhead
+        return min(self._mtu - overhead, self._smp_server_transport_buffer_size or self._mtu)

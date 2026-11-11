@@ -18,6 +18,7 @@ import google.protobuf.message
 import google.protobuf.timestamp_pb2
 
 import temporalio.api.common.v1.message_pb2
+import temporalio.api.nexus.v1.message_pb2
 
 if sys.version_info >= (3, 10):
     import typing as typing_extensions
@@ -35,7 +36,7 @@ class _ActivityCancelReasonEnumTypeWrapper(
         _ActivityCancelReason.ValueType
     ],
     builtins.type,
-):  # noqa: F821
+):
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
     NOT_FOUND: _ActivityCancelReason.ValueType  # 0
     """The activity no longer exists according to server (may be already completed)"""
@@ -68,6 +69,7 @@ RESET: ActivityCancelReason.ValueType  # 5
 """Activity was reset"""
 global___ActivityCancelReason = ActivityCancelReason
 
+@typing.final
 class ActivityTask(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -79,9 +81,11 @@ class ActivityTask(google.protobuf.message.Message):
     @property
     def start(self) -> global___Start:
         """Start activity execution."""
+
     @property
     def cancel(self) -> global___Cancel:
         """Attempt to cancel activity execution."""
+
     def __init__(
         self,
         *,
@@ -91,13 +95,13 @@ class ActivityTask(google.protobuf.message.Message):
     ) -> None: ...
     def HasField(
         self,
-        field_name: typing_extensions.Literal[
+        field_name: typing.Literal[
             "cancel", b"cancel", "start", b"start", "variant", b"variant"
         ],
     ) -> builtins.bool: ...
     def ClearField(
         self,
-        field_name: typing_extensions.Literal[
+        field_name: typing.Literal[
             "cancel",
             b"cancel",
             "start",
@@ -109,16 +113,18 @@ class ActivityTask(google.protobuf.message.Message):
         ],
     ) -> None: ...
     def WhichOneof(
-        self, oneof_group: typing_extensions.Literal["variant", b"variant"]
-    ) -> typing_extensions.Literal["start", "cancel"] | None: ...
+        self, oneof_group: typing.Literal["variant", b"variant"]
+    ) -> typing.Literal["start", "cancel"] | None: ...
 
 global___ActivityTask = ActivityTask
 
+@typing.final
 class Start(google.protobuf.message.Message):
     """Begin executing an activity"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    @typing.final
     class HeaderFieldsEntry(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -134,11 +140,10 @@ class Start(google.protobuf.message.Message):
             value: temporalio.api.common.v1.message_pb2.Payload | None = ...,
         ) -> None: ...
         def HasField(
-            self, field_name: typing_extensions.Literal["value", b"value"]
+            self, field_name: typing.Literal["value", b"value"]
         ) -> builtins.bool: ...
         def ClearField(
-            self,
-            field_name: typing_extensions.Literal["key", b"key", "value", b"value"],
+            self, field_name: typing.Literal["key", b"key", "value", b"value"]
         ) -> None: ...
 
     WORKFLOW_NAMESPACE_FIELD_NUMBER: builtins.int
@@ -160,19 +165,29 @@ class Start(google.protobuf.message.Message):
     PRIORITY_FIELD_NUMBER: builtins.int
     IS_LOCAL_FIELD_NUMBER: builtins.int
     RUN_ID_FIELD_NUMBER: builtins.int
+    PROPAGATED_NEXUS_SERIALIZATION_CONTEXT_FIELD_NUMBER: builtins.int
+    WORKFLOW_TASK_FIELD_NUMBER: builtins.int
     workflow_namespace: builtins.str
     """The namespace the workflow lives in"""
     workflow_type: builtins.str
     """The workflow's type name or function identifier"""
+    activity_id: builtins.str
+    """The activity's ID"""
+    activity_type: builtins.str
+    """The activity's type name or function identifier"""
+    attempt: builtins.int
+    is_local: builtins.bool
+    """Set to true if this is a local activity. Note that heartbeating does not apply to local
+    activities.
+    """
+    run_id: builtins.str
+    """Run ID of this activity execution. Only set for standalone activities."""
     @property
     def workflow_execution(
         self,
     ) -> temporalio.api.common.v1.message_pb2.WorkflowExecution:
         """The workflow execution which requested this activity"""
-    activity_id: builtins.str
-    """The activity's ID"""
-    activity_type: builtins.str
-    """The activity's type name or function identifier"""
+
     @property
     def header_fields(
         self,
@@ -186,6 +201,7 @@ class Start(google.protobuf.message.Message):
         temporalio.api.common.v1.message_pb2.Payload
     ]:
         """Arguments to the activity"""
+
     @property
     def heartbeat_details(
         self,
@@ -193,40 +209,57 @@ class Start(google.protobuf.message.Message):
         temporalio.api.common.v1.message_pb2.Payload
     ]:
         """The last details that were recorded by a heartbeat when this task was generated"""
+
     @property
     def scheduled_time(self) -> google.protobuf.timestamp_pb2.Timestamp:
         """When the task was *first* scheduled"""
+
     @property
     def current_attempt_scheduled_time(self) -> google.protobuf.timestamp_pb2.Timestamp:
         """When this current attempt at the task was scheduled"""
+
     @property
     def started_time(self) -> google.protobuf.timestamp_pb2.Timestamp:
         """When this attempt was started, which is to say when core received it by polling."""
-    attempt: builtins.int
+
     @property
     def schedule_to_close_timeout(self) -> google.protobuf.duration_pb2.Duration:
         """Timeout from the first schedule time to completion"""
+
     @property
     def start_to_close_timeout(self) -> google.protobuf.duration_pb2.Duration:
         """Timeout from starting an attempt to reporting its result"""
+
     @property
     def heartbeat_timeout(self) -> google.protobuf.duration_pb2.Duration:
         """If set a heartbeat must be reported within this interval"""
+
     @property
     def retry_policy(self) -> temporalio.api.common.v1.message_pb2.RetryPolicy:
         """This is an actual retry policy the service uses. It can be different from the one provided
         (or not) during activity scheduling as the service can override the provided one in case its
         values are not specified or exceed configured system limits.
         """
+
     @property
     def priority(self) -> temporalio.api.common.v1.message_pb2.Priority:
         """Priority of this activity. Local activities will always have this field set to the default."""
-    is_local: builtins.bool
-    """Set to true if this is a local activity. Note that heartbeating does not apply to local
-    activities.
-    """
-    run_id: builtins.str
-    """Run ID of this activity execution. Only set for standalone activities."""
+
+    @property
+    def propagated_nexus_serialization_context(
+        self,
+    ) -> temporalio.api.nexus.v1.message_pb2.PropagatedSerializationContext:
+        """Serialization context of the Nexus operation handler that started this activity, if any.
+        Only set for standalone activities. Lang should use it to serialize the activity's result and
+        failure, which are returned to the Nexus caller.
+        """
+
+    @property
+    def workflow_task(self) -> global___WorkflowTaskAttempt:
+        """For a local activity, the workflow task in which Core dispatched this execution. Retries that
+        Core runs locally keep the value. Unset for other activities.
+        """
+
     def __init__(
         self,
         *,
@@ -258,16 +291,21 @@ class Start(google.protobuf.message.Message):
         priority: temporalio.api.common.v1.message_pb2.Priority | None = ...,
         is_local: builtins.bool = ...,
         run_id: builtins.str = ...,
+        propagated_nexus_serialization_context: temporalio.api.nexus.v1.message_pb2.PropagatedSerializationContext
+        | None = ...,
+        workflow_task: global___WorkflowTaskAttempt | None = ...,
     ) -> None: ...
     def HasField(
         self,
-        field_name: typing_extensions.Literal[
+        field_name: typing.Literal[
             "current_attempt_scheduled_time",
             b"current_attempt_scheduled_time",
             "heartbeat_timeout",
             b"heartbeat_timeout",
             "priority",
             b"priority",
+            "propagated_nexus_serialization_context",
+            b"propagated_nexus_serialization_context",
             "retry_policy",
             b"retry_policy",
             "schedule_to_close_timeout",
@@ -280,11 +318,13 @@ class Start(google.protobuf.message.Message):
             b"started_time",
             "workflow_execution",
             b"workflow_execution",
+            "workflow_task",
+            b"workflow_task",
         ],
     ) -> builtins.bool: ...
     def ClearField(
         self,
-        field_name: typing_extensions.Literal[
+        field_name: typing.Literal[
             "activity_id",
             b"activity_id",
             "activity_type",
@@ -305,6 +345,8 @@ class Start(google.protobuf.message.Message):
             b"is_local",
             "priority",
             b"priority",
+            "propagated_nexus_serialization_context",
+            b"propagated_nexus_serialization_context",
             "retry_policy",
             b"retry_policy",
             "run_id",
@@ -321,6 +363,8 @@ class Start(google.protobuf.message.Message):
             b"workflow_execution",
             "workflow_namespace",
             b"workflow_namespace",
+            "workflow_task",
+            b"workflow_task",
             "workflow_type",
             b"workflow_type",
         ],
@@ -328,6 +372,87 @@ class Start(google.protobuf.message.Message):
 
 global___Start = Start
 
+@typing.final
+class WorkflowTaskAttempt(google.protobuf.message.Message):
+    """One attempt of a workflow task, from the poll response and the history of that attempt."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    STARTED_EVENT_ID_FIELD_NUMBER: builtins.int
+    ATTEMPT_FIELD_NUMBER: builtins.int
+    STARTED_TIME_FIELD_NUMBER: builtins.int
+    PREVIOUS_STARTED_EVENT_ID_FIELD_NUMBER: builtins.int
+    FAILED_TASKS_FIELD_NUMBER: builtins.int
+    PREVIOUS_ATTEMPT_FIELD_NUMBER: builtins.int
+    PREVIOUS_STARTED_TIME_FIELD_NUMBER: builtins.int
+    started_event_id: builtins.int
+    """The event id of the task's WorkflowTaskStarted event."""
+    attempt: builtins.int
+    previous_started_event_id: builtins.int
+    """The started event id of the run's last completed workflow task, from the poll response.
+    0 when no task of the run has completed.
+    """
+    previous_attempt: builtins.int
+    """The attempt and the started time of the task at previous_started_event_id, from its
+    WorkflowTaskScheduled and WorkflowTaskStarted events. Unset when no task has completed.
+    """
+    @property
+    def started_time(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """When the server started the task."""
+
+    @property
+    def failed_tasks(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]:
+        """The started event ids of the run's last 100 failed and timed out workflow tasks in history,
+        in event order. The cap keeps each start small. A transient attempt has no such event.
+        """
+
+    @property
+    def previous_started_time(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        started_event_id: builtins.int = ...,
+        attempt: builtins.int = ...,
+        started_time: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        previous_started_event_id: builtins.int = ...,
+        failed_tasks: collections.abc.Iterable[builtins.int] | None = ...,
+        previous_attempt: builtins.int = ...,
+        previous_started_time: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+    ) -> None: ...
+    def HasField(
+        self,
+        field_name: typing.Literal[
+            "previous_started_time",
+            b"previous_started_time",
+            "started_time",
+            b"started_time",
+        ],
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing.Literal[
+            "attempt",
+            b"attempt",
+            "failed_tasks",
+            b"failed_tasks",
+            "previous_attempt",
+            b"previous_attempt",
+            "previous_started_event_id",
+            b"previous_started_event_id",
+            "previous_started_time",
+            b"previous_started_time",
+            "started_event_id",
+            b"started_event_id",
+            "started_time",
+            b"started_time",
+        ],
+    ) -> None: ...
+
+global___WorkflowTaskAttempt = WorkflowTaskAttempt
+
+@typing.final
 class Cancel(google.protobuf.message.Message):
     """Attempt to cancel a running activity"""
 
@@ -340,6 +465,7 @@ class Cancel(google.protobuf.message.Message):
     @property
     def details(self) -> global___ActivityCancellationDetails:
         """Activity cancellation details, surfaces all cancellation reasons."""
+
     def __init__(
         self,
         *,
@@ -347,17 +473,15 @@ class Cancel(google.protobuf.message.Message):
         details: global___ActivityCancellationDetails | None = ...,
     ) -> None: ...
     def HasField(
-        self, field_name: typing_extensions.Literal["details", b"details"]
+        self, field_name: typing.Literal["details", b"details"]
     ) -> builtins.bool: ...
     def ClearField(
-        self,
-        field_name: typing_extensions.Literal[
-            "details", b"details", "reason", b"reason"
-        ],
+        self, field_name: typing.Literal["details", b"details", "reason", b"reason"]
     ) -> None: ...
 
 global___Cancel = Cancel
 
+@typing.final
 class ActivityCancellationDetails(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -385,7 +509,7 @@ class ActivityCancellationDetails(google.protobuf.message.Message):
     ) -> None: ...
     def ClearField(
         self,
-        field_name: typing_extensions.Literal[
+        field_name: typing.Literal[
             "is_cancelled",
             b"is_cancelled",
             "is_not_found",

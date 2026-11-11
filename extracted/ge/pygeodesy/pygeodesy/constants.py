@@ -19,14 +19,14 @@ from pygeodesy.lazily import _ALL_MODS as _MODS, _ALL_LAZY
 # from pygeodesy.streprs import Fmt  # from .unitsBase
 from pygeodesy.unitsBase import Float, Int, Radius,  Fmt
 
-from math import fabs, isinf, isnan, pi as _pi, sqrt
+from math import fabs, isinf, isnan, pi as _math_pi, sqrt
 try:
     from math import inf as _inf, nan as _nan  # PYCHOK Python 3+
 except ImportError:  # Python 2-
     _inf, _nan = float(_INF_), float(_NAN_)
 
 __all__ = _ALL_LAZY.constants
-__version__ = '26.10.12'
+__version__ = '26.11.03'
 
 
 def _copysign_0_0(y):
@@ -285,21 +285,21 @@ _EPStol  = _Float(_EPStol =_EPSqrt * _0_1)    # PYCHOK = 1.490116119385e-09 == s
 
 _89_999  = _Float(_89_999 =_90_0 * EPS1)  # just below 90.0
 # <https://Numbers.Computation.Free.FR/Constants/Miscellaneous/digits.html>
-# _1__90 = _Float(_1__90  =_1_0 / _90_0)  # PYCHOK = 0.011_111_111_111_111_111_111_111_111_111_111_111_111_111_111_11111
-_2__PI   = _Float(_2__PI  =_2_0 / _pi)    # PYCHOK = 0.636_619_772_367_581_343_075_535_053_490_057_448_137_838_582_96182
-_K0_UTM  = _Float(_K0_UTM = 0.9996)       # PYCHOK in .etm, .ktm, .utm, UTM scale at central meridian
-_K0_UPS  = _Float(_K0_UPS = 0.994)        # PYCHOK in .ups, scale factor at central meridian
-OVERFLOW = _Float(OVERFLOW=_1_0 / EPS0)   # PYCHOK = 2.028240960365e+31
-_SQRT2   = _Float(_SQRT2  =sqrt(_2_0))    # PYCHOK <https://WikiPedia.org/wiki/Square_root_of_2>
+# _1__90 = _Float(_1__90  =_1_0 / _90_0)     # PYCHOK = 0.011_111_111_111_111_111_111_111_111_111_111_111_111_111_111_11111
+_2__PI   = _Float(_2__PI  =_2_0 / _math_pi)  # PYCHOK = 0.636_619_772_367_581_343_075_535_053_490_057_448_137_838_582_96182
+_K0_UTM  = _Float(_K0_UTM = 0.9996)          # PYCHOK in .etm, .ktm, .utm, UTM scale at central meridian
+_K0_UPS  = _Float(_K0_UPS = 0.994)           # PYCHOK in .ups, scale factor at central meridian
+OVERFLOW = _Float(OVERFLOW=_1_0 / EPS0)      # PYCHOK = 2.028240960365e+31
+_SQRT2   = _Float(_SQRT2  = sqrt(_2_0))      # PYCHOK <https://WikiPedia.org/wiki/Square_root_of_2>
 # 1.414213562373095_048_801_688_724_209_698_078_569_671_875_376_948_073_176_679_737_99
-# _1SQRT2= _Float(_1SQRT2 =sqrt(_2_0) + 1)
+# _1SQRT2= _Float(_1SQRT2 = sqrt(_2_0) + 1)
 # 0.707106781186547_524_400_844_362_104_849_039_284_835_937_688_474_036_588_339_868_99
-_SQRT2_2 = _Float(_SQRT2_2=sqrt(_0_5))  # PYCHOK = 0.707106781186547_5 == sqrt(2) / 2
+_SQRT2_2 = _Float(_SQRT2_2= sqrt(_0_5))      # PYCHOK = 0.707106781186547_5 == sqrt(2) / 2 == sqrt(2 / 4)
 # sqrt(3) <https://WikiPedia.org/wiki/Square_root_of_3>
 # 1.732050807568877_293_527_446_341_505_872_366_942_805_253_810_380_628_055_806
-_SQRT3   = _Float(_SQRT3  =sqrt(_3_0))  # PYCHOK = 1.732050807568877_2 == sqrt(3)
+_SQRT3   = _Float(_SQRT3  = sqrt(_3_0))      # PYCHOK = 1.732050807568877_2 == sqrt(3)
 # 0.866025403784438_646_763_723_170_752_936_183_471_402_626_905_190_314_027_903
-_SQRT3_2 = _Float(_SQRT3_2=sqrt(_0_75))  # PYCHOK = 0.866025403784438_6 == sqrt(3) / 2
+_SQRT3_2 = _Float(_SQRT3_2= sqrt(_0_75))     # PYCHOK = 0.866025403784438_6 == sqrt(3) / 2 == sqrt(3 / 4)
 
 INF   =  Float(INF =_inf)    # PYCHOK INFinity, see function L{isinf}, L{isfinite}, NOT _Float!
 INT0  =  Int(  INT0= 0)      # PYCHOK unique int(0) instance, see .fsums, useZ=False
@@ -307,15 +307,15 @@ NAN   =  Float(NAN =_nan)    # PYCHOK Not-A-Number, see function L{isnan}, NOT _
 NEG0  =  Float(NEG0=_N_0_0)  # PYCHOK NEGative 0.0, see function L{isneg0}, NOT _Float!
 NINF  =  Float(NINF=-INF)    # PYCHOK Negative INFinity, NOT _Float!
 
-PI    = _Float(PI   =_pi)         # 3.1415_9265_3589_7932_3846_2643_3832_795
-PI2   = _Float(PI2  =_pi * _2_0)  # PYCHOK Two PI, M{PI * 2} aka I{Tau}
-PI_2  = _Float(PI_2 =_pi / _2_0)  # PYCHOK Half PI, M{PI / 2}
-PI3   = _Float(PI3  =_pi * _3_0)  # PYCHOK Three PI, M{PI * 3}
-PI3_2 = _Float(PI3_2=_pi * _1_5)  # PYCHOK PI and a half, M{PI * 3 / 2}
-PI_3  = _Float(PI_3 =_pi / _3_0)  # PYCHOK One third PI, M{PI / 3}
-PI4   = _Float(PI4  =_pi * _4_0)  # PYCHOK Four PI, M{PI * 4}
-PI_4  = _Float(PI_4 =_pi / _4_0)  # PYCHOK Quarter PI, M{PI / 4}
-PI_6  = _Float(PI_6 =_pi / _6_0)  # PYCHOK One sixth PI, M{PI / 6}
+PI    = _Float(PI   =_math_pi)         # 3.1415_9265_3589_7932_3846_2643_3832_795
+PI2   = _Float(PI2  =_math_pi * _2_0)  # PYCHOK Two PI, M{PI * 2} aka I{Tau}
+PI_2  = _Float(PI_2 =_math_pi / _2_0)  # PYCHOK Half PI, M{PI / 2}
+PI3   = _Float(PI3  =_math_pi * _3_0)  # PYCHOK Three PI, M{PI * 3}
+PI3_2 = _Float(PI3_2=_math_pi * _1_5)  # PYCHOK PI and a half, M{PI * 3 / 2}
+PI_3  = _Float(PI_3 =_math_pi / _3_0)  # PYCHOK One third PI, M{PI / 3}
+PI4   = _Float(PI4  =_math_pi * _4_0)  # PYCHOK Four PI, M{PI * 4}
+PI_4  = _Float(PI_4 =_math_pi / _4_0)  # PYCHOK Quarter PI, M{PI / 4}
+PI_6  = _Float(PI_6 =_math_pi / _6_0)  # PYCHOK One sixth PI, M{PI / 6}
 
 R_MA  = _Radius(R_MA=6378137.0)       # PYCHOK equatorial earth radius (C{meter}), WGS84, GRS80, EPSG:3785
 R_MB  = _Radius(R_MB=6356752.3)       # PYCHOK polar earth radius (C{meter}), WGS84, EPSG:3785
@@ -590,7 +590,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

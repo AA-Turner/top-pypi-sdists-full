@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: FalkorDB
-Version: 1.8.1
+Version: 1.8.2
 Summary: Python client for interacting with FalkorDB database
 Project-URL: Homepage, http://falkordb-py.readthedocs.io
 Project-URL: Repository, http://github.com/falkorDB/falkordb-py
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
-Requires-Dist: python-dateutil<3,>=2.9.0
+Requires-Dist: python-dateutil<4,>=2.9.0
 Requires-Dist: redis<9,>=8.0.0
 Provides-Extra: hiredis
 Requires-Dist: redis[hiredis]<9,>=8.0.0; extra == 'hiredis'

@@ -301,6 +301,7 @@ class CfnProfileAssociation(
         
             # the properties below are optional
             arn="arn",
+            priority=123,
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -317,6 +318,7 @@ class CfnProfileAssociation(
         profile_id: builtins.str,
         resource_id: builtins.str,
         arn: typing.Optional[builtins.str] = None,
+        priority: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53Profiles::ProfileAssociation``.
@@ -327,6 +329,7 @@ class CfnProfileAssociation(
         :param profile_id: ID of the Profile. Update to this property requires update to the ``ResourceId`` property as well, because you can only associate one Profile per VPC. For more information, see `Route 53 Profiles <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/profiles.html>`_ .
         :param resource_id: The ID of the VPC.
         :param arn: The Amazon Resource Name (ARN) of the profile association to a VPC.
+        :param priority: The priority of the profile association, used to order the profiles applied to a VPC when multiple profiles are associated with it. Lower values have higher precedence. Omit for the first profile associated with a VPC. This orders whole profiles on a VPC and is distinct from the DNS Firewall rule group priority carried in a ProfileResourceAssociation's ResourceProperties.
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
@@ -338,6 +341,7 @@ class CfnProfileAssociation(
             profile_id=profile_id,
             resource_id=resource_id,
             arn=arn,
+            priority=priority,
             tags=tags,
         )
 
@@ -486,6 +490,19 @@ class CfnProfileAssociation(
         jsii.set(self, "arn", value)
 
     @builtins.property
+    @jsii.member(jsii_name="priority")
+    def priority(self) -> typing.Optional[jsii.Number]:
+        '''The priority of the profile association, used to order the profiles applied to a VPC when multiple profiles are associated with it.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "priority"))
+
+    @priority.setter
+    def priority(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dd6dcd66c021cd6e32992c2415e91fbd3fce22a75d5e7d8c91c1102ab84b6346)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "priority", value)
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
@@ -510,6 +527,7 @@ class CfnProfileAssociation(
         "profile_id": "profileId",
         "resource_id": "resourceId",
         "arn": "arn",
+        "priority": "priority",
         "tags": "tags",
     },
 )
@@ -521,6 +539,7 @@ class CfnProfileAssociationProps:
         profile_id: builtins.str,
         resource_id: builtins.str,
         arn: typing.Optional[builtins.str] = None,
+        priority: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnProfileAssociation``.
@@ -529,6 +548,7 @@ class CfnProfileAssociationProps:
         :param profile_id: ID of the Profile. Update to this property requires update to the ``ResourceId`` property as well, because you can only associate one Profile per VPC. For more information, see `Route 53 Profiles <https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/profiles.html>`_ .
         :param resource_id: The ID of the VPC.
         :param arn: The Amazon Resource Name (ARN) of the profile association to a VPC.
+        :param priority: The priority of the profile association, used to order the profiles applied to a VPC when multiple profiles are associated with it. Lower values have higher precedence. Omit for the first profile associated with a VPC. This orders whole profiles on a VPC and is distinct from the DNS Firewall rule group priority carried in a ProfileResourceAssociation's ResourceProperties.
         :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53profiles-profileassociation.html
@@ -548,6 +568,7 @@ class CfnProfileAssociationProps:
             
                 # the properties below are optional
                 arn="arn",
+                priority=123,
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -560,6 +581,7 @@ class CfnProfileAssociationProps:
             check_type(argname="argument profile_id", value=profile_id, expected_type=type_hints["profile_id"])
             check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -568,6 +590,8 @@ class CfnProfileAssociationProps:
         }
         if arn is not None:
             self._values["arn"] = arn
+        if priority is not None:
+            self._values["priority"] = priority
         if tags is not None:
             self._values["tags"] = tags
 
@@ -611,6 +635,17 @@ class CfnProfileAssociationProps:
         '''
         result = self._values.get("arn")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def priority(self) -> typing.Optional[jsii.Number]:
+        '''The priority of the profile association, used to order the profiles applied to a VPC when multiple profiles are associated with it.
+
+        Lower values have higher precedence. Omit for the first profile associated with a VPC. This orders whole profiles on a VPC and is distinct from the DNS Firewall rule group priority carried in a ProfileResourceAssociation's ResourceProperties.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53profiles-profileassociation.html#cfn-route53profiles-profileassociation-priority
+        '''
+        result = self._values.get("priority")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -1077,6 +1112,7 @@ def _typecheckingstub__0f887f11535feca537003f68699ddb6bbfe324f08f570e51e9d9c9660
     profile_id: builtins.str,
     resource_id: builtins.str,
     arn: typing.Optional[builtins.str] = None,
+    priority: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1130,6 +1166,12 @@ def _typecheckingstub__3529d03e90e5a43e1281f5b497a4dd92b53f8b81d07a3ae7e158075cd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__dd6dcd66c021cd6e32992c2415e91fbd3fce22a75d5e7d8c91c1102ab84b6346(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__931a5eb93acc9ea331b6c7a804aa50f9c8645e820b985c1e8c3b0338897b0758(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
@@ -1142,6 +1184,7 @@ def _typecheckingstub__6a57a1fdd8721b32a07e564698e95375e4dc721f518a60463fd94e828
     profile_id: builtins.str,
     resource_id: builtins.str,
     arn: typing.Optional[builtins.str] = None,
+    priority: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

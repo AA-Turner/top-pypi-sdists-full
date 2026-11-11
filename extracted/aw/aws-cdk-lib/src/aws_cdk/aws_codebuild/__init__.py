@@ -3816,6 +3816,7 @@ class CfnProject(
                 combine_artifacts=False,
                 restrictions=codebuild.CfnProject.BatchRestrictionsProperty(
                     compute_types_allowed=["computeTypesAllowed"],
+                    fleets_allowed=["fleetsAllowed"],
                     maximum_builds_allowed=123
                 ),
                 service_role="serviceRole",
@@ -4144,14 +4145,6 @@ class CfnProject(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4819,6 +4812,7 @@ class CfnProject(
         jsii_struct_bases=[],
         name_mapping={
             "compute_types_allowed": "computeTypesAllowed",
+            "fleets_allowed": "fleetsAllowed",
             "maximum_builds_allowed": "maximumBuildsAllowed",
         },
     )
@@ -4827,11 +4821,13 @@ class CfnProject(
             self,
             *,
             compute_types_allowed: typing.Optional[typing.Sequence[builtins.str]] = None,
+            fleets_allowed: typing.Optional[typing.Sequence[builtins.str]] = None,
             maximum_builds_allowed: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Specifies restrictions for the batch build.
 
             :param compute_types_allowed: An array of strings that specify the compute types that are allowed for the batch build. See `Build environment compute types <https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-compute-types.html>`_ in the *AWS CodeBuild User Guide* for these values.
+            :param fleets_allowed: 
             :param maximum_builds_allowed: Specifies the maximum number of builds allowed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-batchrestrictions.html
@@ -4845,16 +4841,20 @@ class CfnProject(
                 
                 batch_restrictions_property = codebuild.CfnProject.BatchRestrictionsProperty(
                     compute_types_allowed=["computeTypesAllowed"],
+                    fleets_allowed=["fleetsAllowed"],
                     maximum_builds_allowed=123
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__ffe34f5ec6a67d312b9b4cbbd6c73f9f55a67b4185d6799b5798f5a6d8680446)
                 check_type(argname="argument compute_types_allowed", value=compute_types_allowed, expected_type=type_hints["compute_types_allowed"])
+                check_type(argname="argument fleets_allowed", value=fleets_allowed, expected_type=type_hints["fleets_allowed"])
                 check_type(argname="argument maximum_builds_allowed", value=maximum_builds_allowed, expected_type=type_hints["maximum_builds_allowed"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if compute_types_allowed is not None:
                 self._values["compute_types_allowed"] = compute_types_allowed
+            if fleets_allowed is not None:
+                self._values["fleets_allowed"] = fleets_allowed
             if maximum_builds_allowed is not None:
                 self._values["maximum_builds_allowed"] = maximum_builds_allowed
 
@@ -4867,6 +4867,14 @@ class CfnProject(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-batchrestrictions.html#cfn-codebuild-project-batchrestrictions-computetypesallowed
             '''
             result = self._values.get("compute_types_allowed")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def fleets_allowed(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-batchrestrictions.html#cfn-codebuild-project-batchrestrictions-fleetsallowed
+            '''
+            result = self._values.get("fleets_allowed")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
@@ -5084,8 +5092,8 @@ class CfnProject(
             security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''
-            :param compute_type: 
-            :param security_group_ids: 
+            :param compute_type: Information about the compute resources the docker server uses. Valid Values: BUILD_GENERAL1_SMALL | BUILD_GENERAL1_MEDIUM | BUILD_GENERAL1_LARGE | BUILD_GENERAL1_XLARGE | BUILD_GENERAL1_2XLARGE | BUILD_LAMBDA_1GB | BUILD_LAMBDA_2GB | BUILD_LAMBDA_4GB | BUILD_LAMBDA_8GB | BUILD_LAMBDA_10GB | ATTRIBUTE_BASED_COMPUTE | CUSTOM_INSTANCE_TYPE
+            :param security_group_ids: A list of one or more security groups IDs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-dockerserver.html
             :exampleMetadata: fixture=_generated
@@ -5115,7 +5123,10 @@ class CfnProject(
 
         @builtins.property
         def compute_type(self) -> builtins.str:
-            '''
+            '''Information about the compute resources the docker server uses.
+
+            Valid Values: BUILD_GENERAL1_SMALL | BUILD_GENERAL1_MEDIUM | BUILD_GENERAL1_LARGE | BUILD_GENERAL1_XLARGE | BUILD_GENERAL1_2XLARGE | BUILD_LAMBDA_1GB | BUILD_LAMBDA_2GB | BUILD_LAMBDA_4GB | BUILD_LAMBDA_8GB | BUILD_LAMBDA_10GB | ATTRIBUTE_BASED_COMPUTE | CUSTOM_INSTANCE_TYPE
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-dockerserver.html#cfn-codebuild-project-dockerserver-computetype
             '''
             result = self._values.get("compute_type")
@@ -5124,7 +5135,8 @@ class CfnProject(
 
         @builtins.property
         def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''A list of one or more security groups IDs.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-dockerserver.html#cfn-codebuild-project-dockerserver-securitygroupids
             '''
             result = self._values.get("security_group_ids")
@@ -5183,7 +5195,7 @@ class CfnProject(
             :param docker_server: 
             :param environment_variables: A set of environment variables to make available to builds for this build project.
             :param fleet: 
-            :param host_kernel: 
+            :param host_kernel: The kernel version of the host operating system for the build environment. Allowed values: LINUX_KERNEL_4 | LINUX_KERNEL_6 | LINUX_KERNEL_LATEST
             :param image_pull_credentials_type: The type of credentials AWS CodeBuild uses to pull images in your build. There are two valid values:. - ``CODEBUILD`` specifies that AWS CodeBuild uses its own credentials. This requires that you modify your ECR repository policy to trust AWS CodeBuild service principal. - ``SERVICE_ROLE`` specifies that AWS CodeBuild uses your build project's service role. When you use a cross-account or private registry image, you must use SERVICE_ROLE credentials. When you use an AWS CodeBuild curated image, you must use CODEBUILD credentials.
             :param privileged_mode: Enables running the Docker daemon inside a Docker container. Set to true only if the build project is used to build Docker images. Otherwise, a build that attempts to interact with the Docker daemon fails. The default setting is ``false`` . You can initialize the Docker daemon during the install phase of your build by adding one of the following sets of commands to the install phase of your buildspec file: If the operating system's base image is Ubuntu Linux: ``- nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://0.0.0.0:2375 --storage-driver=overlay&`` ``- timeout 15 sh -c "until docker info; do echo .; sleep 1; done"`` If the operating system's base image is Alpine Linux and the previous command does not work, add the ``-t`` argument to ``timeout`` : ``- nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://0.0.0.0:2375 --storage-driver=overlay&`` ``- timeout -t 15 sh -c "until docker info; do echo .; sleep 1; done"``
             :param registry_credential: ``RegistryCredential`` is a property of the `AWS::CodeBuild::Project Environment <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codebuild-project.html#cfn-codebuild-project-environment>`_ property that specifies information about credentials that provide access to a private Docker registry. When this is set:. - ``imagePullCredentialsType`` must be set to ``SERVICE_ROLE`` . - images cannot be curated or an Amazon ECR image.
@@ -5384,7 +5396,10 @@ class CfnProject(
 
         @builtins.property
         def host_kernel(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The kernel version of the host operating system for the build environment.
+
+            Allowed values: LINUX_KERNEL_4 | LINUX_KERNEL_6 | LINUX_KERNEL_LATEST
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-environment.html#cfn-codebuild-project-environment-hostkernel
             '''
             result = self._values.get("host_kernel")
@@ -5743,6 +5758,7 @@ class CfnProject(
                     combine_artifacts=False,
                     restrictions=codebuild.CfnProject.BatchRestrictionsProperty(
                         compute_types_allowed=["computeTypesAllowed"],
+                        fleets_allowed=["fleetsAllowed"],
                         maximum_builds_allowed=123
                     ),
                     service_role="serviceRole",
@@ -7532,6 +7548,7 @@ class CfnProjectProps:
                     combine_artifacts=False,
                     restrictions=codebuild.CfnProject.BatchRestrictionsProperty(
                         compute_types_allowed=["computeTypesAllowed"],
+                        fleets_allowed=["fleetsAllowed"],
                         maximum_builds_allowed=123
                     ),
                     service_role="serviceRole",
@@ -20794,6 +20811,7 @@ def _typecheckingstub__c65ce51cf36e7fa13e8c708679c4c55a74cda2777e9465b6f8cf2b8e1
 def _typecheckingstub__ffe34f5ec6a67d312b9b4cbbd6c73f9f55a67b4185d6799b5798f5a6d8680446(
     *,
     compute_types_allowed: typing.Optional[typing.Sequence[builtins.str]] = None,
+    fleets_allowed: typing.Optional[typing.Sequence[builtins.str]] = None,
     maximum_builds_allowed: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""

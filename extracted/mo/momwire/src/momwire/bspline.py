@@ -56,6 +56,7 @@ import math
 import itertools
 import warnings
 from dataclasses import dataclass
+from typing import NamedTuple
 
 import numpy as np
 import scipy.linalg
@@ -852,6 +853,25 @@ class PairReuseDropped(UserWarning):
 #: compares at 0.1 mm) is refused here rather than copied approximately.
 _PAIR_REUSE_RTOL = 1e-12
 
+#: The fewest copied segment pairs per hint member, per fill thread, for which
+#: `pair_reuse` is worth planning (momwire#1854). Checking a member costs about
+#: 1.2 us of Python whatever its size; copying saves about 0.3-0.5 us per
+#: segment pair at one thread (free-space moments, Sommerfeld remainder;
+#: Skylake), divided among the fill's threads. So break-even is near 3 pairs per
+#: member per thread, and a mesh of one-segment edges (about 2.6) cannot pay.
+#: Below this the hint is declined unread and the fill is the no-hint one.
+_PAIR_REUSE_MIN_PAIRS_PER_MEMBER = 8.0
+
+#: How many hint members the decline estimate looks at, evenly spaced.
+_PAIR_REUSE_SAMPLE = 2048
+
+#: The fused Sommerfeld remainder kernel's cache budget for `pair_reuse`
+#: source blocks: its Jf slab budget (`MAX_JF_SLAB_BYTES` in
+#: `_somm_remainder_core.cpp`, which the Python callers never override). Past
+#: it the kernel drops the whole map, so `_remainder_reuse_args` cuts the map
+#: to fit instead (momwire#1854).
+_REMAINDER_REUSE_CACHE_BYTES = 64 << 20
+
 # momwire#1809 step 2: the Sommerfeld remainder's own block of a uniform
 # straight horizontal or vertical edge, filled from its distinct offsets
 # (`_remainder_offset_edges`). Counted so a gate can show the route ran.
@@ -882,28 +902,167 @@ IMAGE_OFFSET_EDGES = 0
 FREE_OFFSET_EDGES = 0
 
 
+class _PairReuseHint(NamedTuple):
+    """A `pair_reuse` hint as flat arrays (momwire#1854): ``refs[m]`` is
+    member m's ``(wa, ea, wb, eb)`` in solved wire numbers, and class c is
+    rows ``starts[c]:starts[c + 1]``, its representative first. A hint of a
+    wire-grid mesh has millions of members, so it is held, renumbered and
+    checked as arrays rather than as Python tuples."""
+
+    refs: np.ndarray  # (M, 4) int64
+    starts: np.ndarray  # (C + 1,) int64
+
+    def named(self, rows):
+        """Members ``rows`` as the hint's ``((wa, ea), (wb, eb))`` tuples."""
+        return tuple(
+            ((int(r[0]), int(r[1])), (int(r[2]), int(r[3])))
+            for r in self.refs[np.asarray(rows, dtype=np.int64)]
+        )
+
+
 def _pair_reuse_to_solved(hint, dedup):
     """The hint's ``((wa, ea), (wb, eb))`` edge references renumbered to the
-    solved wires; a member naming a dropped duplicate wire is left out."""
+    solved wires, as a `_PairReuseHint`; a member naming a dropped duplicate
+    wire is left out, and so is a class left with fewer than two members."""
     if not hint:
         return None
-    kept = list(dedup.kept) if dedup is not None else None
+    sizes = np.fromiter(map(len, hint), dtype=np.int64, count=len(hint))
+    # A front end hands one hint to every solver it builds for a mesh (a port
+    # solver, an excited one), so the last conversion is kept. Keyed without
+    # holding the hint (it can be hundreds of MB): its id, class sizes and
+    # end members. A false hit could only offer other members, and every
+    # member is still checked against the geometry before a block is copied.
+    key = (
+        id(hint),
+        None if dedup is None else tuple(dedup.kept),
+        np.asarray(hint[0][0]).tolist(),
+        np.asarray(hint[-1][-1]).tolist(),
+    )
+    last = _PAIR_REUSE_SOLVED_LAST
+    if last and last[0] == key and np.array_equal(last[1], sizes):
+        return last[2]
+    chain = itertools.chain.from_iterable
+    refs = np.fromiter(
+        chain(chain(chain(hint))), dtype=np.int64, count=4 * int(sizes.sum())
+    ).reshape(-1, 4)
+    out = _pair_reuse_solved_arrays(refs, sizes, dedup)
+    _PAIR_REUSE_SOLVED_LAST[:] = [key, sizes, out]
+    return out
 
-    def solved(w):
-        if kept is None:
-            return int(w)
-        return kept.index(int(w)) if int(w) in kept else None
 
-    out = []
-    for cls in hint:
-        members = []
-        for (wa, ea), (wb, eb) in cls:
-            sa, sb = solved(wa), solved(wb)
-            if sa is not None and sb is not None:
-                members.append(((sa, int(ea)), (sb, int(eb))))
-        if len(members) > 1:
-            out.append(members)
-    return out or None
+#: `_pair_reuse_to_solved`'s last ``[key, sizes, result]``.
+_PAIR_REUSE_SOLVED_LAST = []
+
+
+def _pair_reuse_solved_arrays(refs, sizes, dedup):
+    cls_of = np.repeat(np.arange(sizes.size), sizes)
+    if dedup is not None:
+        # Solved number = position in `kept` (its first, as `list.index`).
+        kept = np.asarray(list(dedup.kept), dtype=np.int64)
+        hi = int(max(refs[:, [0, 2]].max(initial=0), kept.max(initial=0))) + 1
+        lut = np.full(hi, -1, dtype=np.int64)
+        good = kept >= 0
+        lut[kept[good][::-1]] = np.arange(kept.size, dtype=np.int64)[good][::-1]
+        for col in (0, 2):
+            w = refs[:, col]
+            refs[:, col] = np.where(w >= 0, lut[np.clip(w, 0, hi - 1)], -1)
+        keep = (refs[:, 0] >= 0) & (refs[:, 2] >= 0)
+        refs, cls_of = refs[keep], cls_of[keep]
+    counts = np.bincount(cls_of, minlength=sizes.size)
+    big = counts[cls_of] > 1
+    refs, cls_of = refs[big], cls_of[big]
+    if refs.shape[0] == 0:
+        return None
+    counts = counts[counts > 1]
+    refs = np.ascontiguousarray(refs)
+    starts = np.r_[0, np.cumsum(counts)].astype(np.int64)
+    refs.setflags(write=False)  # shared by the solvers of one hint
+    starts.setflags(write=False)
+    return _PairReuseHint(refs, starts)
+
+
+class _PairReusePlan:
+    """The checked `pair_reuse` plan (momwire#1809, #1854): target block
+    ``(ta[i], tb[i])`` is a copy of source ``(sa[i], sb[i])``, over same-edge
+    slice indices, with an off-edge member present in both orientations and
+    no source itself a target. Arrays, because a mesh's plan has millions of
+    entries; `items` and ``in`` serve the per-block consumers."""
+
+    def __init__(self, ta, tb, sa, sb, n_edges):
+        self.ta, self.tb, self.sa, self.sb = (
+            np.asarray(x, dtype=np.int64) for x in (ta, tb, sa, sb)
+        )
+        self.n_edges = int(n_edges)
+        self._keys = None
+        self._rows = None
+
+    def __len__(self):
+        return int(self.ta.size)
+
+    def __bool__(self):
+        return self.ta.size > 0
+
+    def items(self):
+        return zip(
+            zip(self.ta.tolist(), self.tb.tolist(), strict=True),
+            zip(self.sa.tolist(), self.sb.tolist(), strict=True),
+            strict=True,
+        )
+
+    def as_dict(self):
+        return dict(self.items())
+
+    def __eq__(self, other):
+        if isinstance(other, dict):
+            return self.as_dict() == other
+        return NotImplemented
+
+    __hash__ = None
+
+    def __contains__(self, key):
+        if self._keys is None:
+            self._keys = set((self.ta * self.n_edges + self.tb).tolist())
+        a, b = key
+        return a * self.n_edges + b in self._keys
+
+    def copy_blocks(self, J, slices, *, off_edge=True):
+        """``J[..., target rows, target cols] = J[..., source rows, source
+        cols]`` for every planned block (only those between two edges with
+        ``off_edge``), by one gather and scatter per block shape. No source
+        is a target, so every value read is a filled one: the copies are the
+        sources' bits."""
+        start = np.fromiter((sl.start for sl in slices), dtype=np.int64)
+        n = np.fromiter((sl.stop - sl.start for sl in slices), dtype=np.int64)
+        sel = self.ta != self.tb if off_edge else np.ones(self.ta.size, dtype=bool)
+        ta, tb, sa, sb = self.ta[sel], self.tb[sel], self.sa[sel], self.sb[sel]
+        shape = n[ta] * (int(n.max(initial=0)) + 1) + n[tb]
+        for key in np.unique(shape):
+            na, nb = divmod(int(key), int(n.max(initial=0)) + 1)
+            group = np.flatnonzero(shape == key)
+            step = max(1, (1 << 20) // (na * nb))
+            r, c = np.arange(na)[:, None], np.arange(nb)[None, :]
+            for lo in range(0, group.size, step):
+                g = group[lo : lo + step]
+                J[
+                    :,
+                    :,
+                    start[ta[g]][:, None, None] + r,
+                    start[tb[g]][:, None, None] + c,
+                ] = J[
+                    :,
+                    :,
+                    start[sa[g]][:, None, None] + r,
+                    start[sb[g]][:, None, None] + c,
+                ]
+
+    def copied_from_row(self, a):
+        """The target column edges of row edge ``a``, as an array."""
+        if self._rows is None:
+            order = np.argsort(self.ta, kind="stable")
+            bounds = np.searchsorted(self.ta[order], np.arange(self.n_edges + 1))
+            self._rows = (self.tb[order], bounds)
+        tb, bounds = self._rows
+        return tb[bounds[a] : bounds[a + 1]]
 
 
 def _ek_slice(ek, rows=None, cols=None):
@@ -1719,15 +1878,16 @@ class BSplineSolver(
     rotational_symmetry : the sector (block-circulant) route, opt-in
         (momwire#1029). False (default) changes nothing — no attribute the
         dense path reads moves, and no line of route code runs. True asks for
-        a deck that is N copies of one sector about a vertical axis with the
-        drive on that axis: `compute_impedance` then fills ONE sector's rows
-        against every source and solves the (m + p) harmonic-0 block whatever
-        N is. A deck that is not that shape is REFUSED AT CONSTRUCTION,
-        naming the first condition of the rule it breaks
-        (`_rotational_symmetry`), because no fill could rescue it. Buried
-        decks (`ground_z` with a wire below it) on this basis only, and every
-        entry point but `compute_impedance` refuses rather than quietly
-        answering densely.
+        a deck that is N copies of one sector about a vertical axis — the
+        sector wires may include vertical ones off the axis (momwire#1897) —
+        whose port set the rotation maps onto itself: `compute_impedance`
+        then fills ONE sector's rows against every source and solves the
+        (m + p) harmonic-0 block whatever N is. `compute_port_solution` and
+        `compute_y_matrix` (and their swept forms) are served from the same
+        fill; a port off the axis, one of N rotated copies, takes each
+        harmonic's m x m block as well. A deck that is not that shape is
+        REFUSED AT CONSTRUCTION, naming the first condition of the rule it
+        breaks (`_rotational_symmetry`), because no fill could rescue it.
     """
 
     # momwire#927. Class-level so they exist before any solve and on a deck
@@ -1940,9 +2100,15 @@ class BSplineSolver(
         # is the keyword, so it is on; with none there is nothing to reuse.
         if not _features.enabled("pair_reuse", None if pair_reuse is None else True):
             pair_reuse = None
-        self._pair_reuse = _pair_reuse_to_solved(pair_reuse, self._wire_dedup)
+        # Renumbered to the solved wires on first use (`_solved_pair_reuse`):
+        # a fill route that reads no plan pays nothing for a large hint.
+        self._pair_reuse_given = pair_reuse or None
+        self._pair_reuse = None
         self._pair_reuse_plan_cache = None
+        self._remainder_reuse_cache = None
         self.pair_reuse_dropped = ()
+        self.pair_reuse_remainder_cut = 0
+        self.pair_reuse_declined = False
         # momwire#1809, inside a block: a uniform edge's same-edge reg moments
         # filled by segment offset (2N - 1 entries, not N^2). Opt-in, like
         # `pair_reuse`: off is the dense fill, bit for bit. None (the default)
@@ -5184,100 +5350,219 @@ class BSplineSolver(
                 out.append(slice(base + ed_off[i_e], base + ed_off[i_e + 1]))
         return out
 
+    def _pair_reuse_worth(self, geom):
+        """Whether the `pair_reuse` hint can save more than checking it costs:
+        the copied segment pairs per member, estimated from an evenly spaced
+        sample of the hint as given (nothing converted), per fill thread,
+        against `_PAIR_REUSE_MIN_PAIRS_PER_MEMBER`. A member counts its
+        block's segment pairs, twice for two edges (both orders are copied)."""
+        from . import _times
+
+        hint = self._pair_reuse_given
+        if hint is None:
+            return True  # already converted: an earlier call said yes
+        cum = np.cumsum(np.fromiter(map(len, hint), dtype=np.int64, count=len(hint)))
+        total = int(cum[-1]) if cum.size else 0
+        if total == 0:
+            return False
+        pos = np.unique(
+            np.linspace(0, total - 1, min(total, _PAIR_REUSE_SAMPLE)).astype(np.int64)
+        )
+        cls = np.searchsorted(cum, pos, side="right")
+        within = pos - np.r_[0, cum[:-1]][cls]
+        sample = [
+            hint[c][j]
+            for c, j in zip(cls.tolist(), within.tolist(), strict=True)
+            if j > 0  # a representative is filled, not copied
+        ]
+        if not sample:
+            return False
+        refs = np.array(
+            [(*np.asarray(a).tolist(), *np.asarray(b).tolist()) for a, b in sample],
+            dtype=np.int64,
+        ).reshape(-1, 4)
+        if self._wire_dedup is not None:
+            kept = list(self._wire_dedup.kept)
+            for col in (0, 2):
+                refs[:, col] = [
+                    kept.index(w) if w in kept else -1 for w in refs[:, col]
+                ]
+        slices = self._same_edge_slices(geom)
+        nseg = np.fromiter((sl.stop - sl.start for sl in slices), dtype=np.int64)
+        n_edges_w = np.array(
+            [len(pw["edge_offsets"]) - 1 for pw in geom["per_wire"]], dtype=np.int64
+        )
+        wire_base = np.r_[0, np.cumsum(n_edges_w)].astype(np.int64)
+
+        def segs(w, e):
+            ok = (w >= 0) & (w < n_edges_w.size)
+            wc = np.where(ok, w, 0)
+            ok &= (e >= 0) & (e < n_edges_w[wc])
+            return np.where(ok, nseg[np.where(ok, wire_base[wc] + e, 0)], 0)
+
+        na = segs(refs[:, 0], refs[:, 1])
+        nb = segs(refs[:, 2], refs[:, 3])
+        two = (refs[:, 0] != refs[:, 2]) | (refs[:, 1] != refs[:, 3])
+        pairs = na * nb * np.where(two, 2, 1)
+        per_thread = float(pairs.mean()) / max(1, _times.fill_threads())
+        return per_thread >= _PAIR_REUSE_MIN_PAIRS_PER_MEMBER
+
+    def _solved_pair_reuse(self):
+        """The `pair_reuse` hint as a `_PairReuseHint` in solved wire numbers,
+        converted on first use, or None for none."""
+        if self._pair_reuse_given is not None:
+            self._pair_reuse = _pair_reuse_to_solved(
+                self._pair_reuse_given, self._wire_dedup
+            )
+            self._pair_reuse_given = None
+        return self._pair_reuse
+
     def _pair_reuse_plan(self, geom):
-        """``{(target edge, target edge): (source edge, source edge)}`` over
-        same-edge slice indices: the ordered blocks a `pair_reuse` hint lets
-        `_build_J_blocks` copy instead of fill, after checking each member
-        against this geometry. A member is kept when its two edges have the
-        representative's segment counts, per-segment radii and extended-kernel
-        eligibility pattern, and its four end points the representative's six
-        distances within `_PAIR_REUSE_RTOL` of the structure's size, in the
-        hint's order (no direction flip). Then an isometry carries every
-        segment pair of the representative onto the member's, and the
-        free-space moments, which depend on distances alone, are the same
-        numbers. Members that fail are dropped, named in
-        `pair_reuse_dropped`, and filled normally."""
-        if self._pair_reuse is None:
+        """The ordered blocks a `pair_reuse` hint lets `_build_J_blocks` copy
+        instead of fill, after checking each member against this geometry, as
+        a `_PairReusePlan` (``{}`` for none). A member is kept when its two
+        edges have the representative's segment counts, per-segment radii and
+        extended-kernel eligibility pattern, and its four end points the
+        representative's six distances within `_PAIR_REUSE_RTOL` of the
+        structure's size, in the hint's order (no direction flip). Then an
+        isometry carries every segment pair of the representative onto the
+        member's, and the free-space moments, which depend on distances alone,
+        are the same numbers. Members that fail are dropped, named in
+        `pair_reuse_dropped`, and filled normally.
+
+        Every check is a whole-hint array operation (momwire#1854): a
+        wire-grid mesh offers millions of members, and checking them one at a
+        time cost more than the fill they saved. Even so a member's check
+        costs more than a one-segment block's fill, so a hint whose members
+        are too small to pay (`_pair_reuse_worth`) is declined unread:
+        ``pair_reuse_declined``, an empty plan, and the no-hint fill."""
+        if self._pair_reuse_given is None and self._pair_reuse is None:
             return {}
         if (
             self._pair_reuse_plan_cache is not None
             and self._pair_reuse_plan_cache[0] is geom
         ):
             return self._pair_reuse_plan_cache[1]
+        if not self._pair_reuse_worth(geom):
+            self.pair_reuse_declined = True
+            self._pair_reuse_plan_cache = (geom, {})
+            return {}
+        if self._solved_pair_reuse() is None:
+            return {}
         slices = self._same_edge_slices(geom)
-        index, base = {}, 0
-        for w, pw in enumerate(geom["per_wire"]):
-            for e in range(len(pw["edge_offsets"]) - 1):
-                index[(w, e)] = base
-                base += 1
+        E = len(slices)
+        start = np.fromiter((sl.start for sl in slices), dtype=np.int64, count=E)
+        stop = np.fromiter((sl.stop for sl in slices), dtype=np.int64, count=E)
+        nseg = stop - start
+        # (wire, edge) -> same-edge slice index; -1 for an edge not in the mesh.
+        n_edges_w = np.array(
+            [len(pw["edge_offsets"]) - 1 for pw in geom["per_wire"]], dtype=np.int64
+        )
+        wire_base = np.r_[0, np.cumsum(n_edges_w)].astype(np.int64)
+        refs, cls_start = self._pair_reuse.refs, self._pair_reuse.starts
+
+        def edge_index(w, e):
+            ok = (w >= 0) & (w < n_edges_w.size)
+            wc = np.where(ok, w, 0)
+            ok &= (e >= 0) & (e < n_edges_w[wc])
+            return np.where(ok, wire_base[wc] + e, -1)
+
+        idx_a = edge_index(refs[:, 0], refs[:, 1])
+        idx_b = edge_index(refs[:, 2], refs[:, 3])
+        sizes = np.diff(cls_start)
+        rep_row = np.repeat(cls_start[:-1], sizes)
+        member = np.ones(refs.shape[0], dtype=bool)
+        member[cls_start[:-1]] = False
+        rows = np.flatnonzero(member)  # every non-representative, in hint order
+        ma, mb = idx_a[rows], idx_b[rows]
+        ra, rb = idx_a[rep_row[rows]], idx_b[rep_row[rows]]
+
+        ok = (ra >= 0) & (rb >= 0) & (ma >= 0) & (mb >= 0)
+        ok &= ~((ma == ra) & (mb == rb))
+        ok &= (ma == mb) == (ra == rb)
+        # Gather indices with the missing (-1) ones parked on edge 0.
+        ma_c, mb_c, ra_c, rb_c = (np.where(ok, x, 0) for x in (ma, mb, ra, rb))
+        ok &= (nseg[ma_c] == nseg[ra_c]) & (nseg[mb_c] == nseg[rb_c])
+
         seg_l, seg_r = geom["seg_l"], geom["seg_r"]
         scale = float(max(np.max(np.abs(seg_l)), np.max(np.abs(seg_r)), 1e-30))
         tol = _PAIR_REUSE_RTOL * scale
+        # The six end-point distances in the hint's order: (a0 a1, a0 b0,
+        # a0 b1, a1 b0, a1 b1, b0 b1), member against representative.
+        P0, P1 = seg_l[start], seg_r[stop - 1]
+
+        def dists(a, b):
+            pts = (P0[a], P1[a], P0[b], P1[b])
+            return np.stack(
+                [
+                    np.sqrt(np.einsum("ij,ij->i", u - v, u - v))
+                    for u, v in itertools.combinations(pts, 2)
+                ],
+                axis=1,
+            )
+
+        cand = np.flatnonzero(ok)
+        for lo in range(0, cand.size, 1 << 18):
+            sel = cand[lo : lo + (1 << 18)]
+            dev = np.abs(dists(ma[sel], mb[sel]) - dists(ra[sel], rb[sel]))
+            ok[sel[dev.max(axis=1) > tol]] = False
+
+        # Per-segment radii and the extended kernel's eligibility pattern,
+        # compared element by element, one block shape at a time.
         radius = np.asarray(self._seg_radius(geom), dtype=np.float64)
         ek = self._ek_spec(geom) if self.extended_kernel else None
         groups = (
             None if ek is None else (np.asarray(ek.group_i), np.asarray(ek.group_j))
         )
+        cand = np.flatnonzero(ok)
+        shape = nseg[ma[cand]] * (int(nseg.max(initial=0)) + 1) + nseg[mb[cand]]
+        for key in np.unique(shape):
+            na, nb = divmod(int(key), int(nseg.max(initial=0)) + 1)
+            group = cand[shape == key]
+            step = max(1, (1 << 22) // max(1, na * nb))
+            ar, br = np.arange(na), np.arange(nb)
+            for lo in range(0, group.size, step):
+                sel = group[lo : lo + step]
+                Sa = start[ma[sel]][:, None] + ar
+                Sb = start[mb[sel]][:, None] + br
+                Ra = start[ra[sel]][:, None] + ar
+                Rb = start[rb[sel]][:, None] + br
+                good = np.all(radius[Sa] == radius[Ra], axis=1)
+                good &= np.all(radius[Sb] == radius[Rb], axis=1)
+                if groups is not None:
+                    gi, gj = groups
+                    for X, Y, U, V in ((Sa, Sb, Ra, Rb), (Sb, Sa, Rb, Ra)):
+                        good &= np.all(
+                            (gi[X][:, :, None] == gj[Y][:, None, :])
+                            == (gi[U][:, :, None] == gj[V][:, None, :]),
+                            axis=(1, 2),
+                        )
+                ok[sel[~good]] = False
 
-        def ends(e):
-            sl = slices[e]
-            return seg_l[sl.start], seg_r[sl.stop - 1]
+        # A pair already planned (in either order) keeps its first claim.
+        cand = np.flatnonzero(ok)
+        lo_e = np.minimum(ma[cand], mb[cand])
+        hi_e = np.maximum(ma[cand], mb[cand])
+        _, first = np.unique(lo_e * E + hi_e, return_index=True)
+        keep = np.zeros(rows.size, dtype=bool)
+        keep[cand[first]] = True
+        dropped = rows[~keep]
 
-        def dists(a, b):
-            pts = (*ends(a), *ends(b))
-            return np.array(
-                [np.linalg.norm(u - v) for u, v in itertools.combinations(pts, 2)]
-            )
-
-        def same_block(a, b, a2, b2):
-            sa, sb, sa2, sb2 = slices[a], slices[b], slices[a2], slices[b2]
-            if (sa.stop - sa.start, sb.stop - sb.start) != (
-                sa2.stop - sa2.start,
-                sb2.stop - sb2.start,
-            ):
-                return False
-            if not (
-                np.array_equal(radius[sa], radius[sa2])
-                and np.array_equal(radius[sb], radius[sb2])
-            ):
-                return False
-            if groups is not None:
-                gi, gj = groups
-                if not np.array_equal(
-                    gi[sa][:, None] == gj[sb][None, :],
-                    gi[sa2][:, None] == gj[sb2][None, :],
-                ):
-                    return False
-                if not np.array_equal(
-                    gi[sb][:, None] == gj[sa][None, :],
-                    gi[sb2][:, None] == gj[sa2][None, :],
-                ):
-                    return False
-            return bool(np.max(np.abs(dists(a, b) - dists(a2, b2))) <= tol)
-
-        plan, dropped = {}, []
-        for cls in self._pair_reuse:
-            (ra, rb), *members = [(index.get(x), index.get(y)) for x, y in cls]
-            if ra is None or rb is None:
-                dropped += cls[1:]
-                continue
-            for (ma, mb), named in zip(members, cls[1:], strict=True):
-                if ma is None or mb is None or (ma, mb) in plan or (ma, mb) == (ra, rb):
-                    dropped.append(named)
-                    continue
-                if (ma == mb) != (ra == rb) or not same_block(ra, rb, ma, mb):
-                    dropped.append(named)
-                    continue
-                plan[(ma, mb)] = (ra, rb)
-                if ma != mb:
-                    plan[(mb, ma)] = (rb, ra)
+        off = keep & (ma != mb)
+        ta = np.r_[ma[keep], mb[off]]
+        tb = np.r_[mb[keep], ma[off]]
+        sa = np.r_[ra[keep], rb[off]]
+        sb = np.r_[rb[keep], ra[off]]
         # A source must be filled, never itself a copy.
-        plan = {t: s for t, s in plan.items() if s not in plan}
-        if dropped:
-            self.pair_reuse_dropped = tuple(dropped)
+        filled = ~np.isin(sa * E + sb, ta * E + tb)
+        plan = _PairReusePlan(ta[filled], tb[filled], sa[filled], sb[filled], E)
+        if not plan:
+            plan = {}
+        if dropped.size:
+            self.pair_reuse_dropped = self._pair_reuse.named(dropped)
             warnings.warn(
-                f"pair_reuse: {len(dropped)} claimed edge pair(s) do not repeat their "
-                "representative in this geometry and were filled normally",
+                f"pair_reuse: {dropped.size} claimed edge pair(s) do not repeat "
+                "their representative in this geometry and were filled normally",
                 PairReuseDropped,
                 stacklevel=3,
             )
@@ -5291,43 +5576,74 @@ class BSplineSolver(
         only when, beyond `_pair_reuse_plan`'s free-space checks, every end
         point of the pair keeps its height above the ground: then the
         isometry is a horizontal one, and the remainder's dyad, projected on
-        the moved tangents, is the same number up to rounding."""
+        the moved tangents, is the same number up to rounding.
+
+        The kernel holds every source block in one cache and fills
+        everything when that cache would pass its budget
+        (`_REMAINDER_REUSE_CACHE_BYTES`). So the map is cut to fit, keeping
+        the source pairs with the most copies per cached byte; the copies cut
+        are counted in `pair_reuse_remainder_cut` (momwire#1854). Cached per
+        geometry and ground height: a solve asks more than once."""
+        hit = self._remainder_reuse_cache
+        if hit is not None and hit[0] is geom and hit[1] == gz:
+            return hit[2]
+        out = self._remainder_reuse_map(geom, gz)
+        self._remainder_reuse_cache = (geom, gz, out)
+        return out
+
+    def _remainder_reuse_map(self, geom, gz):
         plan = self._pair_reuse_plan(geom)
         if not plan:
             return {}
         slices = self._same_edge_slices(geom)
-        starts = [sl.start for sl in slices]
+        E = len(slices)
+        start = np.fromiter((sl.start for sl in slices), dtype=np.int64, count=E)
+        stop = np.fromiter((sl.stop for sl in slices), dtype=np.int64, count=E)
         n_seg = geom["seg_l"].shape[0]
         # The kernel takes edges as consecutive runs; anything else is filled.
-        if (
-            starts[0] != 0
-            or slices[-1].stop != n_seg
-            or any(a.stop != b.start for a, b in itertools.pairwise(slices))
-        ):
+        if start[0] != 0 or stop[-1] != n_seg or np.any(stop[:-1] != start[1:]):
             return {}
         seg_l, seg_r = geom["seg_l"], geom["seg_r"]
         scale = float(max(np.max(np.abs(seg_l)), np.max(np.abs(seg_r)), 1e-30))
         tol = _PAIR_REUSE_RTOL * scale
+        h0, h1 = seg_l[start, 2] - gz, seg_r[stop - 1, 2] - gz
+        ta, tb, sa, sb = plan.ta, plan.tb, plan.sa, plan.sb
 
-        def heights(e):
-            sl = slices[e]
-            return np.array([seg_l[sl.start, 2], seg_r[sl.stop - 1, 2]]) - gz
+        def kept(t, s):
+            return np.maximum(np.abs(h0[t] - h0[s]), np.abs(h1[t] - h1[s])) <= tol
 
-        E = len(slices)
-        src = np.full((E, E), -1, dtype=np.int32)
-        for (ta, tb), (sa, sb) in plan.items():
-            if (
-                np.max(np.abs(heights(ta) - heights(sa))) <= tol
-                and np.max(np.abs(heights(tb) - heights(sb))) <= tol
-            ):
-                src[ta, tb] = sa * E + sb
-        if not np.any(src >= 0):
+        held = kept(ta, sa) & kept(tb, sb)
+        ta, tb, sa, sb = ta[held], tb[held], sa[held], sb[held]
+        if ta.size == 0:
             return {}
-        seg_edge = np.full(n_seg, -1, dtype=np.int32)
-        for e, sl in enumerate(slices):
-            seg_edge[sl] = e
+        # The cache: one block per source pair, both orders of an off-edge
+        # one. Cut by unordered source pair, which keeps the map closed under
+        # reversal, best copies per byte first (ties in source order).
+        nseg = stop - start
+        dd = (self.degree + 1) ** 2
+        lo_s, hi_s = np.minimum(sa, sb), np.maximum(sa, sb)
+        cls_keys, cls_of, copies = np.unique(
+            lo_s * E + hi_s, return_inverse=True, return_counts=True
+        )
+        cls_lo, cls_hi = np.divmod(cls_keys, E)
+        orders = np.where(cls_lo == cls_hi, 1, 2)
+        nbytes = orders * dd * nseg[cls_lo] * nseg[cls_hi] * 16
+        self.pair_reuse_remainder_cut = 0
+        if int(nbytes.sum()) > _REMAINDER_REUSE_CACHE_BYTES:
+            rank = np.lexsort((cls_keys, -(copies / orders)))
+            fits = np.cumsum(nbytes[rank]) <= _REMAINDER_REUSE_CACHE_BYTES
+            take = np.zeros(cls_keys.size, dtype=bool)
+            take[rank[fits]] = True
+            sel = take[cls_of]
+            self.pair_reuse_remainder_cut = int(np.count_nonzero(~sel))
+            ta, tb, sa, sb = ta[sel], tb[sel], sa[sel], sb[sel]
+            if ta.size == 0:
+                return {}
+        src = np.full((E, E), -1, dtype=np.int32)
+        src[ta, tb] = (sa * E + sb).astype(np.int32)
+        seg_edge = np.repeat(np.arange(E, dtype=np.int32), nseg)
         return {
-            "reuse_edge_seg0": np.array([*starts, n_seg], dtype=np.int64),
+            "reuse_edge_seg0": np.r_[start, n_seg].astype(np.int64),
             "reuse_seg_edge": seg_edge,
             "reuse_src": src,
         }
@@ -5740,18 +6056,22 @@ class BSplineSolver(
             # pay a call each for little.
             ladder = self._fill_ladder(k, seg_l, seg_r, ek)
             J = np.zeros((d + 1, d + 1, n_total, n_total), dtype=complex)
+            if plan:
+                # Every slice's segments in slice order, and each one's slice:
+                # a row's columns are the segments of the slices it fills.
+                seg_of = np.concatenate(
+                    [np.arange(c.start, c.stop) for c in same_slices]
+                )
+                edge_of = np.repeat(
+                    np.arange(len(same_slices)),
+                    [c.stop - c.start for c in same_slices],
+                )
             for a_idx, sl in enumerate(same_slices):
                 if plan:
-                    keep = [
-                        same_slices[b]
-                        for b in range(len(same_slices))
-                        if b != a_idx and (a_idx, b) not in plan
-                    ]
-                    cols = (
-                        np.concatenate([np.arange(c.start, c.stop) for c in keep])
-                        if keep
-                        else np.zeros(0, dtype=np.intp)
-                    )
+                    skip = np.zeros(len(same_slices), dtype=bool)
+                    skip[plan.copied_from_row(a_idx)] = True
+                    skip[a_idx] = True
+                    cols = seg_of[~skip[edge_of]]
                 else:
                     cols = np.r_[0 : sl.start, sl.stop : n_total]
                 if cols.size == 0:
@@ -5783,11 +6103,8 @@ class BSplineSolver(
             )  # (d+1, d+1, N, N) complex
 
         # The off-edge copies (momwire#1809).
-        for (ta, tb), (sa, sb) in plan.items():
-            if ta != tb:
-                J[:, :, same_slices[ta], same_slices[tb]] = J[
-                    :, :, same_slices[sa], same_slices[sb]
-                ]
+        if plan:
+            plan.copy_blocks(J, same_slices, off_edge=True)
 
         # Overwrite each same-edge block with analytic static + reg
         if same_edge_prep is None:
@@ -7280,10 +7597,14 @@ class BSplineSolver(
         sol = _lapack.solve_stacked(Z, rhs)  # (n_k, n_b, 1 + n_c)
         w = sol[:, :, 0]
         X = sol[:, :, 1:]
-        S = np.einsum("cm,kmn->kcn", kcl_A, X)
-        Aw = np.einsum("cm,km->kc", kcl_A, w)
+        # The contractions are matmuls broadcast over k, as the single-k
+        # forms write them: plain `einsum` runs them as a one-thread C loop
+        # with no BLAS, O(n_c^2 n_b) per k, which was 51 of 60 s of a dense
+        # one-frequency sweep at n_b ~ 8,000, n_c ~ 2,000 (momwire#1900).
+        S = kcl_A @ X
+        Aw = (kcl_A @ w[:, :, None])[:, :, 0]
         lam = _lapack.solve_stacked(S, Aw[:, :, None])[:, :, 0]
-        return w - np.einsum("kmc,kc->km", X, lam)
+        return w - (X @ lam[:, :, None])[:, :, 0]
 
     def _solve_with_kcl_swept_ports(self, Z, V, kcl_A):
         """k- and port-batched KCL-constrained Schur solve.
@@ -7303,10 +7624,11 @@ class BSplineSolver(
         sol = _lapack.solve_stacked(Z, rhs)
         W = sol[:, :, :n_p]
         X = sol[:, :, n_p:]
-        S = np.einsum("cm,kmn->kcn", kcl_A, X)
-        AW = np.einsum("cm,kmp->kcp", kcl_A, W)
+        # matmuls broadcast over k, not `einsum` (see `_solve_with_kcl_batch`)
+        S = kcl_A @ X
+        AW = kcl_A @ W
         Lam = _lapack.solve_stacked(S, AW)
-        return W - np.einsum("kmc,kcp->kmp", X, Lam)
+        return W - X @ Lam
 
     # ------------------------------------------------------------------
     # Driver impedance
@@ -9830,6 +10152,23 @@ class BSplineSolver(
     def _compute_impedance_swept_rotational(self, k_array, z_out):
         return _rotational_symmetry.compute_impedance_swept(self, k_array, z_out)
 
+    def _compute_port_solution_rotational(self):
+        Y, X, pieces = _rotational_symmetry.compute_port_solution(self)
+        geom, supp_seg, polys, wire_knots, wire_basis_global, n_basis_total = pieces
+        return PortSolution(
+            y=Y,
+            coeffs=X,
+            port_currents=Y,  # the same object: the readout IS the Y matrix
+            basis=_SplineBasis(
+                geom=geom,
+                supp_seg=supp_seg,
+                polys=polys,
+                wire_knots=wire_knots,
+                wire_basis_global=wire_basis_global,
+                n_poly=n_basis_total,
+            ),
+        )
+
     def _per_feed_z(self, coeffs_full, port_vectors, all_voltages):
         """Drive-point impedance per port (gap feeds, then junction ports,
         then node gaps). `coeffs_full` may include the enrichment block; every
@@ -9947,30 +10286,6 @@ class BSplineSolver(
         coeffs = self._solve_with_kcl(Z, v, kcl_con, overwrite=True)
         return _per_feed_z(coeffs), coeffs
 
-    def _rotational_route_serves_one_drive(self, *entries):
-        """Every entry point but the two impedance ones stays dense under
-        `rotational_symmetry=True`, and says so rather than answering (the
-        sector route decomposes ONE axis-symmetric drive, momwire#1029).
-        Silently handing back the dense answer would make the flag look
-        served where it is not, which is the failure mode
-        `require_lattice_fft` exists to prevent on the array solver.
-
-        Several `entries` for a guard that stands in front of more than one
-        public name — `_port_solutions_swept` is the generator behind both
-        swept port entries, and naming only one of them told a user about a
-        method they had not called.
-        """
-        if self._rotational_map is not None:
-            named = " and ".join(entries)
-            verb = "is" if len(entries) == 1 else "are"
-            raise _rotational_symmetry.RotationalSymmetryRefused(
-                f"rotational symmetry: {named} {verb} not on the sector "
-                f"route — it decomposes the single axis-symmetric drive of "
-                f"compute_impedance and compute_impedance_swept only. Use "
-                f"one of those, or drop rotational_symmetry=True to solve "
-                f"this deck densely."
-            )
-
     def compute_y_matrix(self) -> np.ndarray:
         """Short-circuit admittance matrix [Y_sc] at the configured feeds.
 
@@ -10003,7 +10318,6 @@ class BSplineSolver(
         This is the `y` field of `compute_port_solution()` and nothing else —
         see there for the per-port solution columns this throws away (#232).
         """
-        self._rotational_route_serves_one_drive("compute_y_matrix")
         return self.compute_port_solution().y
 
     def compute_port_solution(self, same_edge_prep=None) -> PortSolution:
@@ -10036,7 +10350,8 @@ class BSplineSolver(
         it just spares the per-k rebuild when `_port_solutions_swept` drives
         this method frequency by frequency.
         """
-        self._rotational_route_serves_one_drive("compute_port_solution")
+        if self._rotational_map is not None:
+            return self._compute_port_solution_rotational()
         geom = self._build_geometry()
         supp_seg, polys, kcl_A, wire_knots, wire_basis_global = (
             self._build_basis_polynomials(geom)
@@ -10159,12 +10474,12 @@ class BSplineSolver(
           `swept_mem_mb` dispatch instead of always materialising the full
           (d+1, d+1, N, N) moment tensor (issue #238).
         """
-        self._rotational_route_serves_one_drive(
-            "compute_y_matrix_swept", "compute_port_solution_swept"
-        )
         _refuse_complex_k(k_array, "BSplineSolver._port_solutions_swept")
         k_array = np.asarray(k_array, dtype=float)
-        if self.use_singular_enrichment:
+        if self.use_singular_enrichment or self._rotational_map is not None:
+            # The sector route (momwire#1897) loops for the reason
+            # `compute_impedance_swept` does there: its fill is the
+            # row-compact one, which has no k axis to batch over.
             with self._k_restored():
                 for kk in k_array:
                     self._checkpoint()  # top of each frequency iteration

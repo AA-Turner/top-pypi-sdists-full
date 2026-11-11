@@ -103,3 +103,9 @@ pub(crate) const METADATA_REPLY_BYTES: u64 =
     3 * sqlbuild_orchestration::api::constants::BODY_BYTES as u64;
 /// Bound piped terminal input independently of the credential owner's password policy.
 pub(crate) const PASSWORD_INPUT_BYTES: u64 = 4096;
+
+/// The command a location runs to answer a plan request.
+pub(crate) const PLAN_COMMAND: &str = "plan";
+/// How much `sqb plan --json` output a location reads; model diffs over the server's cap are dropped.
+pub(crate) const PLAN_OUTPUT_BYTES: usize =
+    8 * sqlbuild_orchestration::platform::constants::PLAN_DOCUMENT_BYTES;

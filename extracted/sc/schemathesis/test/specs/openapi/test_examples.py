@@ -15,11 +15,12 @@ from schemathesis.core import NOT_SET
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.engine import events
 from schemathesis.engine.run import PhaseName
+from schemathesis.generation.drivers import ExamplesGenerator
 from schemathesis.generation.feedback import FeedbackSources
 from schemathesis.generation.hypothesis import examples
 from schemathesis.generation.hypothesis._response_matching import find_matching_in_responses
-from schemathesis.generation.hypothesis.builder import generate_example_cases
 from schemathesis.generation.modes import GenerationMode
+from schemathesis.generation.overrides import Override
 from schemathesis.resources.descriptors import Cardinality, ResourceDescriptor
 from schemathesis.resources.repository import ResourceRepository
 from schemathesis.specs.openapi.adapter.parameters import _apply_overlay, parameters_to_json_schema
@@ -518,13 +519,12 @@ def before_generate_case(context, strategy):
 
 @pytest.fixture
 def explicit_header(ctx):
-    with ctx.check("""
+    return ctx.write_pymodule("""
 @schemathesis.check
 def explicit_header(ctx, response, case):
     assert case.headers["anyKey"] == "OVERRIDE"
     assert case.query["id"] == "OVERRIDE"
-""") as module:
-        yield module
+""")
 
 
 def test_parameter_override(ctx, cli, snapshot_cli, explicit_header):
@@ -1598,7 +1598,15 @@ def test_example_reference_chains(ctx, components, expected):
     assert [examples.generate_one(strategy).body for strategy in operation.get_strategies_from_examples()] == expected
 
 
-def test_example_reference_in_schema_examples(ctx):
+@pytest.mark.parametrize(
+    "components",
+    [
+        {"A": {"value": "alice"}},
+        {"A": {"$ref": "#/components/examples/B"}, "B": {"value": "alice"}},
+    ],
+    ids=["direct", "chain"],
+)
+def test_example_reference_in_schema_examples(ctx, components):
     schema = {"$ref": "#/components/schemas/Name"}
     operation = ctx.openapi.load_operation(
         "POST /items",
@@ -1609,7 +1617,7 @@ def test_example_reference_in_schema_examples(ctx):
         },
         components={
             "schemas": {"Name": {"type": "string", "examples": {"a": {"$ref": "#/components/examples/A"}}}},
-            "examples": {"A": {"value": "alice"}},
+            "examples": components,
         },
     )
     assert [example_to_dict(example) for example in extract_top_level(operation)] == [
@@ -2218,7 +2226,7 @@ def test_yaml_example_with_binary_tag(tmp_path):
     spec.write_text(SPEC_WITH_BINARY_EXAMPLE)
     schema = schemathesis.openapi.from_path(str(spec))
     operation = schema["/items"]["POST"]
-    cases = generate_example_cases(test=lambda: None, operation=operation, fill_missing=False)
+    cases = ExamplesGenerator(operation=operation, override=Override(), feedback=FeedbackSources(), fill_missing=False)
     assert [case.body for case in cases] == [{"blob": "YWJj"}]
 
 
@@ -2919,56 +2927,6 @@ def test_non_recursive_duplicate_refs_unit(ctx):
 
 
 @pytest.mark.filterwarnings("error")
-def test_empty_ref_in_allof(ctx, cli, snapshot_cli):
-    # When the schema contains an empty $ref within allOf
-    api = ctx.openapi.apps.success()
-    schema_file = ctx.openapi.write_schema(
-        {
-            "/items": {
-                "post": {
-                    "requestBody": {
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/issue"}}}
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        },
-        components={
-            "schemas": {
-                "issue": {
-                    "properties": {
-                        "key": {
-                            "$ref": "#/components/schemas/repository",
-                        }
-                    }
-                },
-                "object": {},
-                "repository": {
-                    "allOf": [
-                        {"$ref": "#/components/schemas/object"},
-                        {
-                            "properties": {
-                                "key": {"$ref": ""},
-                            }
-                        },
-                    ]
-                },
-            }
-        },
-    )
-
-    assert (
-        cli.main(
-            "run",
-            str(schema_file),
-            "--phases=examples",
-            f"--url={api.base_url}/api",
-        )
-        == snapshot_cli
-    )
-
-
-@pytest.mark.filterwarnings("error")
 def test_empty_all_of(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
     schema_file = ctx.openapi.write_schema(
@@ -3601,7 +3559,9 @@ def _example_cases(ctx, operation_definition, *, fill_missing, version="3.0.2"):
     )
     return [
         (case.query, case.body)
-        for case in generate_example_cases(test=lambda: None, operation=operation, fill_missing=fill_missing)
+        for case in ExamplesGenerator(
+            operation=operation, override=Override(), feedback=FeedbackSources(), fill_missing=fill_missing
+        )
     ]
 
 
@@ -4288,8 +4248,7 @@ def test_unsatisfiable_property_schema_does_not_crash(ctx):
 
 
 def test_assembled_body_missing_required_field_is_not_yielded(ctx):
-    # When `required` lists a field absent from `properties`, no property-level example
-    # can provide it; every assembled body will be schema-invalid and must not be yielded.
+    # A required field absent from `properties` has no example to take, so a generated value completes the body.
     operation = _json_body_operation(
         ctx,
         {
@@ -4301,11 +4260,9 @@ def test_assembled_body_missing_required_field_is_not_yielded(ctx):
             "required": ["name", "port", "listener_key"],
         },
     )
-    body_schema = operation.body[0].optimized_schema
-    validator = jsonschema_rs.validator_for(body_schema)
-    for example in extract_from_schemas(operation):
-        assert isinstance(example, BodyExample)
-        assert validator.is_valid(example.value), f"Invalid body example yielded: {example.value!r}"
+    assert list(extract_from_schemas(operation)) == [
+        BodyExample(value={"name": "proxy", "port": 8080, "listener_key": False}, media_type="application/json")
+    ]
 
 
 def test_response_derived_parameter_example_violating_schema_is_skipped(ctx):
@@ -4439,11 +4396,7 @@ def test_assembled_body_with_unsatisfiable_required_property_is_not_yielded(ctx)
             "required": ["name", "count"],
         },
     )
-    body_schema = operation.body[0].optimized_schema
-    validator = jsonschema_rs.validator_for(body_schema)
-    for example in extract_from_schemas(operation):
-        assert isinstance(example, BodyExample)
-        assert validator.is_valid(example.value), f"Invalid body example yielded: {example.value!r}"
+    assert list(extract_from_schemas(operation)) == []
 
 
 def test_allof_example_violating_anyof_in_parameter_is_not_yielded(ctx):
@@ -4487,11 +4440,7 @@ def test_allof_example_violating_anyof_in_parameter_is_not_yielded(ctx):
             }
         },
     )
-    param_schema = next(p.optimized_schema for p in operation.iter_parameters() if p.name == "filters")
-    validator = jsonschema_rs.validator_for(param_schema)
-    for example in extract_from_schemas(operation):
-        assert isinstance(example, ParameterExample)
-        assert validator.is_valid(example.value), f"Invalid parameter example yielded: {example.value!r}"
+    assert list(extract_from_schemas(operation)) == []
 
 
 def test_assembled_parameter_example_violating_schema_is_not_yielded(ctx):
@@ -4538,11 +4487,10 @@ def test_assembled_parameter_example_violating_schema_is_not_yielded(ctx):
             "responses": {"200": {"description": "OK"}},
         },
     )
-    param_schema = next(p.optimized_schema for p in operation.iter_parameters() if p.name == "filters")
-    validator = jsonschema_rs.validator_for(param_schema)
-    for example in extract_from_schemas(operation):
-        assert isinstance(example, ParameterExample)
-        assert validator.is_valid(example.value), f"Invalid parameter example yielded: {example.value!r}"
+    assert list(extract_from_schemas(operation)) == [
+        ParameterExample(container="query", name="filters", value=[{"filter": {"category": "online"}}]),
+        ParameterExample(container="query", name="filters", value=[{"filter": {"value": 100}}]),
+    ]
 
 
 def test_parameter_example_with_wrong_type_is_not_yielded(ctx):
@@ -4598,11 +4546,7 @@ def test_assembled_body_violating_allof_additional_properties_is_not_yielded(ctx
             "responses": {"200": {"description": "OK"}},
         },
     )
-    body_schema = operation.body[0].optimized_schema
-    validator = jsonschema_rs.validator_for(body_schema)
-    for example in extract_from_schemas(operation):
-        assert isinstance(example, BodyExample)
-        assert validator.is_valid(example.value), f"Invalid body example yielded: {example.value!r}"
+    assert list(extract_from_schemas(operation)) == []
 
 
 def test_content_encoded_header_parameter_example_is_valid(ctx):
@@ -4637,11 +4581,9 @@ def test_content_encoded_header_parameter_example_is_valid(ctx):
             }
         },
     )
-    param = next(p for p in operation.iter_parameters() if p.name == "x-metadata")
-    validator = jsonschema_rs.validator_for(param.optimized_schema)
-    for example in extract_from_schemas(operation):
-        assert isinstance(example, ParameterExample)
-        assert validator.is_valid(example.value), f"Invalid parameter example yielded: {example.value!r}"
+    assert list(extract_from_schemas(operation)) == [
+        ParameterExample(container="headers", name="x-metadata", value={"name": "Documents", "parent_id": "1234"})
+    ]
 
 
 def test_get_strategies_with_binary_body_and_pool_does_not_crash(ctx):
@@ -4892,6 +4834,27 @@ def test_mutually_recursive_allof_refs(ctx):
     )
 
     assert [example.value for example in extract_from_schemas(operation)] == [{"Name": "rate-limit", "Scope": {}}]
+
+
+def test_empty_all_of_beside_property_examples(ctx):
+    operation = _json_body_operation(
+        ctx,
+        {"$ref": "#/components/schemas/Payload"},
+        components={
+            "schemas": {
+                "Payload": {
+                    "type": "object",
+                    "allOf": [],
+                    "properties": {
+                        "name": {"type": "string", "example": "n"},
+                        "child": {"$ref": "#/components/schemas/Payload"},
+                    },
+                }
+            }
+        },
+    )
+
+    assert [example.value for example in extract_from_schemas(operation)] == [{"name": "n"}]
 
 
 def test_boolean_property_subschema_alongside_a_cycle(ctx):
@@ -5256,7 +5219,9 @@ def test_x_example_in_openapi_3_parameter_schema(ctx):
 
     assert [
         (case.path_parameters, case.query)
-        for case in generate_example_cases(test=lambda: None, operation=operation, fill_missing=False)
+        for case in ExamplesGenerator(
+            operation=operation, override=Override(), feedback=FeedbackSources(), fill_missing=False
+        )
     ] == [({"id": "abc"}, {"q": "qq", "name": "nn"})]
 
 
@@ -5285,7 +5250,9 @@ def test_x_examples_in_openapi_3_parameters(ctx):
 
     assert [
         (case.path_parameters, case.query)
-        for case in generate_example_cases(test=lambda: None, operation=operation, fill_missing=False)
+        for case in ExamplesGenerator(
+            operation=operation, override=Override(), feedback=FeedbackSources(), fill_missing=False
+        )
     ] == [({"id": "abc"}, {"q": "qq"})]
 
 
@@ -5592,4 +5559,12 @@ def test_examples_phase_drops_incomplete_body_example_with_non_json_value(ctx, a
             },
         )
         == []
+    )
+
+
+def test_fills_missing_examples(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
+    assert (
+        cli.run(api.schema_url, "--phases=examples", config={"phases": {"examples": {"fill-missing": True}}})
+        == snapshot_cli
     )

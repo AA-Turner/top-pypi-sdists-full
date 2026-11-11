@@ -1380,6 +1380,8 @@ pub struct PageParserCells {
     /// Image placements (#999), in the cells' frame — see
     /// [`crate::pdfium_backend::PdfPage::bitmaps`].
     pub bitmaps: Vec<[f32; 4]>,
+    /// The page's shapes for the reading-order separators (#1092).
+    pub shapes: PageShapes,
 }
 
 /// The parser text layer, driven one page at a time: the document is loaded
@@ -1542,7 +1544,8 @@ impl PageTextParser {
             return PageParserCells::default();
         };
         let (_w, h) = page_size(&self.doc, pid);
-        let (glyphs, inks, bitmaps) = page_glyphs_and_inks(&self.doc, pid, &mut self.caches);
+        let (glyphs, inks, bitmaps, shapes) =
+            page_glyphs_and_inks(&self.doc, pid, &mut self.caches);
         let (prose, words) =
             crate::dp_lines::line_and_word_cells_with(&glyphs, h, true, self.word_gap);
         PageParserCells {
@@ -1551,6 +1554,7 @@ impl PageTextParser {
             code: crate::pdfium_backend::code_cells_from_glyphs(&glyphs, h),
             checkboxes: crate::checkbox::find(&inks, h),
             bitmaps,
+            shapes,
         }
     }
 
@@ -1565,7 +1569,7 @@ impl PageTextParser {
     /// document's cells. A blank page (no cells) for an index the page tree
     /// doesn't have.
     pub fn text_page(&mut self, index: usize) -> crate::pdfium_backend::PdfPage {
-        let (w, h, (glyphs, inks, _)) = match self.pages.get(index) {
+        let (w, h, (glyphs, inks, _, shapes)) = match self.pages.get(index) {
             Some(&pid) => {
                 let (w, h) = page_size(&self.doc, pid);
                 (w, h, page_glyphs_and_inks(&self.doc, pid, &mut self.caches))
@@ -1588,6 +1592,7 @@ impl PageTextParser {
             word_cells: words,
             checkboxes: crate::checkbox::find(&inks, h),
             bitmaps: Vec::new(),
+            shapes,
             #[cfg(feature = "ocr-prep")]
             image: image::RgbImage::new(1, 1),
             links: Vec::new(),
@@ -1811,22 +1816,29 @@ fn page_glyphs_cached(
 
 /// [`page_glyphs_cached`] plus the small painted path pieces the same walk
 /// passed — what [`crate::checkbox::find`] looks for checkbox squares in
-/// (#609) — and the page's image placements (#999, `[l, t, r, b]` top-left
-/// page points clipped to the page, the cells' frame).
+/// (#609) — the page's image placements (#999, `[l, t, r, b]` top-left
+/// page points clipped to the page, the cells' frame), and its shapes for the
+/// reading-order separators (#1092, [`PageShapes`]).
 fn page_glyphs_and_inks(
     doc: &Document,
     page_id: lopdf::ObjectId,
     caches: &mut DocCaches,
-) -> (Vec<Glyph>, Vec<crate::checkbox::Ink>, Vec<[f32; 4]>) {
+) -> (
+    Vec<Glyph>,
+    Vec<crate::checkbox::Ink>,
+    Vec<[f32; 4]>,
+    PageShapes,
+) {
     let mut out = Vec::new();
     let mut inks = Vec::new();
     // get_page_content returns the assembled content-stream bytes directly
     // (an empty Vec when the page has none).
     let content_bytes = doc.get_page_content(page_id);
     let Ok(content) = lopdf::content::Content::decode(&content_bytes) else {
-        return (out, inks, Vec::new());
+        return (out, inks, Vec::new(), PageShapes::default());
     };
     let mut bitmaps = Vec::new();
+    let mut page_shapes = PageShapes::default();
     if let Some(res) = page_res(doc, page_id) {
         // pdfium's page matrix: user space translated so the display box's
         // lower-left corner is the origin (see [`PageBox`]).
@@ -1836,6 +1848,7 @@ fn page_glyphs_and_inks(
             f: -(pb.b as f64),
             ..Mat::ID
         };
+        let mut shapes = Shapes::default();
         run_content(
             doc,
             res,
@@ -1846,9 +1859,12 @@ fn page_glyphs_and_inks(
             caches,
             &mut out,
             &mut inks,
+            ShapeGs::INIT,
+            &mut shapes,
         );
         out.retain(|g| on_page(g, pb.w, pb.h));
         drop_overprinted_spaces(&mut out);
+        drop_shadow_runs(&mut out);
         let (w, h) = (f64::from(pb.w), f64::from(pb.h));
         inks.retain(|ink| match *ink {
             crate::checkbox::Ink::Bitmap { l, b, r, t } => {
@@ -1860,8 +1876,242 @@ fn page_glyphs_and_inks(
             }
             _ => true,
         });
+        let top_left =
+            |[l, b, r, t]: [f64; 4]| [l as f32, (h - t) as f32, r as f32, (h - b) as f32];
+        page_shapes.lines = shapes.lines.into_iter().map(top_left).collect();
+        if shapes.boxes.len() <= MAX_SHAPE_BOXES {
+            page_shapes.boxes = connected_boxes(&shapes.boxes)
+                .into_iter()
+                .map(top_left)
+                .collect();
+        } else {
+            docling_core::debug_log!(
+                "textparse: {} painted paths on the page; their boxes are not merged",
+                shapes.boxes.len()
+            );
+        }
     }
-    (out, inks, bitmaps)
+    (out, inks, bitmaps, page_shapes)
+}
+
+/// A page's shapes for the reading-order separators (#1092), in the cells'
+/// frame (`[l, t, r, b]`, top-left page points): docling-parse's
+/// `get_shape_lines` and `get_connected_shape_bounding_boxes`.
+#[derive(Default, Clone, Debug, PartialEq)]
+pub struct PageShapes {
+    pub lines: Vec<[f32; 4]>,
+    pub boxes: Vec<[f32; 4]>,
+}
+
+/// Drop a run of glyphs painted again over itself — a text shadow. A word
+/// processor exports a heading with a shadow effect as the same run drawn
+/// twice: the shadow, then the text over it, shifted by a fraction of a point
+/// (0.5–0.8 pt up and left, black under red, in the manuals that showed it).
+/// docling-parse keeps both copies and reads `Safety instructions Safety
+/// instructions`; pdfium's text page, behind docling's pypdfium2 backend,
+/// drops the second, and the page shows the heading once. A deliberate
+/// divergence (`docs/MIGRATION.md` §4 item 25): a glyph that repeats an
+/// earlier one — same character, font and size, its pen shifted from the
+/// earlier pen by at most 0.15 em on each axis, and by less than the earlier
+/// glyph's step to its own successor — starts a copy when the glyphs after it
+/// repeat the earlier one's successors by the same offset and size, and the
+/// whole stretch that keeps the offset is dropped. Two glyphs at least: a lone
+/// mark stamped twice is left alone, and so is the per-glyph re-stamp the
+/// sanitizer already folds (`dp_lines`, the overprint duplicate). Text that
+/// really repeats sits an advance apart or more — a doubled letter (`ll`,
+/// 0.22 em in Helvetica), a word set twice (`very very`), the same text on
+/// the next line or in the next table cell — and is kept, and so is a run of
+/// one character set tighter than a shadow's shift (dot leaders squeezed by
+/// `Tc`): its glyph two on is farther than the next one. A line stamped two
+/// or three times at a small offset to fake bold reads once the same way. The
+/// original must start within the 1024 glyphs before its copy, so a shadowed
+/// block longer than that is not caught; a shadowed heading is drawn right
+/// after itself. A rotated run, whose pen positions are not compared here, is
+/// left alone.
+fn drop_shadow_runs(glyphs: &mut Vec<Glyph>) {
+    // How far back a copy's original may start.
+    const LOOKBACK: usize = 1024;
+    // The largest shift of a copy, per axis, in ems of the glyph's size.
+    const NEAR_EM: f32 = 0.15;
+    // How much the shift and the size may vary along a copy, in ems.
+    const SAME_EM: f32 = 0.01;
+    let pen = |g: &Glyph| if g.quad.is_none() { g.pen } else { None };
+    let n = glyphs.len();
+    let mut keep = vec![true; n];
+    // The glyphs a copy may start on, by character and font, in stream
+    // order: kept (not part of a copy), upright, sized and not whitespace. A
+    // copy repeats both, so a glyph walks only its own list back through the
+    // window; scanning the whole window nearly doubled a `--text-layer-only`
+    // read of pages without a shadow.
+    let mut earlier: HashMap<(char, u64), Vec<usize>> = HashMap::new();
+    let mut j = 0;
+    while j < n {
+        let b = &glyphs[j];
+        let start = pen(b).filter(|p| p[2] > 0.0 && !b.ch.is_whitespace());
+        let mut copy = 0;
+        if let Some([xj, yj, sj]) = start {
+            let lo = j.saturating_sub(LOOKBACK);
+            let candidates = earlier.entry((b.ch, b.font)).or_default();
+            for &i in candidates.iter().rev().take_while(|&&i| i >= lo) {
+                let Some([xi, yi, si]) = pen(&glyphs[i]) else {
+                    continue;
+                };
+                if (si - sj).abs() > SAME_EM * sj {
+                    continue;
+                }
+                let (dx, dy) = (xj - xi, yj - yi);
+                if dx.abs() > NEAR_EM * sj || dy.abs() > NEAR_EM * sj {
+                    continue;
+                }
+                // A shadow is shifted: the characters one glyph expands to
+                // (a code-like name read as `SM590000`, a decomposed
+                // ligature) share the glyph's pen and are not a copy.
+                if dx.abs() + dy.abs() <= SAME_EM * sj {
+                    continue;
+                }
+                // And it lies over its original, nearer to it than the
+                // original's next glyph is: one character set tighter than
+                // half the largest shift (dot leaders squeezed by `Tc`) meets
+                // its own successors at one offset two glyphs on.
+                if let Some([xn, yn, _]) = glyphs.get(i + 1).and_then(pen) {
+                    let step = (xn - xi).abs().max((yn - yi).abs());
+                    if step > SAME_EM * sj && dx.abs().max(dy.abs()) >= step {
+                        continue;
+                    }
+                }
+                // The copy goes on while each next glyph repeats the
+                // original's next one by the same shift; the original
+                // ends before the copy starts.
+                let mut m = 1;
+                while j + m < n && i + m < j {
+                    let (a, b) = (&glyphs[i + m], &glyphs[j + m]);
+                    let (Some([xa, ya, sa]), Some([xb, yb, sb])) = (pen(a), pen(b)) else {
+                        break;
+                    };
+                    if a.ch != b.ch
+                        || a.font != b.font
+                        || (sa - sb).abs() > SAME_EM * sj
+                        || ((xb - xa) - dx).abs() > SAME_EM * sj
+                        || ((yb - ya) - dy).abs() > SAME_EM * sj
+                    {
+                        break;
+                    }
+                    m += 1;
+                }
+                if m >= 2 {
+                    copy = m;
+                    break;
+                }
+            }
+            if copy == 0 {
+                candidates.push(j);
+            }
+        }
+        if copy > 0 {
+            keep[j..j + copy].iter_mut().for_each(|k| *k = false);
+            j += copy;
+        } else {
+            j += 1;
+        }
+    }
+    let mut it = keep.into_iter();
+    glyphs.retain(|_| it.next().unwrap_or(true));
+}
+
+/// How many marked-content spans may be open for one's `/ActualText` to be
+/// read (see [`apply_actual_text`]); real documents nest a few.
+const MAX_ACTUAL_TEXT_DEPTH: usize = 64;
+
+/// Put a marked-content span's `/ActualText` in place of the glyphs drawn
+/// inside it, as docling-parse does since 7.9 (`apply_actual_text`,
+/// docling-parse#300, on by default; PDF 32000-1 §14.9.4). A writer draws a
+/// glyph cluster whose characters the font cannot spell this way: a base
+/// letter and a zero-advance accent whose code collides with a Latin letter
+/// (`Oreši` read as `OresMi`, docling#3783), or the Arabic marks of a
+/// LibreOffice font subset whose `/ToUnicode` skips them, so the byte reads as
+/// WinAnsi (`منعًا` as `منع8ا`). docling-parse's rules, cell for cell: a span
+/// with no glyphs (over graphics) is left alone, and so is a text implausibly
+/// long for it (more than 8 characters and 4 per cell: `/Alt` written into
+/// the wrong key); an empty text removes the glyphs; as many characters as
+/// cells replace them one by one, keeping each cell's geometry; any other
+/// count puts the whole text on the span's first cell, over the union of the
+/// span's boxes, its baseline running to the cell that reaches furthest along
+/// it (an accent drawn after its base letter trails behind it). Nested spans
+/// apply innermost first, so the outer text wins. docling-parse has a cell per
+/// character code; a code whose `/ToUnicode` spells several characters is
+/// several glyphs here, all on the code's pen, and counts as one cell.
+///
+/// Each `EMC` rewrites the glyphs under its span, so a crafted nest of spans
+/// over the same glyphs would cost glyphs × depth: past
+/// [`MAX_ACTUAL_TEXT_DEPTH`] open spans, a span still pairs with its `EMC` but
+/// its `/ActualText` is not read.
+fn apply_actual_text(out: &mut Vec<Glyph>, begin: usize, text: &str) {
+    let begin = begin.min(out.len());
+    let mut cells: Vec<std::ops::Range<usize>> = Vec::new();
+    for i in begin..out.len() {
+        match cells.last_mut() {
+            Some(cell) if out[i].pen.is_some() && out[i].pen == out[cell.end - 1].pen => {
+                cell.end = i + 1;
+            }
+            _ => cells.push(i..i + 1),
+        }
+    }
+    if cells.is_empty() {
+        return;
+    }
+    let chars: Vec<char> = text.chars().collect();
+    if chars.len() > (4 * cells.len()).max(8) {
+        return;
+    }
+    if chars.is_empty() {
+        out.truncate(begin);
+        return;
+    }
+    if chars.len() == cells.len() {
+        // Each cell's first glyph takes its character, the rest of the cell
+        // goes: one pass, writing behind the cells read.
+        for (w, (cell, &ch)) in cells.iter().zip(&chars).enumerate() {
+            out[begin + w] = Glyph {
+                ch,
+                ..out[cell.start]
+            };
+        }
+        out.truncate(begin + cells.len());
+        return;
+    }
+    // The leading edge (quad corners 0 and 3) stays the first cell's; the
+    // trailing one (1 and 2) is the cell's that reaches furthest along the
+    // baseline, projected on it so a rotated run keeps its direction.
+    let quad_of = |g: &Glyph| {
+        g.quad
+            .unwrap_or([g.ll, g.lb, g.lr, g.lb, g.lr, g.lt, g.ll, g.lt])
+    };
+    let mut merged = Glyph { ..out[begin] };
+    let mut quad = quad_of(&merged);
+    let dir = (quad[2] - quad[0], quad[3] - quad[1]);
+    let along = |q: &[f32; 8]| q[2] * dir.0 + q[3] * dir.1;
+    let mut reach = along(&quad);
+    for g in &out[begin + 1..] {
+        merged.l = merged.l.min(g.l);
+        merged.b = merged.b.min(g.b);
+        merged.r = merged.r.max(g.r);
+        merged.t = merged.t.max(g.t);
+        merged.ll = merged.ll.min(g.ll);
+        merged.lb = merged.lb.min(g.lb);
+        merged.lr = merged.lr.max(g.lr);
+        merged.lt = merged.lt.max(g.lt);
+        let q = quad_of(g);
+        if along(&q) > reach {
+            reach = along(&q);
+            quad[2..6].copy_from_slice(&q[2..6]);
+        }
+    }
+    if merged.quad.is_some() {
+        merged.quad = Some(quad);
+    }
+    out.truncate(begin);
+    // The characters of one cell share its box, as a ligature's do.
+    out.extend(chars.iter().map(|&ch| Glyph { ch, ..merged }));
 }
 
 /// Drop a space glyph the next glyph is drawn over (#992). A typesetter
@@ -1959,6 +2209,8 @@ fn run_content(
     caches: &mut DocCaches,
     out: &mut Vec<Glyph>,
     inks: &mut Vec<crate::checkbox::Ink>,
+    shape_init: ShapeGs,
+    shapes: &mut Shapes,
 ) {
     let fonts = fonts_from_res(doc, res, caches);
     let xobjects = res
@@ -1997,6 +2249,25 @@ fn run_content(
     // chart legend's swatch. The initial fill colour is black.
     let mut fill_light = false;
     let mut fill_stack: Vec<bool> = Vec::new();
+    // Open marked-content sequences (`BMC`/`BDC` … `EMC`): where each one's
+    // glyphs start in `out`, and its inline `/ActualText`, if any.
+    let mut marked: Vec<(usize, Option<String>)> = Vec::new();
+    // The reading-order shapes (#1092): docling-parse's view of the path
+    // under construction, its graphics state and the pending clip.
+    let mut shape_gs = shape_init;
+    let mut shape_stack: Vec<ShapeGs> = Vec::new();
+    let mut shape_path: Vec<ShapeSub> = Vec::new();
+    let mut clip_pending = false;
+    let ext_gstates = res
+        .get(b"ExtGState")
+        .ok()
+        .and_then(|o| deref(doc, o))
+        .and_then(|o| o.as_dict().ok());
+    let colorspaces = res
+        .get(b"ColorSpace")
+        .ok()
+        .and_then(|o| deref(doc, o))
+        .and_then(|o| o.as_dict().ok());
 
     for op in &content.operations {
         let operands = &op.operands;
@@ -2005,9 +2276,36 @@ fn run_content(
             "q" => {
                 gstate_stack.push((ctm, tc, tw, th, tl, trise, fsize, tr, font));
                 fill_stack.push(fill_light);
+                shape_stack.push(shape_gs.clone());
+            }
+            "BMC" => marked.push((out.len(), None)),
+            // Only an inline property list is read: a named one (`/OC /MC0`)
+            // would need the `/Properties` resource, as in docling-parse.
+            "BDC" => {
+                let actual = operands
+                    .get(1)
+                    .filter(|_| marked.len() < MAX_ACTUAL_TEXT_DEPTH)
+                    .and_then(|o| o.as_dict().ok())
+                    .and_then(|d| d.get(b"ActualText").ok())
+                    .and_then(|o| match o {
+                        Object::String(bytes, _) => Some(crate::info::decode_text(bytes)),
+                        _ => None,
+                    });
+                marked.push((out.len(), actual));
+            }
+            "EMC" => {
+                if let Some((begin, Some(text))) = marked.pop() {
+                    apply_actual_text(out, begin, &text);
+                }
+                // Shows no text: the invisible-mode stamp below has nothing
+                // new to mark, and the span may have shortened `out`.
+                continue;
             }
             "Q" => {
                 fill_light = fill_stack.pop().unwrap_or(false);
+                if let Some(gs) = shape_stack.pop() {
+                    shape_gs = gs;
+                }
                 if let Some((c, a, b, h, l, r, fs, mode, f)) = gstate_stack.pop() {
                     ctm = c;
                     tc = a;
@@ -2149,11 +2447,17 @@ fn run_content(
             "m" => {
                 cur = ctm.apply(op_f(operands, 0), op_f(operands, 1));
                 start = cur;
+                shape_path.push(ShapeSub::at(cur));
             }
             "l" => {
                 let p = ctm.apply(op_f(operands, 0), op_f(operands, 1));
                 path.push(PathPiece::Line(cur, p));
                 cur = p;
+                if let Some(sub) = shape_path.last_mut() {
+                    sub.lines.push((sub.cur, p));
+                    sub.pts.push(p);
+                    sub.cur = p;
+                }
             }
             "c" | "v" | "y" => {
                 let pts: Vec<(f64, f64)> = (0..operands.len() / 2)
@@ -2164,6 +2468,10 @@ fn run_content(
                         std::iter::once(cur).chain(pts.iter().copied()).collect(),
                     ));
                     cur = end;
+                    if let Some(sub) = shape_path.last_mut() {
+                        sub.pts.extend(pts.iter().copied());
+                        sub.cur = end;
+                    }
                 }
             }
             "h" => {
@@ -2171,6 +2479,14 @@ fn run_content(
                     path.push(PathPiece::Line(cur, start));
                 }
                 cur = start;
+                // docling-parse closes the subpath and opens the next one at
+                // its start, where a following `l` continues.
+                if let Some(sub) = shape_path.last_mut() {
+                    sub.closed = true;
+                    sub.pts.push(sub.start);
+                    let at = sub.start;
+                    shape_path.push(ShapeSub::at(at));
+                }
             }
             "re" => {
                 let (x, y, w, h) = (
@@ -2187,6 +2503,21 @@ fn run_content(
                 ]));
                 cur = ctm.apply(x, y);
                 start = cur;
+                // `m` + three `l` + `h`, as docling-parse builds it.
+                let c = [
+                    ctm.apply(x, y),
+                    ctm.apply(x + w, y),
+                    ctm.apply(x + w, y + h),
+                    ctm.apply(x, y + h),
+                ];
+                shape_path.push(ShapeSub {
+                    start: c[0],
+                    cur: c[3],
+                    pts: vec![c[0], c[1], c[2], c[3], c[0]],
+                    lines: vec![(c[0], c[1]), (c[1], c[2]), (c[2], c[3])],
+                    closed: true,
+                });
+                shape_path.push(ShapeSub::at(c[0]));
             }
             "S" | "s" | "f" | "F" | "f*" | "B" | "B*" | "b" | "b*" => {
                 let op = op.operator.as_str();
@@ -2197,11 +2528,68 @@ fn run_content(
                 let fill = !matches!(op, "S" | "s");
                 paint_path(&path, stroke, fill, fill_light, inks);
                 path.clear();
+                // `s`, `f`, `f*`, `b`, `b*` close the last subpath first.
+                if !matches!(op, "S" | "B" | "B*") {
+                    if let Some(sub) = shape_path.last_mut() {
+                        sub.closed = true;
+                    }
+                }
+                let scale = (ctm.a * ctm.d - ctm.b * ctm.c).abs().sqrt();
+                record_shape(
+                    &shape_path,
+                    stroke,
+                    fill,
+                    &shape_gs,
+                    if scale > 0.0 { scale } else { 1.0 },
+                    shapes,
+                );
+                // A pending `W` takes effect after the painting operator.
+                if std::mem::take(&mut clip_pending) {
+                    capture_clip(&shape_path, &mut shape_gs.clips);
+                }
+                shape_path.clear();
             }
-            "n" => path.clear(),
+            "n" => {
+                path.clear();
+                if std::mem::take(&mut clip_pending) {
+                    capture_clip(&shape_path, &mut shape_gs.clips);
+                }
+                shape_path.clear();
+            }
+            "W" | "W*" => clip_pending = true,
+            "w" => shape_gs.line_width = op_f(operands, 0),
+            "gs" => {
+                let params = operands
+                    .first()
+                    .and_then(|o| o.as_name().ok())
+                    .and_then(|n| ext_gstates?.get(n).ok())
+                    .and_then(|o| deref(doc, o))
+                    .and_then(|o| o.as_dict().ok());
+                if let Some(params) = params {
+                    let get = |k: &[u8]| params.get(k).ok().and_then(num);
+                    if let Some(lw) = get(b"LW") {
+                        shape_gs.line_width = lw;
+                    }
+                    if let Some(a) = get(b"CA") {
+                        shape_gs.stroke_alpha = a;
+                    }
+                    if let Some(a) = get(b"ca") {
+                        shape_gs.fill_alpha = a;
+                    }
+                }
+            }
             // The fill colour, by its components: gray `g`, `rg`, CMYK `k`,
             // and `sc`/`scn` by operand count (a pattern name is not light).
             "g" | "rg" | "k" | "sc" | "scn" => {
+                // docling-parse: a colour resolves a pattern fill; a pattern
+                // name in `scn` makes it one.
+                if matches!(op.operator.as_str(), "scn")
+                    && matches!(operands.last(), Some(Object::Name(_)))
+                {
+                    shape_gs.fill_pattern = true;
+                } else if !operands.is_empty() {
+                    shape_gs.fill_pattern = false;
+                }
                 let v: Vec<f64> = operands
                     .iter()
                     .map(num)
@@ -2214,7 +2602,28 @@ fn run_content(
                     _ => false,
                 };
             }
-            "cs" => fill_light = false,
+            "cs" => {
+                fill_light = false;
+                // A Pattern space carries no colour until `scn` names one.
+                let pattern = match operands.first() {
+                    Some(Object::Name(n)) if n.as_slice() == b"Pattern" => true,
+                    Some(Object::Name(n)) => colorspaces
+                        .and_then(|cs| cs.get(n).ok())
+                        .and_then(|o| deref(doc, o))
+                        .is_some_and(|o| match o {
+                            Object::Name(f) => f.as_slice() == b"Pattern",
+                            Object::Array(a) => a
+                                .first()
+                                .and_then(|f| f.as_name().ok())
+                                .is_some_and(|f| f == b"Pattern"),
+                            _ => false,
+                        }),
+                    _ => false,
+                };
+                if pattern {
+                    shape_gs.fill_pattern = true;
+                }
+            }
             // An inline image: the unit square under the CTM (#999).
             "BI" => inks.push(image_ink(ctm)),
             "Do" => {
@@ -2322,6 +2731,8 @@ fn run_content(
                     caches,
                     out,
                     inks,
+                    shape_gs.clone(),
+                    shapes,
                 );
             }
             _ => {}
@@ -2350,6 +2761,246 @@ fn image_ink(ctm: Mat) -> crate::checkbox::Ink {
         (l, b, r, t) = (l.min(x), b.min(y), r.max(x), t.max(y));
     }
     crate::checkbox::Ink::Bitmap { l, b, r, t }
+}
+
+/// The page's vector shapes as docling-parse's page decoder reports them to
+/// docling's reading order (#1092): `get_shape_lines` — every stroked,
+/// axis-aligned straight segment, clipped — and the boxes
+/// `get_connected_shape_bounding_boxes` merges — every visible painted path,
+/// its stroke's half width included, clipped. `[l, b, r, t]`, page points,
+/// bottom-left origin, in the frame `run_content` walks (the display box's
+/// lower-left corner at the origin, before `/Rotate`).
+#[derive(Default, Clone, Debug, PartialEq)]
+pub(crate) struct Shapes {
+    pub lines: Vec<[f64; 4]>,
+    pub boxes: Vec<[f64; 4]>,
+}
+
+/// More painted paths than this on a page and their boxes are not merged —
+/// docling-parse's merge is quadratic in them, and a page that dense (a map,
+/// a seat plan, text drawn as outlines) yields no trustworthy rule anyway;
+/// the stroked lines still count.
+const MAX_SHAPE_BOXES: usize = 10_000;
+
+/// One subpath of the shape path under construction, page space: what
+/// docling-parse's `page_item<PAGE_SHAPE>` keeps of it.
+struct ShapeSub {
+    start: (f64, f64),
+    cur: (f64, f64),
+    /// Every point the path passes or is controlled by — a curve's control
+    /// points included, as docling-parse's segment data has them.
+    pts: Vec<(f64, f64)>,
+    /// Its straight segments, in order.
+    lines: Vec<((f64, f64), (f64, f64))>,
+    closed: bool,
+}
+
+impl ShapeSub {
+    fn at(p: (f64, f64)) -> Self {
+        ShapeSub {
+            start: p,
+            cur: p,
+            pts: vec![p],
+            lines: Vec::new(),
+            closed: false,
+        }
+    }
+
+    /// `keep_shape`: two points at least, spanning more than a speck (the
+    /// box diagonal, squared, over 1e-3).
+    fn kept(&self) -> bool {
+        let Some((l, b, r, t)) = bbox_of(&self.pts) else {
+            return false;
+        };
+        self.pts.len() >= 2 && (r - l).powi(2) + (t - b).powi(2) >= 1e-3
+    }
+}
+
+fn bbox_of(pts: &[(f64, f64)]) -> Option<(f64, f64, f64, f64)> {
+    let (&first, rest) = pts.split_first()?;
+    Some(rest.iter().fold(
+        (first.0, first.1, first.0, first.1),
+        |(l, b, r, t), &(x, y)| (l.min(x), b.min(y), r.max(x), t.max(y)),
+    ))
+}
+
+/// The graphics state docling-parse's shapes read: line width (user space),
+/// stroke and fill alpha (`CA` / `ca`), whether the fill colour is a pattern
+/// not yet resolved to a paint, and the clip paths' boxes. Saved and
+/// restored with `q` / `Q`.
+#[derive(Clone)]
+struct ShapeGs {
+    line_width: f64,
+    stroke_alpha: f64,
+    fill_alpha: f64,
+    fill_pattern: bool,
+    clips: Vec<[f64; 4]>,
+}
+
+impl ShapeGs {
+    const INIT: ShapeGs = ShapeGs {
+        line_width: 1.0,
+        stroke_alpha: 1.0,
+        fill_alpha: 1.0,
+        fill_pattern: false,
+        clips: Vec::new(),
+    };
+}
+
+/// docling-parse's `bbox_intersects`: the boxes share area (a degenerate box
+/// lying inside the other counts).
+fn boxes_intersect(a: [f64; 4], b: [f64; 4]) -> bool {
+    a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1]
+}
+
+/// `clipped_bbox`: a box cut to every clip path's box in turn; `None` once
+/// one of them misses it.
+fn clipped(mut bbox: [f64; 4], clips: &[[f64; 4]]) -> Option<[f64; 4]> {
+    for c in clips {
+        if !boxes_intersect(bbox, *c) {
+            return None;
+        }
+        bbox = [
+            bbox[0].max(c[0]),
+            bbox[1].max(c[1]),
+            bbox[2].min(c[2]),
+            bbox[3].min(c[3]),
+        ];
+    }
+    Some(bbox)
+}
+
+/// `get_shape_lines`' `maybe_add_line` + `clip_axis_aligned_segment`: a
+/// straight segment that is horizontal or vertical within 1e-3 (not both: a
+/// point), cut to every clip path's box along its axis and dropped when one
+/// misses it.
+fn shape_line(a: (f64, f64), z: (f64, f64), clips: &[[f64; 4]], out: &mut Vec<[f64; 4]>) {
+    const TOL: f64 = 1e-3;
+    let horizontal = (z.1 - a.1).abs() <= TOL;
+    let vertical = (z.0 - a.0).abs() <= TOL;
+    if horizontal == vertical {
+        return;
+    }
+    let mut bbox = [a.0.min(z.0), a.1.min(z.1), a.0.max(z.0), a.1.max(z.1)];
+    for c in clips {
+        if horizontal {
+            if a.1 < c[1] - TOL || a.1 > c[3] + TOL {
+                return;
+            }
+            bbox[0] = bbox[0].max(c[0]);
+            bbox[2] = bbox[2].min(c[2]);
+            if bbox[0] > bbox[2] + TOL {
+                return;
+            }
+        } else {
+            if a.0 < c[0] - TOL || a.0 > c[2] + TOL {
+                return;
+            }
+            bbox[1] = bbox[1].max(c[1]);
+            bbox[3] = bbox[3].min(c[3]);
+            if bbox[1] > bbox[3] + TOL {
+                return;
+            }
+        }
+    }
+    out.push(bbox);
+}
+
+/// `capture_pending_clip`: each subpath of the clipping path with a segment
+/// (two points or more) bounds what later operators paint — appended, which
+/// approximates the intersection the spec asks for, as docling-parse does.
+fn capture_clip(subs: &[ShapeSub], clips: &mut Vec<[f64; 4]>) {
+    for sub in subs.iter().filter(|s| s.pts.len() >= 2) {
+        if let Some((l, b, r, t)) = bbox_of(&sub.pts) {
+            clips.push([l, b, r, t]);
+        }
+    }
+}
+
+/// docling-parse's `register_paths` for the reading-order geometry: a painted
+/// path's kept subpaths become shape lines (when its stroke shows) and a
+/// shape box (when anything of it shows). A fill whose colour is an
+/// unresolved pattern paints nothing, so a fill-only path is no shape and a
+/// fill-and-stroke one keeps its stroke. `scale` maps the user-space line
+/// width to page space (the CTM's `sqrt|det|`; a hairline stays 0).
+fn record_shape(
+    subs: &[ShapeSub],
+    stroke: bool,
+    fill: bool,
+    gs: &ShapeGs,
+    scale: f64,
+    shapes: &mut Shapes,
+) {
+    let kept: Vec<&ShapeSub> = subs.iter().filter(|s| s.kept()).collect();
+    if kept.is_empty() {
+        return;
+    }
+    let fill = fill && !gs.fill_pattern;
+    if gs.fill_pattern && !stroke {
+        return;
+    }
+    let strokes_visible = stroke && gs.stroke_alpha > 0.0;
+    let visible = strokes_visible || (fill && gs.fill_alpha > 0.0);
+    if strokes_visible {
+        for sub in &kept {
+            for &(a, z) in &sub.lines {
+                shape_line(a, z, &gs.clips, &mut shapes.lines);
+            }
+            if sub.closed {
+                shape_line(sub.cur, sub.start, &gs.clips, &mut shapes.lines);
+            }
+        }
+    }
+    if visible {
+        let pts: Vec<(f64, f64)> = kept.iter().flat_map(|s| s.pts.iter().copied()).collect();
+        if let Some((l, b, r, t)) = bbox_of(&pts) {
+            let pad = if strokes_visible {
+                (gs.line_width * scale).max(0.0) * 0.5
+            } else {
+                0.0
+            };
+            if let Some(bbox) = clipped([l - pad, b - pad, r + pad, t + pad], &gs.clips) {
+                shapes.boxes.push(bbox);
+            }
+        }
+    }
+}
+
+/// `get_connected_shape_bounding_boxes`: each box in turn (unless already
+/// taken) grows by every untaken box its growing union touches, until none
+/// does — docling-parse's greedy pass, so a component finished early keeps a
+/// box a later one would also have reached.
+fn connected_boxes(boxes: &[[f64; 4]]) -> Vec<[f64; 4]> {
+    let touches =
+        |a: [f64; 4], b: [f64; 4]| a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1];
+    let mut taken = vec![false; boxes.len()];
+    let mut out = Vec::new();
+    for i in 0..boxes.len() {
+        if taken[i] {
+            continue;
+        }
+        taken[i] = true;
+        let mut component = boxes[i];
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for j in 0..boxes.len() {
+                if !taken[j] && touches(component, boxes[j]) {
+                    let b = boxes[j];
+                    component = [
+                        component[0].min(b[0]),
+                        component[1].min(b[1]),
+                        component[2].max(b[2]),
+                        component[3].max(b[3]),
+                    ];
+                    taken[j] = true;
+                    changed = true;
+                }
+            }
+        }
+        out.push(component);
+    }
+    out
 }
 
 /// One piece of a path under construction, page space (see `run_content`).
@@ -2573,6 +3224,19 @@ fn simple_encoding_table(doc: &Document, fdict: &Dictionary) -> HashMap<u8, char
         // CFF, which this parser does not read) carries the same mapping;
         // docling-parse decodes it from there.
         tex_math_builtin(fdict).unwrap_or_else(winansi_table)
+    } else if base_name == b"WinAnsiEncoding" {
+        let mut m = winansi_table();
+        // PDF 32000-1:2008 Annex D.2, note 3 to the Latin set: "In
+        // WinAnsiEncoding, all unused codes greater than 40 [octal] map to the
+        // bullet character" — pdfium and pdf.js read them so. ReportLab draws
+        // its default list bullet as `\177` in a non-embedded WinAnsi
+        // Helvetica, which read U+FFFD before (#1102). Only a font that names
+        // WinAnsiEncoding gets them: the no-/Encoding fallback above stands
+        // in for a built-in encoding, where these codes stay undefined.
+        for b in [0x7Fu8, 0x81, 0x8D, 0x8F, 0x90, 0x9D] {
+            m.insert(b, '\u{2022}');
+        }
+        m
     } else {
         winansi_table()
     };
@@ -3077,8 +3741,9 @@ fn winansi_table() -> HashMap<u8, char> {
         // The rest of Windows-1252's 0x80–0x9F row. Left out, the German
         // opening quote `„` (0x84) vanished from the text layer while its
         // closing `“` (0x93) stayed (#922); `€ ‚ ƒ † ‡ ˆ ‰ Š ‹ Œ Ž ˜ ™ š › œ ž Ÿ`
-        // were lost the same way. 0x81/0x8D/0x8F/0x90/0x9D stay unmapped
-        // (PDF's WinAnsi leaves them undefined).
+        // were lost the same way. 0x81/0x8D/0x8F/0x90/0x9D (and 0x7F) are
+        // unused; a font naming WinAnsiEncoding reads them as bullets
+        // (`simple_encoding_table`, #1102).
         (0x80, '\u{20AC}'),
         (0x82, '\u{201A}'),
         (0x83, '\u{0192}'),
@@ -3889,6 +4554,35 @@ mod base14_fonts {
         );
     }
 
+    /// WinAnsiEncoding's unused codes above octal 40 are bullets (PDF
+    /// 32000-1 Annex D.2) — ReportLab's default list bullet is `\177` in a
+    /// non-embedded WinAnsi Helvetica and read U+FFFD (#1102). A font
+    /// without an `/Encoding` keeps them undefined.
+    #[test]
+    fn winansi_unused_codes_are_bullets() {
+        let read = |fontdict: &[u8], text: &[u8]| -> String {
+            cells(&pdf_with_font(fontdict, text))
+                .iter()
+                .map(|c| c.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        let winansi = b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>";
+        assert_eq!(read(winansi, b"\\177 Cut costs"), "\u{2022} Cut costs");
+        for code in [0x7Fu8, 0x81, 0x8D, 0x8F, 0x90, 0x9D] {
+            assert_eq!(
+                read(winansi, &[b'x', code, b'x']),
+                "x\u{2022}x",
+                "{code:#x}"
+            );
+        }
+        let dict = b"<</Type/Font/Subtype/TrueType/BaseFont/Arial\
+                     /Encoding<</Type/Encoding/BaseEncoding/WinAnsiEncoding>>>>";
+        assert_eq!(read(dict, b"\\177 Cut costs"), "\u{2022} Cut costs");
+        let bare = b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>";
+        assert!(!read(bare, b"x\\177x").contains('\u{2022}'));
+    }
+
     /// Unmapped glyphs read U+FFFD (#1003, docling#5070): a ToUnicode NUL —
     /// docling's `test_threaded_page_backend_replaces_nul_with_replacement_char`
     /// case, `mg.mL \x00 1` — and a bare glyph-index `/Differences` name,
@@ -4134,6 +4828,280 @@ mod base14_fonts {
             lines(b"BT 0 1 -1 0 300 100 Tm /F1 12 Tf (Nullam mollis) Tj ET\n"),
             ["Nullam mollis"]
         );
+    }
+
+    /// A text shadow: a word processor exports a heading with a shadow
+    /// effect as the same run drawn twice — the shadow in black, then the
+    /// text in colour over it, shifted up and left by a fraction of a point.
+    /// pdfium's text page reads the heading once and so does the line cell
+    /// here (docling-parse reads `Safety instructions Safety instructions`).
+    /// #1092: docling-parse's view of a page's shapes — a stroked straight
+    /// rule is a shape line and a shape box, a thin filled box only a box, a
+    /// curve or a diagonal no line, a path outside the clip nothing, and a
+    /// fill in an unresolved Pattern space nothing at all. In the cells'
+    /// frame: top-left, on the 595 × 842 test page.
+    #[test]
+    fn the_page_shapes_follow_docling_parse() {
+        let f1 = b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>";
+        let shapes = |content: &[u8]| {
+            let pdf = pdf_with_content(f1, content);
+            super::PageTextParser::open(&pdf)
+                .expect("opens")
+                .cells(0)
+                .shapes
+        };
+        let s = shapes(b"2 w 72 400 m 540 400 l S\n");
+        assert_eq!(s.lines, vec![[72.0, 442.0, 540.0, 442.0]]);
+        // The stroke's half width pads the box.
+        assert_eq!(s.boxes, vec![[71.0, 441.0, 541.0, 443.0]]);
+
+        let s = shapes(b"72 300 468 1 re f\n");
+        assert!(s.lines.is_empty(), "a fill strokes no line");
+        assert_eq!(s.boxes, vec![[72.0, 541.0, 540.0, 542.0]]);
+
+        // A stroked rectangle: four edges, `h`'s closing one included.
+        let s = shapes(b"100 100 200 50 re S\n");
+        assert_eq!(s.lines.len(), 4);
+
+        let s = shapes(b"72 400 m 100 450 l 200 300 300 500 400 400 c S\n");
+        assert!(s.lines.is_empty(), "neither a diagonal nor a curve");
+        assert_eq!(s.boxes.len(), 1);
+
+        let s = shapes(b"q 0 0 300 842 re W n 72 400 m 540 400 l S 400 100 m 400 700 l S Q\n");
+        assert_eq!(
+            s.lines,
+            vec![[72.0, 442.0, 300.0, 442.0]],
+            "cut to the clip"
+        );
+        assert_eq!(s.boxes.len(), 1, "the vertical rule is clipped away");
+
+        let s = shapes(b"/Pattern cs /P0 scn 72 300 468 1 re f\n");
+        assert!(s.lines.is_empty() && s.boxes.is_empty());
+
+        // Two touching boxes merge into one component.
+        let s = shapes(b"72 300 100 1 re f 172 300 100 1 re f 400 600 10 10 re f\n");
+        assert_eq!(
+            s.boxes,
+            vec![[72.0, 541.0, 272.0, 542.0], [400.0, 232.0, 410.0, 242.0]]
+        );
+    }
+
+    /// A transparent stroke or fill is no shape (`CA` / `ca` 0).
+    #[test]
+    fn transparent_paths_are_no_shapes() {
+        let rule = |closed| super::ShapeSub {
+            start: (0.0, 0.0),
+            cur: (100.0, 0.0),
+            pts: vec![(0.0, 0.0), (100.0, 0.0)],
+            lines: vec![((0.0, 0.0), (100.0, 0.0))],
+            closed,
+        };
+        let gs = |stroke_alpha, fill_alpha| super::ShapeGs {
+            stroke_alpha,
+            fill_alpha,
+            ..super::ShapeGs::INIT
+        };
+        let mut shapes = super::Shapes::default();
+        super::record_shape(&[rule(false)], true, false, &gs(0.0, 1.0), 1.0, &mut shapes);
+        assert_eq!(shapes, super::Shapes::default());
+        super::record_shape(&[rule(true)], false, true, &gs(1.0, 0.0), 1.0, &mut shapes);
+        assert_eq!(shapes, super::Shapes::default());
+        super::record_shape(&[rule(false)], true, false, &gs(0.5, 0.0), 1.0, &mut shapes);
+        assert_eq!(shapes.lines.len(), 1);
+    }
+
+    /// Text that really repeats sits an advance apart or more and stays: a
+    /// word set twice, a doubled letter, the same words on the next line.
+    #[test]
+    fn a_run_drawn_again_over_itself_is_read_once() {
+        let f1 = b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica-Bold/Encoding/WinAnsiEncoding>>";
+        let lines = |content: &[u8]| {
+            let pdf = pdf_with_content(f1, content);
+            super::PageTextParser::open(&pdf)
+                .expect("opens")
+                .cells(0)
+                .prose
+                .into_iter()
+                .map(|c| c.text)
+                .collect::<Vec<_>>()
+        };
+        // The shadow, then the text 0.5 pt up and left of it, at 18 pt.
+        assert_eq!(
+            lines(
+                b"BT 0 g /F1 18 Tf 1 0 0 1 72 720 Tm (Safety instructions) Tj ET\n\
+                  BT 0.8 0 0 rg /F1 18 Tf 1 0 0 1 71.5 720.5 Tm (Safety instructions) Tj ET\n"
+            ),
+            ["Safety instructions"]
+        );
+        // 0.8 pt at 14 pt, and the line under it untouched.
+        assert_eq!(
+            lines(
+                b"BT /F1 14 Tf 1 0 0 1 72 656 Tm (Maintenance) Tj ET\n\
+                  BT /F1 14 Tf 1 0 0 1 71.2 656.8 Tm (Maintenance) Tj ET\n\
+                  BT /F1 11 Tf 1 0 0 1 72 632 Tm (Clean the filter) Tj ET\n"
+            ),
+            ["Maintenance", "Clean the filter"]
+        );
+        // A word set twice, a doubled letter, the same words a line apart.
+        assert_eq!(
+            lines(b"BT /F1 12 Tf 72 700 Td (very very small) Tj ET\n"),
+            ["very very small"]
+        );
+        assert_eq!(
+            lines(b"BT /F1 12 Tf 72 700 Td (Hello, all) Tj ET\n"),
+            ["Hello, all"]
+        );
+        assert_eq!(
+            lines(b"BT /F1 12 Tf 72 700 Td (Total) Tj 0 -14 Td (Total) Tj ET\n"),
+            ["Total", "Total"]
+        );
+        // Dot leaders squeezed by `Tc` to 0.05, 0.07 and 0.1 em: two dots on,
+        // a dot sits within a shadow's shift and the dots after it repeat by
+        // the same offset, but the next dot is nearer still.
+        for tc in ["-2.28", "-2.08", "-1.78"] {
+            let content = format!(
+                "BT /F1 10 Tf 72 700 Td (Contents) Tj {tc} Tc (..........) Tj 0 Tc ( 5) Tj ET\n"
+            );
+            assert_eq!(
+                lines(content.as_bytes()),
+                ["Contents.......... 5"],
+                "Tc {tc}"
+            );
+        }
+    }
+
+    /// docling-parse's `test_unit_actual_text.py` (docling-parse#300): a
+    /// marked-content span's `/ActualText` replaces the glyphs drawn in it.
+    #[test]
+    fn actual_text_replaces_the_glyphs_of_its_span() {
+        let helvetica = b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>";
+        // A non-embedded TrueType whose only code, 0x4D (`M` in WinAnsi), is a
+        // zero-advance caron: drawn after `s` it makes `š`.
+        let caron = b"<</Type/Font/Subtype/TrueType/BaseFont/SynthCaron/FirstChar 77/LastChar 77\
+            /Widths[0]/Encoding/WinAnsiEncoding/FontDescriptor<</Type/FontDescriptor\
+            /FontName/SynthCaron/Flags 32/FontBBox[-540 -200 0 800]/ItalicAngle 0/Ascent 800\
+            /Descent -200/CapHeight 700/StemV 80>>>>";
+        // Code 1 is the `fi` ligature: two glyphs on one pen, one cell.
+        let ligature = b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica\
+            /Encoding<</Type/Encoding/BaseEncoding/WinAnsiEncoding/Differences[1/fi]>>>>";
+        let text = |content: &str| {
+            let pdf = pdf_with_fonts(&[helvetica, caron, ligature], content.as_bytes());
+            super::PageTextParser::open(&pdf)
+                .expect("opens")
+                .cells(0)
+                .prose
+                .into_iter()
+                .map(|c| c.text)
+                .collect::<String>()
+        };
+        // Unmarked, the caron reads as its WinAnsi letter.
+        assert_eq!(
+            text("BT /F1 24 Tf 40 50 Td (Ore) Tj (s) Tj /F2 24 Tf <4D> Tj /F1 24 Tf (i) Tj ET"),
+            "OresMi"
+        );
+        // Two cells, one character: the accent composes onto its base letter.
+        assert_eq!(
+            text(
+                "BT /F1 24 Tf 40 50 Td (Ore) Tj /Span <</ActualText <FEFF0161>>> BDC \
+                  (s) Tj /F2 24 Tf <4D> Tj EMC /F1 24 Tf (i) Tj ET"
+            ),
+            "Oreši"
+        );
+        // As many characters as cells: one for one.
+        assert_eq!(
+            text("BT /F1 24 Tf 40 50 Td /Span <</ActualText (ab)>> BDC (xy) Tj EMC (z) Tj ET"),
+            "abz"
+        );
+        // A cell of two glyphs takes one character.
+        assert_eq!(
+            text("BT /F3 24 Tf 40 50 Td <01> Tj /F1 24 Tf (a) Tj ET"),
+            "fia"
+        );
+        assert_eq!(
+            text(
+                "BT /F3 24 Tf 40 50 Td /Span <</ActualText (XY)>> BDC <01> Tj \
+                  /F1 24 Tf (a) Tj EMC (z) Tj ET"
+            ),
+            "XYz"
+        );
+        // An empty text declares the glyphs not text (a visual line-break
+        // hyphen); its advance may still read as a gap.
+        let hyphen = text(
+            "BT /F1 24 Tf 40 50 Td (exam) Tj /Span <</ActualText <FEFF>>> BDC (-) Tj EMC \
+             (ple) Tj ET",
+        );
+        assert!(!hyphen.contains('-'), "{hyphen}");
+        assert_eq!(hyphen.replace(' ', ""), "example");
+        // `/Alt` written into the wrong key: implausibly long, ignored.
+        assert_eq!(
+            text(
+                "BT /F1 24 Tf 40 50 Td /Span <</ActualText (A long description that belongs \
+                  in Alt not here)>> BDC (ab) Tj EMC ET"
+            ),
+            "ab"
+        );
+        // Over graphics only: nothing to replace.
+        assert_eq!(
+            text(
+                "BT /F1 24 Tf 40 50 Td (x) Tj ET /Span <</ActualText (ghost)>> BDC \
+                  10 10 50 50 re f EMC"
+            ),
+            "x"
+        );
+        // A named property list is not resolved.
+        assert_eq!(
+            text("BT /F1 24 Tf 40 50 Td /OC /MC0 BDC (ok) Tj EMC ET"),
+            "ok"
+        );
+        // Nested spans: the outer text describes the whole run.
+        assert_eq!(
+            text(
+                "BT /F1 24 Tf 40 50 Td /Span <</ActualText (AB)>> BDC (a) Tj \
+                  /Span <</ActualText (Z)>> BDC (b) Tj EMC EMC ET"
+            ),
+            "AB"
+        );
+        // A span nested past the depth limit keeps its glyphs.
+        let nested = |depth: usize| {
+            text(&format!(
+                "BT /F1 24 Tf 40 50 Td {}/Span <</ActualText (z)>> BDC (a) Tj EMC{} ET",
+                "/X BMC ".repeat(depth),
+                " EMC".repeat(depth)
+            ))
+        };
+        assert_eq!(nested(super::MAX_ACTUAL_TEXT_DEPTH - 1), "z");
+        assert_eq!(nested(super::MAX_ACTUAL_TEXT_DEPTH), "a");
+    }
+
+    /// One for one, each character keeps its cell's box, and a cell of
+    /// several glyphs on one pen (a ligature's) becomes its first glyph.
+    #[test]
+    fn actual_text_one_for_one_keeps_each_cells_box() {
+        let glyph = |ch, x: f32, pen: f32| super::Glyph {
+            ch,
+            l: x,
+            b: 0.0,
+            r: x + 5.0,
+            t: 10.0,
+            ll: x,
+            lb: -2.0,
+            lr: x + 5.0,
+            lt: 10.0,
+            font: 0,
+            quad: None,
+            pen: Some([pen, 0.0, 10.0]),
+            math_font: false,
+            invisible: false,
+        };
+        let mut out = vec![
+            glyph('o', 0.0, 0.0),
+            glyph('f', 10.0, 10.0),
+            glyph('i', 15.0, 10.0),
+            glyph('a', 20.0, 20.0),
+        ];
+        super::apply_actual_text(&mut out, 1, "XY");
+        let got: Vec<(char, f32)> = out.iter().map(|g| (g.ch, g.l)).collect();
+        assert_eq!(got, [('o', 0.0), ('X', 10.0), ('Y', 20.0)]);
     }
 
     /// The identity follows docling-parse's precedence: a `/FontDescriptor/FontName`

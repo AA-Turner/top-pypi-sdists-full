@@ -5347,6 +5347,124 @@ class TestRunAgentInternal:
         assert "Failed to parse agent run response" in response_content
         assert not result_df["intermediate_events"][0]
 
+    def _policy_agent_events(self, *events):
+        return [
+            {
+                "id": "1",
+                "author": "orchestrator",
+                "content": {
+                    "role": "model",
+                    "parts": [
+                        {"text": "Transferring you to the policy agent."},
+                        {
+                            "function_call": {
+                                "name": "transfer_to_agent",
+                                "args": {"agent_name": "policy_agent"},
+                            }
+                        },
+                    ],
+                },
+            },
+            {
+                "id": "2",
+                "author": "orchestrator",
+                "content": {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "function_response": {
+                                "name": "transfer_to_agent",
+                                "response": {},
+                            }
+                        }
+                    ],
+                },
+            },
+            {
+                "id": "3",
+                "author": "policy_agent",
+                "content": {
+                    "role": "model",
+                    "parts": [
+                        {"text": "I should look up the policy.", "thought": True},
+                        {"function_call": {"name": "lookup_policy", "args": {}}},
+                    ],
+                },
+            },
+            {
+                "id": "4",
+                "author": "policy_agent",
+                "content": {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "function_response": {
+                                "name": "lookup_policy",
+                                "response": {"covered": True},
+                            }
+                        }
+                    ],
+                },
+            },
+            *events,
+        ]
+
+    @mock.patch.object(_evals_common, "_run_agent")
+    def test_run_agent_internal_multi_agent_trace_without_final_text(
+        self, mock_run_agent
+    ):
+        mock_run_agent.return_value = [self._policy_agent_events()]
+        result_df = _evals_common._run_agent_internal(
+            api_client=mock.Mock(),
+            runtime=mock.Mock(),
+            agent=None,
+            prompt_dataset=pd.DataFrame({"prompt": ["prompt1"]}),
+        )
+
+        assert result_df["response"][0] == ""
+        assert [e["event_id"] for e in result_df["intermediate_events"][0]] == [
+            "1",
+            "2",
+            "3",
+            "4",
+        ]
+        assert len(result_df["agent_data"][0]["turns"][0]["events"]) == 4
+
+    @mock.patch.object(_evals_common, "_run_agent")
+    def test_run_agent_internal_multi_agent_trace_with_final_text(self, mock_run_agent):
+        mock_run_agent.return_value = [
+            self._policy_agent_events(
+                {
+                    "id": "5",
+                    "author": "policy_agent",
+                    "content": {
+                        "role": "model",
+                        "parts": [
+                            {"text": "The policy covers it.", "thought": True},
+                            {"text": "Your policy covers this."},
+                        ],
+                    },
+                },
+                {"id": "6", "author": None, "content": {"parts": []}},
+            )
+        ]
+        result_df = _evals_common._run_agent_internal(
+            api_client=mock.Mock(),
+            runtime=mock.Mock(),
+            agent=None,
+            prompt_dataset=pd.DataFrame({"prompt": ["prompt1"]}),
+        )
+
+        assert result_df["response"][0] == "Your policy covers this."
+        assert [e["event_id"] for e in result_df["intermediate_events"][0]] == [
+            "1",
+            "2",
+            "3",
+            "4",
+            "6",
+        ]
+        assert len(result_df["agent_data"][0]["turns"][0]["events"]) == 6
+
 
 class TestIsMultiTurnAgentSimulation:
     """Unit tests for the _is_multi_turn_agent_simulation function."""
@@ -12225,6 +12343,225 @@ class TestJudgeModelStepConfigs:
         assert default_metric.judge_model_step_configs is None
         assert overridden_metric.judge_model_step_configs == self._STEP_CONFIGS
         assert default_again.judge_model_step_configs is None
+
+
+class TestStepBasedLLMMetric:
+    """Unit tests for StepBasedLLMMetric."""
+
+    _PARSE_CODE = "def parse_results(responses):\n    return float(responses[0])"
+    _PREPROCESS_CODE = "def preprocess(agent_data):\n    return agent_data"
+
+    def _metric(self, **kwargs):
+        return agentplatform_genai_types.StepBasedLLMMetric(
+            name="coordinator_quality",
+            preprocessor=agentplatform_genai_types.AgentDataPreprocessor(
+                filter_config=agentplatform_genai_types.FilterPreprocessorConfig(
+                    trace_compression_config=agentplatform_genai_types.TraceCompressionConfig(
+                        thoughts_filtered=True, max_turn_count=3
+                    )
+                )
+            ),
+            steps=[
+                agentplatform_genai_types.StepBasedLLMMetricStep(
+                    step_id="extract",
+                    prompt_template="List the delegations in {agent_eval_data}.",
+                ),
+                agentplatform_genai_types.StepBasedLLMMetricStep(
+                    step_id="judge",
+                    prompt_template=(
+                        "Given {step.extract.output} and {user_goal}, rate 1-5."
+                    ),
+                    autorater_config=genai_types.AutoraterConfig(
+                        autorater_model="gemini-2.5-pro", sampling_count=3
+                    ),
+                    response_parser_config=agentplatform_genai_types.ResponseParserConfig(
+                        custom_code_parser_config=agentplatform_genai_types.CustomCodeParserConfig(
+                            parsing_function=self._PARSE_CODE
+                        )
+                    ),
+                ),
+            ],
+            **kwargs,
+        )
+
+    def test_t_metrics_builds_step_based_spec(self):
+        payload = _transformers.t_metrics([self._metric()])[0]
+
+        assert payload == {
+            "step_based_llm_metric_spec": {
+                "preprocessor": {
+                    "filter_config": {
+                        "trace_compression_config": {
+                            "thoughts_filtered": True,
+                            "max_turn_count": 3,
+                        }
+                    }
+                },
+                "steps": [
+                    {
+                        "step_id": "extract",
+                        "prompt_template": (
+                            "List the delegations in {agent_eval_data}."
+                        ),
+                    },
+                    {
+                        "step_id": "judge",
+                        "prompt_template": (
+                            "Given {step.extract.output} and {user_goal}, rate 1-5."
+                        ),
+                        "autorater_config": {
+                            "autorater_model": "gemini-2.5-pro",
+                            "sampling_count": 3,
+                        },
+                        "response_parser_config": {
+                            "custom_code_parser_config": {
+                                "parsing_function": self._PARSE_CODE
+                            }
+                        },
+                    },
+                ],
+            }
+        }
+
+    def test_t_metrics_applies_metric_judge_to_steps_without_one(self):
+        payload = _transformers.t_metrics(
+            [self._metric(judge_model="gemini-2.5-flash", judge_model_sampling_count=2)]
+        )[0]
+
+        steps = payload["step_based_llm_metric_spec"]["steps"]
+        assert steps[0]["autorater_config"] == {
+            "autorater_model": "gemini-2.5-flash",
+            "sampling_count": 2,
+        }
+        assert steps[1]["autorater_config"]["autorater_model"] == "gemini-2.5-pro"
+
+    def test_t_metrics_fills_unset_step_judge_fields_from_metric(self):
+        metric = agentplatform_genai_types.StepBasedLLMMetric(
+            name="m",
+            judge_model="gemini-2.5-pro",
+            judge_model_sampling_count=2,
+            steps=[
+                agentplatform_genai_types.StepBasedLLMMetricStep(
+                    step_id="score",
+                    prompt_template="Rate {response}.",
+                    autorater_config=genai_types.AutoraterConfig(sampling_count=3),
+                )
+            ],
+        )
+
+        spec = _transformers.t_metrics([metric])[0]["step_based_llm_metric_spec"]
+
+        assert spec["steps"][0]["autorater_config"] == {
+            "autorater_model": "gemini-2.5-pro",
+            "sampling_count": 3,
+        }
+
+    def test_t_metrics_code_preprocessor(self):
+        metric = agentplatform_genai_types.StepBasedLLMMetric(
+            name="m",
+            preprocessor={"code_config": {"code": self._PREPROCESS_CODE}},
+            steps=[{"step_id": "score", "prompt_template": "Rate {agent_eval_data}."}],
+        )
+
+        spec = _transformers.t_metrics([metric])[0]["step_based_llm_metric_spec"]
+
+        assert spec["preprocessor"] == {"code_config": {"code": self._PREPROCESS_CODE}}
+        assert "autorater_config" not in spec["steps"][0]
+
+    def test_t_metric_for_registry_builds_step_based_spec(self):
+        metric = self._metric()
+
+        payload = _transformers.t_metric_for_registry(metric)
+
+        assert payload == {
+            "step_based_llm_metric_spec": _transformers.t_metrics([metric])[0][
+                "step_based_llm_metric_spec"
+            ]
+        }
+
+    @pytest.mark.parametrize(
+        "steps,error",
+        [
+            (None, "at least one step"),
+            ([], "at least one step"),
+            ([{"step_id": "Bad-Id", "prompt_template": "p"}], "Invalid step_id"),
+            (
+                [
+                    {"step_id": "a", "prompt_template": "p"},
+                    {"step_id": "a", "prompt_template": "q"},
+                ],
+                "Duplicate step_id",
+            ),
+            ([{"step_id": "a", "prompt_template": " "}], "requires a prompt_template"),
+        ],
+    )
+    def test_validation_errors(self, steps, error):
+        with pytest.raises(pydantic.ValidationError, match=error):
+            agentplatform_genai_types.StepBasedLLMMetric(name="m", steps=steps)
+
+    def test_rejects_both_preprocessors(self):
+        with pytest.raises(pydantic.ValidationError, match="only one of"):
+            agentplatform_genai_types.StepBasedLLMMetric(
+                name="m",
+                preprocessor={
+                    "filter_config": {},
+                    "code_config": {"code": self._PREPROCESS_CODE},
+                },
+                steps=[{"step_id": "a", "prompt_template": "p"}],
+            )
+
+    def test_handler_sends_spec_agent_data_and_columns(self):
+        api_client = mock.MagicMock()
+        api_client.vertexai = True
+        api_client.request.return_value.body = json.dumps(
+            {"metricResults": [{"score": 4.0, "explanation": "Good delegation."}]}
+        )
+        eval_case = agentplatform_genai_types.EvalCase(
+            prompt=genai_types.Content(parts=[genai_types.Part(text="Book a trip")]),
+            responses=[
+                agentplatform_genai_types.ResponseCandidate(
+                    response=genai_types.Content(parts=[genai_types.Part(text="Done")])
+                )
+            ],
+            user_goal="Stay under budget",
+        )
+        handler = _evals_metric_handlers.get_handler_for_metric(
+            evals.Evals(api_client_=api_client), self._metric()
+        )
+
+        result = handler.get_metric_result(eval_case, response_index=0)
+
+        assert isinstance(handler, _evals_metric_handlers.StepBasedLLMMetricHandler)
+        assert result.score == 4.0
+        assert result.explanation == "Good delegation."
+        assert result.error_message is None
+        request_body = api_client.request.call_args[0][2]
+        spec = request_body["metrics"][0]["step_based_llm_metric_spec"]
+        assert [step["step_id"] for step in spec["steps"]] == ["extract", "judge"]
+        instance = request_body["instance"]
+        assert "agent_eval_data" in instance
+        assert "user_goal" in instance["otherData"]["map_instance"]
+
+    def test_resolve_evaluation_run_metrics_keeps_spec(self):
+        resolved = _evals_common._resolve_evaluation_run_metrics(
+            [self._metric()], api_client=mock.MagicMock()
+        )
+
+        spec = resolved[0].metric_config.step_based_llm_metric_spec
+        assert [step.step_id for step in spec.steps] == ["extract", "judge"]
+        api_metric = evals._EvaluationRunMetric_to_vertex(resolved[0])
+        assert api_metric["metricConfig"]["stepBasedLlmMetricSpec"] is spec
+
+    def test_metric_dict_coerces_to_step_based_handler(self):
+        metric = agentplatform_genai_types.Metric.model_validate(
+            self._metric().model_dump(exclude_none=True)
+        )
+
+        handler = _evals_metric_handlers.get_handler_for_metric(
+            evals.Evals(api_client_=mock.MagicMock()), metric
+        )
+
+        assert isinstance(handler, _evals_metric_handlers.StepBasedLLMMetricHandler)
 
 
 _TEST_INTERACTION = (

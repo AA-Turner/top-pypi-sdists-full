@@ -308,28 +308,30 @@ class MCPLifecycleManager:
         """
         Expand environment variables in a string (${VAR_NAME} syntax).
 
+        ``${VAR_NAME:-default}`` is the default when the variable is unset or
+        empty, as in a shell: a server installed where the runtime image puts
+        it, or where a person's own machine has it (``install``).
+
         Args:
             value: The string containing ``${VAR_NAME}`` placeholders.
             lookup_env: Optional env dict to resolve variables from.
                 Falls back to ``os.environ`` if not provided.
         """
-        import re
+        from agent_runtimes.mcp.env_expansion import PATTERN, expand_env_vars
 
         env_source = lookup_env if lookup_env is not None else os.environ
-        pattern = r"\$\{([^}]+)\}"
-
-        def replace(match: re.Match[str]) -> str:
-            var_name = match.group(1)
-            env_value = env_source.get(var_name, "")
-            if not env_value:
+        for match in PATTERN.finditer(value):
+            name, has_default, _ = match.group(1).partition(":-")
+            if not has_default and not env_source.get(name, ""):
                 logger.warning(
-                    f"Environment variable '{var_name}' not found or empty during expansion"
+                    f"Environment variable '{name}' not found or empty during expansion"
                 )
-            # Used by the tool, never shown to the model (R-19).
-            hold_expansion(value, var_name, env_value)
-            return env_value
-
-        return re.sub(pattern, replace, value)
+        # Used by the tool, never shown to the model (R-19).
+        return expand_env_vars(
+            value,
+            env_source,
+            on_value=lambda name, found: hold_expansion(value, name, found),
+        )
 
     def _load_mcp_config(self) -> dict[str, Any]:
         """Load MCP configuration from mcp.json file."""

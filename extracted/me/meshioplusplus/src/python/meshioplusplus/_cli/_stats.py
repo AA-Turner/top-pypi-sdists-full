@@ -1,0 +1,39 @@
+from .._helpers import read
+from .._stats import compute_stats
+from ._common import add_io_args
+from ._json import emit_json
+
+
+def add_args(parser):
+    add_io_args(parser)
+    parser.add_argument(
+        "--json", action="store_true", help="emit the statistics as JSON"
+    )
+
+
+def _fmt3(v):
+    return "[" + ", ".join(f"{x:.6g}" for x in v) + "]"
+
+
+def stats_cmd(args):
+    mesh = read(args.infile, file_format=args.input_format)
+    s = compute_stats(mesh)
+
+    if args.json:
+        emit_json(s)
+        return
+
+    print("<meshio++ geometric stats>")
+    print(f"  points:          {s['num_points']}")
+    print(f"  cells:           {s['num_cells']}")
+    print(f"  bbox min:        {_fmt3(s['bbox_min'])}")
+    print(f"  bbox max:        {_fmt3(s['bbox_max'])}")
+    print(f"  extent:          {_fmt3(s['extent'])}")
+    print(f"  centroid:        {_fmt3(s['centroid'])}")
+    print("  cell types:")
+    for name, count in s["cell_type_counts"].items():
+        print(f"    {name}: {count}")
+    print(f"  total area:      {s['total_area']:.6g}")
+    print(f"  signed volume:   {s['signed_volume']:.6g}")
+    print(f"  unsigned volume: {s['unsigned_volume']:.6g}")
+    print(f"  inverted cells:  {s['num_inverted']}")

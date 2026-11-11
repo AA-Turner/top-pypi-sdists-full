@@ -14,7 +14,8 @@ from pygeodesy.constants import EPS, EPS0, INT0, PI, PI2, _1_0, \
                                _copysignINF, isnear0, isnear1, \
                                _flipsign, _float0, _pos_self
 from pygeodesy.errors import CrossError, VectorError, _xcallable, _xError
-from pygeodesy.fmath import euclid_, fdot, fdot_, hypot_, hypot2_  # _MODS.fmath.fma
+from pygeodesy.fmath import euclid_, fdot, fdot_, ftruncate, hypot_, \
+                            hypot2_  # _MODS.fmath.fma
 from pygeodesy.interns import _coincident_, _colinear_, _COMMASPACE_, _xyz_
 from pygeodesy.lazily import _ALL_LAZY, _ALL_DOCS, _ALL_MODS as _MODS
 from pygeodesy.named import _NamedBase, _NotImplemented, _xother3
@@ -26,10 +27,10 @@ from pygeodesy.streprs import Fmt, strs, unstr
 from pygeodesy.units import Float, Scalar
 from pygeodesy.utily import atan2, sincos2,  fabs
 
-from math import ceil as _ceil, floor as _floor, trunc as _trunc
+from math import ceil as _ceil, floor as _floor
 
 __all__ = _ALL_LAZY.vector3dBase
-__version__ = '25.10.25'
+__version__ = '26.10.28'
 
 
 class Vector3dBase(_NamedBase):  # sync __methods__ with .fsums.Fsum
@@ -470,11 +471,11 @@ class Vector3dBase(_NamedBase):  # sync __methods__ with .fsums.Fsum
         return self.dividedBy(scalar)
 
     def __trunc__(self):  # PYCHOK no cover
-        '''Return a vector with the C{trunc} of these components.
+        '''Return a vector with these components C{trunc}ated.
 
            @return: Trunc-ed (L{Vector3d}).
         '''
-        return self._mapped(_trunc)
+        return self._mapped(ftruncate)
 
     if _MODS.sys_version_info2 < (3, 0):  # PYCHOK no cover
         # <https://docs.Python.org/2/library/operator.html#mapping-operators-to-functions>
@@ -1196,7 +1197,7 @@ __all__ += _ALL_DOCS(Vector3dBase)
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

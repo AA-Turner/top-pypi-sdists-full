@@ -16,6 +16,7 @@ fn lookup_test_hydrator(instance_id: &str) -> RemoteConfigValueHydrator {
 fn remote_spec(body: &[u8]) -> (pb::Spec, String) {
     let sha = lowercase_hex(&Sha256::digest(body));
     let spec = pb::Spec {
+        entity: pb::EntityType::EntityDynamicConfig as i32,
         default_value: Some(raw_return_value(
             serde_json::to_vec(&format!("{DOWNLOAD_PATH_PREFIX}{sha}")).unwrap(),
         )),

@@ -2,7 +2,7 @@
 
 This script builds ligand-only CIFs that declare their own component (written by
 AtomWorks with ``chem_comp_atom``/``chem_comp_bond``) and carry reference partial
-charges. Coordinates are taken from ``*_complex*.pdb`` when
+charges. Coordinates are taken from ``*_complex*.pdb.zst`` when
 atom names match the reference (Rosetta/LG1 naming); otherwise from the paired
 ``.lig.mol2`` (mol2gen uses the same names as the mol2 file, with duplicate
 names disambiguated as ``C2'2``, etc.).
@@ -10,17 +10,16 @@ names disambiguated as ``C2'2``, etc.).
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 
 import biotite.structure as struc
-import biotite.structure.io as struc_io
+from biotite.structure.io.pdb import PDBFile
 import numpy as np
 
-from tmol.tests.data import data_path
-from tmol.ligand import (
-    disambiguate_mol2_atom_name,
-    load_params_file,
-)
+from tmol.tests.data import data_path, read_text
+from tmol.ligand._mol2_names import _disambiguate_mol2_atom_name
+from tmol.ligand import load_params_file
 
 PLI_DIR = data_path("protein_ligand_test")
 CIF_OUT_DIR = PLI_DIR / "cif_inputs"
@@ -46,7 +45,7 @@ def _find_complex_path(target: str) -> Path:
     Raises:
         ValueError: If zero or more than one matching complex PDB exists.
     """
-    matches = sorted(PLI_DIR.glob(f"{target}_complex*.pdb"))
+    matches = sorted(PLI_DIR.glob(f"{target}_complex*.pdb.zst"))
     if len(matches) != 1:
         raise ValueError(
             f"{target}: expected exactly one complex PDB, found {len(matches)}"
@@ -69,7 +68,9 @@ def _load_ligand_coords_by_name(
     Raises:
         ValueError: If no matching hetero atoms exist or a name is duplicated.
     """
-    bt_struct = struc_io.load_structure(str(complex_pdb), include_bonds=False)
+    bt_struct = PDBFile.read(io.StringIO(read_text(complex_pdb))).get_structure(
+        model=1, include_bonds=False
+    )
     if isinstance(bt_struct, struc.AtomArrayStack):
         bt_struct = bt_struct[0]
 
@@ -131,7 +132,7 @@ def _load_ligand_coords_from_mol2(
             continue
         raw_name = parts[1]
         seen[raw_name] = seen.get(raw_name, 0) + 1
-        name = disambiguate_mol2_atom_name(raw_name, seen[raw_name])
+        name = _disambiguate_mol2_atom_name(raw_name, seen[raw_name])
         if name in coords_by_name:
             raise ValueError(f"{mol2_path.name}: duplicate mol2 atom name {name}")
         element = _element_from_tripos_type(parts[5])
@@ -246,7 +247,7 @@ def _with_lewis_structure(ligand: struc.AtomArray) -> None:
     """
     from rdkit import Chem
 
-    from tmol.ligand._structure_to_smiles import ligand_smiles_from_atom_array
+    from tmol.ligand import ligand_smiles_from_atom_array
 
     try:
         smiles = ligand_smiles_from_atom_array(ligand, with_atom_map=True)
@@ -286,7 +287,7 @@ def _write_ligand_cif(
         ValueError: On an unsupported bond type or an atom missing coordinates
             or a reference charge.
     """
-    from atomworks.io.utils.io_utils import to_cif_file
+    from atomworks.io.files import CIFWriteConfig, atom_array_to_file
 
     restype = prep.residue_type
     aromatic_atoms = _aromatic_atom_set(restype)
@@ -334,15 +335,17 @@ def _write_ligand_cif(
         bonds.append((index[str(a)], index[str(b)], order))
     ligand.bonds = struc.BondList(len(names), np.array(bonds))
     _with_lewis_structure(ligand)
-    to_cif_file(
+    atom_array_to_file(
         ligand,
         path,
-        id="structure",
-        author="tmol",
-        date="2026-09-30",
-        time="00:00:00",
-        extra_fields=["partial_charge", "tmol_aromatic", "tmol_source_subtype"],
-        ccd_entries={LIGAND_RES_NAME: ligand},
+        config=CIFWriteConfig(
+            id="structure",
+            author="tmol",
+            date="2026-09-30",
+            time="00:00:00",
+            extra_fields=["partial_charge", "tmol_aromatic", "tmol_source_subtype"],
+            ccd_entries={LIGAND_RES_NAME: ligand},
+        ),
     )
 
 

@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nanopb
-Version: 0.4.9.1
+Version: 0.4.9.3
 Summary: Nanopb is a small code-size Protocol Buffers implementation in ansi C. It is especially suitable for use in microcontrollers, but fits any memory restricted system.
-Home-page: https://jpa.kapsi.fi/nanopb/
 License: Zlib
 Keywords: protobuf,protoc
 Author: Petteri Aimonen
@@ -22,11 +21,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Build Tools
 Provides-Extra: grpcio-tools
 Requires-Dist: grpcio-tools (>=1.46.0) ; extra == "grpcio-tools"
 Requires-Dist: protobuf (>=3.19)
 Project-URL: Documentation, https://jpa.kapsi.fi/nanopb/docs/index.html
+Project-URL: Homepage, https://jpa.kapsi.fi/nanopb/
 Project-URL: Repository, https://github.com/nanopb/nanopb/
 Description-Content-Type: text/markdown
 

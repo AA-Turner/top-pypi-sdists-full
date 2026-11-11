@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import cached_property
 
 import pytest
 
@@ -72,6 +73,10 @@ from camel_converter import (
         (
             {"test_convert": [1, "two", None, {"change_me": 3}]},
             {"testConvert": [1, "two", None, {"changeMe": 3}]},
+        ),
+        (
+            {"_id": 1, "user_id": 2},
+            {"_id": 1, "userId": 2},
         ),
     ],
 )
@@ -238,7 +243,13 @@ def test_dict_converters_non_dict_raises(converter, test_data):
 
 @pytest.mark.parametrize(
     "test_str, expected_str",
-    [("this_is_a_test", "thisIsATest"), ("this_is_a_12_test", "thisIsA12Test")],
+    [
+        ("this_is_a_test", "thisIsATest"),
+        ("this_is_a_12_test", "thisIsA12Test"),
+        ("_id", "_id"),
+        ("class_", "class_"),
+        ("__private_value", "__privateValue"),
+    ],
 )
 def test_to_camel(test_str, expected_str):
     assert to_camel(test_str) == expected_str
@@ -246,7 +257,12 @@ def test_to_camel(test_str, expected_str):
 
 @pytest.mark.parametrize(
     "test_str, expected_str",
-    [("this_is_a_test", "ThisIsATest"), ("this_is_a_12_test", "ThisIsA12Test")],
+    [
+        ("this_is_a_test", "ThisIsATest"),
+        ("this_is_a_12_test", "ThisIsA12Test"),
+        ("_id", "_Id"),
+        ("class_", "Class_"),
+    ],
 )
 def test_to_pascal(test_str, expected_str):
     assert to_pascal(test_str) == expected_str
@@ -260,6 +276,8 @@ def test_to_pascal(test_str, expected_str):
         ("aTestWith12Number", "a_test_with12_number", False),
         ("aTestWith12Number", "a_test_with_1_2_number", True),
         ("ATestWith12Number", "a_test_with_1_2_number", True),
+        ("_privateField", "_private_field", False),
+        ("_PrivateField", "_private_field", False),
     ],
 )
 def test_to_snake(test_str, expected_str, treat_digits_as_capitals):
@@ -289,6 +307,40 @@ def test_data_class_to_camel():
     tester = SomeClass()
 
     assert tester.to_camel() == {"someValue": "some value", "anotherValue": "another value"}
+
+
+def test_class_to_camel_skips_descriptors():
+    class SomeClass(Converter):
+        some_value = "some value"
+
+        @property
+        def full_name(self) -> str:
+            return "full name"
+
+        @cached_property
+        def cached_name(self) -> str:
+            return "cached name"
+
+        @classmethod
+        def make(cls) -> "SomeClass":
+            return cls()
+
+        @staticmethod
+        def helper() -> int:
+            return 1
+
+    assert SomeClass().to_camel() == {"someValue": "some value"}
+
+
+def test_class_to_camel_inherited():
+    class Parent(Converter):
+        some_value = "parent value"
+        parent_only = "parent only"
+
+    class Child(Parent):
+        some_value = "child value"
+
+    assert Child().to_camel() == {"someValue": "child value", "parentOnly": "parent only"}
 
 
 def test_class_from_snake():

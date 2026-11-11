@@ -193,7 +193,7 @@ impl Layer {
     pub fn get_opt<T: DeserializeOwned>(&self, param_name: &str) -> Option<T> {
         let value = self.__value.get(param_name)?.clone();
 
-        match from_value(value.clone()) {
+        match from_value(value) {
             Ok(value) => {
                 self.log_param_exposure(param_name);
                 Some(value)

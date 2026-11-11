@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from inspect import iscoroutinefunction
@@ -22,15 +23,36 @@ def is_asgi_app(app: object) -> bool:
 
 def get(app: object) -> BaseTransport:
     """Get transport to send the data to the application."""
-    from schemathesis.transport.asgi import ASGI_TRANSPORT
-    from schemathesis.transport.requests import REQUESTS_TRANSPORT
-    from schemathesis.transport.wsgi import WSGI_TRANSPORT
-
     if app is None:
+        from schemathesis.transport.requests import REQUESTS_TRANSPORT
+
         return REQUESTS_TRANSPORT
     if is_asgi_app(app):
+        from schemathesis.transport.asgi import ASGI_TRANSPORT
+
         return ASGI_TRANSPORT
+    from schemathesis.transport.wsgi import WSGI_TRANSPORT
+
     return WSGI_TRANSPORT
+
+
+T = TypeVar("T")
+
+
+def retry_on_transport_errors(call: Callable[[], T], retries: int) -> T:
+    """Return what `call` returns, retrying connection errors and timeouts up to `retries` times."""
+    import requests
+
+    attempt = 0
+    while True:
+        try:
+            return call()
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            if attempt >= retries:
+                raise
+            # Exponential backoff capped at 10s.
+            time.sleep(min(2**attempt, 10))
+            attempt += 1
 
 
 S = TypeVar("S", contravariant=True)
@@ -107,7 +129,7 @@ class BaseTransport(Generic[S]):
                 elif media_types.matches_parts((main, sub), (target_main, target_sub)):
                     matched = True
                     yield registered_media_type, serializer
-            if not matched and not is_range and main == "text":
+            if not matched and not is_range and media_types.is_sent_as_text_parts((main, sub)):
                 # Any other textual subtype goes on the wire as text, under the media type the schema declares
                 plain_text = self._serializers.get("text/plain")
                 if plain_text is not None:

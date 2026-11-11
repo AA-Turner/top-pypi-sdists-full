@@ -23,31 +23,36 @@ _sym_db = _symbol_database.Default()
 
 
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
+from sentry_protos.billing.v1.common.v1 import pricing_tier_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_pricing__tier__pb2
 from sentry_protos.billing.v1.common.v1 import soft_cap_type_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_soft__cap__type__pb2
 from sentry_protos.billing.v1.common.v1 import sponsored_type_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_sponsored__type__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n7sentry_protos/billing/v1/common/v1/pending_change.proto\x12\"sentry_protos.billing.v1.common.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x36sentry_protos/billing/v1/common/v1/soft_cap_type.proto\x1a\x37sentry_protos/billing/v1/common/v1/sponsored_type.proto\"\xd6\x03\n\rPendingChange\x12\x17\n\npackage_id\x18\x01 \x01(\tH\x00\x88\x01\x01\x12K\n\x0cuser_configs\x18\x02 \x03(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.PendingUserConfig\x12\x1b\n\x0emonth_interval\x18\x03 \x01(\rH\x01\x88\x01\x01\x12N\n\x0esponsored_type\x18\x04 \x01(\x0e\x32\x31.sentry_protos.billing.v1.common.v1.SponsoredTypeH\x02\x88\x01\x01\x12Q\n\x0c\x62illing_type\x18\x05 \x01(\x0e\x32\x36.sentry_protos.billing.v1.common.v1.PendingBillingTypeH\x03\x88\x01\x01\x12K\n\tpayg_mode\x18\x06 \x01(\x0e\x32\x33.sentry_protos.billing.v1.common.v1.PendingPaygModeH\x04\x88\x01\x01\x42\r\n\x0b_package_idB\x11\n\x0f_month_intervalB\x11\n\x0f_sponsored_typeB\x0f\n\r_billing_typeB\x0c\n\n_payg_mode\"\xa0\x03\n\x11PendingUserConfig\x12H\n\x0bpayg_budget\x18\x01 \x01(\x0b\x32..sentry_protos.billing.v1.common.v1.PAYGBudgetH\x01\x88\x01\x01\x12I\n\x0breservation\x18\x02 \x01(\x0b\x32/.sentry_protos.billing.v1.common.v1.ReservationH\x02\x88\x01\x01\x12J\n\x0especific_items\x18\x03 \x01(\x0b\x32\x30.sentry_protos.billing.v1.common.v1.LineItemUidsH\x00\x12+\n\tall_items\x18\x04 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12\x42\n\x08soft_cap\x18\x05 \x01(\x0b\x32+.sentry_protos.billing.v1.common.v1.SoftCapH\x03\x88\x01\x01\x42\x0c\n\nline_itemsB\x0e\n\x0c_payg_budgetB\x0e\n\x0c_reservationB\x0b\n\t_soft_cap\"@\n\nPAYGBudget\x12\x14\n\x0c\x62udget_cents\x18\x01 \x01(\x04\x12\x1c\n\x14\x63lear_user_parameter\x18\x02 \x01(\x08\"\x91\x01\n\x0bReservation\x12\x1c\n\x14reserved_price_cents\x18\x01 \x01(\x04\x12\x16\n\x0cis_unlimited\x18\x02 \x01(\x08H\x00\x12\x1c\n\x12num_reserved_units\x18\x03 \x01(\x04H\x00\x12\x1c\n\x14\x63lear_user_parameter\x18\x04 \x01(\x08\x42\x10\n\x0ereserved_units\"f\n\x07SoftCap\x12=\n\x04type\x18\x01 \x01(\x0e\x32/.sentry_protos.billing.v1.common.v1.SoftCapType\x12\x1c\n\x14\x63lear_user_parameter\x18\x02 \x01(\x08\"\x1c\n\x0cLineItemUids\x12\x0c\n\x04uids\x18\x01 \x03(\t*\x83\x01\n\x12PendingBillingType\x12$\n PENDING_BILLING_TYPE_UNSPECIFIED\x10\x00\x12$\n PENDING_BILLING_TYPE_CREDIT_CARD\x10\x01\x12!\n\x1dPENDING_BILLING_TYPE_INVOICED\x10\x02*\x8d\x01\n\x0fPendingPaygMode\x12!\n\x1dPENDING_PAYG_MODE_UNSPECIFIED\x10\x00\x12\x1a\n\x16PENDING_PAYG_MODE_NONE\x10\x01\x12\x1c\n\x18PENDING_PAYG_MODE_MANUAL\x10\x02\x12\x1d\n\x19PENDING_PAYG_MODE_CHARGED\x10\x03\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n7sentry_protos/billing/v1/common/v1/pending_change.proto\x12\"sentry_protos.billing.v1.common.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x35sentry_protos/billing/v1/common/v1/pricing_tier.proto\x1a\x36sentry_protos/billing/v1/common/v1/soft_cap_type.proto\x1a\x37sentry_protos/billing/v1/common/v1/sponsored_type.proto\"\xba\x04\n\rPendingChange\x12\x17\n\npackage_id\x18\x01 \x01(\tH\x00\x88\x01\x01\x12K\n\x0cuser_configs\x18\x02 \x03(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.PendingUserConfig\x12\x1b\n\x0emonth_interval\x18\x03 \x01(\rH\x01\x88\x01\x01\x12N\n\x0esponsored_type\x18\x04 \x01(\x0e\x32\x31.sentry_protos.billing.v1.common.v1.SponsoredTypeH\x02\x88\x01\x01\x12Q\n\x0c\x62illing_type\x18\x05 \x01(\x0e\x32\x36.sentry_protos.billing.v1.common.v1.PendingBillingTypeH\x03\x88\x01\x01\x12K\n\tpayg_mode\x18\x06 \x01(\x0e\x32\x33.sentry_protos.billing.v1.common.v1.PendingPaygModeH\x04\x88\x01\x01\x12Q\n\x0csales_config\x18\x07 \x01(\x0b\x32\x36.sentry_protos.billing.v1.common.v1.PendingSalesConfigH\x05\x88\x01\x01\x42\r\n\x0b_package_idB\x11\n\x0f_month_intervalB\x11\n\x0f_sponsored_typeB\x0f\n\r_billing_typeB\x0c\n\n_payg_modeB\x0f\n\r_sales_config\"f\n\x12PendingSalesConfig\x12P\n\x07pricing\x18\x01 \x03(\x0b\x32?.sentry_protos.billing.v1.common.v1.PendingSalesLineItemPricing\"\xcd\x01\n\x1bPendingSalesLineItemPricing\x12\x15\n\rline_item_uid\x18\x01 \x01(\t\x12!\n\x14reserved_price_cents\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12M\n\tpayg_rate\x18\x03 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRateH\x01\x88\x01\x01\x42\x17\n\x15_reserved_price_centsB\x0c\n\n_payg_rate\"\xa0\x03\n\x11PendingUserConfig\x12H\n\x0bpayg_budget\x18\x01 \x01(\x0b\x32..sentry_protos.billing.v1.common.v1.PAYGBudgetH\x01\x88\x01\x01\x12I\n\x0breservation\x18\x02 \x01(\x0b\x32/.sentry_protos.billing.v1.common.v1.ReservationH\x02\x88\x01\x01\x12J\n\x0especific_items\x18\x03 \x01(\x0b\x32\x30.sentry_protos.billing.v1.common.v1.LineItemUidsH\x00\x12+\n\tall_items\x18\x04 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12\x42\n\x08soft_cap\x18\x05 \x01(\x0b\x32+.sentry_protos.billing.v1.common.v1.SoftCapH\x03\x88\x01\x01\x42\x0c\n\nline_itemsB\x0e\n\x0c_payg_budgetB\x0e\n\x0c_reservationB\x0b\n\t_soft_cap\"@\n\nPAYGBudget\x12\x14\n\x0c\x62udget_cents\x18\x01 \x01(\x04\x12\x1c\n\x14\x63lear_user_parameter\x18\x02 \x01(\x08\"\x91\x01\n\x0bReservation\x12\x1c\n\x14reserved_price_cents\x18\x01 \x01(\x04\x12\x16\n\x0cis_unlimited\x18\x02 \x01(\x08H\x00\x12\x1c\n\x12num_reserved_units\x18\x03 \x01(\x04H\x00\x12\x1c\n\x14\x63lear_user_parameter\x18\x04 \x01(\x08\x42\x10\n\x0ereserved_units\"f\n\x07SoftCap\x12=\n\x04type\x18\x01 \x01(\x0e\x32/.sentry_protos.billing.v1.common.v1.SoftCapType\x12\x1c\n\x14\x63lear_user_parameter\x18\x02 \x01(\x08\"\x1c\n\x0cLineItemUids\x12\x0c\n\x04uids\x18\x01 \x03(\t*\x83\x01\n\x12PendingBillingType\x12$\n PENDING_BILLING_TYPE_UNSPECIFIED\x10\x00\x12$\n PENDING_BILLING_TYPE_CREDIT_CARD\x10\x01\x12!\n\x1dPENDING_BILLING_TYPE_INVOICED\x10\x02*\x8d\x01\n\x0fPendingPaygMode\x12!\n\x1dPENDING_PAYG_MODE_UNSPECIFIED\x10\x00\x12\x1a\n\x16PENDING_PAYG_MODE_NONE\x10\x01\x12\x1c\n\x18PENDING_PAYG_MODE_MANUAL\x10\x02\x12\x1d\n\x19PENDING_PAYG_MODE_CHARGED\x10\x03\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.common.v1.pending_change_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_PENDINGBILLINGTYPE']._serialized_start=1478
-  _globals['_PENDINGBILLINGTYPE']._serialized_end=1609
-  _globals['_PENDINGPAYGMODE']._serialized_start=1612
-  _globals['_PENDINGPAYGMODE']._serialized_end=1753
-  _globals['_PENDINGCHANGE']._serialized_start=238
-  _globals['_PENDINGCHANGE']._serialized_end=708
-  _globals['_PENDINGUSERCONFIG']._serialized_start=711
-  _globals['_PENDINGUSERCONFIG']._serialized_end=1127
-  _globals['_PAYGBUDGET']._serialized_start=1129
-  _globals['_PAYGBUDGET']._serialized_end=1193
-  _globals['_RESERVATION']._serialized_start=1196
-  _globals['_RESERVATION']._serialized_end=1341
-  _globals['_SOFTCAP']._serialized_start=1343
-  _globals['_SOFTCAP']._serialized_end=1445
-  _globals['_LINEITEMUIDS']._serialized_start=1447
-  _globals['_LINEITEMUIDS']._serialized_end=1475
+  _globals['_PENDINGBILLINGTYPE']._serialized_start=1945
+  _globals['_PENDINGBILLINGTYPE']._serialized_end=2076
+  _globals['_PENDINGPAYGMODE']._serialized_start=2079
+  _globals['_PENDINGPAYGMODE']._serialized_end=2220
+  _globals['_PENDINGCHANGE']._serialized_start=293
+  _globals['_PENDINGCHANGE']._serialized_end=863
+  _globals['_PENDINGSALESCONFIG']._serialized_start=865
+  _globals['_PENDINGSALESCONFIG']._serialized_end=967
+  _globals['_PENDINGSALESLINEITEMPRICING']._serialized_start=970
+  _globals['_PENDINGSALESLINEITEMPRICING']._serialized_end=1175
+  _globals['_PENDINGUSERCONFIG']._serialized_start=1178
+  _globals['_PENDINGUSERCONFIG']._serialized_end=1594
+  _globals['_PAYGBUDGET']._serialized_start=1596
+  _globals['_PAYGBUDGET']._serialized_end=1660
+  _globals['_RESERVATION']._serialized_start=1663
+  _globals['_RESERVATION']._serialized_end=1808
+  _globals['_SOFTCAP']._serialized_start=1810
+  _globals['_SOFTCAP']._serialized_end=1912
+  _globals['_LINEITEMUIDS']._serialized_start=1914
+  _globals['_LINEITEMUIDS']._serialized_end=1942
 # @@protoc_insertion_point(module_scope)

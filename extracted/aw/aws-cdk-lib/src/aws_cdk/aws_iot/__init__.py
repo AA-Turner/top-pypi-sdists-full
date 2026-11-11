@@ -12516,6 +12516,2440 @@ class CfnMitigationActionProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iot_df2fec1f.IOTAUpdateRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnOTAUpdate(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate",
+):
+    '''Creates an IoT OTA update on a target group of things or groups.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html
+    :cloudformationResource: AWS::IoT::OTAUpdate
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iot as iot
+        
+        cfn_ota_update = iot.CfnOTAUpdate(self, "MyCfnOTAUpdate",
+            files=[iot.CfnOTAUpdate.OTAUpdateFileProperty(
+                attributes={
+                    "attributes_key": "attributes"
+                },
+                code_signing=iot.CfnOTAUpdate.CodeSigningProperty(
+                    aws_signer_job_id="awsSignerJobId",
+                    custom_code_signing=iot.CfnOTAUpdate.CustomCodeSigningProperty(
+                        certificate_chain=iot.CfnOTAUpdate.CodeSigningCertificateChainProperty(
+                            certificate_name="certificateName",
+                            inline_document="inlineDocument"
+                        ),
+                        hash_algorithm="hashAlgorithm",
+                        signature=iot.CfnOTAUpdate.CodeSigningSignatureProperty(
+                            inline_document="inlineDocument"
+                        ),
+                        signature_algorithm="signatureAlgorithm"
+                    ),
+                    start_signing_job_parameter=iot.CfnOTAUpdate.StartSigningJobParameterProperty(
+                        destination=iot.CfnOTAUpdate.DestinationProperty(
+                            s3_destination=iot.CfnOTAUpdate.S3DestinationProperty(
+                                bucket="bucket",
+                                prefix="prefix"
+                            )
+                        ),
+                        signing_profile_name="signingProfileName",
+                        signing_profile_parameter=iot.CfnOTAUpdate.SigningProfileParameterProperty(
+                            certificate_arn="certificateArn",
+                            certificate_path_on_device="certificatePathOnDevice",
+                            platform="platform"
+                        )
+                    )
+                ),
+                file_location=iot.CfnOTAUpdate.FileLocationProperty(
+                    s3_location=iot.CfnOTAUpdate.S3LocationProperty(
+                        bucket="bucket",
+                        key="key",
+                        version="version"
+                    ),
+                    stream=iot.CfnOTAUpdate.StreamProperty(
+                        file_id=123,
+                        stream_id="streamId"
+                    )
+                ),
+                file_name="fileName",
+                file_type=123,
+                file_version="fileVersion"
+            )],
+            ota_update_id="otaUpdateId",
+            targets=["targets"],
+        
+            # the properties below are optional
+            additional_parameters={
+                "additional_parameters_key": "additionalParameters"
+            },
+            aws_job_abort_config=iot.CfnOTAUpdate.AwsJobAbortConfigProperty(
+                abort_criteria_list=[iot.CfnOTAUpdate.AwsJobAbortCriteriaProperty(
+                    action="action",
+                    failure_type="failureType",
+                    min_number_of_executed_things=123,
+                    threshold_percentage=123
+                )]
+            ),
+            aws_job_executions_rollout_config=iot.CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty(
+                exponential_rate=iot.CfnOTAUpdate.AwsJobExponentialRolloutRateProperty(
+                    base_rate_per_minute=123,
+                    increment_factor=123,
+                    rate_increase_criteria=iot.CfnOTAUpdate.AwsJobRateIncreaseCriteriaProperty(
+                        number_of_notified_things=123,
+                        number_of_succeeded_things=123
+                    )
+                ),
+                maximum_per_minute=123
+            ),
+            aws_job_presigned_url_config=iot.CfnOTAUpdate.AwsJobPresignedUrlConfigProperty(
+                expires_in_sec=123
+            ),
+            aws_job_timeout_config=iot.CfnOTAUpdate.AwsJobTimeoutConfigProperty(
+                in_progress_timeout_in_minutes=123
+            ),
+            description="description",
+            protocols=["protocols"],
+            role_arn="roleArn",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            target_selection="targetSelection"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        files: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.OTAUpdateFileProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ota_update_id: builtins.str,
+        targets: typing.Sequence[builtins.str],
+        additional_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        aws_job_abort_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.AwsJobAbortConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        aws_job_executions_rollout_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        aws_job_presigned_url_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.AwsJobPresignedUrlConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        aws_job_timeout_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.AwsJobTimeoutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_selection: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::IoT::OTAUpdate``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param files: The files to be streamed by the OTA update.
+        :param ota_update_id: The ID of the OTA update to be created.
+        :param targets: The devices targeted to receive OTA updates.
+        :param additional_parameters: A list of additional OTA update parameters, which are name-value pairs.
+        :param aws_job_abort_config: 
+        :param aws_job_executions_rollout_config: 
+        :param aws_job_presigned_url_config: 
+        :param aws_job_timeout_config: 
+        :param description: The description of the OTA update.
+        :param protocols: The protocol used to transfer the OTA update image.
+        :param role_arn: The IAM role that grants AWS IoT Core access to the Amazon S3, IoT jobs and AWS Code Signing resources to create an OTA update job.
+        :param tags: Metadata which can be used to manage updates.
+        :param target_selection: Specifies whether the update will continue to run (CONTINUOUS), or will be complete after all things specified as targets have completed the update (SNAPSHOT).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2e495bb10494f51c7a3b72eb9f78cdfdca98528bf7905345bcdd654ba7d084ec)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnOTAUpdateProps(
+            files=files,
+            ota_update_id=ota_update_id,
+            targets=targets,
+            additional_parameters=additional_parameters,
+            aws_job_abort_config=aws_job_abort_config,
+            aws_job_executions_rollout_config=aws_job_executions_rollout_config,
+            aws_job_presigned_url_config=aws_job_presigned_url_config,
+            aws_job_timeout_config=aws_job_timeout_config,
+            description=description,
+            protocols=protocols,
+            role_arn=role_arn,
+            tags=tags,
+            target_selection=target_selection,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForOTAUpdate")
+    @builtins.classmethod
+    def arn_for_ota_update(
+        cls,
+        resource: "_aws_iot_df2fec1f.IOTAUpdateRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__721f0f7cdb79ffdb4355906520a75e16f39efc14347ffd24e50f398a9fa9b366)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOTAUpdate", [resource]))
+
+    @jsii.member(jsii_name="fromOtaUpdateId")
+    @builtins.classmethod
+    def from_ota_update_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        ota_update_id: builtins.str,
+    ) -> "_aws_iot_df2fec1f.IOTAUpdateRef":
+        '''Creates a new IOTAUpdateRef from a otaUpdateId.
+
+        :param scope: -
+        :param id: -
+        :param ota_update_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cf9f01980dda2aed794d0e3e21b79a41a4158a7b90a9a402f5c7c64584e4b5c0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument ota_update_id", value=ota_update_id, expected_type=type_hints["ota_update_id"])
+        return typing.cast("_aws_iot_df2fec1f.IOTAUpdateRef", jsii.sinvoke(cls, "fromOtaUpdateId", [scope, id, ota_update_id]))
+
+    @jsii.member(jsii_name="isCfnOTAUpdate")
+    @builtins.classmethod
+    def is_cfn_ota_update(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnOTAUpdate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8142ce0869551621e4e5261c7b515be312e09df917e8bf71a12d231e9314e418)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOTAUpdate", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5d661fe70df4862816a84b228883bbb2383252d8065399a60727e406dd8b0d19)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b33ab89a7b926bbe0ebf7019092635cda8b7971bd1ab74de46523144e11b7531)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationDate")
+    def attr_creation_date(self) -> builtins.str:
+        '''The date when the OTA update was created.
+
+        :cloudformationAttribute: CreationDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedDate")
+    def attr_last_modified_date(self) -> builtins.str:
+        '''The date when the OTA update was last updated.
+
+        :cloudformationAttribute: LastModifiedDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOtaUpdateArn")
+    def attr_ota_update_arn(self) -> builtins.str:
+        '''The OTA update ARN.
+
+        :cloudformationAttribute: OtaUpdateArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOtaUpdateArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOtaUpdateStatus")
+    def attr_ota_update_status(self) -> builtins.str:
+        '''The status of the OTA update.
+
+        :cloudformationAttribute: OtaUpdateStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOtaUpdateStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="otaUpdateRef")
+    def ota_update_ref(self) -> "_aws_iot_df2fec1f.OTAUpdateReference":
+        '''A reference to a OTAUpdate resource.'''
+        return typing.cast("_aws_iot_df2fec1f.OTAUpdateReference", jsii.get(self, "otaUpdateRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="files")
+    def files(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.OTAUpdateFileProperty"]]]:
+        '''The files to be streamed by the OTA update.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.OTAUpdateFileProperty"]]], jsii.get(self, "files"))
+
+    @files.setter
+    def files(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.OTAUpdateFileProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5942a5529582da7579f51ec2b14e0ba61a52f26988a1ef8e703389d64583505e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "files", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="otaUpdateId")
+    def ota_update_id(self) -> builtins.str:
+        '''The ID of the OTA update to be created.'''
+        return typing.cast(builtins.str, jsii.get(self, "otaUpdateId"))
+
+    @ota_update_id.setter
+    def ota_update_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__51e61ec331e601e5d6d2e7974c158eda6bd8625cae06eb52105fa0c1d584b2b3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "otaUpdateId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="targets")
+    def targets(self) -> typing.List[builtins.str]:
+        '''The devices targeted to receive OTA updates.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "targets"))
+
+    @targets.setter
+    def targets(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__05d7350922c934728d4b1698095b87db5bb6011dc9ae46e45539f47cc29ef4e1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targets", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="additionalParameters")
+    def additional_parameters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A list of additional OTA update parameters, which are name-value pairs.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "additionalParameters"))
+
+    @additional_parameters.setter
+    def additional_parameters(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e05ca2719a31888a567b17b9242d53fe589778d6c8c1b1182fd97d010ccd8a7e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "additionalParameters", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="awsJobAbortConfig")
+    def aws_job_abort_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobAbortConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobAbortConfigProperty"]], jsii.get(self, "awsJobAbortConfig"))
+
+    @aws_job_abort_config.setter
+    def aws_job_abort_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobAbortConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__36b37532a43d03f79cafb69053a6f591c71185a67f03ae27d2a3b64306be3dea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "awsJobAbortConfig", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="awsJobExecutionsRolloutConfig")
+    def aws_job_executions_rollout_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty"]], jsii.get(self, "awsJobExecutionsRolloutConfig"))
+
+    @aws_job_executions_rollout_config.setter
+    def aws_job_executions_rollout_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__475e08a2dcc9b34d13eb58e80dabfb18f81526ba82b3411e98f77980c437b6b1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "awsJobExecutionsRolloutConfig", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="awsJobPresignedUrlConfig")
+    def aws_job_presigned_url_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobPresignedUrlConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobPresignedUrlConfigProperty"]], jsii.get(self, "awsJobPresignedUrlConfig"))
+
+    @aws_job_presigned_url_config.setter
+    def aws_job_presigned_url_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobPresignedUrlConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f36f368cd6b1cad29bcf45764da8243ecad9784c52f2a8b982ffc149a225d875)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "awsJobPresignedUrlConfig", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="awsJobTimeoutConfig")
+    def aws_job_timeout_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobTimeoutConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobTimeoutConfigProperty"]], jsii.get(self, "awsJobTimeoutConfig"))
+
+    @aws_job_timeout_config.setter
+    def aws_job_timeout_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobTimeoutConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3803c49e22ed4af49d1c29f18c54454ee34f3b91a8f50aaef1a09cbdf4267318)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "awsJobTimeoutConfig", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the OTA update.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__65661e35496caa9b02570a730929b6885a88c93a46508d5b624a63955d7dd70a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="protocols")
+    def protocols(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The protocol used to transfer the OTA update image.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "protocols"))
+
+    @protocols.setter
+    def protocols(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6e451feecc0a42cabba3035a27a38e5fdb33d3c9401188d537aed2c3cdf55266)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "protocols", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The IAM role that grants AWS IoT Core access to the Amazon S3, IoT jobs and AWS Code Signing resources to create an OTA update job.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__11ad3915255955c16600d3a75e4d010ece548279881802007e5816a2c9c9b70c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Metadata which can be used to manage updates.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c9d7f2158818f50422cf025915c54dc8a715771f6726392736a47f9eb9cef3c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="targetSelection")
+    def target_selection(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether the update will continue to run (CONTINUOUS), or will be complete after all things specified as targets have completed the update (SNAPSHOT).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetSelection"))
+
+    @target_selection.setter
+    def target_selection(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__90e335973b3f27f7a2f3e022dadd32efaf4feeb0153e28ac4846179c30656f07)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetSelection", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.AwsJobAbortConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"abort_criteria_list": "abortCriteriaList"},
+    )
+    class AwsJobAbortConfigProperty:
+        def __init__(
+            self,
+            *,
+            abort_criteria_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.AwsJobAbortCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''
+            :param abort_criteria_list: The list of criteria that determine when and how to abort the job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobabortconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                aws_job_abort_config_property = iot.CfnOTAUpdate.AwsJobAbortConfigProperty(
+                    abort_criteria_list=[iot.CfnOTAUpdate.AwsJobAbortCriteriaProperty(
+                        action="action",
+                        failure_type="failureType",
+                        min_number_of_executed_things=123,
+                        threshold_percentage=123
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__80bbc431da013b7d958d4ba8a655913ece809036344470458eb0f0525bf9e6eb)
+                check_type(argname="argument abort_criteria_list", value=abort_criteria_list, expected_type=type_hints["abort_criteria_list"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "abort_criteria_list": abort_criteria_list,
+            }
+
+        @builtins.property
+        def abort_criteria_list(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobAbortCriteriaProperty"]]]:
+            '''The list of criteria that determine when and how to abort the job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobabortconfig.html#cfn-iot-otaupdate-awsjobabortconfig-abortcriterialist
+            '''
+            result = self._values.get("abort_criteria_list")
+            assert result is not None, "Required property 'abort_criteria_list' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobAbortCriteriaProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AwsJobAbortConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.AwsJobAbortCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "action": "action",
+            "failure_type": "failureType",
+            "min_number_of_executed_things": "minNumberOfExecutedThings",
+            "threshold_percentage": "thresholdPercentage",
+        },
+    )
+    class AwsJobAbortCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            action: builtins.str,
+            failure_type: builtins.str,
+            min_number_of_executed_things: jsii.Number,
+            threshold_percentage: jsii.Number,
+        ) -> None:
+            '''
+            :param action: The type of job action to take to initiate the job abort.
+            :param failure_type: The type of job execution failures that can initiate a job abort.
+            :param min_number_of_executed_things: The minimum number of things which must receive job execution notifications before the job can be aborted.
+            :param threshold_percentage: The minimum percentage of job execution failures that must occur to initiate the job abort.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobabortcriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                aws_job_abort_criteria_property = iot.CfnOTAUpdate.AwsJobAbortCriteriaProperty(
+                    action="action",
+                    failure_type="failureType",
+                    min_number_of_executed_things=123,
+                    threshold_percentage=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__334e92a32f56daaedabe49ac317e3ac04d08a19b4326c40f8dbd8c0544aa5fec)
+                check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+                check_type(argname="argument failure_type", value=failure_type, expected_type=type_hints["failure_type"])
+                check_type(argname="argument min_number_of_executed_things", value=min_number_of_executed_things, expected_type=type_hints["min_number_of_executed_things"])
+                check_type(argname="argument threshold_percentage", value=threshold_percentage, expected_type=type_hints["threshold_percentage"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "action": action,
+                "failure_type": failure_type,
+                "min_number_of_executed_things": min_number_of_executed_things,
+                "threshold_percentage": threshold_percentage,
+            }
+
+        @builtins.property
+        def action(self) -> builtins.str:
+            '''The type of job action to take to initiate the job abort.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobabortcriteria.html#cfn-iot-otaupdate-awsjobabortcriteria-action
+            '''
+            result = self._values.get("action")
+            assert result is not None, "Required property 'action' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def failure_type(self) -> builtins.str:
+            '''The type of job execution failures that can initiate a job abort.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobabortcriteria.html#cfn-iot-otaupdate-awsjobabortcriteria-failuretype
+            '''
+            result = self._values.get("failure_type")
+            assert result is not None, "Required property 'failure_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def min_number_of_executed_things(self) -> jsii.Number:
+            '''The minimum number of things which must receive job execution notifications before the job can be aborted.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobabortcriteria.html#cfn-iot-otaupdate-awsjobabortcriteria-minnumberofexecutedthings
+            '''
+            result = self._values.get("min_number_of_executed_things")
+            assert result is not None, "Required property 'min_number_of_executed_things' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def threshold_percentage(self) -> jsii.Number:
+            '''The minimum percentage of job execution failures that must occur to initiate the job abort.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobabortcriteria.html#cfn-iot-otaupdate-awsjobabortcriteria-thresholdpercentage
+            '''
+            result = self._values.get("threshold_percentage")
+            assert result is not None, "Required property 'threshold_percentage' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AwsJobAbortCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "exponential_rate": "exponentialRate",
+            "maximum_per_minute": "maximumPerMinute",
+        },
+    )
+    class AwsJobExecutionsRolloutConfigProperty:
+        def __init__(
+            self,
+            *,
+            exponential_rate: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.AwsJobExponentialRolloutRateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            maximum_per_minute: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param exponential_rate: 
+            :param maximum_per_minute: The maximum number of OTA update job executions started per minute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobexecutionsrolloutconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                aws_job_executions_rollout_config_property = iot.CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty(
+                    exponential_rate=iot.CfnOTAUpdate.AwsJobExponentialRolloutRateProperty(
+                        base_rate_per_minute=123,
+                        increment_factor=123,
+                        rate_increase_criteria=iot.CfnOTAUpdate.AwsJobRateIncreaseCriteriaProperty(
+                            number_of_notified_things=123,
+                            number_of_succeeded_things=123
+                        )
+                    ),
+                    maximum_per_minute=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2acebf66ecafa74ae6e4366e730478b8b7d4c16d7be76c40a217f05e10dde8f9)
+                check_type(argname="argument exponential_rate", value=exponential_rate, expected_type=type_hints["exponential_rate"])
+                check_type(argname="argument maximum_per_minute", value=maximum_per_minute, expected_type=type_hints["maximum_per_minute"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if exponential_rate is not None:
+                self._values["exponential_rate"] = exponential_rate
+            if maximum_per_minute is not None:
+                self._values["maximum_per_minute"] = maximum_per_minute
+
+        @builtins.property
+        def exponential_rate(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobExponentialRolloutRateProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobexecutionsrolloutconfig.html#cfn-iot-otaupdate-awsjobexecutionsrolloutconfig-exponentialrate
+            '''
+            result = self._values.get("exponential_rate")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobExponentialRolloutRateProperty"]], result)
+
+        @builtins.property
+        def maximum_per_minute(self) -> typing.Optional[jsii.Number]:
+            '''The maximum number of OTA update job executions started per minute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobexecutionsrolloutconfig.html#cfn-iot-otaupdate-awsjobexecutionsrolloutconfig-maximumperminute
+            '''
+            result = self._values.get("maximum_per_minute")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AwsJobExecutionsRolloutConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.AwsJobExponentialRolloutRateProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "base_rate_per_minute": "baseRatePerMinute",
+            "increment_factor": "incrementFactor",
+            "rate_increase_criteria": "rateIncreaseCriteria",
+        },
+    )
+    class AwsJobExponentialRolloutRateProperty:
+        def __init__(
+            self,
+            *,
+            base_rate_per_minute: jsii.Number,
+            increment_factor: jsii.Number,
+            rate_increase_criteria: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.AwsJobRateIncreaseCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param base_rate_per_minute: The minimum number of things that will be notified of a pending job, per minute, at the start of the job rollout.
+            :param increment_factor: The rate of increase for a job rollout.
+            :param rate_increase_criteria: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobexponentialrolloutrate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                aws_job_exponential_rollout_rate_property = iot.CfnOTAUpdate.AwsJobExponentialRolloutRateProperty(
+                    base_rate_per_minute=123,
+                    increment_factor=123,
+                    rate_increase_criteria=iot.CfnOTAUpdate.AwsJobRateIncreaseCriteriaProperty(
+                        number_of_notified_things=123,
+                        number_of_succeeded_things=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d945cb53c53829d51f46e593e60cc4b69d0e6e128acae75eebfe266fdedc2736)
+                check_type(argname="argument base_rate_per_minute", value=base_rate_per_minute, expected_type=type_hints["base_rate_per_minute"])
+                check_type(argname="argument increment_factor", value=increment_factor, expected_type=type_hints["increment_factor"])
+                check_type(argname="argument rate_increase_criteria", value=rate_increase_criteria, expected_type=type_hints["rate_increase_criteria"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "base_rate_per_minute": base_rate_per_minute,
+                "increment_factor": increment_factor,
+                "rate_increase_criteria": rate_increase_criteria,
+            }
+
+        @builtins.property
+        def base_rate_per_minute(self) -> jsii.Number:
+            '''The minimum number of things that will be notified of a pending job, per minute, at the start of the job rollout.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobexponentialrolloutrate.html#cfn-iot-otaupdate-awsjobexponentialrolloutrate-baserateperminute
+            '''
+            result = self._values.get("base_rate_per_minute")
+            assert result is not None, "Required property 'base_rate_per_minute' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def increment_factor(self) -> jsii.Number:
+            '''The rate of increase for a job rollout.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobexponentialrolloutrate.html#cfn-iot-otaupdate-awsjobexponentialrolloutrate-incrementfactor
+            '''
+            result = self._values.get("increment_factor")
+            assert result is not None, "Required property 'increment_factor' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def rate_increase_criteria(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobRateIncreaseCriteriaProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobexponentialrolloutrate.html#cfn-iot-otaupdate-awsjobexponentialrolloutrate-rateincreasecriteria
+            '''
+            result = self._values.get("rate_increase_criteria")
+            assert result is not None, "Required property 'rate_increase_criteria' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobRateIncreaseCriteriaProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AwsJobExponentialRolloutRateProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.AwsJobPresignedUrlConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"expires_in_sec": "expiresInSec"},
+    )
+    class AwsJobPresignedUrlConfigProperty:
+        def __init__(
+            self,
+            *,
+            expires_in_sec: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param expires_in_sec: How long (in seconds) pre-signed URLs are valid. Valid values are 60 - 3600, the default value is 1800 seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobpresignedurlconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                aws_job_presigned_url_config_property = iot.CfnOTAUpdate.AwsJobPresignedUrlConfigProperty(
+                    expires_in_sec=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__83f7c11c2a2c497c1ff4aa630da981c9f52c288bb93f34aa0bcccb7344e5a588)
+                check_type(argname="argument expires_in_sec", value=expires_in_sec, expected_type=type_hints["expires_in_sec"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if expires_in_sec is not None:
+                self._values["expires_in_sec"] = expires_in_sec
+
+        @builtins.property
+        def expires_in_sec(self) -> typing.Optional[jsii.Number]:
+            '''How long (in seconds) pre-signed URLs are valid.
+
+            Valid values are 60 - 3600, the default value is 1800 seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobpresignedurlconfig.html#cfn-iot-otaupdate-awsjobpresignedurlconfig-expiresinsec
+            '''
+            result = self._values.get("expires_in_sec")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AwsJobPresignedUrlConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.AwsJobRateIncreaseCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "number_of_notified_things": "numberOfNotifiedThings",
+            "number_of_succeeded_things": "numberOfSucceededThings",
+        },
+    )
+    class AwsJobRateIncreaseCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            number_of_notified_things: typing.Optional[jsii.Number] = None,
+            number_of_succeeded_things: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param number_of_notified_things: When this number of things have been notified, it will initiate an increase in the rollout rate.
+            :param number_of_succeeded_things: When this number of things have succeeded in their job execution, it will initiate an increase in the rollout rate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobrateincreasecriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                aws_job_rate_increase_criteria_property = iot.CfnOTAUpdate.AwsJobRateIncreaseCriteriaProperty(
+                    number_of_notified_things=123,
+                    number_of_succeeded_things=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6da2c7f089326df01da1eee8dfd4ba49b4e77a94c83ddcd0204398c3eaa7ac28)
+                check_type(argname="argument number_of_notified_things", value=number_of_notified_things, expected_type=type_hints["number_of_notified_things"])
+                check_type(argname="argument number_of_succeeded_things", value=number_of_succeeded_things, expected_type=type_hints["number_of_succeeded_things"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if number_of_notified_things is not None:
+                self._values["number_of_notified_things"] = number_of_notified_things
+            if number_of_succeeded_things is not None:
+                self._values["number_of_succeeded_things"] = number_of_succeeded_things
+
+        @builtins.property
+        def number_of_notified_things(self) -> typing.Optional[jsii.Number]:
+            '''When this number of things have been notified, it will initiate an increase in the rollout rate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobrateincreasecriteria.html#cfn-iot-otaupdate-awsjobrateincreasecriteria-numberofnotifiedthings
+            '''
+            result = self._values.get("number_of_notified_things")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def number_of_succeeded_things(self) -> typing.Optional[jsii.Number]:
+            '''When this number of things have succeeded in their job execution, it will initiate an increase in the rollout rate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobrateincreasecriteria.html#cfn-iot-otaupdate-awsjobrateincreasecriteria-numberofsucceededthings
+            '''
+            result = self._values.get("number_of_succeeded_things")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AwsJobRateIncreaseCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.AwsJobTimeoutConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"in_progress_timeout_in_minutes": "inProgressTimeoutInMinutes"},
+    )
+    class AwsJobTimeoutConfigProperty:
+        def __init__(
+            self,
+            *,
+            in_progress_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param in_progress_timeout_in_minutes: Specifies the amount of time, in minutes, this device has to finish execution of this job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobtimeoutconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                aws_job_timeout_config_property = iot.CfnOTAUpdate.AwsJobTimeoutConfigProperty(
+                    in_progress_timeout_in_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__669693c15df81a67cffff57478b7ad1c380646e0dc7d02efc1ae794aafbfbd6c)
+                check_type(argname="argument in_progress_timeout_in_minutes", value=in_progress_timeout_in_minutes, expected_type=type_hints["in_progress_timeout_in_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if in_progress_timeout_in_minutes is not None:
+                self._values["in_progress_timeout_in_minutes"] = in_progress_timeout_in_minutes
+
+        @builtins.property
+        def in_progress_timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
+            '''Specifies the amount of time, in minutes, this device has to finish execution of this job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-awsjobtimeoutconfig.html#cfn-iot-otaupdate-awsjobtimeoutconfig-inprogresstimeoutinminutes
+            '''
+            result = self._values.get("in_progress_timeout_in_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AwsJobTimeoutConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.CodeSigningCertificateChainProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "certificate_name": "certificateName",
+            "inline_document": "inlineDocument",
+        },
+    )
+    class CodeSigningCertificateChainProperty:
+        def __init__(
+            self,
+            *,
+            certificate_name: typing.Optional[builtins.str] = None,
+            inline_document: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param certificate_name: The name of the certificate.
+            :param inline_document: A base64 encoded binary representation of the code signing certificate chain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-codesigningcertificatechain.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                code_signing_certificate_chain_property = iot.CfnOTAUpdate.CodeSigningCertificateChainProperty(
+                    certificate_name="certificateName",
+                    inline_document="inlineDocument"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3b4d4d123df34bc41e453135cd0b7817abfc3bc7b7677ad7690a601185ac5320)
+                check_type(argname="argument certificate_name", value=certificate_name, expected_type=type_hints["certificate_name"])
+                check_type(argname="argument inline_document", value=inline_document, expected_type=type_hints["inline_document"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if certificate_name is not None:
+                self._values["certificate_name"] = certificate_name
+            if inline_document is not None:
+                self._values["inline_document"] = inline_document
+
+        @builtins.property
+        def certificate_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the certificate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-codesigningcertificatechain.html#cfn-iot-otaupdate-codesigningcertificatechain-certificatename
+            '''
+            result = self._values.get("certificate_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def inline_document(self) -> typing.Optional[builtins.str]:
+            '''A base64 encoded binary representation of the code signing certificate chain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-codesigningcertificatechain.html#cfn-iot-otaupdate-codesigningcertificatechain-inlinedocument
+            '''
+            result = self._values.get("inline_document")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeSigningCertificateChainProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.CodeSigningProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "aws_signer_job_id": "awsSignerJobId",
+            "custom_code_signing": "customCodeSigning",
+            "start_signing_job_parameter": "startSigningJobParameter",
+        },
+    )
+    class CodeSigningProperty:
+        def __init__(
+            self,
+            *,
+            aws_signer_job_id: typing.Optional[builtins.str] = None,
+            custom_code_signing: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.CustomCodeSigningProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            start_signing_job_parameter: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.StartSigningJobParameterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param aws_signer_job_id: The ID of the AWSSignerJob which was created to sign the file.
+            :param custom_code_signing: 
+            :param start_signing_job_parameter: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-codesigning.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                code_signing_property = iot.CfnOTAUpdate.CodeSigningProperty(
+                    aws_signer_job_id="awsSignerJobId",
+                    custom_code_signing=iot.CfnOTAUpdate.CustomCodeSigningProperty(
+                        certificate_chain=iot.CfnOTAUpdate.CodeSigningCertificateChainProperty(
+                            certificate_name="certificateName",
+                            inline_document="inlineDocument"
+                        ),
+                        hash_algorithm="hashAlgorithm",
+                        signature=iot.CfnOTAUpdate.CodeSigningSignatureProperty(
+                            inline_document="inlineDocument"
+                        ),
+                        signature_algorithm="signatureAlgorithm"
+                    ),
+                    start_signing_job_parameter=iot.CfnOTAUpdate.StartSigningJobParameterProperty(
+                        destination=iot.CfnOTAUpdate.DestinationProperty(
+                            s3_destination=iot.CfnOTAUpdate.S3DestinationProperty(
+                                bucket="bucket",
+                                prefix="prefix"
+                            )
+                        ),
+                        signing_profile_name="signingProfileName",
+                        signing_profile_parameter=iot.CfnOTAUpdate.SigningProfileParameterProperty(
+                            certificate_arn="certificateArn",
+                            certificate_path_on_device="certificatePathOnDevice",
+                            platform="platform"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__795c4e4f98f95ccb4b64816629fa5ba705ab7fa185cabd4a1a63ae3a8583ea28)
+                check_type(argname="argument aws_signer_job_id", value=aws_signer_job_id, expected_type=type_hints["aws_signer_job_id"])
+                check_type(argname="argument custom_code_signing", value=custom_code_signing, expected_type=type_hints["custom_code_signing"])
+                check_type(argname="argument start_signing_job_parameter", value=start_signing_job_parameter, expected_type=type_hints["start_signing_job_parameter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if aws_signer_job_id is not None:
+                self._values["aws_signer_job_id"] = aws_signer_job_id
+            if custom_code_signing is not None:
+                self._values["custom_code_signing"] = custom_code_signing
+            if start_signing_job_parameter is not None:
+                self._values["start_signing_job_parameter"] = start_signing_job_parameter
+
+        @builtins.property
+        def aws_signer_job_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the AWSSignerJob which was created to sign the file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-codesigning.html#cfn-iot-otaupdate-codesigning-awssignerjobid
+            '''
+            result = self._values.get("aws_signer_job_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def custom_code_signing(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.CustomCodeSigningProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-codesigning.html#cfn-iot-otaupdate-codesigning-customcodesigning
+            '''
+            result = self._values.get("custom_code_signing")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.CustomCodeSigningProperty"]], result)
+
+        @builtins.property
+        def start_signing_job_parameter(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.StartSigningJobParameterProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-codesigning.html#cfn-iot-otaupdate-codesigning-startsigningjobparameter
+            '''
+            result = self._values.get("start_signing_job_parameter")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.StartSigningJobParameterProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeSigningProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.CodeSigningSignatureProperty",
+        jsii_struct_bases=[],
+        name_mapping={"inline_document": "inlineDocument"},
+    )
+    class CodeSigningSignatureProperty:
+        def __init__(
+            self,
+            *,
+            inline_document: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param inline_document: A base64 encoded binary representation of the code signing signature.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-codesigningsignature.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                code_signing_signature_property = iot.CfnOTAUpdate.CodeSigningSignatureProperty(
+                    inline_document="inlineDocument"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a547b92663b0dcca463e6e3fd86d5177259dd04a2f4c8f6c2877d8464ae4c61b)
+                check_type(argname="argument inline_document", value=inline_document, expected_type=type_hints["inline_document"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if inline_document is not None:
+                self._values["inline_document"] = inline_document
+
+        @builtins.property
+        def inline_document(self) -> typing.Optional[builtins.str]:
+            '''A base64 encoded binary representation of the code signing signature.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-codesigningsignature.html#cfn-iot-otaupdate-codesigningsignature-inlinedocument
+            '''
+            result = self._values.get("inline_document")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeSigningSignatureProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.CustomCodeSigningProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "certificate_chain": "certificateChain",
+            "hash_algorithm": "hashAlgorithm",
+            "signature": "signature",
+            "signature_algorithm": "signatureAlgorithm",
+        },
+    )
+    class CustomCodeSigningProperty:
+        def __init__(
+            self,
+            *,
+            certificate_chain: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.CodeSigningCertificateChainProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hash_algorithm: typing.Optional[builtins.str] = None,
+            signature: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.CodeSigningSignatureProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            signature_algorithm: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param certificate_chain: 
+            :param hash_algorithm: The hash algorithm used to code sign the file.
+            :param signature: 
+            :param signature_algorithm: The signature algorithm used to code sign the file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-customcodesigning.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                custom_code_signing_property = iot.CfnOTAUpdate.CustomCodeSigningProperty(
+                    certificate_chain=iot.CfnOTAUpdate.CodeSigningCertificateChainProperty(
+                        certificate_name="certificateName",
+                        inline_document="inlineDocument"
+                    ),
+                    hash_algorithm="hashAlgorithm",
+                    signature=iot.CfnOTAUpdate.CodeSigningSignatureProperty(
+                        inline_document="inlineDocument"
+                    ),
+                    signature_algorithm="signatureAlgorithm"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c3861a1ccb7c6bc8fb3e63eaad3d3dbf4b71466d09baec5882475bfdeaf32d33)
+                check_type(argname="argument certificate_chain", value=certificate_chain, expected_type=type_hints["certificate_chain"])
+                check_type(argname="argument hash_algorithm", value=hash_algorithm, expected_type=type_hints["hash_algorithm"])
+                check_type(argname="argument signature", value=signature, expected_type=type_hints["signature"])
+                check_type(argname="argument signature_algorithm", value=signature_algorithm, expected_type=type_hints["signature_algorithm"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if certificate_chain is not None:
+                self._values["certificate_chain"] = certificate_chain
+            if hash_algorithm is not None:
+                self._values["hash_algorithm"] = hash_algorithm
+            if signature is not None:
+                self._values["signature"] = signature
+            if signature_algorithm is not None:
+                self._values["signature_algorithm"] = signature_algorithm
+
+        @builtins.property
+        def certificate_chain(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.CodeSigningCertificateChainProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-customcodesigning.html#cfn-iot-otaupdate-customcodesigning-certificatechain
+            '''
+            result = self._values.get("certificate_chain")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.CodeSigningCertificateChainProperty"]], result)
+
+        @builtins.property
+        def hash_algorithm(self) -> typing.Optional[builtins.str]:
+            '''The hash algorithm used to code sign the file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-customcodesigning.html#cfn-iot-otaupdate-customcodesigning-hashalgorithm
+            '''
+            result = self._values.get("hash_algorithm")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def signature(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.CodeSigningSignatureProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-customcodesigning.html#cfn-iot-otaupdate-customcodesigning-signature
+            '''
+            result = self._values.get("signature")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.CodeSigningSignatureProperty"]], result)
+
+        @builtins.property
+        def signature_algorithm(self) -> typing.Optional[builtins.str]:
+            '''The signature algorithm used to code sign the file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-customcodesigning.html#cfn-iot-otaupdate-customcodesigning-signaturealgorithm
+            '''
+            result = self._values.get("signature_algorithm")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomCodeSigningProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.DestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_destination": "s3Destination"},
+    )
+    class DestinationProperty:
+        def __init__(
+            self,
+            *,
+            s3_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.S3DestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param s3_destination: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-destination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                destination_property = iot.CfnOTAUpdate.DestinationProperty(
+                    s3_destination=iot.CfnOTAUpdate.S3DestinationProperty(
+                        bucket="bucket",
+                        prefix="prefix"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__27dc4f2d39396cfa1fb38391c69984ebad8ac1880de60c961ebd0bd17710f61e)
+                check_type(argname="argument s3_destination", value=s3_destination, expected_type=type_hints["s3_destination"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if s3_destination is not None:
+                self._values["s3_destination"] = s3_destination
+
+        @builtins.property
+        def s3_destination(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.S3DestinationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-destination.html#cfn-iot-otaupdate-destination-s3destination
+            '''
+            result = self._values.get("s3_destination")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.S3DestinationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.FileLocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_location": "s3Location", "stream": "stream"},
+    )
+    class FileLocationProperty:
+        def __init__(
+            self,
+            *,
+            s3_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            stream: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.StreamProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param s3_location: 
+            :param stream: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-filelocation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                file_location_property = iot.CfnOTAUpdate.FileLocationProperty(
+                    s3_location=iot.CfnOTAUpdate.S3LocationProperty(
+                        bucket="bucket",
+                        key="key",
+                        version="version"
+                    ),
+                    stream=iot.CfnOTAUpdate.StreamProperty(
+                        file_id=123,
+                        stream_id="streamId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__978c400890eade97fe73fe5da1466add55674f3ac8e981ddc9c8a6de2ac0b3e1)
+                check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
+                check_type(argname="argument stream", value=stream, expected_type=type_hints["stream"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if s3_location is not None:
+                self._values["s3_location"] = s3_location
+            if stream is not None:
+                self._values["stream"] = stream
+
+        @builtins.property
+        def s3_location(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.S3LocationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-filelocation.html#cfn-iot-otaupdate-filelocation-s3location
+            '''
+            result = self._values.get("s3_location")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.S3LocationProperty"]], result)
+
+        @builtins.property
+        def stream(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.StreamProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-filelocation.html#cfn-iot-otaupdate-filelocation-stream
+            '''
+            result = self._values.get("stream")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.StreamProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FileLocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.OTAUpdateFileProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "attributes": "attributes",
+            "code_signing": "codeSigning",
+            "file_location": "fileLocation",
+            "file_name": "fileName",
+            "file_type": "fileType",
+            "file_version": "fileVersion",
+        },
+    )
+    class OTAUpdateFileProperty:
+        def __init__(
+            self,
+            *,
+            attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            code_signing: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.CodeSigningProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            file_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.FileLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            file_name: typing.Optional[builtins.str] = None,
+            file_type: typing.Optional[jsii.Number] = None,
+            file_version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param attributes: A list of name-attribute pairs.
+            :param code_signing: 
+            :param file_location: 
+            :param file_name: The name of the file.
+            :param file_type: An integer value you can include in the job document to allow your devices to identify the type of file received from the cloud.
+            :param file_version: The file version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-otaupdatefile.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                o_ta_update_file_property = iot.CfnOTAUpdate.OTAUpdateFileProperty(
+                    attributes={
+                        "attributes_key": "attributes"
+                    },
+                    code_signing=iot.CfnOTAUpdate.CodeSigningProperty(
+                        aws_signer_job_id="awsSignerJobId",
+                        custom_code_signing=iot.CfnOTAUpdate.CustomCodeSigningProperty(
+                            certificate_chain=iot.CfnOTAUpdate.CodeSigningCertificateChainProperty(
+                                certificate_name="certificateName",
+                                inline_document="inlineDocument"
+                            ),
+                            hash_algorithm="hashAlgorithm",
+                            signature=iot.CfnOTAUpdate.CodeSigningSignatureProperty(
+                                inline_document="inlineDocument"
+                            ),
+                            signature_algorithm="signatureAlgorithm"
+                        ),
+                        start_signing_job_parameter=iot.CfnOTAUpdate.StartSigningJobParameterProperty(
+                            destination=iot.CfnOTAUpdate.DestinationProperty(
+                                s3_destination=iot.CfnOTAUpdate.S3DestinationProperty(
+                                    bucket="bucket",
+                                    prefix="prefix"
+                                )
+                            ),
+                            signing_profile_name="signingProfileName",
+                            signing_profile_parameter=iot.CfnOTAUpdate.SigningProfileParameterProperty(
+                                certificate_arn="certificateArn",
+                                certificate_path_on_device="certificatePathOnDevice",
+                                platform="platform"
+                            )
+                        )
+                    ),
+                    file_location=iot.CfnOTAUpdate.FileLocationProperty(
+                        s3_location=iot.CfnOTAUpdate.S3LocationProperty(
+                            bucket="bucket",
+                            key="key",
+                            version="version"
+                        ),
+                        stream=iot.CfnOTAUpdate.StreamProperty(
+                            file_id=123,
+                            stream_id="streamId"
+                        )
+                    ),
+                    file_name="fileName",
+                    file_type=123,
+                    file_version="fileVersion"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__976eebbbd50ee7f4fa985a21403c05b2852ea569eb221fd17898d84a4aa8d8a3)
+                check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+                check_type(argname="argument code_signing", value=code_signing, expected_type=type_hints["code_signing"])
+                check_type(argname="argument file_location", value=file_location, expected_type=type_hints["file_location"])
+                check_type(argname="argument file_name", value=file_name, expected_type=type_hints["file_name"])
+                check_type(argname="argument file_type", value=file_type, expected_type=type_hints["file_type"])
+                check_type(argname="argument file_version", value=file_version, expected_type=type_hints["file_version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if attributes is not None:
+                self._values["attributes"] = attributes
+            if code_signing is not None:
+                self._values["code_signing"] = code_signing
+            if file_location is not None:
+                self._values["file_location"] = file_location
+            if file_name is not None:
+                self._values["file_name"] = file_name
+            if file_type is not None:
+                self._values["file_type"] = file_type
+            if file_version is not None:
+                self._values["file_version"] = file_version
+
+        @builtins.property
+        def attributes(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A list of name-attribute pairs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-otaupdatefile.html#cfn-iot-otaupdate-otaupdatefile-attributes
+            '''
+            result = self._values.get("attributes")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def code_signing(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.CodeSigningProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-otaupdatefile.html#cfn-iot-otaupdate-otaupdatefile-codesigning
+            '''
+            result = self._values.get("code_signing")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.CodeSigningProperty"]], result)
+
+        @builtins.property
+        def file_location(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.FileLocationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-otaupdatefile.html#cfn-iot-otaupdate-otaupdatefile-filelocation
+            '''
+            result = self._values.get("file_location")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.FileLocationProperty"]], result)
+
+        @builtins.property
+        def file_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-otaupdatefile.html#cfn-iot-otaupdate-otaupdatefile-filename
+            '''
+            result = self._values.get("file_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def file_type(self) -> typing.Optional[jsii.Number]:
+            '''An integer value you can include in the job document to allow your devices to identify the type of file received from the cloud.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-otaupdatefile.html#cfn-iot-otaupdate-otaupdatefile-filetype
+            '''
+            result = self._values.get("file_type")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def file_version(self) -> typing.Optional[builtins.str]:
+            '''The file version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-otaupdatefile.html#cfn-iot-otaupdate-otaupdatefile-fileversion
+            '''
+            result = self._values.get("file_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OTAUpdateFileProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.S3DestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket": "bucket", "prefix": "prefix"},
+    )
+    class S3DestinationProperty:
+        def __init__(
+            self,
+            *,
+            bucket: typing.Optional[builtins.str] = None,
+            prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param bucket: The S3 bucket that contains the updated firmware.
+            :param prefix: The S3 prefix.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-s3destination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                s3_destination_property = iot.CfnOTAUpdate.S3DestinationProperty(
+                    bucket="bucket",
+                    prefix="prefix"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6e489cad75a42cf66a8b936e967ba16af87a1ae7e90c1dcb08aaa6587b718df6)
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if bucket is not None:
+                self._values["bucket"] = bucket
+            if prefix is not None:
+                self._values["prefix"] = prefix
+
+        @builtins.property
+        def bucket(self) -> typing.Optional[builtins.str]:
+            '''The S3 bucket that contains the updated firmware.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-s3destination.html#cfn-iot-otaupdate-s3destination-bucket
+            '''
+            result = self._values.get("bucket")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def prefix(self) -> typing.Optional[builtins.str]:
+            '''The S3 prefix.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-s3destination.html#cfn-iot-otaupdate-s3destination-prefix
+            '''
+            result = self._values.get("prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3DestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.S3LocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket": "bucket", "key": "key", "version": "version"},
+    )
+    class S3LocationProperty:
+        def __init__(
+            self,
+            *,
+            bucket: typing.Optional[builtins.str] = None,
+            key: typing.Optional[builtins.str] = None,
+            version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param bucket: The S3 bucket.
+            :param key: The S3 key.
+            :param version: The S3 bucket version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-s3location.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                s3_location_property = iot.CfnOTAUpdate.S3LocationProperty(
+                    bucket="bucket",
+                    key="key",
+                    version="version"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1e86d17488c7bc4b6a72ab87b1ad82492683bdf552b06a94e9e230d09459672c)
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if bucket is not None:
+                self._values["bucket"] = bucket
+            if key is not None:
+                self._values["key"] = key
+            if version is not None:
+                self._values["version"] = version
+
+        @builtins.property
+        def bucket(self) -> typing.Optional[builtins.str]:
+            '''The S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-s3location.html#cfn-iot-otaupdate-s3location-bucket
+            '''
+            result = self._values.get("bucket")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def key(self) -> typing.Optional[builtins.str]:
+            '''The S3 key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-s3location.html#cfn-iot-otaupdate-s3location-key
+            '''
+            result = self._values.get("key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def version(self) -> typing.Optional[builtins.str]:
+            '''The S3 bucket version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-s3location.html#cfn-iot-otaupdate-s3location-version
+            '''
+            result = self._values.get("version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3LocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.SigningProfileParameterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "certificate_arn": "certificateArn",
+            "certificate_path_on_device": "certificatePathOnDevice",
+            "platform": "platform",
+        },
+    )
+    class SigningProfileParameterProperty:
+        def __init__(
+            self,
+            *,
+            certificate_arn: typing.Optional[builtins.str] = None,
+            certificate_path_on_device: typing.Optional[builtins.str] = None,
+            platform: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param certificate_arn: Certificate ARN.
+            :param certificate_path_on_device: The location of the code-signing certificate on your device.
+            :param platform: The hardware platform of your device.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-signingprofileparameter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                signing_profile_parameter_property = iot.CfnOTAUpdate.SigningProfileParameterProperty(
+                    certificate_arn="certificateArn",
+                    certificate_path_on_device="certificatePathOnDevice",
+                    platform="platform"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__821b89b3c0f027670e2dac893ec431cff7c3360b2ddc91fe5c046a552ece85e7)
+                check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+                check_type(argname="argument certificate_path_on_device", value=certificate_path_on_device, expected_type=type_hints["certificate_path_on_device"])
+                check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if certificate_arn is not None:
+                self._values["certificate_arn"] = certificate_arn
+            if certificate_path_on_device is not None:
+                self._values["certificate_path_on_device"] = certificate_path_on_device
+            if platform is not None:
+                self._values["platform"] = platform
+
+        @builtins.property
+        def certificate_arn(self) -> typing.Optional[builtins.str]:
+            '''Certificate ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-signingprofileparameter.html#cfn-iot-otaupdate-signingprofileparameter-certificatearn
+            '''
+            result = self._values.get("certificate_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def certificate_path_on_device(self) -> typing.Optional[builtins.str]:
+            '''The location of the code-signing certificate on your device.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-signingprofileparameter.html#cfn-iot-otaupdate-signingprofileparameter-certificatepathondevice
+            '''
+            result = self._values.get("certificate_path_on_device")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def platform(self) -> typing.Optional[builtins.str]:
+            '''The hardware platform of your device.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-signingprofileparameter.html#cfn-iot-otaupdate-signingprofileparameter-platform
+            '''
+            result = self._values.get("platform")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SigningProfileParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.StartSigningJobParameterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination": "destination",
+            "signing_profile_name": "signingProfileName",
+            "signing_profile_parameter": "signingProfileParameter",
+        },
+    )
+    class StartSigningJobParameterProperty:
+        def __init__(
+            self,
+            *,
+            destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.DestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            signing_profile_name: typing.Optional[builtins.str] = None,
+            signing_profile_parameter: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.SigningProfileParameterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param destination: 
+            :param signing_profile_name: The code-signing profile name.
+            :param signing_profile_parameter: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-startsigningjobparameter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                start_signing_job_parameter_property = iot.CfnOTAUpdate.StartSigningJobParameterProperty(
+                    destination=iot.CfnOTAUpdate.DestinationProperty(
+                        s3_destination=iot.CfnOTAUpdate.S3DestinationProperty(
+                            bucket="bucket",
+                            prefix="prefix"
+                        )
+                    ),
+                    signing_profile_name="signingProfileName",
+                    signing_profile_parameter=iot.CfnOTAUpdate.SigningProfileParameterProperty(
+                        certificate_arn="certificateArn",
+                        certificate_path_on_device="certificatePathOnDevice",
+                        platform="platform"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__90cb5106e2b2f0ba78d05603fc87e784d998baaa8ae6646be0b0e105c7593a4c)
+                check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+                check_type(argname="argument signing_profile_name", value=signing_profile_name, expected_type=type_hints["signing_profile_name"])
+                check_type(argname="argument signing_profile_parameter", value=signing_profile_parameter, expected_type=type_hints["signing_profile_parameter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if destination is not None:
+                self._values["destination"] = destination
+            if signing_profile_name is not None:
+                self._values["signing_profile_name"] = signing_profile_name
+            if signing_profile_parameter is not None:
+                self._values["signing_profile_parameter"] = signing_profile_parameter
+
+        @builtins.property
+        def destination(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.DestinationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-startsigningjobparameter.html#cfn-iot-otaupdate-startsigningjobparameter-destination
+            '''
+            result = self._values.get("destination")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.DestinationProperty"]], result)
+
+        @builtins.property
+        def signing_profile_name(self) -> typing.Optional[builtins.str]:
+            '''The code-signing profile name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-startsigningjobparameter.html#cfn-iot-otaupdate-startsigningjobparameter-signingprofilename
+            '''
+            result = self._values.get("signing_profile_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def signing_profile_parameter(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.SigningProfileParameterProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-startsigningjobparameter.html#cfn-iot-otaupdate-startsigningjobparameter-signingprofileparameter
+            '''
+            result = self._values.get("signing_profile_parameter")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.SigningProfileParameterProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StartSigningJobParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdate.StreamProperty",
+        jsii_struct_bases=[],
+        name_mapping={"file_id": "fileId", "stream_id": "streamId"},
+    )
+    class StreamProperty:
+        def __init__(
+            self,
+            *,
+            file_id: typing.Optional[jsii.Number] = None,
+            stream_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param file_id: The ID of a file associated with a stream.
+            :param stream_id: The stream ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-stream.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                stream_property = iot.CfnOTAUpdate.StreamProperty(
+                    file_id=123,
+                    stream_id="streamId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__22c448142cda67eb93e62285d53d0736a27274fc2f4feafcbd49d7e35ff19aa2)
+                check_type(argname="argument file_id", value=file_id, expected_type=type_hints["file_id"])
+                check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if file_id is not None:
+                self._values["file_id"] = file_id
+            if stream_id is not None:
+                self._values["stream_id"] = stream_id
+
+        @builtins.property
+        def file_id(self) -> typing.Optional[jsii.Number]:
+            '''The ID of a file associated with a stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-stream.html#cfn-iot-otaupdate-stream-fileid
+            '''
+            result = self._values.get("file_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def stream_id(self) -> typing.Optional[builtins.str]:
+            '''The stream ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-otaupdate-stream.html#cfn-iot-otaupdate-stream-streamid
+            '''
+            result = self._values.get("stream_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnOTAUpdateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "files": "files",
+        "ota_update_id": "otaUpdateId",
+        "targets": "targets",
+        "additional_parameters": "additionalParameters",
+        "aws_job_abort_config": "awsJobAbortConfig",
+        "aws_job_executions_rollout_config": "awsJobExecutionsRolloutConfig",
+        "aws_job_presigned_url_config": "awsJobPresignedUrlConfig",
+        "aws_job_timeout_config": "awsJobTimeoutConfig",
+        "description": "description",
+        "protocols": "protocols",
+        "role_arn": "roleArn",
+        "tags": "tags",
+        "target_selection": "targetSelection",
+    },
+)
+class CfnOTAUpdateProps:
+    def __init__(
+        self,
+        *,
+        files: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.OTAUpdateFileProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ota_update_id: builtins.str,
+        targets: typing.Sequence[builtins.str],
+        additional_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        aws_job_abort_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.AwsJobAbortConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        aws_job_executions_rollout_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        aws_job_presigned_url_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.AwsJobPresignedUrlConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        aws_job_timeout_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTAUpdate.AwsJobTimeoutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_selection: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOTAUpdate``.
+
+        :param files: The files to be streamed by the OTA update.
+        :param ota_update_id: The ID of the OTA update to be created.
+        :param targets: The devices targeted to receive OTA updates.
+        :param additional_parameters: A list of additional OTA update parameters, which are name-value pairs.
+        :param aws_job_abort_config: 
+        :param aws_job_executions_rollout_config: 
+        :param aws_job_presigned_url_config: 
+        :param aws_job_timeout_config: 
+        :param description: The description of the OTA update.
+        :param protocols: The protocol used to transfer the OTA update image.
+        :param role_arn: The IAM role that grants AWS IoT Core access to the Amazon S3, IoT jobs and AWS Code Signing resources to create an OTA update job.
+        :param tags: Metadata which can be used to manage updates.
+        :param target_selection: Specifies whether the update will continue to run (CONTINUOUS), or will be complete after all things specified as targets have completed the update (SNAPSHOT).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_ota_update_props = iot.CfnOTAUpdateProps(
+                files=[iot.CfnOTAUpdate.OTAUpdateFileProperty(
+                    attributes={
+                        "attributes_key": "attributes"
+                    },
+                    code_signing=iot.CfnOTAUpdate.CodeSigningProperty(
+                        aws_signer_job_id="awsSignerJobId",
+                        custom_code_signing=iot.CfnOTAUpdate.CustomCodeSigningProperty(
+                            certificate_chain=iot.CfnOTAUpdate.CodeSigningCertificateChainProperty(
+                                certificate_name="certificateName",
+                                inline_document="inlineDocument"
+                            ),
+                            hash_algorithm="hashAlgorithm",
+                            signature=iot.CfnOTAUpdate.CodeSigningSignatureProperty(
+                                inline_document="inlineDocument"
+                            ),
+                            signature_algorithm="signatureAlgorithm"
+                        ),
+                        start_signing_job_parameter=iot.CfnOTAUpdate.StartSigningJobParameterProperty(
+                            destination=iot.CfnOTAUpdate.DestinationProperty(
+                                s3_destination=iot.CfnOTAUpdate.S3DestinationProperty(
+                                    bucket="bucket",
+                                    prefix="prefix"
+                                )
+                            ),
+                            signing_profile_name="signingProfileName",
+                            signing_profile_parameter=iot.CfnOTAUpdate.SigningProfileParameterProperty(
+                                certificate_arn="certificateArn",
+                                certificate_path_on_device="certificatePathOnDevice",
+                                platform="platform"
+                            )
+                        )
+                    ),
+                    file_location=iot.CfnOTAUpdate.FileLocationProperty(
+                        s3_location=iot.CfnOTAUpdate.S3LocationProperty(
+                            bucket="bucket",
+                            key="key",
+                            version="version"
+                        ),
+                        stream=iot.CfnOTAUpdate.StreamProperty(
+                            file_id=123,
+                            stream_id="streamId"
+                        )
+                    ),
+                    file_name="fileName",
+                    file_type=123,
+                    file_version="fileVersion"
+                )],
+                ota_update_id="otaUpdateId",
+                targets=["targets"],
+            
+                # the properties below are optional
+                additional_parameters={
+                    "additional_parameters_key": "additionalParameters"
+                },
+                aws_job_abort_config=iot.CfnOTAUpdate.AwsJobAbortConfigProperty(
+                    abort_criteria_list=[iot.CfnOTAUpdate.AwsJobAbortCriteriaProperty(
+                        action="action",
+                        failure_type="failureType",
+                        min_number_of_executed_things=123,
+                        threshold_percentage=123
+                    )]
+                ),
+                aws_job_executions_rollout_config=iot.CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty(
+                    exponential_rate=iot.CfnOTAUpdate.AwsJobExponentialRolloutRateProperty(
+                        base_rate_per_minute=123,
+                        increment_factor=123,
+                        rate_increase_criteria=iot.CfnOTAUpdate.AwsJobRateIncreaseCriteriaProperty(
+                            number_of_notified_things=123,
+                            number_of_succeeded_things=123
+                        )
+                    ),
+                    maximum_per_minute=123
+                ),
+                aws_job_presigned_url_config=iot.CfnOTAUpdate.AwsJobPresignedUrlConfigProperty(
+                    expires_in_sec=123
+                ),
+                aws_job_timeout_config=iot.CfnOTAUpdate.AwsJobTimeoutConfigProperty(
+                    in_progress_timeout_in_minutes=123
+                ),
+                description="description",
+                protocols=["protocols"],
+                role_arn="roleArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                target_selection="targetSelection"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__33d4c12df9ec54dfcf2096706eeba85dfe2b2a3ed480c0cf9dd28e56f3f3e22a)
+            check_type(argname="argument files", value=files, expected_type=type_hints["files"])
+            check_type(argname="argument ota_update_id", value=ota_update_id, expected_type=type_hints["ota_update_id"])
+            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+            check_type(argname="argument additional_parameters", value=additional_parameters, expected_type=type_hints["additional_parameters"])
+            check_type(argname="argument aws_job_abort_config", value=aws_job_abort_config, expected_type=type_hints["aws_job_abort_config"])
+            check_type(argname="argument aws_job_executions_rollout_config", value=aws_job_executions_rollout_config, expected_type=type_hints["aws_job_executions_rollout_config"])
+            check_type(argname="argument aws_job_presigned_url_config", value=aws_job_presigned_url_config, expected_type=type_hints["aws_job_presigned_url_config"])
+            check_type(argname="argument aws_job_timeout_config", value=aws_job_timeout_config, expected_type=type_hints["aws_job_timeout_config"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument protocols", value=protocols, expected_type=type_hints["protocols"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_selection", value=target_selection, expected_type=type_hints["target_selection"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "files": files,
+            "ota_update_id": ota_update_id,
+            "targets": targets,
+        }
+        if additional_parameters is not None:
+            self._values["additional_parameters"] = additional_parameters
+        if aws_job_abort_config is not None:
+            self._values["aws_job_abort_config"] = aws_job_abort_config
+        if aws_job_executions_rollout_config is not None:
+            self._values["aws_job_executions_rollout_config"] = aws_job_executions_rollout_config
+        if aws_job_presigned_url_config is not None:
+            self._values["aws_job_presigned_url_config"] = aws_job_presigned_url_config
+        if aws_job_timeout_config is not None:
+            self._values["aws_job_timeout_config"] = aws_job_timeout_config
+        if description is not None:
+            self._values["description"] = description
+        if protocols is not None:
+            self._values["protocols"] = protocols
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+        if target_selection is not None:
+            self._values["target_selection"] = target_selection
+
+    @builtins.property
+    def files(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.OTAUpdateFileProperty"]]]:
+        '''The files to be streamed by the OTA update.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-files
+        '''
+        result = self._values.get("files")
+        assert result is not None, "Required property 'files' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.OTAUpdateFileProperty"]]], result)
+
+    @builtins.property
+    def ota_update_id(self) -> builtins.str:
+        '''The ID of the OTA update to be created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-otaupdateid
+        '''
+        result = self._values.get("ota_update_id")
+        assert result is not None, "Required property 'ota_update_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def targets(self) -> typing.List[builtins.str]:
+        '''The devices targeted to receive OTA updates.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-targets
+        '''
+        result = self._values.get("targets")
+        assert result is not None, "Required property 'targets' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def additional_parameters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A list of additional OTA update parameters, which are name-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-additionalparameters
+        '''
+        result = self._values.get("additional_parameters")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+    @builtins.property
+    def aws_job_abort_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobAbortConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-awsjobabortconfig
+        '''
+        result = self._values.get("aws_job_abort_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobAbortConfigProperty"]], result)
+
+    @builtins.property
+    def aws_job_executions_rollout_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-awsjobexecutionsrolloutconfig
+        '''
+        result = self._values.get("aws_job_executions_rollout_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty"]], result)
+
+    @builtins.property
+    def aws_job_presigned_url_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobPresignedUrlConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-awsjobpresignedurlconfig
+        '''
+        result = self._values.get("aws_job_presigned_url_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobPresignedUrlConfigProperty"]], result)
+
+    @builtins.property
+    def aws_job_timeout_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobTimeoutConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-awsjobtimeoutconfig
+        '''
+        result = self._values.get("aws_job_timeout_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTAUpdate.AwsJobTimeoutConfigProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the OTA update.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def protocols(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The protocol used to transfer the OTA update image.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-protocols
+        '''
+        result = self._values.get("protocols")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The IAM role that grants AWS IoT Core access to the Amazon S3, IoT jobs and AWS Code Signing resources to create an OTA update job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Metadata which can be used to manage updates.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def target_selection(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether the update will continue to run (CONTINUOUS), or will be complete after all things specified as targets have completed the update (SNAPSHOT).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-otaupdate.html#cfn-iot-otaupdate-targetselection
+        '''
+        result = self._values.get("target_selection")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOTAUpdateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iot_df2fec1f.IPolicyRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnPolicy(
     _aws_cdk_0cae9daa.CfnResource,
@@ -25738,6 +28172,8 @@ __all__ = [
     "CfnLoggingProps",
     "CfnMitigationAction",
     "CfnMitigationActionProps",
+    "CfnOTAUpdate",
+    "CfnOTAUpdateProps",
     "CfnPolicy",
     "CfnPolicyPrincipalAttachment",
     "CfnPolicyPrincipalAttachmentProps",
@@ -27869,6 +30305,316 @@ def _typecheckingstub__14279d6a7ee85683cde23358dbc7a02f3c5c6be59c3ec3549c642e845
     role_arn: builtins.str,
     action_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e495bb10494f51c7a3b72eb9f78cdfdca98528bf7905345bcdd654ba7d084ec(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    files: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.OTAUpdateFileProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    ota_update_id: builtins.str,
+    targets: typing.Sequence[builtins.str],
+    additional_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    aws_job_abort_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.AwsJobAbortConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aws_job_executions_rollout_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aws_job_presigned_url_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.AwsJobPresignedUrlConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aws_job_timeout_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.AwsJobTimeoutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_selection: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__721f0f7cdb79ffdb4355906520a75e16f39efc14347ffd24e50f398a9fa9b366(
+    resource: _aws_iot_df2fec1f.IOTAUpdateRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf9f01980dda2aed794d0e3e21b79a41a4158a7b90a9a402f5c7c64584e4b5c0(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    ota_update_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8142ce0869551621e4e5261c7b515be312e09df917e8bf71a12d231e9314e418(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d661fe70df4862816a84b228883bbb2383252d8065399a60727e406dd8b0d19(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b33ab89a7b926bbe0ebf7019092635cda8b7971bd1ab74de46523144e11b7531(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5942a5529582da7579f51ec2b14e0ba61a52f26988a1ef8e703389d64583505e(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOTAUpdate.OTAUpdateFileProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51e61ec331e601e5d6d2e7974c158eda6bd8625cae06eb52105fa0c1d584b2b3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05d7350922c934728d4b1698095b87db5bb6011dc9ae46e45539f47cc29ef4e1(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e05ca2719a31888a567b17b9242d53fe589778d6c8c1b1182fd97d010ccd8a7e(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36b37532a43d03f79cafb69053a6f591c71185a67f03ae27d2a3b64306be3dea(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOTAUpdate.AwsJobAbortConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__475e08a2dcc9b34d13eb58e80dabfb18f81526ba82b3411e98f77980c437b6b1(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f36f368cd6b1cad29bcf45764da8243ecad9784c52f2a8b982ffc149a225d875(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOTAUpdate.AwsJobPresignedUrlConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3803c49e22ed4af49d1c29f18c54454ee34f3b91a8f50aaef1a09cbdf4267318(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOTAUpdate.AwsJobTimeoutConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65661e35496caa9b02570a730929b6885a88c93a46508d5b624a63955d7dd70a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e451feecc0a42cabba3035a27a38e5fdb33d3c9401188d537aed2c3cdf55266(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11ad3915255955c16600d3a75e4d010ece548279881802007e5816a2c9c9b70c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9d7f2158818f50422cf025915c54dc8a715771f6726392736a47f9eb9cef3c5(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90e335973b3f27f7a2f3e022dadd32efaf4feeb0153e28ac4846179c30656f07(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80bbc431da013b7d958d4ba8a655913ece809036344470458eb0f0525bf9e6eb(
+    *,
+    abort_criteria_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.AwsJobAbortCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__334e92a32f56daaedabe49ac317e3ac04d08a19b4326c40f8dbd8c0544aa5fec(
+    *,
+    action: builtins.str,
+    failure_type: builtins.str,
+    min_number_of_executed_things: jsii.Number,
+    threshold_percentage: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2acebf66ecafa74ae6e4366e730478b8b7d4c16d7be76c40a217f05e10dde8f9(
+    *,
+    exponential_rate: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.AwsJobExponentialRolloutRateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maximum_per_minute: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d945cb53c53829d51f46e593e60cc4b69d0e6e128acae75eebfe266fdedc2736(
+    *,
+    base_rate_per_minute: jsii.Number,
+    increment_factor: jsii.Number,
+    rate_increase_criteria: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.AwsJobRateIncreaseCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83f7c11c2a2c497c1ff4aa630da981c9f52c288bb93f34aa0bcccb7344e5a588(
+    *,
+    expires_in_sec: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6da2c7f089326df01da1eee8dfd4ba49b4e77a94c83ddcd0204398c3eaa7ac28(
+    *,
+    number_of_notified_things: typing.Optional[jsii.Number] = None,
+    number_of_succeeded_things: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__669693c15df81a67cffff57478b7ad1c380646e0dc7d02efc1ae794aafbfbd6c(
+    *,
+    in_progress_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b4d4d123df34bc41e453135cd0b7817abfc3bc7b7677ad7690a601185ac5320(
+    *,
+    certificate_name: typing.Optional[builtins.str] = None,
+    inline_document: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__795c4e4f98f95ccb4b64816629fa5ba705ab7fa185cabd4a1a63ae3a8583ea28(
+    *,
+    aws_signer_job_id: typing.Optional[builtins.str] = None,
+    custom_code_signing: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.CustomCodeSigningProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    start_signing_job_parameter: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.StartSigningJobParameterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a547b92663b0dcca463e6e3fd86d5177259dd04a2f4c8f6c2877d8464ae4c61b(
+    *,
+    inline_document: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3861a1ccb7c6bc8fb3e63eaad3d3dbf4b71466d09baec5882475bfdeaf32d33(
+    *,
+    certificate_chain: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.CodeSigningCertificateChainProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hash_algorithm: typing.Optional[builtins.str] = None,
+    signature: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.CodeSigningSignatureProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    signature_algorithm: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27dc4f2d39396cfa1fb38391c69984ebad8ac1880de60c961ebd0bd17710f61e(
+    *,
+    s3_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.S3DestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__978c400890eade97fe73fe5da1466add55674f3ac8e981ddc9c8a6de2ac0b3e1(
+    *,
+    s3_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stream: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.StreamProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__976eebbbd50ee7f4fa985a21403c05b2852ea569eb221fd17898d84a4aa8d8a3(
+    *,
+    attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    code_signing: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.CodeSigningProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    file_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.FileLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    file_name: typing.Optional[builtins.str] = None,
+    file_type: typing.Optional[jsii.Number] = None,
+    file_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e489cad75a42cf66a8b936e967ba16af87a1ae7e90c1dcb08aaa6587b718df6(
+    *,
+    bucket: typing.Optional[builtins.str] = None,
+    prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e86d17488c7bc4b6a72ab87b1ad82492683bdf552b06a94e9e230d09459672c(
+    *,
+    bucket: typing.Optional[builtins.str] = None,
+    key: typing.Optional[builtins.str] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__821b89b3c0f027670e2dac893ec431cff7c3360b2ddc91fe5c046a552ece85e7(
+    *,
+    certificate_arn: typing.Optional[builtins.str] = None,
+    certificate_path_on_device: typing.Optional[builtins.str] = None,
+    platform: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90cb5106e2b2f0ba78d05603fc87e784d998baaa8ae6646be0b0e105c7593a4c(
+    *,
+    destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    signing_profile_name: typing.Optional[builtins.str] = None,
+    signing_profile_parameter: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.SigningProfileParameterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22c448142cda67eb93e62285d53d0736a27274fc2f4feafcbd49d7e35ff19aa2(
+    *,
+    file_id: typing.Optional[jsii.Number] = None,
+    stream_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__33d4c12df9ec54dfcf2096706eeba85dfe2b2a3ed480c0cf9dd28e56f3f3e22a(
+    *,
+    files: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.OTAUpdateFileProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    ota_update_id: builtins.str,
+    targets: typing.Sequence[builtins.str],
+    additional_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    aws_job_abort_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.AwsJobAbortConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aws_job_executions_rollout_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.AwsJobExecutionsRolloutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aws_job_presigned_url_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.AwsJobPresignedUrlConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aws_job_timeout_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTAUpdate.AwsJobTimeoutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_selection: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

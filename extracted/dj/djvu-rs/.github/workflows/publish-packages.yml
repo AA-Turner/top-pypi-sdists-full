@@ -28,6 +28,10 @@ on:
       - 'Cargo.toml'
       - 'Makefile'
 
+# Read-only token by default; jobs that need more widen it themselves (#961).
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -58,12 +62,15 @@ jobs:
     steps:
       - name: Resolve ref
         id: ref
+        # Inputs reach the script through env, never interpolated into it.
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            REF="${{ inputs.tag }}"
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            REF="${{ github.sha }}"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            REF="$INPUT_TAG"
+          elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            REF="$GITHUB_SHA"
           else
             REF="${GITHUB_REF_NAME}"
           fi
@@ -71,10 +78,10 @@ jobs:
 
           IS_RELEASE=false
           FULL_MATRIX=false
-          if [ "${{ github.event_name }}" = "push" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
             IS_RELEASE=true
             FULL_MATRIX=true
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             FULL_MATRIX=true
             case "$REF" in
               v*|djvu-rs-v*) IS_RELEASE=true ;;
@@ -83,7 +90,7 @@ jobs:
           echo "is_release=$IS_RELEASE" >> "$GITHUB_OUTPUT"
           echo "full_matrix=$FULL_MATRIX" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.ref.outputs.ref }}
 
@@ -103,29 +110,51 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.ref }}
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master 2026-10-16
+        with:
+          toolchain: stable
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: py-sdist
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
 
+      - name: Install cargo-about
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-about
+
+      # License texts of the crates linked into the extension (#949); listed in
+      # pyproject `license-files`, so the sdist and every wheel carry it.
+      - name: Generate third-party notices
+        run: python scripts/third_party_notices.py py --out djvu-py/THIRD_PARTY_NOTICES
+
       - name: Build sdist
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
           command: sdist
           args: --manifest-path djvu-py/Cargo.toml --out dist
 
+      - name: Verify license files in sdist
+        run: |
+          set -euo pipefail
+          # maturin places the workspace LICENSE next to pyproject.toml itself.
+          # List first: `grep -q` exiting early would SIGPIPE tar under pipefail.
+          listing="$(tar tzf dist/*.tar.gz)"
+          for f in LICENSE THIRD_PARTY_NOTICES; do
+            grep -q "/$f\$" <<<"$listing" || { echo "::error::sdist lacks $f"; exit 1; }
+          done
+
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: python-sdist
           path: dist/*.tar.gz
@@ -174,7 +203,9 @@ jobs:
             manylinux: ''
             when: release
           - label: macos-arm64
-            os: macos-14
+            # macos-14 was retired by GitHub on 2026-11-02; a job on it is
+            # cancelled with "configuration ... is not supported".
+            os: macos-15
             target: aarch64
             manylinux: ''
             when: release
@@ -198,16 +229,18 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.gate.outputs.run == 'true'
         with:
           ref: ${{ needs.resolve.outputs.ref }}
 
       - name: Install Rust stable
         if: steps.gate.outputs.run == 'true'
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master 2026-10-16
+        with:
+          toolchain: stable
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         if: steps.gate.outputs.run == 'true' && runner.os != 'Linux'
         with:
           python-version: |
@@ -217,23 +250,67 @@ jobs:
             3.12
             3.13
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         if: steps.gate.outputs.run == 'true' && runner.os == 'Linux'
         with:
           python-version: '3.12'
 
+      - name: Install cargo-about
+        if: steps.gate.outputs.run == 'true'
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-about
+
+      # cargo-about ships no prebuilt binary for x86_64 macOS. install-action
+      # then falls back to a source build without the `cli` feature, which
+      # installs no binary and still reports success. That failed the macos-x64
+      # leg of the v0.44.0 run (41231372869) and cancelled the publish.
+      - name: Build cargo-about from source when no binary was installed
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: command -v cargo-about || cargo install cargo-about --locked --features cli
+
+      # `license-files` resolves next to pyproject.toml. The sdist gets the
+      # workspace LICENSE there from maturin; a wheel built from the checkout
+      # needs the copy (a committed one would collide in the sdist).
+      - name: Generate third-party notices
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          cp LICENSE djvu-py/LICENSE
+          python scripts/third_party_notices.py py --out djvu-py/THIRD_PARTY_NOTICES
+
       - name: Build wheels
         if: steps.gate.outputs.run == 'true'
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux }}
           args: --release --manifest-path djvu-py/Cargo.toml --out dist --find-interpreter
           sccache: 'true'
 
+      # maturin silently skips a missing `license-files` entry, so check.
+      - name: Verify license files in wheels
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob, sys, zipfile
+          wheels = glob.glob("dist/*.whl")
+          bad = []
+          for whl in wheels:
+              names = zipfile.ZipFile(whl).namelist()
+              for f in ("LICENSE", "THIRD_PARTY_NOTICES"):
+                  if not any(n.endswith(".dist-info/licenses/" + f) for n in names):
+                      bad.append(f"{whl}: {f}")
+          if not wheels or bad:
+              sys.exit("missing license files: " + (", ".join(bad) or "no wheels"))
+          print(f"{len(wheels)} wheels carry LICENSE + THIRD_PARTY_NOTICES")
+          PY
+
       - name: Upload wheels
         if: steps.gate.outputs.run == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: python-wheels-${{ matrix.label }}
           path: dist/*.whl
@@ -249,16 +326,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.ref }}
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
 
       - name: Download wheels
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: python-wheels-*
           path: wheelhouse
@@ -288,30 +365,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.ref }}
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master 2026-10-16
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: npm-wasm
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
 
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@v0.4.0
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
-          version: v0.13.1
+          tool: wasm-pack@0.13.1
 
       - name: Install cargo-about
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-about
 
@@ -335,7 +413,7 @@ jobs:
           ls -la npm-dist
 
       - name: Upload npm artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: npm-package
           path: |
@@ -346,19 +424,21 @@ jobs:
   npm-smoke:
     name: npm smoke (node + bundler + browser)
     needs: [resolve, npm-package]
-    runs-on: ubuntu-latest
+    # Pinned: Playwright 1.53.0 cannot install Chromium on ubuntu-26.04, where
+    # `ubuntu-latest` now lands ("does not support chromium on ubuntu26.04-x64").
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.ref }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
 
       - name: Download npm artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: npm-package
           path: .
@@ -394,12 +474,12 @@ jobs:
       contents: read
       attestations: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.ref }}
 
       - name: Download all package artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: '*'
           path: artifacts
@@ -423,7 +503,7 @@ jobs:
         run: bash scripts/package_checksums.sh release-files release-files/SHA256SUMS
 
       - name: Upload checksums bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package-checksums
           path: release-files/
@@ -431,7 +511,7 @@ jobs:
 
       - name: Attest release files
         if: needs.resolve.outputs.is_release == 'true'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: 'release-files/*'
 
@@ -458,14 +538,14 @@ jobs:
       id-token: write
     steps:
       - name: Download wheels + sdist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: python-*
           path: dist
           merge-multiple: true
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           packages-dir: dist/
 
@@ -477,13 +557,13 @@ jobs:
     timeout-minutes: 15
     environment: npm
     steps:
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download npm package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: npm-package
           path: .

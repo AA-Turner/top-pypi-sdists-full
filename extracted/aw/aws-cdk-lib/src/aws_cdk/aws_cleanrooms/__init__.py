@@ -3646,6 +3646,17 @@ class CfnConfiguredTable(
                     output_location="outputLocation",
                     region="region"
                 ),
+                databricks=cleanrooms.CfnConfiguredTable.DatabricksTableReferenceProperty(
+                    connection_type=cleanrooms.CfnConfiguredTable.DatabricksConnectionTypeProperty(
+                        delta_sharing=cleanrooms.CfnConfiguredTable.DatabricksDeltaSharingConnectionProperty(
+                            delta_share_endpoint="deltaShareEndpoint",
+                            share_name="shareName"
+                        )
+                    ),
+                    schema_name="schemaName",
+                    table_name="tableName",
+                    workspace_url="workspaceUrl"
+                ),
                 glue=cleanrooms.CfnConfiguredTable.GlueTableReferenceProperty(
                     database_name="databaseName",
                     table_name="tableName",
@@ -5389,6 +5400,244 @@ class CfnConfiguredTable(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnConfiguredTable.DatabricksConnectionTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"delta_sharing": "deltaSharing"},
+    )
+    class DatabricksConnectionTypeProperty:
+        def __init__(
+            self,
+            *,
+            delta_sharing: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguredTable.DatabricksDeltaSharingConnectionProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param delta_sharing: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-databricksconnectiontype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                databricks_connection_type_property = cleanrooms.CfnConfiguredTable.DatabricksConnectionTypeProperty(
+                    delta_sharing=cleanrooms.CfnConfiguredTable.DatabricksDeltaSharingConnectionProperty(
+                        delta_share_endpoint="deltaShareEndpoint",
+                        share_name="shareName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8992c6b4b27f3da1e4383a5b0e37f9dd06e64d685713e099fcf65b0268103637)
+                check_type(argname="argument delta_sharing", value=delta_sharing, expected_type=type_hints["delta_sharing"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "delta_sharing": delta_sharing,
+            }
+
+        @builtins.property
+        def delta_sharing(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.DatabricksDeltaSharingConnectionProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-databricksconnectiontype.html#cfn-cleanrooms-configuredtable-databricksconnectiontype-deltasharing
+            '''
+            result = self._values.get("delta_sharing")
+            assert result is not None, "Required property 'delta_sharing' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.DatabricksDeltaSharingConnectionProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DatabricksConnectionTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnConfiguredTable.DatabricksDeltaSharingConnectionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "delta_share_endpoint": "deltaShareEndpoint",
+            "share_name": "shareName",
+        },
+    )
+    class DatabricksDeltaSharingConnectionProperty:
+        def __init__(
+            self,
+            *,
+            delta_share_endpoint: builtins.str,
+            share_name: builtins.str,
+        ) -> None:
+            '''
+            :param delta_share_endpoint: 
+            :param share_name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-databricksdeltasharingconnection.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                databricks_delta_sharing_connection_property = cleanrooms.CfnConfiguredTable.DatabricksDeltaSharingConnectionProperty(
+                    delta_share_endpoint="deltaShareEndpoint",
+                    share_name="shareName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__182810211d8e2360719549d4022f6688d801123f363d402f1b02bfb84314ad1e)
+                check_type(argname="argument delta_share_endpoint", value=delta_share_endpoint, expected_type=type_hints["delta_share_endpoint"])
+                check_type(argname="argument share_name", value=share_name, expected_type=type_hints["share_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "delta_share_endpoint": delta_share_endpoint,
+                "share_name": share_name,
+            }
+
+        @builtins.property
+        def delta_share_endpoint(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-databricksdeltasharingconnection.html#cfn-cleanrooms-configuredtable-databricksdeltasharingconnection-deltashareendpoint
+            '''
+            result = self._values.get("delta_share_endpoint")
+            assert result is not None, "Required property 'delta_share_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def share_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-databricksdeltasharingconnection.html#cfn-cleanrooms-configuredtable-databricksdeltasharingconnection-sharename
+            '''
+            result = self._values.get("share_name")
+            assert result is not None, "Required property 'share_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DatabricksDeltaSharingConnectionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnConfiguredTable.DatabricksTableReferenceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "connection_type": "connectionType",
+            "schema_name": "schemaName",
+            "table_name": "tableName",
+            "workspace_url": "workspaceUrl",
+        },
+    )
+    class DatabricksTableReferenceProperty:
+        def __init__(
+            self,
+            *,
+            connection_type: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguredTable.DatabricksConnectionTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+            schema_name: builtins.str,
+            table_name: builtins.str,
+            workspace_url: builtins.str,
+        ) -> None:
+            '''
+            :param connection_type: 
+            :param schema_name: 
+            :param table_name: 
+            :param workspace_url: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-databrickstablereference.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                databricks_table_reference_property = cleanrooms.CfnConfiguredTable.DatabricksTableReferenceProperty(
+                    connection_type=cleanrooms.CfnConfiguredTable.DatabricksConnectionTypeProperty(
+                        delta_sharing=cleanrooms.CfnConfiguredTable.DatabricksDeltaSharingConnectionProperty(
+                            delta_share_endpoint="deltaShareEndpoint",
+                            share_name="shareName"
+                        )
+                    ),
+                    schema_name="schemaName",
+                    table_name="tableName",
+                    workspace_url="workspaceUrl"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3df536a1cedb41abfcfebb9bc912a3e7f571d67f249eba58e7bd1a5666f8f126)
+                check_type(argname="argument connection_type", value=connection_type, expected_type=type_hints["connection_type"])
+                check_type(argname="argument schema_name", value=schema_name, expected_type=type_hints["schema_name"])
+                check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+                check_type(argname="argument workspace_url", value=workspace_url, expected_type=type_hints["workspace_url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "connection_type": connection_type,
+                "schema_name": schema_name,
+                "table_name": table_name,
+                "workspace_url": workspace_url,
+            }
+
+        @builtins.property
+        def connection_type(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.DatabricksConnectionTypeProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-databrickstablereference.html#cfn-cleanrooms-configuredtable-databrickstablereference-connectiontype
+            '''
+            result = self._values.get("connection_type")
+            assert result is not None, "Required property 'connection_type' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.DatabricksConnectionTypeProperty"], result)
+
+        @builtins.property
+        def schema_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-databrickstablereference.html#cfn-cleanrooms-configuredtable-databrickstablereference-schemaname
+            '''
+            result = self._values.get("schema_name")
+            assert result is not None, "Required property 'schema_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def table_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-databrickstablereference.html#cfn-cleanrooms-configuredtable-databrickstablereference-tablename
+            '''
+            result = self._values.get("table_name")
+            assert result is not None, "Required property 'table_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def workspace_url(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-databrickstablereference.html#cfn-cleanrooms-configuredtable-databrickstablereference-workspaceurl
+            '''
+            result = self._values.get("workspace_url")
+            assert result is not None, "Required property 'workspace_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DatabricksTableReferenceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cleanrooms.CfnConfiguredTable.DifferentialPrivacyColumnProperty",
         jsii_struct_bases=[],
         name_mapping={"name": "name"},
@@ -5957,19 +6206,26 @@ class CfnConfiguredTable(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cleanrooms.CfnConfiguredTable.TableReferenceProperty",
         jsii_struct_bases=[],
-        name_mapping={"athena": "athena", "glue": "glue", "snowflake": "snowflake"},
+        name_mapping={
+            "athena": "athena",
+            "databricks": "databricks",
+            "glue": "glue",
+            "snowflake": "snowflake",
+        },
     )
     class TableReferenceProperty:
         def __init__(
             self,
             *,
             athena: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguredTable.AthenaTableReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            databricks: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguredTable.DatabricksTableReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             glue: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguredTable.GlueTableReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             snowflake: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguredTable.SnowflakeTableReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A pointer to the dataset that underlies this table.
 
             :param athena: If present, a reference to the Athena table referred to by this table reference.
+            :param databricks: 
             :param glue: If present, a reference to the AWS Glue table referred to by this table reference.
             :param snowflake: If present, a reference to the Snowflake table referred to by this table reference.
 
@@ -5992,6 +6248,17 @@ class CfnConfiguredTable(
                         catalog_name="catalogName",
                         output_location="outputLocation",
                         region="region"
+                    ),
+                    databricks=cleanrooms.CfnConfiguredTable.DatabricksTableReferenceProperty(
+                        connection_type=cleanrooms.CfnConfiguredTable.DatabricksConnectionTypeProperty(
+                            delta_sharing=cleanrooms.CfnConfiguredTable.DatabricksDeltaSharingConnectionProperty(
+                                delta_share_endpoint="deltaShareEndpoint",
+                                share_name="shareName"
+                            )
+                        ),
+                        schema_name="schemaName",
+                        table_name="tableName",
+                        workspace_url="workspaceUrl"
                     ),
                     glue=cleanrooms.CfnConfiguredTable.GlueTableReferenceProperty(
                         database_name="databaseName",
@@ -6018,11 +6285,14 @@ class CfnConfiguredTable(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__48547ee47249030cb21aff2b6c33202b13d80f1552ddf62b21595c3e0bb02374)
                 check_type(argname="argument athena", value=athena, expected_type=type_hints["athena"])
+                check_type(argname="argument databricks", value=databricks, expected_type=type_hints["databricks"])
                 check_type(argname="argument glue", value=glue, expected_type=type_hints["glue"])
                 check_type(argname="argument snowflake", value=snowflake, expected_type=type_hints["snowflake"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if athena is not None:
                 self._values["athena"] = athena
+            if databricks is not None:
+                self._values["databricks"] = databricks
             if glue is not None:
                 self._values["glue"] = glue
             if snowflake is not None:
@@ -6038,6 +6308,16 @@ class CfnConfiguredTable(
             '''
             result = self._values.get("athena")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.AthenaTableReferenceProperty"]], result)
+
+        @builtins.property
+        def databricks(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.DatabricksTableReferenceProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-tablereference.html#cfn-cleanrooms-configuredtable-tablereference-databricks
+            '''
+            result = self._values.get("databricks")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.DatabricksTableReferenceProperty"]], result)
 
         @builtins.property
         def glue(
@@ -7123,6 +7403,17 @@ class CfnConfiguredTableProps:
                         catalog_name="catalogName",
                         output_location="outputLocation",
                         region="region"
+                    ),
+                    databricks=cleanrooms.CfnConfiguredTable.DatabricksTableReferenceProperty(
+                        connection_type=cleanrooms.CfnConfiguredTable.DatabricksConnectionTypeProperty(
+                            delta_sharing=cleanrooms.CfnConfiguredTable.DatabricksDeltaSharingConnectionProperty(
+                                delta_share_endpoint="deltaShareEndpoint",
+                                share_name="shareName"
+                            )
+                        ),
+                        schema_name="schemaName",
+                        table_name="tableName",
+                        workspace_url="workspaceUrl"
                     ),
                     glue=cleanrooms.CfnConfiguredTable.GlueTableReferenceProperty(
                         database_name="databaseName",
@@ -10224,7 +10515,8 @@ class CfnMembership(
                         bucket="bucket",
         
                         # the properties below are optional
-                        key_prefix="keyPrefix"
+                        key_prefix="keyPrefix",
+                        result_format="resultFormat"
                     )
                 ),
                 role_arn="roleArn"
@@ -11004,7 +11296,8 @@ class CfnMembership(
                         bucket="bucket",
                 
                         # the properties below are optional
-                        key_prefix="keyPrefix"
+                        key_prefix="keyPrefix",
+                        result_format="resultFormat"
                     )
                 )
             '''
@@ -11073,7 +11366,8 @@ class CfnMembership(
                             bucket="bucket",
                 
                             # the properties below are optional
-                            key_prefix="keyPrefix"
+                            key_prefix="keyPrefix",
+                            result_format="resultFormat"
                         )
                     ),
                     role_arn="roleArn"
@@ -11399,7 +11693,11 @@ class CfnMembership(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cleanrooms.CfnMembership.ProtectedJobS3OutputConfigurationInputProperty",
         jsii_struct_bases=[],
-        name_mapping={"bucket": "bucket", "key_prefix": "keyPrefix"},
+        name_mapping={
+            "bucket": "bucket",
+            "key_prefix": "keyPrefix",
+            "result_format": "resultFormat",
+        },
     )
     class ProtectedJobS3OutputConfigurationInputProperty:
         def __init__(
@@ -11407,11 +11705,13 @@ class CfnMembership(
             *,
             bucket: builtins.str,
             key_prefix: typing.Optional[builtins.str] = None,
+            result_format: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains input information for protected jobs with an S3 output type.
 
             :param bucket: The S3 bucket for job output.
             :param key_prefix: The S3 prefix to unload the protected job results.
+            :param result_format: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-membership-protectedjobs3outputconfigurationinput.html
             :exampleMetadata: fixture=_generated
@@ -11426,18 +11726,22 @@ class CfnMembership(
                     bucket="bucket",
                 
                     # the properties below are optional
-                    key_prefix="keyPrefix"
+                    key_prefix="keyPrefix",
+                    result_format="resultFormat"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__d3e8066041ab5d5ba65ac44f96738cb04449874735750f11b6331de6bf9fda0c)
                 check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
                 check_type(argname="argument key_prefix", value=key_prefix, expected_type=type_hints["key_prefix"])
+                check_type(argname="argument result_format", value=result_format, expected_type=type_hints["result_format"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "bucket": bucket,
             }
             if key_prefix is not None:
                 self._values["key_prefix"] = key_prefix
+            if result_format is not None:
+                self._values["result_format"] = result_format
 
         @builtins.property
         def bucket(self) -> builtins.str:
@@ -11456,6 +11760,14 @@ class CfnMembership(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-membership-protectedjobs3outputconfigurationinput.html#cfn-cleanrooms-membership-protectedjobs3outputconfigurationinput-keyprefix
             '''
             result = self._values.get("key_prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def result_format(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-membership-protectedjobs3outputconfigurationinput.html#cfn-cleanrooms-membership-protectedjobs3outputconfigurationinput-resultformat
+            '''
+            result = self._values.get("result_format")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -11641,7 +11953,8 @@ class CfnMembershipProps:
                             bucket="bucket",
             
                             # the properties below are optional
-                            key_prefix="keyPrefix"
+                            key_prefix="keyPrefix",
+                            result_format="resultFormat"
                         )
                     ),
                     role_arn="roleArn"
@@ -13144,6 +13457,31 @@ def _typecheckingstub__f3e07fc4df9c2eafb409dd0b417b9236aa995940875e48daa983efee0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8992c6b4b27f3da1e4383a5b0e37f9dd06e64d685713e099fcf65b0268103637(
+    *,
+    delta_sharing: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguredTable.DatabricksDeltaSharingConnectionProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__182810211d8e2360719549d4022f6688d801123f363d402f1b02bfb84314ad1e(
+    *,
+    delta_share_endpoint: builtins.str,
+    share_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3df536a1cedb41abfcfebb9bc912a3e7f571d67f249eba58e7bd1a5666f8f126(
+    *,
+    connection_type: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguredTable.DatabricksConnectionTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+    schema_name: builtins.str,
+    table_name: builtins.str,
+    workspace_url: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__db51d35ba24655ba0ff827d1b1f747a981c133aa166ad14ccd1ac62c4aa28235(
     *,
     name: builtins.str,
@@ -13205,6 +13543,7 @@ def _typecheckingstub__83fba8d181362fec1a7a64673d96ded09367f372899b9e1e5eb170f94
 def _typecheckingstub__48547ee47249030cb21aff2b6c33202b13d80f1552ddf62b21595c3e0bb02374(
     *,
     athena: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguredTable.AthenaTableReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    databricks: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguredTable.DatabricksTableReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     glue: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguredTable.GlueTableReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     snowflake: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguredTable.SnowflakeTableReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -13946,6 +14285,7 @@ def _typecheckingstub__d3e8066041ab5d5ba65ac44f96738cb04449874735750f11b6331de6b
     *,
     bucket: builtins.str,
     key_prefix: typing.Optional[builtins.str] = None,
+    result_format: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

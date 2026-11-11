@@ -44,14 +44,15 @@ from .literals import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "AddLFTagsToResourceRequestTypeDef",
     "AddLFTagsToResourceResponseTypeDef",
     "AddObjectInputTypeDef",
+    "AnyResourceTypeDef",
     "AssumeDecoratedRoleWithSAMLRequestTypeDef",
     "AssumeDecoratedRoleWithSAMLResponseTypeDef",
     "AttachRLSPolicyRequestTypeDef",
@@ -121,6 +122,8 @@ __all__ = (
     "GetDataLakeSettingsResponseTypeDef",
     "GetEffectivePermissionsForPathRequestTypeDef",
     "GetEffectivePermissionsForPathResponseTypeDef",
+    "GetGlueFunctionSessionContextRequestTypeDef",
+    "GetGlueFunctionSessionContextResponseTypeDef",
     "GetLFTagExpressionRequestTypeDef",
     "GetLFTagExpressionResponseTypeDef",
     "GetLFTagRequestTypeDef",
@@ -137,6 +140,8 @@ __all__ = (
     "GetTableObjectsResponseTypeDef",
     "GetTemporaryDataLocationCredentialsRequestTypeDef",
     "GetTemporaryDataLocationCredentialsResponseTypeDef",
+    "GetTemporaryGlueFunctionCredentialsRequestTypeDef",
+    "GetTemporaryGlueFunctionCredentialsResponseTypeDef",
     "GetTemporaryGluePartitionCredentialsRequestTypeDef",
     "GetTemporaryGluePartitionCredentialsResponseTypeDef",
     "GetTemporaryGlueTableCredentialsRequestTypeDef",
@@ -246,6 +251,8 @@ __all__ = (
     "UpdateTableObjectsRequestTypeDef",
     "UpdateTableStorageOptimizerRequestTypeDef",
     "UpdateTableStorageOptimizerResponseTypeDef",
+    "UserDefinedFunctionResourceOutputTypeDef",
+    "UserDefinedFunctionResourceTypeDef",
     "VirtualObjectTypeDef",
     "WorkUnitRangeTypeDef",
     "WriteOperationTypeDef",
@@ -263,6 +270,10 @@ class AddObjectInputTypeDef(TypedDict):
     ETag: str
     Size: int
     PartitionValues: NotRequired[Sequence[str]]
+
+class AnyResourceTypeDef(TypedDict):
+    ResourceType: Literal["TABLE"]
+    CatalogId: NotRequired[str]
 
 class AssumeDecoratedRoleWithSAMLRequestTypeDef(TypedDict):
     SAMLAssertion: str
@@ -434,6 +445,10 @@ class GetEffectivePermissionsForPathRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class GetGlueFunctionSessionContextRequestTypeDef(TypedDict):
+    UserDefinedFunctionArns: Sequence[str]
+    DurationSeconds: NotRequired[int]
+
 class GetLFTagExpressionRequestTypeDef(TypedDict):
     Name: str
     CatalogId: NotRequired[str]
@@ -578,11 +593,23 @@ class TableResourceOutputTypeDef(TypedDict):
     Name: NotRequired[str]
     TableWildcard: NotRequired[dict[str, Any]]
 
+class UserDefinedFunctionResourceOutputTypeDef(TypedDict):
+    DatabaseName: str
+    CatalogId: NotRequired[str]
+    Name: NotRequired[str]
+    UserDefinedFunctionWildcard: NotRequired[dict[str, Any]]
+
 class TableResourceTypeDef(TypedDict):
     DatabaseName: str
     CatalogId: NotRequired[str]
     Name: NotRequired[str]
     TableWildcard: NotRequired[Mapping[str, Any]]
+
+class UserDefinedFunctionResourceTypeDef(TypedDict):
+    DatabaseName: str
+    CatalogId: NotRequired[str]
+    Name: NotRequired[str]
+    UserDefinedFunctionWildcard: NotRequired[Mapping[str, Any]]
 
 class StartTransactionRequestTypeDef(TypedDict):
     TransactionType: NotRequired[TransactionTypeType]
@@ -629,6 +656,11 @@ class GetDataLakePrincipalResponseTypeDef(TypedDict):
     Identity: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetGlueFunctionSessionContextResponseTypeDef(TypedDict):
+    SessionContextId: str
+    Expiration: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetLFTagResponseTypeDef(TypedDict):
     CatalogId: str
     TagKey: str
@@ -638,6 +670,13 @@ class GetLFTagResponseTypeDef(TypedDict):
 class GetQueryStateResponseTypeDef(TypedDict):
     Error: str
     State: QueryStateStringType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetTemporaryGlueFunctionCredentialsResponseTypeDef(TypedDict):
+    AccessKeyId: str
+    SecretAccessKey: str
+    SessionToken: str
+    Expiration: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetTemporaryGluePartitionCredentialsResponseTypeDef(TypedDict):
@@ -684,6 +723,10 @@ class GetTemporaryDataLocationCredentialsRequestTypeDef(TypedDict):
     AuditContext: NotRequired[AuditContextTypeDef]
     DataLocations: NotRequired[Sequence[str]]
     CredentialsScope: NotRequired[CredentialsScopeType]
+
+class GetTemporaryGlueFunctionCredentialsRequestTypeDef(TypedDict):
+    UserDefinedFunctionArn: str
+    AuditContext: NotRequired[AuditContextTypeDef]
 
 class ColumnLFTagTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -976,6 +1019,7 @@ class ListLFTagExpressionsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class ResourceOutputTypeDef(TypedDict):
+    AnyResource: NotRequired[AnyResourceTypeDef]
     Catalog: NotRequired[CatalogResourceTypeDef]
     Database: NotRequired[DatabaseResourceTypeDef]
     Table: NotRequired[TableResourceOutputTypeDef]
@@ -986,6 +1030,7 @@ class ResourceOutputTypeDef(TypedDict):
     LFTagPolicy: NotRequired[LFTagPolicyResourceOutputTypeDef]
     LFTagExpression: NotRequired[LFTagExpressionResourceTypeDef]
     RLSPolicy: NotRequired[RLSPolicyResourceTypeDef]
+    UserDefinedFunction: NotRequired[UserDefinedFunctionResourceOutputTypeDef]
 
 class StartQueryPlanningRequestTypeDef(TypedDict):
     QueryPlanningContext: QueryPlanningContextTypeDef
@@ -1001,6 +1046,7 @@ class GetTemporaryGlueTableCredentialsRequestTypeDef(TypedDict):
     QuerySessionContext: NotRequired[QuerySessionContextTypeDef]
 
 class ResourceTypeDef(TypedDict):
+    AnyResource: NotRequired[AnyResourceTypeDef]
     Catalog: NotRequired[CatalogResourceTypeDef]
     Database: NotRequired[DatabaseResourceTypeDef]
     Table: NotRequired[TableResourceTypeDef]
@@ -1011,6 +1057,7 @@ class ResourceTypeDef(TypedDict):
     LFTagPolicy: NotRequired[LFTagPolicyResourceTypeDef]
     LFTagExpression: NotRequired[LFTagExpressionResourceTypeDef]
     RLSPolicy: NotRequired[RLSPolicyResourceTypeDef]
+    UserDefinedFunction: NotRequired[UserDefinedFunctionResourceTypeDef]
 
 class CreateLFTagExpressionRequestTypeDef(TypedDict):
     Name: str

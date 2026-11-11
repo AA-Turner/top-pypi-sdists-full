@@ -10167,35 +10167,36 @@ def checkForWarningsGC_per_transaction(entrys,retailer):
             cta=len(entrys)
             for num,entry in enumerate(entrys):
                 for gc in BooleanAnswers.gift_cards:
-                    if gc in entry.Name.lower():
-                        totalQty=countTotal(entry)
-                        msg=std_colorize(f'Per Transaction ERROR - {Fore.orange_red_1}"(Name="{entry.Name}" EntryId="{entry.EntryId}" Barcode="{entry.Barcode}" Code="{entry.Code}" Price="{entry.Price}" TotalQty={totalQty[1]}" TTLValueForEntry="{totalQty[1]*entry.Price}"{Style.reset}',num,cta)
-                        total+=totalQty[0]
-                        codes.append(f"{Fore.orange_red_1}Per Transaction Value Exceeds {max_per_card.per_transaction_max}: "+msg+"\n")
-
-                    elif gc in entry.Note.lower():
-                        totalQty=countTotal(entry)
-                        msg=std_colorize(f'Per Transaction ERROR - {Fore.orange_red_1}"(Name="{entry.Name}" EntryId="{entry.EntryId}" Barcode="{entry.Barcode}" Code="{entry.Code}" Price="{entry.Price}" TotalQty={totalQty[1]}" TTLValueForEntry="{totalQty[1]*entry.Price}"{Style.reset}',num,cta)
-                        total+=totalQty[0]
-                        codes.append(f"{Fore.orange_red_1}Per Transaction Value Exceeds {max_per_card.per_transaction_max}: "+msg+"\n")
-
-                    elif gc in entry.Description.lower():
-                        totalQty=countTotal(entry)
-                        msg=std_colorize(f'Per Transaction ERROR - {Fore.orange_red_1}"(Name="{entry.Name}" EntryId="{entry.EntryId}" Barcode="{entry.Barcode}" Code="{entry.Code}" Price="{entry.Price}" TotalQty={totalQty[1]}" TTLValueForEntry="{totalQty[1]*entry.Price}"{Style.reset}',num,cta)
-                        total+=totalQty[0]
-                        codes.append(f"{Fore.orange_red_1}Per Transaction Value Exceeds {max_per_card.per_transaction_max}: "+msg+"\n")
-
-                    elif gc in entry.Barcode.lower():
-                        totalQty=countTotal(entry)
-                        msg=std_colorize(f'Per Transaction ERROR - {Fore.orange_red_1}"(Name="{entry.Name}" EntryId="{entry.EntryId}" Barcode="{entry.Barcode}" Code="{entry.Code}" Price="{entry.Price}" TotalQty={totalQty[1]}" TTLValueForEntry="{totalQty[1]*entry.Price}"{Style.reset}',num,cta)
-                        total+=totalQty[0]
-                        codes.append(f"{Fore.orange_red_1}Per Transaction Value Exceeds {max_per_card.per_transaction_max}: "+msg+"\n")
-
-                    elif gc in entry.Code.lower():
-                        totalQty=countTotal(entry)
-                        msg=std_colorize(f'\n{Fore.orange_red_1}"(Name="{entry.Name}" EntryId="{entry.EntryId}" Barcode="{entry.Barcode}" Code="{entry.Code}" Price="{entry.Price}" TotalQty={totalQty[1]}" TTLValueForEntry="{totalQty[1]*entry.Price}"{Style.reset}',num,cta)
-                        total+=totalQty[0]
-                        codes.append(f"{Fore.orange_red_1}Per Transaction Value Exceeds {max_per_card.per_transaction_max}: "+msg+"\n")
+                    if entry.Name != None:
+                        if gc in entry.Name.lower():
+                            totalQty=countTotal(entry)
+                            msg=std_colorize(f'Per Transaction ERROR - {Fore.orange_red_1}"(Name="{entry.Name}" EntryId="{entry.EntryId}" Barcode="{entry.Barcode}" Code="{entry.Code}" Price="{entry.Price}" TotalQty={totalQty[1]}" TTLValueForEntry="{totalQty[1]*entry.Price}"{Style.reset}',num,cta)
+                            total+=totalQty[0]
+                            codes.append(f"{Fore.orange_red_1}Per Transaction Value Exceeds {max_per_card.per_transaction_max}: "+msg+"\n")
+                    if entry.Note != None:
+                        if gc in entry.Note.lower():
+                            totalQty=countTotal(entry)
+                            msg=std_colorize(f'Per Transaction ERROR - {Fore.orange_red_1}"(Name="{entry.Name}" EntryId="{entry.EntryId}" Barcode="{entry.Barcode}" Code="{entry.Code}" Price="{entry.Price}" TotalQty={totalQty[1]}" TTLValueForEntry="{totalQty[1]*entry.Price}"{Style.reset}',num,cta)
+                            total+=totalQty[0]
+                            codes.append(f"{Fore.orange_red_1}Per Transaction Value Exceeds {max_per_card.per_transaction_max}: "+msg+"\n")
+                    if entry.Description != None:
+                        if gc in entry.Description.lower():
+                            totalQty=countTotal(entry)
+                            msg=std_colorize(f'Per Transaction ERROR - {Fore.orange_red_1}"(Name="{entry.Name}" EntryId="{entry.EntryId}" Barcode="{entry.Barcode}" Code="{entry.Code}" Price="{entry.Price}" TotalQty={totalQty[1]}" TTLValueForEntry="{totalQty[1]*entry.Price}"{Style.reset}',num,cta)
+                            total+=totalQty[0]
+                            codes.append(f"{Fore.orange_red_1}Per Transaction Value Exceeds {max_per_card.per_transaction_max}: "+msg+"\n")
+                    if entry.Barcode != None:
+                        if gc in entry.Barcode.lower():
+                            totalQty=countTotal(entry)
+                            msg=std_colorize(f'Per Transaction ERROR - {Fore.orange_red_1}"(Name="{entry.Name}" EntryId="{entry.EntryId}" Barcode="{entry.Barcode}" Code="{entry.Code}" Price="{entry.Price}" TotalQty={totalQty[1]}" TTLValueForEntry="{totalQty[1]*entry.Price}"{Style.reset}',num,cta)
+                            total+=totalQty[0]
+                            codes.append(f"{Fore.orange_red_1}Per Transaction Value Exceeds {max_per_card.per_transaction_max}: "+msg+"\n")
+                    if entry.Code != None:
+                        if gc in entry.Code.lower():
+                            totalQty=countTotal(entry)
+                            msg=std_colorize(f'\n{Fore.orange_red_1}"(Name="{entry.Name}" EntryId="{entry.EntryId}" Barcode="{entry.Barcode}" Code="{entry.Code}" Price="{entry.Price}" TotalQty={totalQty[1]}" TTLValueForEntry="{totalQty[1]*entry.Price}"{Style.reset}',num,cta)
+                            total+=totalQty[0]
+                            codes.append(f"{Fore.orange_red_1}Per Transaction Value Exceeds {max_per_card.per_transaction_max}: "+msg+"\n")
 
             if total > max_per_card.per_transaction_max:
                 m=f"\n{'.'*os.get_terminal_size().columns}"

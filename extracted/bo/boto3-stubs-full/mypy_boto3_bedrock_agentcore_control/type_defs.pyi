@@ -182,6 +182,7 @@ __all__ = (
     "BrowserSigningConfigInputTypeDef",
     "BrowserSigningConfigOutputTypeDef",
     "BrowserSummaryTypeDef",
+    "BuildLifecycleHooksTypeDef",
     "CapacityProviderConfigurationTypeDef",
     "CapacityProviderSummaryTypeDef",
     "CapacityProviderVolumeConfigurationTypeDef",
@@ -392,6 +393,9 @@ __all__ = (
     "DescriptorsTypeDef",
     "DimensionRatingScaleOutputTypeDef",
     "DimensionRatingScaleTypeDef",
+    "DomainOverrideOutputTypeDef",
+    "DomainOverrideTypeDef",
+    "DomainOverrideUnionTypeDef",
     "EbsVolumeConfigurationTypeDef",
     "Ec2ConfigurationOutputTypeDef",
     "Ec2ConfigurationTypeDef",
@@ -607,6 +611,7 @@ __all__ = (
     "HttpConnectorSourceTypeDef",
     "HttpConnectorTargetConfigurationOutputTypeDef",
     "HttpConnectorTargetConfigurationTypeDef",
+    "HttpPostLifecycleHookActionTypeDef",
     "HttpTargetConfigurationOutputTypeDef",
     "HttpTargetConfigurationTypeDef",
     "IamCredentialProviderTypeDef",
@@ -652,6 +657,8 @@ __all__ = (
     "LaunchTemplateSourceTypeDef",
     "LicenseSpecificationTypeDef",
     "LifecycleConfigurationTypeDef",
+    "LifecycleHookActionTypeDef",
+    "LifecycleHookTypeDef",
     "LimitEntryOutputTypeDef",
     "LimitEntryTypeDef",
     "LimitEntryUnionTypeDef",
@@ -922,6 +929,7 @@ __all__ = (
     "RequestHeaderConfigurationUnionTypeDef",
     "ResetTokenVaultKeyMaterialRequestTypeDef",
     "ResetTokenVaultKeyMaterialResponseTypeDef",
+    "ResourceConfigurationTypeDef",
     "ResourceLocationTypeDef",
     "ResourceTypeDef",
     "ResponseMetadataTypeDef",
@@ -934,6 +942,7 @@ __all__ = (
     "RuleOutputTypeDef",
     "RuleTypeDef",
     "RuleUnionTypeDef",
+    "RuntimeHooksConfigurationTypeDef",
     "RuntimeMetadataConfigurationTypeDef",
     "RuntimeTargetConfigurationTypeDef",
     "S3CertificateConfigurationTypeDef",
@@ -1456,6 +1465,9 @@ class ProtocolConfigurationTypeDef(TypedDict):
     port: NotRequired[int]
     path: NotRequired[str]
 
+class ResourceConfigurationTypeDef(TypedDict):
+    minimumMemoryInMiB: int
+
 class WorkloadIdentityDetailsTypeDef(TypedDict):
     workloadIdentityArn: str
 
@@ -1479,6 +1491,10 @@ class CreateDatasetVersionRequestTypeDef(TypedDict):
 class GatewayPolicyEngineConfigurationTypeDef(TypedDict):
     arn: str
     mode: GatewayPolicyEngineModeType
+
+class DomainOverrideOutputTypeDef(TypedDict):
+    defaultDomain: str
+    alternateDomains: NotRequired[list[str]]
 
 class WafConfigurationTypeDef(TypedDict):
     failureMode: NotRequired[WafFailureModeType]
@@ -1770,6 +1786,10 @@ class NumericalScaleDefinitionTypeDef(TypedDict):
     definition: str
     value: float
     label: str
+
+class DomainOverrideTypeDef(TypedDict):
+    defaultDomain: str
+    alternateDomains: NotRequired[Sequence[str]]
 
 class EbsVolumeConfigurationTypeDef(TypedDict):
     name: str
@@ -2177,6 +2197,10 @@ class HarnessVersionSummaryTypeDef(TypedDict):
 
 class HttpConnectorSourceTypeDef(TypedDict):
     connectorId: str
+
+class HttpPostLifecycleHookActionTypeDef(TypedDict):
+    path: str
+    port: NotRequired[int]
 
 IamPrincipalTypeDef = TypedDict(
     "IamPrincipalTypeDef",
@@ -3803,6 +3827,8 @@ class DimensionRatingScaleTypeDef(TypedDict):
     numerical: NotRequired[Sequence[NumericalScaleDefinitionTypeDef]]
     categorical: NotRequired[Sequence[CategoricalScaleDefinitionTypeDef]]
 
+DomainOverrideUnionTypeDef = Union[DomainOverrideTypeDef, DomainOverrideOutputTypeDef]
+
 class VolumeConfigurationTypeDef(TypedDict):
     ebsConfiguration: NotRequired[EbsVolumeConfigurationTypeDef]
 
@@ -4034,6 +4060,9 @@ class HttpConnectorTargetConfigurationOutputTypeDef(TypedDict):
 class HttpConnectorTargetConfigurationTypeDef(TypedDict):
     source: HttpConnectorSourceTypeDef
     parameters: NotRequired[Mapping[str, str]]
+
+class LifecycleHookActionTypeDef(TypedDict):
+    httpPost: NotRequired[HttpPostLifecycleHookActionTypeDef]
 
 class MatchPrincipalEntryTypeDef(TypedDict):
     iamPrincipal: NotRequired[IamPrincipalTypeDef]
@@ -4883,6 +4912,9 @@ class HarnessTruncationConfigurationTypeDef(TypedDict):
     strategy: HarnessTruncationStrategyType
     config: NotRequired[HarnessTruncationStrategyConfigurationTypeDef]
 
+class LifecycleHookTypeDef(TypedDict):
+    action: LifecycleHookActionTypeDef
+
 class MatchPrincipalsOutputTypeDef(TypedDict):
     anyOf: list[MatchPrincipalEntryTypeDef]
 
@@ -5418,6 +5450,9 @@ class HarnessHookTypeDef(TypedDict):
 
 HarnessSkillUnionTypeDef = Union[HarnessSkillTypeDef, HarnessSkillOutputTypeDef]
 
+class BuildLifecycleHooksTypeDef(TypedDict):
+    warmup: NotRequired[LifecycleHookTypeDef]
+
 class ConditionOutputTypeDef(TypedDict):
     matchPrincipals: NotRequired[MatchPrincipalsOutputTypeDef]
     matchPaths: NotRequired[MatchPathsOutputTypeDef]
@@ -5654,6 +5689,9 @@ HarnessMemoryConfigurationUnionTypeDef = Union[
     HarnessMemoryConfigurationTypeDef, HarnessMemoryConfigurationOutputTypeDef
 ]
 
+class RuntimeHooksConfigurationTypeDef(TypedDict):
+    build: NotRequired[BuildLifecycleHooksTypeDef]
+
 class ConditionTypeDef(TypedDict):
     matchPrincipals: NotRequired[MatchPrincipalsUnionTypeDef]
     matchPaths: NotRequired[MatchPathsUnionTypeDef]
@@ -5824,6 +5862,7 @@ class CreateGatewayResponseTypeDef(TypedDict):
     exceptionLevel: Literal["DEBUG"]
     webAclArn: str
     wafConfiguration: WafConfigurationTypeDef
+    domainOverride: DomainOverrideOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePaymentManagerResponseTypeDef(TypedDict):
@@ -5851,6 +5890,7 @@ class GetAgentRuntimeResponseTypeDef(TypedDict):
     networkConfiguration: NetworkConfigurationOutputTypeDef
     status: AgentRuntimeStatusType
     lifecycleConfiguration: LifecycleConfigurationTypeDef
+    hooksConfiguration: RuntimeHooksConfigurationTypeDef
     failureReason: str
     description: str
     workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
@@ -5864,6 +5904,7 @@ class GetAgentRuntimeResponseTypeDef(TypedDict):
     capacityProviderConfiguration: CapacityProviderConfigurationTypeDef
     platformVersion: str
     allowedPorts: list[AllowedPortTypeDef]
+    resourceConfigurations: list[ResourceConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetGatewayResponseTypeDef(TypedDict):
@@ -5889,6 +5930,7 @@ class GetGatewayResponseTypeDef(TypedDict):
     exceptionLevel: Literal["DEBUG"]
     webAclArn: str
     wafConfiguration: WafConfigurationTypeDef
+    domainOverride: DomainOverrideOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetPaymentManagerResponseTypeDef(TypedDict):
@@ -5970,6 +6012,7 @@ class UpdateGatewayResponseTypeDef(TypedDict):
     exceptionLevel: Literal["DEBUG"]
     webAclArn: str
     wafConfiguration: WafConfigurationTypeDef
+    domainOverride: DomainOverrideOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateRegistryResponseTypeDef(TypedDict):
@@ -6513,12 +6556,14 @@ class CreateAgentRuntimeRequestTypeDef(TypedDict):
     requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
     protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
     lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
+    hooksConfiguration: NotRequired[RuntimeHooksConfigurationTypeDef]
     environmentVariables: NotRequired[Mapping[str, str]]
     filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
     capacityProviderConfiguration: NotRequired[CapacityProviderConfigurationTypeDef]
     tags: NotRequired[Mapping[str, str]]
     platformVersion: NotRequired[str]
     allowedPorts: NotRequired[Sequence[AllowedPortTypeDef]]
+    resourceConfigurations: NotRequired[Sequence[ResourceConfigurationTypeDef]]
 
 class CreateGatewayRequestTypeDef(TypedDict):
     name: str
@@ -6534,6 +6579,7 @@ class CreateGatewayRequestTypeDef(TypedDict):
     policyEngineConfiguration: NotRequired[GatewayPolicyEngineConfigurationTypeDef]
     exceptionLevel: NotRequired[Literal["DEBUG"]]
     tags: NotRequired[Mapping[str, str]]
+    domainOverride: NotRequired[DomainOverrideUnionTypeDef]
 
 class CreatePaymentManagerRequestTypeDef(TypedDict):
     name: str
@@ -6563,12 +6609,14 @@ class UpdateAgentRuntimeRequestTypeDef(TypedDict):
     requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
     protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
     lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
+    hooksConfiguration: NotRequired[RuntimeHooksConfigurationTypeDef]
     metadataConfiguration: NotRequired[RuntimeMetadataConfigurationTypeDef]
     environmentVariables: NotRequired[Mapping[str, str]]
     filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
     capacityProviderConfiguration: NotRequired[CapacityProviderConfigurationTypeDef]
     platformVersion: NotRequired[str]
     allowedPorts: NotRequired[Sequence[AllowedPortTypeDef]]
+    resourceConfigurations: NotRequired[Sequence[ResourceConfigurationTypeDef]]
     clientToken: NotRequired[str]
 
 class UpdateGatewayRequestTypeDef(TypedDict):
@@ -6586,6 +6634,7 @@ class UpdateGatewayRequestTypeDef(TypedDict):
     policyEngineConfiguration: NotRequired[GatewayPolicyEngineConfigurationTypeDef]
     exceptionLevel: NotRequired[Literal["DEBUG"]]
     wafConfiguration: NotRequired[WafConfigurationTypeDef]
+    domainOverride: NotRequired[DomainOverrideUnionTypeDef]
 
 class UpdatePaymentManagerRequestTypeDef(TypedDict):
     paymentManagerId: str

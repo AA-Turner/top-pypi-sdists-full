@@ -11,12 +11,13 @@ from schemathesis.generation import GenerationMode
 from schemathesis.generation.coverage import GenerationSession
 from schemathesis.generation.meta import CoverageScenario, PhaseInfo
 from schemathesis.graphql import nodes
-from schemathesis.specs.graphql.scalars import CUSTOM_SCALARS, UnknownScalar
+from schemathesis.specs.graphql.scalars import UnknownScalar
 from schemathesis.specs.openapi.checks import (
     negative_data_rejection,
     positive_data_acceptance,
     response_schema_conformance,
 )
+from test.apps.catalog.graphql import bookstore
 
 DEFAULT = CoverageScenario.DEFAULT_POSITIVE_TEST
 MISSING = CoverageScenario.MISSING_PARAMETER
@@ -61,12 +62,6 @@ ORACLE_SCHEMAS = [
     "type Query { f(id: ID!): Named }",
 ]
 ORACLE_IDS = ["builtin", "custom-scalar", "objects", "recursive", "selection"]
-
-
-@pytest.fixture(autouse=True)
-def clear_custom_scalars():
-    yield
-    CUSTOM_SCALARS.clear()
 
 
 def register_scalars():
@@ -851,9 +846,9 @@ def run_against(server):
     return results
 
 
-@pytest.mark.parametrize("app", ["coverage_inputs", "books"])
-def test_conforming_server_has_no_false_positives(ctx, app):
-    results = run_against(getattr(ctx.graphql.apps, app)())
+@pytest.mark.parametrize("factory", [bookstore.coverage_inputs, bookstore.books], ids=["coverage_inputs", "books"])
+def test_conforming_server_has_no_false_positives(ctx, factory):
+    results = run_against(ctx.graphql.serve(factory()))
     assert len(results) > 1
     assert [result for result in results if result[3] is not None] == []
 
@@ -875,7 +870,7 @@ def test_server_rejects_cases_for_arguments_with_unknown_scalars(ctx):
 
 
 def test_lenient_server_fails_every_negative_scenario(ctx):
-    results = run_against(ctx.graphql.apps.lenient())
+    results = run_against(ctx.graphql.serve(bookstore.lenient()))
     assert [result for result in results if (result[3] is not None) != (result[0] == GenerationMode.NEGATIVE)] == []
     assert {scenario for mode, scenario, _, _ in results if mode == GenerationMode.NEGATIVE} == {
         MISSING,

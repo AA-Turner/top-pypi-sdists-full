@@ -365,6 +365,61 @@ async fn partial_eager_refresh_removes_by_name_and_recovers_only_missing_bytes()
 
 #[tokio::test]
 #[serial]
+async fn rejected_file_url_allows_a_healthy_append_only_in_partial_refresh() {
+    use crate::{sdk_event_emitter::SdkEventEmitter, spec_store::SpecStore};
+
+    for partial in [false, true] {
+        let options = StatsigOptions {
+            sdk_instance_id: Some("rejected-file-url".into()),
+            download_id_list_file_api: Some("https://files.test".into()),
+            experimental_flags: partial.then(|| ["partial_id_list_refresh".into()].into()),
+            ..Default::default()
+        };
+        let (provider, adapter, _) = setup_with_options(&["healthy", "bad"], options.clone());
+        let store = Arc::new(SpecStore::new(
+            "secret-tests",
+            "rejected-file-url".into(),
+            StatsigRuntime::get_runtime(),
+            Arc::new(SdkEventEmitter::default()),
+            Some(&options),
+        ));
+        adapter.set_listener(store.clone());
+        adapter.sync_id_lists().await.unwrap();
+        {
+            let mut manifest = provider.manifest.lock();
+            manifest.get_mut("healthy").unwrap().size = 6;
+            let bad = manifest.get_mut("bad").unwrap();
+            bad.size = 6;
+            bad.url = "/x%2f..%2fv1".into();
+        }
+        provider.set("healthy", vec![Outcome::Body(b"+a\n+z\n".to_vec())]);
+
+        assert!(matches!(
+            adapter.sync_id_lists().await,
+            Err(StatsigErr::InvalidOperation(reason)) if reason == "invalid ID-list file URL"
+        ));
+        let data = store.load_data();
+        let healthy = &data.id_lists["healthy"];
+        assert_eq!(healthy.metadata.size, if partial { 6 } else { 3 });
+        assert_eq!(healthy.ids.contains("z"), partial);
+        assert_eq!(data.id_lists["bad"].metadata, metadata("bad", 3, 1));
+        assert!(data.id_lists["bad"].ids.contains("a"));
+        let requests = provider.requests.lock();
+        let healthy_ranges: Vec<_> = requests
+            .iter()
+            .filter(|r| r.url.ends_with("/healthy"))
+            .map(|r| r.headers.as_ref().unwrap()["Range"].as_str())
+            .collect();
+        if partial {
+            assert_eq!(healthy_ranges, ["bytes=0-", "bytes=3-"]);
+        } else {
+            assert_eq!(healthy_ranges, ["bytes=0-"]);
+        }
+    }
+}
+
+#[tokio::test]
+#[serial]
 async fn default_refresh_preserves_embedded_names_without_counting_mismatches() {
     use crate::observability::ops_stats::OpsStatsEvent;
     let (provider, adapter, listener) = setup(&["a"]);
@@ -705,13 +760,18 @@ async fn manifest_and_file_failure_diagnostics_preserve_region_and_transport_err
                 adapter
                     .download_id_list(
                         &IdListDownloadJob {
+                            plan: IdListDownloadPlan {
+                                private_file: false,
+                                source_changed: false,
+                                range_start: 0,
+                            },
                             name: "a".into(),
-                            url: "https://files.test/a".into(),
+                            primary_url: "https://files.test/a".into(),
                             metadata: metadata("a", 3, 1),
-                            range_start: 0,
                         },
                         false,
                         0,
+                        None,
                     )
                     .await
                     .map(|_| ())
@@ -1204,7 +1264,13 @@ fn serialized_refresh_keeps_context_until_background_enqueue() {
 #[serial]
 async fn aborted_partial_batch_reports_completed_files_and_only_id_list_cancellation() {
     use crate::observability::ops_stats::OpsStatsEvent;
-    let (provider, adapter, listener) = setup(&["a", "b"]);
+    let (provider, adapter, listener) = setup_with_options(
+        &["a", "b"],
+        StatsigOptions {
+            sdk_instance_id: Some("aborted-partial-batch".into()),
+            ..Default::default()
+        },
+    );
     let mut events = adapter.ops_stats.subscribe_for_test();
     let pending_url = "https://files.test/b";
     provider.gate(pending_url);
@@ -1285,9 +1351,302 @@ async fn serialized_shutdown_during_file_backoff_does_not_retry() {
     assert!(futures::poll!(&mut refresh).is_pending());
     assert_eq!(provider.attempts("a"), 1);
     assert_eq!(provider.active.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        adapter.download_permits.available_permits(),
+        ID_LIST_DOWNLOAD_CONCURRENCY
+    );
     adapter.force_shutdown();
     tokio::time::advance(Duration::from_secs(2)).await;
     assert!(refresh.await.is_err());
     assert_eq!(provider.attempts("a"), 1);
     assert!(listener.publications.lock().is_empty());
+}
+#[tokio::test]
+async fn id_list_snapshot_opt_in_preserves_the_send_only_raw_provider() {
+    use crate::SpecStore;
+    use crate::sdk_event_emitter::SdkEventEmitter;
+    // A legacy listener (including the shared publisher) and a private EF
+    // listener must both use the existing send-only transport without advertising EF.
+    for private in [false, true] {
+        let (provider, mut adapter, _) = setup(&["a"]);
+        let adapter = Arc::get_mut(&mut adapter).unwrap();
+        adapter.snapshot_enabled = true;
+        if private {
+            adapter.set_listener(Arc::new(SpecStore::new(
+                "secret-tests",
+                "private".into(),
+                StatsigRuntime::get_runtime(),
+                Arc::new(SdkEventEmitter::default()),
+                Some(&StatsigOptions {
+                    enable_id_list_elias_fano: Some(true),
+                    ..Default::default()
+                }),
+            )));
+        }
+        adapter.sync_id_lists().await.unwrap();
+        assert_eq!(provider.attempts("a"), 1);
+        let listener = adapter.current_listener().unwrap().into_listener();
+        assert_eq!(listener.get_current_id_list_metadata()["a"].size, 3);
+    }
+}
+
+#[derive(Debug)]
+struct BlockedBody {
+    bytes: std::io::Cursor<Vec<u8>>,
+    started: Option<tokio::sync::oneshot::Sender<()>>,
+    resume: Mutex<std::sync::mpsc::Receiver<()>>,
+}
+impl Read for BlockedBody {
+    fn read(&mut self, dst: &mut [u8]) -> io::Result<usize> {
+        if let Some(started) = self.started.take() {
+            let _ = started.send(());
+            let _ = self.resume.lock().recv();
+        }
+        self.bytes.read(dst)
+    }
+}
+impl Seek for BlockedBody {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        self.bytes.seek(pos)
+    }
+}
+
+struct PausedImageProvider {
+    manifest: Vec<u8>,
+    digest: String,
+    body: Mutex<Option<BlockedBody>>,
+    requests: AtomicUsize,
+    response_gate: Semaphore,
+}
+
+#[async_trait]
+impl NetworkProvider for PausedImageProvider {
+    fn supports_wire_responses_without_redirects(&self) -> bool {
+        true
+    }
+
+    async fn send(&self, _: &HttpMethod, args: &RequestArgs) -> Response {
+        assert_eq!(args.url, "https://manifest.test/lists");
+        Outcome::Body(self.manifest.clone()).response()
+    }
+    async fn send_without_redirects(&self, _: &HttpMethod, args: &RequestArgs) -> Response {
+        assert!(
+            args.url
+                .starts_with("https://files.test/v1/download_id_list_file/")
+        );
+        self.requests.fetch_add(1, Ordering::SeqCst);
+        self.response_gate.acquire().await.unwrap().forget();
+        Response {
+            status_code: Some(200),
+            error: None,
+            data: Some(ResponseData::from_stream_with_headers(
+                Box::new(self.body.lock().take().unwrap()),
+                Some(HashMap::from([
+                    (
+                        "content-type".into(),
+                        crate::portable_id_list_ef::MEDIA_TYPE.into(),
+                    ),
+                    ("x-statsig-id-list-file-id".into(), "a.regional.east".into()),
+                    ("x-statsig-id-list-raw-end".into(), "10000".into()),
+                    ("x-statsig-id-list-sha256".into(), self.digest.clone()),
+                ])),
+            )),
+        }
+    }
+}
+
+struct ColdSnapshot {
+    adapter: Arc<StatsigHttpIdListsAdapter>,
+    store: Arc<crate::SpecStore>,
+    provider: Arc<PausedImageProvider>,
+    reading: tokio::sync::oneshot::Receiver<()>,
+    resume: std::sync::mpsc::Sender<()>,
+}
+
+async fn cold_snapshot(parallel: bool) -> ColdSnapshot {
+    use crate::id_lists_adapter::shared_id_list_format::{digest, hex};
+    use crate::portable_id_list_ef::encode_prefix_v1;
+    use crate::sdk_event_emitter::SdkEventEmitter;
+    let (_, bytes) = encode_prefix_v1(&b"+AAAAAAAA\n".repeat(1000), 0)
+        .unwrap()
+        .unwrap();
+    let generation = "a.regional.east";
+    let manifest = serde_json::json!({"a": {
+        "name":"a", "url":format!("https://fixture/v1/download_id_list_file/company%2F{generation}?private=true"),
+        "fileID":generation, "creationTime":1, "size":10000
+    }});
+    let (started, reading) = tokio::sync::oneshot::channel();
+    let (resume, pause) = std::sync::mpsc::channel();
+    let provider = Arc::new(PausedImageProvider {
+        manifest: serde_json::to_vec(&manifest).unwrap(),
+        digest: hex(&digest(&bytes)),
+        body: Mutex::new(Some(BlockedBody {
+            bytes: std::io::Cursor::new(bytes),
+            started: Some(started),
+            resume: Mutex::new(pause),
+        })),
+        requests: AtomicUsize::new(0),
+        response_gate: Semaphore::new(0),
+    });
+    let options = StatsigOptions {
+        id_lists_url: Some("https://manifest.test/lists".into()),
+        lazy_load_id_lists: Some(true),
+        enable_id_list_elias_fano: Some(true),
+        download_id_list_file_api: Some("https://files.test/".into()),
+        experimental_flags: parallel.then(|| ["parallel_lazy_id_list_builds".into()].into()),
+        ..Default::default()
+    };
+    let store = Arc::new(crate::SpecStore::new(
+        "secret-tests",
+        "private".into(),
+        StatsigRuntime::get_runtime(),
+        Arc::new(SdkEventEmitter::default()),
+        Some(&options),
+    ));
+    let mut adapter =
+        StatsigHttpIdListsAdapter::new_with_store("secret-tests", &options, store.clone());
+    let network: Arc<dyn NetworkProvider> = provider.clone();
+    adapter.set_network_provider_for_test(Arc::downgrade(&network));
+    adapter.sync_id_lists().await.unwrap();
+    assert!(store.load_data().id_lists.is_empty());
+    ColdSnapshot {
+        adapter: Arc::new(adapter),
+        store,
+        provider,
+        reading,
+        resume,
+    }
+}
+
+impl ColdSnapshot {
+    async fn cancel_during_validation(&mut self) {
+        self.provider.response_gate.add_permits(1);
+        let mut load = Box::pin(self.adapter.process_id_list("a"));
+        assert!(futures::poll!(&mut load).is_pending());
+        tokio::time::timeout(Duration::from_secs(3), &mut self.reading)
+            .await
+            .expect("validator did not start reading")
+            .unwrap();
+        drop(load);
+    }
+}
+
+#[tokio::test]
+async fn id_list_snapshot_cancelled_validation_retains_the_download_permit() {
+    let mut snapshot = cold_snapshot(false).await;
+    snapshot.cancel_during_validation().await;
+    let downloads = &snapshot.adapter.download_permits;
+    assert_eq!(
+        downloads.available_permits(),
+        ID_LIST_DOWNLOAD_CONCURRENCY - 1
+    );
+    snapshot.resume.send(()).unwrap();
+    until(|| downloads.available_permits() == ID_LIST_DOWNLOAD_CONCURRENCY).await;
+}
+
+#[tokio::test]
+async fn parallel_snapshot_retry_shares_running_validation_but_cancels_before_response() {
+    let mut snapshot = cold_snapshot(true).await;
+    let adapter = Arc::clone(&snapshot.adapter);
+    let builds = adapter
+        .lazy_id_lists
+        .as_ref()
+        .unwrap()
+        .build_permits
+        .as_ref()
+        .unwrap();
+    let mut network_waiter = Box::pin(adapter.process_id_list("a"));
+    assert!(futures::poll!(&mut network_waiter).is_pending());
+    assert_eq!(snapshot.provider.requests.load(Ordering::SeqCst), 1);
+    assert_eq!(builds.available_permits(), PRIVATE_INDEX_BUILD_CONCURRENCY);
+    drop(network_waiter);
+    assert_eq!(
+        adapter.download_permits.available_permits(),
+        ID_LIST_DOWNLOAD_CONCURRENCY
+    );
+
+    snapshot.cancel_during_validation().await;
+    let mut retry = Box::pin(adapter.process_id_list("a"));
+    assert!(futures::poll!(&mut retry).is_pending());
+    assert_eq!(
+        snapshot.provider.requests.load(Ordering::SeqCst),
+        2,
+        "retry issued another image GET"
+    );
+
+    // Queue for every build slot behind validation. A complete image must publish
+    // even while we hold them all: there is no tail index to build.
+    let mut reserve = Box::pin(builds.acquire_many(PRIVATE_INDEX_BUILD_CONCURRENCY as u32));
+    assert!(futures::poll!(&mut reserve).is_pending());
+    snapshot.resume.send(()).unwrap();
+    let _slots = tokio::time::timeout(Duration::from_secs(3), reserve)
+        .await
+        .unwrap()
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(3), retry)
+        .await
+        .unwrap()
+        .unwrap();
+    let data = snapshot.store.load_data();
+    assert_eq!(data.id_lists["a"].metadata.size, 10000);
+    assert!(data.id_lists["a"].ids.contains("AAAAAAAA"));
+}
+
+#[tokio::test]
+async fn parallel_snapshot_shutdown_drains_running_validation() {
+    let mut snapshot = cold_snapshot(true).await;
+    snapshot.cancel_during_validation().await;
+    assert!(matches!(
+        snapshot.adapter.shutdown(Duration::ZERO).await,
+        Err(StatsigErr::ShutdownFailure(_))
+    ));
+    let mut drain = Box::pin(snapshot.adapter.shutdown(Duration::from_secs(3)));
+    assert!(futures::poll!(&mut drain).is_pending());
+    snapshot.resume.send(()).unwrap();
+    drain.await.unwrap();
+    assert!(snapshot.store.load_data().id_lists.is_empty());
+}
+
+#[tokio::test]
+async fn id_list_snapshot_private_url_uses_raw_with_send_only_provider() {
+    use crate::SpecStore;
+    use crate::sdk_event_emitter::SdkEventEmitter;
+    use serde_json::json;
+    struct SendOnly(Mutex<Vec<String>>);
+    const RAW: &str = "/v1/download_id_list_file/company%2Fg1.regional.east?private=true";
+    #[async_trait]
+    impl NetworkProvider for SendOnly {
+        async fn send(&self, _: &HttpMethod, args: &RequestArgs) -> Response {
+            self.0.lock().push(args.url.clone());
+            if args.url == "https://manifest.test/lists" {
+                return Outcome::Body(serde_json::to_vec(&json!({
+                    "users": {"name":"users","url":format!("https://fixture{RAW}"),"fileID":"g1.regional.east","size":10000,"creationTime":1}
+                })).unwrap()).response();
+            }
+            assert_eq!(args.url, format!("https://files.test{RAW}"));
+            assert!(!args.headers.as_ref().unwrap().contains_key("Accept"));
+            Outcome::Body(b"+AAAAAAAA\n".repeat(1000)).response()
+        }
+    }
+    let options = StatsigOptions {
+        id_lists_url: Some("https://manifest.test/lists".into()),
+        download_id_list_file_api: Some("https://files.test".into()),
+        enable_id_list_elias_fano: Some(true),
+        ..Default::default()
+    };
+    let store = Arc::new(SpecStore::new(
+        "secret-tests",
+        "private".into(),
+        StatsigRuntime::get_runtime(),
+        Arc::new(SdkEventEmitter::default()),
+        Some(&options),
+    ));
+    let provider = Arc::new(SendOnly(Mutex::default()));
+    let dynamic: Arc<dyn NetworkProvider> = provider.clone();
+    let mut adapter = StatsigHttpIdListsAdapter::new("secret-tests", &options);
+    adapter.set_network_provider_for_test(Arc::downgrade(&dynamic));
+    adapter.set_listener(store.clone());
+    adapter.sync_id_lists().await.unwrap();
+    assert_eq!(provider.0.lock().len(), 2);
+    assert!(store.load_data().id_lists["users"].ids.contains("AAAAAAAA"));
 }

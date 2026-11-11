@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: redisvl
-Version: 0.31.0
+Version: 0.32.0
 Summary: Python client library and CLI for using Redis as a vector database
 Project-URL: Homepage, https://github.com/redis/redis-vl-python
 Project-URL: Repository, https://github.com/redis/redis-vl-python
@@ -10,13 +10,12 @@ License-Expression: MIT
 License-File: LICENSE
 Keywords: ai,redis,redis-client,vector-database,vector-search
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
-Requires-Python: <3.16,>=3.10
+Requires-Python: <3.16,>=3.11
 Requires-Dist: jsonpath-ng>=1.5.0
 Requires-Dist: ml-dtypes<1.0.0,>=0.4.0
 Requires-Dist: numpy<3,>=1.26.0
@@ -34,6 +33,7 @@ Requires-Dist: langcache>=0.11.0; extra == 'all'
 Requires-Dist: mistralai<2,>=1.0.0; extra == 'all'
 Requires-Dist: ollama>=0.5.4; extra == 'all'
 Requires-Dist: openai>=1.1.0; extra == 'all'
+Requires-Dist: opentelemetry-api>=1.30.0; extra == 'all'
 Requires-Dist: pillow>=11.3.0; extra == 'all'
 Requires-Dist: protobuf>=5.28.0; extra == 'all'
 Requires-Dist: sentence-transformers<6,>=5.2.0; extra == 'all'
@@ -59,6 +59,8 @@ Provides-Extra: ollama
 Requires-Dist: ollama>=0.5.4; extra == 'ollama'
 Provides-Extra: openai
 Requires-Dist: openai>=1.1.0; extra == 'openai'
+Provides-Extra: otel
+Requires-Dist: opentelemetry-api>=1.30.0; extra == 'otel'
 Provides-Extra: pillow
 Requires-Dist: pillow>=11.3.0; extra == 'pillow'
 Provides-Extra: sentence-transformers
@@ -119,7 +121,7 @@ Perfect for building **RAG pipelines** with real-time retrieval, **AI agents** w
 
 ## Installation
 
-Install `redisvl` into your Python (>=3.10) environment using `pip`:
+Install `redisvl` into your Python (>=3.11) environment using `pip`:
 
 ```bash
 pip install redisvl

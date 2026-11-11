@@ -303,6 +303,45 @@ def test_on_agentcore_the_spans_reach_both_exporters() -> None:
     provider.shutdown()
 
 
+def test_on_agentcore_every_span_of_an_invocation_carries_its_session() -> None:
+    """AgentCore Evaluations judges a session by the spans carrying its session.id."""
+    agentcore = InMemorySpanExporter()
+    provider = genai_tracer_provider(
+        {
+            "AGENT_RUNTIMES_TARGET": "agentcore",
+            "OTEL_EXPORTER_OTLP_ENDPOINT": "http://collector.local",
+        },
+        exporter=agentcore,
+        provider_of=SDKTracerProvider,
+    )
+    assert provider is not None
+    session = "datalayer-session-padded-01m74zgt47dgz67933p9efkg40"
+    with genai.use_session_id(session):
+        _agent(instrumentation_settings(provider, environ={})).run_sync("Weather?")
+    _agent(instrumentation_settings(provider, environ={})).run_sync("Weather?")
+    provider.force_flush()
+
+    spans = agentcore.get_finished_spans()
+    assert len(spans) == 8
+    assert [s.attributes.get("session.id") for s in spans[:4]] == [session] * 4
+    assert all("session.id" not in s.attributes for s in spans[4:])
+    provider.shutdown()
+
+
+def test_an_agentcore_runtime_s_spans_name_it_as_agentcore_does() -> None:
+    arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/datalayer_38ce5d78_4093-FlAk8GCPY1"
+    assert genai.agentcore_resource({"AGENTCORE_RUNTIME_ARN": arn}) == {
+        "service.name": "datalayer_38ce5d78_4093.DEFAULT"
+    }
+    assert (
+        genai.agentcore_resource(
+            {"AGENTCORE_RUNTIME_ARN": arn, "OTEL_SERVICE_NAME": "mine"}
+        )
+        == {}
+    )
+    assert genai.agentcore_resource({}) == {}
+
+
 def test_without_an_endpoint_on_agentcore_there_is_one_exporter() -> None:
     assert genai_tracer_provider({"AGENT_RUNTIMES_TARGET": "agentcore"}) is None
     assert genai.content_setting({}) is True

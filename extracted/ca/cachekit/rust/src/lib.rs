@@ -3,6 +3,10 @@
 //! This crate provides thin Python wrappers around the cachekit-core library.
 //! Business logic lives in cachekit-core, including the untrusted msgpack decode bound
 //! (`cachekit_core::check_msgpack_structure`).
+//!
+//! Unsafe code belongs in cachekit-core, whose CI verifies it, so the crate forbids it, and no
+//! module can allow it back. SECURITY.md says which checks enforce that.
+#![forbid(unsafe_code)]
 
 // Re-export core types for use in Python bindings
 pub use cachekit_core::{ByteStorage, StorageEnvelope};
@@ -18,9 +22,25 @@ pub use cachekit_core::{
 #[cfg(feature = "python")]
 pub mod python_bindings;
 
+// The one-pass bounded MessagePack decode of StandardSerializer, AutoSerializer and interop reads
+#[cfg(feature = "python")]
+pub mod msgpack_decode;
+
+// Short byte slices read without a call to memcpy or memcmp, for that decode's string cache.
+// Built for its tests too, so they run in the pure-Rust test build.
+#[cfg(any(feature = "python", test))]
+mod short_bytes;
+
 // The decorator's lock-free L1-hit counter. Not gated: its Python class is, so the counter's
 // own tests run in the pure-Rust test build too.
 pub mod hit_counter;
+
+// The decorator's memoised L1-only hit, answered without a lock (decorators/wrapper.py).
+#[cfg(feature = "python")]
+pub mod l1_hit;
+
+// The Memcached backend's node choice, byte-identical to pymemcache's (backends/memcached/hasher.py).
+pub mod rendezvous;
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
@@ -33,8 +53,13 @@ use pyo3::prelude::*;
 /// exposes only `&self` methods except `Keyring.for_tenant`, whose `&mut self` borrow
 /// PyO3 checks at run time (a concurrent call raises, never races), and in the features enabled here
 /// cachekit-core's only shared state is its `AtomicU64` nonce counters (its
-/// `Mutex` handle registry is behind the `ffi` feature, which is off) — no
-/// interior mutability the GIL was papering over. PyO3
+/// `Mutex` handle registry is behind the `ffi` feature, which is off). `l1_hit`'s
+/// shared state is atomics (an entry's liveness and recency), a `OnceLock` (the
+/// clock's zero), the tests' clock override (a `Mutex` with an atomic flag beside
+/// it, held only to copy or swap the reference), one `Mutex` per entry (its memo
+/// keys, written only under ObjectCache's lock and never held across Python
+/// code), and each memo's Python dict, whose single operations free-threaded
+/// CPython runs atomically — no interior mutability the GIL was papering over. PyO3
 /// enforces `Send + Sync` on every pyclass at compile time.
 #[cfg(feature = "python")]
 #[pymodule(gil_used = false)]
@@ -44,6 +69,19 @@ fn _rust_serializer(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Per-function L1-hit statistics, counted without a lock (decorators/wrapper.py)
     m.add_class::<hit_counter::PyHitCounter>()?;
+
+    // The memoised L1-only hit, its entries and their clock (decorators/wrapper.py, object_cache.py)
+    m.add_class::<l1_hit::HitMemo>()?;
+    m.add_class::<l1_hit::HitEntry>()?;
+    m.add_function(wrap_pyfunction!(l1_hit::memo_key_of, m)?)?;
+    m.add_function(wrap_pyfunction!(l1_hit::now, m)?)?;
+    m.add_function(wrap_pyfunction!(l1_hit::set_clock, m)?)?;
+    m.add("MEMO_MAX_LEN", l1_hit::MEMO_MAX_LEN)?;
+    m.add("MEMO_MAX_ARGS", l1_hit::MEMO_MAX_ARGS)?;
+    m.add("MEMO_MAX_ENTRIES", l1_hit::MEMO_MAX_ENTRIES)?;
+
+    // The Memcached backend's rendezvous node choice (backends/memcached/hasher.py)
+    m.add_function(wrap_pyfunction!(rendezvous::rendezvous_node, m)?)?;
 
     // ByteStorage.retrieve() envelope-verification-failure taxonomy. Same
     // __module__ patch as KeyringConfigurationError below: create_exception! sets it to the
@@ -57,12 +95,18 @@ fn _rust_serializer(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(python_bindings::checksum_py, m)?)?;
     m.add_function(wrap_pyfunction!(python_bindings::verify_checksum_py, m)?)?;
 
-    // Untrusted-decode structural bound — zero-copy header walk that
-    // serializers/base.py::unpackb_bounded runs before every msgpack.unpackb
+    // Untrusted-decode structural bound — the zero-copy header walk. The decodes below apply it
+    // inline; serializers/base.py::unpackb_bounded, the decode they reproduce, runs it first
     m.add_function(wrap_pyfunction!(
         python_bindings::check_msgpack_structure_py,
         m
     )?)?;
+    // The read decodes of StandardSerializer, AutoSerializer and interop: the walk above and
+    // msgpack.unpackb in one pass
+    m.add_function(wrap_pyfunction!(python_bindings::unpackb_standard_py, m)?)?;
+    m.add_function(wrap_pyfunction!(python_bindings::unpackb_auto_py, m)?)?;
+    m.add_function(wrap_pyfunction!(python_bindings::unpackb_interop_py, m)?)?;
+    m.add("MARKER_KEYS", msgpack_decode::marker_keys(m.py())?)?;
     // Test-only probe of the zero-copy buffer borrow (tests/critical/test_decrypt_buffer_input.py)
     m.add_function(wrap_pyfunction!(python_bindings::bytes_view_borrows_py, m)?)?;
 

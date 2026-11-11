@@ -433,7 +433,9 @@ class VisaSession(object):
 				self.clear_before_read()
 				self.write(command + ';*OPC')
 				if self.opc_sync_query_mechanism == OpcSyncQueryMechanism.also_check_mav:
-					end_mask |= StatusByte.message_available
+					# Build from the integer values. Flag.__ior__ expects another Flag,
+					# and a single member is typed as Literal[StatusByte.message_available].
+					end_mask = StatusByte(end_mask.value | StatusByte.message_available.value)
 
 			elif self.opc_sync_query_mechanism == OpcSyncQueryMechanism.only_check_mav_err_queue:
 				self.write(command)
@@ -614,6 +616,7 @@ class VisaSession(object):
 		if self._status_error_suppressor.has_rules():
 			count = 0
 			while res and count < self.error_queue_loop_max_count:
+				# noinspection bad-argument-type
 				if not self._status_error_suppressor.matches_any(res[0], res[1]):
 					return res
 				count += 1

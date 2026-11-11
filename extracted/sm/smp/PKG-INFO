@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: smp
-Version: 4.2.0
+Version: 4.3.0
 Summary: Simple Management Protocol (SMP) for remotely managing MCU firmware
 Project-URL: Repository, https://github.com/JPHutchins/smp
 Project-URL: Documentation, https://jphutchins.github.io/smp/

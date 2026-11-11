@@ -424,28 +424,37 @@ while `arm64` costs less per millisecond of execution.
 
 ## JSON-Aware Source Processing
 
-When using `Source.jsonData` with CDK Tokens (references to construct properties), you may need to enable the escaping option. This is particularly important when the referenced properties might contain special characters that require proper JSON escaping (like double quotes, line breaks, etc.).
+`Source.jsonData()` and `Source.yamlData()` encode each deploy-time value according to the
+type of the tokenized value used in the data structure. So if the value is a tokenized
+string (`Token.asString()`) it will be quoted, if the value is a tokenized number or list, or
+arbitrary object (`Token.asNumber()`, `Token.asList()`, `Token.asAny()`) it will not be quoted.
 
 ```python
 # bucket: s3.Bucket
 # param: ssm.StringParameter
 
 
-# Example with a secret value that contains double quotes
+# Works even if the parameter value contains double quotes
 deployment = s3deploy.BucketDeployment(self, "JsonDeployment",
     sources=[
         s3deploy.Source.json_data("config.json", {
             "api_endpoint": "https://api.example.com",
-            "secret_value": param.string_value,  # value with double quotes
+            "secret_value": param.string_value,
             "config": {
                 "enabled": True,
                 "features": ["feature1", "feature2"]
             }
-        }, escape=True)
+        })
     ],
     destination_bucket=bucket
 )
 ```
+
+CloudFormation passes every scalar to the deployment as a string, so the elements of a
+deploy-time list are always strings: a list of port numbers is deployed as `["80", "443"]`.
+
+Escaping used to require passing `{ escape: true }` to `Source.jsonData()`, and is now the
+default. See `JsonProcessingOptions` for the rare case where you want to turn it off.
 
 ## EFS Support
 
@@ -2121,29 +2130,18 @@ class JsonProcessingOptions:
     def __init__(self, *, escape: typing.Optional[builtins.bool] = None) -> None:
         '''Define options which can be passed using the method ``Source.jsonData()``.
 
-        :param escape: If set to ``true``, the marker substitution will make sure the value inserted in the file will be a valid JSON string. Default: - false
+        :param escape: Whether deploy-time values should be treated as values and escaped. The default behavior (``true``) treats deploy-time values as values and serializes them accordingly. The only reason to set this to ``false`` would be if all Token values are full JSON strings that you want to include into your JSON content as-is. You must use ``Token.asNumber()`` on those to serialize them into an unquoted context. This should be an exceedingly rare use case and hence it is not the default. Default: - true
 
-        :exampleMetadata: infused
+        :exampleMetadata: fixture=_generated
 
         Example::
 
-            # bucket: s3.Bucket
-            # param: ssm.StringParameter
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3_deployment as s3_deployment
             
-            
-            # Example with a secret value that contains double quotes
-            deployment = s3deploy.BucketDeployment(self, "JsonDeployment",
-                sources=[
-                    s3deploy.Source.json_data("config.json", {
-                        "api_endpoint": "https://api.example.com",
-                        "secret_value": param.string_value,  # value with double quotes
-                        "config": {
-                            "enabled": True,
-                            "features": ["feature1", "feature2"]
-                        }
-                    }, escape=True)
-                ],
-                destination_bucket=bucket
+            json_processing_options = s3_deployment.JsonProcessingOptions(
+                escape=False
             )
         '''
         if __debug__:
@@ -2155,9 +2153,18 @@ class JsonProcessingOptions:
 
     @builtins.property
     def escape(self) -> typing.Optional[builtins.bool]:
-        '''If set to ``true``, the marker substitution will make sure the value inserted in the file will be a valid JSON string.
+        '''Whether deploy-time values should be treated as values and escaped.
 
-        :default: - false
+        The default behavior (``true``) treats deploy-time values as values and
+        serializes them accordingly.
+
+        The only reason to set this to ``false`` would be if all Token values are
+        full JSON strings that you want to include into your JSON content as-is. You
+        must use ``Token.asNumber()`` on those to serialize them into an unquoted
+        context. This should be an exceedingly rare use case and hence it
+        is not the default.
+
+        :default: - true
         '''
         result = self._values.get("escape")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -2174,55 +2181,57 @@ class JsonProcessingOptions:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3_deployment.MarkersConfig",
-    jsii_struct_bases=[],
-    name_mapping={"json_escape": "jsonEscape"},
-)
-class MarkersConfig:
-    def __init__(self, *, json_escape: typing.Optional[builtins.bool] = None) -> None:
-        '''A configuration for markers substitution strategy.
+@jsii.enum(jsii_type="aws-cdk-lib.aws_s3_deployment.MarkerEncoding")
+class MarkerEncoding(enum.Enum):
+    '''Encoding strategies for source content substitution.'''
 
-        :param json_escape: If set to ``true``, the marker substitution will make ure the value inserted in the file will be a valid JSON string. Default: - false
+    LITERAL = "LITERAL"
+    '''Perform a literal text substitution for the marker value.
 
-        :exampleMetadata: fixture=_generated
+    - Scalars are plain-text substituted. Non-string scalars (numbers, booleans) are converted to strings
+      and then substituted.
+    - Non-scalars (lists, objects) are rejected at run time.
+    '''
+    UNQUOTED_JSON_VALUE = "UNQUOTED_JSON_VALUE"
+    '''Unquoted JSON escaping.
 
-        Example::
+    This encoding encodes values, and strips quotes that may be present in the
+    encoding. This assumes that the surrounding file is a skeleton JSON
+    document that has been seeded with quotes as appropriate to accept values
+    of the types that will be substituted at deploy-time.
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3_deployment as s3_deployment
-            
-            markers_config = s3_deployment.MarkersConfig(
-                json_escape=False
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__c22b4c70cadefb9701fc5773d5fda6fec94ecfa3854d7d72003b50084bc4d20e)
-            check_type(argname="argument json_escape", value=json_escape, expected_type=type_hints["json_escape"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if json_escape is not None:
-            self._values["json_escape"] = json_escape
+    - Strings expect to go into a pre-quoted JSON string context (e.g., ``Source.data('{"arn": "' + snsTopic.topicArn + '"}')``).
+    - Non-string scalars expect to go into a non-quoted JSON context (e.g., ``Source.data('{"port": ' + cluster.port + '}')``).
+    - Non-scalars are JSON-encoded and then fully substituted. They expect to go into a non-quoted JSON
+      context in the input string (e.g., ``Source.data('{"ports": ' + Token.asString(cluster.allPorts) + '}')``).
 
-    @builtins.property
-    def json_escape(self) -> typing.Optional[builtins.bool]:
-        '''If set to ``true``, the marker substitution will make ure the value inserted in the file will be a valid JSON string.
+    Note that scalars inside compound values will be changed to strings, by
+    CloudFormation's property stringification behavior. E.g., the JSON document
+    example from ``cluster.allPorts`` will end up as ``{ "ports": ["80", "443"] }``
+    even if the original port values were numbers.
+    '''
+    JSON_VALUE = "JSON_VALUE"
+    '''Regular JSON escaping.
 
-        :default: - false
-        '''
-        result = self._values.get("json_escape")
-        return typing.cast(typing.Optional[builtins.bool], result)
+    This encoding encodes values as regular JSON value, including any quoting
+    or bracing that may be necessary. These values can be used in a context where
+    an arbitrary JSON value is accepted.
 
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
+    - Strings are JSON-encoded and substituted with their surrounding quotes.
+    - Non-string scalars will be forced to string values by CloudFormation's
+      stringification behavior.
+    - Non-scalars are JSON-encoded and fully substituted. Scalars inside
+      compound values will be changed to strings by CloudFormation's property
+      stringification behavior.
+    '''
+    YAML_STRING = "YAML_STRING"
+    '''An unquoted YAML string substitution.
 
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
+    If the value is not a string, it will be rejected at run time.
 
-    def __repr__(self) -> str:
-        return "MarkersConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+    Otherwise, if the string renders safely as an unquoted YAML string, it will be substituted as-is.
+    If not, it will be quoted or escaped as necessary to form a valid YAML string.
+    '''
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_s3_deployment.ServerSideEncryption")
@@ -2404,22 +2413,46 @@ class Source(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_s3_deployment.S
     ) -> "ISource":
         '''Deploys an object with the specified string contents into the bucket.
 
-        The
-        content can include deploy-time values (such as ``snsTopic.topicArn``) that
-        will get resolved only during deployment.
+        The content can include deploy-time values (such as ``snsTopic.topicArn``)
+        that will get resolved only during deployment.
 
-        To store a JSON object use ``Source.jsonData()``.
-        To store YAML content use ``Source.yamlData()``.
+        The content is treated as an unstructured string, and deploy-time values
+        will (mostly) be replaced with a plain string substitution. To store
+        structured data, use either ``Source.jsonData()`` or ``Source.yamlData()``.
+
+
+        Default behavior
+
+        Due to CloudFormation behavior, scalars (strings, numbers and booleans) in Token values are
+        all treated as strings at deploy time (``"80"``, ``"true"``, etc).
+
+        - Scalars are plain-text substituted.
+        - Non-scalars (lists, objects) lead to a deployment error
+
+
+
+        JSON escaping
+
+        JSON escaping can be forced by specifying ``{ jsonEscape: true }``. Values
+        are substituted as follows:
+
+        - Scalars come in as strings pre-encoded by CloudFormation; they are JSON-encoded, and then substituted without their surrounding quotes.
+
+          - Strings expect to go into a pre-quoted JSON string context (e.g., ``Source.data('{"arn": "' + snsTopic.topicArn + '"}')``).
+          - Non-strings expect to go into a non-quoted JSON context (e.g., ``Source.data('{"port": ' + cluster.port + '}')``).
+
+        - Non-scalars are JSON-encoded and then fully substituted. They expect to go into a non-quoted JSON
+          context in the input string (e.g., ``Source.data('{"ports": ' + Token.asString(cluster.allPorts) + '}')``).
 
         :param object_key: The destination S3 object key (relative to the root of the S3 deployment).
         :param data: The data to be stored in the object.
-        :param json_escape: If set to ``true``, the marker substitution will make ure the value inserted in the file will be a valid JSON string. Default: - false
+        :param json_escape: Default marker encoding for markers that don't have a ``markerEncodings`` entry. - If ``false`` (default), the default marker encoding is ``MarkerEncoding.LITERAL``. - If ``true``, the default marker encoding is ``MarkerEncoding.UNQUOTED_JSON_VALUE``. See ``Source.data()`` for a full description of the effect of this setting. Unless you need fine-grained control over marker encoding, you should use ``Source.jsonData()`` or ``Source.yamlData()``. Default: - false
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__798b55b643d389adf599acde4d214b0b843e07f8c7984ea0e848f2da7c62822c)
             check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
             check_type(argname="argument data", value=data, expected_type=type_hints["data"])
-        markers_config = MarkersConfig(json_escape=json_escape)
+        markers_config = SourceDataOptions(json_escape=json_escape)
 
         return typing.cast("ISource", jsii.sinvoke(cls, "data", [object_key, data, markers_config]))
 
@@ -2434,13 +2467,26 @@ class Source(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_s3_deployment.S
     ) -> "ISource":
         '''Deploys an object with the specified JSON object into the bucket.
 
-        The
-        object can include deploy-time values (such as ``snsTopic.topicArn``) that
-        will get resolved only during deployment.
+        The content can include deploy-time values (such as ``snsTopic.topicArn``)
+        that will get resolved only during deployment.
+
+        Quoting of deploy-time values will be done according to the ostensible
+        type of the Token used to represent the deploy-time value.
+
+        - String tokens will be quoted into the JSON string skeleton, and
+          deploy-time values will be encoded and substituted without their
+          surrounding quotes. Will substitute correctly to working JSON if the
+          deploy-time value is a string.
+        - Number and list tokens will be encoded and substituted without quotes. Will
+          substitute correctly to working JSON if the deploy-time value is a
+          number, boolean or list or map.
+
+        Note that due to CloudFormation behavior, scalars inside lists and maps
+        will always be converted to strings.
 
         :param object_key: The destination S3 object key (relative to the root of the S3 deployment).
         :param obj: A JSON object.
-        :param escape: If set to ``true``, the marker substitution will make sure the value inserted in the file will be a valid JSON string. Default: - false
+        :param escape: Whether deploy-time values should be treated as values and escaped. The default behavior (``true``) treats deploy-time values as values and serializes them accordingly. The only reason to set this to ``false`` would be if all Token values are full JSON strings that you want to include into your JSON content as-is. You must use ``Token.asNumber()`` on those to serialize them into an unquoted context. This should be an exceedingly rare use case and hence it is not the default. Default: - true
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__34bf47f9cf16464b2d85173fbce8786a1afe889c23001b8c7575c49e0bf93ff9)
@@ -2457,6 +2503,18 @@ class Source(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_s3_deployment.S
 
         The object can include deploy-time values (such as ``snsTopic.topicArn``) that
         will get resolved only during deployment.
+
+        Quoting of deploy-time values will be done according to the ostensible
+        type of the Token used to represent the deploy-time value.
+
+        - String tokens will be unquoted if they are simple strings (basically, identifiers), and quoted
+          if they start to look complex.
+        - Number and list tokens will be encoded and substituted without quotes. Will
+          substitute correctly to working JSON if the deploy-time value is a
+          number, boolean or list or map.
+
+        Note that due to CloudFormation behavior, scalars inside lists and maps
+        will always be converted to strings.
 
         :param object_key: The destination S3 object key (relative to the root of the S3 deployment).
         :param obj: A JSON object.
@@ -2491,7 +2549,7 @@ class SourceConfig:
 
         :param bucket: The source bucket to deploy from.
         :param zip_object_key: An S3 object key in the source bucket that points to a zip file.
-        :param markers: A set of markers to substitute in the source content. Default: - no markers
+        :param markers: A set of markers to substitute in the source content. Keys are the markers to replace, and values are the replacement CloudFormation expressions. Default: - no markers
         :param markers_config: A configuration for markers substitution strategy. Default: - no configuration
 
         :exampleMetadata: fixture=_generated
@@ -2515,7 +2573,10 @@ class SourceConfig:
                     "markers_key": markers
                 },
                 markers_config=s3_deployment.MarkersConfig(
-                    json_escape=False
+                    json_escape=False,
+                    marker_encodings={
+                        "marker_encodings_key": s3_deployment.MarkerEncoding.LITERAL
+                    }
                 )
             )
         '''
@@ -2554,6 +2615,9 @@ class SourceConfig:
     def markers(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
         '''A set of markers to substitute in the source content.
 
+        Keys are the markers to replace, and values are the replacement CloudFormation
+        expressions.
+
         :default: - no markers
         '''
         result = self._values.get("markers")
@@ -2576,6 +2640,65 @@ class SourceConfig:
 
     def __repr__(self) -> str:
         return "SourceConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3_deployment.SourceDataOptions",
+    jsii_struct_bases=[],
+    name_mapping={"json_escape": "jsonEscape"},
+)
+class SourceDataOptions:
+    def __init__(self, *, json_escape: typing.Optional[builtins.bool] = None) -> None:
+        '''Options for ``Source.data()`` sources.
+
+        :param json_escape: Default marker encoding for markers that don't have a ``markerEncodings`` entry. - If ``false`` (default), the default marker encoding is ``MarkerEncoding.LITERAL``. - If ``true``, the default marker encoding is ``MarkerEncoding.UNQUOTED_JSON_VALUE``. See ``Source.data()`` for a full description of the effect of this setting. Unless you need fine-grained control over marker encoding, you should use ``Source.jsonData()`` or ``Source.yamlData()``. Default: - false
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3_deployment as s3_deployment
+            
+            source_data_options = s3_deployment.SourceDataOptions(
+                json_escape=False
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b18a64ae9e70035f74f17535d43aac215d2e6e0f08168903c2fe6974290fdfa2)
+            check_type(argname="argument json_escape", value=json_escape, expected_type=type_hints["json_escape"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if json_escape is not None:
+            self._values["json_escape"] = json_escape
+
+    @builtins.property
+    def json_escape(self) -> typing.Optional[builtins.bool]:
+        '''Default marker encoding for markers that don't have a ``markerEncodings`` entry.
+
+        - If ``false`` (default), the default marker encoding is ``MarkerEncoding.LITERAL``.
+        - If ``true``, the default marker encoding is ``MarkerEncoding.UNQUOTED_JSON_VALUE``.
+
+        See ``Source.data()`` for a full description of the effect of this setting.
+
+        Unless you need fine-grained control over marker encoding, you should
+        use ``Source.jsonData()`` or ``Source.yamlData()``.
+
+        :default: - false
+        '''
+        result = self._values.get("json_escape")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SourceDataOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -2665,6 +2788,90 @@ class UserDefinedObjectMetadata:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3_deployment.MarkersConfig",
+    jsii_struct_bases=[SourceDataOptions],
+    name_mapping={"json_escape": "jsonEscape", "marker_encodings": "markerEncodings"},
+)
+class MarkersConfig(SourceDataOptions):
+    def __init__(
+        self,
+        *,
+        json_escape: typing.Optional[builtins.bool] = None,
+        marker_encodings: typing.Optional[typing.Mapping[builtins.str, "MarkerEncoding"]] = None,
+    ) -> None:
+        '''A configuration for markers substitution strategy.
+
+        :param json_escape: Default marker encoding for markers that don't have a ``markerEncodings`` entry. - If ``false`` (default), the default marker encoding is ``MarkerEncoding.LITERAL``. - If ``true``, the default marker encoding is ``MarkerEncoding.UNQUOTED_JSON_VALUE``. See ``Source.data()`` for a full description of the effect of this setting. Unless you need fine-grained control over marker encoding, you should use ``Source.jsonData()`` or ``Source.yamlData()``. Default: - false
+        :param marker_encodings: For every marker specified in the ``markers`` property, this defines how the marker value should be encoded. The key is the marker name and the value is the encoding to use for that marker. Default: - markers with no entry use the default encoding derived from jsonEscape
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3_deployment as s3_deployment
+            
+            markers_config = s3_deployment.MarkersConfig(
+                json_escape=False,
+                marker_encodings={
+                    "marker_encodings_key": s3_deployment.MarkerEncoding.LITERAL
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c22b4c70cadefb9701fc5773d5fda6fec94ecfa3854d7d72003b50084bc4d20e)
+            check_type(argname="argument json_escape", value=json_escape, expected_type=type_hints["json_escape"])
+            check_type(argname="argument marker_encodings", value=marker_encodings, expected_type=type_hints["marker_encodings"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if json_escape is not None:
+            self._values["json_escape"] = json_escape
+        if marker_encodings is not None:
+            self._values["marker_encodings"] = marker_encodings
+
+    @builtins.property
+    def json_escape(self) -> typing.Optional[builtins.bool]:
+        '''Default marker encoding for markers that don't have a ``markerEncodings`` entry.
+
+        - If ``false`` (default), the default marker encoding is ``MarkerEncoding.LITERAL``.
+        - If ``true``, the default marker encoding is ``MarkerEncoding.UNQUOTED_JSON_VALUE``.
+
+        See ``Source.data()`` for a full description of the effect of this setting.
+
+        Unless you need fine-grained control over marker encoding, you should
+        use ``Source.jsonData()`` or ``Source.yamlData()``.
+
+        :default: - false
+        '''
+        result = self._values.get("json_escape")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def marker_encodings(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "MarkerEncoding"]]:
+        '''For every marker specified in the ``markers`` property, this defines how the marker value should be encoded.
+
+        The key is the marker name and the value is the encoding to use for that marker.
+
+        :default: - markers with no entry use the default encoding derived from jsonEscape
+        '''
+        result = self._values.get("marker_encodings")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "MarkerEncoding"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MarkersConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "BucketDeployment",
     "BucketDeploymentProps",
@@ -2674,10 +2881,12 @@ __all__ = [
     "DeploymentSourceContext",
     "ISource",
     "JsonProcessingOptions",
+    "MarkerEncoding",
     "MarkersConfig",
     "ServerSideEncryption",
     "Source",
     "SourceConfig",
+    "SourceDataOptions",
     "StorageClass",
     "UserDefinedObjectMetadata",
 ]
@@ -2850,13 +3059,6 @@ def _typecheckingstub__fd3ea1f1e2f77d50d09982cb82214db60db317cbfc5d9891f173d39c8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c22b4c70cadefb9701fc5773d5fda6fec94ecfa3854d7d72003b50084bc4d20e(
-    *,
-    json_escape: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__fc877c69568cee7364ec77003356fc6818118602dda64adf3dbf38ff7eec10b2(
     path: builtins.str,
     *,
@@ -2912,6 +3114,21 @@ def _typecheckingstub__dafa1619bb92595ec0ff7aa95e55221719ed81eb6d2f7d44a84193d81
     zip_object_key: builtins.str,
     markers: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     markers_config: typing.Optional[typing.Union[MarkersConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b18a64ae9e70035f74f17535d43aac215d2e6e0f08168903c2fe6974290fdfa2(
+    *,
+    json_escape: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c22b4c70cadefb9701fc5773d5fda6fec94ecfa3854d7d72003b50084bc4d20e(
+    *,
+    json_escape: typing.Optional[builtins.bool] = None,
+    marker_encodings: typing.Optional[typing.Mapping[builtins.str, MarkerEncoding]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

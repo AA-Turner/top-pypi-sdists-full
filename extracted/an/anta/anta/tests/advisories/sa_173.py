@@ -6,12 +6,12 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from anta._advisory.base import _PREVIEW_WARNING, _AntaAdvisoryTest
 from anta._advisory.eos_versions import VersionRule
 from anta._advisory.facts.eos import EosVersionFact
-from anta._advisory.facts.models import AvailableFact, Fact, FactDefinition, FeatureState, FeatureValue, MitigationState, MitigationValue, UnavailableFact
+from anta._advisory.facts.models import AvailableFact, Fact, FactsBase, FeatureState, MitigationState, UnavailableFact, fact_field, facts_dataclass
 from anta._advisory.facts.routing import LegacyOspfv3ConfiguredFact, Ospfv3ConfiguredFact, Ospfv3IpsecAuthenticationFact
 from anta._advisory.facts.software import SA173HotfixFact
 from anta._advisory.findings.assessment import assess_eos_scope
@@ -36,8 +36,7 @@ AFFECTED_VERSION_MATRIX: tuple[VersionRule, ...] = (
     VersionRule(major=4, minor=35, patch_lte=4),
     VersionRule(major=4, minor=34, patch_lte=6),
     VersionRule(major=4, minor=33, patch_lte=8),
-    VersionRule(major=4, minor=32, patch_lte=10),
-    VersionRule(major=4, minor_lt=32),
+    VersionRule(major=4, minor_lt=33),
 )
 FIXED_RELEASES = (
     FixedRelease(EOSVersion(4, 36, 1, suffix="F")),
@@ -66,11 +65,11 @@ _EXPECTED_OBSERVATION_COUNT = 2
 
 
 def _assess_sa173(
-    version: Fact[EOSVersion],
-    current: Fact[FeatureValue],
-    legacy: Fact[FeatureValue],
-    ipsec_authentication: Fact[MitigationValue],
-    hotfix: Fact[MitigationValue],
+    version: Fact[EosVersionFact],
+    current: Fact[Ospfv3ConfiguredFact],
+    legacy: Fact[LegacyOspfv3ConfiguredFact],
+    ipsec_authentication: Fact[Ospfv3IpsecAuthenticationFact],
+    hotfix: Fact[SA173HotfixFact],
 ) -> VulnerabilityResult:
     """Assess persistent OSPFv3 configuration, complete IPsec coverage, and the persistent SWIX."""
     available = tuple(fact for fact in (current, legacy) if isinstance(fact, AvailableFact))
@@ -115,11 +114,13 @@ class SA173(OptionalCommandsMixin, _AntaAdvisoryTest):
 
     Expected Results
     ----------------
-    * Success: The test will pass if the EOS version is outside scope or both supported observations prove OSPFv3 is absent.
-    * Failure: The test will fail if affected EOS has OSPFv3 configured without complete IPsec coverage or an applicable hotfix.
-    * Mitigated: The test is mitigated when IPsec covers every configured OSPFv3 scope or an applicable persistent hotfix is installed.
-    * Error: The test will error if required EOS version, OSPFv3 configuration, IPsec coverage, or applicable hotfix state cannot be determined.
+    * Not Affected: The EOS version is outside scope or both supported observations prove OSPFv3 is absent.
+    * Affected: Affected EOS has OSPFv3 configured without complete IPsec coverage or an applicable hotfix.
+    * Mitigated: IPsec covers every configured OSPFv3 scope or an applicable persistent hotfix is installed.
+    * Error: Required EOS version, OSPFv3 configuration, IPsec coverage, or applicable hotfix state cannot be determined.
 
+    Notes
+    -----
     Active-neighbor absence is not accepted as a safe state because adjacency state is transient. IPsec mitigation is evaluated against persistent
     interface, VRF, area, and address-family configuration instead of the neighbors present when the test runs.
 
@@ -131,26 +132,24 @@ class SA173(OptionalCommandsMixin, _AntaAdvisoryTest):
     ```
     """
 
+    @facts_dataclass
+    class Facts(FactsBase):
+        """Collected facts required to assess the advisory."""
+
+        version: Fact[EosVersionFact] = fact_field(EosVersionFact)
+        current: Fact[Ospfv3ConfiguredFact] = fact_field(Ospfv3ConfiguredFact)
+        legacy: Fact[LegacyOspfv3ConfiguredFact] = fact_field(LegacyOspfv3ConfiguredFact)
+        ipsec_authentication: Fact[Ospfv3IpsecAuthenticationFact] = fact_field(Ospfv3IpsecAuthenticationFact)
+        hotfix: Fact[SA173HotfixFact] = fact_field(SA173HotfixFact)
+
     advisory: ClassVar[_AdvisoryMetadata] = ADVISORY
-    required_facts: ClassVar[tuple[type[FactDefinition[Any]], ...]] = (
-        EosVersionFact,
-        Ospfv3ConfiguredFact,
-        LegacyOspfv3ConfiguredFact,
-        Ospfv3IpsecAuthenticationFact,
-        SA173HotfixFact,
-    )
     description = "Verify whether the device is impacted by Security Advisory 0173."
     _atomic_support = True
 
     @_AntaAdvisoryTest.anta_test
     def test(self) -> None:
         """Derive the declared facts, assess the vulnerability, and project it."""
-        finding = _assess_sa173(
-            self.fact(EosVersionFact),
-            self.fact(Ospfv3ConfiguredFact),
-            self.fact(LegacyOspfv3ConfiguredFact),
-            self.fact(Ospfv3IpsecAuthenticationFact),
-            self.fact(SA173HotfixFact),
-        )
+        facts = self.Facts.collect(self)
+        finding = _assess_sa173(facts.version, facts.current, facts.legacy, facts.ipsec_authentication, facts.hotfix)
         atomic_result = self.result.add(f"Verify {VULNERABILITY_ID}.", vulnerability_ids=(VULNERABILITY_ID,))
         project_vulnerability_result(atomic_result, finding)

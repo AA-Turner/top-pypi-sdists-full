@@ -238,6 +238,11 @@ preloader={
             'desc':'create new name for entry\'s where payslip info is needed'
                 },
     f'{uuid1()}':{
+            'cmds':['batch to doc',"files in batch to doc","files batch 2 doc","b2d","fibtd","fib2d",],
+            'exec':batch_to_doc,
+            'desc':'compile files in ./Batch or specified directory, folder, to document, as pdf'
+                },
+    f'{uuid1()}':{
             'cmds':['bt',"break time",],
             'exec':Break_Time,
             'desc':"Get The Time for your break; keep track of your breaks"

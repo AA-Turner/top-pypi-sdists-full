@@ -154,12 +154,13 @@ in C{pygeodesy} are based on I{Karney}'s post U{Area of a spherical polygon
 from __future__ import division as _; del _  # noqa: E702 ;
 
 from pygeodesy.basics import _copysign, _isin, isint, neg, _xgeographiclib, _zip
-from pygeodesy.constants import NAN, _isfinite as _math_isfinite, \
+from pygeodesy.constants import NAN, _isfinite as _math_isfinite, _over, \
                                _0_0, _1_0, _2_0, _180_0, _N_180_0, _360_0
 # from pygeodesy.deprecated.classes import Rhumb7Tuple  # _MODS
+# from pygeodesy.ellipsoids import _Taus  # _MODS
 from pygeodesy.errors import GeodesicError, _ValueError, _xkwds
 # from pygeodesy.geod3Solve import Geod3Solve8Tuple  # _MODS
-from pygeodesy.fmath import cbrt, fhorner, fremainder, norm2
+from pygeodesy.fmath import cbrt, fhorner, fremainder, ftruncate, norm2
 from pygeodesy.fsums import _Ksum
 from pygeodesy.internals import _getenv, _popen2, _PYGEODESY_ENV, typename, \
                                 _version_info
@@ -177,7 +178,7 @@ from pygeodesy.utily import atan2d, sincos2d, tand, _unrollon,  fabs
 # from math import fabs  # from .utily
 
 __all__ = _ALL_LAZY.karney
-__version__ = '26.04.03'
+__version__ = '26.10.30'
 
 _1_16th     = _1_0 / 16
 _2_4_       = '2.4'
@@ -675,6 +676,10 @@ class _kWrapped(_CapsBase):  # in .geodesicw
         from geographiclib.polygonarea import PolygonArea
         return PolygonArea
 
+    @property_ROnce
+    def _Taus(self):  # lazy import
+        return _MODS.ellipsoids._Taus
+
 _wrapped = _kWrapped()  # PYCHOK singleton, .datum, .test/base.py
 
 
@@ -817,6 +822,12 @@ def _diff182(deg0, deg, K_2_0=False):
                 d = _N_180_0
             d, t = _sum2(d, t)
         return d, t
+
+
+def _eatanhe(x, es):
+    '''Compute GeographicLib 2.7+ C{Math.eatanhe(x, es)}.
+    '''
+    return _wrapped._Taus(es).eatanhe(x)
 
 
 def _fix90(deg):  # mimick Math.LatFix
@@ -963,6 +974,15 @@ def _remainder(x, y):
         return fremainder(x, y)
 
 
+def _remainder2(x, m):
+    '''Remainder of C{r = x / (m * 2)} and C{int((x - r) / (m * 2)) * 2}.
+    '''
+    n = _2_0 * m
+    r = _remainder(x, n)
+    n =  ftruncate(_over(x - r, n)) * 2  # int(2)!
+    return r, n
+
+
 if _K_2_0:
     from math import cos as _cos, sin as _sin
 
@@ -1053,6 +1073,18 @@ def _tand(x):
         return tand(x)  # Error=None
 
 
+def _tauf(taup, es):
+    '''Compute GeographicLib 2.7+ C{Math.tauf(taup, es)}.
+    '''
+    return _wrapped._Taus(es).tauf(taup)
+
+
+def _taupf(tau, es):
+    '''Compute GeographicLib 2.7+ C{Math.taupf(tau, es)}.
+    '''
+    return _wrapped._Taus(es).taupf(tau)
+
+
 def _unroll2(lon1, lon2, wrap=False):  # see .ellipsoidalBaseDI._intersects2
     '''Unroll B{C{lon2 - lon1}} like C{geodesic.Geodesic.Inverse}.
 
@@ -1078,7 +1110,7 @@ __all__ += _ALL_DOCS(Caps, _CapsBase)
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

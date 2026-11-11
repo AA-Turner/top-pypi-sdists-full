@@ -555,6 +555,51 @@ class _IMetricAttributionRefProxy(
 typing.cast(typing.Any, IMetricAttributionRef).__jsii_proxy_class__ = lambda : _IMetricAttributionRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.IRecommenderRef")
+class IRecommenderRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Recommender.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderRef")
+    def recommender_ref(self) -> "RecommenderReference":
+        '''(experimental) A reference to a Recommender resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRecommenderRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Recommender.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_personalize.IRecommenderRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderRef")
+    def recommender_ref(self) -> "RecommenderReference":
+        '''(experimental) A reference to a Recommender resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RecommenderReference", jsii.get(self, "recommenderRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRecommenderRef).__jsii_proxy_class__ = lambda : _IRecommenderRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.ISchemaRef")
 class ISchemaRef(
     _constructs_77d1e7e8.IConstruct,
@@ -695,6 +740,55 @@ class MetricAttributionReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_personalize.RecommenderReference",
+    jsii_struct_bases=[],
+    name_mapping={"recommender_arn": "recommenderArn"},
+)
+class RecommenderReference:
+    def __init__(self, *, recommender_arn: builtins.str) -> None:
+        '''A reference to a Recommender resource.
+
+        :param recommender_arn: The RecommenderArn of the Recommender resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_personalize as interfaces_personalize
+            
+            recommender_reference = interfaces_personalize.RecommenderReference(
+                recommender_arn="recommenderArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__44f174b3244f77f3a8fd80e5c62463678b85b57bf8f6527b17e65e70a5885e80)
+            check_type(argname="argument recommender_arn", value=recommender_arn, expected_type=type_hints["recommender_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "recommender_arn": recommender_arn,
+        }
+
+    @builtins.property
+    def recommender_arn(self) -> builtins.str:
+        '''The RecommenderArn of the Recommender resource.'''
+        result = self._values.get("recommender_arn")
+        assert result is not None, "Required property 'recommender_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RecommenderReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_personalize.SchemaReference",
     jsii_struct_bases=[],
     name_mapping={"schema_arn": "schemaArn"},
@@ -804,9 +898,11 @@ __all__ = [
     "IEventTrackerRef",
     "IFilterRef",
     "IMetricAttributionRef",
+    "IRecommenderRef",
     "ISchemaRef",
     "ISolutionRef",
     "MetricAttributionReference",
+    "RecommenderReference",
     "SchemaReference",
     "SolutionReference",
 ]
@@ -855,6 +951,13 @@ def _typecheckingstub__f901034fd37d74f86a1f352aac6f6ff15fc0b4e1c2eefd635246f8496
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__44f174b3244f77f3a8fd80e5c62463678b85b57bf8f6527b17e65e70a5885e80(
+    *,
+    recommender_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a6cd5ef72a7892e6fc2e89c44ce2a2108abd8cb5fa5db53e6d641fbf75e6fd0e(
     *,
     schema_arn: builtins.str,
@@ -869,5 +972,5 @@ def _typecheckingstub__4eb7000ac778c9296a1bcf604536bc2f9b85654eafa6d8acf1a30e8d4
     """Type checking stubs"""
     pass
 
-for cls in [ICampaignRef, IDatasetGroupRef, IDatasetRef, IEventTrackerRef, IFilterRef, IMetricAttributionRef, ISchemaRef, ISolutionRef]:
+for cls in [ICampaignRef, IDatasetGroupRef, IDatasetRef, IEventTrackerRef, IFilterRef, IMetricAttributionRef, IRecommenderRef, ISchemaRef, ISolutionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

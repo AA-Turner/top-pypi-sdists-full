@@ -34,6 +34,7 @@ BACKEND_TOOL_ACTIONS: Dict[str, List[str]] = {
     "generate-haiku": ["read"],
     "generate-task-steps": ["read"],
     "get-weather": ["read"],
+    "github-repositories": ["read"],
     "runtime-echo": ["read"],
     "runtime-send-mail": ["send"],
     "runtime-sensitive-echo": ["read"],
@@ -43,6 +44,9 @@ BACKEND_TOOL_ACTIONS: Dict[str, List[str]] = {
 #: What each MCP server's tools do, by server id. `checked` is the day the
 #: names were read off the running server, or None when nobody looked.
 SERVER_ACTIONS: Dict[str, ServerActionsSpec] = {
+    "agentcore-gateway-example": ServerActionsSpec.model_validate(
+        {"checked": None, "default": [], "tools": {}, "conditions": {}, "signs": {}}
+    ),
     "alphavantage": ServerActionsSpec.model_validate(
         {"checked": None, "default": [], "tools": {}, "conditions": {}, "signs": {}}
     ),

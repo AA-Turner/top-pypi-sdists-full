@@ -440,6 +440,30 @@ fn full_protobuf_response_rejects_unhydrated_remote_config_metadata() {
     assert!(next.dynamic_configs.is_empty());
 }
 
+#[tokio::test]
+async fn matching_gate_or_layer_checksum_cannot_hide_forbidden_metadata() {
+    for kind in [
+        pb::SpecsEnvelopeKind::FeatureGate,
+        pb::SpecsEnvelopeKind::LayerConfig,
+    ] {
+        let mut envelope = entity_envelope(kind, "cached", 7);
+        let mut current = SpecsResponseFull::default();
+        let mut initial = full_dynamic_config_response(std::slice::from_ref(&envelope), 1);
+        hydrated_store_update(&SpecsResponseFull::default(), &mut current, &mut initial)
+            .await
+            .unwrap();
+
+        let mut spec = pb::Spec::decode(envelope.data.as_deref().unwrap()).unwrap();
+        spec.remote_config_metadata = Some(Default::default());
+        envelope.data = Some(spec.encode_to_vec());
+        let mut update = full_dynamic_config_response(&[envelope], 2);
+        let error = hydrated_store_update(&current, &mut SpecsResponseFull::default(), &mut update)
+            .await
+            .expect_err("a matching checksum must not bypass validation");
+        assert!(error.to_string().contains("unsupported_entity"), "{error}");
+    }
+}
+
 #[test]
 fn protobuf_session_update_mode_bypasses_matching_preloaded_spec() {
     let existing = SpecsHashMap::default();

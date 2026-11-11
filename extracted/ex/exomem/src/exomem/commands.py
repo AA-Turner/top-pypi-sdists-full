@@ -29,17 +29,14 @@ import re
 import shlex
 import time
 from collections.abc import Callable, Iterable, Mapping
-from contextlib import nullcontext, suppress
+from contextlib import ExitStack, nullcontext, suppress
 from dataclasses import dataclass, replace
-from functools import partial
+from functools import partial, wraps
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
-from typing import Annotated, Any, Literal, NamedTuple, NotRequired, get_args
+from typing import Annotated, Any, Literal, NamedTuple, NotRequired, TypeVar, cast, get_args
 
-from fastmcp.tools import ToolResult
-from fastmcp.utilities.types import Image as FastMCPImage
-from mcp.types import TextContent
 from pydantic import ConfigDict, Field, StrictInt, StringConstraints, WithJsonSchema
 from typing_extensions import TypedDict
 
@@ -66,9 +63,11 @@ from . import contradiction_stance as contradiction_stance_module
 from . import corpus_aware as corpus_aware_module
 from . import create_directory as create_directory_module
 from . import create_file as create_file_module
+from . import dataset_values as dataset_values_module
 from . import deferred_write_advisory as deferred_write_advisory_module
 from . import delete_directory as delete_directory_module
 from . import delete_file as delete_file_module
+from . import dimension_display as dimension_display_module
 from . import edit as edit_module
 from . import edit_operations as edit_operations_module
 from . import entity_candidates as entity_candidates_module
@@ -80,8 +79,8 @@ from . import episode_nudge as episode_nudge_module
 from . import episode_workflow as episode_workflow_module
 from . import epistemic_graph as epistemic_graph_module
 from . import evolution as evolution_module
-from . import find as find_module
 from . import (
+    fastmcp_types,
     find_types,
     note_types,
     operation_entries,
@@ -94,6 +93,7 @@ from . import (
     vault,
     vocabulary_resolution,
 )
+from . import find as find_module
 from . import freshness as freshness_module
 from . import get_page as get_page_module
 from . import held_operation as held_operation_module
@@ -114,11 +114,14 @@ from . import mutation_terminal as mutation_terminal_module
 from . import note as note_module
 from . import observe_memory as observe_memory_module
 from . import overview as overview_module
+from . import page_ids as page_ids_module
+from . import page_names as page_names_module
 from . import plan_memory as plan_memory_module
 from . import plan_progress as plan_progress_module
 from . import procedure_approval_operation as procedure_approval_operation_module
 from . import promotions as promotions_module
 from . import provenance as provenance_module
+from . import public_tools as public_tools_module
 from . import query_data as query_data_module
 from . import readiness as readiness_module
 from . import recall_timing as recall_timing_module
@@ -136,12 +139,14 @@ from . import request_budget as request_budget_module
 from . import reserved_paths as reserved_paths_module
 from . import retrieval_explain as retrieval_explain_module
 from . import review_context as review_context_module
+from . import review_ids as review_ids_module
 from . import review_state as review_state_module
 from . import semantic_authoring as semantic_authoring_module
+from . import semantic_kinds as semantic_kinds_module
+from . import semantic_labels as semantic_labels_module
 from . import semantic_language_registry as semantic_language_registry_module
 from . import semantic_unit_read as semantic_unit_read_module
 from . import semantic_units as semantic_units_module
-from . import semantic_verdicts as semantic_verdicts_module
 from . import semantic_writes as semantic_writes_module
 from . import set_frontmatter_field as set_frontmatter_field_module
 from . import set_take as set_take_module
@@ -855,6 +860,7 @@ def op_bootstrap(
     workflow: str | None = None,
     skill_contract: str | None = None,
     section: str | None = None,
+    topic: str | None = None,
 ) -> dict:
     """Read Exomem's contract and live settings when missing or changed; reuse while current.
 
@@ -866,7 +872,17 @@ def op_bootstrap(
         workflow: Context label only.
         skill_contract: Session digest; missing/stale returns compact plus session_profile_unavailable.
         section: Compact block name; index lists available blocks.
+        topic: A listed tool, a door or one door operation; returns its arguments and an example
+            instead of the contract.
     """
+    if topic is not None:
+        if (profile, workflow, skill_contract, section) != ("compact", None, None, None):
+            raise ValueError("bootstrap: topic stands alone; it takes no profile, workflow, skill_contract or section")
+        from . import public_surface as public_surface_module
+
+        return public_surface_module.help_for(
+            topic, _active_bootstrap_descriptor().contributing_commands or PRODUCT_COMMANDS
+        )
     if profile not in ("compact", "full", "diagnostics", "session"):
         raise ValueError(
             "bootstrap: profile must be 'compact', 'full', 'diagnostics', or 'session', "
@@ -942,6 +958,10 @@ def op_bootstrap(
     )
     active_product_names = frozenset(active_descriptor.product_commands)
     tool_shape = active_descriptor.tool_shape
+    public = tool_shape == "public"
+    # The same advice spelled for the surface that reads it: the public tools name these arguments differently.
+    detail_full = "detail='full'" if public else "response_detail='full'"
+    suggest_links = "create_note(suggest_links=true)" if public else "create_note(suggestions=true)"
 
     def listed(command: str, effect: operation_entries.Effect | None = None) -> bool:
         """Whether the surface lists the command's required side in its active shape."""
@@ -1378,6 +1398,31 @@ def op_bootstrap(
     semantic_authoring_projection = semantic_authoring_module.bootstrap_projection(
         authoring_contract, profile=profile
     )
+    # The reviewed-write contracts as the public tools state them: they carry a preview and an
+    # unlinked reason, where the grouped writers carry drafts, hashes and tokens.
+    public_reviewed_creation = {
+        "preview": "call create_note with preview=true to read the semantic feedback without writing",
+        "commit": "after review, call create_note again without preview; the write validates the same bytes again",
+        "unlinked": (
+            "when no truthful link applies, send a bounded unlinked_reason; "
+            "never fabricate one or infer review from missing links"
+        ),
+        "generic": (
+            "a write that adds a generic relation is refused with GENERIC_RELATION_REFUSED, "
+            "a ranked list of up to eight specific relations and the exact routes: retry "
+            "with one, propose a new relation type, or as a last resort write a plain link"
+        ),
+        "adoption_handoff": (
+            f"{call_text('adopt_vault', {'mode': 'compile-selected'})} returns a proposal only; review "
+            "it, then call create_note() so normal semantic precommit still applies"
+        ),
+    }
+    public_reviewed_existing_edit = {
+        "rule": (
+            "if refused for relation review, send the edit again with unlinked_reason when no "
+            "truthful link applies; preview=true shows the review without writing"
+        ),
+    }
     if listed("record_memory"):
         contract_tool, contract_arguments = operation_entries.spell_call(
             "record_memory", {"action": "describe"}, tool_shape
@@ -1509,6 +1554,9 @@ def op_bootstrap(
             f"{tools_text('plan_memory', 'write')} before treating them as observed Records."
         ),
         "inventory": (
+            "Name a collection by its title and a plan item by the id that query_plan_items returns. "
+            "Send changes with edit_plan_item and why; a stale id is refused with the current one."
+            if public else
             f"{call_text('plan_memory', {'action': 'inspect'})} without collection lists manifest_path. "
             "Query by title or natural key plus lifecycle/status. For update/triage, "
             "use inspect/query snapshot as expected_container_hash and the chosen "
@@ -1567,9 +1615,9 @@ def op_bootstrap(
                 "recorded afterwards proves nothing."
             ),
             "judge_categorically": (
-                "Close a claim with one word from the outcome vocabulary below. This "
-                "substrate keeps no numeric confidence, credence, or probability: a "
-                "verdict is lifecycle state, never a score."
+                "Close a claim with one outcome word below, never a score. A claim has no "
+                "confidence score: put a degree of belief in a belief unit with its holder, "
+                "and a basis for a probability."
             ),
             "keep_the_negative_result": (
                 "Refuted is not superseded. A refuted claim keeps active standing and "
@@ -1581,7 +1629,7 @@ def op_bootstrap(
         "vocabulary": {
             # The shipped verdicts only. A vault's own live in its registry and in the schema read
             # named by `vault_verdicts`; teaching them here would hand every vault the same list.
-            "outcomes": list(semantic_verdicts_module.pack()),
+            "outcomes": list(semantic_labels_module.pack(semantic_labels_module.VERDICTS)),
             "governed_unit_metadata": list(semantic_units_module.GOVERNED_UNIT_METADATA_KEYS),
             "verdict": (
                 "The judgment: exactly one verdict, shared with an experiment "
@@ -1603,19 +1651,23 @@ def op_bootstrap(
                 "Last current date (YYYY-MM-DD); activation marks it expired afterward "
                 "and omits it from stance."
             ),
+            # Names the list above rather than repeating it, so the rule costs no bytes per key.
             "metadata_form": (
-                f"{', '.join(semantic_units_module.GOVERNED_UNIT_METADATA_KEYS)} use "
-                "`- key: value` rows in rich `## Heading` units. Compact `- [category] ...` "
-                "units have no metadata. Governed rows survive an edit to unit text."
+                "Each governed_unit_metadata key is a `- key: value` row in a rich `## Heading` "
+                "unit. Compact `- [category] ...` units have no metadata. Governed rows survive "
+                "an edit to unit text."
             ),
+            # The shipped entries that carry a `teach` line. A vault's own kinds and relations
+            # never appear here: the pack states the line, and a vault entry may not set one.
             "kinds": {
-                "open_question": "a question this store has not answered yet",
-                "hypothesis": "a proposed explanation still under test",
-                "prediction": "a checkable claim about a future observation",
+                key: kind.teach
+                for key, kind in semantic_kinds_module.pack().items()
+                if kind.teach
             },
             "relations": {
-                "contradicts": "edge to material conflicting with this claim",
-                "supersedes": "edge to the page whose current view this replaces",
+                key: definition.teach
+                for key, definition in relation_registry_module.core_registry().core.items()
+                if definition.teach
             },
         },
         "capture_nudge": (
@@ -1810,8 +1862,8 @@ def op_bootstrap(
                     if profile == "compact" else
                     "after a write, read the returned warnings and follow up on "
                     "unresolved links or duplicate warnings; write_feedback needs "
-                    "response_detail='full', and suggestions additionally need "
-                    "create_note(suggestions=true)"
+                    f"{detail_full}, and suggestions additionally need "
+                    f"{suggest_links}"
                 ),
                 (
                     "Tell the user the reply's user_summary; follow next_action when present; "
@@ -1846,8 +1898,8 @@ def op_bootstrap(
                 ),
                 f"write with create_note, {tools_text('observe_memory', 'write')}, edit_note, supersede_note, capture_source, preserve_evidence, or {tools_text('connect_memory', 'write')}",
                 (
-                    "inspect write warnings; response_detail='full' reveals write_feedback; "
-                    "create_note(suggestions=true) also reveals suggestions"
+                    f"inspect write warnings; {detail_full} reveals write_feedback; "
+                    f"{suggest_links} also reveals suggestions"
                 ),
                 "apply any accepted links through edit_note",
                 mutation_terminal_module.NARRATION_RULE,
@@ -1876,8 +1928,8 @@ def op_bootstrap(
                 ),
             },
             "post_write": {
-                "remember_suggestions": "non-binding related pages: create_note(suggestions=true), response_detail='full'",
-                "write_feedback": "create_note() structural feedback: semantic blocks, typed note/block relations, generic/source links, provenance presence, relation debt, unresolved wikilinks, and next actions; diagnostics with response_detail='full'",
+                "remember_suggestions": f"non-binding related pages: {suggest_links}, {detail_full}",
+                "write_feedback": f"create_note() structural feedback: semantic blocks, typed note/block relations, generic/source links, provenance presence, relation debt, unresolved wikilinks, and next actions; diagnostics with {detail_full}",
                 "structure_suggestion": (
                     "A committed response may carry one advisory. note_cohesion: the written compiled page reached a size step; counts, the item's ref and fingerprint, one question. source_classification_debt: strength (strong|moderate), reasons, and the sources without a chosen kind with their Sources/ folders."
                     if profile == "compact"
@@ -1885,7 +1937,7 @@ def op_bootstrap(
                 ),
                 "structure_suggestion_handling": (
                     "note_cohesion: answer its question about the page in hand. One question: keep the page whole with "
-                    + call_text("triage_memory", {"ref": "<ref>", "action": "dismiss", "expected_fingerprint": "<fingerprint>", "why": "intentional: <the one question>"})
+                    + call_text("triage_memory", {"item_id": "<id>", "action": "dismiss", "why": "intentional: <the one question>"})
                     + "; it stays quiet until the next size step. Several: propose a split with "
                     + call_text("maintain_memory", {"mode": "curation", "curation_action": "propose"})
                     + " and apply it only after the user confirms the previewed plan. A hub by design: add a hub or snapshot tag with a governed edit. source_classification_debt: say it in the user's words, agree a real kind, then "
@@ -1940,6 +1992,22 @@ def op_bootstrap(
                     "A dismissal is not completion: it lowers the visible count only."
                 ),
                 "relevant_due_handling": (
+                    f"Read {tools_text('review_item_context')} with ref; refresh on REVIEW_ITEM_CHANGED. "
+                    "Audit wider if needed. One writer that fits resolves the item and clears the "
+                    "finding with no extra triage. decide_review_item only dismisses advice. "
+                    "Keep write authority."
+                    if public and profile == "compact"
+                    else
+                    f"For relevant_due_refs, read {tools_text('review_item_context')} with ref; "
+                    "bounded context may need a wider audit. "
+                    f"{tools_text('review_memory', 'read')} takes no fingerprint. Refresh after REVIEW_ITEM_CHANGED. "
+                    f"One applicable writer, such as {call_text('observe_memory', {'operation': 'update'})}, "
+                    "resolves the item and clears the finding without extra triage. "
+                    f"One {call_text('triage_memory', {'item_id': '<id>', 'action': 'dismiss', 'why': '<code>: ...'})} "
+                    "records presentation disposition, not authored resolution. "
+                    "Preserve existing mutation authority."
+                    if public
+                    else
                     f"Read {tools_text('review_item_context')} with ref and expected_fingerprint; refresh on REVIEW_ITEM_CHANGED. "
                     "Audit wider if needed. Resolve with unit fingerprint and parent hash, "
                     "not due fingerprint; no extra triage. triage_memory only dismisses advice. "
@@ -1951,7 +2019,7 @@ def op_bootstrap(
                     f"One applicable writer, such as {call_text('observe_memory', {'operation': 'update'})}, resolves with the real unit "
                     "fingerprint and parent hash. Its delta clears the finding without extra triage; "
                     "a due fingerprint is not a unit fingerprint. "
-                    f"One {call_text('triage_memory', {'ref': '<ref>', 'action': 'dismiss', 'expected_fingerprint': '<fingerprint>', 'why': '<code>: ...'})} "
+                    f"One {call_text('triage_memory', {'item_id': '<id>', 'action': 'dismiss', 'why': '<code>: ...'})} "
                     "records presentation disposition, not authored resolution. "
                     "Preserve existing mutation authority."
                 ),
@@ -2038,6 +2106,9 @@ def op_bootstrap(
                         "rich_form": authoring_contract.rich["heading_syntax"],
                         "mutation_rule": authoring_contract.routes["single_semantic_unit"],
                         "drift_guards": (
+                            "edit_note(edit_observation|remove_observation) takes the unit id that "
+                            "read_page(part='units') returned; a stale id is refused with the current one"
+                            if public else
                             "update/remove require the current parent content hash and unit fingerprint"
                         ),
                     }
@@ -2045,7 +2116,7 @@ def op_bootstrap(
                     else {}
                 ),
             },
-            "reviewed_creation": {
+            "reviewed_creation": public_reviewed_creation if public else {
                 "validate_only": (
                     "call the intended creation writer with validate_only=true and retain "
                     "its draft_id, draft_hash, draft_token, relation_review_hash, candidate, "
@@ -2073,6 +2144,8 @@ def op_bootstrap(
                 ),
             },
             "reviewed_existing_edit": (
+                public_reviewed_existing_edit
+                if public else
                 {
                     "rule": (
                         "if refused for relation review, re-send the edit with "
@@ -2172,17 +2245,19 @@ def op_bootstrap(
                 "custody": "original first; transcription beside, never instead",
                 "fallback": {
                     "tool": "transfer_artifact",
-                    "args": {"hold": True},
+                    "args": {"operation": "upload", "hold": True},
                     "when": "the client cannot supply file handles",
                 },
             },
             "original_recovery": {
                 "tool": "transfer_artifact",
                 "when": "recover a stored original through a desktop/personal endpoint",
-                # The tool description, its response and the skill carry these, so compact leaves them out.
+                # The tool description, its response and the skill carry the rest, so compact leaves them out.
+                "args": {"operation": "download", **(
+                    {"artifacts": ["<stored artifact or custody page>"]} if profile != "compact" else {}
+                )},
                 **(
                     {
-                        "args": {"operation": "download", "artifact": "<stored artifact or custody page>"},
                         "delivery": "native MCP blob where supported; otherwise the clickable HTTPS link",
                         "proof": "verify recovered SHA-256 and size; a prepared handoff proves no consumption",
                     }
@@ -2284,7 +2359,11 @@ def op_bootstrap(
             },
             {
                 "goal": "capture a durable conclusion",
-                "call": "create_note(note_type='research-note'|'insight'|..., title='...', content='...')",
+                "call": (
+                    "create_note(type='research-note'|'insight'|..., title='...', content='...')"
+                    if public else
+                    "create_note(note_type='research-note'|'insight'|..., title='...', content='...')"
+                ),
             },
             {
                 "goal": "preserve attached binary files when the client supplies file handles",
@@ -2573,6 +2652,26 @@ _PRE_ADMISSION_SIGNALS = (
 )
 
 
+_Tool = TypeVar("_Tool", bound=Callable[..., Any])
+
+
+def _reads_one_store_snapshot(operation: _Tool) -> _Tool:
+    """Run a recall tool in one store snapshot: its search and its release decisions then read one
+    revision, and open one snapshot for the call instead of one per page. A vault that is not in
+    store mode binds nothing. The call starts on a fresh frame-stack chunk (see `frame_stack`)."""
+
+    @wraps(operation)
+    def run(vault_root: Path, *arguments: Any, **keywords: Any) -> Any:
+        from .frame_stack import call_on_fresh_frame_stack
+        from .vault_store import read as store_read
+
+        with store_read.request_snapshot(Path(vault_root)):
+            return call_on_fresh_frame_stack(lambda: operation(vault_root, *arguments, **keywords))
+
+    return cast(_Tool, run)
+
+
+@_reads_one_store_snapshot
 @companions.request_byte_proofs()
 def op_find(
     vault_root: Path,
@@ -2809,6 +2908,10 @@ def op_find(
     """
     if detail not in ("full", "compact"):
         raise ValueError(f"find: detail must be 'full' or 'compact', got {detail!r}")
+    if relation_of:
+        # A title is resolved over the pages this caller may see for the purpose it declares.
+        with principal_module.declared_purpose_scope(purpose):
+            relation_of = page_names_module.resolve_page(vault_root, relation_of, field="relation_of")
     projection_runtime = projection_runtime_module.load_active_projection_runtime(vault_root)
     if continuation is not None and projection_runtime is None:
         raise projection_runtime_module.ProjectedContinuationUnavailable(
@@ -2929,6 +3032,9 @@ def op_find(
         )
     degraded: list[str] = []
     failed: list[str] = []
+    dimension_check: dict[str, int] = {}
+    dimension_groups: list[dimension_display_module.GroupRequest] = []
+    group_blocks: list[dict[str, Any]] | None = None
     projected_continuation: str | None = None
     if projection_runtime is not None:
         who = principal_module.effective_principal()
@@ -2969,49 +3075,96 @@ def op_find(
             _release_policy, _release_active = egress_module.gate_state(vault_root)
             retrieval_limit = egress_module.pool_limit(limit) if _release_active else limit
         catalog_proof: dict[str, Any] = {}
-        hits = find_module.find(
-            vault_root,
-            query=query,
-            types=types,
-            projects=projects,
-            tags=tags,
-            speakers=speakers,
-            file_types=file_types,
-            exclude_file_types=exclude_file_types,
-            categories=categories,
-            kinds=kinds,
-            source_kinds=source_kinds,
-            domains=domains,
-            relations=relations,
-            relation_of=relation_of,
-            relation_direction=relation_direction,
-            filters=filters,
-            result_level=result_level,
-            limit=retrieval_limit,
-            scope=scope,
-            mode=mode,
-            graph=graph,
-            rerank=rerank,
-            rerank_max_candidates=rerank_max_candidates,
-            # rerank=None uses the mode/device-gated auto policy. Explicit
-            # true/false from the caller always wins over auto.
-            auto_rerank=auto_rerank,
-            prefer_compiled=prefer_compiled,
-            prefer_active=prefer_active,
-            prefer_used=prefer_used,
-            widen_outside_kb=widen_outside_kb,
-            timings=timings,
-            degraded_out=degraded,
-            failed_out=failed,
-            retrieval_trace=retrieval_trace,
-            catalog_proof_out=catalog_proof,
-            admit_path=admit_path,
-        )
+        # `purpose` is a per-call leaf parameter, not a surface property: layer it onto the bound
+        # principal so the edge view a relation filter or `unit.dimension` reads decides under the
+        # purpose the release gate below decides under, or a purpose-conditioned rule withholds a
+        # page from the hits and not from the filter that names it. Undeclared, nothing is rebound.
+        with principal_module.declared_purpose_scope(purpose):
+            hits = find_module.find(
+                vault_root,
+                query=query,
+                types=types,
+                projects=projects,
+                tags=tags,
+                speakers=speakers,
+                file_types=file_types,
+                exclude_file_types=exclude_file_types,
+                categories=categories,
+                kinds=kinds,
+                source_kinds=source_kinds,
+                domains=domains,
+                relations=relations,
+                relation_of=relation_of,
+                relation_direction=relation_direction,
+                filters=filters,
+                result_level=result_level,
+                limit=retrieval_limit,
+                scope=scope,
+                mode=mode,
+                graph=graph,
+                rerank=rerank,
+                rerank_max_candidates=rerank_max_candidates,
+                # rerank=None uses the mode/device-gated auto policy. Explicit
+                # true/false from the caller always wins over auto.
+                auto_rerank=auto_rerank,
+                prefer_compiled=prefer_compiled,
+                prefer_active=prefer_active,
+                prefer_used=prefer_used,
+                widen_outside_kb=widen_outside_kb,
+                timings=timings,
+                degraded_out=degraded,
+                failed_out=failed,
+                retrieval_trace=retrieval_trace,
+                catalog_proof_out=catalog_proof,
+                admit_path=admit_path,
+                dimension_check_out=dimension_check,
+                dimension_groups_out=dimension_groups,
+            )
+        # Values of small datasets are a separate lane that `find` does not run. It answers an
+        # unfiltered text query, and `annotate_hits` below releases its hits only at full level.
+        if (
+            query.strip()
+            and mode != "vector"
+            and result_level in ("auto", "page")
+            and not any(
+                (types, projects, tags, speakers, file_types, exclude_file_types, categories, kinds,
+                 source_kinds, domains, relations, relation_of, filters)
+            )
+            and all(isinstance(hit, find_module.Hit) for hit in hits)
+        ):
+            if retrieval_trace is not None:
+                # A value hit has no ranking evidence, which `explain` requires of every hit.
+                retrieval_trace.lane_profiles[dataset_values_module.LANE] = {
+                    "status": "disabled",
+                    "reason": "explain_does_not_trace_dataset_values",
+                }
+            else:
+                with find_module._span(timings, "dataset_values"):
+                    value_lane = dataset_values_module.search(
+                        vault_root, query=query, scope=scope, admit_path=admit_path, limit=retrieval_limit
+                    )
+                if value_lane.hits:
+                    # Room for every value hit, so one that egress drops displaces no page hit.
+                    hits = dataset_values_module.fuse(
+                        hits,
+                        value_lane.hits,
+                        limit=retrieval_limit + len(value_lane.hits),
+                        rrf_k=find_module._active_ranking().rrf_k,
+                    )
+                if not restricted:  # indexing activity is not for a caller held to content floors
+                    degraded.extend(value_lane.warming)
+                failed.extend(value_lane.failed)
         # Recheck the selected snapshots before assembly. RAW-admitted searches
         # bypass both shared caches; ordinary policy retains its final gate.
         with find_module._span(timings, "release_gate"):
             release = egress_module.annotate_hits(vault_root, hits, limit=limit, purpose=purpose)
             hits = release.hits
+        if dimension_groups:
+            # Grouping orders and marks the released hits; the limit has already cut them.
+            with find_module._span(timings, "dimension_groups"):
+                grouped = dimension_display_module.group_hits(hits, dimension_groups[0])
+            hits = grouped.hits
+            group_blocks = grouped.groups
     referents: dict[str, Any] | None = None
     if projection_runtime is None:
         # Referents compose over the released vault hits; the projected (hosted
@@ -3076,6 +3229,7 @@ def op_find(
                     timings=timings,
                     purpose=purpose,
                     strip_for=strip_for,
+                    dimension_groups=group_blocks,
                 )
                 if active_budget is not None and context_pack_module.DEADLINE_TRUNCATION in (
                     pack_obj.get("truncation") or []
@@ -3185,6 +3339,16 @@ def op_find(
     budget_block = (
         active_budget.as_response_block() if active_budget is not None else None
     )
+    # A managed runtime checks a `unit.dimension` predicate on the best `limit` units, after the
+    # limit. When the check dropped some of a full ranking, more units in the dimension may rank
+    # below it, and the caller is told so; a ranking shorter than the limit was checked whole.
+    dimension_block = (
+        dimension_check
+        if dimension_check
+        and dimension_check["kept"] < dimension_check["checked"]
+        and dimension_check["checked"] >= retrieval_limit
+        else None
+    )
     if (
         timings_dict is None
         and timings_suppressed is None
@@ -3193,6 +3357,8 @@ def op_find(
         and retrieval_trace is None
         and projected_continuation is None
         and budget_block is None
+        and dimension_block is None
+        and group_blocks is None
     ):
         if not pack and referents is None:
             return hit_dicts
@@ -3221,6 +3387,10 @@ def op_find(
         out["referents"] = referents
     if budget_block is not None:
         out["budget"] = budget_block
+    if dimension_block is not None:
+        out["dimension_check"] = dimension_block
+    if group_blocks is not None:
+        out["dimension_groups"] = group_blocks
     return out
 
 
@@ -3233,25 +3403,9 @@ def _citation_url(_path: str) -> str:
     return ""
 
 
-def _resolve_memory_identifier(
-    vault_root: Path, value: str, *, serve_stale: bool = False
-) -> str:
-    """Resolve a path or memory reference to the page a caller may see.
-
-    A command that goes on to write from the answer keeps the default. A read
-    passes `serve_stale`, so the lookup answers from the identity projection
-    even while the watcher publishes an outside edit, rather than scanning
-    the vault.
-    """
-    try:
-        resolved = egress_module.resolve_visible_identifier(
-            vault_root, value, serve_stale=serve_stale
-        )
-    except memory_refs_module.ReferenceError as exc:
-        raise ValueError(f"{exc.code}: {exc.reason}") from exc
-    if reserved_paths_module.classify_logical(resolved).blocked:
-        raise ValueError("NOT_FOUND: memory identifier is unavailable")
-    return resolved
+#: Resolve a path or memory reference to the page a caller may see; defined with the other page
+#: naming in `page_names`, which this module's page parameters already go through.
+_resolve_memory_identifier = page_names_module.resolve_reference
 
 
 def _refuse_withheld_page_seed(vault_root: Path, path: str) -> get_page_module.GetResult:
@@ -3696,7 +3850,9 @@ def op_graph_context(
         carry source path/anchor/hash provenance and relation metadata.
     """
     if path:
-        path = _resolve_memory_identifier(vault_root, path)
+        # A memory ref is resolved over the pages this caller may see for the purpose it declares.
+        with principal_module.declared_purpose_scope(purpose):
+            path = _resolve_memory_identifier(vault_root, path)
     context = epistemic_graph_module.graph_context(
         vault_root,
         path=path,
@@ -4790,6 +4946,9 @@ def op_edit(
         FRONTMATTER_REQUIRED (a metadata operation targeted ordinary Markdown);
         UNREADABLE.
     """
+    path = page_names_module.resolve_page(
+        vault_root, path, prefer=page_names_module.prefer_editable, field="path"
+    )
     if new_body is not None and expected_hash is None:
         raise ValueError(
             "INVALID_EDIT: a whole-body edit requires `expected_hash`, the "
@@ -4806,7 +4965,6 @@ def op_edit(
     ]
     if len(active) > 1:
         raise ValueError(f"INVALID_EDIT: one edit mode at a time; got {', '.join(active)}")
-    path = _resolve_memory_identifier(vault_root, path)
     try:
         if edits is not None:
             result = multi_edit_module.multi_edit(
@@ -4899,6 +5057,12 @@ def op_edit(
         set_take_module.SetTakeError,
         set_frontmatter_field_module.SetFrontmatterError,
     ) as e:
+        if e.code == "STALE_EDIT" and page_ids_module.is_page_id(expected_hash):
+            refusal = page_names_module.stale_edit(
+                vault_root, path, path_field="path", guard_field=("operation", "expected_hash")
+            )
+            if refusal is not None:
+                raise refusal from e
         msg = _leaf_error_message(e)
         if getattr(e, "candidates", None):
             msg += f" (candidates: {e.candidates})"
@@ -4990,7 +5154,9 @@ def op_replace(
         supersedable type); OLD_NOT_FOUND; ALREADY_SUPERSEDED
         (old page is already marked superseded).
     """
-    old_path = _resolve_memory_identifier(vault_root, old_path)
+    old_path = page_names_module.resolve_page(
+        vault_root, old_path, prefer=page_names_module.prefer_editable, field="old_path"
+    )
     replace_kwargs = {
         "old_path": old_path,
         "reason": reason,
@@ -6555,7 +6721,7 @@ def op_get_video_frames(
     start_sec: float | None = None,
     end_sec: float | None = None,
     max_side: int | Literal["original"] | None = None,
-) -> ToolResult:
+) -> fastmcp_types.ToolResult:
     """View / analyze / look inside a vault video: sampled keyframes returned INLINE as images — no download round-trip.
 
     Use this to see what a video actually contains (slides, screen
@@ -6629,9 +6795,9 @@ def op_get_video_frames(
     if result.not_shown:
         # Left out at the call's byte limit, in time order: a window that starts at the first one shows them.
         meta["not_shown"] = list(result.not_shown)
-    return ToolResult(
-        content=[TextContent(type="text", text=json.dumps(meta, ensure_ascii=False))]
-        + [FastMCPImage(data=f.jpeg, format="jpeg").to_image_content() for f in result.frames],
+    return fastmcp_types.ToolResult(
+        content=[fastmcp_types.TextContent(type="text", text=json.dumps(meta, ensure_ascii=False))]
+        + [fastmcp_types.Image(data=f.jpeg, format="jpeg").to_image_content() for f in result.frames],
         structured_content=meta,
     )
 
@@ -6639,6 +6805,7 @@ def op_get_video_frames(
 # ----- product command wrappers: public surface over canonical leaves -----
 
 
+@_reads_one_store_snapshot
 def op_ask_memory(
     vault_root: Path,
     query: str = "",
@@ -6786,8 +6953,12 @@ _SEARCH_NOTICE_DEGRADED = "One search method failed, so these results may miss r
 _SEARCH_NOTICE_BUDGET = (
     "Part of this search was skipped to stay within its time limit, so results may be incomplete."
 )
-#: Hit fields that label how the index stores a hit or repeat its unit's parent. A hit keeps `path`,
-#: `ref` and `unit_ref`: `record_episode` takes only refs in `about`, and `read_memory` takes either.
+_SEARCH_NOTICE_DIMENSION = (
+    "The dimension filter ran on the best matches only, so more matches in it may exist."
+)
+#: Hit fields that label how the index stores a hit or repeat its unit's parent. A hit keeps `ref`
+#: and `unit_ref`: `record_episode` takes only refs in `about`. The MCP door names the page by `id`
+#: and `title`, and keeps `path` only for `detail="full"`.
 # nosemgrep: ep-word-set -- this module's own closed wire-field names, not a customer vocabulary.
 _SEARCH_HIT_DROPPED = ("scope", "parent_ref")
 
@@ -6809,14 +6980,18 @@ def _search_notice(envelope: Mapping[str, Any]) -> str | None:
         return _SEARCH_NOTICE_DEGRADED
     if envelope.get("budget"):
         return _SEARCH_NOTICE_BUDGET
+    if envelope.get("dimension_check"):
+        return _SEARCH_NOTICE_DIMENSION
     return None
 
 
 def _agent_search_reply(result: list | dict, *, internals: bool) -> dict:
     """Shape a search result for the agent: a summary, the hits, and one notice when partial.
 
-    Index, warming and budget state become a `notice` sentence. A caller that asked for timings or
-    an explanation asked to see retrieval internals, so those raw blocks stay beside them.
+    Index, warming, budget and dimension-check state become a `notice` sentence; a dimension check
+    that dropped hits after the limit also leads the summary with its count. A caller that asked
+    for timings or an explanation asked to see retrieval internals, so those raw blocks stay
+    beside them.
     """
     envelope = {"hits": result} if isinstance(result, list) else dict(result)
     hits = [
@@ -6826,14 +7001,30 @@ def _agent_search_reply(result: list | dict, *, internals: bool) -> dict:
         for hit in envelope.pop("hits", ())
     ]
     notice = _search_notice(envelope)
-    for internal in ("warming", "degraded", "budget"):
+    dimension_check = envelope.get("dimension_check")
+    for internal in ("warming", "degraded", "budget", "dimension_check"):
         if internals:
             continue
         envelope.pop(internal, None)
+    if dimension_check:
+        # The limit applied before the dimension check. `checked` is the pool the server fetched,
+        # which can exceed the caller's limit, so the sentence names only what the check kept.
+        kept = dimension_check["kept"]
+        summary = (
+            "The dimension filter ran only on the best matches and kept "
+            f"{kept} {'match' if kept == 1 else 'matches'}; more may exist."
+        )
+    elif hits:
+        summary = f"Found {len(hits)} {'match' if len(hits) == 1 else 'matches'}."
+    else:
+        summary = "Found no matches."
+    groups = envelope.get("dimension_groups")
+    if groups and hits:
+        # Each requested group leads with its label and counts, which the hit count repeats.
+        grouped = dimension_display_module.outcome(groups)
+        summary = f"{summary} {grouped}" if dimension_check else grouped
     reply: dict[str, Any] = {
-        "user_summary": f"Found {len(hits)} {'match' if len(hits) == 1 else 'matches'}."
-        if hits
-        else "Found no matches.",
+        "user_summary": summary,
         "hits": hits,
         **envelope,
     }
@@ -6857,6 +7048,23 @@ ACTIVATE_ANCHOR_REFUSAL = (
     "INVALID_ANCHOR: anchor must name an available anchor of this activation "
     "index or a visible compiled page"
 )
+
+
+def _anchor_named_page(vault_root: Path, anchor: str) -> str | None:
+    """The one page a title or short id names that an `anchor` may carry a packet from, else None.
+
+    More than one eligible page, none, or a page that cannot be carried all answer None: the caller
+    refuses with `ACTIVATE_ANCHOR_REFUSAL`, which names neither the cause nor any candidate.
+    """
+
+    def carries(path: str) -> bool:
+        return working_set_module._eligible_agent_page(vault_root, path) is not None
+
+    try:
+        named = page_names_module.resolve_page(vault_root, anchor, prefer=carries, field="anchor")
+    except (page_names_module.AmbiguousTitle, ValueError):
+        return None
+    return working_set_module._eligible_agent_page(vault_root, named)
 
 
 def _abstention_reason(packet: dict) -> str:
@@ -6886,9 +7094,9 @@ def op_activate_context(
 
     Reuse held context; conversation gives excerpts. Agent focus is not human intent.
     Keep identity/scope; clarify ambiguity. Due/refresh grants no writes.
-    Read map/task_context refs and method scope/exclusions with read_memory.
+    Read map/task_context refs and method scope/exclusions with a page read.
     Discard held methods on methods.reset. Follow next_action.
-    epistemic_status: counts/completeness; read_memory: provenance.
+    epistemic_status: counts/completeness; a page read: provenance.
 
     Args:
         turn: Human turn verbatim; never a summary. Empty abstains.
@@ -6896,15 +7104,11 @@ def op_activate_context(
         purpose: Visibility; never ranking.
         continuity: Prior token unchanged; drop on compaction/new session.
         anchor: Visible compiled ref for an established prior subject, ambiguity or correction.
-            Hidden and ineligible refs refuse alike.
-        include_timings: Stage timings.
         client: Lowercase client label; invalid labels ignored.
         session: Stable opaque conversation ID; max 256 chars.
         workspace: Thread project key; max 256 chars.
-        conversation: All optional: focus (one line/240 chars; current subjects and attachment names/objects),
-            refs (12 already-read pages), recent (six excerpts/2,400 chars total; user 600, assistant 300 each); never full history.
-        trigger: user_turn: initial recall. task_refresh: keep turn; task in focus;
-            intent_resolution qualifies human intent separately.
+        conversation: Relevant excerpts and refs; never full history.
+        trigger: user_turn: initial recall. task_refresh: keep turn; task in focus.
         initiator: Caller label; no authority. Invalid labels ignored.
     """
     # `RequestBudget` is bound in exactly one place, the MCP dispatch
@@ -6962,6 +7166,7 @@ def op_activate_context(
     intent_resolution = {"status": "unavailable"} if trigger == "task_refresh" else None
     # Finalization and logging share the leaf's budget, including error paths.
     bound_token = None
+    activation_scope = ExitStack()
     try:
         from .collection_store import ownership
 
@@ -6969,6 +7174,16 @@ def op_activate_context(
             try:
                 with ownership.read_scope(vault_root, finalize=True):
                     bounded = working_set_conversation_module.bound(conversation)
+                    if bounded.refs:
+                        # A title is resolved over the pages this caller may see for the purpose it declares.
+                        with principal_module.declared_purpose_scope(purpose):
+                            bounded = replace(
+                                bounded,
+                                refs=tuple(
+                                    page_names_module.resolve_hint(vault_root, ref)
+                                    for ref in bounded.refs
+                                ),
+                            )
                     # The dispatcher runs this as a foreground request, ahead of in-process
                     # bulk passes (`writer_lease._foreground_priority_request`).
                     with (
@@ -6985,6 +7200,14 @@ def op_activate_context(
                                     seconds=request_budget_module.ACTIVATION_DOOR_BUDGET_SECONDS
                                 )
                             )
+                        elif (
+                            request_budget_module.current() is not None
+                            # The anchors rollback keeps its abstention for an exhausted budget; only maps serves what it found.
+                            and working_set_runtime_module.activation_packet_mode() == "maps"
+                            and (activation_seconds := request_budget_module.activation_budget_seconds()) is not None
+                        ):
+                            # A request that carries a deadline gives the activation the nearer one its operator set.
+                            activation_scope.enter_context(request_budget_module.capped(activation_seconds))
                         # Owed before the body runs, so its characters come out of the map's budget
                         # and a full map cannot starve it.
                         capture_policy = capture_carrier_module.current(
@@ -7074,6 +7297,8 @@ def op_activate_context(
                        for name, stage in observation_timings.stages.items() if "ms" in stage],
             )
         finally:
+            # After the row, so it reads the leaf's budget; before the caller, so the request's budget names what the leaf left out.
+            activation_scope.close()
             if bound_token is not None:
                 request_budget_module.reset_current(bound_token)
 
@@ -7309,6 +7534,12 @@ def _compile_guarded_activation(
                 # compile instead, the unknown classes took about 3 ms longer
                 # than a withheld page, which is its own answer.
                 agent_page = working_set_module._eligible_agent_page(vault_root, anchor)
+                if agent_page is None:
+                    # A title or short id names the page when the value is no catalogue spelling.
+                    with principal_module.declared_purpose_scope(purpose):
+                        agent_page = _anchor_named_page(vault_root, anchor)
+                    if agent_page is not None:
+                        anchor = agent_page
                 if agent_page is None or not egress_module.quick_page_visible(
                     vault_root, agent_page, purpose=purpose
                 ):
@@ -7704,6 +7935,7 @@ def _op_activate_context_body(
             reader_view = None if caller.visible is None else egress_module.page_filter_over(vault_root, caller.visible)
             visible_rows = anchor_rows if reader_view is None else tuple(row for row in anchor_rows if reader_view(row.path))
             # Cooperative stage checks leave time for the map's mandatory guard; a synchronous stage can overrun.
+            # Task discovery leaves its own reserve around this call when it runs after the slice.
             with request_budget_module.leaving(request_budget_module.ACTIVATION_STAGE_RESERVE_SECONDS):
                 compiled = _compile_guarded_activation(
                     vault_root,
@@ -8082,7 +8314,7 @@ def _refuse_unused_offset(result: dict, offset: int | None) -> dict:
     return result
 
 
-def op_read_memory(
+def read_memory_stored(
     vault_root: Path,
     path: str,
     frontmatter_only: bool = False,
@@ -8096,6 +8328,7 @@ def op_read_memory(
     continuation: _OptionalViewContinuation = None,
     follow_corrections: bool = True,
     offset: int | None = None,
+    units: bool = False,
 ) -> dict:
     """Read a page, exact unit, or exomem://map view.
 
@@ -8116,6 +8349,7 @@ def op_read_memory(
         continuation: Next-page token of a view.
         follow_corrections: False reads the historical Source; unit reads stay exact.
         offset: Start, in characters, of a window of a long Source's extracted text; follow `window.next_offset`.
+        units: List the page's observation units with the id each edit takes; `unavailable` when the principal sees a released view.
     """
     # A derived view is not a page: it is dispatched before any identifier resolves. It takes
     # `purpose` as an argument, the one the terminal guard decides it under (`egress.postfilter`).
@@ -8133,7 +8367,7 @@ def op_read_memory(
         with principal_module.request_scope(
             principal_module.effective_principal().with_purpose(purpose)
         ):
-            return op_read_memory(
+            return read_memory_stored(
                 vault_root,
                 path=path,
                 frontmatter_only=frontmatter_only,
@@ -8149,6 +8383,7 @@ def op_read_memory(
             )
     if continuation is not None:
         raise context_views_module.invalid_continuation()
+    path = page_names_module.resolve_page(vault_root, path, serve_stale=True)
     if unit_ref is not None:
         if frontmatter_only or links or include_raw or offset is not None:
             raise ValueError(
@@ -8250,7 +8485,69 @@ def op_read_memory(
         result["revision_history"] = compiled_history.read(
             vault_root, path=result["path"], limit=history_limit, continuation=history_continuation,
         )
+    if (named_id := page_names_module.id_of_read(result)) is not None:
+        # The id the page's own `title` or this one names for the next call, with the version read.
+        result["id"] = named_id
+    if units:
+        result["units"] = observe_memory_module.page_units(vault_root, result)
     return result
+
+
+# The read leaf an agent calls. Its own text is `read_memory_stored`'s, so the command's published
+# fields and help are unchanged; an internal reader that never shows the page calls
+# `read_memory_stored` and pays nothing for the title view.
+@wraps(read_memory_stored)
+def op_read_memory(vault_root: Path, *args: Any, **kwargs: Any) -> dict:
+    result = read_memory_stored(vault_root, *args, **kwargs)
+    if capabilities_module.shows_links_by_title():
+        result = _show_links_by_title(vault_root, result)
+    return result
+
+
+op_read_memory.__name__ = op_read_memory.__qualname__ = "op_read_memory"
+
+
+def _show_links_by_title(vault_root: Path, result: dict) -> dict:
+    """`result` with the links of its body and unit texts shown as `[[Title]]`, for an agent.
+
+    An agent on the public tool shape types a page's title, never its vault path, so it reads links
+    the way it writes them (`edit_note` takes the shown form back; `vault.render_title_links`). The
+    stored bytes, `content_hash` (the hash of the stored file) and `id` are not touched. Only a page
+    released in full is shown this way: a lower release level returns a projection, not the page's
+    own text. A raw page (Source, Evidence) keeps its recorded text. A read never builds or copies a
+    resolver: it borrows the resident one, and with none current the links stay as stored.
+    """
+    if result.get("release_level", egress_module.LEVEL_FULL) != egress_module.LEVEL_FULL:
+        return result
+    body, units = result.get("body"), result.get("units")
+    if not isinstance(body, str) and not isinstance(units, list):
+        return result
+    frontmatter = result.get("frontmatter")
+    if not isinstance(frontmatter, dict):
+        return result
+    if note_types.Basis(vault_root).selects(str(frontmatter.get("type") or "").casefold(), note_types.raw):
+        return result
+    visible = egress_module.visible_page_filter(vault_root)
+    resolver = find_module.borrow_query_resolver(vault_root, visible, schedule_rebuild=False)
+    if resolver is None:
+        return result
+
+    def shown(text: str) -> str:
+        return vault.render_title_links(text, vault_root, resolver=resolver, visible=visible).text
+
+    shown_result = dict(result)
+    if isinstance(body, str):
+        shown_result["body"] = shown(body)
+        # `include_raw` also returns the whole file; its body ends the file, so it reads like `body`.
+        content = result.get("content")
+        if isinstance(content, str) and content.endswith(body):
+            shown_result["content"] = content[: len(content) - len(body)] + shown_result["body"]
+    if isinstance(units, list):
+        shown_result["units"] = [
+            {**unit, "text": shown(unit["text"])} if isinstance(unit, dict) and isinstance(unit.get("text"), str) else unit
+            for unit in units
+        ]
+    return shown_result
 
 
 def op_browse_memory(
@@ -8294,7 +8591,7 @@ def op_browse_memory(
             limit=min(max(page, 1), _BROWSE_LIST_MAX_LIMIT),
             cursor=cursor,
         )
-    raise ValueError("INVALID_MODE: browse_memory mode must be 'overview' or 'list'")
+    raise ValueError("INVALID_MODE: mode must be 'overview' or 'list'")
 
 
 def op_remember(
@@ -8552,6 +8849,7 @@ def op_observe_memory(
     until: str | None = None,
     id: str | None = None,
     unit_ref: str | None = None,
+    unit: str | None = None,
     expected_fingerprint: str | None = None,
     expected_hash: str | None = None,
     transition_token: str | None = None,
@@ -8573,12 +8871,13 @@ def op_observe_memory(
         tags: Replaces on update.
         context: Replaces on update.
         relations: {kind, target} objects. Replaces on update.
-        verdict: Rich: abandoned, confirmed, inconclusive, qualified, refuted; '' clears.
+        verdict: Rich verdict in words, never a number; `read_schema` lists them. '' clears.
         check_by: Rich ISO revisit date; '' clears.
         as_of: Rich ISO start date; '' clears.
         until: Rich ISO last valid date; '' clears.
         id: Parent-unique anchor; derived on add if omitted.
         unit_ref: Unit ref for update/remove or existing-unit preview; otherwise validate previews an add.
+        unit: Unit id from a read or a write reply, for update/remove. It stands for unit_ref and both guards.
         expected_fingerprint: Current fingerprint for update/remove and existing-unit preview.
         expected_hash: Current parent hash for update/remove.
         transition_token: From validate.
@@ -8606,6 +8905,10 @@ def op_observe_memory(
     ):
         raise ValueError(
             "INVALID_PATH: observe_memory requires a governed KB-relative path or reference"
+        )
+    if not raw_path.lower().startswith("exomem://"):
+        path = page_names_module.resolve_page(
+            vault_root, path, prefer=page_names_module.prefer_editable, field="path"
         )
     try:
         if raw_path.lower().startswith(
@@ -8641,6 +8944,7 @@ def op_observe_memory(
             until=until,
             id=id,
             unit_ref=unit_ref,
+            unit=unit,
             expected_fingerprint=expected_fingerprint,
             expected_hash=expected_hash,
             transition_token=transition_token,
@@ -8658,6 +8962,12 @@ def op_observe_memory(
             )
         return result
     except observe_memory_module.ObserveMemoryError as error:
+        if error.code == "STALE_PARENT_HASH" and page_ids_module.is_page_id(expected_hash):
+            refusal = page_names_module.stale_edit(
+                vault_root, resolved_path, path_field="path", guard_field=("expected_hash",)
+            )
+            if refusal is not None:
+                raise refusal from error
         message = f"{error.code}: {error.reason}"
         if error.remediation:
             message += f" Remediation: {error.remediation}"
@@ -9207,7 +9517,14 @@ def op_approve_procedure(
         expected_version: The page's `content_hash`: required for approve, optional for revoke.
     """
     return procedure_approval_operation_module.run(
-        vault_root, action, ref=ref, expected_version=expected_version
+        vault_root,
+        action,
+        ref=(
+            page_names_module.resolve_ref(vault_root, ref, field="ref")
+            if ref is not None
+            else None
+        ),
+        expected_version=expected_version,
     )
 
 
@@ -9311,25 +9628,54 @@ def op_preserve_artifacts(
     return _carrying_batch_advisories(vault_root, result)
 
 
+#: The most pages one download call takes; the public tool's schema states the same bound.
+_DOWNLOAD_BATCH_MAX = public_tools_module.DOWNLOAD_BATCH_MAX
+
+
 def op_transfer_artifact(
     vault_root: Path, operation: str = "upload", lane: str = "evidence",
     artifact: str | None = None, expected_sha256: str | None = None,
-    hold: bool = False,
+    hold: bool = False, artifacts: list[str] | None = None,
 ) -> dict:
     """Prepare an upload or download; a handoff does not prove custody.
 
     Upload: hold=true, expected_sha256; use exomem attach --handoff-file or POST upload_url.
-    Capture its handle. Download: supply artifact; use MCP or HTTPS delivery.
+    Capture its handle. Download: supply artifact or artifacts; use MCP or HTTPS delivery.
 
     Args:
         artifact: Vault-relative stored original or its custody page for download.
+        artifacts: Download only: up to 8 pages, each by title, id or path, replacing `artifact`.
+            Each gets its own handoff or its own refusal in the reply.
         expected_sha256: Intended original SHA-256.
         hold: One-use upload bound to this session; requires expected_sha256.
         lane: Upload target: source (raw) or evidence (proof); token-bound.
             Ignored for downloads.
     """
     from . import cloud_cell
+    from .cli_ops import OpError
 
+    if artifacts is not None:
+        if operation != "download" or artifact is not None or hold or expected_sha256 is not None:
+            raise ValueError("INVALID_MODE: artifacts needs download, with no artifact, hold or expected_sha256")
+        if not 1 <= len(artifacts) <= _DOWNLOAD_BATCH_MAX:
+            raise ValueError(f"INVALID_MODE: artifacts takes 1 to {_DOWNLOAD_BATCH_MAX} pages")
+        handoffs: list[dict] = []
+        for named in artifacts:
+            try:
+                reply = op_transfer_artifact(
+                    vault_root, operation="download",
+                    artifact=page_names_module.resolve_page(vault_root, named, field="artifacts"),
+                )
+                handoffs.append({"page": named, **reply})
+            except (ValueError, OpError) as error:
+                # One refused page leaves the others deliverable; the reply names which one failed.
+                handoffs.append({"page": named, "error": {"message": str(error)}})
+        return {
+            "handoff_status": "handoff_prepared" if any("error" not in h for h in handoffs) else "refused",
+            "committed": False,
+            "artifacts": handoffs,
+            "failed": sum("error" in h for h in handoffs),
+        }
     if cloud_cell.cloud_mode_enabled() and not hold:
         # A Cloud cell has the gateway's held-upload receiver and its proved exact-original download: no credential route.
         if operation != "download" or not artifact:
@@ -9357,7 +9703,7 @@ def op_transfer_artifact(
 
         return artifact_recovery.prepare(vault_root, artifact, expected_sha256=expected_sha256)
     if operation not in ("upload", "download"):
-        raise ValueError("INVALID_MODE: transfer_artifact operation must be 'upload' or 'download'")
+        raise ValueError("INVALID_MODE: operation must be 'upload' or 'download'")
     if lane not in upload_tokens.UPLOAD_LANES:
         raise ValueError(
             f"INVALID_MODE: transfer_artifact lane must be one of {upload_tokens.UPLOAD_LANES}"
@@ -9381,20 +9727,6 @@ def op_transfer_artifact(
     )
     if operation == "upload":
         handoff.update(handoff_status="handoff_prepared", committed=False)
-        if lane == "source":
-            from . import vocabulary_authority, vocabulary_gate
-
-            try:
-                # The Source writer keeps every original opaque, including original Markdown.
-                format_limit = vocabulary_gate.artifact_admission(vault_root)
-                if format_limit is not None:
-                    handoff["resumable"]["max_bytes"] = min(handoff["resumable"]["max_bytes"], format_limit)
-            except (vocabulary_authority.VocabularyAuthorityDenied, vocabulary_authority.VocabularyAuthorityUnavailable):
-                handoff.pop("resumable", None)
-                handoff["resumable_unavailable"] = {
-                    "code": "SOURCE_UPLOAD_UNAVAILABLE",
-                    "reason": "Source uploads are unavailable for the active write format",
-                }
     return handoff
 
 
@@ -9730,7 +10062,7 @@ def _selected_media_paths(
     if paths is None:
         return None
     if not isinstance(paths, list) or not 1 <= len(paths) <= 32:
-        raise OpError("INVALID_MEDIA_PATHS", "process_media paths must contain 1 to 32 paths")
+        raise OpError("INVALID_MEDIA_PATHS", "media paths must contain 1 to 32 paths")
     values = paths
 
     root = Path(vault_root).resolve()
@@ -9739,7 +10071,7 @@ def _selected_media_paths(
     seen: set[str] = set()
     for value in values:
         if not isinstance(value, str) or not value:
-            raise OpError("INVALID_MEDIA_PATHS", "process_media paths must contain only non-empty paths")
+            raise OpError("INVALID_MEDIA_PATHS", "media paths must contain only non-empty paths")
         binary = Path(value)
         if not binary.is_absolute():
             binary = root / binary
@@ -9754,7 +10086,7 @@ def _selected_media_paths(
             ) from error
         relative = canonical_vault_rel(root, relative)
         if relative in seen:
-            raise OpError("DUPLICATE_MEDIA_PATH", "process_media paths must be unique after normalization")
+            raise OpError("DUPLICATE_MEDIA_PATH", "media paths must be unique after normalization")
         seen.add(relative)
         selected.append((root / relative, relative))
     return selected
@@ -9794,7 +10126,7 @@ def op_read_media(
     end_sec: float | None = None,
     max_side: int | Literal["original"] | None = None,
     region: list[float] | None = None,
-) -> ToolResult:
+) -> fastmcp_types.ToolResult:
     """Show stored images or sampled video frames inline (MCP only).
 
     Args:
@@ -9833,7 +10165,7 @@ def _show_images(
     paths: list[str] | None,
     max_side: int | str | None,
     region: list[float] | None,
-) -> ToolResult:
+) -> fastmcp_types.ToolResult:
     from . import artifact_recovery, image_view
 
     if path is not None and paths is not None:
@@ -9876,9 +10208,9 @@ def _show_images(
         meta["region"] = list(region)
     if result.not_shown:
         meta["not_shown"] = result.not_shown
-    return ToolResult(
-        content=[TextContent(type="text", text=json.dumps(meta, ensure_ascii=False))]
-        + [FastMCPImage(data=item.jpeg, format="jpeg").to_image_content() for item in shown],
+    return fastmcp_types.ToolResult(
+        content=[fastmcp_types.TextContent(type="text", text=json.dumps(meta, ensure_ascii=False))]
+        + [fastmcp_types.Image(data=item.jpeg, format="jpeg").to_image_content() for item in shown],
         structured_content=meta,
     )
 
@@ -9898,6 +10230,7 @@ def _review_question_submission(path: Any, query: Any, family: Any) -> bool:
     return path is not None or bool(query) or family is not None
 
 
+@review_ids_module.marks_items
 def op_review_memory(
     vault_root: Path,
     mode: str = "attention",
@@ -9997,7 +10330,7 @@ def op_review_memory(
 
             return vocabulary_questions_module.submit(
                 vault_root,
-                path=path,
+                path=page_names_module.resolve_page(vault_root, path, field="path"),
                 query=query,
                 family=family,
                 **({"relation_ref": ref} if ref is not None else {}),
@@ -10038,7 +10371,7 @@ def op_review_memory(
         # is passed through before the page-oriented resolution below.
         return plan_progress_module.review(vault_root, collection=path, limit=limit)
     if path:
-        path = _resolve_memory_identifier(vault_root, path)
+        path = page_names_module.resolve_page(vault_root, path, field="path")
     if mode == "attention":
         return op_attention(vault_root, categories=categories, limit=limit, state=state)
     if mode == "activation":
@@ -10670,13 +11003,14 @@ def _effect_block(
 
 def op_triage_memory(
     vault_root: Path,
-    ref: str,
-    action: str,
+    ref: str | None = None,
+    action: str | None = None,
     until: str | None = None,
     why: str | None = None,
     expected_fingerprint: str | None = None,
     source_path: _OptionalRelationText = None,
     decision: _VocabularyDecisionArgument = None,
+    item_id: str | None = None,
 ) -> dict:
     """Save review decisions or attention settings; use returned refs and fingerprints.
 
@@ -10690,7 +11024,33 @@ def op_triage_memory(
         expected_fingerprint: Reviewed fingerprint; mismatch refuses.
         source_path: Source page; required for newly returned relation items.
         decision: Payload for decide-vocabulary.
+        item_id: The id a review reply gives one item, or a write advisory's review ref; replaces
+            `ref`, `expected_fingerprint` and `source_path`. A stale id refuses with the current one.
     """
+    if item_id is not None:
+        if ref is not None or expected_fingerprint is not None or source_path is not None:
+            raise ValueError(
+                "INVALID_REVIEW_ACTION: item_id replaces ref, expected_fingerprint and source_path"
+            )
+        if corpus_aware_module.is_write_advisory_ref(item_id):
+            # A write advisory is on no queue: its ref is its handle, and the ledger names the
+            # fingerprint it last surfaced with.
+            ref = item_id
+            expected_fingerprint = review_state_module.last_surfaced_fingerprint(
+                vault_root, corpus_aware_module.parse_write_advisory_ref(item_id)
+            )
+            if expected_fingerprint is None:
+                from .cli_ops import OpError
+
+                raise OpError("ITEM_NOT_FOUND", f"write advisory {item_id} has not surfaced in this vault.")
+        else:
+            bound = review_ids_module.bind(
+                lambda **kw: op_review_memory(vault_root, **kw), item=item_id
+            )
+            ref, expected_fingerprint = bound["ref"], bound["expected_fingerprint"]
+            source_path = bound.get("source_path")
+    if ref is None:
+        raise ValueError("INVALID_REVIEW_ACTION: a triage decision requires `ref` or `item_id`")
     normalized_action = str(action or "").strip().lower()
     vocabulary_ref = ref.startswith("exomem://review/vocabulary/")
     if normalized_action == "decide-vocabulary":
@@ -10956,6 +11316,7 @@ def op_connect_memory(
     entity_family: str | None = None,
     registry_scope: str | None = None,
     relations: list[dict] | None = None,
+    item_id: str | None = None,
 ) -> dict | list[dict]:
     """Find relations, graph context or entities.
 
@@ -10978,6 +11339,8 @@ def op_connect_memory(
             context and graph-context keep only its entity neighbours.
         registry_scope: create-entity instance selector; public or a canonical private Scope ID.
         relations: create-entity only. {kind, target} edges; a specific relation key.
+        item_id: accept-relation only. The id the relation queue gives one suggestion; replaces `ref`,
+            `expected_hash` and `expected_fingerprint`, and a stale id refuses with the current one.
     """
     if registry_scope is not None and operation not in {"create-entity", "resolve-relation"}:
         raise ValueError(
@@ -11076,6 +11439,16 @@ def op_connect_memory(
         result["context"] = {"path": path, "target": target}
         return result
     if operation == "accept-relation":
+        if item_id is not None:
+            if any(given is not None for given in (ref, expected_hash, expected_fingerprint)):
+                raise ValueError(
+                    "INVALID_MODE: item_id replaces ref, expected_hash and expected_fingerprint"
+                )
+            bound = review_ids_module.bind(
+                lambda **kw: op_review_memory(vault_root, **kw), item=item_id, modes=review_ids_module.RELATION_QUEUE_MODES
+            )
+            ref, expected_fingerprint = bound["ref"], bound["expected_fingerprint"]
+            path = path or bound.get("source_path")
         if not ref:
             raise ValueError("INVALID_MODE: accept-relation requires `ref`")
 
@@ -11100,10 +11473,13 @@ def op_connect_memory(
             expected_hash=expected_hash,
             why=why,
             expected_fingerprint=expected_fingerprint,
-            source_path=path,
+            source_path=(
+                page_names_module.resolve_page(vault_root, path, field="path") if path else path
+            ),
             requested_relation=requested_relation,
             bound=vocabulary_ref is not None and vocabulary_fingerprint is not None,
             edit_memory=_accept_relations_edit,
+            bind_page_hash=item_id is not None,
         )
     if operation == "suggest-relations":
         # Relation proposals are owner work (see `op_suggest_relations`);
@@ -11112,9 +11488,9 @@ def op_connect_memory(
         if refusal is not None:
             return refusal
     if path:
-        path = _resolve_memory_identifier(vault_root, path)
+        path = page_names_module.resolve_page(vault_root, path, field="path")
     if target:
-        target = _resolve_memory_identifier(vault_root, target)
+        target = page_names_module.resolve_page(vault_root, target, field="target")
     if operation == "suggest-links":
         return op_suggest_links(
             vault_root,
@@ -11320,6 +11696,7 @@ def op_adoption_studio(
     offset: Annotated[int, Field(ge=0)] = 0,
     limit: Annotated[int, Field(ge=1, le=adoption_run_module.STATUS_PAGE_ITEMS)] = adoption_run_module.STATUS_PAGE_ITEMS,
     revision: str | None = None,
+    upload: str | None = None,
 ) -> dict:
     """Review and import a collection in a resumable run.
 
@@ -11327,7 +11704,8 @@ def op_adoption_studio(
     Status/work-item read; others write. Apply commits the previewed plan or refuses.
 
     file imports a staged folder in one repeatable call: repeat it with the
-    `continuation` it returns until `filing` is not `working`. Other actions are
+    `continuation` it returns until `filing` is not `working`. An archive sent
+    with upload_files (lane import) is filed with `upload`. Other actions are
     the step path. start scans; select chooses; plan previews; apply copies into
     Sources and drafts notes under own-note rules; cancel closes pre-apply; finish
     reports recall and coverage. Resume plan/apply with `continuation`.
@@ -11341,7 +11719,7 @@ def op_adoption_studio(
     Args:
         action: Lifecycle step.
         run_id: From `start`; omit only to start or list runs.
-        path: For `file`, the staged folder `_Imports/<id>`. For `start`, subtree
+        path: For `file`, the staged folder `_Imports/<id>`; not with `upload`. For `start`, subtree
             (default: whole vault; ask which folder). For `status`, count filed originals under it.
         include_hidden: For `start`, include hidden files.
         initialize_kb: For `start`, bootstrap a missing Knowledge Base.
@@ -11375,6 +11753,8 @@ def op_adoption_studio(
         offset: For status pages, a zero-based row offset.
         limit: For status pages, from 1 to 100 rows, also bounded by response bytes.
         revision: For status pages, the preceding summary's revision; restart paging if it changed.
+        upload: For `file`, the `token` that upload_files returned for lane import, in place of `path`.
+            The first call unpacks the archive into a staged folder; repeats carry on. Its reply names `path`.
     """
     action = (action or "").strip()
     if action not in _ADOPTION_STUDIO_ACTIONS:
@@ -11430,11 +11810,26 @@ def op_adoption_studio(
         if action == "file":
             from . import due_state as due_state_module
 
+            if upload is not None:
+                from . import import_upload
+
+                if path:
+                    raise adoption_run_module.AdoptionRunError(
+                        "IMPORT_REQUEST_INVALID", "file takes an upload or a path, not both")
+                staged = import_upload.stage(vault_root, upload)
+                if staged.stopped is not None:
+                    return {"path": staged.path, **staged.stopped}
+                path = staged.path
             # Like `apply`, one call commits a bounded share of the import, so it is one batch at its terminal.
             with due_state_module.batch_scope(vault_root), state_paths_module.resolution_scope():
                 filed = adoption_run_module.file(
                     vault_root, path=path, collection=collection, continuation=continuation
                 )
+            if upload is not None:
+                # An upload's caller has no other way to learn the staged folder, and a later call may name it.
+                filed = {"path": path, **filed}
+                if staged.unrecorded:
+                    filed["person"] = [*filed.get("person", []), import_upload.unrecorded_note(path)]
             return _carrying_batch_advisories(vault_root, filed)
         if action == "cancel":
             return adoption_run_module.cancel(vault_root, run_id=run_id, why=why)
@@ -11495,12 +11890,12 @@ def op_observe_transfer(
        browser sign-in; takes a folder or ZIP.
        browser: without a shell, the Home link; desktop only, folders only, within one page
        session; phones cannot upload folders.
-       attachments: chat or phone attachments go through preserve_artifacts or
-       capture_source, within their per-call bounds.
+       attachments: chat or phone attachments go through save_evidence or
+       save_source, within their per-call bounds.
     2. status: the latest import (or import_id) and the export; poll until an adopt import
        is `done`.
-    3. File it: import_memory `file` on the `next` path (`_Imports/<id>`), repeated with its
-       `continuation` until `filing` is not `working`. An older server refuses `file`: start on
+    3. File it: manage_memory `imports.file` on the `next` path (`_Imports/<id>`), repeated with its
+       `continuation` until `filing` is not `working`. An older server refuses it: `imports.start` on
        the path, and again with `next_after`; select, plan and apply (at `apply_stop`, stop
        until space is free); finish.
     4. Review the residual with the person; discard with transfer_memory.
@@ -11616,7 +12011,7 @@ def op_maintain_memory(
     MAINTENANCE_REQUIRES_CLI: run it on the host with the service stopped.
     collections-cutover only previews the move of every collection to SQLite-only storage;
     the owner applies its plan_id with `exomem collections cutover` on the host.
-    held-resolve settles one held item from read_review mode held: path, choice keep-mine or
+    held-resolve settles one held item that mode held of review_memory lists: path, choice keep-mine or
     keep-store, that item's item_version and why.
 
     Curation cannot target raw Sources/Evidence, Planning, Records or schema/admin state.
@@ -12375,29 +12770,36 @@ def op_schema_memory(
                 registry_file_exists = instances.select(
                     vault_root, semantic_language_registry_module.CATEGORY_SPEC
                 ).overlay(vault_root).exists()
-                dropped = semantic_language_registry_module.dropped_verdicts_finding(
+                for labels, dropped in semantic_language_registry_module.dropped_label_findings(
                     current, candidate
-                )
-                if dropped is not None:
-                    raise ValueError(f"CATEGORY_SAVE_VERDICT_DROPPED: {dropped['detail']}")
-                # Debt: this kinds leg refuses every kind change, an addition too, and validation
-                # does not report it; it predates the verdict leg above, which refuses a loss only.
-                reviewed = semantic_language_registry_module.registry_proposal
+                ):
+                    # The code names the registry, such as CATEGORY_SAVE_VERDICT_DROPPED.
+                    raise ValueError(
+                        f"CATEGORY_SAVE_{labels.noun.upper()}_DROPPED: {dropped['detail']}"
+                    )
+                # Debt: this leg refuses every kind change but a label, an added kind too, and
+                # validation does not report it; it predates the verdict leg above.
                 if (
                     registry_file_exists
                     and not candidate.findings
-                    and reviewed(current)["kinds"] != reviewed(candidate)["kinds"]
+                    and semantic_language_registry_module.kind_changes_beyond_labels(
+                        current, candidate
+                    )
                 ):
                     raise ValueError(
                         "CATEGORY_SAVE_KIND_CHANGE: category governance must preserve "
                         "the reviewed custom-kind namespace"
                     )
+                # Validation leads with the same sentences, read before the save changes the store.
+                outcome = memory_schema_module.kind_label_outcome(vault_root, current, candidate)
                 result["saved"] = semantic_language_registry_module.save_registry(
                     vault_root,
                     proposal,
                     expected_hash=expected_hash,
                     why=why,
                 )
+                if outcome:
+                    result = {"outcome": outcome, **result}
             return result
         if save:
             raise ValueError("INVALID_SCHEMA_OPERATION: save is supported only for infer")
@@ -13702,6 +14104,7 @@ def op_record_memory(
     on_reject: Literal["abort", "skip"] | None = None,
     import_request: dict[str, Any] | None = None,
     query: dict[str, Any] | None = None,
+    item_id: str | None = None,
 ) -> dict[str, Any]:
     """Read or update observed state; Planning uses plan_memory; originals use Sources/Evidence.
 
@@ -13728,6 +14131,7 @@ def op_record_memory(
         source: bulk_upsert default preserved Source/Evidence path.
         on_reject: bulk_upsert: abort writes nothing; skip commits the rest.
         query: v1 query object; grammar via describe.
+        item_id: Update only: the row `id` a query returned; stands for item_key and both guards, read under the writer lease.
     """
     return record_memory_module.record_memory(
         vault_root,
@@ -13769,6 +14173,7 @@ def op_record_memory(
         on_reject=on_reject,
         import_request=import_request,
         query=query,
+        item_id=item_id,
     )
 
 
@@ -14167,7 +14572,7 @@ _SIMPLE_ACTION_DEFS: dict[str, dict] = {
     "review": {
         "intent": "Review stale, contradictory, disconnected, or unprocessed knowledge before acting.",
         "route": {"tool": "review_memory", "args": {"mode": "attention"}},
-        "audit_route": {"tool": "review_memory", "args": {"mode": "audit"}},
+        "audit_route": {"tool": "maintain_memory", "args": {"mode": "audit"}},
         "safety": "read-only by default; triage state changes are explicit through triage_memory",
         "advanced": [
             "review_item_context",
@@ -14292,6 +14697,13 @@ _COMMAND_OUTCOME_VERBS: Mapping[str, operation_entries.OutcomeVerb] = MappingPro
     "remember": "saved", "edit_memory": "updated", "replace_memory": "replaced",
     "capture_source": "saved", "preserve_evidence": "saved", "preserve_artifacts": "saved",
     "transfer_artifact": "saved", "transfer_memory": "saved",
+})
+#: The commands whose MCP reply names pages by title and short id (`Command.names_pages`): each
+#: reports pages that `read_memory`, `edit_note` and the other page tools take by title or id.
+# nosemgrep: ep-word-set -- the registry's own command names, not a customer vocabulary.
+_PAGE_NAMING_COMMANDS = frozenset({
+    "remember", "edit_memory", "replace_memory", "observe_memory", "connect_memory",
+    "capture_source", "ask_memory",
 })
 _MCRC = frozenset({"mcp", "rest", "cli"})
 _RC = frozenset({"rest", "cli"})
@@ -15082,6 +15494,7 @@ def _build_product_commands() -> tuple[Command, ...]:
                 mcp_meta=MappingProxyType(dict(meta.get("mcp_meta", {}))),
                 executor=meta.get("executor", "cell"),
                 outcome_verb=_COMMAND_OUTCOME_VERBS.get(name),
+                names_pages=name in _PAGE_NAMING_COMMANDS,
             )
         )
     return tuple(cmds)

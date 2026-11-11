@@ -13,7 +13,11 @@ from myst_parser.parsers.docutils_ import (
     depart_container_html,
     visit_container_html,
 )
+from myst_parser.parsers.mdit import linkify_available
 from myst_parser.warnings_ import MystWarnings
+
+_SETUP_DONE_ATTR = "_myst_parser_setup_done"
+"""Set on the Sphinx app once `setup_sphinx` has run."""
 
 
 def setup_sphinx(app: Sphinx, load_parser: bool = False) -> None:
@@ -36,6 +40,13 @@ def setup_sphinx(app: Sphinx, load_parser: bool = False) -> None:
     if load_parser:
         app.add_source_suffix(".md", "markdown")
         app.add_source_parser(MystParser)
+
+    # external packages (like myst_nb) call this function from their own setup,
+    # so it can run twice on one app if `myst_parser` is also in `extensions`:
+    # the rest only needs to run once
+    if getattr(app, _SETUP_DONE_ATTR, False):
+        return
+    setattr(app, _SETUP_DONE_ATTR, True)
 
     app.add_role("sub-ref", SubstitutionReferenceRole())
     app.add_directive("figure-md", FigureMarkdown)
@@ -95,4 +106,14 @@ def create_myst_config(app):
             "please use `attrs_inline` instead.",
             type="myst",
             subtype=MystWarnings.DEPRECATED.value,
+        )
+
+    if "linkify" in app.env.myst_config.enable_extensions and not linkify_available():
+        logger.warning(
+            "The `linkify` extension is enabled, but the `linkify-it-py` package "
+            "is not installed, so it has been disabled "
+            "(install it with e.g. `pip install linkify-it-py` "
+            "or `pip install myst-parser[linkify]`).",
+            type="myst",
+            subtype=MystWarnings.LINKIFY.value,
         )

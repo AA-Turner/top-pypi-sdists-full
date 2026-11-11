@@ -640,8 +640,8 @@ def test_cardinalities(source_multivalued: bool, target_multivalued: bool, expli
     assert [val] if target_multivalued else val == target_instance[att_name]
 
 
-def test_normalize_defaults_range_for_literal_value() -> None:
-    """Range should default to 'string' when a literal value is set and range is None."""
+def test_normalize_leaves_range_unset_for_literal_value() -> None:
+    """A literal value gets no default range, so the target schema can type it (#364)."""
     spec = {
         "class_derivations": {
             "MyClass": {
@@ -658,20 +658,19 @@ def test_normalize_defaults_range_for_literal_value() -> None:
     normalize_spec(spec)
     class_deriv = spec["class_derivations"][0]
     slot = class_deriv["slot_derivations"]["my_slot"]
-    assert slot["range"] == "string"
+    assert slot.get("range") is None
 
 
 def test_derive_from_expr_unrestricted_fallback() -> None:
-    """The asteval fallback path is used when unrestricted_eval=True and simpleeval rejects the expression."""
+    """A statement is evaluated by asteval when unrestricted_eval=True, reaching the source object as ``src``."""
     source_schema: dict[str, Any] = yaml.safe_load(open(str(PERSONINFO_SRC_SCHEMA)))
     target_schema: dict[str, Any] = yaml.safe_load(open(str(PERSONINFO_TGT_SCHEMA)))
     transform_spec: dict[str, Any] = yaml.safe_load(open(str(PERSONINFO_TR)))
 
-    # Assignment syntax is rejected by simpleeval but handled by asteval
     transform_spec.setdefault("class_derivations", {}).setdefault("Agent", {}).setdefault("slot_derivations", {})[
         "label"
     ] = {
-        "expr": "target = name",
+        "expr": "target = src.name",
     }
 
     obj_tr = ObjectTransformer(unrestricted_eval=True)

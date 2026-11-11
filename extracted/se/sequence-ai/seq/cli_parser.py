@@ -809,8 +809,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--storage-limit", metavar="SIZE|plan",
                    help="everything you keep counts toward it: 500GB, 2TB or a number of GB, with no ceiling of ours "
                         "(storage is billed by the GB); plan for your plan's own")
+
+
+
+
     asub.add_parser("delete", help="delete the account on the console's Account page, where you confirm it: the page, "
-                                   "opened in your browser - nothing is deleted from here")
+                                   "opened in your browser - nothing is deleted from here",
+                    description="Delete the account on the console's Account page, where you confirm it: the page, "
+                                "opened in your browser - nothing is deleted from here. What it owes, the Invoices "
+                                "page's due, is charged to your payment method first: at $0.50 or more, a charge that "
+                                "fails or no payment method keeps the account, and the page says why; under $0.50 is "
+                                "not charged and does not keep it.")
 
     bsub = _group(ap, sub, "billing", "Your money as the console's Billing page shows it: a top-up's payment page and "
                                       "the wait for its credit, the credits added, the plan and a move to another, the "

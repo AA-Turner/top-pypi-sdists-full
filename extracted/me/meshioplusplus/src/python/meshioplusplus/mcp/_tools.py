@@ -1,0 +1,8530 @@
+"""The pure payload layer of the MCP server: one function per tool.
+
+Everything an MCP tool does lives here, and nothing here imports the ``mcp``
+SDK — this module runs on every Python the package supports (>= 3.10) and is
+tested in the default CI matrix with the ``[mcp]`` extra absent, exactly the
+way :mod:`meshioplusplus._interop`'s payload layer is tested without PyVista.
+The FastMCP registration in :mod:`meshioplusplus.mcp._server` is a thin,
+typed wrapper around the functions below.
+
+Design rules (the contracts the tests pin):
+
+* **File-path based, with a read cache.** Every tool takes input path(s),
+  operates through the public :mod:`meshioplusplus` API, writes output
+  path(s), and returns a JSON-safe ``dict`` report. The only state kept
+  between calls is a bounded cache of parsed inputs (:func:`_load`), keyed on
+  the file's identity -- path, device, inode, size, and modification and
+  change times in nanoseconds -- plus the format and read options, so a
+  changed file is always re-read; tools get a private copy, never the cached
+  mesh. Multi-file inputs are never cached.
+* **Strict JSON.** Every report survives ``json.dumps(..., allow_nan=False)``:
+  :func:`_json_safe` converts numpy scalars/arrays, replaces non-finite
+  values with ``None`` (counted in ``non_finite_replaced``), and truncates
+  arrays longer than ``_MAX_ARRAY`` to a ``{"truncated": ...}`` wrapper.
+* **Optional path sandbox.** With a root configured (``--root`` /
+  ``MESHIOPLUSPLUS_MCP_ROOT``), every path is realpath-resolved and must stay
+  inside it; violations raise a clean ``ValueError``, never a traceback the
+  client cannot act on. Without a root, paths resolve against the CWD.
+* **``TOOL_REGISTRY`` is the single source of truth.** ``_server`` registers
+  from it and ``tests/python/test_mcp.py``'s parity guard asserts every public
+  operation in ``meshioplusplus.__all__`` is claimed by some tool's ``wraps``.
+"""
+
+from __future__ import annotations
+
+import copy
+import inspect
+import json
+import math
+import os
+import pathlib
+import re
+import threading
+from collections import OrderedDict
+
+import numpy as np
+
+from .. import GeometryGuard, GridArray, GridSpec, adapt, agglomerate
+from .. import align_datums as _align_datums_op
+from .. import (
+    annulus,
+    attach_quality,
+    auto_align,
+    ball,
+    boundary_layer,
+    box,
+    box_points,
+    box_surface,
+    capsule,
+    cell_data_to_point_data,
+    check_conformity,
+    check_quality,
+    check_tetrahedra,
+    circle,
+    clean,
+)
+from .. import clip as _clip_op
+from .. import (
+    colorize,
+    compute_bandwidth,
+    compute_curvature,
+    compute_normals,
+    compute_quality,
+    compute_sdf,
+    compute_stats,
+    cone,
+    conservative_interpolate,
+)
+from .. import constrain_primitives as _constrain_primitives_op
+from .. import (
+    contact_pairs,
+    convert_cells,
+    convert_coordinates,
+    convex_hull,
+    crop,
+    cube_sphere,
+    cut_has_cutcells,
+    cut_level_set,
+    cut_quadrature,
+    cylinder,
+    data_calc,
+    data_condition,
+    data_info,
+    data_integrate,
+    data_manage,
+    decimate,
+    decimate_volume,
+    delaunay_2d,
+    deviation,
+    deviation_regions,
+    diff,
+    discretize_levelset,
+    disk,
+    distance_to_surface,
+    edit_regions,
+    error_size,
+    estimate_error,
+    estimate_normals,
+    exaggerate,
+    extract_skin,
+    extract_surface,
+    extrude,
+)
+from .. import face_support as _face_support_op
+from .. import (
+    feature_edges,
+    fichera,
+    find_interface,
+    find_intersections,
+    find_symmetry_plane,
+    fit_cad,
+)
+from .. import fit_cad_iterate as _fit_cad_iterate_op
+from .. import fit_curves as _fit_curves_op
+from .. import fit_primitives
+from .. import flip_normals as _flip_normals_op
+from .. import (
+    geo_sphere,
+    geodesic_distance,
+    geometry_descriptors,
+    gradient,
+    grid,
+    has_mmg,
+    has_mmg_elas,
+    has_netgen,
+    hausdorff_distance,
+    helix,
+    hessian,
+)
+from .. import hollow as _hollow_op
+from .. import (
+    honeycomb,
+    icosa_sphere,
+    iga_evaluate,
+    iga_refine,
+    iga_sample,
+    interpolate,
+    isosurface,
+    laplacian_eigenmodes,
+    line,
+    lshape,
+    match_periodic_nodes,
+)
+from .. import measure as _measure_op
+from .. import (
+    merge,
+    mesh_cad_surface,
+    mesh_domain,
+    metric_from_hessian,
+    mirror,
+    moebius,
+    morph,
+    move,
+    ngon,
+    octa_sphere,
+    octree,
+    octree_mesh,
+)
+from .. import offset_surface as _offset_surface_op
+from .. import (
+    optimize_volume,
+    parameterize,
+    partition,
+    pipe,
+    plate_with_hole,
+    platonic,
+    point_data_to_cell_data,
+    poly_to_tet,
+    power_spectrum,
+    prepare_metric,
+)
+from .. import profile_solid as _profile_solid_op
+from .. import profile_solid_providers as _profile_solid_providers
+from .. import (
+    project_to_cad,
+    proximity_graph,
+    read,
+    read_metadata,
+    reconstruct_surface,
+    rectangle,
+    reference_cells,
+    reference_triangle,
+    refine,
+    refine_patches,
+    region_adjacency,
+    register_landmarks,
+    register_rigid,
+    remesh,
+    remesh_quads,
+    remesh_quads_backends,
+    remesh_volume,
+)
+from .. import remove_islands as _remove_islands_op
+from .. import (
+    render_text,
+    reorder,
+    repair,
+    resample_grid,
+    revolve,
+    run_pipeline,
+    sample_distance,
+    sample_grid,
+    scatter_grid,
+)
+from .. import screenshot as _screenshot_fn
+from .. import sections as _sections_op
+from .. import segment
+from .. import select as _select_op
+from .. import shrinkwrap
+from .. import silhouette as _silhouette_op
+from .. import slice as _slice_op
+from .. import smooth
+from .. import snapshot as _snapshot_fn
+from .. import (
+    sniff_format,
+    sobolev_deform,
+    solid_torus,
+    sphere_points,
+    spherical_shell,
+    split,
+    split_interface,
+    subdivide,
+    subsample_points,
+    surface_watertight_check,
+    tensor_invariants,
+    tessellate,
+    tet_to_poly,
+    tetra_sphere,
+    tetrahedralize,
+    tetrahedralize_backends,
+)
+from .. import thicken as _thicken_op
+from .. import (
+    thickness,
+    torus,
+    transform,
+    tube,
+    undo_green,
+    untangle,
+    uv_sphere,
+    voxelize,
+    write,
+    write_graph,
+)
+from .. import write_parquet as _write_parquet_fn
+from .. import write_step_elements as _write_step_elements_op
+from .._helpers import _filetypes_from_path, formats
+
+# --------------------------------------------------------------------------- #
+# Path sandbox                                                                #
+# --------------------------------------------------------------------------- #
+_ROOT = os.environ.get("MESHIOPLUSPLUS_MCP_ROOT") or None
+
+# Report-size caps: arrays longer than _MAX_ARRAY become a truncation wrapper
+# carrying the first _PREVIEW values; region entry previews reuse _PREVIEW.
+_MAX_ARRAY = 1000
+_PREVIEW = 50
+
+
+def set_root(root):
+    """Confine every tool's paths to ``root`` (``None`` lifts the sandbox)."""
+    global _ROOT
+    _ROOT = os.path.realpath(str(root)) if root else None
+
+
+def get_root():
+    return _ROOT
+
+
+# Where training jobs land (doc/dashboard.md): `<root or cwd>/runs` unless the
+# server's --runs-dir says otherwise. Job ids are validated by the manager, so
+# a job path can never leave this directory.
+_RUNS_DIR = None
+_WEBHOOK = None
+_MANAGERS = {}
+
+
+def set_runs_dir(path):
+    global _RUNS_DIR
+    _RUNS_DIR = os.path.realpath(str(path)) if path else None
+    _MANAGERS.clear()
+
+
+def set_webhook(url):
+    """The URL a terminal job is POSTed to (the server's ``--webhook``).
+
+    Deliberately a server-side setting rather than a spec key or a tool
+    parameter: a URL supplied by a client and fetched by the server is
+    server-side request forgery by design.
+    """
+    global _WEBHOOK
+    _WEBHOOK = str(url) if url else None
+    _MANAGERS.clear()
+
+
+def get_webhook():
+    return _WEBHOOK
+
+
+def get_runs_dir():
+    return _RUNS_DIR or os.path.join(
+        _ROOT if _ROOT is not None else os.getcwd(), "runs"
+    )
+
+
+def _jobs_manager():
+    from ._jobs import JobManager
+
+    runs = get_runs_dir()
+    manager = _MANAGERS.get(runs)
+    if manager is None:
+        manager = _MANAGERS[runs] = JobManager(runs, webhook=_WEBHOOK)
+    return manager
+
+
+def _resolve(path, must_exist=False, for_write=False):
+    """Resolve a client-supplied path, enforcing the sandbox when configured."""
+    raw = os.path.expanduser(str(path))
+    base = _ROOT if _ROOT is not None else os.getcwd()
+    resolved = os.path.realpath(os.path.join(base, raw))
+    if _ROOT is not None:
+        root = os.path.realpath(_ROOT)
+        if resolved != root and not resolved.startswith(root + os.sep):
+            raise ValueError(
+                f"meshio++: mcp: path '{path}' resolves outside the configured "
+                f"root '{root}'"
+            )
+    # A directory counts as existing: `pmsh` and `zarr` inputs ARE directories
+    # (the `openfoam` shape). A directory that is not one of those still fails,
+    # just later and with the format's own error rather than "not found".
+    if must_exist and not (os.path.isfile(resolved) or os.path.isdir(resolved)):
+        raise ValueError(f"meshio++: mcp: input file not found: '{resolved}'")
+    if for_write:
+        parent = os.path.dirname(resolved)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+    return resolved
+
+
+# --------------------------------------------------------------------------- #
+# Strict-JSON sanitizer                                                       #
+# --------------------------------------------------------------------------- #
+def _sanitize(obj, max_array, preview, stats):
+    if obj is None or isinstance(obj, (bool, int, str)):
+        return obj
+    if isinstance(obj, float):
+        if not math.isfinite(obj):
+            stats["replaced"] += 1
+            return None
+        return obj
+    if isinstance(obj, np.generic):
+        return _sanitize(obj.item(), max_array, preview, stats)
+    if isinstance(obj, np.ndarray):
+        if obj.size > max_array:
+            head = obj.reshape(-1)[:preview]
+            return {
+                "truncated": True,
+                "size": int(obj.size),
+                "shape": [int(s) for s in obj.shape],
+                "dtype": str(obj.dtype),
+                "preview": _sanitize(head.tolist(), max_array, preview, stats),
+            }
+        return _sanitize(obj.tolist(), max_array, preview, stats)
+    if isinstance(obj, dict):
+        return {str(k): _sanitize(v, max_array, preview, stats) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize(v, max_array, preview, stats) for v in obj]
+    return str(obj)
+
+
+def _json_safe(obj, max_array=_MAX_ARRAY, preview=_PREVIEW):
+    """Return a strict-JSON copy of ``obj`` (numpy converted, NaN/Inf -> None).
+
+    A ``non_finite_replaced`` count is added to dict results when any value
+    had to be replaced, so lossy sanitization is visible rather than silent.
+    """
+    stats = {"replaced": 0}
+    out = _sanitize(obj, int(max_array), int(preview), stats)
+    if stats["replaced"] and isinstance(out, dict):
+        out["non_finite_replaced"] = stats["replaced"]
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# Shared helpers                                                              #
+# --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+# Read cache                                                                  #
+# --------------------------------------------------------------------------- #
+# An agent typically asks several questions of one file in a row (stats,
+# quality, data_info, regions, ...); each used to parse it again. Parsed meshes
+# are kept here, bounded by bytes, keyed on the file's identity (see
+# _cache_key) so that a file changed by anyone -- this server or the agent's
+# own tools -- is re-read. Formats whose reader follows other files (companion
+# data, pieces, includes, directories) are never cached: the entry file's stat
+# cannot see a change to the rest.
+_CACHE_UNSAFE_FORMATS = frozenset(
+    {
+        # companion or piece files
+        "xdmf",
+        "pvtu",
+        "pvtp",
+        "pvd",
+        "vtm",
+        "ensight",
+        "gid",
+        "gltf",
+        "tetgen",
+        "triangle",
+        "dolfin",
+        "elmer",
+        "febio",
+        "libmesh",
+        "marc",
+        "mfem",
+        "z88",
+        "radioss",
+        "lsdyna_binout",
+        "lsdyna_d3plot",
+        "usd",
+        "physicsnemo",
+        # decks that follow include files
+        "abaqus",
+        "lsdyna",
+        "nastran",
+        # directory formats
+        "openfoam",
+        "pmsh",
+        "zarr",
+        "vtx",
+    }
+)
+# read()'s own defaults: an option passed at its default value (tool_stats
+# spells time_step=0 out, tool_data_info does not) is the same parse.
+_READ_DEFAULTS = {
+    name: param.default
+    for name, param in inspect.signature(read).parameters.items()
+    if param.default is not inspect.Parameter.empty
+}
+_CACHE_LOCK = threading.Lock()
+_CACHE = OrderedDict()  # key -> (mesh, nbytes), least recently used first
+_CACHE_BYTES = [0]
+
+
+def _cache_limit():
+    """The cache's byte budget: ``MESHIOPLUSPLUS_MCP_CACHE_MB`` (default 512;
+    ``0`` disables caching)."""
+    try:
+        return max(0, int(os.environ.get("MESHIOPLUSPLUS_MCP_CACHE_MB", "512"))) << 20
+    except ValueError:
+        return 512 << 20
+
+
+def _mesh_nbytes(mesh):
+    total = np.asarray(mesh.points).nbytes
+    for block in mesh.cells:
+        data = block.data
+        total += (
+            data.nbytes if isinstance(data, np.ndarray) else 8 * sum(map(len, data))
+        )
+    for arrays in list(mesh.point_data.values()) + list(mesh.field_data.values()):
+        total += getattr(arrays, "nbytes", 0)
+    for blocks in mesh.cell_data.values():
+        total += sum(getattr(a, "nbytes", 0) for a in blocks)
+    return total
+
+
+def _cache_key(resolved, input_format, read_kwargs):
+    """The identity of one parse, or ``None`` when it must not be cached."""
+    if not os.path.isfile(resolved):
+        return None  # a directory format, or something that vanished
+    if input_format is not None:
+        candidates = [input_format]
+    else:
+        try:
+            candidates = _filetypes_from_path(pathlib.Path(resolved))
+        except Exception:
+            return None  # unknown extension: let `read` report it
+    if any(fmt in _CACHE_UNSAFE_FORMATS for fmt in candidates):
+        return None
+    options = tuple(
+        sorted(
+            (name, value)
+            for name, value in read_kwargs.items()
+            if not (
+                name in _READ_DEFAULTS
+                and isinstance(value, (str, int, float, type(None)))
+                and type(value) is type(_READ_DEFAULTS[name])
+                and value == _READ_DEFAULTS[name]
+            )
+        )
+    )
+    try:
+        hash(options)
+    except TypeError:
+        return None  # an unhashable option (a list of arrays, ...)
+    st = os.stat(resolved)
+    # mtime alone is coarse on some filesystems; ctime, inode and size make a
+    # same-tick rewrite or a rename-over visible too.
+    return (
+        resolved,
+        st.st_dev,
+        st.st_ino,
+        st.st_size,
+        st.st_mtime_ns,
+        st.st_ctime_ns,
+        input_format,
+        options,
+    )
+
+
+def _cache_invalidate(path=None):
+    """Drop the entries for one resolved path, or everything."""
+    with _CACHE_LOCK:
+        for key in [k for k in _CACHE if path is None or k[0] == path]:
+            _CACHE_BYTES[0] -= _CACHE.pop(key)[1]
+
+
+def _heal_kwargs(heal, sew_tolerance):
+    """The STEP/IGES healing options for `_load`, only when asked for."""
+    out = {}
+    if heal:
+        out["heal"] = True
+    if sew_tolerance:
+        out["sew_tolerance"] = float(sew_tolerance)
+    return out
+
+
+def _mesh_arrays(mesh):
+    """Every ndarray reachable from ``mesh`` through its containers, cell
+    blocks and regions (``info`` included), each once."""
+    from .._mesh import CellBlock
+    from .._regions import Region
+
+    out, seen, stack = [], set(), [mesh.__dict__]
+    while stack:
+        obj = stack.pop()
+        if id(obj) in seen:
+            continue
+        seen.add(id(obj))
+        if isinstance(obj, np.ndarray):
+            out.append(obj)
+        elif isinstance(obj, dict):
+            stack.extend(obj.values())
+        elif isinstance(obj, (list, tuple)):
+            stack.extend(obj)
+        elif isinstance(obj, CellBlock):
+            stack.extend(vars(obj).values())
+        elif isinstance(obj, Region):
+            stack.extend(getattr(obj, name) for name in Region.__slots__)
+    return out
+
+
+def _freeze(mesh):
+    """Make a cached mesh's arrays read-only: what is shared cannot be written."""
+    for array in _mesh_arrays(mesh):
+        array.flags.writeable = False
+
+
+def _hand_out(cached, readonly):
+    """What a tool gets from the cache. A tool that mutates its mesh (and the
+    pipeline) gets a private deep copy; a read-only tool gets private
+    containers over the cached, frozen arrays, so a hit copies no array
+    (roadmap 5.12.2) and a write to one raises instead of corrupting the cache."""
+    if not readonly:
+        return cached.copy()
+    return copy.deepcopy(cached, {id(a): a for a in _mesh_arrays(cached)})
+
+
+def _load(input_path, input_format=None, *, readonly=False, **read_kwargs):
+    """Read ``input_path`` through the cache. ``readonly=True`` promises the
+    caller never writes to the mesh's arrays: it is then handed the cached
+    arrays themselves, read-only, rather than a copy."""
+    resolved = _resolve(input_path, must_exist=True)
+    limit = _cache_limit()
+    key = _cache_key(resolved, input_format, read_kwargs) if limit else None
+    if key is not None:
+        with _CACHE_LOCK:
+            hit = _CACHE.get(key)
+            if hit is not None:
+                _CACHE.move_to_end(key)
+                return _hand_out(hit[0], readonly)
+    heal = bool(read_kwargs.pop("heal", False))
+    sew_tolerance = float(read_kwargs.pop("sew_tolerance", 0.0) or 0.0)
+    if heal or sew_tolerance > 0.0:
+        # STEP and IGES healing (roadmap 7.7.1) goes through the CAD reader.
+        from ..step import _read_healed
+
+        defaults = {
+            "points_only": False,
+            "arrays": None,
+            "time_step": 0,
+            "piece": None,
+            "ghosts": "keep",
+        }
+        chosen = sorted(k for k, v in read_kwargs.items() if defaults.get(k, v) != v)
+        chosen += sorted(k for k in read_kwargs if k not in defaults)
+        if chosen:
+            raise ValueError(
+                "meshio++: heal/sew_tolerance cannot be combined with "
+                f"{', '.join(chosen)}"
+            )
+        mesh = _read_healed(resolved, input_format, heal, sew_tolerance)
+    else:
+        mesh = read(resolved, file_format=input_format, **read_kwargs)
+    if key is not None:
+        nbytes = _mesh_nbytes(mesh)
+        if nbytes <= limit:
+            # The parsed mesh itself is kept, its arrays frozen; the caller
+            # gets what a hit would hand out (one copy, as before, or none).
+            _freeze(mesh)
+            with _CACHE_LOCK:
+                if key not in _CACHE:
+                    _CACHE[key] = (mesh, nbytes)
+                    _CACHE_BYTES[0] += nbytes
+                while _CACHE_BYTES[0] > limit and _CACHE:
+                    _CACHE_BYTES[0] -= _CACHE.popitem(last=False)[1][1]
+            return _hand_out(mesh, readonly)
+    return mesh
+
+
+def _store(mesh, output_path, output_format=None, **write_kwargs):
+    resolved = _resolve(output_path, for_write=True)
+    write(resolved, mesh, file_format=output_format, **write_kwargs)
+    _cache_invalidate(resolved)
+    return resolved
+
+
+def _brep_summary(brep):
+    """What a B-rep side channel (``mesh.info["brep"]``: Kratos CAD JSON, STEP,
+    IGES, fit_cad) holds, by count."""
+    faces = brep.get("faces", [])
+    return {
+        "faces": len(faces),
+        "trimmed_faces": sum(1 for f in faces if f.get("trimmed")),
+        "rational_faces": sum(1 for f in faces if f.get("rational")),
+        "loops": sum(len(f.get("loops", [])) for f in faces),
+        "edges": len(brep.get("edges", [])),
+        "vertices": len(brep.get("vertices", [])),
+    }
+
+
+def _nurbs_summary(nurbs):
+    """What a NURBS side channel (``mesh.info["nurbs"]``: MFEM NURBS meshes)
+    holds, by count."""
+    patches = nurbs.get("patches", [])
+    topo = nurbs.get("topology") or {}
+    return {
+        "patches": len(patches),
+        "dimension": int(topo["dimension"]) if topo else None,
+        "degrees": sorted({int(d) for p in patches for d in p["degrees"]}),
+        "control_points": int(sum(len(p["weights"]) for p in patches)),
+        "fields": list(nurbs.get("field_names", [])),
+    }
+
+
+def _mesh_summary(mesh):
+    out = {
+        "num_points": int(len(mesh.points)),
+        "num_cells": int(sum(len(b) for b in mesh.cells)),
+        "cell_blocks": [{"type": b.type, "num_cells": int(len(b))} for b in mesh.cells],
+        "point_data": sorted(mesh.point_data),
+        "cell_data": sorted(mesh.cell_data),
+        "field_data": sorted(mesh.field_data),
+        "num_regions": len(mesh.regions),
+    }
+    info = getattr(mesh, "info", None)
+    if isinstance(info, dict) and info.get("brep"):
+        out["brep"] = _brep_summary(info["brep"])
+    if isinstance(info, dict) and info.get("nurbs"):
+        out["nurbs"] = _nurbs_summary(info["nurbs"])
+    return out
+
+
+def _result(output_path, mesh, **extra):
+    report = {"output_path": output_path}
+    report.update(_mesh_summary(mesh))
+    report.update(extra)
+    return _json_safe(report)
+
+
+_IO_ARGS = ("input_path", "output_path", "input_format", "output_format")
+
+
+def _run_op(op, args, load=True, report=True, call=None, **extra):
+    """Run ``op`` for a tool whose body only forwards its own arguments.
+
+    ``args`` is the tool's ``locals()`` on entry, its parameters: ``op`` gets
+    every one but the input and output paths and formats by name, with
+    ``call``'s entries replacing or joining them. With ``load`` it is applied
+    to the input mesh; with ``report`` it is asked for its report, which
+    follows ``extra`` in the result after the stored output's summary.
+    """
+    kwargs = {k: v for k, v in args.items() if k not in _IO_ARGS}
+    if call:
+        kwargs.update(call)
+    if report:
+        kwargs["return_report"] = True
+    if load:
+        res = op(_load(args["input_path"], args["input_format"]), **kwargs)
+    else:
+        res = op(**kwargs)
+    out, rep = res if report else (res, {})
+    return _result(
+        _store(out, args["output_path"], args["output_format"]), out, **extra, **rep
+    )
+
+
+def _safe_key(key):
+    return re.sub(r"[^\w.+-]", "_", str(key)) or "_"
+
+
+# --------------------------------------------------------------------------- #
+# Inspection tools (read-only)                                                #
+# --------------------------------------------------------------------------- #
+def tool_formats():
+    """List readable/writable formats and the extension -> formats map."""
+    return _json_safe(formats_payload())
+
+
+def formats_payload():
+    """The public ``meshioplusplus.formats()`` answer, verbatim."""
+    return formats()
+
+
+def tool_sniff(input_path):
+    """Identify a mesh file's format from its leading bytes (or, for a directory,
+    the files it holds) and its extension."""
+    resolved = _resolve(input_path, must_exist=True)
+    sniffed = sniff_format(resolved)
+    try:
+        from_extension = _filetypes_from_path(pathlib.Path(resolved))
+    except Exception:
+        from_extension = []
+    return _json_safe(
+        {"format": sniffed or None, "from_extension": list(from_extension)}
+    )
+
+
+def tool_info(input_path, file_format=None):
+    """Summarize a mesh file without loading its heavy arrays (fast)."""
+    meta = read_metadata(_resolve(input_path, must_exist=True), file_format=file_format)
+    return _json_safe(meta)
+
+
+def tool_stats(input_path, file_format=None, time_step=0, piece=None, ghosts="keep"):
+    """Geometric statistics: bbox, centroid, areas/volumes, inverted cells."""
+    mesh = _load(
+        input_path,
+        file_format,
+        time_step=time_step,
+        piece=piece,
+        ghosts=ghosts,
+        readonly=True,
+    )
+    return _json_safe(compute_stats(mesh))
+
+
+def tool_quality(input_path, file_format=None, output_path=None, output_format=None):
+    """Per-metric mesh-quality summaries; optionally write the annotated mesh.
+
+    The per-cell metric arrays are omitted from the report (they scale with the
+    mesh); pass ``output_path`` to write a copy of the mesh carrying them as
+    ``quality:<metric>`` cell_data instead.
+    """
+    mesh = _load(input_path, file_format, readonly=True)
+    report = compute_quality(mesh)
+    report.pop("cell_arrays", None)
+    report["cell_arrays"] = (
+        "omitted; pass output_path to write a mesh with quality:<metric> cell_data"
+    )
+    if output_path is not None:
+        annotated = attach_quality(mesh)
+        report["output_path"] = _store(annotated, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_check_quality(
+    input_path, require=None, max_inverted=0, max_degenerate=0, file_format=None
+):
+    """Quality gate: pass/fail thresholds over the per-cell quality metrics and
+    the inverted/degenerate counts; the report names every check."""
+    mesh = _load(input_path, file_format, readonly=True)
+    return _json_safe(
+        check_quality(
+            mesh, require, max_inverted=max_inverted, max_degenerate=max_degenerate
+        )
+    )
+
+
+def tool_check_conformity(
+    input_path,
+    output_path=None,
+    file_format=None,
+    output_format=None,
+    tolerance=1e-9,
+):
+    """Conformity check: hanging nodes (3-D), T-junctions (2-D), partly
+    overlapping and unwelded facet pairs, the verdict and which find_interface
+    mode suits the mesh. Pass ``output_path`` to write a copy of the mesh
+    carrying the ``conformity:hanging`` point_data flags."""
+    mesh = _load(input_path, file_format)
+    out, report = check_conformity(
+        mesh,
+        tolerance=tolerance,
+        attach_flags=output_path is not None,
+        return_report=True,
+    )
+    if output_path is not None:
+        report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_check_tetrahedra(input_path, file_format=None, zero_volume_factor=1e-6):
+    """Tetrahedron check: the tetra and tetra10 cells that are inverted
+    (negative volume), degenerate (volume within a tolerance of the longest edge
+    cubed) and the pairs that overlap across a shared face, with the verdict."""
+    mesh = _load(input_path, file_format)
+    return _json_safe(check_tetrahedra(mesh, zero_volume_factor=zero_volume_factor))
+
+
+def tool_find_intersections(
+    input_path,
+    output_path=None,
+    file_format=None,
+    output_format=None,
+    other_path=None,
+    other_format=None,
+    segments_path=None,
+    region="",
+    region_other="",
+    max_pairs=0,
+):
+    """Self-intersections of a surface, or where it and a second surface
+    (``other_path``) meet, by exact triangle-triangle tests. Pass
+    ``output_path`` to write the mesh with ``intersections:count`` cell data
+    and ``segments_path`` for the intersection segments as a line mesh."""
+    mesh = _load(input_path, file_format)
+    other = _load(other_path, other_format) if other_path is not None else None
+    out, report = find_intersections(
+        mesh,
+        other,
+        region=region,
+        region_other=region_other,
+        attach_flags=output_path is not None,
+        segments=segments_path is not None,
+        max_pairs=max_pairs,
+        return_report=True,
+    )
+    segments = report.pop("segments")
+    report.pop("other")
+    if output_path is not None:
+        report["output_path"] = _store(out, output_path, output_format)
+    if segments_path is not None:
+        report["segments_path"] = _store(segments, segments_path, None)
+    return _json_safe(report)
+
+
+def tool_thickness(
+    input_path,
+    output_path=None,
+    file_format=None,
+    output_format=None,
+    other_path=None,
+    other_format=None,
+    direction="auto",
+    max_distance=0.0,
+    min_thickness=None,
+    region="",
+    region_other="",
+    method="ray",
+    cone_angle=15.0,
+    cone_rays=16,
+    two_sided=False,
+    max_normal_deviation=90.0,
+):
+    """Wall thickness (inward) or clearance (outward, the default against
+    ``other_path``) per facet by a ray along its normal; with
+    ``min_thickness``, also whether no facet falls below it. Pass
+    ``output_path`` to write the mesh with ``thickness:distance`` and
+    ``thickness:hit_cell`` cell data."""
+    mesh = _load(input_path, file_format)
+    other = _load(other_path, other_format) if other_path is not None else None
+    out, report = thickness(
+        mesh,
+        other,
+        direction=direction,
+        max_distance=max_distance,
+        threshold=min_thickness,
+        region=region,
+        region_other=region_other,
+        attach=output_path is not None,
+        method=method,
+        cone_angle=cone_angle,
+        cone_rays=cone_rays,
+        two_sided=two_sided,
+        max_normal_deviation=max_normal_deviation,
+        return_report=True,
+    )
+    if min_thickness is not None:
+        report["threshold"] = float(min_thickness)
+        report["passed"] = bool(report["num_below"] == 0)
+    if output_path is not None:
+        report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_deviation(
+    input_path,
+    reference_path,
+    output_path=None,
+    file_format=None,
+    reference_format=None,
+    output_format=None,
+    patch=None,
+    tolerance=0.0,
+    min_share=None,
+    bins=20,
+    range_min=None,
+    range_max=None,
+    max_normal_angle=90.0,
+    reference_region="",
+    register=False,
+    element=None,
+):
+    """Signed deviation of every point of a scan from a reference surface
+    (or, with ``patch``, from that patch's fitted primitive in a mesh
+    ``fit_primitives`` wrote) and its statistics; with ``min_share``, also
+    whether the share within ``tolerance`` reaches it. Pass ``output_path``
+    to write the scan with ``deviation:distance`` point data."""
+    scan = _load(input_path, file_format)
+    reference = _load(reference_path, reference_format)
+    rng = None
+    if range_min is not None or range_max is not None:
+        if range_min is None or range_max is None:
+            raise ValueError("meshio++: deviation: give both range_min and range_max")
+        rng = (float(range_min), float(range_max))
+    out, report = deviation(
+        scan,
+        reference,
+        patch=patch,
+        element=element,
+        tolerance=tolerance,
+        bins=bins,
+        range=rng,
+        max_normal_angle=max_normal_angle,
+        reference_region=reference_region,
+        attach=output_path is not None,
+        register=bool(register),
+        return_report=True,
+    )
+    if min_share is not None:
+        report["min_share"] = float(min_share)
+        report["passed"] = bool(
+            float(tolerance) > 0.0 and report["share_within"] >= float(min_share)
+        )
+    if output_path is not None:
+        report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_deviation_regions(
+    input_path,
+    output_path,
+    tolerance,
+    file_format=None,
+    output_format=None,
+    field="deviation:distance",
+    prefix="deviation:",
+    min_area=0.0,
+):
+    """Connected excess and missing-material regions of a measured surface
+    (one carrying ``deviation:distance``) beyond ``+-tolerance``, written as
+    named cell regions; the report lists each region's area, extreme and mean
+    deviation, signed volume, centroid and bounds, largest volume first."""
+    mesh = _load(input_path, file_format)
+    out, report = deviation_regions(
+        mesh,
+        tolerance,
+        field=field,
+        prefix=prefix,
+        min_area=min_area,
+        return_report=True,
+    )
+    report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_exaggerate(
+    input_path,
+    output_path,
+    file_format=None,
+    output_format=None,
+    field="deviation:distance",
+    scale=10.0,
+    clamp=0.0,
+    smooth_fraction=0.01,
+):
+    """Points displaced along their normals by ``scale`` times their clamped,
+    smoothed deviation, written to ``output_path`` (a mesh for a figure; the
+    measured scan is not changed)."""
+    mesh = _load(input_path, file_format)
+    out, report = exaggerate(
+        mesh,
+        field=field,
+        scale=scale,
+        clamp=clamp,
+        smooth_fraction=smooth_fraction,
+        return_report=True,
+    )
+    report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_colorize(
+    input_path,
+    output_path,
+    field,
+    file_format=None,
+    output_format=None,
+    cmap="viridis",
+    vmin=None,
+    vmax=None,
+    symmetric=False,
+    steps=0,
+    nan_color="#808080",
+    component=None,
+):
+    """A field baked into UInt8 ``red``/``green``/``blue`` data through a
+    colormap (``steps`` bands it), written to ``output_path``: the vertex or
+    face colours PLY carries; glTF takes them with ``color_by="rgb"``."""
+    mesh = _load(input_path, file_format)
+    out, report = colorize(
+        mesh,
+        field,
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        symmetric=symmetric,
+        steps=steps,
+        nan_color=nan_color,
+        component=component,
+        return_report=True,
+    )
+    report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_data_info(input_path, file_format=None):
+    """Describe every data array: dtype, shape, ranges, NaN/Inf counts."""
+    mesh = _load(input_path, file_format, readonly=True)
+    return _json_safe({"arrays": data_info(mesh)})
+
+
+def tool_data_integrate(input_path, file_format=None, arrays=None):
+    """Cell-measure-weighted total/mean of cell_data arrays, whole mesh and
+    per named Cell region."""
+    mesh = _load(input_path, file_format, readonly=True)
+    return _json_safe({"arrays": data_integrate(mesh, arrays=arrays)})
+
+
+def tool_regions(input_path, file_format=None):
+    """List the mesh's named regions (point/cell/side groups)."""
+    mesh = _load(input_path, file_format, readonly=True)
+    regions = [
+        {
+            "name": r.name,
+            "kind": r.kind,
+            "dim": r.dim,
+            "tag": r.tag,
+            "num_entries": len(r),
+            "entries_preview": np.asarray(r.entries).reshape(len(r), -1)[:_PREVIEW],
+        }
+        for r in mesh.regions
+    ]
+    return _json_safe({"regions": regions})
+
+
+def tool_bandwidth(input_path, file_format=None):
+    """Node-numbering bandwidth (max per-cell node-index spread)."""
+    mesh = _load(input_path, file_format)
+    return _json_safe({"bandwidth": compute_bandwidth(mesh)})
+
+
+def tool_data_preview(
+    input_path, array, location="point", offset=0, limit=100, file_format=None
+):
+    """Return a bounded window of one data array's values."""
+    mesh = _load(input_path, file_format)
+    if location == "point":
+        table = mesh.point_data
+    elif location == "cell":
+        table = mesh.cell_data
+    elif location == "field":
+        table = mesh.field_data
+    else:
+        raise ValueError(
+            f"meshio++: mcp: unknown location '{location}' "
+            "(expected 'point', 'cell' or 'field')"
+        )
+    if array not in table:
+        raise ValueError(
+            f"meshio++: mcp: no {location} data array named '{array}' "
+            f"(available: {sorted(table)})"
+        )
+    if location == "cell":
+        blocks = [np.asarray(a) for a in table[array]]
+        values = (
+            np.concatenate([b.reshape(len(b), -1) for b in blocks], axis=0)
+            if blocks
+            else np.empty((0,))
+        )
+    else:
+        values = np.asarray(table[array])
+    offset = max(int(offset), 0)
+    limit = max(int(limit), 0)
+    window = values[offset : offset + limit]
+    return _json_safe(
+        {
+            "location": location,
+            "name": array,
+            "dtype": str(values.dtype),
+            "shape": [int(s) for s in values.shape],
+            "num_rows": int(len(values)),
+            "offset": offset,
+            "values": _json_safe(window, max_array=window.size + 1),
+        }
+    )
+
+
+def tool_diff(
+    path_a,
+    path_b,
+    format_a=None,
+    format_b=None,
+    atol=1e-12,
+    rtol=1e-9,
+    unordered=False,
+    max_reported=10,
+):
+    """Compare two mesh files; the report carries a verdict and per-section detail."""
+    mesh_a = _load(path_a, format_a, readonly=True)
+    mesh_b = _load(path_b, format_b, readonly=True)
+    report = diff(
+        mesh_a,
+        mesh_b,
+        atol=atol,
+        rtol=rtol,
+        unordered=unordered,
+        max_reported=max_reported,
+    )
+    report["equal"] = report.get("verdict") != "different"
+    return _json_safe(report)
+
+
+# --------------------------------------------------------------------------- #
+# Conversion                                                                  #
+# --------------------------------------------------------------------------- #
+# The ascii/binary/compression writer-kwargs mirror the CLI's `ascii`,
+# `binary`, `compress` and `decompress` verbs (src/python/meshioplusplus/_cli/)
+# so both surfaces stay in step on which formats have which variant.
+_ASCII_VARIANT = {
+    "ansys": {"binary": False},
+    "flac3d": {"binary": False},
+    "frd": {"binary": False},
+    "gmsh": {"binary": False},
+    "mdpa": {"binary": False},
+    "openfoam": {"binary": False},
+    "pcd": {"binary": False},
+    "ply": {"binary": False},
+    "stl": {"binary": False},
+    "vtk": {"binary": False},
+    "vtu": {"binary": False},
+    "xdmf": {"data_format": "XML"},
+}
+_BINARY_VARIANT = {
+    "ansys": {"binary": True},
+    "flac3d": {"binary": True},
+    "frd": {"binary": True},
+    "gmsh": {"binary": True},
+    "mdpa": {"binary": True},
+    "openfoam": {"binary": True},
+    "pcd": {"binary": True},
+    "ply": {"binary": True},
+    "stl": {"binary": True},
+    "vtk": {"binary": True},
+    "vtu": {"binary": True},
+    "xdmf": {"data_format": "HDF"},
+}
+# Raw binary in one trailing <AppendedData> section (no base64), as VTK's own
+# writers default to; the C++ `WriteEncoding::RawAppended` twin.
+_RAW_APPENDED_VARIANT = {
+    "vtu": {"binary": True, "appended": True},
+}
+_BLOCK_CODECS = ("zlib", "lz4", "zstd", "lzma")
+
+
+def _variant_kwargs(out_fmt, mode, compression):
+    kwargs = {}
+    if mode not in ("auto", "ascii", "binary", "raw_appended"):
+        raise ValueError(
+            f"meshio++: mcp: unknown mode '{mode}' "
+            "(expected 'auto', 'ascii', 'binary' or 'raw_appended')"
+        )
+    if mode == "ascii" and compression is not None and compression != "none":
+        raise ValueError(
+            "meshio++: mcp: mode='ascii' cannot be combined with compression"
+        )
+    if mode != "auto":
+        table = {
+            "ascii": _ASCII_VARIANT,
+            "binary": _BINARY_VARIANT,
+            "raw_appended": _RAW_APPENDED_VARIANT,
+        }[mode]
+        if out_fmt not in table:
+            raise ValueError(
+                f"meshio++: mcp: format '{out_fmt}' has no {mode} variant "
+                f"(supported: {sorted(table)})"
+            )
+        kwargs.update(table[out_fmt])
+    if compression is None:
+        return kwargs
+    if compression in _BLOCK_CODECS:
+        if out_fmt not in (
+            "vti",
+            "vts",
+            "vtr",
+            "vtm",
+            "vtu",
+            "vtp",
+            "pvd",
+            "pvtu",
+            "pvtp",
+        ):
+            raise ValueError(
+                f"meshio++: mcp: compression '{compression}' selects the VTK XML "
+                "block codec and only vti/vts/vtr/vtm/vtu/vtp/pvd/pvtu/pvtp have one"
+            )
+        kwargs.update({"binary": True, "compression": compression})
+    elif compression == "lzf":
+        if out_fmt != "pcd":
+            raise ValueError(
+                f"meshio++: mcp: lzf compression applies to pcd, not '{out_fmt}'"
+            )
+        kwargs.update({"data": "binary_compressed"})
+    elif compression == "gzip":
+        if out_fmt in ("cgns", "h5m", "vtkhdf"):
+            kwargs.update({"compression": "gzip", "compression_opts": 4})
+        elif out_fmt == "xdmf":
+            kwargs.update(
+                {"data_format": "HDF", "compression": "gzip", "compression_opts": 4}
+            )
+        else:
+            raise ValueError(
+                f"meshio++: mcp: gzip compression applies to cgns/h5m/vtkhdf/xdmf, "
+                f"not '{out_fmt}'"
+            )
+    elif compression == "none":
+        if out_fmt in ("cgns", "h5m", "vtkhdf"):
+            kwargs.update({"compression": None})
+        elif out_fmt == "vtu":
+            kwargs.update({"binary": True, "compression": None})
+        elif out_fmt == "xdmf":
+            kwargs.update({"data_format": "HDF", "compression": None})
+        else:
+            raise ValueError(
+                f"meshio++: mcp: compression='none' applies to "
+                f"cgns/h5m/vtkhdf/vtu/xdmf, not '{out_fmt}'"
+            )
+    else:
+        raise ValueError(
+            f"meshio++: mcp: unknown compression '{compression}' (expected one of "
+            f"{list(_BLOCK_CODECS)}, 'gzip', 'lzf' or 'none')"
+        )
+    return kwargs
+
+
+def tool_med_multi(
+    input_path=None,
+    output_path=None,
+    input_paths=None,
+    mesh_name=None,
+    mesh_names=None,
+    output_format=None,
+    med_version="4.1.0",
+):
+    """List/extract a MED named mesh, or combine single-mesh files into MED.
+
+    All input/output paths are sandbox-resolved before reading or writing.
+    """
+    from .. import med
+
+    if input_paths is not None:
+        if input_path is not None or mesh_name is not None or not input_paths:
+            raise ValueError("MED: use nonempty input_paths alone to combine meshes")
+        if output_path is None or output_format not in (None, "med"):
+            raise ValueError("MED: combining requires a MED output_path")
+        sources = [_resolve(path, must_exist=True) for path in input_paths]
+        target = _resolve(output_path)
+        meshes = [_load(path) for path in sources]
+        med.write_med_multi(target, meshes, mesh_names, med_version)
+        _cache_invalidate(target)
+        return {"output_path": str(target), "mesh_names": med.read_med_multi(target)[1]}
+    if input_path is None or mesh_names is not None:
+        raise ValueError("MED: provide input_path to list or extract a mesh")
+    source = _resolve(input_path, must_exist=True)
+    target = _resolve(output_path) if output_path is not None else None
+    if mesh_name is None:
+        if target is not None:
+            raise ValueError("MED: mesh_name is required to extract to output_path")
+        _, names = med.read_med_multi(source)
+        return {"input_path": str(source), "mesh_names": names}
+    if target is None:
+        raise ValueError("MED: extraction requires output_path")
+    mesh = med.read(source, mesh_name=mesh_name)
+    _store(mesh, target, output_format)
+    return {"output_path": str(target), "mesh_name": mesh_name}
+
+
+def tool_convert(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    points_only=False,
+    arrays=None,
+    time_step=0,
+    mode="auto",
+    compression=None,
+    piece=None,
+    ghosts="keep",
+    grid_functions=None,
+    write_grid_functions=False,
+    elmer_halo=False,
+    patran_results=None,
+    write_nurbs=None,
+    heal=False,
+    sew_tolerance=0.0,
+):
+    """Convert between mesh formats, optionally selecting variant/compression.
+
+    XDMF time-series reads preserve fixed shared point/cell/side regions.
+
+    MDPA-to-MDPA conversion preserves nested geometry/constraint membership
+    as raw file ids; constraints remain opaque and other formats may drop it.
+    Gmsh input versions 2.2/4.0/4.1, including periodic links, use the native
+    reader. Gmsh output is 4.1, or 2.2 via gmsh22; both preserve periodic links.
+    Serial VTK XML inputs (VTU/VTP/VTS/VTR/VTI) accept appended raw/base64
+    arrays and multiple pieces natively, without welding; VTP/VTS/VTR/VTI
+    retain inline output. Legacy VTK structured datasets also read natively.
+
+    ``grid_functions`` (``{name: path}``) reads MFEM ``.gf`` files onto an MFEM
+    input mesh; ``patran_results`` (``{name: path}``) reads Patran 2.5 result
+    files onto a Patran neutral input; ``write_grid_functions`` writes the data of an MFEM output as
+    ``.gf`` files beside it. ``elmer_halo`` adds ElmerGrid's ``-halo`` layer to
+    the partitioning an Elmer output writes from ``partition:part``.
+
+    An MFEM NURBS input keeps its patches (``mesh.info["nurbs"]``), so an MFEM
+    output is written back as the NURBS mesh; ``write_nurbs=False`` writes the
+    sampled cells instead and ``True`` refuses anything else.
+
+    ``heal`` (STEP and IGES) heals the shape before it is read
+    (``ShapeFix_Shape``, then sewing at ``sew_tolerance``, at most 0 automatic;
+    a positive ``sew_tolerance`` sews without ``heal``)."""
+    if grid_functions and patran_results:
+        raise ValueError(
+            "meshio++: mcp: grid_functions (MFEM) and patran_results (Patran) "
+            "cannot be combined"
+        )
+    if patran_results:
+        from .. import patran as _patran
+
+        mesh = _patran.read(
+            _resolve(input_path, must_exist=True),
+            {
+                str(name): str(_resolve(path, must_exist=True))
+                for name, path in patran_results.items()
+            },
+        )
+    elif grid_functions:
+        from .. import mfem as _mfem
+
+        mesh = _mfem.read(
+            _resolve(input_path, must_exist=True),
+            {
+                str(name): str(_resolve(path, must_exist=True))
+                for name, path in grid_functions.items()
+            },
+            piece=piece,
+        )
+    else:
+        mesh = _load(
+            input_path,
+            input_format,
+            points_only=points_only,
+            arrays=arrays,
+            time_step=time_step,
+            piece=piece,
+            ghosts=ghosts,
+            **_heal_kwargs(heal, sew_tolerance),
+        )
+    out_fmt = output_format
+    if out_fmt is None:
+        try:
+            candidates = _filetypes_from_path(pathlib.Path(str(output_path)))
+            out_fmt = candidates[0] if candidates else None
+            # `.mesh` is Medit's first; asking for grid functions (or NURBS)
+            # means MFEM.
+            if (
+                write_grid_functions or write_nurbs is not None
+            ) and "mfem" in candidates:
+                out_fmt = output_format = "mfem"
+        except Exception:
+            out_fmt = None
+    write_kwargs = {}
+    if mode != "auto" or compression is not None:
+        if out_fmt is None:
+            raise ValueError(
+                "meshio++: mcp: cannot infer the output format needed to apply "
+                "mode/compression; pass output_format explicitly"
+            )
+        write_kwargs = _variant_kwargs(out_fmt, mode, compression)
+    if write_grid_functions:
+        if out_fmt != "mfem":
+            raise ValueError(
+                "meshio++: mcp: write_grid_functions needs MFEM (.mesh) output"
+            )
+        write_kwargs["grid_functions"] = True
+    if elmer_halo:
+        if out_fmt != "elmer":
+            raise ValueError("meshio++: mcp: elmer_halo needs Elmer output")
+        write_kwargs["halo"] = True
+    if write_nurbs is not None:
+        if out_fmt != "mfem":
+            raise ValueError("meshio++: mcp: write_nurbs needs MFEM (.mesh) output")
+        write_kwargs["nurbs"] = bool(write_nurbs)
+    resolved = _store(mesh, output_path, output_format, **write_kwargs)
+    return _result(resolved, mesh, output_format=out_fmt)
+
+
+def tool_export_gltf(
+    input_path,
+    output_path,
+    input_format=None,
+    split_angle=30.0,
+    normal_weight="angle",
+    normals=True,
+    fields=True,
+    color_by=None,
+    component=None,
+    cmap="viridis",
+    vmin=None,
+    vmax=None,
+    nan_color="#808080",
+    unlit=True,
+    up_axis="auto",
+    recenter=True,
+    scale=1.0,
+    by_region=True,
+    container="auto",
+):
+    """Export a mesh's surface as glTF 2.0 (.glb, or .gltf plus a .bin beside
+    it), for the web, three.js, Blender and dashboards. `convert` writes the
+    same format with the defaults; this exposes the options."""
+    mesh = _load(input_path, input_format)
+    resolved = _store(
+        mesh,
+        output_path,
+        "gltf",
+        split_angle=split_angle,
+        normal_weight=normal_weight,
+        normals=normals,
+        fields=fields,
+        color_by=color_by,
+        component=component,
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        nan_color=nan_color,
+        unlit=unlit,
+        up_axis=up_axis,
+        recenter=recenter,
+        scale=scale,
+        by_region=by_region,
+        container=container,
+    )
+    return _result(resolved, mesh, colored=bool(color_by))
+
+
+def _resolve_pattern(pattern):
+    """Resolve a glob pattern inside the sandbox and return its matched files.
+
+    ``_resolve(..., must_exist=True)`` uses ``os.path.isfile`` and so rejects a
+    pattern outright, and a pattern's *directory* component is the obvious
+    escape hatch (``../*.vtu``, ``/etc/*``) -- so the directory is resolved and
+    containment-checked first, and every matched file then goes back through
+    ``_resolve`` individually.
+    """
+    from .._sequence import glob_match, is_sample_path
+
+    raw = os.path.expanduser(str(pattern))
+    # os.path.split, not a manual os.sep rpartition: on Windows os.sep is
+    # '\\' alone, while ntpath (and every caller here) also accepts '/' --
+    # a manual rpartition(os.sep) would treat the whole of "../*.vtu" as the
+    # filename part, silently skipping the containment check on the '..'
+    # component instead of rejecting it.
+    head, base = os.path.split(raw)
+    if "*" in head or "?" in head:
+        raise ValueError(
+            "meshio++: mcp: the directory part of a pattern is taken literally, "
+            f"so '{head}' cannot contain '*' or '?'"
+        )
+    # Resolve the directory through the same containment check as any path.
+    directory = _resolve(head or ".")
+    if not os.path.isdir(directory):
+        raise ValueError(f"meshio++: mcp: pattern directory not found: '{directory}'")
+    matched = sorted(
+        os.path.join(directory, name)
+        for name in os.listdir(directory)
+        if glob_match(base, name) and is_sample_path(os.path.join(directory, name))
+    )
+    if not matched:
+        raise ValueError(f"meshio++: mcp: pattern '{pattern}' matched no files")
+    return [_resolve(path, must_exist=True) for path in matched]
+
+
+def _resolve_sequence_io(input_pattern, input_paths, output_path):
+    """The sandboxed input file list and output path of a sequence tool."""
+    from .._sequence import pattern_has_token
+
+    if (input_pattern is None) == (input_paths is None):
+        raise ValueError(
+            "meshio++: mcp: give exactly one of input_pattern or input_paths"
+        )
+    if not output_path:
+        raise ValueError("meshio++: mcp: output_path is required")
+
+    if input_pattern is not None:
+        resolved_in = _resolve_pattern(input_pattern)
+    else:
+        resolved_in = [_resolve(p, must_exist=True) for p in input_paths]
+
+    # The output is a pattern for a fan-out; _resolve its directory the same way
+    # so a '{step}' path cannot escape the sandbox either.
+    if pattern_has_token(output_path):
+        probe = str(output_path).replace("{step}", "0").replace("{index}", "0")
+        resolved_probe = _resolve(probe, for_write=True)
+        resolved_out = os.path.join(
+            os.path.dirname(resolved_probe), os.path.basename(str(output_path))
+        )
+    else:
+        resolved_out = _resolve(output_path, for_write=True)
+    return resolved_in, resolved_out
+
+
+def tool_sequence(
+    input_pattern=None,
+    input_paths=None,
+    output_path=None,
+    mode=None,
+    times=None,
+    time_from="auto",
+    input_format=None,
+    output_format=None,
+):
+    """Run a multi-file / transient sequence: fan-in, fan-out or N->N.
+
+    XDMF fan-in stores the first input mesh's fixed point/cell/side regions;
+    later step meshes do not change their membership.
+    """
+    from .. import run_sequence_pipeline, sequence_entries
+
+    resolved_in, resolved_out = _resolve_sequence_io(
+        input_pattern, input_paths, output_path
+    )
+
+    doc = {
+        "Version": 1,
+        "Input": {"Paths": resolved_in},
+        "Output": {"Path": resolved_out},
+    }
+    if mode:
+        doc["Mode"] = mode
+    if times is not None:
+        doc["Input"]["Times"] = [float(t) for t in times]
+    if time_from and time_from != "auto":
+        doc["Input"]["TimeFrom"] = time_from
+    if input_format:
+        doc["Input"]["Format"] = input_format
+    if output_format:
+        doc["Output"]["Format"] = output_format
+
+    entries = sequence_entries(
+        resolved_in,
+        file_format=input_format,
+        times=[float(t) for t in times] if times is not None else None,
+        time_from=time_from,
+    )
+    report = run_sequence_pipeline(doc)
+    report["steps_plan"] = [
+        {"path": e["path"], "time": e["time"], "time_source": e["time_source"]}
+        for e in entries
+    ]
+    report["output_path"] = resolved_out
+    return _json_safe(report)
+
+
+def tool_resample_sequence(
+    output_path,
+    input_pattern=None,
+    input_paths=None,
+    times=None,
+    times_from_pattern=None,
+    method="linear",
+    clamp=False,
+    blend_points=False,
+    time_from="auto",
+    input_format=None,
+):
+    """Resample a sequence onto new times (linear blend, nearest or previous)."""
+    from .. import resample_sequence
+    from .._sequence import parse_times, sequence_times
+
+    resolved_in, resolved_out = _resolve_sequence_io(
+        input_pattern, input_paths, output_path
+    )
+    if (times is None) == (times_from_pattern is None):
+        raise ValueError(
+            "meshio++: mcp: give exactly one of times or times_from_pattern"
+        )
+    if times is None:
+        targets = sequence_times(
+            _resolve_pattern(times_from_pattern), time_from=time_from
+        )
+    elif isinstance(times, str):
+        targets = parse_times(times)
+    else:
+        targets = [float(t) for t in times]
+    report = resample_sequence(
+        resolved_in,
+        resolved_out,
+        times=targets,
+        method=method,
+        extrapolate="clamp" if clamp else "error",
+        blend_points=blend_points,
+        file_format=input_format,
+        time_from=time_from,
+    )
+    report["times"] = [float(t) for t in targets]
+    report["output_path"] = resolved_out
+    return _json_safe(report)
+
+
+def tool_blend_steps(
+    path_a,
+    path_b,
+    output_path,
+    weight,
+    blend_points=False,
+    format_a=None,
+    format_b=None,
+    output_format=None,
+):
+    """Blend two steps of one topology: (1 - weight) a + weight b."""
+    from .. import blend_steps
+
+    out = blend_steps(
+        _load(path_a, format_a),
+        _load(path_b, format_b),
+        float(weight),
+        blend_points=blend_points,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_pipeline(settings_path, input_path=None, output_path=None):
+    """Run a v1/v2 pipeline, sandboxing auxiliary Inputs and fan-out patterns."""
+    with open(_resolve(settings_path, must_exist=True), "r", encoding="utf-8") as f:
+        doc = json.load(f)
+    if not isinstance(doc, dict):
+        raise ValueError("meshio++: mcp: the settings document must be an object")
+    # Sandbox the paths INSIDE the settings too, not just the settings file --
+    # a document naming /etc/passwd must fail the same way a path argument
+    # would. Overrides take precedence exactly like the CLI's --input/--output.
+    raw_in = input_path if input_path is not None else doc.get("Input", {}).get("Path")
+    raw_out = (
+        output_path
+        if output_path is not None
+        else doc.get("Output", {}).get("Pattern", doc.get("Output", {}).get("Path"))
+    )
+    if not raw_in:
+        raise ValueError("meshio++: pipeline: Input.Path is required")
+    if not raw_out:
+        raise ValueError("meshio++: pipeline: Output.Path is required")
+    resolved_in = _resolve(raw_in, must_exist=True)
+    fanout = any(token in str(raw_out) for token in ("{key}", "{part}"))
+    resolved_out = _resolve(raw_out, for_write=not fanout)
+    for step in doc.get("Operations", []):
+        if isinstance(step, dict) and step.get("Op") in (
+            "Merge",
+            "Interpolate",
+            "UndoGreen",
+        ):
+            paths = step.get("Inputs", [])
+            if not isinstance(paths, list) or any(
+                not isinstance(p, str) for p in paths
+            ):
+                raise ValueError("meshio++: pipeline: Inputs must be an array of paths")
+            step["Inputs"] = [_resolve(path, must_exist=True) for path in paths]
+    from .._pipeline import _OUTPUT_PATH_GUARD
+
+    token = _OUTPUT_PATH_GUARD.set(lambda path: _resolve(path, for_write=True))
+    try:
+        report = run_pipeline(doc, input_path=resolved_in, output_path=resolved_out)
+    finally:
+        _OUTPUT_PATH_GUARD.reset(token)
+    _cache_invalidate()  # the pipeline writes its own outputs, possibly several
+    report["output_path"] = resolved_out
+    return _json_safe(report)
+
+
+# --------------------------------------------------------------------------- #
+# Mesh operations (path in -> path out + report)                              #
+# --------------------------------------------------------------------------- #
+def tool_extract_surface(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    record_parent_ids=False,
+):
+    """Extract the boundary surface (3D -> faces, 2D -> edges)."""
+    return _run_op(extract_surface, locals(), report=False)
+
+
+def tool_extract_skin(
+    input_path, output_path, input_format=None, output_format=None, linearize=False
+):
+    """Extract the outer skin of a volume mesh."""
+    return _run_op(extract_skin, locals(), report=False)
+
+
+def tool_reorder(
+    input_path, output_path, input_format=None, output_format=None, method="rcm"
+):
+    """Renumber nodes/cells (rcm | morton | hilbert); reports bandwidth change."""
+    mesh = _load(input_path, input_format)
+    before = compute_bandwidth(mesh)
+    out = reorder(mesh, method=method)
+    after = compute_bandwidth(out)
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        method=method,
+        bandwidth_before=before,
+        bandwidth_after=after,
+    )
+
+
+def tool_clean(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    weld=False,
+    atol=1e-8,
+    remove_orphans=True,
+    drop_degenerate=True,
+    drop_duplicate_cells=True,
+):
+    """Weld/prune/de-duplicate a mesh; reports what was removed."""
+    return _run_op(clean, locals())
+
+
+def tool_crop(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    bbox=None,
+    plane_origin=None,
+    plane_normal=None,
+    where_array=None,
+    where_compare="<",
+    where_value=0.0,
+    mode="all",
+    record_ids=False,
+):
+    """Crop to a bounding box, a half-space, or a cell_data comparison."""
+    mesh = _load(input_path, input_format)
+    plane = None
+    if plane_origin is not None or plane_normal is not None:
+        if plane_origin is None or plane_normal is None:
+            raise ValueError(
+                "meshio++: mcp: crop needs both plane_origin and plane_normal"
+            )
+        plane = (plane_origin, plane_normal)
+    where = None
+    if where_array is not None:
+        where = (where_array, where_compare, where_value)
+    out = crop(
+        mesh,
+        bbox=bbox,
+        plane=plane,
+        where=where,
+        mode=mode,
+        record_ids=record_ids,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_slice(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    origin=(0.0, 0.0, 0.0),
+    normal=(0.0, 0.0, 1.0),
+    record_parent_ids=False,
+    chain=False,
+    min_length=0.0,
+):
+    """Planar cross-section (one topological dimension below the input)."""
+    return _run_op(_slice_op, locals(), report=False)
+
+
+def tool_remove_islands(
+    input_path,
+    output_path,
+    connectivity="edge",
+    min_diagonal=0.01,
+    min_area=0.0,
+    min_cells=0,
+    relative=True,
+    dry_run=False,
+    input_format=None,
+    output_format=None,
+):
+    """Drop the small connected components of a mesh."""
+    out, report = _remove_islands_op(
+        _load(input_path, input_format),
+        connectivity=connectivity,
+        min_diagonal=float(min_diagonal),
+        min_area=float(min_area),
+        min_cells=int(min_cells),
+        relative=bool(relative),
+        dry_run=bool(dry_run),
+        return_report=True,
+    )
+    report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_flip_normals(
+    input_path, output_path, region=None, input_format=None, output_format=None
+):
+    """Reverse the winding of cells."""
+    out, report = _flip_normals_op(
+        _load(input_path, input_format), region, return_report=True
+    )
+    report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_clip(
+    input_path,
+    output_path,
+    origin,
+    normal,
+    keep="below",
+    cap=True,
+    input_format=None,
+    output_format=None,
+):
+    """Cut a surface by a plane, keep a side and cap it."""
+    out, report = _clip_op(
+        _load(input_path, input_format),
+        origin,
+        normal,
+        keep=keep,
+        cap=bool(cap),
+        return_report=True,
+    )
+    report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_profile_solid(
+    input_path,
+    output_path,
+    features,
+    step_path=None,
+    scan_path=None,
+    provider="",
+    deflection=0.0,
+    input_format=None,
+    output_format=None,
+):
+    """A sketch extruded or revolved into a solid through a CAD provider."""
+    step = str(_resolve(step_path, for_write=True)) if step_path else None
+    scan = _load(scan_path, input_format) if scan_path else None
+    out, report = _profile_solid_op(
+        _load(input_path, input_format),
+        features,
+        step,
+        provider=provider,
+        deflection=float(deflection),
+        scan=scan,
+        return_report=True,
+    )
+    report["output_path"] = _store(out, output_path, output_format)
+    report["providers"] = _profile_solid_providers()
+    if step:
+        report["step_path"] = step
+    return _json_safe(report)
+
+
+def tool_constrain_primitives(
+    input_path,
+    output_path,
+    face_tolerance=0.0,
+    angle_tolerance=-1.0,
+    distance_tolerance=-1.0,
+    min_fraction=-1.0,
+    force=None,
+    forbid=None,
+    input_format=None,
+    output_format=None,
+):
+    """Fit related primitives of a fitted skin together under control."""
+    out, report = _constrain_primitives_op(
+        _load(input_path, input_format),
+        face_tolerance=float(face_tolerance),
+        angle_tolerance=float(angle_tolerance),
+        distance_tolerance=float(distance_tolerance),
+        min_fraction=float(min_fraction),
+        force=[tuple(r) for r in force or []],
+        forbid=[tuple(r) for r in forbid or []],
+        return_report=True,
+    )
+    report["unmet"] = [list(u) for u in report["unmet"]]
+    report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_face_support(
+    solid_path,
+    scan_path,
+    output_path=None,
+    tolerance=0.0,
+    measured_share=0.9,
+    inferred_share=0.1,
+    hole_data="repair:hole",
+    input_format=None,
+    output_format=None,
+):
+    """The scan's support of each face of a fit_cad solid."""
+    out, report = _face_support_op(
+        _load(solid_path, input_format),
+        _load(scan_path, input_format),
+        tolerance=float(tolerance),
+        measured_share=float(measured_share),
+        inferred_share=float(inferred_share),
+        hole_data=hole_data,
+        return_report=True,
+    )
+    if output_path:
+        report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_fit_cad_iterate(
+    input_path,
+    output_path,
+    step_path=None,
+    part_class="any",
+    target_within=0.0,
+    target_explained=0.0,
+    segment_tolerance=0.0,
+    fit_tolerance=0.0,
+    max_rounds=4,
+    worst_faces=3,
+    refine_factor=0.25,
+    backend="auto",
+    input_format=None,
+    output_format=None,
+):
+    """Segment, fit and build a solid in rounds towards a target."""
+    step = str(_resolve(step_path, for_write=True)) if step_path else None
+    out, report = _fit_cad_iterate_op(
+        _load(input_path, input_format),
+        step,
+        part_class=part_class,
+        target_within=float(target_within),
+        target_explained=float(target_explained),
+        segment_tolerance=float(segment_tolerance),
+        fit_tolerance=float(fit_tolerance),
+        max_rounds=int(max_rounds),
+        worst_faces=int(worst_faces),
+        refine_factor=float(refine_factor),
+        backend=backend,
+        return_report=True,
+    )
+    report.pop("skin")
+    report["output_path"] = _store(out, output_path, output_format)
+    if step:
+        report["step_path"] = step
+    return _json_safe(report)
+
+
+def tool_offset_surface(
+    input_path,
+    output_path,
+    distance,
+    smooth_iterations=0,
+    input_format=None,
+    output_format=None,
+):
+    """Move a surface's points along their offset directions."""
+    out, report = _offset_surface_op(
+        _load(input_path, input_format),
+        float(distance),
+        smooth_iterations=int(smooth_iterations),
+        return_report=True,
+    )
+    report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_thicken(
+    input_path,
+    output_path,
+    thickness,
+    side="inward",
+    smooth_iterations=0,
+    input_format=None,
+    output_format=None,
+):
+    """Turn a surface into a closed shell of a thickness."""
+    out, report = _thicken_op(
+        _load(input_path, input_format),
+        float(thickness),
+        side=side,
+        smooth_iterations=int(smooth_iterations),
+        return_report=True,
+    )
+    report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_hollow(
+    input_path,
+    output_path,
+    wall,
+    smooth_iterations=0,
+    input_format=None,
+    output_format=None,
+):
+    """Give a closed surface an inner wall."""
+    out, report = _hollow_op(
+        _load(input_path, input_format),
+        float(wall),
+        smooth_iterations=int(smooth_iterations),
+        return_report=True,
+    )
+    report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_measure(
+    input_path, spec, output_path=None, input_format=None, output_format=None
+):
+    """Elements, dimensions and GD&T tolerances of a scan by a spec."""
+    if isinstance(spec, str) and not spec.lstrip().startswith("{"):
+        spec = str(_resolve(spec, must_exist=True))
+    out, report = _measure_op(_load(input_path, input_format), spec)
+    if output_path:
+        report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_align_datums(
+    input_path,
+    output_path,
+    primary,
+    secondary,
+    origin=None,
+    input_format=None,
+    output_format=None,
+):
+    """The 3-2-1 datum alignment of a measured mesh."""
+    out, matrix = _align_datums_op(
+        _load(input_path, input_format), primary, secondary, origin
+    )
+    return _json_safe(
+        {
+            "matrix": matrix.tolist(),
+            "output_path": _store(out, output_path, output_format),
+        }
+    )
+
+
+def tool_write_step_elements(
+    input_path,
+    output_path,
+    input_format=None,
+    patches=None,
+    segments=64,
+):
+    """Fitted primitives as exact STEP geometry (planes, balls, cylinders, ...)."""
+    out = _resolve(output_path, for_write=True)
+    report = _write_step_elements_op(
+        out,
+        _load(input_path, input_format),
+        patches=None if patches is None else [int(p) for p in patches],
+        segments=int(segments),
+    )
+    _cache_invalidate(out)
+    report["output_path"] = str(out)
+    return _json_safe(report)
+
+
+def tool_silhouette(
+    input_path,
+    output_path=None,
+    input_format=None,
+    output_format=None,
+    normal=None,
+    clearance=0.0,
+    round_angle=180.0,
+    arc_segments=64,
+    extrude=False,
+    region=None,
+    merge_tolerance=1e-9,
+):
+    """The outline of a part along a direction, optionally offset or a prism."""
+    out, report = _silhouette_op(
+        _load(input_path, input_format),
+        (0.0, 0.0, 1.0) if normal is None else normal,
+        clearance=float(clearance),
+        round_angle=float(round_angle),
+        arc_segments=int(arc_segments),
+        extrude=bool(extrude),
+        region=region,
+        merge_tolerance=float(merge_tolerance),
+        return_report=True,
+    )
+    if output_path:
+        report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_fit_curves(
+    input_path,
+    output_path=None,
+    input_format=None,
+    output_format=None,
+    tolerance=0.0,
+    snap_angle=0.0,
+    normal=None,
+    min_arc_points=4,
+    min_arc_sweep=5.0,
+):
+    """Lines, arcs and circles from a chained line mesh (a sketch)."""
+    out, report = _fit_curves_op(
+        _load(input_path, input_format),
+        tolerance=float(tolerance),
+        snap_angle=float(snap_angle),
+        normal=normal,
+        min_arc_points=int(min_arc_points),
+        min_arc_sweep=float(min_arc_sweep),
+        return_report=True,
+    )
+    if output_path:
+        report["output_path"] = _store(out, output_path, output_format)
+    return _json_safe(report)
+
+
+def tool_sections(
+    input_path,
+    output_path,
+    offsets,
+    input_format=None,
+    output_format=None,
+    direction=None,
+    min_length=0.0,
+    record_parent_ids=False,
+):
+    """Chained line sections of a surface at parallel planes."""
+    if direction is None:
+        direction = (0.0, 0.0, 1.0)
+    return _run_op(_sections_op, locals(), report=False)
+
+
+def tool_isosurface(
+    input_path,
+    output_path,
+    array,
+    isovalues,
+    input_format=None,
+    output_format=None,
+    component=None,
+    record_parent_ids=False,
+):
+    """Contour a point_data scalar at one or more isovalues."""
+    mesh = _load(input_path, input_format)
+    out = isosurface(
+        mesh,
+        array,
+        isovalues,
+        component=component,
+        record_parent_ids=record_parent_ids,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_grid(
+    output_path,
+    dims,
+    output_format=None,
+    origin=None,
+    spacing=None,
+    max_cells=20000000,
+):
+    """Generate a regular hexahedron lattice; the only tool that reads no input."""
+    out = grid(
+        dims,
+        origin=(0.0, 0.0, 0.0) if origin is None else origin,
+        spacing=(1.0, 1.0, 1.0) if spacing is None else spacing,
+        max_cells=max_cells,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_rectangle(
+    output_path,
+    output_format=None,
+    dims=None,
+    size=None,
+    origin=None,
+    cell_type="quad",
+    split="zigzag",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a regular 2-D grid of quads or triangles; reads no input."""
+    return _run_op(
+        rectangle,
+        locals(),
+        load=False,
+        report=False,
+        call={
+            "dims": (1, 1) if dims is None else dims,
+            "size": (1.0, 1.0) if size is None else size,
+            "origin": (0.0, 0.0, 0.0) if origin is None else origin,
+        },
+    )
+
+
+def tool_box(
+    output_path,
+    output_format=None,
+    dims=None,
+    size=None,
+    origin=None,
+    cell_type="hexahedron",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a regular 3-D grid of hexahedra, tetrahedra or wedges; reads no input."""
+    return _run_op(
+        box,
+        locals(),
+        load=False,
+        report=False,
+        call={
+            "dims": (1, 1, 1) if dims is None else dims,
+            "size": (1.0, 1.0, 1.0) if size is None else size,
+            "origin": (0.0, 0.0, 0.0) if origin is None else origin,
+        },
+    )
+
+
+def tool_disk(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    n=8,
+    center=None,
+    cell_type="quad",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a disk of quads or triangles; reads no input."""
+    return _run_op(
+        disk,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_uv_sphere(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    nu=16,
+    nv=8,
+    center=None,
+    cell_type="triangle",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a latitude/longitude sphere surface, oriented outward; reads no input."""
+    return _run_op(
+        uv_sphere,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_icosa_sphere(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    subdivisions=2,
+    center=None,
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate an icosahedron-based sphere surface; reads no input."""
+    return _run_op(
+        icosa_sphere,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_cylinder(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    height=1.0,
+    nxy=8,
+    nz=8,
+    center=None,
+    cell_type="hexahedron",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a solid cylinder along z with side/top/bottom regions; reads no input."""
+    return _run_op(
+        cylinder,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_reference_triangle(
+    output_path,
+    output_format=None,
+    n=4,
+    size=None,
+    origin=None,
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate the reference triangle refined into n*n triangles; reads no input."""
+    return _run_op(
+        reference_triangle,
+        locals(),
+        load=False,
+        report=False,
+        call={
+            "size": (1.0, 1.0) if size is None else size,
+            "origin": (0.0, 0.0, 0.0) if origin is None else origin,
+        },
+    )
+
+
+def tool_ngon(
+    output_path,
+    output_format=None,
+    sides=6,
+    radius=1.0,
+    rings=1,
+    center=None,
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a regular polygon fanned from its centre; reads no input."""
+    return _run_op(
+        ngon,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_annulus(
+    output_path,
+    output_format=None,
+    inner_radius=0.5,
+    outer_radius=1.0,
+    ntheta=16,
+    nr=4,
+    angle=2.0 * np.pi,
+    center=None,
+    cell_type="quad",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate an annulus, or a sector of one with a seam pair; reads no input."""
+    return _run_op(
+        annulus,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_lshape(
+    output_path,
+    output_format=None,
+    n=4,
+    size=2.0,
+    center=None,
+    cell_type="quad",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate the L-shaped domain (a square minus a quadrant); reads no input."""
+    return _run_op(
+        lshape,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_plate_with_hole(
+    output_path,
+    output_format=None,
+    radius=0.25,
+    size=1.0,
+    nt=8,
+    nr=4,
+    center=None,
+    cell_type="quad",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a square plate around a circular hole; reads no input."""
+    return _run_op(
+        plate_with_hole,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_honeycomb(
+    output_path,
+    output_format=None,
+    dims=None,
+    edge=1.0,
+    origin=None,
+    max_cells=20000000,
+):
+    """Generate a tiling of hexagons as one polygon block; reads no input."""
+    return _run_op(
+        honeycomb,
+        locals(),
+        load=False,
+        report=False,
+        call={
+            "dims": (4, 4) if dims is None else dims,
+            "origin": (0.0, 0.0, 0.0) if origin is None else origin,
+        },
+    )
+
+
+def tool_line(
+    output_path,
+    output_format=None,
+    n=8,
+    start=None,
+    end=None,
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a straight segment of line cells; reads no input."""
+    return _run_op(
+        line,
+        locals(),
+        load=False,
+        report=False,
+        call={
+            "start": (0.0, 0.0, 0.0) if start is None else start,
+            "end": (1.0, 0.0, 0.0) if end is None else end,
+        },
+    )
+
+
+def tool_circle(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    n=16,
+    center=None,
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a closed polyline on a circle; reads no input."""
+    return _run_op(
+        circle,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_helix(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    pitch=1.0,
+    turns=2.0,
+    n=32,
+    center=None,
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a helix of line cells; reads no input."""
+    return _run_op(
+        helix,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_sphere_points(
+    output_path,
+    output_format=None,
+    n=100,
+    radius=1.0,
+    center=None,
+    max_cells=20000000,
+):
+    """Generate points on a sphere (a Fibonacci lattice); reads no input."""
+    return _run_op(
+        sphere_points,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_box_points(
+    output_path,
+    output_format=None,
+    n=100,
+    size=None,
+    origin=None,
+    seed=0,
+    max_cells=20000000,
+):
+    """Generate seeded uniform points in a box; reads no input."""
+    return _run_op(
+        box_points,
+        locals(),
+        load=False,
+        report=False,
+        call={
+            "size": (1.0, 1.0, 1.0) if size is None else size,
+            "origin": (0.0, 0.0, 0.0) if origin is None else origin,
+        },
+    )
+
+
+def tool_tetra_sphere(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    subdivisions=3,
+    center=None,
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a sphere surface from a subdivided tetrahedron; reads no input."""
+    return _run_op(
+        tetra_sphere,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_octa_sphere(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    subdivisions=2,
+    center=None,
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a sphere surface from a subdivided octahedron; reads no input."""
+    return _run_op(
+        octa_sphere,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_cube_sphere(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    n=4,
+    center=None,
+    cell_type="quad",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a sphere surface from a cube's six gridded faces; reads no input."""
+    return _run_op(
+        cube_sphere,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_geo_sphere(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    n=4,
+    center=None,
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a geodesic sphere of any frequency; reads no input."""
+    return _run_op(
+        geo_sphere,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_torus(
+    output_path,
+    output_format=None,
+    major_radius=1.0,
+    minor_radius=0.25,
+    nu=32,
+    nv=16,
+    center=None,
+    cell_type="quad",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a torus surface; reads no input."""
+    return _run_op(
+        torus,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_moebius(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    width=0.5,
+    nu=32,
+    nv=4,
+    num_twists=1,
+    center=None,
+    cell_type="quad",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a Moebius band; reads no input."""
+    return _run_op(
+        moebius,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_tube(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    height=1.0,
+    ntheta=16,
+    nz=4,
+    center=None,
+    cell_type="quad",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate an open cylinder surface; reads no input."""
+    return _run_op(
+        tube,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_cone(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    height=1.0,
+    ntheta=16,
+    nz=4,
+    center=None,
+    cell_type="quad",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a closed cone surface; reads no input."""
+    return _run_op(
+        cone,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_capsule(
+    output_path,
+    output_format=None,
+    radius=0.5,
+    height=1.0,
+    ntheta=16,
+    nz=4,
+    ncap=4,
+    center=None,
+    cell_type="quad",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a capsule surface; reads no input."""
+    return _run_op(
+        capsule,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_box_surface(
+    output_path,
+    output_format=None,
+    dims=None,
+    size=None,
+    origin=None,
+    cell_type="quad",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate the closed boundary surface of a box; reads no input."""
+    return _run_op(
+        box_surface,
+        locals(),
+        load=False,
+        report=False,
+        call={
+            "dims": (1, 1, 1) if dims is None else dims,
+            "size": (1.0, 1.0, 1.0) if size is None else size,
+            "origin": (0.0, 0.0, 0.0) if origin is None else origin,
+        },
+    )
+
+
+def tool_platonic(
+    output_path,
+    output_format=None,
+    name="icosahedron",
+    radius=1.0,
+    center=None,
+    max_cells=20000000,
+):
+    """Generate a platonic solid's surface, one cell per face; reads no input."""
+    return _run_op(
+        platonic,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_ball(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    n=4,
+    center=None,
+    cell_type="hexahedron",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a solid ball by the seven-block butterfly; reads no input."""
+    return _run_op(
+        ball,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_spherical_shell(
+    output_path,
+    output_format=None,
+    inner_radius=0.5,
+    outer_radius=1.0,
+    n=4,
+    nr=2,
+    ratio=1.0,
+    center=None,
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a thick spherical shell of hexahedra; reads no input."""
+    return _run_op(
+        spherical_shell,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_pipe(
+    output_path,
+    output_format=None,
+    inner_radius=0.5,
+    outer_radius=1.0,
+    height=1.0,
+    ntheta=16,
+    nr=2,
+    nz=4,
+    ratio=1.0,
+    center=None,
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a thick-walled pipe of hexahedra; reads no input."""
+    return _run_op(
+        pipe,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_fichera(
+    output_path,
+    output_format=None,
+    n=2,
+    size=2.0,
+    center=None,
+    cell_type="hexahedron",
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate the Fichera corner (a cube minus an octant); reads no input."""
+    return _run_op(
+        fichera,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_solid_torus(
+    output_path,
+    output_format=None,
+    major_radius=1.0,
+    minor_radius=0.25,
+    n=4,
+    nu=32,
+    center=None,
+    order=1,
+    max_cells=20000000,
+    complete=False,
+):
+    """Generate a solid torus of hexahedra; reads no input."""
+    return _run_op(
+        solid_torus,
+        locals(),
+        load=False,
+        report=False,
+        call={"center": (0.0, 0.0, 0.0) if center is None else center},
+    )
+
+
+def tool_reference_cells(output_path, output_format=None, types=None, pairs=False):
+    """Generate one cell of each requested type in reference coordinates; reads no input."""
+    return _run_op(reference_cells, locals(), load=False, report=False)
+
+
+def tool_voxelize(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    resolution=None,
+    cell_size=None,
+    bounds=None,
+    padding=0.0,
+    padding_relative=0.0,
+    fill="all",
+    attach_occupancy=False,
+    max_cells=20000000,
+    sign="pseudonormal",
+    plane="auto",
+):
+    """Build a regular grid around a mesh; optionally keep only its surface or interior."""
+    return _run_op(voxelize, locals(), call={"watertight_check": "off"})
+
+
+def tool_octree_mesh(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    output="tet",
+    min_size=0.0,
+    max_size=0.0,
+    max_level=-1,
+    bounds=None,
+    padding=0.0,
+    padding_relative=0.1,
+    curvature_angle=15.0,
+    feature_angle=30.0,
+    corner_angle=30.0,
+    feature_size=0.0,
+    gap_cells=2.0,
+    gap_outside=False,
+    size_array=None,
+    surface_region=None,
+    grading_layers=1,
+    skin_grading="graded",
+    surface_size=0.0,
+    winding_threshold=0.5,
+    winding_beta=2.0,
+    conformity="stuffing",
+    alpha_long=0.24799,
+    alpha_short=0.40173,
+    preserve_features=True,
+    fit_iterations=5,
+    dihedral_floor_guard=True,
+    fill="inside",
+    keep_outside=False,
+    attach_distance=True,
+    attach_quality=False,
+    pillow=True,
+    hex_grading="uniform",
+    untangle_iterations=50,
+    max_cells=20000000,
+    max_tets=100000000,
+    volume_fix=True,
+    zero_volume_factor=1.0e-6,
+    cap_flatness=0.01,
+    crossing_margin=0.01,
+    crossing_gap=0.05,
+):
+    """Mesh the inside of a skin on a balanced octree (castellated, tet or hex)."""
+    return _run_op(octree_mesh, locals())
+
+
+def tool_mesh_cad_surface(
+    input_path,
+    output_path,
+    target_size,
+    input_format=None,
+    output_format=None,
+    max_chordal_deviation=0.0,
+    min_points_per_edge=0,
+    tolerance=0.0,
+    record_face_ids=True,
+    edges=True,
+    match_unreferenced_trims=True,
+    strict=False,
+    max_points=50000000,
+    min_angle=0.0,
+    smooth_iterations=0,
+    smooth_method="laplacian",
+    order=1,
+    curvature_deviation=0.0,
+    cells_across_gaps=0.0,
+    grading=0.0,
+    pole_rings=0,
+    face_sizes=None,
+    edge_sizes=None,
+    background_path=None,
+    background_array="size",
+    metric="mean",
+    virtual_edges=False,
+    reparam_condition_number=0.0,
+    model_tolerances=True,
+    virtual_faces=True,
+    lop_corners=False,
+    metric_background_path=None,
+    metric_array="",
+    metric_error=0.0,
+    untangle=False,
+    quads="none",
+    quad_pairs="matching",
+    heal=False,
+    sew_tolerance=0.0,
+):
+    """Triangulate a CAD model's faces (CAD JSON, STEP, IGES) into one
+    conforming surface mesh at a target edge size, optionally sized by
+    curvature and gaps or by an anisotropic metric from a field's Hessian,
+    refined to a minimum angle, graded at poles, smoothed, and curved (order
+    2 or 3, folded elements untangled); faces with unusable parameters
+    flattened, slivers merged, the model's own tolerances accepted, acute
+    corners lopped, and the triangles recombined into quads (curved quad9 or
+    quad16 at order 2 or 3). Reports min_metric_angle with a metric
+    background. ``heal`` heals a STEP or IGES shape before it is read
+    (``ShapeFix_Shape``, then sewing at ``sew_tolerance``)."""
+    mesh = _load(input_path, input_format, **_heal_kwargs(heal, sew_tolerance))
+    out, report = mesh_cad_surface(
+        mesh,
+        target_size,
+        max_chordal_deviation=max_chordal_deviation,
+        min_points_per_edge=min_points_per_edge,
+        tolerance=tolerance,
+        record_face_ids=record_face_ids,
+        edges=edges,
+        match_unreferenced_trims=match_unreferenced_trims,
+        strict=strict,
+        max_points=max_points,
+        min_angle=min_angle,
+        smooth_iterations=smooth_iterations,
+        smooth_method=smooth_method,
+        order=order,
+        curvature_deviation=curvature_deviation,
+        cells_across_gaps=cells_across_gaps,
+        grading=grading,
+        pole_rings=pole_rings,
+        face_sizes=_index_sizes(face_sizes),
+        edge_sizes=_index_sizes(edge_sizes),
+        background=None if background_path is None else _load(background_path, None),
+        background_array=background_array,
+        metric=metric,
+        virtual_edges=virtual_edges,
+        reparam_condition_number=reparam_condition_number,
+        model_tolerances=model_tolerances,
+        virtual_faces=virtual_faces,
+        lop_corners=lop_corners,
+        metric_background=(
+            None
+            if metric_background_path is None
+            else _load(metric_background_path, None)
+        ),
+        metric_array=metric_array,
+        metric_error=metric_error,
+        untangle=untangle,
+        quads=quads,
+        quad_pairs=quad_pairs,
+        return_report=True,
+    )
+    return _result(_store(out, output_path, output_format), out, **report)
+
+
+def _index_sizes(sizes):
+    """Sizes keyed by index as JSON gives them (``{"3": 0.1}``) as pairs."""
+    if sizes is None:
+        return None
+    return [(int(k), float(v)) for k, v in dict(sizes).items()]
+
+
+def tool_octree(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    root_cells=(1, 1, 1),
+    min_level=0,
+    max_level=4,
+    bounds=None,
+    padding=0.0,
+    padding_relative=0.0,
+    dimension=0,
+    sample_distance=0.0,
+    balance="face",
+    fill="all",
+    attach_distance=False,
+    even_odd=False,
+    max_cells=20000000,
+    sign="pseudonormal",
+    transition="hanging",
+    snap=False,
+    surface_level=None,
+    curvature_threshold=0.0,
+    feature_angle=0.0,
+    size_array=None,
+    plane="auto",
+):
+    """Build an octree (quadtree) around a mesh skin, fine only where the skin is."""
+    return _run_op(octree, locals(), call={"watertight_check": "off"})
+
+
+def _grid_spec_report(spec):
+    return {
+        "origin": [float(v) for v in spec.origin],
+        "spacing": [float(v) for v in spec.spacing],
+        "dims": [int(v) for v in spec.dims],
+        "shape": list(spec.shape),
+        "layout": "channels_first_zyx",
+    }
+
+
+def tool_grid_sample(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    resolution=None,
+    cell_size=None,
+    bounds=None,
+    padding=0.0,
+    padding_relative=0.0,
+    fields=None,
+    extrapolate=False,
+    fill_value=0.0,
+    max_cells=20000000,
+):
+    """Sample a mesh's point data onto a regular grid, written as a lattice mesh."""
+    mesh = _load(input_path, input_format)
+    spec = GridSpec.from_mesh(
+        mesh,
+        resolution=resolution,
+        cell_size=cell_size,
+        bounds=bounds,
+        padding=padding,
+        padding_relative=padding_relative,
+        max_cells=max_cells,
+    )
+    array = sample_grid(
+        mesh,
+        spec,
+        fields=fields,
+        extrapolate=extrapolate,
+        fill_value=fill_value,
+    )
+    out = array.to_mesh()
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        channels=list(array.channels),
+        coverage=array.coverage,
+        grid=_grid_spec_report(spec),
+    )
+
+
+def tool_grid_scatter(
+    grid_path,
+    target_path,
+    output_path,
+    grid_format=None,
+    target_format=None,
+    output_format=None,
+    fields=None,
+    on_conflict="error",
+):
+    """Write a grid's fields back onto a mesh's points by trilinear interpolation."""
+    array = GridArray.from_mesh(_load(grid_path, grid_format), fields=fields)
+    target = _load(target_path, target_format)
+    out = scatter_grid(array, target, on_conflict=on_conflict)
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        channels=list(array.channels),
+        grid=_grid_spec_report(array.spec),
+    )
+
+
+def tool_grid_resample(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    factor=None,
+    resolution=None,
+    fields=None,
+):
+    """Resample a grid onto a finer or coarser one - the trilinear upsampling baseline."""
+    array = GridArray.from_mesh(_load(input_path, input_format), fields=fields)
+    if (factor is None) == (resolution is None):
+        raise ValueError(
+            "meshio++: grid_resample: give exactly one of factor and resolution"
+        )
+    if factor is not None:
+        target = array.spec.upscale(factor)
+    else:
+        lo, hi = array.spec.bounds
+        dims = np.asarray(resolution, dtype=np.int64).reshape(-1)
+        if dims.size != 3:
+            raise ValueError(
+                "meshio++: grid_resample: resolution must be three cell counts"
+            )
+        target = GridSpec(origin=lo, spacing=(hi - lo) / dims.astype(float), dims=dims)
+    values = resample_grid(array.values, array.spec, target)
+    out = GridArray(values, target, array.channels, dict(array.schema)).to_mesh()
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        channels=list(array.channels),
+        source_grid=_grid_spec_report(array.spec),
+        grid=_grid_spec_report(target),
+        scaling_factor=array.spec.scaling_factor(target),
+    )
+
+
+def tool_grid_power_spectrum(input_path, field, input_format=None, max_bins=256):
+    """The azimuthally averaged power spectrum of one field on a regular grid."""
+    array = GridArray.from_mesh(_load(input_path, input_format))
+    names = [c for c in array.channels if c == field or c.startswith(field + "_")]
+    if not names:
+        raise ValueError(
+            f"meshio++: grid_power_spectrum: no channel named {field!r} "
+            f"(have {list(array.channels)})"
+        )
+    values = np.stack([array.channel(n) for n in names], axis=0)
+    ps = power_spectrum(values, array.spec)
+    keep = (
+        min(int(max_bins), len(ps.power))
+        if max_bins and max_bins > 0
+        else len(ps.power)
+    )
+    return _json_safe(
+        {
+            "field": field,
+            "channels": names,
+            "units": ps.units,
+            "wavenumber": ps.wavenumber[:keep],
+            "power": ps.power[:keep],
+            "counts": ps.counts[:keep],
+            "num_bins": int(len(ps.power)),
+            "total_power": float(ps.power.sum()),
+            "grid": _grid_spec_report(array.spec),
+        }
+    )
+
+
+def tool_subsample(
+    input_path,
+    output_path,
+    count,
+    input_format=None,
+    output_format=None,
+    method="farthest",
+    seed=0,
+    start=0,
+    bounds=None,
+    record_ids=False,
+):
+    """Reduce a mesh to a point cloud of exactly `count` points under a token budget."""
+    mesh = _load(input_path, input_format)
+    out = subsample_points(
+        mesh,
+        int(count),
+        method=method,
+        seed=seed,
+        start=start,
+        bounds=bounds,
+        record_ids=record_ids,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        method=method,
+        count=int(len(out.points)),
+        num_source_points=int(len(mesh.points)),
+    )
+
+
+def tool_proximity_graph(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    method="radius",
+    radius=None,
+    max_neighbors=None,
+    box_size=None,
+    kind="node",
+):
+    """Build a radius or k-nearest-neighbour graph over a mesh's points or cell centroids."""
+    import numpy as np
+
+    from .._mesh import Mesh
+    from .._proximity import _graph_positions
+
+    mesh = _load(input_path, input_format)
+    edges = proximity_graph(
+        mesh,
+        method=method,
+        radius=radius,
+        max_neighbors=max_neighbors,
+        box_size=box_size,
+        kind=kind,
+    )
+    points = _graph_positions(mesh, kind)
+    half = edges[:, edges[0] < edges[1]]
+    degree = np.bincount(edges[0], minlength=len(points)).astype(np.int64)
+    out = Mesh(
+        points,
+        [("line", np.ascontiguousarray(half.T))],
+        point_data={"degree": degree},
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        method=method,
+        num_vertices=int(len(points)),
+        num_edges=int(half.shape[1]),
+        degree_min=int(degree.min()) if degree.size else 0,
+        degree_mean=float(degree.mean()) if degree.size else 0.0,
+        degree_max=int(degree.max()) if degree.size else 0,
+        num_isolated=int((degree == 0).sum()),
+    )
+
+
+def tool_distance_to_surface(
+    input_path,
+    surface_path,
+    output_path,
+    input_format=None,
+    surface_format=None,
+    output_format=None,
+    sign="pseudonormal",
+    location="corner",
+    band=0.0,
+    record_inside=False,
+    record_closest_cell=False,
+):
+    """Attach the signed distance from a mesh's points (or cell centres) to a surface."""
+    mesh = _load(input_path, input_format)
+    surface = _load(surface_path, surface_format)
+    out, report = distance_to_surface(
+        mesh,
+        surface,
+        sign=sign,
+        location=location,
+        band=band,
+        record_inside=record_inside,
+        record_closest_cell=record_closest_cell,
+        watertight_check="off",
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_banded=report["num_banded"],
+        **report["quality"],
+    )
+
+
+def tool_compute_sdf(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    structure="voxel",
+    resolution=None,
+    cell_size=None,
+    bounds=None,
+    padding=0.0,
+    padding_relative=0.1,
+    root_resolution=8,
+    max_depth=4,
+    band_cells=1.0,
+    max_cells=20000000,
+    sign="pseudonormal",
+    location="corner",
+    band=0.0,
+):
+    """Generate a grid over a surface and fill it with signed distances."""
+    surface = _load(input_path, input_format)
+    out, report = compute_sdf(
+        surface,
+        structure=structure,
+        resolution=resolution,
+        cell_size=cell_size,
+        bounds=bounds,
+        padding=padding,
+        padding_relative=padding_relative,
+        root_resolution=root_resolution,
+        max_depth=max_depth,
+        band_cells=band_cells,
+        max_cells=max_cells,
+        sign=sign,
+        location=location,
+        band=band,
+        watertight_check="off",
+        return_report=True,
+    )
+    quality = report.pop("quality")
+    return _result(_store(out, output_path, output_format), out, **report, **quality)
+
+
+def tool_surface_watertight_check(input_path, input_format=None):
+    """Report a surface's boundary, non-manifold, inconsistent and degenerate counts."""
+    return _json_safe(dict(surface_watertight_check(_load(input_path, input_format))))
+
+
+def tool_sample_distance(
+    input_path,
+    points,
+    input_format=None,
+    sign="pseudonormal",
+    band=0.0,
+):
+    """Signed distances from a list of [x, y, z] points to a surface."""
+    surface = _load(input_path, input_format)
+    values = sample_distance(
+        surface, points, sign=sign, band=band, watertight_check="off"
+    )
+    return _json_safe({"distances": values})
+
+
+def tool_gradient(
+    input_path,
+    output_path,
+    array,
+    input_format=None,
+    output_format=None,
+    operator="gradient",
+    method="green-gauss",
+    location="cell",
+    output=None,
+    component=None,
+    overwrite=False,
+):
+    """Gradient, divergence or curl of a point_data field."""
+    mesh = _load(input_path, input_format)
+    out, report = gradient(
+        mesh,
+        array,
+        operator=operator,
+        method=method,
+        location=location,
+        output=output,
+        component=component,
+        overwrite=overwrite,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_skipped=int(report["num_skipped"]),
+        num_fallback=int(report["num_fallback"]),
+    )
+
+
+def tool_hessian(
+    input_path,
+    output_path,
+    array,
+    input_format=None,
+    output_format=None,
+    method="green-gauss",
+    location="cell",
+    output=None,
+    overwrite=False,
+):
+    """Hessian (second derivative) of a scalar point_data field --
+    gradient's companion one order further, a composition of two gradient
+    calls."""
+    mesh = _load(input_path, input_format)
+    out, report = hessian(
+        mesh,
+        array,
+        method=method,
+        location=location,
+        output=output,
+        overwrite=overwrite,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_skipped=int(report["num_skipped"]),
+        num_fallback=int(report["num_fallback"]),
+    )
+
+
+def tool_curvature(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    mean=True,
+    gaussian=True,
+    dual_area="mixed-voronoi",
+    include_boundary=False,
+    record_area=False,
+    record_principal=False,
+    region="",
+):
+    """Per-vertex mean and Gaussian curvature of a surface, by the angle defect
+    (K) and the cotangent Laplace-Beltrami operator (H) -- the signed
+    distance's companion as a node feature. Reports total_angle_defect, which
+    is 2*pi*chi exactly for a closed surface (4*pi for a sphere) whatever the
+    tessellation: the cheapest check that a result is sane."""
+    mesh = _load(input_path, input_format)
+    out, report = compute_curvature(
+        mesh,
+        mean=mean,
+        gaussian=gaussian,
+        dual_area=dual_area,
+        include_boundary=include_boundary,
+        record_area=record_area,
+        record_principal=record_principal,
+        region=region,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_boundary=int(report["num_boundary"]),
+        num_isolated=int(report["num_isolated"]),
+        num_degenerate=int(report["num_degenerate"]),
+        total_angle_defect=float(report["total_angle_defect"]),
+        quality=report["quality"],
+    )
+
+
+def tool_normals(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    point_normals=True,
+    cell_normals=False,
+    weight="angle",
+    split_angle=None,
+    record_parent_ids=False,
+    region="",
+):
+    """Point and cell normals of a surface, optionally splitting vertices at
+    creases so every point carries exactly one normal (what a renderer or a
+    glTF export needs). Reports the points the split added and the input's
+    surface quality; inconsistent_pairs is nonzero when some normals average
+    faces that disagree about which side is out. Never reorients."""
+    mesh = _load(input_path, input_format)
+    out, report = compute_normals(
+        mesh,
+        point_normals=point_normals,
+        cell_normals=cell_normals,
+        weight=weight,
+        split_angle=split_angle,
+        region=region,
+        record_parent_ids=record_parent_ids,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_isolated=int(report["num_isolated"]),
+        num_undefined=int(report["num_undefined"]),
+        num_degenerate=int(report["num_degenerate"]),
+        num_split_points=int(report["num_split_points"]),
+        num_added_points=int(report["num_added_points"]),
+        quality=report["quality"],
+    )
+
+
+def tool_feature_edges(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    feature_angle=30.0,
+    feature=True,
+    boundary=True,
+    non_manifold=True,
+    inconsistent=True,
+    region="",
+):
+    """The sharp, open, non-manifold and inconsistently wound edges of a
+    surface (or of a volume mesh's skin), written as a line mesh with cell data
+    feature:kind (1 feature, 2 boundary, 3 non-manifold, 4 inconsistent) and
+    feature:angle (degrees). The counts cover the whole surface."""
+    mesh = _load(input_path, input_format)
+    out, report = feature_edges(
+        mesh,
+        feature_angle=feature_angle,
+        feature=feature,
+        boundary=boundary,
+        non_manifold=non_manifold,
+        inconsistent=inconsistent,
+        region=region,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_edges=int(len(out.cells[0].data)) if out.cells else 0,
+        **{k: int(v) for k, v in report.items()},
+    )
+
+
+def tool_segment(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    feature_angle=30.0,
+    normal_tolerance=0.0,
+    curvature_tolerance=0.0,
+    min_patch_cells=1,
+    region="",
+    prefix="patch",
+    method="angle",
+    tolerance=1e-3,
+):
+    """Split a surface into smooth patches by region growing, bounded by its
+    feature edges (method="angle") or where the plane, sphere, cylinder, cone
+    or torus its facets lie on changes (method="primitive"); written with cell
+    data segment:patch, field data segment:adjacency and one cell region per
+    patch (<prefix>:<k>)."""
+    mesh = _load(input_path, input_format)
+    out, report = segment(
+        mesh,
+        feature_angle=feature_angle,
+        normal_tolerance=normal_tolerance,
+        curvature_tolerance=curvature_tolerance,
+        min_patch_cells=min_patch_cells,
+        region=region,
+        prefix=prefix,
+        return_report=True,
+        method=method,
+        tolerance=tolerance,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        **{k: int(v) for k, v in report.items()},
+    )
+
+
+def tool_select(
+    input_path,
+    output_path,
+    name,
+    input_format=None,
+    output_format=None,
+    kind="cell",
+    bbox=None,
+    plane_origin=None,
+    plane_normal=None,
+    sphere_center=None,
+    sphere_radius=None,
+    where_array=None,
+    where_compare="<",
+    where_value=0.0,
+    quality_metric=None,
+    quality_compare="<",
+    quality_value=0.0,
+    component=None,
+    seed=None,
+    feature_angle=30.0,
+    normal_tolerance=0.0,
+    mode="all",
+    boundary_only=True,
+    tag=-1,
+):
+    """Write one named point, cell or side region chosen by a box, half-space,
+    ball, data or quality comparison, component or a patch grown from a seed;
+    every criterion given must pass."""
+    mesh = _load(input_path, input_format)
+    kwargs = {}
+    if bbox is not None:
+        kwargs["box"] = bbox
+    if plane_origin is not None or plane_normal is not None:
+        if plane_origin is None or plane_normal is None:
+            raise ValueError(
+                "meshio++: mcp: select needs both plane_origin and plane_normal"
+            )
+        kwargs["plane"] = (plane_origin, plane_normal)
+    if sphere_center is not None or sphere_radius is not None:
+        if sphere_center is None or sphere_radius is None:
+            raise ValueError(
+                "meshio++: mcp: select needs both sphere_center and sphere_radius"
+            )
+        kwargs["sphere"] = (sphere_center, sphere_radius)
+    if where_array is not None:
+        kwargs["where"] = (where_array, where_compare, where_value)
+    if quality_metric is not None:
+        kwargs["quality"] = (quality_metric, quality_compare, quality_value)
+    out, report = _select_op(
+        mesh,
+        name,
+        kind,
+        component=component,
+        seed=seed,
+        feature_angle=feature_angle,
+        normal_tolerance=normal_tolerance,
+        mode=mode,
+        boundary_only=boundary_only,
+        tag=tag,
+        return_report=True,
+        **kwargs,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        **{k: int(v) for k, v in report.items()},
+    )
+
+
+def tool_fit_primitives(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    patch_data="segment:patch",
+    tolerance=1e-3,
+    relative=True,
+    min_inlier_fraction=0.9,
+    types=None,
+    max_iterations=50,
+    region=None,
+    seeds=None,
+    feature_angle=30.0,
+    rim_angle=15.0,
+    output_region="fit:feature",
+    used_points="auto",
+    criterion="least_squares",
+):
+    """Fit a plane, sphere, cylinder, cone or torus to each patch of a surface;
+    written with cell data fit:type / fit:rms / fit:max and per-patch field
+    data fit:patch_*. The report carries one entry per patch."""
+    from .._fit_primitives import TYPES
+
+    mesh = _load(input_path, input_format)
+    out, report = fit_primitives(
+        mesh,
+        patch_data=patch_data,
+        tolerance=tolerance,
+        relative=relative,
+        min_inlier_fraction=min_inlier_fraction,
+        types=tuple(types) if types else TYPES[1:],
+        max_iterations=max_iterations,
+        return_report=True,
+        region=region,
+        seeds=seeds,
+        feature_angle=feature_angle,
+        rim_angle=rim_angle,
+        output_region=output_region,
+        used_points=used_points,
+        criterion=criterion,
+    )
+    fd = out.field_data
+    patches = []
+    for i, pid in enumerate(fd["fit:patch_id"]):
+        params = fd["fit:patch_params"][i]
+        patches.append(
+            {
+                "patch": int(pid),
+                "type": TYPES[int(fd["fit:patch_type"][i])],
+                "params": [float(x) for x in params],
+                "rms": float(fd["fit:patch_rms"][i]),
+                "max": float(fd["fit:patch_max"][i]),
+                "fraction": float(fd["fit:patch_fraction"][i]),
+                "form_error": float(fd["fit:patch_form_error"][i]),
+                "diameter_min": float(fd["fit:patch_diameter_min"][i]),
+                "diameter_max": float(fd["fit:patch_diameter_max"][i]),
+                "length": float(fd["fit:patch_length"][i]),
+                "arc_deg": float(fd["fit:patch_arc"][i]),
+                "extent": [float(x) for x in fd["fit:patch_extent"][i]],
+                "sigma": float(fd["fit:patch_sigma"][i]),
+                "num_used": int(fd["fit:patch_num_used"][i]),
+                "num_rejected": int(fd["fit:patch_num_rejected"][i]),
+            }
+        )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        patches=patches,
+        warnings=list(report["warnings"]),
+        **{k: int(v) for k, v in report.items() if k != "warnings"},
+    )
+
+
+def tool_refine_patches(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    segment_method="angle",
+    segment_tolerance=1e-3,
+    feature_angle=30.0,
+    tolerance=1e-3,
+    relative=True,
+    normal_weight=1.0,
+    epsilon=1e-3,
+    max_iterations=10,
+    min_patch_cells=3,
+    ransac_seed=0x6D657368696F2B2B,
+    types=None,
+    allow_split=True,
+    allow_merge=True,
+    prefix="patch",
+):
+    """Refine the segment:patch labels of a surface by variational shape
+    approximation until one plane, sphere, cylinder, cone or torus explains
+    each patch within tolerance: boundaries move, a primitive is split out of
+    a freeform patch by seeded RANSAC, neighbours one primitive explains
+    merge. A surface without segment:patch is segmented first (segment_method,
+    segment_tolerance, feature_angle). Written with segment:patch, the patch
+    regions and the fit:* data rewritten, and refine:* per-patch field data;
+    the report carries the counts, the explained area share before and after,
+    the Hausdorff distance and why refinement stopped."""
+    mesh = _load(input_path, input_format)
+    if "segment:patch" not in mesh.cell_data:
+        mesh = segment(
+            mesh,
+            feature_angle=feature_angle,
+            method=segment_method,
+            tolerance=segment_tolerance,
+        )
+    out, report = refine_patches(
+        mesh,
+        tolerance=tolerance,
+        relative=relative,
+        normal_weight=normal_weight,
+        epsilon=epsilon,
+        feature_angle=feature_angle,
+        max_iterations=max_iterations,
+        min_patch_cells=min_patch_cells,
+        ransac_seed=ransac_seed,
+        types=list(types) if types is not None else None,
+        allow_split=allow_split,
+        allow_merge=allow_merge,
+        prefix=prefix,
+        return_report=True,
+    )
+    return _result(_store(out, output_path, output_format), out, **report)
+
+
+def tool_iga_refine(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    subdivisions=1,
+    elevate=0,
+    sample_subdivisions=0,
+    model="auto",
+    trim_samples=16,
+    edges=True,
+    trim=True,
+):
+    """Refine every patch of a NURBS model exactly: degree elevation (elevate),
+    then knot insertion splitting each knot span in subdivisions parts. The
+    geometry, fields and a trimmed face's trimming loops do not change; the
+    refined model is written (an MFEM NURBS mesh or CAD JSON keeps its patches,
+    any other format gets the sampled cells)."""
+    return _run_op(iga_refine, locals(), report=False)
+
+
+def tool_iga_sample(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    subdivisions=0,
+    model="auto",
+    trim_samples=16,
+    edges=True,
+    trim=True,
+):
+    """Sample a NURBS model (MFEM NURBS mesh, CAD JSON, STEP, IGES) into
+    Lagrange cells, subdivisions cells per knot span and direction (0 is
+    automatic), the exact rational geometry at each cell's lattice."""
+    return _run_op(iga_sample, locals(), report=False)
+
+
+_IGA_MAX_POINTS = 10000
+
+
+def tool_iga_evaluate(
+    input_path,
+    params,
+    input_format=None,
+    patch=0,
+    derivatives=0,
+    model="auto",
+    trim_samples=16,
+):
+    """Evaluate a patch of a NURBS model (a face of a B-rep) at parametric
+    coordinates params (a list of [u], [u, v] or [u, v, w]): points, with
+    derivatives=1 the first derivatives and surface normals, the NURBS fields,
+    and for a B-rep face whether each point lies inside its trimming loops."""
+    points = np.asarray(params, dtype=np.float64)
+    if points.ndim == 1:
+        points = points[:, None]
+    if len(points) > _IGA_MAX_POINTS:
+        raise ValueError(
+            f"iga_evaluate: {len(points)} points; at most {_IGA_MAX_POINTS} per call"
+        )
+    mesh = _load(input_path, input_format)
+    res = iga_evaluate(
+        mesh,
+        points,
+        patch=patch,
+        derivatives=derivatives,
+        model=model,
+        trim_samples=trim_samples,
+    )
+    return _json_safe(
+        {
+            "num_points": int(len(points)),
+            **{k: v for k, v in res.items() if k != "fields"},
+            "fields": list(res["fields"]),
+        }
+    )
+
+
+def tool_fit_cad(
+    input_path,
+    output_path,
+    input_format=None,
+    mesh_output_path=None,
+    curvature_tolerance=0.0,
+    min_patch_cells=1,
+    fit_tolerance=None,
+    tolerance=None,
+    exact_edges=True,
+    types=None,
+    mesh_deflection=None,
+    max_demotion_rounds=8,
+    freeform=True,
+    freeform_degree=3,
+    freeform_max_control=64,
+    cad_json_output_path=None,
+    freeform_split=True,
+    fillets=True,
+    threads=True,
+    segment_method="primitive",
+    segment_tolerance=1e-3,
+    merge_faces=True,
+    backend="auto",
+    refine_segmentation=False,
+    max_refine_iterations=10,
+    refine_epsilon=1e-3,
+    normal_weight=1.0,
+    allow_merge=True,
+    allow_split=True,
+    ransac_seed=0x6D657368696F2B2B,
+    refine_tolerance=1e-3,
+    relative_tolerance=True,
+    freeform_general=False,
+    freeform_tolerance=0.0,
+    freeform_smoothing=1e-12,
+    max_freeform_poles=40,
+    max_freeform_iterations=30,
+    max_freeform_splits=2,
+    sew_tolerance=0.0,
+    extend_surfaces=False,
+    snap_junctions=False,
+    face_deviation=False,
+    freeform_mode="legacy",
+    freeform_parameterization="auto",
+    extraordinary_vertex="g1x",
+    local_refine="knots",
+    freeform_g1_tolerance_deg=1.0,
+    freeform_max_control_points=400,
+    layout_target_patch_size=0.1,
+    layout_max_valence_deviation=2,
+    resegment_rounds=2,
+    layout_snap_to_features=True,
+    validate_by_surface_sampling=True,
+    constrain_primitives=False,
+):
+    """Turn the fitted patches of a closed skin into a CAD solid with analytic
+    faces (and, through OpenCASCADE, rolling-ball fillet, thread flank and
+    freeform B-spline ones for what no primitive explains), written to
+    output_path as STEP, and to cad_json_output_path as Kratos CAD JSON. A skin
+    without segment:patch is segmented (segment_method, segment_tolerance,
+    curvature_tolerance, min_patch_cells) and fitted (fit_tolerance, by
+    default the primitive segmentation's own as a length) first. backend
+    "native" (and "auto" without OpenCASCADE) needs no CAD kernel.
+    refine_segmentation first refines the patches by variational shape
+    approximation (refine_patches: max_refine_iterations, refine_epsilon,
+    normal_weight, allow_merge, allow_split, ransac_seed, refine_tolerance,
+    relative_tolerance) and adds refined, refinement_kept, refine_iterations,
+    num_refine_splits, num_refine_merges and the explained area share before
+    and after to the report. freeform_general tries what the plane and
+    cylinder freeform fit leaves as a general B-spline face (freeform_tolerance,
+    freeform_smoothing, max_freeform_poles, max_freeform_iterations,
+    max_freeform_splits) and adds num_freeform_general,
+    num_freeform_refinements and avg_freeform_poles; sew_tolerance sets the
+    sewing tolerance; extend_surfaces adds num_extended_edges,
+    snap_junctions num_snapped_junctions, and face_deviation hausdorff_max,
+    hausdorff_rms and the fit_cad:face_hausdorff / fit_cad:face_rms field
+    data. The report always holds closed. freeform_mode ("legacy" by default;
+    "adaptive", "network" or "auto") picks how the patches no primitive or
+    feature fit explains are treated (freeform_parameterization,
+    extraordinary_vertex, local_refine, freeform_g1_tolerance_deg,
+    freeform_max_control_points, layout_target_patch_size,
+    layout_max_valence_deviation, resegment_rounds, layout_snap_to_features,
+    validate_by_surface_sampling); outside "legacy" the report adds
+    freeform_mode, brep_checked, facet_area_fraction (the area share left on
+    facet faces), num_freeform_adaptive, num_network_patches,
+    num_network_edges, num_extraordinary_vertices, num_resegmented,
+    num_escalations, max_g1_angle_deg, max_freeform_distance,
+    rms_freeform_distance and faces (per patch: param_method, num_ctrl,
+    distances, escalation_steps and demotion_reason). constrain_primitives
+    (off) fits related primitives together on either backend -- coaxial
+    cylinders, cones, tori and spheres share one axis, parallel and
+    perpendicular planes and nearly equal radii are made exact, each change
+    kept only where its patch still passes its fit -- and adds
+    num_constrained_primitives and num_constraint_groups."""
+    from .._fit_cad import has_occt
+
+    occt = has_occt()
+    if backend == "occt" and not occt:
+        # The guarded error shape, plus the capability itself.
+        return {
+            "error": "meshio++: fit_cad: no OpenCASCADE backend is available "
+            "(the PyPI wheels get it from the meshioplusplus-occt package: pip install "
+            "meshioplusplus[occt]); a source build needs -DMESHIOPLUSPLUS_WITH_OCCT=ON "
+            "(OpenCASCADE 7.6 or later); or use backend='native'",
+            "error_type": "NotImplementedError",
+            "occt_available": False,
+        }
+    mesh = _load(input_path, input_format)
+    fit_kwargs = {} if fit_tolerance is None else {"tolerance": fit_tolerance}
+    if "segment:patch" not in mesh.cell_data:
+        mesh = segment(
+            mesh,
+            curvature_tolerance=curvature_tolerance,
+            min_patch_cells=min_patch_cells,
+            method=segment_method,
+            tolerance=segment_tolerance,
+        )
+        if segment_method == "primitive" and fit_tolerance is None:
+            # Fit at the tolerance the patches were grown at, as a length.
+            pts = np.asarray(mesh.points, dtype=np.float64)
+            diag = float(np.linalg.norm(pts.max(axis=0) - pts.min(axis=0)))
+            if diag > 0.0:
+                fit_kwargs = {"tolerance": segment_tolerance * diag, "relative": False}
+    if "fit:patch_id" not in mesh.field_data:
+        mesh = fit_primitives(mesh, **fit_kwargs)
+    step_path = _resolve(output_path, for_write=True)
+    out, report = fit_cad(
+        mesh,
+        step_path,
+        tolerance=tolerance,
+        exact_edges=exact_edges,
+        types=list(types) if types is not None else None,
+        mesh_deflection=mesh_deflection,
+        max_demotion_rounds=max_demotion_rounds,
+        freeform=freeform,
+        freeform_degree=freeform_degree,
+        freeform_max_control=freeform_max_control,
+        freeform_split=freeform_split,
+        fillets=fillets,
+        threads=threads,
+        return_report=True,
+        merge_faces=merge_faces,
+        backend=backend,
+        refine_segmentation=refine_segmentation,
+        max_refine_iterations=max_refine_iterations,
+        refine_epsilon=refine_epsilon,
+        normal_weight=normal_weight,
+        allow_merge=allow_merge,
+        allow_split=allow_split,
+        ransac_seed=ransac_seed,
+        refine_tolerance=refine_tolerance,
+        relative_tolerance=relative_tolerance,
+        freeform_general=freeform_general,
+        freeform_tolerance=freeform_tolerance,
+        freeform_smoothing=freeform_smoothing,
+        max_freeform_poles=max_freeform_poles,
+        max_freeform_iterations=max_freeform_iterations,
+        max_freeform_splits=max_freeform_splits,
+        sew_tolerance=sew_tolerance,
+        extend_surfaces=extend_surfaces,
+        snap_junctions=snap_junctions,
+        face_deviation=face_deviation,
+        freeform_mode=freeform_mode,
+        freeform_parameterization=freeform_parameterization,
+        extraordinary_vertex=extraordinary_vertex,
+        local_refine=local_refine,
+        freeform_g1_tolerance_deg=freeform_g1_tolerance_deg,
+        freeform_max_control_points=freeform_max_control_points,
+        layout_target_patch_size=layout_target_patch_size,
+        layout_max_valence_deviation=layout_max_valence_deviation,
+        resegment_rounds=resegment_rounds,
+        layout_snap_to_features=layout_snap_to_features,
+        validate_by_surface_sampling=validate_by_surface_sampling,
+        constrain_primitives=constrain_primitives,
+    )
+    _cache_invalidate(step_path)
+    extra = {"step_path": step_path, "occt_available": occt, **report}
+    if cad_json_output_path:
+        cad_path = _resolve(cad_json_output_path, for_write=True)
+        write(cad_path, out, file_format="cad_json")
+        _cache_invalidate(cad_path)
+        extra["cad_json_path"] = cad_path
+    if mesh_output_path:
+        return _result(_store(out, mesh_output_path), out, **extra)
+    return _json_safe({"output_path": step_path, **_mesh_summary(out), **extra})
+
+
+def tool_region_adjacency(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    regions=None,
+):
+    """Write conforming facets shared by selected Cell regions or cell blocks.
+
+    The output carries per-facet parent cell/facet ids and measure. With no
+    region names, every Cell region is considered; if fewer than two exist,
+    each cell block is a group.
+    """
+    out = region_adjacency(_load(input_path, input_format), regions)
+    facets = sum(len(block.data) for block in out.cells)
+    measure = sum(float(values.sum()) for values in out.cell_data["interface:measure"])
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        facets=int(facets),
+        measure=float(measure),
+    )
+
+
+def tool_find_interface(
+    input_path,
+    output_path,
+    region_a,
+    region_b,
+    input_format=None,
+    output_format=None,
+    mesh_b_path=None,
+    format_b=None,
+    mode="conforming",
+    master="a",
+    gap_tolerance=0.0,
+    angle_tolerance=30.0,
+    overlap_tolerance=0.0,
+):
+    """Write matched interface facets and report both source Side regions."""
+    mesh = _load(input_path, input_format)
+    mesh_b = _load(mesh_b_path, format_b) if mesh_b_path else None
+    out, report = find_interface(
+        mesh,
+        region_a,
+        region_b,
+        mesh_b=mesh_b,
+        mode=mode,
+        master=master,
+        gap_tolerance=gap_tolerance,
+        angle_tolerance=angle_tolerance,
+        overlap_tolerance=overlap_tolerance,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_pairs=int(report["num_pairs"]),
+        area=float(report["area"]),
+        max_gap=float(report["max_gap"]),
+        unmatched_a=int(report["unmatched_a"]),
+        unmatched_b=int(report["unmatched_b"]),
+        side_a=np.asarray(report["side_a"].entries, dtype=np.int64)
+        .reshape(-1, 2)
+        .tolist(),
+        side_b=np.asarray(report["side_b"].entries, dtype=np.int64)
+        .reshape(-1, 2)
+        .tolist(),
+    )
+
+
+def tool_contact_pairs(
+    slave_path,
+    slave_region,
+    master_region,
+    master_path=None,
+    slave_format=None,
+    master_format=None,
+    tolerance=0.0,
+    require_complete=False,
+):
+    """Return node-to-facet projections as a JSON-safe table."""
+    slave = _load(slave_path, slave_format)
+    master = _load(master_path, master_format) if master_path else slave
+    result = contact_pairs(
+        slave,
+        slave_region,
+        master_region,
+        master_mesh=master,
+        tolerance=tolerance,
+        require_complete=require_complete,
+    )
+    count = len(result["slave_point"])
+    pairs = []
+    for i in range(count):
+        pairs.append(
+            {
+                "slave_point": int(result["slave_point"][i]),
+                "master_cell": int(result["master_cell"][i]),
+                "master_facet": int(result["master_facet"][i]),
+                "master_subfacet": int(result["master_subfacet"][i]),
+                "local_coordinates": result["local_coordinates"][i].tolist(),
+                "closest_point": result["closest_point"][i].tolist(),
+                "gap": float(result["gap"][i]),
+                "normal": result["normal"][i].tolist(),
+            }
+        )
+    return _json_safe(
+        {"num_pairs": count, "pairs": pairs, "unmatched": result["unmatched"].tolist()}
+    )
+
+
+def tool_split_interface(
+    input_path,
+    output_path,
+    side_region=None,
+    side_entries=None,
+    side_name="interface:side_a",
+    input_format=None,
+    output_format=None,
+    add_cohesive=False,
+):
+    """Split point fans along a Side region and optionally add cohesive cells."""
+    from .._regions import Region
+
+    mesh = _load(input_path, input_format)
+    if side_entries is not None:
+        side = Region(
+            side_name,
+            "side",
+            np.asarray(side_entries, dtype=np.int64).reshape(-1, 2),
+        )
+    elif side_region:
+        side = side_region
+    else:
+        raise ValueError("split_interface needs side_region or side_entries")
+    out, report = split_interface(
+        mesh, side, add_cohesive=add_cohesive, return_report=True
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_duplicated_points=int(report["num_duplicated_points"]),
+        num_cohesive_cells=int(report["num_cohesive_cells"]),
+    )
+
+
+def tool_hausdorff(
+    path_a,
+    path_b,
+    format_a=None,
+    format_b=None,
+    face_samples=0,
+    region_a="",
+    region_b="",
+    max_distance=None,
+):
+    """The (sampled) Hausdorff distance between the surfaces of two mesh files;
+    with max_distance, also whether it stays within that limit."""
+    report = hausdorff_distance(
+        _load(path_a, format_a, readonly=True),
+        _load(path_b, format_b, readonly=True),
+        face_samples=face_samples,
+        region_a=region_a,
+        region_b=region_b,
+    )
+    if max_distance is not None:
+        report["max"] = float(max_distance)
+        report["passed"] = bool(report["distance"] <= float(max_distance))
+    return _json_safe(report)
+
+
+def tool_edit_regions(
+    input_path,
+    output_path,
+    edits,
+    input_format=None,
+    output_format=None,
+):
+    """Apply region edits (union, intersection, difference, rename, retag,
+    delete), in order, and write the result; points, cells and data are
+    untouched. Reports the resulting region list."""
+    out = edit_regions(_load(input_path, input_format), edits)
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        regions=[
+            {
+                "name": r.name,
+                "kind": r.kind,
+                "dim": r.dim,
+                "tag": r.tag,
+                "num_entries": int(len(r.entries)),
+            }
+            for r in out.regions
+        ],
+    )
+
+
+def tool_graph(
+    input_path, output_path, kind="node", input_format=None, file_format=None
+):
+    """Write the mesh's node, clique or cell graph as a METIS (.graph) or
+    Scotch (.grf) graph file; reports its size."""
+    mesh = _load(input_path, input_format)
+    written = _resolve(output_path, for_write=True)
+    report = write_graph(written, mesh, kind, file_format=file_format)
+    return _json_safe({"output_path": str(written), "kind": kind, **report})
+
+
+def tool_periodic(
+    input_path,
+    slave,
+    master,
+    input_format=None,
+    translate=None,
+    rotate_axis=None,
+    rotate_degrees=None,
+    origin=None,
+    matrix=None,
+    atol=1e-8,
+    require_complete=True,
+    pairs_path=None,
+):
+    """Match the nodes of the slave region onto the master region under an
+    affine transform; optionally writes the pairs as 'slave,master' CSV."""
+    mesh = _load(input_path, input_format)
+    rotate = None
+    if rotate_axis is not None:
+        rotate = (rotate_axis, float(rotate_degrees or 0.0))
+    pairs, report = match_periodic_nodes(
+        mesh,
+        slave,
+        master,
+        translate=translate,
+        rotate=rotate,
+        matrix=matrix,
+        origin=origin,
+        atol=atol,
+        require_complete=require_complete,
+        return_report=True,
+    )
+    written = None
+    if pairs_path:
+        written = _resolve(pairs_path, for_write=True)
+        np.savetxt(written, pairs, fmt="%d", delimiter=",", header="slave,master")
+    return _json_safe(
+        {
+            "num_pairs": int(len(pairs)),
+            "pairs": pairs.tolist(),
+            "unmatched": report["unmatched"].tolist(),
+            "num_fixed": report["num_fixed"],
+            "max_residual": report["max_residual"],
+            "pairs_path": str(written) if written else None,
+        }
+    )
+
+
+def tool_repair(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    fix_orientation=True,
+    orient_outward=True,
+    fill_holes=True,
+    split_non_manifold=True,
+    max_hole_edges=10,
+    weld_tolerance=0.0,
+    record_provenance=False,
+    fill_style="fan",
+):
+    """Repair a surface mesh's orientation, holes and pinched vertices -- the
+    three defects `clean` does not touch. Triangles are rewound so neighbours
+    agree (by the topological half-edge rule, exact across any crease),
+    boundary loops of at most max_hole_edges edges are fan-filled consistently
+    with the surrounding surface, bowtie vertices are duplicated, and closed
+    components are oriented outward. Reports both surfaces' defect counts, so
+    what was fixed and what remains are both visible."""
+    mesh = _load(input_path, input_format)
+    out, report = repair(
+        mesh,
+        fix_orientation=fix_orientation,
+        orient_outward=orient_outward,
+        fill_holes=fill_holes,
+        split_non_manifold=split_non_manifold,
+        max_hole_edges=max_hole_edges,
+        weld_tolerance=weld_tolerance,
+        record_provenance=record_provenance,
+        return_report=True,
+        fill_style=fill_style,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        quality_before=report["quality_before"],
+        quality_after=report["quality_after"],
+        num_flipped=int(report["num_flipped"]),
+        num_components=int(report["num_components"]),
+        largest_component=int(report["largest_component"]),
+        num_oriented_outward=int(report["num_oriented_outward"]),
+        num_unorientable=int(report["num_unorientable"]),
+        num_vertices_split=int(report["num_vertices_split"]),
+        num_holes_detected=int(report["num_holes_detected"]),
+        num_holes_filled=int(report["num_holes_filled"]),
+        num_holes_skipped=int(report["num_holes_skipped"]),
+        num_faces_added=int(report["num_faces_added"]),
+        num_points_added=int(report["num_points_added"]),
+        points_welded=int(report["points_welded"]),
+    )
+
+
+def tool_shrinkwrap(
+    input_path,
+    target_path,
+    output_path,
+    input_format=None,
+    target_format=None,
+    output_format=None,
+    offset=0.0,
+    max_distance=0.0,
+    weights="",
+    target_region="",
+    normal_weight="angle",
+    record_distance=False,
+    record_closest_cell=False,
+):
+    """Project every (selected) point of the input mesh onto the surface of
+    the target: one projection, no iteration, optionally offset along the hit
+    feature's pseudonormal. Every point of the source moves whatever cells it
+    carries; only the target must be a surface. A point farther than
+    max_distance is left alone and counted."""
+    mesh = _load(input_path, input_format)
+    target = _load(target_path, target_format)
+    out, report = shrinkwrap(
+        mesh,
+        target,
+        offset=offset,
+        max_distance=max_distance,
+        weights=weights or None,
+        target_region=target_region,
+        normal_weight=normal_weight,
+        record_distance=record_distance,
+        record_closest_cell=record_closest_cell,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_projected=int(report["num_projected"]),
+        num_missed=int(report["num_missed"]),
+        num_skipped=int(report["num_skipped"]),
+        max_displacement=float(report["max_displacement"]),
+        quality=report["quality"],
+    )
+
+
+def tool_convert_coordinates(
+    input_path,
+    output_path,
+    system="cylindrical",
+    axis=(0.0, 0.0, 1.0),
+    origin=(0.0, 0.0, 0.0),
+    reference=(1.0, 0.0, 0.0),
+    arrays=None,
+    inverse=False,
+    record_coordinates=True,
+    input_format=None,
+    output_format=None,
+):
+    """Positions, vector and tensor fields in cylindrical or spherical
+    components about an axis."""
+    mesh = _load(input_path, input_format)
+    out, report = convert_coordinates(
+        mesh,
+        system,
+        axis=axis,
+        origin=origin,
+        reference=reference,
+        arrays=list(arrays or []),
+        inverse=inverse,
+        record_coordinates=record_coordinates,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        system=system,
+        num_arrays=int(report["num_arrays"]),
+        num_singular=int(report["num_singular"]),
+    )
+
+
+def tool_prepare_metric(
+    input_path,
+    output_path,
+    arrays,
+    output="metric",
+    target_vertices=0.0,
+    norm=2.0,
+    hmin=0.0,
+    hmax=0.0,
+    gradation=0.0,
+    input_format=None,
+    output_format=None,
+):
+    """Intersect, normalise, clamp and grade metric fields."""
+    mesh = _load(input_path, input_format)
+    out, report = prepare_metric(
+        mesh,
+        list(arrays) if not isinstance(arrays, str) else [arrays],
+        output=output,
+        target_vertices=float(target_vertices),
+        norm=float(norm),
+        hmin=float(hmin),
+        hmax=float(hmax),
+        gradation=float(gradation),
+        return_report=True,
+    )
+    return _result(_store(out, output_path, output_format), out, **report)
+
+
+def tool_untangle(
+    input_path,
+    output_path,
+    fix_boundary=True,
+    frozen=None,
+    rings=2,
+    smooth=False,
+    max_sweeps=100,
+    input_format=None,
+    output_format=None,
+):
+    """Move nodes until no tetrahedron or hexahedron corner is inverted."""
+    mesh = _load(input_path, input_format)
+    out, report = untangle(
+        mesh,
+        fix_boundary=bool(fix_boundary),
+        frozen=frozen or None,
+        rings=int(rings),
+        smooth=bool(smooth),
+        max_sweeps=int(max_sweeps),
+        return_report=True,
+    )
+    return _result(_store(out, output_path, output_format), out, **report)
+
+
+def tool_morph(
+    input_path,
+    output_path,
+    array,
+    fix_boundary=True,
+    constrained=None,
+    stiffening=1.0,
+    steps=1,
+    allow_inverted=False,
+    input_format=None,
+    output_format=None,
+):
+    """Move the boundary (or chosen points) by a displacement, harmonically
+    extended into the mesh."""
+    mesh = _load(input_path, input_format)
+    out, report = morph(
+        mesh,
+        array,
+        fix_boundary=bool(fix_boundary),
+        constrained=constrained or None,
+        stiffening=float(stiffening),
+        steps=int(steps),
+        allow_inverted=bool(allow_inverted),
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_constrained=int(report["num_constrained"]),
+        num_free=int(report["num_free"]),
+        num_inverted=int(report["num_inverted"]),
+        max_displacement=float(report["max_displacement"]),
+        converged=bool(report["converged"]),
+    )
+
+
+def tool_laplacian_eigenmodes(
+    input_path,
+    output_path,
+    num_modes=10,
+    tolerance=1e-8,
+    max_iterations=0,
+    input_format=None,
+    output_format=None,
+):
+    """The lowest eigenpairs of a surface's Laplace-Beltrami operator."""
+    mesh = _load(input_path, input_format)
+    out, report = laplacian_eigenmodes(
+        mesh,
+        int(num_modes),
+        tolerance=float(tolerance),
+        max_iterations=int(max_iterations),
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        eigenvalues=[float(v) for v in report["eigenvalues"]],
+        iterations=int(report["iterations"]),
+        max_residual=float(report["max_residual"]),
+        converged=bool(report["converged"]),
+    )
+
+
+def tool_register_rigid(
+    source_path,
+    target_path,
+    output_path=None,
+    method="point_to_point",
+    max_iterations=50,
+    tolerance=1e-10,
+    max_distance=0.0,
+    rotate_data=False,
+    source_format=None,
+    target_format=None,
+    output_format=None,
+    initial="identity",
+    symmetric_check=False,
+    source_region="",
+    target_region="",
+    adaptive_trim=0.0,
+):
+    """The rigid motion laying one mesh or point cloud onto another (ICP); with
+    output_path, also the moved source."""
+    if initial not in ("identity", "auto"):
+        raise ValueError(
+            f"meshio++: register_rigid: initial must be 'identity' or 'auto', not {initial!r}"
+        )
+    source = _load(source_path, source_format)
+    matrix, report = register_rigid(
+        source,
+        _load(target_path, target_format),
+        method=method,
+        max_iterations=int(max_iterations),
+        tolerance=float(tolerance),
+        max_distance=float(max_distance),
+        initial="auto" if initial == "auto" else None,
+        symmetric_check=bool(symmetric_check),
+        source_region=source_region,
+        target_region=target_region,
+        adaptive_trim=float(adaptive_trim),
+    )
+    out = {"matrix": [[float(v) for v in row] for row in matrix]}
+    out.update(report)
+    if output_path:
+        moved = transform(source, matrix=matrix, rotate_vector_data=bool(rotate_data))
+        out["output_path"] = _store(moved, output_path, output_format)
+    return _json_safe(out)
+
+
+def tool_register_landmarks(
+    source_points,
+    target_points,
+    weights=None,
+    input_path=None,
+    output_path=None,
+    input_format=None,
+    output_format=None,
+    rotate_data=False,
+):
+    """The rigid motion laying picked points onto their targets (the weighted
+    Horn solve); with input_path and output_path, also the moved mesh."""
+    matrix, report = register_landmarks(source_points, target_points, weights)
+    out = {"matrix": [[float(v) for v in row] for row in matrix]}
+    out.update(report)
+    if input_path and output_path:
+        moved = transform(
+            _load(input_path, input_format),
+            matrix=matrix,
+            rotate_vector_data=bool(rotate_data),
+        )
+        out["output_path"] = _store(moved, output_path, output_format)
+    return _json_safe(out)
+
+
+def tool_find_symmetry_plane(
+    input_path,
+    input_format=None,
+    seed_origin=None,
+    seed_normal=None,
+    tolerance=0.0,
+    min_share=0.9,
+    max_samples=4000,
+):
+    """The plane a mesh or point cloud is most nearly symmetric about."""
+    if (seed_origin is None) != (seed_normal is None):
+        raise ValueError(
+            "meshio++: find_symmetry_plane: seed_origin and seed_normal go together"
+        )
+    seed = None if seed_origin is None else (seed_origin, seed_normal)
+    return _json_safe(
+        find_symmetry_plane(
+            _load(input_path, input_format),
+            seed=seed,
+            tolerance=float(tolerance),
+            min_share=float(min_share),
+            max_samples=int(max_samples),
+        )
+    )
+
+
+def tool_auto_align(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    angle_tolerance=10.0,
+    subdivisions=3,
+    region="",
+    rotate_vector_data=False,
+):
+    """Pose a scan on its largest flat face, or a cylinder on its axis."""
+    out, report = auto_align(
+        _load(input_path, input_format),
+        angle_tolerance=float(angle_tolerance),
+        subdivisions=int(subdivisions),
+        region=region,
+        rotate_vector_data=bool(rotate_vector_data),
+        return_report=True,
+    )
+    report["matrix"] = [[float(v) for v in row] for row in report["matrix"]]
+    return _json_safe(_result(_store(out, output_path, output_format), out, **report))
+
+
+def tool_estimate_normals(
+    input_path,
+    output_path,
+    k=16,
+    orientation="consistent",
+    viewpoint=(0.0, 0.0, 0.0),
+    record_variation=False,
+    input_format=None,
+    output_format=None,
+):
+    """Normals of a file's points by local plane fits."""
+    mesh = _load(input_path, input_format)
+    out, report = estimate_normals(
+        mesh,
+        k=int(k),
+        orientation=orientation,
+        viewpoint=viewpoint,
+        record_variation=record_variation,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_degenerate=int(report["num_degenerate"]),
+        num_components=int(report["num_components"]),
+    )
+
+
+def tool_reconstruct_surface(
+    input_path,
+    output_path,
+    normals="normals",
+    k=8,
+    cell_size=0.0,
+    resolution=0,
+    max_distance=0.0,
+    estimate_normals=True,
+    normals_k=16,
+    max_cells=20_000_000,
+    input_format=None,
+    output_format=None,
+):
+    """A triangle surface through a file's oriented point cloud."""
+    mesh = _load(input_path, input_format)
+    out, report = reconstruct_surface(
+        mesh,
+        normals=str(normals),
+        k=int(k),
+        cell_size=float(cell_size),
+        resolution=int(resolution),
+        max_distance=float(max_distance),
+        estimate_normals=bool(estimate_normals),
+        normals_k=int(normals_k),
+        max_cells=int(max_cells),
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_samples=int(report["num_samples"]),
+        spacing=float(report["spacing"]),
+        cell_size=float(report["cell_size"]),
+        max_distance=float(report["max_distance"]),
+        num_lattice_points=int(report["num_lattice_points"]),
+        num_undefined=int(report["num_undefined"]),
+        num_triangles=int(report["num_triangles"]),
+        num_components=int(report["num_components"]),
+        estimated_normals=bool(report["estimated_normals"]),
+    )
+
+
+def tool_convex_hull(
+    input_path, output_path, dimension=0, input_format=None, output_format=None
+):
+    """The convex hull of a file's points: a closed triangle surface (3-D) or
+    a line loop (2-D)."""
+    mesh = _load(input_path, input_format)
+    out, report = convex_hull(mesh, dimension=int(dimension), return_report=True)
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        dimension=int(report["dimension"]),
+        num_vertices=int(report["num_vertices"]),
+        num_facets=int(report["num_facets"]),
+        area=float(report["area"]),
+        volume=float(report["volume"]),
+        perimeter=float(report["perimeter"]),
+    )
+
+
+def tool_delaunay_2d(input_path, output_path, input_format=None, output_format=None):
+    """The Delaunay triangulation of a file's points in the x, y plane."""
+    mesh = _load(input_path, input_format)
+    out, report = delaunay_2d(mesh, return_report=True)
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_triangles=int(report["num_triangles"]),
+        num_duplicates=int(report["num_duplicates"]),
+        num_boundary=int(report["num_boundary"]),
+    )
+
+
+def tool_geodesic_distance(
+    input_path,
+    output_path,
+    sources=None,
+    source_region="",
+    input_format=None,
+    output_format=None,
+    time_factor=1.0,
+    tolerance=1e-10,
+    max_iterations=0,
+):
+    """The distance along a triangle surface from source points to every
+    point, by the heat method; writes point_data geodesic:distance."""
+    mesh = _load(input_path, input_format)
+    out, report = geodesic_distance(
+        mesh,
+        [int(v) for v in (sources or [])],
+        source_region=source_region or None,
+        time_factor=time_factor,
+        tolerance=tolerance,
+        max_iterations=max_iterations,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_sources=int(report["num_sources"]),
+        num_unreached=int(report["num_unreached"]),
+        num_degenerate=int(report["num_degenerate"]),
+        max_distance=float(report["max_distance"]),
+        time_step=float(report["time_step"]),
+        heat_iterations=int(report["heat_iterations"]),
+        poisson_iterations=int(report["poisson_iterations"]),
+        converged=bool(report["converged"]),
+    )
+
+
+def tool_parameterize(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    padding=0.02,
+    max_depth=8,
+    max_stretch=2.0,
+):
+    """A UV atlas of a triangle surface: writes point_data uv (the surface split
+    at its seams), texture coordinates in OBJ, glTF and USD."""
+    mesh = _load(input_path, input_format)
+    out, report = parameterize(
+        mesh,
+        padding=padding,
+        max_depth=max_depth,
+        max_stretch=max_stretch,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_charts=int(report["num_charts"]),
+        num_flipped=int(report["num_flipped"]),
+        stretch=float(report["stretch"]),
+        packing_efficiency=float(report["packing_efficiency"]),
+        num_seam_points=int(report["num_seam_points"]),
+    )
+
+
+def tool_sobolev_deform(
+    input_path,
+    output_path,
+    array,
+    length_scale,
+    input_format=None,
+    output_format=None,
+    fixed_points_array="",
+    fix_boundary=False,
+    record_filtered=False,
+    max_iterations=128,
+    tolerance=1e-10,
+):
+    """Sobolev (Helmholtz-filtered) deformation: smooth a raw per-point
+    displacement field through the mesh's own P1 finite-element operators and
+    move the points by the result -- a low-pass filter whose cutoff wavelength
+    is length_scale, which turns a jagged displacement into one a mesh can
+    follow without tangling. Every top-dimensional block must be a linear
+    simplex. Non-convergence is reported, never raised."""
+    mesh = _load(input_path, input_format)
+    out, report = sobolev_deform(
+        mesh,
+        array,
+        length_scale,
+        fixed_points=fixed_points_array or None,
+        fix_boundary=fix_boundary,
+        record_filtered=record_filtered,
+        max_iterations=max_iterations,
+        tolerance=tolerance,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_iterations=int(report["num_iterations"]),
+        residual=float(report["residual"]),
+        converged=bool(report["converged"]),
+        num_fixed=int(report["num_fixed"]),
+        num_isolated=int(report["num_isolated"]),
+        max_displacement=float(report["max_displacement"]),
+    )
+
+
+def tool_estimate_error(
+    input_path,
+    output_path,
+    array,
+    input_format=None,
+    output_format=None,
+    method="zz",
+    marking="none",
+    marking_value=0.0,
+    output=None,
+    marked=None,
+    overwrite=False,
+):
+    """ZZ recovery-based error indicator of a point_data field, plus optional
+    marking (absolute/fraction/dorfler) of cells for refinement."""
+    mesh = _load(input_path, input_format)
+    out, report = estimate_error(
+        mesh,
+        array,
+        method=method,
+        marking=marking,
+        marking_value=marking_value,
+        output=output,
+        marked_name=marked,
+        overwrite=overwrite,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        global_error=float(report["global_error"]),
+        num_skipped=int(report["num_skipped"]),
+        num_marked=int(report["num_marked"]),
+    )
+
+
+def tool_error_size(
+    input_path,
+    output_path,
+    target_error,
+    input_format=None,
+    output_format=None,
+    error_array="error:zz",
+    order=1.0,
+    min_size=0.0,
+    max_size=0.0,
+    output="size",
+    overwrite=False,
+):
+    """A per-point size field from a per-cell error indicator (what
+    estimate_error writes) by the Zienkiewicz-Zhu adaptive procedure, for
+    mesh_cad_surface's background. Returns num_cells, num_skipped,
+    num_clamped, min_size and max_size alongside the mesh summary."""
+    mesh = _load(input_path, input_format)
+    out, report = error_size(
+        mesh,
+        error_array,
+        target_error=target_error,
+        order=order,
+        min_size=min_size,
+        max_size=max_size,
+        output=output,
+        overwrite=overwrite,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_cells=int(report["num_cells"]),
+        num_skipped=int(report["num_skipped"]),
+        num_clamped=int(report["num_clamped"]),
+        min_size=float(report["min_size"]),
+        max_size=float(report["max_size"]),
+    )
+
+
+def tool_transform(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    translate=None,
+    scale=None,
+    rotate_axis=None,
+    rotate_degrees=None,
+    matrix=None,
+    scale_units=None,
+    rotate_vector_data=False,
+):
+    """Affine-transform point coordinates (translate/scale/rotate/matrix)."""
+    mesh = _load(input_path, input_format)
+    rotate = None
+    if rotate_axis is not None or rotate_degrees is not None:
+        if rotate_axis is None or rotate_degrees is None:
+            raise ValueError(
+                "meshio++: mcp: transform needs both rotate_axis and rotate_degrees"
+            )
+        rotate = (rotate_axis, rotate_degrees)
+    out = transform(
+        mesh,
+        translate=translate,
+        scale=scale,
+        rotate=rotate,
+        matrix=matrix,
+        scale_units=scale_units,
+        rotate_vector_data=rotate_vector_data,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_convert_cells(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    mode="linearize",
+    record_parent_ids=False,
+):
+    """Convert the element representation (linearize | simplexify | elevate)."""
+    return _run_op(convert_cells, locals(), report=False)
+
+
+def tool_subdivide(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    record_parent_ids=False,
+):
+    """Polyhedrally refine: one polyhedral child per 3D cell face."""
+    return _run_op(subdivide, locals(), report=False)
+
+
+def tool_tessellate(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    levels=2,
+    curved=True,
+    fields=True,
+    record_stencil=False,
+):
+    """Isoparametric subdivision of a mesh's curved cells (quad9, quad8,
+    triangle6, tetra10, hexahedron27) onto a refinement lattice; every
+    other cell passes through unchanged. Attaches tessellate:source_point/
+    source_cell/sub_index provenance; record_stencil also attaches
+    tessellate:stencil/weights (expensive) so the tessellation can be
+    reconstructed after a file round trip."""
+    mesh = _load(input_path, input_format)
+    tess = tessellate(
+        mesh,
+        levels=levels,
+        curved=curved,
+        fields=fields,
+        record_stencil=record_stencil,
+    )
+    return _result(
+        _store(tess.mesh, output_path, output_format),
+        tess.mesh,
+        levels=int(levels),
+        num_source_points=tess.schema["num_source_points"],
+        num_source_cells=tess.schema["num_source_cells"],
+        num_curved_source_cells=tess.schema["num_curved_source_cells"],
+        num_pass_through_source_cells=tess.schema["num_pass_through_source_cells"],
+        watertight=tess.schema["watertight"],
+    )
+
+
+def tool_agglomerate(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    target_group_size=8,
+    merge_coplanar_faces=False,
+    coplanar_angle=1.0,
+    min_sphericity=0.0,
+):
+    """Polyhedrally coarsen: merge groups of cells into larger polyhedra."""
+    mesh = _load(input_path, input_format)
+    out, report = agglomerate(
+        mesh,
+        target_group_size=target_group_size,
+        merge_coplanar_faces=merge_coplanar_faces,
+        coplanar_angle=coplanar_angle,
+        min_sphericity=min_sphericity,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_faces_merged=report["num_faces_merged"],
+        num_rejected=report["num_rejected"],
+    )
+
+
+def tool_tet_to_poly(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    feature_angle=1.0,
+    point_data_to_cell_data=False,
+    record_vertex_ids=False,
+):
+    """Convert a tetrahedral mesh into its polyhedral (median) dual."""
+    mesh = _load(input_path, input_format)
+    out, report = tet_to_poly(
+        mesh,
+        feature_angle=feature_angle,
+        point_data_to_cell_data=point_data_to_cell_data,
+        record_vertex_ids=record_vertex_ids,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_new_points=report["num_new_points"],
+        num_boundary_faces=report["num_boundary_faces"],
+        num_split_vertices=report["num_split_vertices"],
+    )
+
+
+def tool_poly_to_tet(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    record_parent_ids=False,
+):
+    """Decompose a polyhedral mesh into tetrahedra."""
+    mesh = _load(input_path, input_format)
+    out, report = poly_to_tet(
+        mesh, record_parent_ids=record_parent_ids, return_report=True
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_exact_tets=report["num_exact_tets"],
+        num_fanned_cells=report["num_fanned_cells"],
+    )
+
+
+def tool_refine(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    levels=1,
+    record_parent_ids=False,
+    cells=None,
+    region=None,
+    where=None,
+    closure="redgreen",
+    record_levels=False,
+    record_hierarchy=False,
+):
+    """Subdivide cells into same-type children, all or a selected subset."""
+    return _run_op(refine, locals(), report=False)
+
+
+def tool_decimate(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    ratio=None,
+    target_faces=None,
+    max_error=None,
+    placement="optimal",
+    preserve_boundary=True,
+    preserve_features=True,
+    feature_angle=30.0,
+    max_deviation=None,
+    coverage=0.999,
+    max_faces=None,
+):
+    """Reduce a surface mesh's face count (exactly one stopping criterion)."""
+    return _run_op(decimate, locals())
+
+
+def tool_decimate_volume(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    ratio=None,
+    target_cells=None,
+    max_error=None,
+    placement="optimal",
+    preserve_boundary=False,
+    preserve_features=True,
+    feature_angle=30.0,
+):
+    """Reduce a tet mesh's cell count (exactly one stopping criterion)."""
+    return _run_op(decimate_volume, locals())
+
+
+def _mmg_unavailable(op):
+    """The guarded error shape for an MMG tool in a build without MMG, plus the capability."""
+    return {
+        "error": f"meshio++: {op}: the MMG backend is not available: install the "
+        "meshioplusplus-mmg package (pip install meshioplusplus[mmg]), or rebuild with "
+        "-DMESHIOPLUSPLUS_WITH_MMG=ON and a shared MMG install (build/build-mmg.sh; "
+        "see doc/mmg.md)",
+        "error_type": "NotImplementedError",
+        "mmg_available": False,
+    }
+
+
+def tool_adapt(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    hsiz=None,
+    size=None,
+    metric=None,
+    hmin=None,
+    hmax=None,
+    hausd=None,
+    hgrad=None,
+    hgradreq=None,
+    angle_detection=45.0,
+    optim=False,
+    noinsert=False,
+    noswap=False,
+    nomove=False,
+    nosurf=False,
+    nreg=False,
+    opnbdy=False,
+    frozen=None,
+    required=None,
+    local=None,
+):
+    """Remesh to a constant size (hsiz), a size field or an anisotropic metric
+    (point_data names) with MMG: mmg3d for tetrahedra, mmg2d for a planar
+    triangle mesh, mmgs for another triangle surface. Cell and side regions
+    come back under their names; other point/cell data is dropped. Reports
+    status, library, counts in and out and the aspect-ratio quality."""
+    if not has_mmg():
+        return _mmg_unavailable("adapt")
+    return _run_op(adapt, locals(), mmg_available=True)
+
+
+def tool_discretize_levelset(
+    input_path,
+    output_path,
+    level_set,
+    input_format=None,
+    output_format=None,
+    isovalue=0.0,
+    materials=None,
+    remove_small_components=None,
+    hmin=None,
+    hmax=None,
+    hausd=None,
+    hgrad=None,
+    hgradreq=None,
+    angle_detection=45.0,
+    optim=False,
+    noinsert=False,
+    noswap=False,
+    nomove=False,
+    nosurf=False,
+    nreg=False,
+    opnbdy=False,
+    frozen=None,
+    required=None,
+    local=None,
+):
+    """Embed the isovalue of a point_data level set conformally and remesh
+    both sides with MMG. The elements carry medit:ref (3 inside, 2 outside, or
+    the materials') and the cell regions inside/outside; the interface is the
+    side region interface. Reports as adapt."""
+    if not has_mmg():
+        return _mmg_unavailable("discretize_levelset")
+    mesh = _load(input_path, input_format)
+    out, report = discretize_levelset(
+        mesh,
+        level_set,
+        isovalue,
+        materials=[tuple(m) for m in materials or []],
+        remove_small_components=remove_small_components,
+        hmin=hmin,
+        hmax=hmax,
+        hausd=hausd,
+        hgrad=hgrad,
+        hgradreq=hgradreq,
+        angle_detection=angle_detection,
+        optim=optim,
+        noinsert=noinsert,
+        noswap=noswap,
+        nomove=nomove,
+        nosurf=nosurf,
+        nreg=nreg,
+        opnbdy=opnbdy,
+        frozen=frozen,
+        required=required,
+        local=local,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format), out, mmg_available=True, **report
+    )
+
+
+def tool_mesh_domain(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    hsiz=None,
+    size=None,
+    holes=None,
+    hmin=None,
+    hmax=None,
+    hausd=None,
+    hgrad=None,
+    hgradreq=None,
+    angle_detection=45.0,
+    optim=False,
+    noinsert=False,
+    noswap=False,
+    nomove=False,
+    nosurf=False,
+    nreg=False,
+    opnbdy=False,
+    frozen=None,
+    required=None,
+    local=None,
+):
+    """Triangulate the planar domain the line cells of a mesh bound with MMG
+    (MMG2D_mmg2dmesh). Each enclosed region is a cell region subdomain:<k>;
+    holes lists one (x, y) point inside each region to leave out. Reports as
+    adapt plus num_subdomains and num_holes."""
+    if not has_mmg():
+        return _mmg_unavailable("mesh_domain")
+    boundary = _load(input_path, input_format)
+    out, report = mesh_domain(
+        boundary,
+        hsiz=hsiz,
+        size=size,
+        holes=[tuple(h) for h in holes or []],
+        hmin=hmin,
+        hmax=hmax,
+        hausd=hausd,
+        hgrad=hgrad,
+        hgradreq=hgradreq,
+        angle_detection=angle_detection,
+        optim=optim,
+        noinsert=noinsert,
+        noswap=noswap,
+        nomove=nomove,
+        nosurf=nosurf,
+        nreg=nreg,
+        opnbdy=opnbdy,
+        frozen=frozen,
+        required=required,
+        local=local,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format), out, mmg_available=True, **report
+    )
+
+
+def tool_move(
+    input_path,
+    output_path,
+    displacement,
+    moving,
+    input_format=None,
+    output_format=None,
+    lagrangian=1,
+    hmin=None,
+    hmax=None,
+    hausd=None,
+    hgrad=None,
+    hgradreq=None,
+    angle_detection=45.0,
+    optim=False,
+    noinsert=False,
+    noswap=False,
+    nomove=False,
+    nosurf=False,
+    nreg=False,
+    opnbdy=False,
+    frozen=None,
+    required=None,
+    local=None,
+):
+    """Move a mesh by the point_data displacement of the boundary facets of
+    the regions moving, remeshing as it deforms with MMG's Lagrangian mode
+    (needs MMG with ELAS). Reports as adapt, plus mmg_elas_available."""
+    if not has_mmg():
+        return _mmg_unavailable("move")
+    if not has_mmg_elas():
+        return {
+            "error": "meshio++: move: the linked MMG was built without ELAS, which "
+            "its Lagrangian mode needs: rebuild MMG with build/build-mmg.sh "
+            "--with-elas (GPL-3.0; see doc/mmg.md)",
+            "error_type": "NotImplementedError",
+            "mmg_available": True,
+            "mmg_elas_available": False,
+        }
+    mesh = _load(input_path, input_format)
+    out, report = move(
+        mesh,
+        displacement,
+        moving,
+        lagrangian=lagrangian,
+        hmin=hmin,
+        hmax=hmax,
+        hausd=hausd,
+        hgrad=hgrad,
+        hgradreq=hgradreq,
+        angle_detection=angle_detection,
+        optim=optim,
+        noinsert=noinsert,
+        noswap=noswap,
+        nomove=nomove,
+        nosurf=nosurf,
+        nreg=nreg,
+        opnbdy=opnbdy,
+        frozen=frozen,
+        required=required,
+        local=local,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        mmg_available=True,
+        mmg_elas_available=True,
+        **report,
+    )
+
+
+def tool_metric_from_hessian(
+    input_path,
+    output_path,
+    hessian,
+    input_format=None,
+    output_format=None,
+    error=1e-2,
+    hmin=1e-3,
+    hmax=1.0,
+    output="metric",
+):
+    """The anisotropic metric of a point_data Hessian (n, 9) or (n, 4), for
+    adapt: M = c/error |H|, its sizes clamped to [hmin, hmax], written as
+    point_data output in the lower-triangle order of a Medit .sol. Needs no
+    MMG."""
+    mesh = _load(input_path, input_format)
+    out = metric_from_hessian(
+        mesh, hessian, error=error, hmin=hmin, hmax=hmax, output=output
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_remesh(
+    input_path,
+    output_path,
+    num_clusters,
+    input_format=None,
+    output_format=None,
+    subdivide=None,
+    subsample_ratio=10.0,
+    max_subdivide=4,
+    max_iterations=100,
+    max_repair_passes=10,
+    metric="isotropic",
+    gradation=0.0,
+    preserve_boundary=True,
+    max_anisotropy=4.0,
+):
+    """Replace a surface's triangulation with a new, well-shaped one (ACVD
+    clustering). The output has NO correspondence to the input -- point/cell
+    data and named regions are dropped, field data is carried."""
+    mesh = _load(input_path, input_format)
+    out, report = remesh(
+        mesh,
+        num_clusters,
+        subdivide=subdivide,
+        subsample_ratio=subsample_ratio,
+        max_subdivide=max_subdivide,
+        max_iterations=max_iterations,
+        max_repair_passes=max_repair_passes,
+        metric=metric,
+        gradation=gradation,
+        preserve_boundary=preserve_boundary,
+        max_anisotropy=max_anisotropy,
+        return_report=True,
+    )
+    return _result(_store(out, output_path, output_format), out, **report)
+
+
+def tool_remesh_volume(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    resolution=None,
+    cell_size=None,
+    bounds=None,
+    padding=0.0,
+    padding_relative=0.1,
+    max_cells=20000000,
+    max_tets=20000000,
+    warp_fraction=0.35,
+    watertight_check="warn",
+):
+    """Retetrahedralize a volume mesh (or closed surface) at a chosen
+    resolution by isosurface stuffing -- the volumetric sibling of `remesh`.
+    The output has NO correspondence to the input -- point/cell data and
+    named regions are dropped, field data is carried. Exactly one of
+    `resolution`/`cell_size` must be given."""
+    return _run_op(remesh_volume, locals())
+
+
+def tool_optimize_volume(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    max_iterations=10,
+    relocate=True,
+    flip=True,
+    preserve_boundary=True,
+    min_improvement=1e-6,
+    objective="worst",
+    max_ring_size=7,
+):
+    """ODT-remesh a tetrahedral mesh: raise its least dihedral angle (objective
+    "worst", never lowering it) or its ODT energy ("energy") by relocating
+    vertices AND changing connectivity, predicate-free. Tet-only and
+    C++-core-only (no pure-Python fallback). The point set is invariant, so
+    point data and named Point regions carry; cell data and Cell/Side regions
+    are dropped (a flip has no cell correspondence)."""
+    return _run_op(optimize_volume, locals())
+
+
+def tool_smooth(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    method="taubin",
+    iterations=10,
+    lambda_factor=-1.0,
+    mu=-0.34,
+    fix_boundary=True,
+    preserve_features=True,
+    feature_angle=30.0,
+    guard_inversion=True,
+):
+    """Smooth point coordinates (taubin | laplacian | odt); geometry-only
+    move. odt is tet-only and C++-core-only (no pure-Python fallback)."""
+    mesh = _load(input_path, input_format)
+    out, report = smooth(
+        mesh,
+        method=method,
+        iterations=iterations,
+        lambda_=lambda_factor,
+        mu=mu,
+        fix_boundary=fix_boundary,
+        preserve_features=preserve_features,
+        feature_angle=feature_angle,
+        guard_inversion=guard_inversion,
+        return_report=True,
+    )
+    return _result(_store(out, output_path, output_format), out, **report)
+
+
+def tool_merge(
+    input_paths,
+    output_path,
+    output_format=None,
+    weld=False,
+    atol=1e-8,
+    source_tag=True,
+    data_policy="intersection",
+    drop_duplicate_cells=False,
+):
+    """Merge several mesh files into one (optionally welding coincident points)."""
+    if not input_paths or len(input_paths) < 2:
+        raise ValueError("meshio++: mcp: merge needs at least two input_paths")
+    meshes = [_load(p) for p in input_paths]
+    out = merge(
+        meshes,
+        weld=weld,
+        atol=atol,
+        source_tag=source_tag,
+        data_policy=data_policy,
+        drop_duplicate_cells=drop_duplicate_cells,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_split(
+    input_path,
+    input_format=None,
+    by="type",
+    tag=None,
+    output_dir=None,
+    name_template="{stem}_{key}.vtu",
+):
+    """Split into submeshes by type/region/component/tag; writes one file per piece."""
+    resolved_in = _resolve(input_path, must_exist=True)
+    mesh = read(resolved_in, file_format=input_format)
+    pieces = split(mesh, by=by, tag=tag)
+    stem = os.path.splitext(os.path.basename(resolved_in))[0]
+    out_dir = output_dir if output_dir is not None else os.path.dirname(resolved_in)
+    written = OrderedDict()
+    summaries = {}
+    for key, piece in pieces.items():
+        name = name_template.format(stem=stem, key=_safe_key(key))
+        path = _resolve(os.path.join(out_dir, name), for_write=True)
+        write(path, piece)
+        _cache_invalidate(path)
+        written[str(key)] = path
+        summaries[str(key)] = _mesh_summary(piece)
+    return _json_safe({"by": by, "pieces": written, "summaries": summaries})
+
+
+def tool_partition(
+    input_path,
+    nparts,
+    input_format=None,
+    method="auto",
+    imbalance=0.03,
+    mode="eco",
+    seed=0,
+    record_ids=False,
+    ghost_layers=0,
+    weights=None,
+    output_dir=None,
+    name_template="{stem}_part{part}.vtu",
+):
+    """Partition into exactly nparts balanced pieces; writes one file per part,
+    or one ``.pvtu``/``.pvtp`` index over every part (a ``name_template`` with
+    that extension and no ``{part}``), which keeps ``ghost_layers`` halos as
+    ``vtkGhostType``."""
+    index_kind = None
+    if "{part}" not in name_template:
+        index_kind = {".pvtu": "pvtu", ".pvtp": "pvtp"}.get(
+            os.path.splitext(name_template)[1].lower()
+        )
+        if index_kind is None:
+            raise ValueError(
+                "meshio++: mcp: partition: name_template must contain '{part}' "
+                "(every part would otherwise overwrite the last) or be a "
+                ".pvtu/.pvtp index"
+            )
+    resolved_in = _resolve(input_path, must_exist=True)
+    mesh = read(resolved_in, file_format=input_format)
+    pieces = partition(
+        mesh,
+        nparts,
+        method=method,
+        imbalance=imbalance,
+        mode=mode,
+        seed=seed,
+        record_ids=record_ids,
+        ghost_layers=ghost_layers,
+        weights=weights,
+    )
+    stem = os.path.splitext(os.path.basename(resolved_in))[0]
+    out_dir = output_dir if output_dir is not None else os.path.dirname(resolved_in)
+    if index_kind is not None:
+        from .. import _pvtk_index, pvtp, pvtu
+
+        index = _resolve(
+            os.path.join(out_dir, name_template.format(stem=stem)), for_write=True
+        )
+        (pvtu if index_kind == "pvtu" else pvtp).write_pieces(index, pieces)
+        _dir, layout = _pvtk_index.piece_layout(
+            index, len(pieces), _pvtk_index.KINDS[index_kind][1]
+        )
+        return _json_safe(
+            {
+                "nparts": int(nparts),
+                "method": method,
+                "index": index,
+                "parts": [path for path, _rel in layout],
+                "summaries": [_mesh_summary(piece) for piece in pieces],
+            }
+        )
+    written = []
+    summaries = []
+    for i, piece in enumerate(pieces):
+        name = name_template.format(stem=stem, part=i)
+        path = _resolve(os.path.join(out_dir, name), for_write=True)
+        write(path, piece)
+        _cache_invalidate(path)
+        written.append(path)
+        summaries.append(_mesh_summary(piece))
+    return _json_safe(
+        {
+            "nparts": int(nparts),
+            "method": method,
+            "parts": written,
+            "summaries": summaries,
+        }
+    )
+
+
+def tool_interpolate(
+    source_path,
+    target_path,
+    output_path,
+    source_format=None,
+    target_format=None,
+    output_format=None,
+    method="nearest",
+    arrays=None,
+    extrapolate=False,
+    default_value=0.0,
+    on_conflict="error",
+):
+    """Sample the source mesh's data arrays onto the target mesh's geometry."""
+    source = _load(source_path, source_format)
+    target = _load(target_path, target_format)
+    out = interpolate(
+        source,
+        target,
+        method=method,
+        arrays=arrays,
+        extrapolate=extrapolate,
+        default_value=default_value,
+        on_conflict=on_conflict,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_conservative_interpolate(
+    source_path,
+    target_path,
+    output_path,
+    source_format=None,
+    target_format=None,
+    output_format=None,
+    arrays=None,
+    default_value=0.0,
+    on_conflict="error",
+):
+    """Mass-preservingly (overlap-measure weighted) sample the source mesh's
+    data arrays onto the target mesh's geometry -- unlike interpolate, this
+    conserves sum(value * measure) over the region the two meshes share."""
+    source = _load(source_path, source_format)
+    target = _load(target_path, target_format)
+    out = conservative_interpolate(
+        source,
+        target,
+        arrays=arrays,
+        default_value=default_value,
+        on_conflict=on_conflict,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_boundary_layer(
+    input_path,
+    output_path,
+    first_height,
+    input_format=None,
+    output_format=None,
+    num_layers=3,
+    growth=1.2,
+    reverse=False,
+    collision_fraction=0.45,
+    smooth_iterations=5,
+    max_shrink=6,
+    collapse="points",
+    normal_smooth_iterations=0,
+    front_check=True,
+):
+    """Grow prismatic boundary layers from a triangle and quad surface.
+    Returns the counts (num_cells, num_wedges, num_hexahedra, num_pyramids,
+    num_tetrahedra, num_shrunk, num_collapsed, num_not_visible,
+    num_fewer_layers, num_front_crossings), min_scaled_jacobian, the
+    thickness range and cap_closed alongside the mesh summary."""
+    mesh = _load(input_path, input_format)
+    out, report = boundary_layer(
+        mesh,
+        first_height,
+        num_layers=num_layers,
+        growth=growth,
+        reverse=reverse,
+        collision_fraction=collision_fraction,
+        smooth_iterations=smooth_iterations,
+        max_shrink=max_shrink,
+        collapse=collapse,
+        normal_smooth_iterations=normal_smooth_iterations,
+        front_check=front_check,
+        return_report=True,
+    )
+    return _result(_store(out, output_path, output_format), out, **report)
+
+
+def tool_extrude(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    direction=(0.0, 0.0, 1.0),
+    num_layers=1,
+    ratio=1.0,
+    offsets=None,
+    record_layers=False,
+    max_cells=20_000_000,
+):
+    """Sweep a surface into a volume (or a curve into a surface) along a
+    vector. Returns num_cells, num_hexahedra, num_wedges, num_pyramids,
+    num_tetrahedra, num_quads, num_triangles, num_flipped,
+    min_scaled_jacobian and warnings alongside the mesh summary."""
+    return _run_op(extrude, locals())
+
+
+def tool_revolve(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    axis=(0.0, 1.0, 0.0),
+    axis_point=(0.0, 0.0, 0.0),
+    angle=360.0,
+    num_layers=16,
+    tolerance=1e-9,
+    record_layers=False,
+    max_cells=20_000_000,
+):
+    """Sweep a surface (or a curve) around an axis. Returns the extrude
+    counts, num_on_axis, full, min_scaled_jacobian and warnings alongside the
+    mesh summary."""
+    return _run_op(revolve, locals())
+
+
+def tool_mirror(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    origin=(0.0, 0.0, 0.0),
+    normal=(1.0, 0.0, 0.0),
+    keep_original=False,
+    weld=True,
+    tolerance=1e-9,
+    reflect_vector_data=False,
+    plane=None,
+):
+    """Reflect a mesh across a plane with every cell right side out. Returns
+    num_flipped_cells, num_points_on_plane, num_dropped_cells,
+    num_dropped_sides and warnings alongside the mesh summary; with
+    plane="auto" the mesh's own symmetry plane, reported as plane."""
+    return _json_safe(_run_op(mirror, locals()))
+
+
+def tool_tetrahedralize(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    backend="auto",
+    max_size=0.0,
+    max_volume=0.0,
+    grading=0.3,
+    optimize_steps=3,
+    max_cells=50_000_000,
+    face_array="cad:face",
+):
+    """Fill a closed triangle surface with tetrahedra: its triangles kept
+    (Netgen) or its boundary fitted (the native octree backend; auto takes
+    Netgen when built in). Returns num_tetrahedra, num_points, num_new_points,
+    num_regions, num_boundary_triangles, boundary_preserved,
+    hausdorff_to_surface, min_dihedral_deg, max_dihedral_deg, volume,
+    backend and warnings alongside the mesh summary, netgen_available
+    (whether the Netgen backend is installed: the meshioplusplus-netgen
+    package) and backends_available (every name backend takes besides auto:
+    octree, netgen, and the installed tetgen and gmsh programs, run as
+    separate processes with the surface kept)."""
+    mesh = _load(input_path, input_format)
+    out, report = tetrahedralize(
+        mesh,
+        backend=backend,
+        max_size=max_size,
+        max_volume=max_volume,
+        grading=grading,
+        optimize_steps=optimize_steps,
+        max_cells=max_cells,
+        face_array=face_array,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        netgen_available=has_netgen(),
+        backends_available=tetrahedralize_backends(),
+        **report,
+    )
+
+
+def tool_remesh_quads(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    target_faces=0,
+    backend="auto",
+    sharp=False,
+    boundary=True,
+    adaptive=False,
+    dominant=False,
+    seed=0,
+    max_cells=50_000_000,
+):
+    """Remesh a triangle surface into field-aligned quads through an installed
+    QuadriFlow or Instant Meshes, run as a separate process. Returns
+    num_quads, num_triangles, num_points, min_scaled_jacobian,
+    mean_scaled_jacobian, hausdorff_to_surface, backend and warnings beside
+    the mesh summary, and backends_available (the quad remeshers installed)."""
+    mesh = _load(input_path, input_format)
+    out, report = remesh_quads(
+        mesh,
+        target_faces=target_faces,
+        backend=backend,
+        sharp=sharp,
+        boundary=boundary,
+        adaptive=adaptive,
+        dominant=dominant,
+        seed=seed,
+        max_cells=max_cells,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        backends_available=remesh_quads_backends(),
+        **report,
+    )
+
+
+def _cut_planes(planes):
+    """MCP planes as six numbers each, origin then normal."""
+    if not planes:
+        return None
+    out = []
+    for i, p in enumerate(planes):
+        if len(p) != 6:
+            raise ValueError(
+                f"meshio++: cut: plane {i} must be six numbers, origin then normal"
+            )
+        out.append((tuple(p[:3]), tuple(p[3:])))
+    return out
+
+
+def tool_cut_level_set(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    level_sets=None,
+    planes=None,
+    selection="",
+    include_uncut=True,
+    backend="auto",
+    degree=2,
+    triangulate=False,
+    record_parent_ids=True,
+):
+    """Cut a mesh by level sets (point_data arrays, or planes as six numbers
+    each) through CutCells and write the part the selection picks. Returns
+    num_cells, num_cut_cells, num_uncut_cells, num_pieces, dimension,
+    measure, selection, backend and warnings beside the mesh summary, and
+    cutcells_available."""
+    mesh = _load(input_path, input_format)
+    out, report = cut_level_set(
+        mesh,
+        level_sets,
+        planes=_cut_planes(planes),
+        selection=selection,
+        include_uncut=include_uncut,
+        backend=backend,
+        degree=degree,
+        triangulate=triangulate,
+        record_parent_ids=record_parent_ids,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        cutcells_available=cut_has_cutcells(),
+        **report,
+    )
+
+
+def tool_cut_quadrature(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    level_sets=None,
+    planes=None,
+    selection="",
+    order=2,
+    include_uncut=True,
+    backend="auto",
+    triangulate=False,
+    record_parent_ids=True,
+):
+    """Quadrature rules on the part of a mesh that level sets select, written
+    as a point cloud with point data quadrature:weight, quadrature:reference,
+    quadrature:rule and quadrature:parent_cell. Returns num_rules,
+    num_points, sum_weights, dimension, selection, backend and warnings
+    beside the mesh summary, and cutcells_available."""
+    mesh = _load(input_path, input_format)
+    out, report = cut_quadrature(
+        mesh,
+        level_sets,
+        planes=_cut_planes(planes),
+        selection=selection,
+        order=order,
+        include_uncut=include_uncut,
+        backend=backend,
+        triangulate=triangulate,
+        record_parent_ids=record_parent_ids,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        cutcells_available=cut_has_cutcells(),
+        **report,
+    )
+
+
+def tool_project_to_cad(
+    input_path,
+    model_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    face_array="cad:face",
+    edge_array="cad:edge",
+    max_distance=0.0,
+    trim_samples=16,
+):
+    """Move a mesh's points back onto the CAD faces and edges its cells name
+    (cad:face / cad:edge, as mesh_cad_surface writes them) of the model at
+    model_path (CAD JSON, STEP or IGES). Returns the counts (num_projected,
+    num_on_edges, num_on_curves, num_corners, num_ambiguous, num_too_far, num_failed,
+    num_outside_trim), max_move and outside_trim alongside the mesh summary."""
+    mesh = _load(input_path, input_format)
+    model = _load(model_path, None)
+    out, report = project_to_cad(
+        mesh,
+        model,
+        face_array=face_array,
+        edge_array=edge_array,
+        max_distance=max_distance,
+        trim_samples=trim_samples,
+        return_report=True,
+    )
+    return _result(_store(out, output_path, output_format), out, **report)
+
+
+def tool_undo_green(
+    coarse_path,
+    fine_path,
+    output_path,
+    coarse_format=None,
+    fine_format=None,
+    output_format=None,
+):
+    """Restore the fine mesh's transitional (green) cells to their original
+    parent, read verbatim from the coarse mesh (a prior refine() input).
+    Returns num_groups_undone/num_cells_removed alongside the mesh summary."""
+    coarse = _load(coarse_path, coarse_format)
+    fine = _load(fine_path, fine_format)
+    out, report = undo_green(coarse, fine, return_report=True)
+    return _result(_store(out, output_path, output_format), out, **report)
+
+
+# --------------------------------------------------------------------------- #
+# Data operations                                                             #
+# --------------------------------------------------------------------------- #
+def tool_data_manage(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    keep=None,
+    drop=None,
+    rename=None,
+    ignore_missing=False,
+):
+    """Keep/drop/rename data arrays.
+
+    ``keep``/``drop`` are lists of ``[location, name]`` pairs, ``rename`` a
+    list of ``[location, old, new]`` triples (location: point/cell/field).
+    """
+    if not (keep or drop or rename):
+        raise ValueError(
+            "meshio++: mcp: data_manage needs at least one of keep/drop/rename"
+        )
+    mesh = _load(input_path, input_format)
+    result = data_manage(
+        mesh, keep=keep, drop=drop, rename=rename, ignore_missing=ignore_missing
+    )
+    out = result["mesh"]
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        dropped=result["dropped"],
+        renamed=[list(pair) for pair in result["renamed"]],
+    )
+
+
+def tool_sets_data(
+    input_path,
+    output_path,
+    direction="sets_to_data",
+    location="cell",
+    key=None,
+    data_name=None,
+    join_char="-",
+    order=None,
+    input_format=None,
+    output_format=None,
+):
+    """Convert region-backed sets and scalar integer data without changing geometry."""
+    from .._pipeline import _apply_sets_data
+
+    if direction not in ("sets_to_data", "data_to_sets"):
+        raise ValueError("direction must be 'sets_to_data' or 'data_to_sets'")
+    step = {
+        "Op": "SetsToData" if direction == "sets_to_data" else "DataToSets",
+        "Location": location,
+    }
+    if direction == "sets_to_data":
+        if key is not None:
+            raise ValueError("key is only used with data_to_sets")
+        step.update(Join=join_char, Order=order)
+        if data_name is not None:
+            step["Name"] = data_name
+    else:
+        if key is None:
+            raise ValueError("data_to_sets requires key")
+        if data_name is not None or order is not None or join_char != "-":
+            raise ValueError(
+                "data_name, join_char and order are only used with sets_to_data"
+            )
+        step["Key"] = key
+    mesh = _apply_sets_data(_load(input_path, input_format), step)
+    return _result(_store(mesh, output_path, output_format), mesh)
+
+
+def tool_data_convert(
+    input_path,
+    output_path,
+    direction,
+    input_format=None,
+    output_format=None,
+    arrays=None,
+    weighted=False,
+    nan_policy="ignore",
+    nan_replacement=0.0,
+):
+    """Average data between locations: point_to_cell or cell_to_point."""
+    mesh = _load(input_path, input_format)
+    if direction == "point_to_cell":
+        out = point_data_to_cell_data(
+            mesh, keys=arrays, nan_policy=nan_policy, nan_replacement=nan_replacement
+        )
+    elif direction == "cell_to_point":
+        out = cell_data_to_point_data(
+            mesh,
+            keys=arrays,
+            weighted=weighted,
+            nan_policy=nan_policy,
+            nan_replacement=nan_replacement,
+        )
+    else:
+        raise ValueError(
+            f"meshio++: mcp: unknown direction '{direction}' "
+            "(expected 'point_to_cell' or 'cell_to_point')"
+        )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_data_calc(
+    input_path,
+    output_path,
+    expression,
+    input_format=None,
+    output_format=None,
+    location="point",
+    output_name="",
+    overwrite=False,
+):
+    """Evaluate an arithmetic expression over data arrays into a new array.
+
+    Accepts the CLI's ``"NAME = EXPR"`` spelling (split on the first ``=``,
+    the documented colon rule) when ``output_name`` is not given separately.
+    """
+    if not output_name and "=" in expression:
+        output_name, expression = (s.strip() for s in expression.split("=", 1))
+    mesh = _load(input_path, input_format)
+    out = data_calc(
+        mesh, expression, location=location, output=output_name, overwrite=overwrite
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_data_condition(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    operation="clamp",
+    location="point",
+    arrays=None,
+    scope="component",
+    lo=0.0,
+    hi=1.0,
+    nan_policy="ignore",
+    nan_replacement=0.0,
+    suffix="",
+    preserve_dtype=True,
+):
+    """Condition data values: clamp, normalize or standardize."""
+    mesh = _load(input_path, input_format)
+    out = data_condition(
+        mesh,
+        location=location,
+        keys=arrays,
+        mode=operation,
+        scope=scope,
+        lo=lo,
+        hi=hi,
+        nan_policy=nan_policy,
+        nan_replacement=nan_replacement,
+        suffix=suffix,
+        preserve_dtype=preserve_dtype,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_tensor_invariants(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    location="point",
+    arrays=None,
+    outputs=None,
+    prefix="",
+    suffix="",
+    overwrite=True,
+):
+    """von Mises / principal / hydrostatic / deviatoric of a tensor array."""
+    mesh = _load(input_path, input_format)
+    out = tensor_invariants(
+        mesh,
+        location=location,
+        keys=arrays,
+        outputs=outputs,
+        prefix=prefix,
+        suffix=suffix,
+        overwrite=overwrite,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+# --------------------------------------------------------------------------- #
+# Dataset manifests (doc/datasets.md) — pure stdlib, ungated                  #
+# --------------------------------------------------------------------------- #
+def _load_manifest(manifest_path, must_exist=True):
+    from .._dataset import DatasetManifest
+
+    resolved = _resolve(manifest_path, must_exist=must_exist, for_write=not must_exist)
+    if os.path.isfile(resolved):
+        return DatasetManifest.load(resolved), resolved
+    return DatasetManifest(base_dir=os.path.dirname(resolved)), resolved
+
+
+def _sandbox_entry_paths(entry):
+    """Enforce the root on the paths a manifest entry resolves to — a
+    hand-edited manifest can name anything, so the sandbox must hold on the
+    *resolved* plan, not only on the manifest file (the pipeline-tool rule:
+    paths inside the document are client input too).
+
+    An entry's optional ``Target`` is a second source of exactly the same kind,
+    so it is walked too; skipping it would leave the whole sandbox open through
+    one extra key."""
+    plan = entry.entries()
+    for item in plan:
+        _resolve(item["path"], must_exist=True)
+    if entry.target:
+        for item in entry.target_entries():
+            _resolve(item["path"], must_exist=True)
+    return plan
+
+
+def _mcp_thumbnails(manifest, base, ids, thumbnail, render, step, width, height):
+    """Set, clear or draw the thumbnails of the entries ``ids``, inside the
+    sandbox: a given picture is stored relative to the manifest; a drawn one is
+    written to ``thumbnails/<id>.png`` beside it, after the entry's own plan
+    has been sandbox-checked (a hand-edited manifest can name anything)."""
+    from .._dataset import portable_relpath
+
+    if thumbnail is not None and render:
+        raise ValueError("meshio++: mcp: give thumbnail or render_thumbnail, not both")
+    if not ids or ids == "all" and not len(manifest):
+        raise ValueError(
+            "meshio++: mcp: thumbnails need entry_ids or all_entries (and entries)"
+        )
+    chosen = manifest.ids() if ids == "all" else list(ids)
+    if render:
+        for entry_id in chosen:
+            _sandbox_entry_paths(manifest[entry_id])
+            target = _resolve(
+                os.path.join(base, "thumbnails", f"{entry_id}.png"), for_write=True
+            )
+            manifest.render_thumbnail(
+                entry_id,
+                target,
+                step=int(step),
+                width=int(width),
+                height=int(height),
+            )
+        return
+    if len(chosen) != 1:
+        raise ValueError(
+            "meshio++: mcp: a given thumbnail applies to exactly one entry"
+        )
+    if thumbnail in ("", "none"):
+        manifest.set_thumbnail(chosen[0], None)
+        return
+    inside = _resolve(os.path.join(base, thumbnail), must_exist=True)
+    manifest.set_thumbnail(chosen[0], portable_relpath(inside, base))
+
+
+def _mcp_source_block(pattern, paths, base, fmt, times, time_from, sort):
+    """One sandboxed source family -> a Source object stored relative to `base`.
+
+    Shared by a manifest entry's Source and its optional Target so the two
+    cannot diverge on sandboxing or on path portability.
+    """
+    from .._dataset import portable_relpath
+
+    if pattern is not None:
+        _resolve_pattern(pattern)  # sandbox + non-empty, before storing
+        head, tail = os.path.split(str(pattern))
+        rel_head = portable_relpath(_resolve(head or "."), base)
+        # Not os.path.normpath/join: on Windows those re-introduce a native
+        # backslash into what must stay a portable, "/"-only manifest path
+        # (doc/datasets.md) -- string-join instead, since rel_head is already
+        # normalized and `tail` (from os.path.split) never contains its own
+        # separator.
+        stored = f"{rel_head}/{tail}" if rel_head not in ("", ".") else tail
+        source = {"Pattern": stored}
+    else:
+        resolved = [_resolve(p, must_exist=True) for p in paths]
+        source = {"Paths": [portable_relpath(p, base) for p in resolved]}
+        if sort:
+            source["Sort"] = True
+    if fmt:
+        source["Format"] = fmt
+    if times is not None:
+        source["Times"] = [float(t) for t in times]
+    if time_from:
+        source["TimeFrom"] = time_from
+    return source
+
+
+def tool_dataset_add(
+    manifest_path,
+    input_pattern=None,
+    input_paths=None,
+    entry_id=None,
+    input_format=None,
+    time_from=None,
+    times=None,
+    sort=False,
+    target_pattern=None,
+    target_paths=None,
+    target_format=None,
+    target_time_from=None,
+    target_times=None,
+    target_sort=False,
+    split=None,
+    tags=None,
+    group=None,
+    notes=None,
+    metadata=None,
+    thumbnail=None,
+    render_thumbnail=False,
+    thumbnail_width=256,
+    thumbnail_height=192,
+):
+    """Add a case to a dataset manifest (created if absent).
+
+    Same input shape as the `sequence` tool: exactly one of input_pattern (a
+    sandboxed glob) or input_paths. The source is validated (expanded once)
+    and stored relative to the manifest's directory, which is the manifest's
+    resolution anchor.
+    """
+    if (input_pattern is None) == (input_paths is None):
+        raise ValueError(
+            "meshio++: mcp: give exactly one of input_pattern or input_paths"
+        )
+    if target_pattern is not None and target_paths is not None:
+        raise ValueError(
+            "meshio++: mcp: give at most one of target_pattern or target_paths"
+        )
+    manifest, resolved_manifest = _load_manifest(manifest_path, must_exist=False)
+    base = os.path.dirname(resolved_manifest)
+
+    source = _mcp_source_block(
+        input_pattern, input_paths, base, input_format, times, time_from, sort
+    )
+    target = None
+    if target_pattern is not None or target_paths is not None:
+        target = _mcp_source_block(
+            target_pattern,
+            target_paths,
+            base,
+            target_format,
+            target_times,
+            target_time_from,
+            target_sort,
+        )
+    entry = manifest.add(
+        source,
+        target=target,
+        id=entry_id,
+        split=split,
+        tags=tags or (),
+        group=group,
+        notes=notes,
+        metadata=metadata,
+    )
+    if thumbnail is not None or render_thumbnail:
+        _mcp_thumbnails(
+            manifest,
+            base,
+            [entry.id],
+            thumbnail,
+            render_thumbnail,
+            0,
+            thumbnail_width,
+            thumbnail_height,
+        )
+    manifest.save(resolved_manifest)
+    return _json_safe(
+        {
+            "manifest_path": resolved_manifest,
+            "entry_id": entry.id,
+            "thumbnail": manifest[entry.id].thumbnail,
+            "num_steps": len(entry.entries()),
+            "num_target_steps": len(entry.target_entries()) if entry.target else None,
+            "num_entries": len(manifest),
+        }
+    )
+
+
+def tool_dataset_list(manifest_path, split=None, tags=None, group=None, resolve=False):
+    """List a manifest's entries, optionally filtered by split/tags/group.
+
+    resolve=True also expands each entry's plan (paths/steps/times — no mesh
+    is read) with every resolved path sandbox-checked.
+    """
+    manifest, resolved_manifest = _load_manifest(manifest_path)
+    entries = manifest.entries(split=split, tags=tags or None, group=group)
+    payload = []
+    for entry in entries:
+        item = entry.to_dict()
+        if resolve:
+            item["resolved"] = _sandbox_entry_paths(entry)
+        payload.append(item)
+    return _json_safe(
+        {
+            "manifest_path": resolved_manifest,
+            "name": manifest.name,
+            "num_entries": len(manifest),
+            "num_matching": len(entries),
+            "splits": {str(k): v for k, v in manifest.splits().items()},
+            "entries": payload,
+        }
+    )
+
+
+def tool_dataset_update(
+    manifest_path,
+    entry_ids=None,
+    all_entries=False,
+    split=None,
+    assign_splits=None,
+    seed=0,
+    by_group=False,
+    add_tags=None,
+    remove_tags=None,
+    group=None,
+    notes=None,
+    metadata=None,
+    drop_metadata=None,
+    thumbnail=None,
+    render_thumbnail=False,
+    thumbnail_step=0,
+    thumbnail_width=256,
+    thumbnail_height=192,
+):
+    """Curate a manifest: set splits (or assign by fractions), tag, annotate.
+
+    entry_ids (or all_entries=true) selects; split/add_tags/remove_tags apply
+    to the selection; assign_splits={"train": 0.8, ...} reassigns every entry
+    deterministically (seed; by_group keeps groups together); group/notes/
+    metadata/drop_metadata need exactly one selected entry. thumbnail (a PNG
+    under the manifest's directory; "none" clears it, one entry) or
+    render_thumbnail (draw each selected entry's step thumbnail_step) record
+    a picture of the case.
+    """
+    manifest, resolved_manifest = _load_manifest(manifest_path)
+    ids = "all" if all_entries else list(entry_ids or ())
+    if assign_splits is not None:
+        manifest.assign_splits(dict(assign_splits), seed=int(seed), by_group=by_group)
+    if split is not None:
+        if not ids:
+            raise ValueError("meshio++: mcp: split needs entry_ids or all_entries")
+        manifest.set_split(ids, split)
+    if add_tags or remove_tags:
+        if not ids:
+            raise ValueError("meshio++: mcp: tagging needs entry_ids or all_entries")
+        manifest.tag(ids, add=add_tags or (), remove=remove_tags or ())
+    if group is not None or notes is not None or metadata or drop_metadata:
+        if ids == "all" or len(ids) != 1:
+            raise ValueError(
+                "meshio++: mcp: group/notes/metadata apply to exactly one entry_id"
+            )
+        manifest.annotate(
+            ids[0],
+            notes=notes,
+            group=group,
+            metadata=metadata,
+            drop_metadata=drop_metadata or (),
+        )
+    if thumbnail is not None or render_thumbnail:
+        _mcp_thumbnails(
+            manifest,
+            os.path.dirname(resolved_manifest),
+            ids,
+            thumbnail,
+            render_thumbnail,
+            thumbnail_step,
+            thumbnail_width,
+            thumbnail_height,
+        )
+    manifest.save(resolved_manifest)
+    return _json_safe(
+        {
+            "manifest_path": resolved_manifest,
+            "num_entries": len(manifest),
+            "splits": {str(k): v for k, v in manifest.splits().items()},
+        }
+    )
+
+
+def tool_dataset_find(root_dir=".", max_depth=2):
+    """Find dataset manifests under a directory (sandboxed walk).
+
+    Every ``*.json`` at most ``max_depth`` levels below ``root_dir`` that
+    ``DatasetManifest.load`` accepts is listed with its content hash -- the
+    identity a browser-side card (which never sees an absolute path) binds
+    to. Other JSON files are skipped silently; dot-directories are not
+    entered.
+    """
+    import hashlib
+
+    from .._dataset import DatasetManifest, portable_relpath
+
+    base = _resolve(root_dir)
+    if not os.path.isdir(base):
+        raise ValueError(f"meshio++: mcp: directory not found: '{base}'")
+    depth = int(max_depth)
+    if depth < 0:
+        raise ValueError("meshio++: mcp: max_depth must be >= 0")
+    found = []
+    for current, dirs, files in os.walk(base):
+        rel = os.path.relpath(current, base)
+        level = 0 if rel == "." else rel.count(os.sep) + 1
+        dirs[:] = (
+            sorted(d for d in dirs if not d.startswith(".")) if level < depth else []
+        )
+        for name in sorted(files):
+            if not name.lower().endswith(".json"):
+                continue
+            path = os.path.join(current, name)
+            try:
+                manifest = DatasetManifest.load(path)
+            except Exception:  # noqa: BLE001 - not a manifest, or a broken one
+                continue
+            with open(path, "rb") as fh:
+                digest = hashlib.sha256(fh.read()).hexdigest()
+            found.append(
+                {
+                    "path": path,
+                    "relpath": portable_relpath(path, base),
+                    "sha256": digest,
+                    "name": manifest.name,
+                    "num_entries": len(manifest),
+                    "splits": {str(k): v for k, v in manifest.splits().items()},
+                    "mtime": int(os.path.getmtime(path) * 1000),
+                }
+            )
+    return _json_safe({"root": base, "manifests": found})
+
+
+def tool_dataset_health(
+    manifest_path, split=None, entry_ids=None, quality=True, all_steps=False
+):
+    """Scan a manifest's entries and summarize their health (server side).
+
+    Per entry: step count, NaN/Inf counts over the data arrays (quality:*
+    arrays excluded -- their NaN means "N/A for this cell type"), inverted /
+    degenerate cell counts and the worst scaled Jacobian from
+    compute_quality, and the arrays present. Per manifest: split balance,
+    totals, fields missing across entries, and the bad entries. Meshes are
+    read one at a time; every entry's resolved paths are sandbox-checked
+    (a hand-edited manifest is client input too).
+    """
+    import hashlib
+
+    from ._health import manifest_health
+
+    manifest, resolved_manifest = _load_manifest(manifest_path)
+    selected = manifest.entries(split=split)
+    if entry_ids:
+        wanted = list(entry_ids)
+        known = {e.id for e in selected}
+        unknown = [i for i in wanted if i not in known]
+        if unknown:
+            raise ValueError(f"meshio++: mcp: unknown entry id(s): {unknown}")
+        selected = [e for e in selected if e.id in set(wanted)]
+    report = manifest_health(
+        manifest,
+        selected,
+        quality=bool(quality),
+        all_steps=bool(all_steps),
+        before_entry=_sandbox_entry_paths,
+    )
+    with open(resolved_manifest, "rb") as fh:
+        digest = hashlib.sha256(fh.read()).hexdigest()
+    report["manifest_path"] = resolved_manifest
+    report["sha256"] = digest
+    return _json_safe(report)
+
+
+# --------------------------------------------------------------------------- #
+# Training jobs (doc/dashboard.md, doc/physicsnemo.md)                        #
+# --------------------------------------------------------------------------- #
+_PHYSICSNEMO_DOC = "doc/physicsnemo.md"
+
+
+def _require_training_frameworks(op, model_name="meshgraphnet"):
+    """The trainer subprocess's frameworks -- checked here, BEFORE spawning, so
+    a missing one is a named payload rather than a dead subprocess. Skipped when
+    MESHIOPLUSPLUS_TRAIN_COMMAND names a trainer from another interpreter (the
+    override's whole point).
+
+    Only what the chosen family imports: a convolutional model never touches
+    PyTorch Geometric, so demanding it would refuse a runnable job. The
+    decision lives in the family table (`physicsnemo/_train.py`'s
+    `require_frameworks`), never in a second copy here.
+    """
+    from ..physicsnemo._train import require_frameworks
+    from ._jobs import TRAIN_COMMAND_ENV
+
+    if os.environ.get(TRAIN_COMMAND_ENV):
+        return
+    require_frameworks(op, model_name, doc=_PHYSICSNEMO_DOC)
+
+
+#: Which `tool_train_start` keyword arguments each family's spec is built
+#: from. A keyed table rather than an `if srresnet ... else`: the else-branch
+#: used to build a meshgraphnet document for ANY other name and fail later,
+#: inside the spec parser, instead of naming the families up front.
+_TRAIN_START_KWARGS = {
+    "meshgraphnet": (
+        "processor_size",
+        "hidden_dim",
+        "aggregation",
+        "regions",
+        "kind",
+        "undirected",
+        "edge_features",
+        "target_offset",
+        "target_delta",
+    ),
+    "srresnet": (
+        "scaling_factor",
+        "conv_layer_size",
+        "resid_blocks",
+        "resolution",
+        "cell_size",
+        "bounds",
+        "padding",
+        "padding_relative",
+        "extrapolate",
+        "fill_value",
+    ),
+    "fno": (
+        "latent_channels",
+        "num_fno_layers",
+        "num_fno_modes",
+        "spectral_padding",
+        "resolution",
+        "cell_size",
+        "bounds",
+        "padding",
+        "padding_relative",
+        "extrapolate",
+        "fill_value",
+        "squeeze",
+        "squeeze_index",
+    ),
+    "afno": (
+        "patch_size",
+        "embed_dim",
+        "depth",
+        "num_blocks",
+        "resolution",
+        "cell_size",
+        "bounds",
+        "padding",
+        "padding_relative",
+        "extrapolate",
+        "fill_value",
+        "squeeze",
+        "squeeze_index",
+    ),
+    "deeponet": (
+        "parameters",
+        "trunk",
+        "trunk_count",
+        "trunk_method",
+        "trunk_seed",
+        "branch_layers",
+        "branch_layer_size",
+        "trunk_layers",
+        "trunk_layer_size",
+        "width",
+    ),
+}
+
+
+def tool_train_defaults(manifest_path, fields=None, target_fields=None):
+    """What a training launch form needs: the data arrays the manifest's
+    first entry carries, the splits, and a complete default spec."""
+    from ..physicsnemo import has_deeponet, has_physicsnemo, has_torch_geometric
+    from ..physicsnemo._train import TrainSpec, spec_to_dict
+
+    manifest, resolved_manifest = _load_manifest(manifest_path)
+    entries = list(manifest)
+    if not entries:
+        raise ValueError(
+            f"meshio++: mcp: the manifest '{resolved_manifest}' has no entries"
+        )
+    plan = _sandbox_entry_paths(entries[0])
+    meta = read_metadata(plan[0]["path"])
+    spec = TrainSpec(
+        manifest=resolved_manifest,
+        fields=tuple(fields or ()),
+        target_fields=tuple(target_fields or ()),
+        run_dir=get_runs_dir(),
+    )
+    return _json_safe(
+        {
+            "manifest_path": resolved_manifest,
+            "num_entries": len(manifest),
+            "splits": {
+                ("" if k is None else str(k)): v for k, v in manifest.splits().items()
+            },
+            "available_fields": {
+                "point": list(meta.get("point_data_names", [])),
+                "cell": list(meta.get("cell_data_names", [])),
+            },
+            "runs_dir": get_runs_dir(),
+            "frameworks": {
+                "torch_geometric": has_torch_geometric(),
+                "physicsnemo": has_physicsnemo(),
+                # the experimental DeepONet the `deeponet` family trains
+                "deeponet": has_deeponet(),
+            },
+            "spec": spec_to_dict(spec),
+        }
+    )
+
+
+def tool_train_start(
+    manifest_path,
+    fields,
+    target_fields,
+    train_split="train",
+    valid_split="valid",
+    epochs=100,
+    batch_size=8,
+    learning_rate=1e-3,
+    seed=0,
+    model_name="meshgraphnet",
+    processor_size=8,
+    hidden_dim=64,
+    aggregation="sum",
+    scaling_factor=2,
+    conv_layer_size=32,
+    resid_blocks=8,
+    resolution=None,
+    cell_size=None,
+    bounds=None,
+    padding=0.0,
+    padding_relative=0.0,
+    extrapolate=False,
+    fill_value=0.0,
+    squeeze=None,
+    squeeze_index=None,
+    latent_channels=32,
+    num_fno_layers=4,
+    num_fno_modes=16,
+    spectral_padding=8,
+    patch_size=None,
+    embed_dim=256,
+    depth=4,
+    num_blocks=16,
+    parameters=None,
+    trunk="points",
+    trunk_count=None,
+    trunk_method="farthest",
+    trunk_seed=0,
+    branch_layers=4,
+    branch_layer_size=128,
+    trunk_layers=4,
+    trunk_layer_size=128,
+    width=64,
+    regions=False,
+    kind="node",
+    undirected=True,
+    edge_features=True,
+    float32=True,
+    target_offset=0,
+    target_delta=False,
+    checkpoint_every=10,
+    device="auto",
+    notes=None,
+    tags=None,
+):
+    """Start a training job against a manifest split.
+
+    Builds the PascalCase spec, lays out `<runs_dir>/<job_id>/` and spawns
+    `python -m meshioplusplus.physicsnemo.train --spec` as a subprocess;
+    returns the job's initial status. Poll it with train_status /
+    train_metrics / train_log.
+
+    model_name picks the family, and each reads its own hyperparameters:
+    'meshgraphnet' uses processor_size/hidden_dim/aggregation and the graph
+    options; 'srresnet' uses scaling_factor/conv_layer_size/resid_blocks and
+    the grid options (give exactly one of resolution and cell_size); 'fno'
+    uses latent_channels/num_fno_layers/num_fno_modes/spectral_padding and the
+    grid options, 2-D when squeeze names a world axis; 'afno' uses
+    patch_size/embed_dim/depth/num_blocks and the grid options, and REQUIRES
+    squeeze (it is 2-D only); 'deeponet' takes no input fields at all -- its
+    inputs are the per-entry Metadata keys in `parameters`, with the trunk
+    over every point or a `trunk_count` budget. Needs nvidia-physicsnemo,
+    plus torch_geometric for meshgraphnet only (no pip extra, deliberately);
+    a missing framework is a named error before anything is spawned.
+    """
+    from ..physicsnemo._train import _MODELS, default_spec, spec_to_dict
+
+    model_name = str(model_name).lower()
+    if model_name not in _TRAIN_START_KWARGS:
+        raise ValueError(
+            f"meshio++: mcp: unknown model_name {model_name!r} (known: "
+            f"{', '.join(_MODELS)})"
+        )
+    manifest, resolved_manifest = _load_manifest(manifest_path)
+    splits = {("" if k is None else str(k)): v for k, v in manifest.splits().items()}
+    if train_split not in splits:
+        raise ValueError(
+            f"meshio++: mcp: the manifest has no split '{train_split}' "
+            f"(available: {sorted(splits)})"
+        )
+    for entry in manifest.entries(split=train_split):
+        _sandbox_entry_paths(entry)
+    _require_training_frameworks("train_start", model_name)
+    common = dict(
+        run_dir=get_runs_dir(),
+        train_split=str(train_split),
+        valid_split=str(valid_split),
+        epochs=int(epochs),
+        batch_size=int(batch_size),
+        learning_rate=float(learning_rate),
+        seed=int(seed),
+        model_name=model_name,
+        float32=bool(float32),
+        checkpoint_every=int(checkpoint_every),
+        device=str(device),
+        notes=notes,
+        tags=tuple(tags or ()),
+    )
+    # Every family kwarg, coerced once; the table picks the chosen family's.
+    coerced = dict(
+        processor_size=int(processor_size),
+        hidden_dim=int(hidden_dim),
+        aggregation=str(aggregation),
+        regions=bool(regions),
+        kind=str(kind),
+        undirected=bool(undirected),
+        edge_features=bool(edge_features),
+        target_offset=int(target_offset),
+        target_delta=bool(target_delta),
+        scaling_factor=int(scaling_factor),
+        conv_layer_size=int(conv_layer_size),
+        resid_blocks=int(resid_blocks),
+        resolution=tuple(resolution) if resolution else None,
+        cell_size=None if cell_size is None else float(cell_size),
+        bounds=tuple(bounds) if bounds else None,
+        padding=float(padding),
+        padding_relative=float(padding_relative),
+        extrapolate=bool(extrapolate),
+        fill_value=float(fill_value),
+        squeeze=None if squeeze is None else int(squeeze),
+        squeeze_index=None if squeeze_index is None else int(squeeze_index),
+        latent_channels=int(latent_channels),
+        num_fno_layers=int(num_fno_layers),
+        num_fno_modes=int(num_fno_modes),
+        spectral_padding=int(spectral_padding),
+        patch_size=(16, 16) if not patch_size else tuple(int(v) for v in patch_size),
+        embed_dim=int(embed_dim),
+        depth=int(depth),
+        num_blocks=int(num_blocks),
+        parameters=tuple(parameters or ()),
+        trunk=str(trunk),
+        trunk_count=None if trunk_count is None else int(trunk_count),
+        trunk_method=str(trunk_method),
+        trunk_seed=int(trunk_seed),
+        branch_layers=int(branch_layers),
+        branch_layer_size=int(branch_layer_size),
+        trunk_layers=int(trunk_layers),
+        trunk_layer_size=int(trunk_layer_size),
+        width=int(width),
+    )
+    family = {k: coerced[k] for k in _TRAIN_START_KWARGS[model_name]}
+    spec = default_spec(resolved_manifest, fields, target_fields, **common, **family)
+    return _json_safe(_jobs_manager().start(spec_to_dict(spec)))
+
+
+def tool_train_status(job_id):
+    """A job's status, progress (epoch/epochs, best, ETA) and last metrics row."""
+    return _json_safe(_jobs_manager().status(str(job_id)))
+
+
+def tool_train_list(status=None, manifest_path=None):
+    """Every job under the runs directory (newest first), summarized with its
+    hyperparameters and final/best losses; filter by status or manifest."""
+    manifest = _resolve(manifest_path, must_exist=True) if manifest_path else None
+    manager = _jobs_manager()
+    return _json_safe(
+        {
+            "runs_dir": manager.runs_dir,
+            "jobs": manager.list_jobs(status=status, manifest=manifest),
+        }
+    )
+
+
+def tool_train_stop(job_id, grace_seconds=10.0):
+    """Stop a job: SIGTERM (the trainer finishes its epoch and writes
+    final.mdlus), SIGKILL after grace_seconds."""
+    return _json_safe(_jobs_manager().stop(str(job_id), grace=float(grace_seconds)))
+
+
+def tool_train_log(job_id, offset=0, max_bytes=65536):
+    """A window of the job's log from a byte offset (tail with next_offset)."""
+    return _json_safe(
+        _jobs_manager().log(str(job_id), offset=int(offset), max_bytes=int(max_bytes))
+    )
+
+
+def tool_train_metrics(job_id, since_epoch=0):
+    """The per-epoch metrics rows from since_epoch on."""
+    return _json_safe(
+        _jobs_manager().metrics(str(job_id), since_epoch=int(since_epoch))
+    )
+
+
+def tool_train_checkpoints(job_id):
+    """The job's .mdlus checkpoints with epoch / validation loss / size."""
+    return _json_safe(_jobs_manager().checkpoints(str(job_id)))
+
+
+def tool_train_mark_best(job_id, checkpoint):
+    """Copy one of the job's checkpoints (and its card) to best.mdlus."""
+    return _json_safe(_jobs_manager().mark_best(str(job_id), str(checkpoint)))
+
+
+def tool_train_predict(
+    manifest_path,
+    job_id=None,
+    checkpoint=None,
+    entry_ids=None,
+    split="test",
+    step=0,
+    output_dir=None,
+):
+    """Predict over a manifest split with a job's checkpoint (its marked
+    best, or a named one) or with an explicit .mdlus path; writes
+    <column>_pred / <column>_error back into output_dir/<entry_id>.vtu
+    (default: the job's predictions/ directory). Needs the frameworks.
+    """
+    from ..physicsnemo._train import PREDICTIONS_DIR
+
+    manifest, resolved_manifest = _load_manifest(manifest_path)
+    for entry in manifest.entries(split=split) if split else manifest:
+        _sandbox_entry_paths(entry)
+    manager = _jobs_manager()
+    if job_id:
+        resolved_checkpoint = manager.resolve_checkpoint(str(job_id), checkpoint)
+        out = output_dir or os.path.join(manager.job_dir(str(job_id)), PREDICTIONS_DIR)
+    elif checkpoint:
+        resolved_checkpoint = _resolve(checkpoint, must_exist=True)
+        if not output_dir:
+            raise ValueError(
+                "meshio++: mcp: output_dir is required with an explicit checkpoint"
+            )
+        out = output_dir
+    else:
+        raise ValueError("meshio++: mcp: give job_id or checkpoint")
+    out = _resolve(out, for_write=True)
+    from .._gpu import _require_framework
+
+    _require_framework(
+        "train_predict",
+        "torch_geometric",
+        "pip install torch_geometric",
+        doc=_PHYSICSNEMO_DOC,
+    )
+    _require_framework(
+        "train_predict",
+        "physicsnemo",
+        "pip install nvidia-physicsnemo",
+        doc=_PHYSICSNEMO_DOC,
+    )
+    from ..physicsnemo import predict
+
+    rows = predict(
+        resolved_checkpoint,
+        manifest,
+        entry_ids=list(entry_ids) if entry_ids else None,
+        split=split,
+        step=int(step),
+        output_dir=out,
+    )
+    finite = [r["rmse"] for r in rows if r.get("rmse") is not None]
+    return _json_safe(
+        {
+            "checkpoint": resolved_checkpoint,
+            "output_dir": out,
+            "predictions": rows,
+            "mean_rmse": (sum(finite) / len(finite)) if finite else None,
+        }
+    )
+
+
+def tool_guard_fit(
+    manifest_path,
+    output_path,
+    split="train",
+    margin=1.5,
+    quality=True,
+):
+    """Fit a geometry guardrail over a manifest split and write it as JSON."""
+    manifest, resolved_manifest = _load_manifest(manifest_path)
+    for entry in manifest.entries(split=split) if split else manifest:
+        _sandbox_entry_paths(entry)
+    out = _resolve(output_path, for_write=True)
+    guard = GeometryGuard.fit(
+        manifest, split=split, margin=float(margin), quality=bool(quality)
+    )
+    guard.save(out)
+    return _json_safe(
+        {
+            "manifest_path": resolved_manifest,
+            "output_path": out,
+            "num_samples": guard.schema.get("num_samples"),
+            "threshold": guard.threshold,
+            "descriptors": list(guard.names),
+        }
+    )
+
+
+def tool_guard_check(input_path, guard_path=None, input_format=None, top=3):
+    """Describe one mesh's shape, and score it against a guardrail if given.
+
+    Without guard_path this reports the raw descriptors, which is what a
+    caller comparing two parts by hand wants.
+    """
+    mesh = _load(input_path, input_format)
+    descriptors = geometry_descriptors(mesh)
+    report = {
+        "input_path": _resolve(input_path, must_exist=True),
+        "descriptors": descriptors,
+    }
+    if guard_path is not None:
+        guard = GeometryGuard.load(_resolve(guard_path, must_exist=True))
+        report.update(guard.check(descriptors, top=int(top)))
+        report["guard_path"] = _resolve(guard_path, must_exist=True)
+    return _json_safe(report)
+
+
+def tool_predict_file(
+    checkpoint,
+    input_path,
+    output_path,
+    time_step=None,
+    target_path=None,
+    input_format=None,
+    output_format=None,
+    device="auto",
+    parameters=None,
+):
+    """Predict with a trained .mdlus checkpoint on ONE mesh file -- no
+    manifest, no split, no entry. A file carrying no truth predicts anyway,
+    with rmse/max_error reported as null. A deeponet checkpoint needs
+    `parameters` (the case's parameters as an object). Needs the frameworks.
+    """
+    resolved_checkpoint = _resolve(checkpoint, must_exist=True)
+    resolved_input = _resolve(input_path, must_exist=True)
+    resolved_target = _resolve(target_path, must_exist=True) if target_path else None
+    resolved_output = _resolve(output_path, for_write=True)
+    from .._gpu import _require_framework
+
+    _require_framework(
+        "predict_file",
+        "physicsnemo",
+        "pip install nvidia-physicsnemo",
+        doc=_PHYSICSNEMO_DOC,
+    )
+    from ..physicsnemo import predict_file
+
+    return _json_safe(
+        predict_file(
+            resolved_checkpoint,
+            resolved_input,
+            resolved_output,
+            time_step=None if time_step is None else int(time_step),
+            target_path=resolved_target,
+            input_format=input_format,
+            output_format=output_format,
+            device=device,
+            parameters=None if parameters is None else dict(parameters),
+        )
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Gated tools (optional extras; the wrapped functions raise the named error)  #
+# --------------------------------------------------------------------------- #
+def tool_data_export(input_path, output_path, input_format=None, location="point"):
+    """Export data arrays to a Parquet table (needs the [arrow] extra)."""
+    mesh = _load(input_path, input_format)
+    resolved = _resolve(output_path, for_write=True)
+    _write_parquet_fn(mesh, resolved, location=location)
+    _cache_invalidate(resolved)
+    return _json_safe(
+        {"output_path": resolved, "location": location, **_mesh_summary(mesh)}
+    )
+
+
+def tool_export_dataset(
+    input_pattern=None,
+    input_paths=None,
+    output_path=None,
+    input_format=None,
+    location="point",
+    dataset_format="parquet",
+    mesh_id="stem",
+):
+    """Export a set of meshes as one dataset keyed by mesh_id.
+
+    Hive-partitioned Parquet (needs the [arrow] extra), or chunked zarr/hdf5
+    groups (the [zarr] extra / h5py). Same input shape as the `sequence`
+    tool: exactly one of input_pattern (a sandboxed glob) or input_paths.
+    """
+    from .._ml import write_dataset
+
+    if (input_pattern is None) == (input_paths is None):
+        raise ValueError(
+            "meshio++: mcp: give exactly one of input_pattern or input_paths"
+        )
+    if not output_path:
+        raise ValueError("meshio++: mcp: output_path is required")
+    if input_pattern is not None:
+        resolved_in = _resolve_pattern(input_pattern)
+    else:
+        resolved_in = [_resolve(p, must_exist=True) for p in input_paths]
+    resolved_out = _resolve(output_path, for_write=True)
+
+    manifest = write_dataset(
+        resolved_in,
+        resolved_out,
+        location=location,
+        format=dataset_format,
+        mesh_id=mesh_id,
+        file_format=input_format,
+    )
+    _cache_invalidate()  # a dataset is a directory of files
+    return _json_safe({"output_path": resolved_out, **manifest})
+
+
+def tool_export_cae(
+    output_dir,
+    input_pattern=None,
+    input_paths=None,
+    input_format=None,
+    surface_fields=None,
+    volume_fields=None,
+    global_params=None,
+    global_params_reference=None,
+    global_params_order=None,
+    name_template="case_{index}.npz",
+):
+    """Export a set of meshes as one .npz per case in the CAE sample layout.
+
+    The per-sample layout PhysicsNeMo's DoMINO and Transolver datapipes read:
+    the triangulated skin, its normals and areas, the volume's nodes, the
+    named field blocks and the case's global parameters. Same input shape as
+    the `sequence` tool: exactly one of input_pattern (a sandboxed glob) or
+    input_paths.
+    """
+    from ..cae import export_cases
+
+    if (input_pattern is None) == (input_paths is None):
+        raise ValueError(
+            "meshio++: mcp: give exactly one of input_pattern or input_paths"
+        )
+    if not output_dir:
+        raise ValueError("meshio++: mcp: output_dir is required")
+    if input_pattern is not None:
+        resolved_in = _resolve_pattern(input_pattern)
+    else:
+        resolved_in = [_resolve(p, must_exist=True) for p in input_paths]
+    resolved_out = _resolve(output_dir, for_write=True)
+
+    written = export_cases(
+        resolved_in,
+        resolved_out,
+        name_template=name_template,
+        file_format=input_format,
+        surface_fields=list(surface_fields) if surface_fields else None,
+        volume_fields=list(volume_fields) if volume_fields else None,
+        global_params=dict(global_params) if global_params else None,
+        global_params_reference=(
+            dict(global_params_reference) if global_params_reference else None
+        ),
+        global_params_order=(
+            list(global_params_order) if global_params_order else None
+        ),
+    )
+    keys = []
+    if written:
+        import numpy as np
+
+        with np.load(written[0]) as data:
+            keys = sorted(str(name) for name in data.files)
+    return _json_safe(
+        {
+            "output_dir": resolved_out,
+            "files": written,
+            "num_cases": len(written),
+            "keys": keys,
+        }
+    )
+
+
+def tool_screenshot(
+    input_path,
+    output_path,
+    input_format=None,
+    color_by=None,
+    width=1280,
+    height=960,
+    transparent=False,
+):
+    """Render an off-screen screenshot PNG (needs the [viewer] extra)."""
+    mesh = _load(input_path, input_format)
+    resolved = _resolve(output_path, for_write=True)
+    _screenshot_fn(
+        mesh,
+        resolved,
+        color_by=color_by,
+        size=(int(width), int(height)),
+        transparent=transparent,
+    )
+    return _json_safe({"output_path": resolved, "size": [int(width), int(height)]})
+
+
+def tool_render_mesh(
+    input_path,
+    output_path=None,
+    input_format=None,
+    width=640,
+    height=480,
+    cols=100,
+    rows=40,
+    encoding="halfblock",
+    text_format="plain",
+    view=None,
+    azimuth=None,
+    elevation=None,
+    perspective=False,
+    zoom=None,
+    shading="flat",
+    edges="none",
+    color_by=None,
+    component=None,
+    cmap=None,
+    vmin=None,
+    vmax=None,
+    colorbar=False,
+    supersample=2,
+    background=None,
+    axes=False,
+    expr=None,
+    reduce=None,
+    clip=None,
+    symmetric=False,
+    scale=None,
+    categorical=False,
+    color_regions=False,
+    category_edges=False,
+    isolines=0,
+    vectors=None,
+    warp=None,
+    warp_scale=1.0,
+    warp_outline=False,
+    diagnostic=None,
+    quality_metric=None,
+    cutaway=None,
+    cutaway_tint=None,
+    streamlines=None,
+    stream_seeds=40,
+    stream_length=0.5,
+    stream_color=None,
+):
+    """Draw a mesh with the software rasterizer: no display, GPU or extra.
+    Without output_path, return it as text; with one, write the form its
+    extension names (.png, .txt, .ansi, .html, .cast)."""
+    from .._render import parse_color
+
+    mesh = _load(input_path, input_format)
+    options = {
+        "view": view,
+        "azimuth": azimuth,
+        "elevation": elevation,
+        "projection": "perspective" if perspective else None,
+        "zoom": zoom,
+        "shading": shading,
+        "edges": edges,
+        "color_by": color_by,
+        "component": component,
+        "cmap": cmap,
+        "vmin": vmin,
+        "vmax": vmax,
+        "colorbar": bool(colorbar) if color_by else None,
+        "supersample": supersample,
+        "background": None if background is None else parse_color(background),
+        "axes": bool(axes),
+        "expr": expr,
+        "reduce": reduce,
+        "clip": None if clip is None else tuple(clip),
+        "symmetric": bool(symmetric) or None,
+        "scale": scale,
+        "categorical": bool(categorical) or None,
+        "color_regions": bool(color_regions) or None,
+        "category_edges": bool(category_edges) or None,
+        "isolines": int(isolines) or None,
+        "vectors": vectors,
+        "warp": warp,
+        "warp_scale": float(warp_scale) if warp else None,
+        "warp_outline": bool(warp_outline) or None,
+        "diagnostic": diagnostic,
+        "quality_metric": quality_metric,
+        "cutaway": None if not cutaway else list(cutaway),
+        "cutaway_tint": None if cutaway_tint is None else parse_color(cutaway_tint),
+        "streamlines": streamlines,
+        "stream_seeds": int(stream_seeds) if streamlines else None,
+        "stream_length": float(stream_length) if streamlines else None,
+        "stream_color": None if stream_color is None else parse_color(stream_color),
+    }
+    options = {k: v for k, v in options.items() if v is not None}
+    if output_path is None:
+        if text_format not in ("plain", "ansi", "html"):
+            raise ValueError(
+                f"meshio++: render_mesh: text_format must be plain, ansi or html, not '{text_format}'"
+            )
+        text = render_text(
+            mesh,
+            cols=int(cols),
+            rows=int(rows),
+            encoding=encoding,
+            color_depth="mono" if text_format == "plain" else "truecolor",
+            format=text_format,
+            **options,
+        )
+        return _json_safe({"text": text, "cols": int(cols), "rows": int(rows)})
+    resolved = _resolve(output_path, for_write=True)
+    _snapshot_fn(
+        mesh,
+        resolved,
+        width=int(width),
+        height=int(height),
+        cols=int(cols),
+        rows=int(rows),
+        encoding=encoding,
+        **options,
+    )
+    return _json_safe(
+        {
+            "output_path": resolved,
+            "size": [int(width), int(height)],
+            "cells": [int(cols), int(rows)],
+        }
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Registry — the single source of truth                                       #
+# --------------------------------------------------------------------------- #
+# name -> {"fn", "wraps" (public meshioplusplus API names this tool covers,
+# consumed by the parity-guard test), "gated" (extra name, or None)}.
+# --------------------------------------------------------------------------- #
+# Workflow prompts (roadmap 7.9.2): the documented order of the tools, the    #
+# defaults per part class and the report fields to check. Every tool a       #
+# prompt names in backticks is in TOOL_REGISTRY (test_mcp checks it).        #
+# --------------------------------------------------------------------------- #
+_PART_CLASS_DEFAULTS = {
+    "analytic": (0.90, 1e-3),
+    "cast": (0.85, 2e-3),
+    "freeform": (0.75, 4e-3),
+}
+
+
+def _part_class_line(part_class):
+    target, tol = _PART_CLASS_DEFAULTS.get(part_class, _PART_CLASS_DEFAULTS["analytic"])
+    return (
+        f"Part class `{part_class}`: aim for {target:.0%} of the scan within "
+        f"tolerance; fit and segment at {tol:g} of the bounding-box diagonal."
+    )
+
+
+def prompt_measure_scan(
+    scan_path="scan.stl", spec_path="inspection.json", part_class="analytic"
+):
+    """The 'measure this scan' workflow, as text."""
+    return f"""Measure the scan `{scan_path}` against its drawing, step by step. Use the
+meshio++ tools in this order and check each report before going on.
+
+1. `info` on {scan_path}: units, cell types, size. A scan in millimetres
+   reads in millimetres; nothing below rescales it.
+2. `repair` (fill_style "curved" for scan holes; record_provenance true so
+   the fills are known later), then `remove_islands` for the scanner's
+   crumbs. Check quality_after.watertight and num_removed.
+3. Align: `auto_align` when there is no nominal (it lays the part on its
+   largest flat face), `register_rigid` (initial "auto") against a CAD mesh,
+   or `register_landmarks` from picked pairs. Check rms and share.
+4. `segment` (method "primitive") then `fit_primitives` (criterion
+   "minimum_zone" for form tolerances). Check each patch's type, rms and
+   form_error; a patch reported "none" is not a primitive, do not force one.
+5. `measure` with the spec {spec_path}: elements (fit a plane, cylinder,
+   sphere from a region or seed points; construct axes, intersections),
+   dimensions with nominal and tolerance, and the GD&T tolerances. Read
+   num_fail, then each dimension's and tolerance's value and pass.
+6. `align_datums` lays the part on its datums A, B, C (the 3-2-1 frame a
+   CMM uses) when the report must be in the part's frame.
+7. `deviation` against the nominal (or against an element), then
+   `deviation_regions` for the areas beyond tolerance and `colorize` for the
+   colour map. Check share_within, the percentiles and suggested_range.
+8. `thickness` (method "sphere" or "cone" on a scan) where walls matter;
+   check p2, the thinnest reading.
+
+{_part_class_line(part_class)}
+Report every value with its unit, the PASS/FAIL table from `measure`, and
+what could not be measured (an element whose fit was refused, a tolerance
+with no datum)."""
+
+
+def prompt_reverse_engineer_scan(
+    scan_path="scan.stl", step_path="part.step", part_class="analytic"
+):
+    """The 'reverse-engineer this scan' workflow, as text."""
+    target, tol = _PART_CLASS_DEFAULTS.get(part_class, _PART_CLASS_DEFAULTS["analytic"])
+    return f"""Reverse-engineer the scan `{scan_path}` into a CAD solid `{step_path}`, step by
+step. Use the meshio++ tools in this order and check each report.
+
+1. `info` on {scan_path}, then `repair` (record_provenance true: its fills
+   are marked repair:hole, so `face_support` later knows them) and
+   `remove_islands`. The skin must be closed and consistently wound
+   (quality_after.watertight) before any fit.
+2. `auto_align` (or `find_symmetry_plane` for a symmetric part) so the part
+   sits in a sensible frame; `decimate` with max_deviation only if the scan
+   is too heavy to fit, never coarser than the tolerance.
+3. `fit_cad_iterate` with part_class "{part_class}" (target {target:.0%},
+   tolerance {tol:g} of the diagonal) and step_path {step_path}: it runs
+   `segment`, `fit_primitives` and `fit_cad` in rounds and re-segments the
+   worst faces. Check rounds (share_within and explained rising),
+   stop_reason and target_met.
+4. `face_support` on the solid against the scan: faces "inferred" were
+   guessed (hidden, or closed by repair), "partial" half measured. Say which.
+5. If related primitives should share an axis or be perpendicular,
+   `constrain_primitives` on the fitted skin (force or forbid relations by
+   patch label), then `fit_cad` again with constrain_primitives false.
+6. For prismatic or turned regions, `sections` and `fit_curves` give a
+   sketch of lines, arcs and circles; `write_step_elements` exports fitted
+   planes, cylinders and spheres as exact solids.
+7. `deviation` of the scan against the solid's re-mesh: share_within and
+   the percentiles are the honest verdict.
+
+Report the faces by type, the share within tolerance, the inferred faces
+and the deviation; a face left as facets is a region no primitive or
+freeform surface explained within tolerance, not an error to hide."""
+
+
+TOOL_REGISTRY = OrderedDict(
+    [
+        (
+            "formats",
+            {
+                "fn": tool_formats,
+                "wraps": ("extension_to_filetypes", "formats"),
+                "gated": None,
+            },
+        ),
+        ("sniff", {"fn": tool_sniff, "wraps": ("sniff_format",), "gated": None}),
+        ("info", {"fn": tool_info, "wraps": ("read_metadata",), "gated": None}),
+        ("stats", {"fn": tool_stats, "wraps": ("compute_stats",), "gated": None}),
+        (
+            "quality",
+            {
+                "fn": tool_quality,
+                "wraps": ("compute_quality", "attach_quality"),
+                "gated": None,
+            },
+        ),
+        ("data_info", {"fn": tool_data_info, "wraps": ("data_info",), "gated": None}),
+        (
+            "data_integrate",
+            {"fn": tool_data_integrate, "wraps": ("data_integrate",), "gated": None},
+        ),
+        ("regions", {"fn": tool_regions, "wraps": (), "gated": None}),
+        (
+            "bandwidth",
+            {"fn": tool_bandwidth, "wraps": ("compute_bandwidth",), "gated": None},
+        ),
+        ("data_preview", {"fn": tool_data_preview, "wraps": (), "gated": None}),
+        ("diff", {"fn": tool_diff, "wraps": ("diff", "meshes_equal"), "gated": None}),
+        ("convert", {"fn": tool_convert, "wraps": ("read", "write"), "gated": None}),
+        (
+            "export_gltf",
+            {"fn": tool_export_gltf, "wraps": ("write",), "gated": None},
+        ),
+        (
+            "pipeline",
+            {"fn": tool_pipeline, "wraps": ("run_pipeline",), "gated": None},
+        ),
+        (
+            "sequence",
+            {
+                "fn": tool_sequence,
+                "wraps": (
+                    "write_sequence",
+                    "sequence_entries",
+                    "run_sequence_pipeline",
+                ),
+                "gated": None,
+            },
+        ),
+        (
+            "resample_sequence",
+            {
+                "fn": tool_resample_sequence,
+                "wraps": ("resample_sequence",),
+                "gated": None,
+            },
+        ),
+        (
+            "blend_steps",
+            {"fn": tool_blend_steps, "wraps": ("blend_steps",), "gated": None},
+        ),
+        (
+            "extract_surface",
+            {"fn": tool_extract_surface, "wraps": ("extract_surface",), "gated": None},
+        ),
+        (
+            "extract_skin",
+            {"fn": tool_extract_skin, "wraps": ("extract_skin",), "gated": None},
+        ),
+        ("reorder", {"fn": tool_reorder, "wraps": ("reorder",), "gated": None}),
+        ("clean", {"fn": tool_clean, "wraps": ("clean",), "gated": None}),
+        ("crop", {"fn": tool_crop, "wraps": ("crop",), "gated": None}),
+        ("slice", {"fn": tool_slice, "wraps": ("slice",), "gated": None}),
+        ("sections", {"fn": tool_sections, "wraps": ("sections",), "gated": None}),
+        (
+            "remove_islands",
+            {"fn": tool_remove_islands, "wraps": ("remove_islands",), "gated": None},
+        ),
+        (
+            "flip_normals",
+            {"fn": tool_flip_normals, "wraps": ("flip_normals",), "gated": None},
+        ),
+        ("clip", {"fn": tool_clip, "wraps": ("clip",), "gated": None}),
+        (
+            "profile_solid",
+            {
+                "fn": tool_profile_solid,
+                "wraps": (
+                    "profile_solid",
+                    "profile_solid_providers",
+                    "profile_features_from_text",
+                ),
+                "gated": None,
+            },
+        ),
+        (
+            "constrain_primitives",
+            {
+                "fn": tool_constrain_primitives,
+                "wraps": ("constrain_primitives",),
+                "gated": None,
+            },
+        ),
+        (
+            "face_support",
+            {"fn": tool_face_support, "wraps": ("face_support",), "gated": None},
+        ),
+        (
+            "fit_cad_iterate",
+            {"fn": tool_fit_cad_iterate, "wraps": ("fit_cad_iterate",), "gated": None},
+        ),
+        (
+            "offset_surface",
+            {"fn": tool_offset_surface, "wraps": ("offset_surface",), "gated": None},
+        ),
+        ("thicken", {"fn": tool_thicken, "wraps": ("thicken",), "gated": None}),
+        ("hollow", {"fn": tool_hollow, "wraps": ("hollow",), "gated": None}),
+        (
+            "measure",
+            {"fn": tool_measure, "wraps": ("measure", "measure_table"), "gated": None},
+        ),
+        (
+            "align_datums",
+            {"fn": tool_align_datums, "wraps": ("align_datums",), "gated": None},
+        ),
+        (
+            "write_step_elements",
+            {
+                "fn": tool_write_step_elements,
+                "wraps": ("write_step_elements",),
+                "gated": None,
+            },
+        ),
+        (
+            "silhouette",
+            {"fn": tool_silhouette, "wraps": ("silhouette",), "gated": None},
+        ),
+        (
+            "fit_curves",
+            {"fn": tool_fit_curves, "wraps": ("fit_curves",), "gated": None},
+        ),
+        (
+            "isosurface",
+            {"fn": tool_isosurface, "wraps": ("isosurface",), "gated": None},
+        ),
+        ("gradient", {"fn": tool_gradient, "wraps": ("gradient",), "gated": None}),
+        ("hessian", {"fn": tool_hessian, "wraps": ("hessian",), "gated": None}),
+        (
+            "curvature",
+            {"fn": tool_curvature, "wraps": ("compute_curvature",), "gated": None},
+        ),
+        (
+            "normals",
+            {"fn": tool_normals, "wraps": ("compute_normals",), "gated": None},
+        ),
+        (
+            "feature_edges",
+            {"fn": tool_feature_edges, "wraps": ("feature_edges",), "gated": None},
+        ),
+        (
+            "segment",
+            {"fn": tool_segment, "wraps": ("segment",), "gated": None},
+        ),
+        (
+            "select",
+            {"fn": tool_select, "wraps": ("select",), "gated": None},
+        ),
+        (
+            "fit_primitives",
+            {"fn": tool_fit_primitives, "wraps": ("fit_primitives",), "gated": None},
+        ),
+        (
+            "refine_patches",
+            {"fn": tool_refine_patches, "wraps": ("refine_patches",), "gated": None},
+        ),
+        (
+            "fit_cad",
+            {"fn": tool_fit_cad, "wraps": ("fit_cad",), "gated": None},
+        ),
+        (
+            "iga_refine",
+            {"fn": tool_iga_refine, "wraps": ("iga_refine",), "gated": None},
+        ),
+        (
+            "iga_sample",
+            {"fn": tool_iga_sample, "wraps": ("iga_sample",), "gated": None},
+        ),
+        (
+            "iga_evaluate",
+            {"fn": tool_iga_evaluate, "wraps": ("iga_evaluate",), "gated": None},
+        ),
+        (
+            "region_adjacency",
+            {
+                "fn": tool_region_adjacency,
+                "wraps": ("region_adjacency",),
+                "gated": None,
+            },
+        ),
+        (
+            "find_interface",
+            {
+                "fn": tool_find_interface,
+                "wraps": ("find_interface",),
+                "gated": None,
+            },
+        ),
+        (
+            "contact_pairs",
+            {
+                "fn": tool_contact_pairs,
+                "wraps": ("contact_pairs",),
+                "gated": None,
+            },
+        ),
+        (
+            "split_interface",
+            {
+                "fn": tool_split_interface,
+                "wraps": ("split_interface",),
+                "gated": None,
+            },
+        ),
+        (
+            "hausdorff",
+            {"fn": tool_hausdorff, "wraps": ("hausdorff_distance",), "gated": None},
+        ),
+        (
+            "edit_regions",
+            {"fn": tool_edit_regions, "wraps": ("edit_regions",), "gated": None},
+        ),
+        (
+            "graph",
+            {"fn": tool_graph, "wraps": ("write_graph",), "gated": None},
+        ),
+        (
+            "periodic",
+            {"fn": tool_periodic, "wraps": ("match_periodic_nodes",), "gated": None},
+        ),
+        (
+            "check_quality",
+            {"fn": tool_check_quality, "wraps": ("check_quality",), "gated": None},
+        ),
+        (
+            "check_conformity",
+            {
+                "fn": tool_check_conformity,
+                "wraps": ("check_conformity",),
+                "gated": None,
+            },
+        ),
+        (
+            "check_tetrahedra",
+            {
+                "fn": tool_check_tetrahedra,
+                "wraps": ("check_tetrahedra",),
+                "gated": None,
+            },
+        ),
+        (
+            "find_intersections",
+            {
+                "fn": tool_find_intersections,
+                "wraps": ("find_intersections",),
+                "gated": None,
+            },
+        ),
+        (
+            "thickness",
+            {"fn": tool_thickness, "wraps": ("thickness",), "gated": None},
+        ),
+        (
+            "deviation",
+            {"fn": tool_deviation, "wraps": ("deviation",), "gated": None},
+        ),
+        (
+            "deviation_regions",
+            {
+                "fn": tool_deviation_regions,
+                "wraps": ("deviation_regions",),
+                "gated": None,
+            },
+        ),
+        (
+            "exaggerate",
+            {"fn": tool_exaggerate, "wraps": ("exaggerate",), "gated": None},
+        ),
+        (
+            "colorize",
+            {"fn": tool_colorize, "wraps": ("colorize",), "gated": None},
+        ),
+        ("repair", {"fn": tool_repair, "wraps": ("repair",), "gated": None}),
+        (
+            "shrinkwrap",
+            {"fn": tool_shrinkwrap, "wraps": ("shrinkwrap",), "gated": None},
+        ),
+        (
+            "sobolev_deform",
+            {"fn": tool_sobolev_deform, "wraps": ("sobolev_deform",), "gated": None},
+        ),
+        (
+            "prepare_metric",
+            {
+                "fn": tool_prepare_metric,
+                "wraps": ("prepare_metric",),
+                "gated": None,
+            },
+        ),
+        (
+            "untangle",
+            {
+                "fn": tool_untangle,
+                "wraps": ("untangle",),
+                "gated": None,
+            },
+        ),
+        (
+            "morph",
+            {
+                "fn": tool_morph,
+                "wraps": ("morph",),
+                "gated": None,
+            },
+        ),
+        (
+            "laplacian_eigenmodes",
+            {
+                "fn": tool_laplacian_eigenmodes,
+                "wraps": ("laplacian_eigenmodes",),
+                "gated": None,
+            },
+        ),
+        (
+            "register_rigid",
+            {
+                "fn": tool_register_rigid,
+                "wraps": ("register_rigid",),
+                "gated": None,
+            },
+        ),
+        (
+            "register_landmarks",
+            {
+                "fn": tool_register_landmarks,
+                "wraps": ("register_landmarks",),
+                "gated": None,
+            },
+        ),
+        (
+            "find_symmetry_plane",
+            {
+                "fn": tool_find_symmetry_plane,
+                "wraps": ("find_symmetry_plane",),
+                "gated": None,
+            },
+        ),
+        (
+            "auto_align",
+            {"fn": tool_auto_align, "wraps": ("auto_align",), "gated": None},
+        ),
+        (
+            "estimate_normals",
+            {
+                "fn": tool_estimate_normals,
+                "wraps": ("estimate_normals",),
+                "gated": None,
+            },
+        ),
+        (
+            "reconstruct_surface",
+            {
+                "fn": tool_reconstruct_surface,
+                "wraps": ("reconstruct_surface",),
+                "gated": None,
+            },
+        ),
+        (
+            "convex_hull",
+            {
+                "fn": tool_convex_hull,
+                "wraps": ("convex_hull",),
+                "gated": None,
+            },
+        ),
+        (
+            "delaunay_2d",
+            {
+                "fn": tool_delaunay_2d,
+                "wraps": ("delaunay_2d",),
+                "gated": None,
+            },
+        ),
+        (
+            "convert_coordinates",
+            {
+                "fn": tool_convert_coordinates,
+                "wraps": ("convert_coordinates",),
+                "gated": None,
+            },
+        ),
+        (
+            "geodesic_distance",
+            {
+                "fn": tool_geodesic_distance,
+                "wraps": ("geodesic_distance",),
+                "gated": None,
+            },
+        ),
+        (
+            "parameterize",
+            {"fn": tool_parameterize, "wraps": ("parameterize",), "gated": None},
+        ),
+        (
+            "estimate_error",
+            {"fn": tool_estimate_error, "wraps": ("estimate_error",), "gated": None},
+        ),
+        (
+            "error_size",
+            {"fn": tool_error_size, "wraps": ("error_size",), "gated": None},
+        ),
+        ("grid", {"fn": tool_grid, "wraps": ("grid",), "gated": None}),
+        ("rectangle", {"fn": tool_rectangle, "wraps": ("rectangle",), "gated": None}),
+        ("box", {"fn": tool_box, "wraps": ("box",), "gated": None}),
+        ("disk", {"fn": tool_disk, "wraps": ("disk",), "gated": None}),
+        ("uv_sphere", {"fn": tool_uv_sphere, "wraps": ("uv_sphere",), "gated": None}),
+        (
+            "icosa_sphere",
+            {"fn": tool_icosa_sphere, "wraps": ("icosa_sphere",), "gated": None},
+        ),
+        ("cylinder", {"fn": tool_cylinder, "wraps": ("cylinder",), "gated": None}),
+        (
+            "reference_triangle",
+            {
+                "fn": tool_reference_triangle,
+                "wraps": ("reference_triangle",),
+                "gated": None,
+            },
+        ),
+        ("ngon", {"fn": tool_ngon, "wraps": ("ngon",), "gated": None}),
+        ("annulus", {"fn": tool_annulus, "wraps": ("annulus",), "gated": None}),
+        ("lshape", {"fn": tool_lshape, "wraps": ("lshape",), "gated": None}),
+        (
+            "plate_with_hole",
+            {
+                "fn": tool_plate_with_hole,
+                "wraps": ("plate_with_hole",),
+                "gated": None,
+            },
+        ),
+        ("honeycomb", {"fn": tool_honeycomb, "wraps": ("honeycomb",), "gated": None}),
+        (
+            "reference_cells",
+            {"fn": tool_reference_cells, "wraps": ("reference_cells",), "gated": None},
+        ),
+        ("line", {"fn": tool_line, "wraps": ("line",), "gated": None}),
+        ("circle", {"fn": tool_circle, "wraps": ("circle",), "gated": None}),
+        ("helix", {"fn": tool_helix, "wraps": ("helix",), "gated": None}),
+        (
+            "sphere_points",
+            {"fn": tool_sphere_points, "wraps": ("sphere_points",), "gated": None},
+        ),
+        (
+            "box_points",
+            {"fn": tool_box_points, "wraps": ("box_points",), "gated": None},
+        ),
+        (
+            "tetra_sphere",
+            {"fn": tool_tetra_sphere, "wraps": ("tetra_sphere",), "gated": None},
+        ),
+        (
+            "octa_sphere",
+            {"fn": tool_octa_sphere, "wraps": ("octa_sphere",), "gated": None},
+        ),
+        (
+            "cube_sphere",
+            {"fn": tool_cube_sphere, "wraps": ("cube_sphere",), "gated": None},
+        ),
+        (
+            "geo_sphere",
+            {"fn": tool_geo_sphere, "wraps": ("geo_sphere",), "gated": None},
+        ),
+        ("torus", {"fn": tool_torus, "wraps": ("torus",), "gated": None}),
+        ("moebius", {"fn": tool_moebius, "wraps": ("moebius",), "gated": None}),
+        ("tube", {"fn": tool_tube, "wraps": ("tube",), "gated": None}),
+        ("cone", {"fn": tool_cone, "wraps": ("cone",), "gated": None}),
+        ("capsule", {"fn": tool_capsule, "wraps": ("capsule",), "gated": None}),
+        (
+            "box_surface",
+            {"fn": tool_box_surface, "wraps": ("box_surface",), "gated": None},
+        ),
+        ("platonic", {"fn": tool_platonic, "wraps": ("platonic",), "gated": None}),
+        ("ball", {"fn": tool_ball, "wraps": ("ball",), "gated": None}),
+        (
+            "spherical_shell",
+            {"fn": tool_spherical_shell, "wraps": ("spherical_shell",), "gated": None},
+        ),
+        ("pipe", {"fn": tool_pipe, "wraps": ("pipe",), "gated": None}),
+        ("fichera", {"fn": tool_fichera, "wraps": ("fichera",), "gated": None}),
+        (
+            "solid_torus",
+            {"fn": tool_solid_torus, "wraps": ("solid_torus",), "gated": None},
+        ),
+        ("voxelize", {"fn": tool_voxelize, "wraps": ("voxelize",), "gated": None}),
+        ("octree", {"fn": tool_octree, "wraps": ("octree",), "gated": None}),
+        (
+            "octree_mesh",
+            {"fn": tool_octree_mesh, "wraps": ("octree_mesh",), "gated": None},
+        ),
+        (
+            "mesh_cad_surface",
+            {
+                "fn": tool_mesh_cad_surface,
+                "wraps": ("mesh_cad_surface",),
+                "gated": None,
+            },
+        ),
+        (
+            "boundary_layer",
+            {
+                "fn": tool_boundary_layer,
+                "wraps": ("boundary_layer",),
+                "gated": None,
+            },
+        ),
+        (
+            "extrude",
+            {"fn": tool_extrude, "wraps": ("extrude",), "gated": None},
+        ),
+        (
+            "revolve",
+            {"fn": tool_revolve, "wraps": ("revolve",), "gated": None},
+        ),
+        (
+            "mirror",
+            {"fn": tool_mirror, "wraps": ("mirror",), "gated": None},
+        ),
+        (
+            "tetrahedralize",
+            {
+                "fn": tool_tetrahedralize,
+                "wraps": ("tetrahedralize",),
+                "gated": None,
+            },
+        ),
+        (
+            "remesh_quads",
+            {
+                "fn": tool_remesh_quads,
+                "wraps": ("remesh_quads",),
+                "gated": None,
+            },
+        ),
+        (
+            "cut_level_set",
+            {
+                "fn": tool_cut_level_set,
+                "wraps": ("cut_level_set",),
+                "gated": None,
+            },
+        ),
+        (
+            "cut_quadrature",
+            {
+                "fn": tool_cut_quadrature,
+                "wraps": ("cut_quadrature",),
+                "gated": None,
+            },
+        ),
+        (
+            "project_to_cad",
+            {
+                "fn": tool_project_to_cad,
+                "wraps": ("project_to_cad",),
+                "gated": None,
+            },
+        ),
+        (
+            "grid_sample",
+            {"fn": tool_grid_sample, "wraps": ("sample_grid",), "gated": None},
+        ),
+        (
+            "grid_scatter",
+            {"fn": tool_grid_scatter, "wraps": ("scatter_grid",), "gated": None},
+        ),
+        (
+            "grid_resample",
+            {"fn": tool_grid_resample, "wraps": ("resample_grid",), "gated": None},
+        ),
+        (
+            "grid_power_spectrum",
+            {
+                "fn": tool_grid_power_spectrum,
+                "wraps": ("power_spectrum",),
+                "gated": None,
+            },
+        ),
+        (
+            "subsample",
+            {"fn": tool_subsample, "wraps": ("subsample_points",), "gated": None},
+        ),
+        (
+            "proximity_graph",
+            {
+                "fn": tool_proximity_graph,
+                "wraps": ("proximity_graph",),
+                "gated": None,
+            },
+        ),
+        (
+            "compute_sdf",
+            {"fn": tool_compute_sdf, "wraps": ("compute_sdf",), "gated": None},
+        ),
+        (
+            "distance_to_surface",
+            {
+                "fn": tool_distance_to_surface,
+                "wraps": ("distance_to_surface",),
+                "gated": None,
+            },
+        ),
+        (
+            "sample_distance",
+            {"fn": tool_sample_distance, "wraps": ("sample_distance",), "gated": None},
+        ),
+        (
+            "surface_watertight_check",
+            {
+                "fn": tool_surface_watertight_check,
+                "wraps": ("surface_watertight_check",),
+                "gated": None,
+            },
+        ),
+        ("transform", {"fn": tool_transform, "wraps": ("transform",), "gated": None}),
+        (
+            "convert_cells",
+            {"fn": tool_convert_cells, "wraps": ("convert_cells",), "gated": None},
+        ),
+        (
+            "tessellate",
+            {"fn": tool_tessellate, "wraps": ("tessellate",), "gated": None},
+        ),
+        (
+            "subdivide",
+            {"fn": tool_subdivide, "wraps": ("subdivide",), "gated": None},
+        ),
+        (
+            "agglomerate",
+            {"fn": tool_agglomerate, "wraps": ("agglomerate",), "gated": None},
+        ),
+        (
+            "tet_to_poly",
+            {"fn": tool_tet_to_poly, "wraps": ("tet_to_poly",), "gated": None},
+        ),
+        (
+            "poly_to_tet",
+            {"fn": tool_poly_to_tet, "wraps": ("poly_to_tet",), "gated": None},
+        ),
+        ("refine", {"fn": tool_refine, "wraps": ("refine",), "gated": None}),
+        (
+            "undo_green",
+            {"fn": tool_undo_green, "wraps": ("undo_green",), "gated": None},
+        ),
+        ("decimate", {"fn": tool_decimate, "wraps": ("decimate",), "gated": None}),
+        (
+            "decimate_volume",
+            {"fn": tool_decimate_volume, "wraps": ("decimate_volume",), "gated": None},
+        ),
+        ("adapt", {"fn": tool_adapt, "wraps": ("adapt",), "gated": None}),
+        (
+            "discretize_levelset",
+            {
+                "fn": tool_discretize_levelset,
+                "wraps": ("discretize_levelset",),
+                "gated": None,
+            },
+        ),
+        (
+            "mesh_domain",
+            {"fn": tool_mesh_domain, "wraps": ("mesh_domain",), "gated": None},
+        ),
+        ("move", {"fn": tool_move, "wraps": ("move",), "gated": None}),
+        (
+            "metric_from_hessian",
+            {
+                "fn": tool_metric_from_hessian,
+                "wraps": ("metric_from_hessian",),
+                "gated": None,
+            },
+        ),
+        ("remesh", {"fn": tool_remesh, "wraps": ("remesh",), "gated": None}),
+        (
+            "remesh_volume",
+            {"fn": tool_remesh_volume, "wraps": ("remesh_volume",), "gated": None},
+        ),
+        (
+            "optimize_volume",
+            {"fn": tool_optimize_volume, "wraps": ("optimize_volume",), "gated": None},
+        ),
+        ("smooth", {"fn": tool_smooth, "wraps": ("smooth",), "gated": None}),
+        ("merge", {"fn": tool_merge, "wraps": ("merge",), "gated": None}),
+        ("split", {"fn": tool_split, "wraps": ("split",), "gated": None}),
+        ("partition", {"fn": tool_partition, "wraps": ("partition",), "gated": None}),
+        (
+            "interpolate",
+            {"fn": tool_interpolate, "wraps": ("interpolate",), "gated": None},
+        ),
+        (
+            "conservative_interpolate",
+            {
+                "fn": tool_conservative_interpolate,
+                "wraps": ("conservative_interpolate",),
+                "gated": None,
+            },
+        ),
+        (
+            "data_manage",
+            {
+                "fn": tool_data_manage,
+                "wraps": ("data_manage", "data_drop", "data_keep", "data_rename"),
+                "gated": None,
+            },
+        ),
+        (
+            "data_convert",
+            {
+                "fn": tool_data_convert,
+                "wraps": ("point_data_to_cell_data", "cell_data_to_point_data"),
+                "gated": None,
+            },
+        ),
+        ("sets_data", {"fn": tool_sets_data, "wraps": (), "gated": None}),
+        ("med_multi", {"fn": tool_med_multi, "wraps": (), "gated": None}),
+        ("data_calc", {"fn": tool_data_calc, "wraps": ("data_calc",), "gated": None}),
+        (
+            "data_condition",
+            {"fn": tool_data_condition, "wraps": ("data_condition",), "gated": None},
+        ),
+        (
+            "tensor_invariants",
+            {
+                "fn": tool_tensor_invariants,
+                "wraps": ("tensor_invariants",),
+                "gated": None,
+            },
+        ),
+        (
+            "dataset_add",
+            {"fn": tool_dataset_add, "wraps": ("DatasetManifest",), "gated": None},
+        ),
+        (
+            "dataset_list",
+            {"fn": tool_dataset_list, "wraps": (), "gated": None},
+        ),
+        (
+            "dataset_update",
+            {"fn": tool_dataset_update, "wraps": (), "gated": None},
+        ),
+        (
+            "dataset_find",
+            {"fn": tool_dataset_find, "wraps": (), "gated": None},
+        ),
+        (
+            "dataset_health",
+            {"fn": tool_dataset_health, "wraps": (), "gated": None},
+        ),
+        (
+            "train_defaults",
+            {"fn": tool_train_defaults, "wraps": (), "gated": None},
+        ),
+        (
+            "train_start",
+            {"fn": tool_train_start, "wraps": (), "gated": "physicsnemo"},
+        ),
+        ("train_status", {"fn": tool_train_status, "wraps": (), "gated": None}),
+        ("train_list", {"fn": tool_train_list, "wraps": (), "gated": None}),
+        ("train_stop", {"fn": tool_train_stop, "wraps": (), "gated": None}),
+        ("train_log", {"fn": tool_train_log, "wraps": (), "gated": None}),
+        ("train_metrics", {"fn": tool_train_metrics, "wraps": (), "gated": None}),
+        (
+            "train_checkpoints",
+            {"fn": tool_train_checkpoints, "wraps": (), "gated": None},
+        ),
+        (
+            "train_mark_best",
+            {"fn": tool_train_mark_best, "wraps": (), "gated": None},
+        ),
+        (
+            "guard_fit",
+            {"fn": tool_guard_fit, "wraps": ("GeometryGuard",), "gated": None},
+        ),
+        (
+            "guard_check",
+            {
+                "fn": tool_guard_check,
+                "wraps": ("geometry_descriptors",),
+                "gated": None,
+            },
+        ),
+        (
+            "predict_file",
+            {"fn": tool_predict_file, "wraps": (), "gated": "physicsnemo"},
+        ),
+        (
+            "train_predict",
+            {"fn": tool_train_predict, "wraps": (), "gated": "physicsnemo"},
+        ),
+        (
+            "data_export",
+            {"fn": tool_data_export, "wraps": ("write_parquet",), "gated": "arrow"},
+        ),
+        (
+            "export_dataset",
+            {"fn": tool_export_dataset, "wraps": ("write_dataset",), "gated": "arrow"},
+        ),
+        (
+            "export_cae",
+            {"fn": tool_export_cae, "wraps": ("cae",), "gated": None},
+        ),
+        (
+            "screenshot",
+            {"fn": tool_screenshot, "wraps": ("screenshot",), "gated": "viewer"},
+        ),
+        (
+            "render_mesh",
+            {
+                "fn": tool_render_mesh,
+                "wraps": ("render_image", "render_text", "snapshot"),
+                "gated": None,
+            },
+        ),
+    ]
+)
+
+
+# --------------------------------------------------------------------------- #
+# Dispatch                                                                    #
+# --------------------------------------------------------------------------- #
+def guard(fn, /, **kwargs):
+    """Run a tool; a failure is a ``{"error", "error_type"}`` payload, never a
+    traceback. The one guard, shared by the FastMCP wrappers and the HTTP
+    front-end's dispatch."""
+    try:
+        return fn(**kwargs)
+    except Exception as e:  # noqa: BLE001 - the client needs a payload
+        return {"error": str(e), "error_type": type(e).__name__}
+
+
+def call_tool(name, kwargs=None):
+    """Dispatch a tool by registry name with keyword arguments.
+
+    The single entry point the HTTP front-end (``POST /api/tools/<name>``)
+    goes through, so it inherits the sandbox and the strict-JSON sanitizer
+    every tool already applies. An unknown name is a ``KeyError`` (the
+    caller's 404); a tool failure -- including bad keyword arguments -- is a
+    guarded payload.
+    """
+    try:
+        spec = TOOL_REGISTRY[name]
+    except KeyError:
+        raise KeyError(f"meshio++: mcp: unknown tool '{name}'") from None
+    return guard(spec["fn"], **(kwargs or {}))

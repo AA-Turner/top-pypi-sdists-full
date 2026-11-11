@@ -7492,6 +7492,7 @@ class CfnCapacityProvider(
                         use_local_storage=False
                     ),
                     monitoring="monitoring",
+                    nitro_enclaves_enabled=False,
                     storage_configuration=ecs.CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty(
                         storage_size_gi_b=123
                     )
@@ -8281,6 +8282,7 @@ class CfnCapacityProvider(
             "instance_requirements": "instanceRequirements",
             "local_storage_configuration": "localStorageConfiguration",
             "monitoring": "monitoring",
+            "nitro_enclaves_enabled": "nitroEnclavesEnabled",
             "storage_configuration": "storageConfiguration",
         },
     )
@@ -8297,6 +8299,7 @@ class CfnCapacityProvider(
             instance_requirements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapacityProvider.InstanceRequirementsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             local_storage_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapacityProvider.ManagedInstancesLocalStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             monitoring: typing.Optional[builtins.str] = None,
+            nitro_enclaves_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             storage_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The launch template configuration for Amazon ECS Managed Instances.
@@ -8312,6 +8315,7 @@ class CfnCapacityProvider(
             :param instance_requirements: The instance requirements. You can specify:. - The instance types - Instance requirements such as vCPU count, memory, network performance, and accelerator specifications Amazon ECS automatically selects the instances that match the specified criteria.
             :param local_storage_configuration: 
             :param monitoring: CloudWatch provides two categories of monitoring: basic monitoring and detailed monitoring. By default, your managed instance is configured for basic monitoring. You can optionally enable detailed monitoring to help you more quickly identify and act on operational issues. You can enable or turn off detailed monitoring at launch or when the managed instance is running or stopped. For more information, see `Detailed monitoring for Amazon ECS Managed Instances <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/detailed-monitoring-managed-instances.html>`_ in the Amazon ECS Developer Guide.
+            :param nitro_enclaves_enabled: 
             :param storage_configuration: The storage configuration for Amazon ECS Managed Instances. This defines the root volume size and type for the instances.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-instancelaunchtemplate.html
@@ -8401,6 +8405,7 @@ class CfnCapacityProvider(
                         use_local_storage=False
                     ),
                     monitoring="monitoring",
+                    nitro_enclaves_enabled=False,
                     storage_configuration=ecs.CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty(
                         storage_size_gi_b=123
                     )
@@ -8417,6 +8422,7 @@ class CfnCapacityProvider(
                 check_type(argname="argument instance_requirements", value=instance_requirements, expected_type=type_hints["instance_requirements"])
                 check_type(argname="argument local_storage_configuration", value=local_storage_configuration, expected_type=type_hints["local_storage_configuration"])
                 check_type(argname="argument monitoring", value=monitoring, expected_type=type_hints["monitoring"])
+                check_type(argname="argument nitro_enclaves_enabled", value=nitro_enclaves_enabled, expected_type=type_hints["nitro_enclaves_enabled"])
                 check_type(argname="argument storage_configuration", value=storage_configuration, expected_type=type_hints["storage_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "ec2_instance_profile_arn": ec2_instance_profile_arn,
@@ -8436,6 +8442,8 @@ class CfnCapacityProvider(
                 self._values["local_storage_configuration"] = local_storage_configuration
             if monitoring is not None:
                 self._values["monitoring"] = monitoring
+            if nitro_enclaves_enabled is not None:
+                self._values["nitro_enclaves_enabled"] = nitro_enclaves_enabled
             if storage_configuration is not None:
                 self._values["storage_configuration"] = storage_configuration
 
@@ -8553,6 +8561,16 @@ class CfnCapacityProvider(
             '''
             result = self._values.get("monitoring")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def nitro_enclaves_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-instancelaunchtemplate.html#cfn-ecs-capacityprovider-instancelaunchtemplate-nitroenclavesenabled
+            '''
+            result = self._values.get("nitro_enclaves_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def storage_configuration(
@@ -9365,6 +9383,7 @@ class CfnCapacityProvider(
                             use_local_storage=False
                         ),
                         monitoring="monitoring",
+                        nitro_enclaves_enabled=False,
                         storage_configuration=ecs.CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty(
                             storage_size_gi_b=123
                         )
@@ -10260,6 +10279,7 @@ class CfnCapacityProviderProps:
                             use_local_storage=False
                         ),
                         monitoring="monitoring",
+                        nitro_enclaves_enabled=False,
                         storage_configuration=ecs.CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty(
                             storage_size_gi_b=123
                         )
@@ -12076,7 +12096,7 @@ class CfnDaemon(
         :param id: Construct identifier for this resource (unique in its scope).
         :param capacity_provider_arns: The Amazon Resource Names (ARNs) of the capacity providers associated with the daemon.
         :param cluster_arn: The Amazon Resource Name (ARN) of the cluster that the daemon is running in.
-        :param critical: 
+        :param critical: If the ``critical`` parameter of this daemon revision is ``true``, and the daemon task fails, stops, or becomes unhealthy, Amazon ECS drains the container instance and stops the other tasks running on it. If the parameter is ``false``, the daemon task failure doesn't affect the other tasks on the instance, and doesn't block instance registration. The default value is ``true``.
         :param daemon_name: 
         :param daemon_task_definition_arn: The Amazon Resource Name (ARN) of the daemon task definition used by this revision.
         :param deployment_configuration: Optional deployment parameters that control how a daemon rolls out updates across container instances.
@@ -12254,6 +12274,7 @@ class CfnDaemon(
     def critical(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''If the ``critical`` parameter of this daemon revision is ``true``, and the daemon task fails, stops, or becomes unhealthy, Amazon ECS drains the container instance and stops the other tasks running on it.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "critical"))
 
     @critical.setter
@@ -12585,7 +12606,7 @@ class CfnDaemonProps:
 
         :param capacity_provider_arns: The Amazon Resource Names (ARNs) of the capacity providers associated with the daemon.
         :param cluster_arn: The Amazon Resource Name (ARN) of the cluster that the daemon is running in.
-        :param critical: 
+        :param critical: If the ``critical`` parameter of this daemon revision is ``true``, and the daemon task fails, stops, or becomes unhealthy, Amazon ECS drains the container instance and stops the other tasks running on it. If the parameter is ``false``, the daemon task failure doesn't affect the other tasks on the instance, and doesn't block instance registration. The default value is ``true``.
         :param daemon_name: 
         :param daemon_task_definition_arn: The Amazon Resource Name (ARN) of the daemon task definition used by this revision.
         :param deployment_configuration: Optional deployment parameters that control how a daemon rolls out updates across container instances.
@@ -12683,7 +12704,10 @@ class CfnDaemonProps:
     def critical(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
-        '''
+        '''If the ``critical`` parameter of this daemon revision is ``true``, and the daemon task fails, stops, or becomes unhealthy, Amazon ECS drains the container instance and stops the other tasks running on it.
+
+        If the parameter is ``false``, the daemon task failure doesn't affect the other tasks on the instance, and doesn't block instance registration. The default value is ``true``.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-critical
         '''
         result = self._values.get("critical")
@@ -12906,6 +12930,9 @@ class CfnDaemonTaskDefinition(
             volumes=[ecs.CfnDaemonTaskDefinition.VolumeProperty(
                 host=ecs.CfnDaemonTaskDefinition.HostVolumePropertiesProperty(
                     source_path="sourcePath"
+                ),
+                log_driver_volume_configuration=ecs.CfnDaemonTaskDefinition.LogDriverVolumeConfigurationProperty(
+                    driver="driver"
                 ),
                 name="name"
             )]
@@ -14925,6 +14952,56 @@ class CfnDaemonTaskDefinition(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.LogDriverVolumeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"driver": "driver"},
+    )
+    class LogDriverVolumeConfigurationProperty:
+        def __init__(self, *, driver: builtins.str) -> None:
+            '''
+            :param driver: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-logdrivervolumeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                log_driver_volume_configuration_property = ecs.CfnDaemonTaskDefinition.LogDriverVolumeConfigurationProperty(
+                    driver="driver"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fdaf20342a3aefe31067038fa45a55f179278ae47a1eb4e0d2842005b54657c8)
+                check_type(argname="argument driver", value=driver, expected_type=type_hints["driver"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "driver": driver,
+            }
+
+        @builtins.property
+        def driver(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-logdrivervolumeconfiguration.html#cfn-ecs-daemontaskdefinition-logdrivervolumeconfiguration-driver
+            '''
+            result = self._values.get("driver")
+            assert result is not None, "Required property 'driver' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogDriverVolumeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.MountPointProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -15524,13 +15601,18 @@ class CfnDaemonTaskDefinition(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.VolumeProperty",
         jsii_struct_bases=[],
-        name_mapping={"host": "host", "name": "name"},
+        name_mapping={
+            "host": "host",
+            "log_driver_volume_configuration": "logDriverVolumeConfiguration",
+            "name": "name",
+        },
     )
     class VolumeProperty:
         def __init__(
             self,
             *,
             host: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDaemonTaskDefinition.HostVolumePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            log_driver_volume_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDaemonTaskDefinition.LogDriverVolumeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The data volume configuration for tasks launched using this task definition.
@@ -15538,6 +15620,7 @@ class CfnDaemonTaskDefinition(
             Specifying a volume configuration in a task definition is optional. The volume configuration may contain multiple volumes but only one volume configured at launch is supported. Each volume defined in the volume configuration may only specify a ``name`` and one of either ``configuredAtLaunch``, ``dockerVolumeConfiguration``, ``efsVolumeConfiguration``, ``s3filesVolumeConfiguration``, ``fsxWindowsFileServerVolumeConfiguration``, or ``host``. If an empty volume configuration is specified, by default Amazon ECS uses a host volume. For more information, see `Using data volumes in tasks <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_data_volumes.html>`_.
 
             :param host: Details on a container instance bind mount host volume.
+            :param log_driver_volume_configuration: 
             :param name: The name of the volume. Up to 255 letters (uppercase and lowercase), numbers, underscores, and hyphens are allowed. When using a volume configured at launch, the ``name`` is required and must also be specified as the volume name in the ``ServiceVolumeConfiguration`` or ``TaskVolumeConfiguration`` parameter when creating your service or standalone task. For all other types of volumes, this name is referenced in the ``sourceVolume`` parameter of the ``mountPoints`` object in the container definition. When a volume is using the ``efsVolumeConfiguration``, the name is required. When a volume is using the ``s3filesVolumeConfiguration``, the name is required.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-volume.html
@@ -15553,16 +15636,22 @@ class CfnDaemonTaskDefinition(
                     host=ecs.CfnDaemonTaskDefinition.HostVolumePropertiesProperty(
                         source_path="sourcePath"
                     ),
+                    log_driver_volume_configuration=ecs.CfnDaemonTaskDefinition.LogDriverVolumeConfigurationProperty(
+                        driver="driver"
+                    ),
                     name="name"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__fb797bf96afe598182ca2171fda91348e7c6bc8e4a8513ade1490c3fd3268bd3)
                 check_type(argname="argument host", value=host, expected_type=type_hints["host"])
+                check_type(argname="argument log_driver_volume_configuration", value=log_driver_volume_configuration, expected_type=type_hints["log_driver_volume_configuration"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if host is not None:
                 self._values["host"] = host
+            if log_driver_volume_configuration is not None:
+                self._values["log_driver_volume_configuration"] = log_driver_volume_configuration
             if name is not None:
                 self._values["name"] = name
 
@@ -15576,6 +15665,16 @@ class CfnDaemonTaskDefinition(
             '''
             result = self._values.get("host")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDaemonTaskDefinition.HostVolumePropertiesProperty"]], result)
+
+        @builtins.property
+        def log_driver_volume_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDaemonTaskDefinition.LogDriverVolumeConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-volume.html#cfn-ecs-daemontaskdefinition-volume-logdrivervolumeconfiguration
+            '''
+            result = self._values.get("log_driver_volume_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDaemonTaskDefinition.LogDriverVolumeConfigurationProperty"]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -15775,6 +15874,9 @@ class CfnDaemonTaskDefinitionProps:
                 volumes=[ecs.CfnDaemonTaskDefinition.VolumeProperty(
                     host=ecs.CfnDaemonTaskDefinition.HostVolumePropertiesProperty(
                         source_path="sourcePath"
+                    ),
+                    log_driver_volume_configuration=ecs.CfnDaemonTaskDefinition.LogDriverVolumeConfigurationProperty(
+                        driver="driver"
                     ),
                     name="name"
                 )]
@@ -18207,6 +18309,1488 @@ class CfnExpressGatewayServiceProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ecs_143f71cb.IGatewayRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnGateway(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ecs.CfnGateway",
+):
+    '''Resource schema for AWS ECS Gateway.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-gateway.html
+    :cloudformationResource: AWS::ECS::Gateway
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ecs as ecs
+        
+        cfn_gateway = ecs.CfnGateway(self, "MyCfnGateway",
+            configuration=ecs.CfnGateway.GatewayConfigurationProperty(
+                host_shared_alb=ecs.CfnGateway.HostSharedAlbConfigurationProperty(
+                    access_logs=ecs.CfnGateway.GatewayElbAccessLogConfigurationProperty(
+                        destination=ecs.CfnGateway.GatewayElbAccessLogDestinationProperty(
+                            s3=ecs.CfnGateway.GatewayElbAccessLogS3DestinationProperty(
+                                bucket="bucket",
+        
+                                # the properties below are optional
+                                prefix="prefix"
+                            )
+                        )
+                    ),
+                    current_alb_count=123,
+                    http_desync="httpDesync",
+                    max_alb_count=123,
+                    network_configuration=ecs.CfnGateway.GatewayElbNetworkConfigurationProperty(
+                        inbound_security_group="inboundSecurityGroup",
+                        ip_address_type="ipAddressType",
+                        subnets=["subnets"]
+                    ),
+                    port=123,
+                    protocol="protocol",
+                    scheme="scheme",
+                    test_traffic_rules=ecs.CfnGateway.GatewayAlbTestTrafficRulesProperty(
+                        header=ecs.CfnGateway.GatewayTestTrafficHeaderProperty(
+                            name="name",
+                            values=["values"]
+                        )
+                    ),
+                    web_acl_arn="webAclArn"
+                )
+            ),
+            gateway_name="gatewayName",
+            infrastructure_role_arn="infrastructureRoleArn",
+        
+            # the properties below are optional
+            deletion_protection=False,
+            propagate_tags="propagateTags",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGateway.GatewayConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        gateway_name: builtins.str,
+        infrastructure_role_arn: builtins.str,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        propagate_tags: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::ECS::Gateway``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param configuration: The configuration for the gateway. Currently only supports hostSharedAlb.
+        :param gateway_name: The name of the gateway. Up to 255 letters (uppercase and lowercase), numbers, and hyphens are allowed.
+        :param infrastructure_role_arn: The ARN of the IAM role that ECS uses to manage infrastructure for the gateway.
+        :param deletion_protection: Whether deletion protection is enabled for the gateway. Default: - true
+        :param propagate_tags: Specifies whether to propagate the tags from the gateway to other resources.
+        :param tags: The metadata that you apply to the gateway to help you categorize and organize them.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__417b21cec4ccbb8290a240626f04776dd7595b726df6dbceac9b05f6e4f8936d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnGatewayProps(
+            configuration=configuration,
+            gateway_name=gateway_name,
+            infrastructure_role_arn=infrastructure_role_arn,
+            deletion_protection=deletion_protection,
+            propagate_tags=propagate_tags,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForGateway")
+    @builtins.classmethod
+    def arn_for_gateway(cls, resource: "_aws_ecs_143f71cb.IGatewayRef") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f6668f9d0112008643d01dd77667e76a62649cf10968d406164d3cd341cc8de6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGateway", [resource]))
+
+    @jsii.member(jsii_name="isCfnGateway")
+    @builtins.classmethod
+    def is_cfn_gateway(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnGateway.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a3ebd70985bf5c206fde266ab31c816c8bf059f5c43319ff86946e1507249594)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGateway", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eb05a573f44b3aabaf76b7b54aeeb3537d74ba83dc751163272fe759efa324da)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ebb879919bdf915bcff2d7312047be75ae8dc6c56f49d408fe239c43726eb1c3)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccessType")
+    def attr_access_type(self) -> builtins.str:
+        '''The access type for the gateway.
+
+        :cloudformationAttribute: AccessType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccessType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the gateway.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConfigurationHostSharedAlbCurrentAlbCount")
+    def attr_configuration_host_shared_alb_current_alb_count(self) -> jsii.Number:
+        '''The current number of ALBs provisioned for the gateway.
+
+        :cloudformationAttribute: Configuration.HostSharedAlb.CurrentAlbCount
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrConfigurationHostSharedAlbCurrentAlbCount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the gateway was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the gateway.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the gateway was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRef")
+    def gateway_ref(self) -> "_aws_ecs_143f71cb.GatewayReference":
+        '''A reference to a Gateway resource.'''
+        return typing.cast("_aws_ecs_143f71cb.GatewayReference", jsii.get(self, "gatewayRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configuration")
+    def configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayConfigurationProperty"]:
+        '''The configuration for the gateway.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayConfigurationProperty"], jsii.get(self, "configuration"))
+
+    @configuration.setter
+    def configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__86aa1e5d18e3e26670be5f4605c2859e8fc4548a9f305e2dee5e3f831790d1af)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configuration", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayName")
+    def gateway_name(self) -> builtins.str:
+        '''The name of the gateway.'''
+        return typing.cast(builtins.str, jsii.get(self, "gatewayName"))
+
+    @gateway_name.setter
+    def gateway_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__401f13117eb7e915ede144c64150d729d0aefd3aee55596f5085ce0518369a59)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "gatewayName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="infrastructureRoleArn")
+    def infrastructure_role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role that ECS uses to manage infrastructure for the gateway.'''
+        return typing.cast(builtins.str, jsii.get(self, "infrastructureRoleArn"))
+
+    @infrastructure_role_arn.setter
+    def infrastructure_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9493d7b853ef2f23a77081550b6f03760521f0d3b55f4fb0285202143ad9149f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "infrastructureRoleArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtection")
+    def deletion_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether deletion protection is enabled for the gateway.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "deletionProtection"))
+
+    @deletion_protection.setter
+    def deletion_protection(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d6c29bcf9b986a4b6e7bb042b07e339b744439e324ae6cc55255efac300d6df3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtection", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="propagateTags")
+    def propagate_tags(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether to propagate the tags from the gateway to other resources.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "propagateTags"))
+
+    @propagate_tags.setter
+    def propagate_tags(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9719e2d07ae79ce3676e81421a9d6d4d540e3327f4d21ce67727ea51d63d1ce7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "propagateTags", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The metadata that you apply to the gateway to help you categorize and organize them.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__59c236044c983663d7c6d71f16efa0f094de3faab0deec3d654a382e93d6744c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnGateway.GatewayAlbTestTrafficRulesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"header": "header"},
+    )
+    class GatewayAlbTestTrafficRulesProperty:
+        def __init__(
+            self,
+            *,
+            header: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGateway.GatewayTestTrafficHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The test traffic rules for the gateway ALB.
+
+            :param header: The header configuration for test traffic routing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayalbtesttrafficrules.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                gateway_alb_test_traffic_rules_property = ecs.CfnGateway.GatewayAlbTestTrafficRulesProperty(
+                    header=ecs.CfnGateway.GatewayTestTrafficHeaderProperty(
+                        name="name",
+                        values=["values"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2fa0768a7849faf1d6863a2faa83007e0713f58026207289a15ed70d0e51523c)
+                check_type(argname="argument header", value=header, expected_type=type_hints["header"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if header is not None:
+                self._values["header"] = header
+
+        @builtins.property
+        def header(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayTestTrafficHeaderProperty"]]:
+            '''The header configuration for test traffic routing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayalbtesttrafficrules.html#cfn-ecs-gateway-gatewayalbtesttrafficrules-header
+            '''
+            result = self._values.get("header")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayTestTrafficHeaderProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayAlbTestTrafficRulesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnGateway.GatewayConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"host_shared_alb": "hostSharedAlb"},
+    )
+    class GatewayConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            host_shared_alb: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGateway.HostSharedAlbConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The configuration for the gateway.
+
+            Currently only supports hostSharedAlb.
+
+            :param host_shared_alb: The host shared ALB configuration for the gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                gateway_configuration_property = ecs.CfnGateway.GatewayConfigurationProperty(
+                    host_shared_alb=ecs.CfnGateway.HostSharedAlbConfigurationProperty(
+                        access_logs=ecs.CfnGateway.GatewayElbAccessLogConfigurationProperty(
+                            destination=ecs.CfnGateway.GatewayElbAccessLogDestinationProperty(
+                                s3=ecs.CfnGateway.GatewayElbAccessLogS3DestinationProperty(
+                                    bucket="bucket",
+                
+                                    # the properties below are optional
+                                    prefix="prefix"
+                                )
+                            )
+                        ),
+                        current_alb_count=123,
+                        http_desync="httpDesync",
+                        max_alb_count=123,
+                        network_configuration=ecs.CfnGateway.GatewayElbNetworkConfigurationProperty(
+                            inbound_security_group="inboundSecurityGroup",
+                            ip_address_type="ipAddressType",
+                            subnets=["subnets"]
+                        ),
+                        port=123,
+                        protocol="protocol",
+                        scheme="scheme",
+                        test_traffic_rules=ecs.CfnGateway.GatewayAlbTestTrafficRulesProperty(
+                            header=ecs.CfnGateway.GatewayTestTrafficHeaderProperty(
+                                name="name",
+                                values=["values"]
+                            )
+                        ),
+                        web_acl_arn="webAclArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7960d8b2c087ff669b3bd786ba09eb776bb18842f2d95e464ffc07cb2c9f3e2a)
+                check_type(argname="argument host_shared_alb", value=host_shared_alb, expected_type=type_hints["host_shared_alb"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "host_shared_alb": host_shared_alb,
+            }
+
+        @builtins.property
+        def host_shared_alb(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.HostSharedAlbConfigurationProperty"]:
+            '''The host shared ALB configuration for the gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayconfiguration.html#cfn-ecs-gateway-gatewayconfiguration-hostsharedalb
+            '''
+            result = self._values.get("host_shared_alb")
+            assert result is not None, "Required property 'host_shared_alb' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.HostSharedAlbConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnGateway.GatewayElbAccessLogConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"destination": "destination"},
+    )
+    class GatewayElbAccessLogConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGateway.GatewayElbAccessLogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The access log configuration for the gateway ALB.
+
+            Access logging is enabled by the presence of a destination.
+
+            :param destination: The destination for gateway ALB access logs. Exactly one destination type must be specified.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayelbaccesslogconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                gateway_elb_access_log_configuration_property = ecs.CfnGateway.GatewayElbAccessLogConfigurationProperty(
+                    destination=ecs.CfnGateway.GatewayElbAccessLogDestinationProperty(
+                        s3=ecs.CfnGateway.GatewayElbAccessLogS3DestinationProperty(
+                            bucket="bucket",
+                
+                            # the properties below are optional
+                            prefix="prefix"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0385b6dd33bc86ccfda02f806aac6f25bc4ee38b64bb0763d28159cd28cb964e)
+                check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if destination is not None:
+                self._values["destination"] = destination
+
+        @builtins.property
+        def destination(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayElbAccessLogDestinationProperty"]]:
+            '''The destination for gateway ALB access logs.
+
+            Exactly one destination type must be specified.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayelbaccesslogconfiguration.html#cfn-ecs-gateway-gatewayelbaccesslogconfiguration-destination
+            '''
+            result = self._values.get("destination")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayElbAccessLogDestinationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayElbAccessLogConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnGateway.GatewayElbAccessLogDestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3": "s3"},
+    )
+    class GatewayElbAccessLogDestinationProperty:
+        def __init__(
+            self,
+            *,
+            s3: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGateway.GatewayElbAccessLogS3DestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The destination for gateway ALB access logs.
+
+            Exactly one destination type must be specified.
+
+            :param s3: The S3 destination for gateway ALB access logs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayelbaccesslogdestination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                gateway_elb_access_log_destination_property = ecs.CfnGateway.GatewayElbAccessLogDestinationProperty(
+                    s3=ecs.CfnGateway.GatewayElbAccessLogS3DestinationProperty(
+                        bucket="bucket",
+                
+                        # the properties below are optional
+                        prefix="prefix"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__719545b70c88a372da047a21e83379f1c955477749bec6af11226e233e6a9a85)
+                check_type(argname="argument s3", value=s3, expected_type=type_hints["s3"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3": s3,
+            }
+
+        @builtins.property
+        def s3(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayElbAccessLogS3DestinationProperty"]:
+            '''The S3 destination for gateway ALB access logs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayelbaccesslogdestination.html#cfn-ecs-gateway-gatewayelbaccesslogdestination-s3
+            '''
+            result = self._values.get("s3")
+            assert result is not None, "Required property 's3' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayElbAccessLogS3DestinationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayElbAccessLogDestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnGateway.GatewayElbAccessLogS3DestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket": "bucket", "prefix": "prefix"},
+    )
+    class GatewayElbAccessLogS3DestinationProperty:
+        def __init__(
+            self,
+            *,
+            bucket: builtins.str,
+            prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The S3 destination for gateway ALB access logs.
+
+            :param bucket: The S3 bucket for access logs.
+            :param prefix: The S3 prefix for access logs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayelbaccesslogs3destination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                gateway_elb_access_log_s3_destination_property = ecs.CfnGateway.GatewayElbAccessLogS3DestinationProperty(
+                    bucket="bucket",
+                
+                    # the properties below are optional
+                    prefix="prefix"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6f82fe4402cbb3bb73c1118b166470f259572396f7ad8400c4384c0c37435bdc)
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket": bucket,
+            }
+            if prefix is not None:
+                self._values["prefix"] = prefix
+
+        @builtins.property
+        def bucket(self) -> builtins.str:
+            '''The S3 bucket for access logs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayelbaccesslogs3destination.html#cfn-ecs-gateway-gatewayelbaccesslogs3destination-bucket
+            '''
+            result = self._values.get("bucket")
+            assert result is not None, "Required property 'bucket' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def prefix(self) -> typing.Optional[builtins.str]:
+            '''The S3 prefix for access logs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayelbaccesslogs3destination.html#cfn-ecs-gateway-gatewayelbaccesslogs3destination-prefix
+            '''
+            result = self._values.get("prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayElbAccessLogS3DestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnGateway.GatewayElbNetworkConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "inbound_security_group": "inboundSecurityGroup",
+            "ip_address_type": "ipAddressType",
+            "subnets": "subnets",
+        },
+    )
+    class GatewayElbNetworkConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            inbound_security_group: typing.Optional[builtins.str] = None,
+            ip_address_type: typing.Optional[builtins.str] = None,
+            subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The network configuration for the gateway ALB.
+
+            :param inbound_security_group: The inbound security group for the ALB.
+            :param ip_address_type: The IP address type for the ALB.
+            :param subnets: The subnets for the ALB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayelbnetworkconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                gateway_elb_network_configuration_property = ecs.CfnGateway.GatewayElbNetworkConfigurationProperty(
+                    inbound_security_group="inboundSecurityGroup",
+                    ip_address_type="ipAddressType",
+                    subnets=["subnets"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0189a09c7fb3e8a108e2cb8e2c8519634386c5356fc622dbfa347d413f2c244a)
+                check_type(argname="argument inbound_security_group", value=inbound_security_group, expected_type=type_hints["inbound_security_group"])
+                check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+                check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if inbound_security_group is not None:
+                self._values["inbound_security_group"] = inbound_security_group
+            if ip_address_type is not None:
+                self._values["ip_address_type"] = ip_address_type
+            if subnets is not None:
+                self._values["subnets"] = subnets
+
+        @builtins.property
+        def inbound_security_group(self) -> typing.Optional[builtins.str]:
+            '''The inbound security group for the ALB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayelbnetworkconfiguration.html#cfn-ecs-gateway-gatewayelbnetworkconfiguration-inboundsecuritygroup
+            '''
+            result = self._values.get("inbound_security_group")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ip_address_type(self) -> typing.Optional[builtins.str]:
+            '''The IP address type for the ALB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayelbnetworkconfiguration.html#cfn-ecs-gateway-gatewayelbnetworkconfiguration-ipaddresstype
+            '''
+            result = self._values.get("ip_address_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def subnets(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The subnets for the ALB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewayelbnetworkconfiguration.html#cfn-ecs-gateway-gatewayelbnetworkconfiguration-subnets
+            '''
+            result = self._values.get("subnets")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayElbNetworkConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnGateway.GatewayTestTrafficHeaderProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "values": "values"},
+    )
+    class GatewayTestTrafficHeaderProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            values: typing.Sequence[builtins.str],
+        ) -> None:
+            '''The header configuration for test traffic routing.
+
+            :param name: The name of the header.
+            :param values: The values for the header.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewaytesttrafficheader.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                gateway_test_traffic_header_property = ecs.CfnGateway.GatewayTestTrafficHeaderProperty(
+                    name="name",
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2322cc4e38bd97181388cccf0dee858c79e210618824e517ba937ec8a01f1ce8)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "values": values,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the header.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewaytesttrafficheader.html#cfn-ecs-gateway-gatewaytesttrafficheader-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def values(self) -> typing.List[builtins.str]:
+            '''The values for the header.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-gatewaytesttrafficheader.html#cfn-ecs-gateway-gatewaytesttrafficheader-values
+            '''
+            result = self._values.get("values")
+            assert result is not None, "Required property 'values' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayTestTrafficHeaderProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnGateway.HostSharedAlbConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "access_logs": "accessLogs",
+            "current_alb_count": "currentAlbCount",
+            "http_desync": "httpDesync",
+            "max_alb_count": "maxAlbCount",
+            "network_configuration": "networkConfiguration",
+            "port": "port",
+            "protocol": "protocol",
+            "scheme": "scheme",
+            "test_traffic_rules": "testTrafficRules",
+            "web_acl_arn": "webAclArn",
+        },
+    )
+    class HostSharedAlbConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            access_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGateway.GatewayElbAccessLogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            current_alb_count: typing.Optional[jsii.Number] = None,
+            http_desync: typing.Optional[builtins.str] = None,
+            max_alb_count: typing.Optional[jsii.Number] = None,
+            network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGateway.GatewayElbNetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            port: typing.Optional[jsii.Number] = None,
+            protocol: typing.Optional[builtins.str] = None,
+            scheme: typing.Optional[builtins.str] = None,
+            test_traffic_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGateway.GatewayAlbTestTrafficRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            web_acl_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The host shared ALB configuration for the gateway.
+
+            :param access_logs: The access log configuration for the gateway ALB. Access logging is enabled by the presence of a destination.
+            :param current_alb_count: The current number of ALBs provisioned for the gateway.
+            :param http_desync: The HTTP desync mitigation mode for the ALB.
+            :param max_alb_count: The maximum number of ALBs to provision for the gateway.
+            :param network_configuration: The network configuration for the gateway ALB.
+            :param port: The port on which the ALB listens.
+            :param protocol: The protocol for the ALB listener.
+            :param scheme: The scheme for the ALB.
+            :param test_traffic_rules: The test traffic rules for the gateway ALB.
+            :param web_acl_arn: The ARN of the WAFv2 web ACL to associate with the ALB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-hostsharedalbconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                host_shared_alb_configuration_property = ecs.CfnGateway.HostSharedAlbConfigurationProperty(
+                    access_logs=ecs.CfnGateway.GatewayElbAccessLogConfigurationProperty(
+                        destination=ecs.CfnGateway.GatewayElbAccessLogDestinationProperty(
+                            s3=ecs.CfnGateway.GatewayElbAccessLogS3DestinationProperty(
+                                bucket="bucket",
+                
+                                # the properties below are optional
+                                prefix="prefix"
+                            )
+                        )
+                    ),
+                    current_alb_count=123,
+                    http_desync="httpDesync",
+                    max_alb_count=123,
+                    network_configuration=ecs.CfnGateway.GatewayElbNetworkConfigurationProperty(
+                        inbound_security_group="inboundSecurityGroup",
+                        ip_address_type="ipAddressType",
+                        subnets=["subnets"]
+                    ),
+                    port=123,
+                    protocol="protocol",
+                    scheme="scheme",
+                    test_traffic_rules=ecs.CfnGateway.GatewayAlbTestTrafficRulesProperty(
+                        header=ecs.CfnGateway.GatewayTestTrafficHeaderProperty(
+                            name="name",
+                            values=["values"]
+                        )
+                    ),
+                    web_acl_arn="webAclArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__eafbd40ad44481183f1186243fba7e052d53db67ea3e5c87d8b47247338d40a1)
+                check_type(argname="argument access_logs", value=access_logs, expected_type=type_hints["access_logs"])
+                check_type(argname="argument current_alb_count", value=current_alb_count, expected_type=type_hints["current_alb_count"])
+                check_type(argname="argument http_desync", value=http_desync, expected_type=type_hints["http_desync"])
+                check_type(argname="argument max_alb_count", value=max_alb_count, expected_type=type_hints["max_alb_count"])
+                check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+                check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+                check_type(argname="argument scheme", value=scheme, expected_type=type_hints["scheme"])
+                check_type(argname="argument test_traffic_rules", value=test_traffic_rules, expected_type=type_hints["test_traffic_rules"])
+                check_type(argname="argument web_acl_arn", value=web_acl_arn, expected_type=type_hints["web_acl_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if access_logs is not None:
+                self._values["access_logs"] = access_logs
+            if current_alb_count is not None:
+                self._values["current_alb_count"] = current_alb_count
+            if http_desync is not None:
+                self._values["http_desync"] = http_desync
+            if max_alb_count is not None:
+                self._values["max_alb_count"] = max_alb_count
+            if network_configuration is not None:
+                self._values["network_configuration"] = network_configuration
+            if port is not None:
+                self._values["port"] = port
+            if protocol is not None:
+                self._values["protocol"] = protocol
+            if scheme is not None:
+                self._values["scheme"] = scheme
+            if test_traffic_rules is not None:
+                self._values["test_traffic_rules"] = test_traffic_rules
+            if web_acl_arn is not None:
+                self._values["web_acl_arn"] = web_acl_arn
+
+        @builtins.property
+        def access_logs(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayElbAccessLogConfigurationProperty"]]:
+            '''The access log configuration for the gateway ALB.
+
+            Access logging is enabled by the presence of a destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-hostsharedalbconfiguration.html#cfn-ecs-gateway-hostsharedalbconfiguration-accesslogs
+            '''
+            result = self._values.get("access_logs")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayElbAccessLogConfigurationProperty"]], result)
+
+        @builtins.property
+        def current_alb_count(self) -> typing.Optional[jsii.Number]:
+            '''The current number of ALBs provisioned for the gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-hostsharedalbconfiguration.html#cfn-ecs-gateway-hostsharedalbconfiguration-currentalbcount
+            '''
+            result = self._values.get("current_alb_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def http_desync(self) -> typing.Optional[builtins.str]:
+            '''The HTTP desync mitigation mode for the ALB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-hostsharedalbconfiguration.html#cfn-ecs-gateway-hostsharedalbconfiguration-httpdesync
+            '''
+            result = self._values.get("http_desync")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def max_alb_count(self) -> typing.Optional[jsii.Number]:
+            '''The maximum number of ALBs to provision for the gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-hostsharedalbconfiguration.html#cfn-ecs-gateway-hostsharedalbconfiguration-maxalbcount
+            '''
+            result = self._values.get("max_alb_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def network_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayElbNetworkConfigurationProperty"]]:
+            '''The network configuration for the gateway ALB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-hostsharedalbconfiguration.html#cfn-ecs-gateway-hostsharedalbconfiguration-networkconfiguration
+            '''
+            result = self._values.get("network_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayElbNetworkConfigurationProperty"]], result)
+
+        @builtins.property
+        def port(self) -> typing.Optional[jsii.Number]:
+            '''The port on which the ALB listens.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-hostsharedalbconfiguration.html#cfn-ecs-gateway-hostsharedalbconfiguration-port
+            '''
+            result = self._values.get("port")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def protocol(self) -> typing.Optional[builtins.str]:
+            '''The protocol for the ALB listener.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-hostsharedalbconfiguration.html#cfn-ecs-gateway-hostsharedalbconfiguration-protocol
+            '''
+            result = self._values.get("protocol")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scheme(self) -> typing.Optional[builtins.str]:
+            '''The scheme for the ALB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-hostsharedalbconfiguration.html#cfn-ecs-gateway-hostsharedalbconfiguration-scheme
+            '''
+            result = self._values.get("scheme")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def test_traffic_rules(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayAlbTestTrafficRulesProperty"]]:
+            '''The test traffic rules for the gateway ALB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-hostsharedalbconfiguration.html#cfn-ecs-gateway-hostsharedalbconfiguration-testtrafficrules
+            '''
+            result = self._values.get("test_traffic_rules")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayAlbTestTrafficRulesProperty"]], result)
+
+        @builtins.property
+        def web_acl_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the WAFv2 web ACL to associate with the ALB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-gateway-hostsharedalbconfiguration.html#cfn-ecs-gateway-hostsharedalbconfiguration-webaclarn
+            '''
+            result = self._values.get("web_acl_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HostSharedAlbConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ecs_143f71cb.IGatewayClusterAssociationsRef)
+class CfnGatewayClusterAssociations(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ecs.CfnGatewayClusterAssociations",
+):
+    '''Resource Type definition for AWS::ECS::GatewayClusterAssociations, which associates an ECS Gateway with an ECS Cluster.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-gatewayclusterassociations.html
+    :cloudformationResource: AWS::ECS::GatewayClusterAssociations
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ecs as ecs
+        
+        cfn_gateway_cluster_associations = ecs.CfnGatewayClusterAssociations(self, "MyCfnGatewayClusterAssociations",
+            cluster="cluster",
+            gateway="gateway"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        cluster: builtins.str,
+        gateway: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::ECS::GatewayClusterAssociations``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param cluster: The name or full Amazon Resource Name (ARN) of the cluster to associate the gateway with.
+        :param gateway: The name or full Amazon Resource Name (ARN) of the gateway to associate with the cluster.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__22744b37c0a9e165d0409b7d3ee48c26606ca46e6a3ececb741044b9810af09c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnGatewayClusterAssociationsProps(cluster=cluster, gateway=gateway)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnGatewayClusterAssociations")
+    @builtins.classmethod
+    def is_cfn_gateway_cluster_associations(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnGatewayClusterAssociations.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4d46cd53aa595cbc13ecc25a3f9739ca3fa4f57d3e711f080e224174bb9ad45b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGatewayClusterAssociations", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e48332805cdf78bbfb32da58f31cda0447dd119251ab007a208ef3980b2b114b)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d4fe41c455c98a80cb605380f168c4c73a66659e7805c4b1555409d6c6f1aeb8)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrClusterArn")
+    def attr_cluster_arn(self) -> builtins.str:
+        '''The full Amazon Resource Name (ARN) of the associated cluster.
+
+        :cloudformationAttribute: ClusterArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrClusterArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGatewayArn")
+    def attr_gateway_arn(self) -> builtins.str:
+        '''The full Amazon Resource Name (ARN) of the associated gateway.
+
+        :cloudformationAttribute: GatewayArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrGatewayArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the association between the gateway and the cluster.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayClusterAssociationsRef")
+    def gateway_cluster_associations_ref(
+        self,
+    ) -> "_aws_ecs_143f71cb.GatewayClusterAssociationsReference":
+        '''A reference to a GatewayClusterAssociations resource.'''
+        return typing.cast("_aws_ecs_143f71cb.GatewayClusterAssociationsReference", jsii.get(self, "gatewayClusterAssociationsRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cluster")
+    def cluster(self) -> builtins.str:
+        '''The name or full Amazon Resource Name (ARN) of the cluster to associate the gateway with.'''
+        return typing.cast(builtins.str, jsii.get(self, "cluster"))
+
+    @cluster.setter
+    def cluster(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fe46ddc1065d82ca6f5b07373874ec4b9547d57dcc29b32159171310dfbb0721)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cluster", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="gateway")
+    def gateway(self) -> builtins.str:
+        '''The name or full Amazon Resource Name (ARN) of the gateway to associate with the cluster.'''
+        return typing.cast(builtins.str, jsii.get(self, "gateway"))
+
+    @gateway.setter
+    def gateway(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6bc5eaa6f9739ef935f4bd470e28d6015b416c2de4a4ecd5953d2a16a473fed5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "gateway", value)
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.CfnGatewayClusterAssociationsProps",
+    jsii_struct_bases=[],
+    name_mapping={"cluster": "cluster", "gateway": "gateway"},
+)
+class CfnGatewayClusterAssociationsProps:
+    def __init__(self, *, cluster: builtins.str, gateway: builtins.str) -> None:
+        '''Properties for defining a ``CfnGatewayClusterAssociations``.
+
+        :param cluster: The name or full Amazon Resource Name (ARN) of the cluster to associate the gateway with.
+        :param gateway: The name or full Amazon Resource Name (ARN) of the gateway to associate with the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-gatewayclusterassociations.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ecs as ecs
+            
+            cfn_gateway_cluster_associations_props = ecs.CfnGatewayClusterAssociationsProps(
+                cluster="cluster",
+                gateway="gateway"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__93e62446d0a7e83938c40db22f9965afb95208e9d39ace91d6baf11c4b0921b3)
+            check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
+            check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster": cluster,
+            "gateway": gateway,
+        }
+
+    @builtins.property
+    def cluster(self) -> builtins.str:
+        '''The name or full Amazon Resource Name (ARN) of the cluster to associate the gateway with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-gatewayclusterassociations.html#cfn-ecs-gatewayclusterassociations-cluster
+        '''
+        result = self._values.get("cluster")
+        assert result is not None, "Required property 'cluster' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def gateway(self) -> builtins.str:
+        '''The name or full Amazon Resource Name (ARN) of the gateway to associate with the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-gatewayclusterassociations.html#cfn-ecs-gatewayclusterassociations-gateway
+        '''
+        result = self._values.get("gateway")
+        assert result is not None, "Required property 'gateway' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGatewayClusterAssociationsProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.CfnGatewayProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration": "configuration",
+        "gateway_name": "gatewayName",
+        "infrastructure_role_arn": "infrastructureRoleArn",
+        "deletion_protection": "deletionProtection",
+        "propagate_tags": "propagateTags",
+        "tags": "tags",
+    },
+)
+class CfnGatewayProps:
+    def __init__(
+        self,
+        *,
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGateway.GatewayConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        gateway_name: builtins.str,
+        infrastructure_role_arn: builtins.str,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        propagate_tags: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGateway``.
+
+        :param configuration: The configuration for the gateway. Currently only supports hostSharedAlb.
+        :param gateway_name: The name of the gateway. Up to 255 letters (uppercase and lowercase), numbers, and hyphens are allowed.
+        :param infrastructure_role_arn: The ARN of the IAM role that ECS uses to manage infrastructure for the gateway.
+        :param deletion_protection: Whether deletion protection is enabled for the gateway. Default: - true
+        :param propagate_tags: Specifies whether to propagate the tags from the gateway to other resources.
+        :param tags: The metadata that you apply to the gateway to help you categorize and organize them.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-gateway.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ecs as ecs
+            
+            cfn_gateway_props = ecs.CfnGatewayProps(
+                configuration=ecs.CfnGateway.GatewayConfigurationProperty(
+                    host_shared_alb=ecs.CfnGateway.HostSharedAlbConfigurationProperty(
+                        access_logs=ecs.CfnGateway.GatewayElbAccessLogConfigurationProperty(
+                            destination=ecs.CfnGateway.GatewayElbAccessLogDestinationProperty(
+                                s3=ecs.CfnGateway.GatewayElbAccessLogS3DestinationProperty(
+                                    bucket="bucket",
+            
+                                    # the properties below are optional
+                                    prefix="prefix"
+                                )
+                            )
+                        ),
+                        current_alb_count=123,
+                        http_desync="httpDesync",
+                        max_alb_count=123,
+                        network_configuration=ecs.CfnGateway.GatewayElbNetworkConfigurationProperty(
+                            inbound_security_group="inboundSecurityGroup",
+                            ip_address_type="ipAddressType",
+                            subnets=["subnets"]
+                        ),
+                        port=123,
+                        protocol="protocol",
+                        scheme="scheme",
+                        test_traffic_rules=ecs.CfnGateway.GatewayAlbTestTrafficRulesProperty(
+                            header=ecs.CfnGateway.GatewayTestTrafficHeaderProperty(
+                                name="name",
+                                values=["values"]
+                            )
+                        ),
+                        web_acl_arn="webAclArn"
+                    )
+                ),
+                gateway_name="gatewayName",
+                infrastructure_role_arn="infrastructureRoleArn",
+            
+                # the properties below are optional
+                deletion_protection=False,
+                propagate_tags="propagateTags",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0eff6d3af85bb8874734920cdc154a9d51360d2259d1bb0d018cdcb78259b9bf)
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument gateway_name", value=gateway_name, expected_type=type_hints["gateway_name"])
+            check_type(argname="argument infrastructure_role_arn", value=infrastructure_role_arn, expected_type=type_hints["infrastructure_role_arn"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
+            check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration": configuration,
+            "gateway_name": gateway_name,
+            "infrastructure_role_arn": infrastructure_role_arn,
+        }
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
+        if propagate_tags is not None:
+            self._values["propagate_tags"] = propagate_tags
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayConfigurationProperty"]:
+        '''The configuration for the gateway.
+
+        Currently only supports hostSharedAlb.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-gateway.html#cfn-ecs-gateway-configuration
+        '''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGateway.GatewayConfigurationProperty"], result)
+
+    @builtins.property
+    def gateway_name(self) -> builtins.str:
+        '''The name of the gateway.
+
+        Up to 255 letters (uppercase and lowercase), numbers, and hyphens are allowed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-gateway.html#cfn-ecs-gateway-gatewayname
+        '''
+        result = self._values.get("gateway_name")
+        assert result is not None, "Required property 'gateway_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def infrastructure_role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role that ECS uses to manage infrastructure for the gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-gateway.html#cfn-ecs-gateway-infrastructurerolearn
+        '''
+        result = self._values.get("infrastructure_role_arn")
+        assert result is not None, "Required property 'infrastructure_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def deletion_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether deletion protection is enabled for the gateway.
+
+        :default: - true
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-gateway.html#cfn-ecs-gateway-deletionprotection
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def propagate_tags(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether to propagate the tags from the gateway to other resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-gateway.html#cfn-ecs-gateway-propagatetags
+        '''
+        result = self._values.get("propagate_tags")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The metadata that you apply to the gateway to help you categorize and organize them.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-gateway.html#cfn-ecs-gateway-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGatewayProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ecs_143f71cb.IPrimaryTaskSetRef)
 class CfnPrimaryTaskSet(
     _aws_cdk_0cae9daa.CfnResource,
@@ -18530,6 +20114,7 @@ class CfnService(
         enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         enable_execute_command: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         force_new_deployment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ForceNewDeploymentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        gateway_connectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.GatewayConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         health_check_grace_period_seconds: typing.Optional[jsii.Number] = None,
         launch_type: typing.Optional[builtins.str] = None,
         load_balancers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.LoadBalancerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -18562,6 +20147,7 @@ class CfnService(
         :param enable_ecs_managed_tags: Specifies whether to turn on Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging your Amazon ECS resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ in the *Amazon Elastic Container Service Developer Guide* . When you use Amazon ECS managed tags, you must set the ``propagateTags`` request parameter.
         :param enable_execute_command: Determines whether the execute command functionality is turned on for the service. If ``true`` , the execute command functionality is turned on for all containers in tasks as part of the service.
         :param force_new_deployment: Determines whether to force a new deployment of the service. By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination ( ``my_image:latest`` ) or to roll Fargate tasks onto a newer platform version.
+        :param gateway_connectors: 
         :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing, VPC Lattice, and container health checks after a task has first started. If you do not specify a health check grace period value, the default value of 0 is used. If you do not use any of the health checks, then ``healthCheckGracePeriodSeconds`` is unused. If your service has more running tasks than desired, unhealthy tasks in the grace period might be stopped to reach the desired count.
         :param launch_type: The launch type on which to run your service. For more information, see `Amazon ECS Launch Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_types.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: If you want to use Managed Instances, you must use the ``capacityProviderStrategy`` request parameter
         :param load_balancers: A list of load balancer objects to associate with the service. If you specify the ``Role`` property, ``LoadBalancers`` must be specified as well. For information about the number of load balancers that you can specify per service, see `Service Load Balancing <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-load-balancing.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: To remove this property from your service resource, specify an empty ``LoadBalancer`` array.
@@ -18595,6 +20181,7 @@ class CfnService(
             enable_ecs_managed_tags=enable_ecs_managed_tags,
             enable_execute_command=enable_execute_command,
             force_new_deployment=force_new_deployment,
+            gateway_connectors=gateway_connectors,
             health_check_grace_period_seconds=health_check_grace_period_seconds,
             launch_type=launch_type,
             load_balancers=load_balancers,
@@ -18862,6 +20449,23 @@ class CfnService(
             type_hints = cached_type_hints(_typecheckingstub__30697d792a144902af8d5ce8bec3db2e9ebb612ed4d71a72a5ee98dcace27fce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "forceNewDeployment", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayConnectors")
+    def gateway_connectors(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorProperty"]]]], jsii.get(self, "gatewayConnectors"))
+
+    @gateway_connectors.setter
+    def gateway_connectors(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fa690bbdda772ee94e4264f1d4e5547b701d05b470015fb166417dde65de2106)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "gatewayConnectors", value)
 
     @builtins.property
     @jsii.member(jsii_name="healthCheckGracePeriodSeconds")
@@ -20722,6 +22326,397 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.GatewayConnectorFiltersProperty",
+        jsii_struct_bases=[],
+        name_mapping={"access_types": "accessTypes"},
+    )
+    class GatewayConnectorFiltersProperty:
+        def __init__(
+            self,
+            *,
+            access_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param access_types: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorfilters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                gateway_connector_filters_property = ecs.CfnService.GatewayConnectorFiltersProperty(
+                    access_types=["accessTypes"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8b6fe6bab0a7348e6261ea610775390b4501a29876d62a8b9946aebf2b904ca4)
+                check_type(argname="argument access_types", value=access_types, expected_type=type_hints["access_types"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if access_types is not None:
+                self._values["access_types"] = access_types
+
+        @builtins.property
+        def access_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorfilters.html#cfn-ecs-service-gatewayconnectorfilters-accesstypes
+            '''
+            result = self._values.get("access_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayConnectorFiltersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.GatewayConnectorHealthCheckMatcherProperty",
+        jsii_struct_bases=[],
+        name_mapping={"grpc_code": "grpcCode", "http_code": "httpCode"},
+    )
+    class GatewayConnectorHealthCheckMatcherProperty:
+        def __init__(
+            self,
+            *,
+            grpc_code: typing.Optional[builtins.str] = None,
+            http_code: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param grpc_code: 
+            :param http_code: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorhealthcheckmatcher.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                gateway_connector_health_check_matcher_property = ecs.CfnService.GatewayConnectorHealthCheckMatcherProperty(
+                    grpc_code="grpcCode",
+                    http_code="httpCode"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8f90030c738b9a596eec53d133808f179de0d4e0297570a38ef4fbe847a28679)
+                check_type(argname="argument grpc_code", value=grpc_code, expected_type=type_hints["grpc_code"])
+                check_type(argname="argument http_code", value=http_code, expected_type=type_hints["http_code"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if grpc_code is not None:
+                self._values["grpc_code"] = grpc_code
+            if http_code is not None:
+                self._values["http_code"] = http_code
+
+        @builtins.property
+        def grpc_code(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorhealthcheckmatcher.html#cfn-ecs-service-gatewayconnectorhealthcheckmatcher-grpccode
+            '''
+            result = self._values.get("grpc_code")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def http_code(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorhealthcheckmatcher.html#cfn-ecs-service-gatewayconnectorhealthcheckmatcher-httpcode
+            '''
+            result = self._values.get("http_code")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayConnectorHealthCheckMatcherProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.GatewayConnectorHealthCheckProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "health_check_interval_seconds": "healthCheckIntervalSeconds",
+            "health_check_path": "healthCheckPath",
+            "health_check_port": "healthCheckPort",
+            "health_check_protocol": "healthCheckProtocol",
+            "health_check_timeout_seconds": "healthCheckTimeoutSeconds",
+            "healthy_threshold_count": "healthyThresholdCount",
+            "matcher": "matcher",
+            "unhealthy_threshold_count": "unhealthyThresholdCount",
+        },
+    )
+    class GatewayConnectorHealthCheckProperty:
+        def __init__(
+            self,
+            *,
+            health_check_interval_seconds: typing.Optional[jsii.Number] = None,
+            health_check_path: typing.Optional[builtins.str] = None,
+            health_check_port: typing.Optional[jsii.Number] = None,
+            health_check_protocol: typing.Optional[builtins.str] = None,
+            health_check_timeout_seconds: typing.Optional[jsii.Number] = None,
+            healthy_threshold_count: typing.Optional[jsii.Number] = None,
+            matcher: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.GatewayConnectorHealthCheckMatcherProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param health_check_interval_seconds: 
+            :param health_check_path: 
+            :param health_check_port: 
+            :param health_check_protocol: 
+            :param health_check_timeout_seconds: 
+            :param healthy_threshold_count: 
+            :param matcher: 
+            :param unhealthy_threshold_count: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorhealthcheck.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                gateway_connector_health_check_property = ecs.CfnService.GatewayConnectorHealthCheckProperty(
+                    health_check_interval_seconds=123,
+                    health_check_path="healthCheckPath",
+                    health_check_port=123,
+                    health_check_protocol="healthCheckProtocol",
+                    health_check_timeout_seconds=123,
+                    healthy_threshold_count=123,
+                    matcher=ecs.CfnService.GatewayConnectorHealthCheckMatcherProperty(
+                        grpc_code="grpcCode",
+                        http_code="httpCode"
+                    ),
+                    unhealthy_threshold_count=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d52e9f7de3845d7a57ea89cc61068bc8a952ae221c82e86bb5305faeda695e9a)
+                check_type(argname="argument health_check_interval_seconds", value=health_check_interval_seconds, expected_type=type_hints["health_check_interval_seconds"])
+                check_type(argname="argument health_check_path", value=health_check_path, expected_type=type_hints["health_check_path"])
+                check_type(argname="argument health_check_port", value=health_check_port, expected_type=type_hints["health_check_port"])
+                check_type(argname="argument health_check_protocol", value=health_check_protocol, expected_type=type_hints["health_check_protocol"])
+                check_type(argname="argument health_check_timeout_seconds", value=health_check_timeout_seconds, expected_type=type_hints["health_check_timeout_seconds"])
+                check_type(argname="argument healthy_threshold_count", value=healthy_threshold_count, expected_type=type_hints["healthy_threshold_count"])
+                check_type(argname="argument matcher", value=matcher, expected_type=type_hints["matcher"])
+                check_type(argname="argument unhealthy_threshold_count", value=unhealthy_threshold_count, expected_type=type_hints["unhealthy_threshold_count"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if health_check_interval_seconds is not None:
+                self._values["health_check_interval_seconds"] = health_check_interval_seconds
+            if health_check_path is not None:
+                self._values["health_check_path"] = health_check_path
+            if health_check_port is not None:
+                self._values["health_check_port"] = health_check_port
+            if health_check_protocol is not None:
+                self._values["health_check_protocol"] = health_check_protocol
+            if health_check_timeout_seconds is not None:
+                self._values["health_check_timeout_seconds"] = health_check_timeout_seconds
+            if healthy_threshold_count is not None:
+                self._values["healthy_threshold_count"] = healthy_threshold_count
+            if matcher is not None:
+                self._values["matcher"] = matcher
+            if unhealthy_threshold_count is not None:
+                self._values["unhealthy_threshold_count"] = unhealthy_threshold_count
+
+        @builtins.property
+        def health_check_interval_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorhealthcheck.html#cfn-ecs-service-gatewayconnectorhealthcheck-healthcheckintervalseconds
+            '''
+            result = self._values.get("health_check_interval_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def health_check_path(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorhealthcheck.html#cfn-ecs-service-gatewayconnectorhealthcheck-healthcheckpath
+            '''
+            result = self._values.get("health_check_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def health_check_port(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorhealthcheck.html#cfn-ecs-service-gatewayconnectorhealthcheck-healthcheckport
+            '''
+            result = self._values.get("health_check_port")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def health_check_protocol(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorhealthcheck.html#cfn-ecs-service-gatewayconnectorhealthcheck-healthcheckprotocol
+            '''
+            result = self._values.get("health_check_protocol")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def health_check_timeout_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorhealthcheck.html#cfn-ecs-service-gatewayconnectorhealthcheck-healthchecktimeoutseconds
+            '''
+            result = self._values.get("health_check_timeout_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def healthy_threshold_count(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorhealthcheck.html#cfn-ecs-service-gatewayconnectorhealthcheck-healthythresholdcount
+            '''
+            result = self._values.get("healthy_threshold_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def matcher(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorHealthCheckMatcherProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorhealthcheck.html#cfn-ecs-service-gatewayconnectorhealthcheck-matcher
+            '''
+            result = self._values.get("matcher")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorHealthCheckMatcherProperty"]], result)
+
+        @builtins.property
+        def unhealthy_threshold_count(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorhealthcheck.html#cfn-ecs-service-gatewayconnectorhealthcheck-unhealthythresholdcount
+            '''
+            result = self._values.get("unhealthy_threshold_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayConnectorHealthCheckProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.GatewayConnectorProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "port_name": "portName",
+            "filters": "filters",
+            "health_check": "healthCheck",
+        },
+    )
+    class GatewayConnectorProperty:
+        def __init__(
+            self,
+            *,
+            port_name: builtins.str,
+            filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.GatewayConnectorFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            health_check: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.GatewayConnectorHealthCheckProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param port_name: 
+            :param filters: 
+            :param health_check: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnector.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                gateway_connector_property = ecs.CfnService.GatewayConnectorProperty(
+                    port_name="portName",
+                
+                    # the properties below are optional
+                    filters=ecs.CfnService.GatewayConnectorFiltersProperty(
+                        access_types=["accessTypes"]
+                    ),
+                    health_check=ecs.CfnService.GatewayConnectorHealthCheckProperty(
+                        health_check_interval_seconds=123,
+                        health_check_path="healthCheckPath",
+                        health_check_port=123,
+                        health_check_protocol="healthCheckProtocol",
+                        health_check_timeout_seconds=123,
+                        healthy_threshold_count=123,
+                        matcher=ecs.CfnService.GatewayConnectorHealthCheckMatcherProperty(
+                            grpc_code="grpcCode",
+                            http_code="httpCode"
+                        ),
+                        unhealthy_threshold_count=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ea2110af72c25ecdbf3012286df45a1018491b7c2d7af26bd7924b7e73f8d5ac)
+                check_type(argname="argument port_name", value=port_name, expected_type=type_hints["port_name"])
+                check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
+                check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "port_name": port_name,
+            }
+            if filters is not None:
+                self._values["filters"] = filters
+            if health_check is not None:
+                self._values["health_check"] = health_check
+
+        @builtins.property
+        def port_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnector.html#cfn-ecs-service-gatewayconnector-portname
+            '''
+            result = self._values.get("port_name")
+            assert result is not None, "Required property 'port_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def filters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorFiltersProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnector.html#cfn-ecs-service-gatewayconnector-filters
+            '''
+            result = self._values.get("filters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorFiltersProperty"]], result)
+
+        @builtins.property
+        def health_check(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorHealthCheckProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnector.html#cfn-ecs-service-gatewayconnector-healthcheck
+            '''
+            result = self._values.get("health_check")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorHealthCheckProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayConnectorProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnService.HookTimeoutConfigProperty",
         jsii_struct_bases=[],
         name_mapping={"action": "action", "timeout_in_minutes": "timeoutInMinutes"},
@@ -21906,6 +23901,7 @@ class CfnService(
         name_mapping={
             "enabled": "enabled",
             "access_log_configuration": "accessLogConfiguration",
+            "container_configurations": "containerConfigurations",
             "log_configuration": "logConfiguration",
             "namespace": "namespace",
             "services": "services",
@@ -21917,6 +23913,7 @@ class CfnService(
             *,
             enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             access_log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ServiceConnectAccessLogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            container_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ServiceConnectContainerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             namespace: typing.Optional[builtins.str] = None,
             services: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ServiceConnectServiceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -21929,6 +23926,7 @@ class CfnService(
 
             :param enabled: Specifies whether to use Service Connect with this service.
             :param access_log_configuration: The configuration for Service Connect access logging. Access logs capture detailed information about requests made to your service, including request patterns, response codes, and timing data. They can be useful for debugging connectivity issues, monitoring service performance, and auditing service-to-service communication for security and compliance purposes. .. epigraph:: To enable access logs, you must also specify a ``logConfiguration`` in the ``serviceConnectConfiguration`` .
+            :param container_configurations: 
             :param log_configuration: The log configuration for the container. This parameter maps to ``LogConfig`` in the docker container create command and the ``--log-driver`` option to docker run. By default, containers use the same logging driver that the Docker daemon uses. However, the container might use a different logging driver than the Docker daemon by specifying a log driver configuration in the container definition. Understand the following when specifying a log configuration for your containers. - Amazon ECS currently supports a subset of the logging drivers available to the Docker daemon. Additional log drivers may be available in future releases of the Amazon ECS container agent. For tasks on AWS Fargate , the supported log drivers are ``awslogs`` , ``splunk`` , and ``awsfirelens`` . For tasks hosted on Amazon EC2 instances, the supported log drivers are ``awslogs`` , ``fluentd`` , ``gelf`` , ``json-file`` , ``journald`` , ``syslog`` , ``splunk`` , and ``awsfirelens`` . - This parameter requires version 1.18 of the Docker Remote API or greater on your container instance. - For tasks that are hosted on Amazon EC2 instances, the Amazon ECS container agent must register the available logging drivers with the ``ECS_AVAILABLE_LOGGING_DRIVERS`` environment variable before containers placed on that instance can use these log configuration options. For more information, see `Amazon ECS container agent configuration <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html>`_ in the *Amazon Elastic Container Service Developer Guide* . - For tasks that are on AWS Fargate , because you don't have access to the underlying infrastructure your tasks are hosted on, any additional software needed must be installed outside of the task. For example, the Fluentd output aggregators or a remote host running Logstash to send Gelf logs to.
             :param namespace: The namespace name or full Amazon Resource Name (ARN) of the AWS Cloud Map namespace for use with Service Connect. The namespace must be in the same AWS Region as the Amazon ECS service and cluster. The type of namespace doesn't affect Service Connect. For more information about AWS Cloud Map , see `Working with Services <https://docs.aws.amazon.com/cloud-map/latest/dg/working-with-services.html>`_ in the *AWS Cloud Map Developer Guide* .
             :param services: The list of Service Connect service objects. These are names and aliases (also known as endpoints) that are used by other Amazon ECS services to connect to this service. This field is not required for a "client" Amazon ECS service that's a member of a namespace only to connect to other services within the namespace. An example of this would be a frontend application that accepts incoming requests from either a load balancer that's attached to the service or by other means. An object selects a port from the task definition, assigns a name for the AWS Cloud Map service, and a list of aliases (endpoints) and ports for client applications to refer to this service.
@@ -21952,6 +23950,9 @@ class CfnService(
                         # the properties below are optional
                         include_query_parameters="includeQueryParameters"
                     ),
+                    container_configurations=[ecs.CfnService.ServiceConnectContainerConfigurationProperty(
+                        log_level="logLevel"
+                    )],
                     log_configuration=ecs.CfnService.LogConfigurationProperty(
                         log_driver="logDriver",
                         options={
@@ -22005,6 +24006,7 @@ class CfnService(
                 type_hints = cached_type_hints(_typecheckingstub__8da75c12a30b7fe7fd27e23d778d5a095611ed616a9d92b56881eb771db7ab84)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument access_log_configuration", value=access_log_configuration, expected_type=type_hints["access_log_configuration"])
+                check_type(argname="argument container_configurations", value=container_configurations, expected_type=type_hints["container_configurations"])
                 check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
                 check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
                 check_type(argname="argument services", value=services, expected_type=type_hints["services"])
@@ -22013,6 +24015,8 @@ class CfnService(
             }
             if access_log_configuration is not None:
                 self._values["access_log_configuration"] = access_log_configuration
+            if container_configurations is not None:
+                self._values["container_configurations"] = container_configurations
             if log_configuration is not None:
                 self._values["log_configuration"] = log_configuration
             if namespace is not None:
@@ -22047,6 +24051,16 @@ class CfnService(
             '''
             result = self._values.get("access_log_configuration")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ServiceConnectAccessLogConfigurationProperty"]], result)
+
+        @builtins.property
+        def container_configurations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ServiceConnectContainerConfigurationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnectconfiguration.html#cfn-ecs-service-serviceconnectconfiguration-containerconfigurations
+            '''
+            result = self._values.get("container_configurations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ServiceConnectContainerConfigurationProperty"]]]], result)
 
         @builtins.property
         def log_configuration(
@@ -22111,6 +24125,55 @@ class CfnService(
 
         def __repr__(self) -> str:
             return "ServiceConnectConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.ServiceConnectContainerConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"log_level": "logLevel"},
+    )
+    class ServiceConnectContainerConfigurationProperty:
+        def __init__(self, *, log_level: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param log_level: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnectcontainerconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                service_connect_container_configuration_property = ecs.CfnService.ServiceConnectContainerConfigurationProperty(
+                    log_level="logLevel"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e2a78e5a917c4754d1a8dce04d1fbd75b1393514d0e556f28303a33d2527d6b6)
+                check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if log_level is not None:
+                self._values["log_level"] = log_level
+
+        @builtins.property
+        def log_level(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnectcontainerconfiguration.html#cfn-ecs-service-serviceconnectcontainerconfiguration-loglevel
+            '''
+            result = self._values.get("log_level")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceConnectContainerConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -23346,10 +25409,13 @@ class CfnService(
             production_listener_rule: typing.Optional[builtins.str] = None,
             test_listener_rule: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param alternate_target_group_arn: 
-            :param production_listener_rule: 
-            :param test_listener_rule: 
+            '''The advanced settings for VPC Lattice used in blue/green deployments.
+
+            Specify the alternate target group and listener rules required for traffic shifting during blue/green deployments. For more information, see `Required resources for Amazon ECS blue/green deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/blue-green-deployment-implementation.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+
+            :param alternate_target_group_arn: The Amazon Resource Name (ARN) of the alternate target group associated with the VPC Lattice Configuration for Amazon ECS blue/green deployments.
+            :param production_listener_rule: The Amazon Resource Name (ARN) that identifies the production listener rule or listener for routing production traffic.
+            :param test_listener_rule: The Amazon Resource Name (ARN) that identifies the test listener rule or listener for routing test traffic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeadvancedconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -23381,7 +25447,8 @@ class CfnService(
 
         @builtins.property
         def alternate_target_group_arn(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The Amazon Resource Name (ARN) of the alternate target group associated with the VPC Lattice Configuration for Amazon ECS blue/green deployments.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeadvancedconfiguration.html#cfn-ecs-service-vpclatticeadvancedconfiguration-alternatetargetgrouparn
             '''
             result = self._values.get("alternate_target_group_arn")
@@ -23389,7 +25456,8 @@ class CfnService(
 
         @builtins.property
         def production_listener_rule(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The Amazon Resource Name (ARN) that identifies the production listener rule or listener for routing production traffic.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeadvancedconfiguration.html#cfn-ecs-service-vpclatticeadvancedconfiguration-productionlistenerrule
             '''
             result = self._values.get("production_listener_rule")
@@ -23397,7 +25465,8 @@ class CfnService(
 
         @builtins.property
         def test_listener_rule(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The Amazon Resource Name (ARN) that identifies the test listener rule or listener for routing test traffic.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeadvancedconfiguration.html#cfn-ecs-service-vpclatticeadvancedconfiguration-testlistenerrule
             '''
             result = self._values.get("test_listener_rule")
@@ -23438,7 +25507,7 @@ class CfnService(
             :param port_name: The name of the port mapping to register in the VPC Lattice target group. This is the name of the ``portMapping`` you defined in your task definition.
             :param role_arn: The ARN of the IAM role to associate with this VPC Lattice configuration. This is the Amazon ECS infrastructure IAM role that is used to manage your VPC Lattice infrastructure.
             :param target_group_arn: The full Amazon Resource Name (ARN) of the target group or groups associated with the VPC Lattice configuration that the Amazon ECS tasks will be registered to.
-            :param advanced_configuration: 
+            :param advanced_configuration: The advanced settings for VPC Lattice used in blue/green deployments. Specify the alternate target group and listener rules required for traffic shifting during blue/green deployments. For more information, see `Required resources for Amazon ECS blue/green deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/blue-green-deployment-implementation.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -23514,7 +25583,10 @@ class CfnService(
         def advanced_configuration(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.VpcLatticeAdvancedConfigurationProperty"]]:
-            '''
+            '''The advanced settings for VPC Lattice used in blue/green deployments.
+
+            Specify the alternate target group and listener rules required for traffic shifting during blue/green deployments. For more information, see `Required resources for Amazon ECS blue/green deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/blue-green-deployment-implementation.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeconfiguration.html#cfn-ecs-service-vpclatticeconfiguration-advancedconfiguration
             '''
             result = self._values.get("advanced_configuration")
@@ -23545,6 +25617,7 @@ class CfnService(
         "enable_ecs_managed_tags": "enableEcsManagedTags",
         "enable_execute_command": "enableExecuteCommand",
         "force_new_deployment": "forceNewDeployment",
+        "gateway_connectors": "gatewayConnectors",
         "health_check_grace_period_seconds": "healthCheckGracePeriodSeconds",
         "launch_type": "launchType",
         "load_balancers": "loadBalancers",
@@ -23578,6 +25651,7 @@ class CfnServiceProps:
         enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         enable_execute_command: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         force_new_deployment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ForceNewDeploymentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        gateway_connectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.GatewayConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         health_check_grace_period_seconds: typing.Optional[jsii.Number] = None,
         launch_type: typing.Optional[builtins.str] = None,
         load_balancers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.LoadBalancerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -23608,6 +25682,7 @@ class CfnServiceProps:
         :param enable_ecs_managed_tags: Specifies whether to turn on Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging your Amazon ECS resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ in the *Amazon Elastic Container Service Developer Guide* . When you use Amazon ECS managed tags, you must set the ``propagateTags`` request parameter.
         :param enable_execute_command: Determines whether the execute command functionality is turned on for the service. If ``true`` , the execute command functionality is turned on for all containers in tasks as part of the service.
         :param force_new_deployment: Determines whether to force a new deployment of the service. By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination ( ``my_image:latest`` ) or to roll Fargate tasks onto a newer platform version.
+        :param gateway_connectors: 
         :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing, VPC Lattice, and container health checks after a task has first started. If you do not specify a health check grace period value, the default value of 0 is used. If you do not use any of the health checks, then ``healthCheckGracePeriodSeconds`` is unused. If your service has more running tasks than desired, unhealthy tasks in the grace period might be stopped to reach the desired count.
         :param launch_type: The launch type on which to run your service. For more information, see `Amazon ECS Launch Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_types.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: If you want to use Managed Instances, you must use the ``capacityProviderStrategy`` request parameter
         :param load_balancers: A list of load balancer objects to associate with the service. If you specify the ``Role`` property, ``LoadBalancers`` must be specified as well. For information about the number of load balancers that you can specify per service, see `Service Load Balancing <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-load-balancing.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: To remove this property from your service resource, specify an empty ``LoadBalancer`` array.
@@ -23707,6 +25782,27 @@ class CfnServiceProps:
                     # the properties below are optional
                     force_new_deployment_nonce="forceNewDeploymentNonce"
                 ),
+                gateway_connectors=[ecs.CfnService.GatewayConnectorProperty(
+                    port_name="portName",
+            
+                    # the properties below are optional
+                    filters=ecs.CfnService.GatewayConnectorFiltersProperty(
+                        access_types=["accessTypes"]
+                    ),
+                    health_check=ecs.CfnService.GatewayConnectorHealthCheckProperty(
+                        health_check_interval_seconds=123,
+                        health_check_path="healthCheckPath",
+                        health_check_port=123,
+                        health_check_protocol="healthCheckProtocol",
+                        health_check_timeout_seconds=123,
+                        healthy_threshold_count=123,
+                        matcher=ecs.CfnService.GatewayConnectorHealthCheckMatcherProperty(
+                            grpc_code="grpcCode",
+                            http_code="httpCode"
+                        ),
+                        unhealthy_threshold_count=123
+                    )
+                )],
                 health_check_grace_period_seconds=123,
                 launch_type="launchType",
                 load_balancers=[ecs.CfnService.LoadBalancerProperty(
@@ -23762,6 +25858,9 @@ class CfnServiceProps:
                         # the properties below are optional
                         include_query_parameters="includeQueryParameters"
                     ),
+                    container_configurations=[ecs.CfnService.ServiceConnectContainerConfigurationProperty(
+                        log_level="logLevel"
+                    )],
                     log_configuration=ecs.CfnService.LogConfigurationProperty(
                         log_driver="logDriver",
                         options={
@@ -23876,6 +25975,7 @@ class CfnServiceProps:
             check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
             check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
             check_type(argname="argument force_new_deployment", value=force_new_deployment, expected_type=type_hints["force_new_deployment"])
+            check_type(argname="argument gateway_connectors", value=gateway_connectors, expected_type=type_hints["gateway_connectors"])
             check_type(argname="argument health_check_grace_period_seconds", value=health_check_grace_period_seconds, expected_type=type_hints["health_check_grace_period_seconds"])
             check_type(argname="argument launch_type", value=launch_type, expected_type=type_hints["launch_type"])
             check_type(argname="argument load_balancers", value=load_balancers, expected_type=type_hints["load_balancers"])
@@ -23913,6 +26013,8 @@ class CfnServiceProps:
             self._values["enable_execute_command"] = enable_execute_command
         if force_new_deployment is not None:
             self._values["force_new_deployment"] = force_new_deployment
+        if gateway_connectors is not None:
+            self._values["gateway_connectors"] = gateway_connectors
         if health_check_grace_period_seconds is not None:
             self._values["health_check_grace_period_seconds"] = health_check_grace_period_seconds
         if launch_type is not None:
@@ -24074,6 +26176,16 @@ class CfnServiceProps:
         '''
         result = self._values.get("force_new_deployment")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ForceNewDeploymentProperty"]], result)
+
+    @builtins.property
+    def gateway_connectors(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-service.html#cfn-ecs-service-gatewayconnectors
+        '''
+        result = self._values.get("gateway_connectors")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorProperty"]]]], result)
 
     @builtins.property
     def health_check_grace_period_seconds(self) -> typing.Optional[jsii.Number]:
@@ -24495,6 +26607,16 @@ class CfnTaskDefinition(
                 ),
                 resource_requirements=[ecs.CfnTaskDefinition.ResourceRequirementProperty(
                     type="type",
+        
+                    # the properties below are optional
+                    sharing_strategy=ecs.CfnTaskDefinition.SharingStrategyProperty(
+                        nvidia_mps=ecs.CfnTaskDefinition.NvidiaMpsAllocationProperty(
+                            memory=123,
+        
+                            # the properties below are optional
+                            max_compute_percent=123
+                        )
+                    ),
                     value="value"
                 )],
                 restart_policy=ecs.CfnTaskDefinition.RestartPolicyProperty(
@@ -25394,6 +27516,16 @@ class CfnTaskDefinition(
                     ),
                     resource_requirements=[ecs.CfnTaskDefinition.ResourceRequirementProperty(
                         type="type",
+                
+                        # the properties below are optional
+                        sharing_strategy=ecs.CfnTaskDefinition.SharingStrategyProperty(
+                            nvidia_mps=ecs.CfnTaskDefinition.NvidiaMpsAllocationProperty(
+                                memory=123,
+                
+                                # the properties below are optional
+                                max_compute_percent=123
+                            )
+                        ),
                         value="value"
                     )],
                     restart_policy=ecs.CfnTaskDefinition.RestartPolicyProperty(
@@ -28153,6 +30285,78 @@ class CfnTaskDefinition(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnTaskDefinition.NvidiaMpsAllocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"memory": "memory", "max_compute_percent": "maxComputePercent"},
+    )
+    class NvidiaMpsAllocationProperty:
+        def __init__(
+            self,
+            *,
+            memory: jsii.Number,
+            max_compute_percent: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param memory: The amount of GPU memory, in MiB, allocated to the container.
+            :param max_compute_percent: The maximum percentage of the GPU's compute capacity that the container can use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-nvidiampsallocation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                nvidia_mps_allocation_property = ecs.CfnTaskDefinition.NvidiaMpsAllocationProperty(
+                    memory=123,
+                
+                    # the properties below are optional
+                    max_compute_percent=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ae83fa0affc53c365a9e50740764a01a9a82e64ce6ddb83a9aec51f6b19641f2)
+                check_type(argname="argument memory", value=memory, expected_type=type_hints["memory"])
+                check_type(argname="argument max_compute_percent", value=max_compute_percent, expected_type=type_hints["max_compute_percent"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "memory": memory,
+            }
+            if max_compute_percent is not None:
+                self._values["max_compute_percent"] = max_compute_percent
+
+        @builtins.property
+        def memory(self) -> jsii.Number:
+            '''The amount of GPU memory, in MiB, allocated to the container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-nvidiampsallocation.html#cfn-ecs-taskdefinition-nvidiampsallocation-memory
+            '''
+            result = self._values.get("memory")
+            assert result is not None, "Required property 'memory' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def max_compute_percent(self) -> typing.Optional[jsii.Number]:
+            '''The maximum percentage of the GPU's compute capacity that the container can use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-nvidiampsallocation.html#cfn-ecs-taskdefinition-nvidiampsallocation-maxcomputepercent
+            '''
+            result = self._values.get("max_compute_percent")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NvidiaMpsAllocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnTaskDefinition.PortMappingProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -28517,15 +30721,26 @@ class CfnTaskDefinition(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnTaskDefinition.ResourceRequirementProperty",
         jsii_struct_bases=[],
-        name_mapping={"type": "type", "value": "value"},
+        name_mapping={
+            "type": "type",
+            "sharing_strategy": "sharingStrategy",
+            "value": "value",
+        },
     )
     class ResourceRequirementProperty:
-        def __init__(self, *, type: builtins.str, value: builtins.str) -> None:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            sharing_strategy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.SharingStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            value: typing.Optional[builtins.str] = None,
+        ) -> None:
             '''The type and amount of a resource to assign to a container.
 
             The supported resource types are GPUs and Elastic Inference accelerators. For more information, see `Working with GPUs on Amazon ECS <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-gpu.html>`_ or `Working with Amazon Elastic Inference on Amazon ECS <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-inference.html>`_ in the *Amazon Elastic Container Service Developer Guide*
 
             :param type: The type of resource to assign to a container.
+            :param sharing_strategy: 
             :param value: The value for the specified resource type. When the type is ``GPU`` , the value is the number of physical ``GPUs`` the Amazon ECS container agent reserves for the container. The number of GPUs that's reserved for all containers in a task can't exceed the number of available GPUs on the container instance that the task is launched on. When the type is ``InferenceAccelerator`` , the ``value`` matches the ``deviceName`` for an `InferenceAccelerator <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_InferenceAccelerator.html>`_ specified in a task definition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-resourcerequirement.html
@@ -28539,17 +30754,31 @@ class CfnTaskDefinition(
                 
                 resource_requirement_property = ecs.CfnTaskDefinition.ResourceRequirementProperty(
                     type="type",
+                
+                    # the properties below are optional
+                    sharing_strategy=ecs.CfnTaskDefinition.SharingStrategyProperty(
+                        nvidia_mps=ecs.CfnTaskDefinition.NvidiaMpsAllocationProperty(
+                            memory=123,
+                
+                            # the properties below are optional
+                            max_compute_percent=123
+                        )
+                    ),
                     value="value"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__9f0e59715edb889cdb53a1111c692d2fcadb558bf86158ff87dec568d5ffa94e)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument sharing_strategy", value=sharing_strategy, expected_type=type_hints["sharing_strategy"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "type": type,
-                "value": value,
             }
+            if sharing_strategy is not None:
+                self._values["sharing_strategy"] = sharing_strategy
+            if value is not None:
+                self._values["value"] = value
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -28562,7 +30791,17 @@ class CfnTaskDefinition(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def value(self) -> builtins.str:
+        def sharing_strategy(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.SharingStrategyProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-resourcerequirement.html#cfn-ecs-taskdefinition-resourcerequirement-sharingstrategy
+            '''
+            result = self._values.get("sharing_strategy")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.SharingStrategyProperty"]], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[builtins.str]:
             '''The value for the specified resource type.
 
             When the type is ``GPU`` , the value is the number of physical ``GPUs`` the Amazon ECS container agent reserves for the container. The number of GPUs that's reserved for all containers in a task can't exceed the number of available GPUs on the container instance that the task is launched on.
@@ -28572,8 +30811,7 @@ class CfnTaskDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-resourcerequirement.html#cfn-ecs-taskdefinition-resourcerequirement-value
             '''
             result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -28957,6 +31195,67 @@ class CfnTaskDefinition(
 
         def __repr__(self) -> str:
             return "SecretProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnTaskDefinition.SharingStrategyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"nvidia_mps": "nvidiaMps"},
+    )
+    class SharingStrategyProperty:
+        def __init__(
+            self,
+            *,
+            nvidia_mps: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.NvidiaMpsAllocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param nvidia_mps: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-sharingstrategy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                sharing_strategy_property = ecs.CfnTaskDefinition.SharingStrategyProperty(
+                    nvidia_mps=ecs.CfnTaskDefinition.NvidiaMpsAllocationProperty(
+                        memory=123,
+                
+                        # the properties below are optional
+                        max_compute_percent=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b4199bec6e063f4550d86a718e114eeda472aa4b2ae9a8bbfbef2017a99e81e7)
+                check_type(argname="argument nvidia_mps", value=nvidia_mps, expected_type=type_hints["nvidia_mps"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "nvidia_mps": nvidia_mps,
+            }
+
+        @builtins.property
+        def nvidia_mps(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.NvidiaMpsAllocationProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-sharingstrategy.html#cfn-ecs-taskdefinition-sharingstrategy-nvidiamps
+            '''
+            result = self._values.get("nvidia_mps")
+            assert result is not None, "Required property 'nvidia_mps' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.NvidiaMpsAllocationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SharingStrategyProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -29814,6 +32113,16 @@ class CfnTaskDefinitionProps:
                     ),
                     resource_requirements=[ecs.CfnTaskDefinition.ResourceRequirementProperty(
                         type="type",
+            
+                        # the properties below are optional
+                        sharing_strategy=ecs.CfnTaskDefinition.SharingStrategyProperty(
+                            nvidia_mps=ecs.CfnTaskDefinition.NvidiaMpsAllocationProperty(
+                                memory=123,
+            
+                                # the properties below are optional
+                                max_compute_percent=123
+                            )
+                        ),
                         value="value"
                     )],
                     restart_policy=ecs.CfnTaskDefinition.RestartPolicyProperty(
@@ -57923,6 +60232,10 @@ __all__ = [
     "CfnDaemonTaskDefinitionProps",
     "CfnExpressGatewayService",
     "CfnExpressGatewayServiceProps",
+    "CfnGateway",
+    "CfnGatewayClusterAssociations",
+    "CfnGatewayClusterAssociationsProps",
+    "CfnGatewayProps",
     "CfnPrimaryTaskSet",
     "CfnPrimaryTaskSetProps",
     "CfnService",
@@ -58608,6 +60921,7 @@ def _typecheckingstub__cb545da33f3067adee24bf90d3e903b06a7562a7e6ea6b3785f5b0ae6
     instance_requirements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapacityProvider.InstanceRequirementsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     local_storage_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapacityProvider.ManagedInstancesLocalStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     monitoring: typing.Optional[builtins.str] = None,
+    nitro_enclaves_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     storage_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -59339,6 +61653,13 @@ def _typecheckingstub__3fe1e11a28d614f592d1b30aca089b75d4f20edba9b1261711f3cb307
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fdaf20342a3aefe31067038fa45a55f179278ae47a1eb4e0d2842005b54657c8(
+    *,
+    driver: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9b380c1e71ca74e37c209f7a877811b4c98b820a4a890455aefa53c771947320(
     *,
     container_path: typing.Optional[builtins.str] = None,
@@ -59401,6 +61722,7 @@ def _typecheckingstub__3c10c9aa5f1a60c8a4a40ebfc35eb9e45958bb1af917e27c552293ae4
 def _typecheckingstub__fb797bf96afe598182ca2171fda91348e7c6bc8e4a8513ade1490c3fd3268bd3(
     *,
     host: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDaemonTaskDefinition.HostVolumePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_driver_volume_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDaemonTaskDefinition.LogDriverVolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -59684,6 +62006,209 @@ def _typecheckingstub__337693d6fbb064a2f20a4ee1281f001daa4e9f6fbb294025b13194634
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__417b21cec4ccbb8290a240626f04776dd7595b726df6dbceac9b05f6e4f8936d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGateway.GatewayConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    gateway_name: builtins.str,
+    infrastructure_role_arn: builtins.str,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    propagate_tags: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6668f9d0112008643d01dd77667e76a62649cf10968d406164d3cd341cc8de6(
+    resource: _aws_ecs_143f71cb.IGatewayRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3ebd70985bf5c206fde266ab31c816c8bf059f5c43319ff86946e1507249594(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb05a573f44b3aabaf76b7b54aeeb3537d74ba83dc751163272fe759efa324da(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebb879919bdf915bcff2d7312047be75ae8dc6c56f49d408fe239c43726eb1c3(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86aa1e5d18e3e26670be5f4605c2859e8fc4548a9f305e2dee5e3f831790d1af(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGateway.GatewayConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__401f13117eb7e915ede144c64150d729d0aefd3aee55596f5085ce0518369a59(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9493d7b853ef2f23a77081550b6f03760521f0d3b55f4fb0285202143ad9149f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6c29bcf9b986a4b6e7bb042b07e339b744439e324ae6cc55255efac300d6df3(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9719e2d07ae79ce3676e81421a9d6d4d540e3327f4d21ce67727ea51d63d1ce7(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59c236044c983663d7c6d71f16efa0f094de3faab0deec3d654a382e93d6744c(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2fa0768a7849faf1d6863a2faa83007e0713f58026207289a15ed70d0e51523c(
+    *,
+    header: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGateway.GatewayTestTrafficHeaderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7960d8b2c087ff669b3bd786ba09eb776bb18842f2d95e464ffc07cb2c9f3e2a(
+    *,
+    host_shared_alb: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGateway.HostSharedAlbConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0385b6dd33bc86ccfda02f806aac6f25bc4ee38b64bb0763d28159cd28cb964e(
+    *,
+    destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGateway.GatewayElbAccessLogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__719545b70c88a372da047a21e83379f1c955477749bec6af11226e233e6a9a85(
+    *,
+    s3: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGateway.GatewayElbAccessLogS3DestinationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f82fe4402cbb3bb73c1118b166470f259572396f7ad8400c4384c0c37435bdc(
+    *,
+    bucket: builtins.str,
+    prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0189a09c7fb3e8a108e2cb8e2c8519634386c5356fc622dbfa347d413f2c244a(
+    *,
+    inbound_security_group: typing.Optional[builtins.str] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
+    subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2322cc4e38bd97181388cccf0dee858c79e210618824e517ba937ec8a01f1ce8(
+    *,
+    name: builtins.str,
+    values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eafbd40ad44481183f1186243fba7e052d53db67ea3e5c87d8b47247338d40a1(
+    *,
+    access_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGateway.GatewayElbAccessLogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    current_alb_count: typing.Optional[jsii.Number] = None,
+    http_desync: typing.Optional[builtins.str] = None,
+    max_alb_count: typing.Optional[jsii.Number] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGateway.GatewayElbNetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    port: typing.Optional[jsii.Number] = None,
+    protocol: typing.Optional[builtins.str] = None,
+    scheme: typing.Optional[builtins.str] = None,
+    test_traffic_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGateway.GatewayAlbTestTrafficRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    web_acl_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22744b37c0a9e165d0409b7d3ee48c26606ca46e6a3ececb741044b9810af09c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    cluster: builtins.str,
+    gateway: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d46cd53aa595cbc13ecc25a3f9739ca3fa4f57d3e711f080e224174bb9ad45b(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e48332805cdf78bbfb32da58f31cda0447dd119251ab007a208ef3980b2b114b(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4fe41c455c98a80cb605380f168c4c73a66659e7805c4b1555409d6c6f1aeb8(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe46ddc1065d82ca6f5b07373874ec4b9547d57dcc29b32159171310dfbb0721(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6bc5eaa6f9739ef935f4bd470e28d6015b416c2de4a4ecd5953d2a16a473fed5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93e62446d0a7e83938c40db22f9965afb95208e9d39ace91d6baf11c4b0921b3(
+    *,
+    cluster: builtins.str,
+    gateway: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0eff6d3af85bb8874734920cdc154a9d51360d2259d1bb0d018cdcb78259b9bf(
+    *,
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGateway.GatewayConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    gateway_name: builtins.str,
+    infrastructure_role_arn: builtins.str,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    propagate_tags: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4124238541747ca453a0cbaeab47b4113ad0e26c4b5699058307d3befaef0e19(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -59753,6 +62278,7 @@ def _typecheckingstub__ec1192a1d20e03deef75c7fa1457b92ecf9506c5c5df97b5a4473fc3a
     enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     enable_execute_command: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     force_new_deployment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ForceNewDeploymentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gateway_connectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.GatewayConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     health_check_grace_period_seconds: typing.Optional[jsii.Number] = None,
     launch_type: typing.Optional[builtins.str] = None,
     load_balancers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.LoadBalancerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -59849,6 +62375,12 @@ def _typecheckingstub__8e2bc49b758cd7bd2d560e7ef349cc9fd90122266047080d15fab50f9
 
 def _typecheckingstub__30697d792a144902af8d5ce8bec3db2e9ebb612ed4d71a72a5ee98dcace27fce(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.ForceNewDeploymentProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa690bbdda772ee94e4264f1d4e5547b701d05b470015fb166417dde65de2106(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.GatewayConnectorProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -60077,6 +62609,44 @@ def _typecheckingstub__61f79b8cfbfd89da452531f374d2c8ed25d98693945205dbbe670de81
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8b6fe6bab0a7348e6261ea610775390b4501a29876d62a8b9946aebf2b904ca4(
+    *,
+    access_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f90030c738b9a596eec53d133808f179de0d4e0297570a38ef4fbe847a28679(
+    *,
+    grpc_code: typing.Optional[builtins.str] = None,
+    http_code: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d52e9f7de3845d7a57ea89cc61068bc8a952ae221c82e86bb5305faeda695e9a(
+    *,
+    health_check_interval_seconds: typing.Optional[jsii.Number] = None,
+    health_check_path: typing.Optional[builtins.str] = None,
+    health_check_port: typing.Optional[jsii.Number] = None,
+    health_check_protocol: typing.Optional[builtins.str] = None,
+    health_check_timeout_seconds: typing.Optional[jsii.Number] = None,
+    healthy_threshold_count: typing.Optional[jsii.Number] = None,
+    matcher: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.GatewayConnectorHealthCheckMatcherProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea2110af72c25ecdbf3012286df45a1018491b7c2d7af26bd7924b7e73f8d5ac(
+    *,
+    port_name: builtins.str,
+    filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.GatewayConnectorFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    health_check: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.GatewayConnectorHealthCheckProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__75904fd5a5e607100063cc7fb01449a25c3f145dbd1b531cc444cf03a335c285(
     *,
     action: typing.Optional[builtins.str] = None,
@@ -60180,9 +62750,17 @@ def _typecheckingstub__8da75c12a30b7fe7fd27e23d778d5a095611ed616a9d92b56881eb771
     *,
     enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     access_log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ServiceConnectAccessLogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    container_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ServiceConnectContainerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     namespace: typing.Optional[builtins.str] = None,
     services: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ServiceConnectServiceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2a78e5a917c4754d1a8dce04d1fbd75b1393514d0e556f28303a33d2527d6b6(
+    *,
+    log_level: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -60318,6 +62896,7 @@ def _typecheckingstub__7f93658ccdbf3f250d0d1ce12224e9eddaef71a8f664c6a279122f60d
     enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     enable_execute_command: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     force_new_deployment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ForceNewDeploymentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gateway_connectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.GatewayConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     health_check_grace_period_seconds: typing.Optional[jsii.Number] = None,
     launch_type: typing.Optional[builtins.str] = None,
     load_balancers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.LoadBalancerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -60714,6 +63293,14 @@ def _typecheckingstub__7ca068c461cda36d8574700ee3ea4cda89a56e1f92d6195de0c44fe79
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ae83fa0affc53c365a9e50740764a01a9a82e64ce6ddb83a9aec51f6b19641f2(
+    *,
+    memory: jsii.Number,
+    max_compute_percent: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__446c7352216030258b4d70f5c5937f6375d59f2aa071552346ada383837db06a(
     *,
     app_protocol: typing.Optional[builtins.str] = None,
@@ -60745,7 +63332,8 @@ def _typecheckingstub__399418444e0587ba8546ff3739e9e32a136259706817def7df6a20ba3
 def _typecheckingstub__9f0e59715edb889cdb53a1111c692d2fcadb558bf86158ff87dec568d5ffa94e(
     *,
     type: builtins.str,
-    value: builtins.str,
+    sharing_strategy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.SharingStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    value: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -60781,6 +63369,13 @@ def _typecheckingstub__e3ca5a3f91fcd5bfb7247a9348affa35a1e4aa755ce41b312515338a8
     *,
     name: builtins.str,
     value_from: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4199bec6e063f4550d86a718e114eeda472aa4b2ae9a8bbfbef2017a99e81e7(
+    *,
+    nvidia_mps: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.NvidiaMpsAllocationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

@@ -26,17 +26,6 @@ from litellm.types.videos.utils import decode_video_id_with_provider
 from litellm.utils import ProviderConfigManager, client
 from litellm.videos.utils import VideoGenerationRequestUtils
 
-
-def _unsupported_video_call(
-    call_name: str, custom_llm_provider: str, model: str | None = None
-) -> litellm.BadRequestError:
-    return litellm.BadRequestError(
-        message=f"{call_name} is not supported for {custom_llm_provider}",
-        model=model or "",
-        llm_provider=custom_llm_provider,
-    )
-
-
 #################### Initialize provider clients ####################
 llm_http_handler: BaseLLMHTTPHandler = BaseLLMHTTPHandler()
 
@@ -51,7 +40,7 @@ async def avideo_generation(
     size: str | None = None,
     user: str | None = None,
     timeout=600,  # default to 10 minutes
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
     # The extra values given here take precedence over values defined on the client or passed to this method.
     extra_headers: dict[str, object] | None = None,
@@ -181,7 +170,7 @@ def video_generation(
     size: str | None = None,
     user: str | None = None,
     timeout=600,  # default to 10 minutes
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
     # The extra values given here take precedence over values defined on the client or passed to this method.
     extra_headers: dict[str, object] | None = None,
@@ -219,11 +208,11 @@ def video_generation(
         # get provider config
         video_generation_provider_config: BaseVideoConfig | None = ProviderConfigManager.get_provider_video_config(
             model=model,
-            provider=custom_llm_provider,
+            provider=litellm.LlmProviders(custom_llm_provider),
         )
 
         if video_generation_provider_config is None:
-            raise _unsupported_video_call("video generation", custom_llm_provider, model)
+            raise ValueError(f"video generation is not supported for {custom_llm_provider}")
 
         local_vars.update(kwargs)
         # Get VideoGenerationOptionalRequestParams with only valid parameters
@@ -340,11 +329,11 @@ def video_content(
         # get provider config
         video_provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=custom_llm_provider,
+            provider=litellm.LlmProviders(custom_llm_provider),
         )
 
         if video_provider_config is None:
-            raise _unsupported_video_call("video support download", custom_llm_provider)
+            raise ValueError(f"video support download is not supported for {custom_llm_provider}")
 
         local_vars.update(kwargs)
         # For video content download, we don't need complex optional parameter handling
@@ -467,7 +456,7 @@ async def avideo_remix(
     video_id: str,
     prompt: str,
     timeout=600,  # default to 10 minutes
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
     # The extra values given here take precedence over values defined on the client or passed to this method.
     extra_headers: dict[str, object] | None = None,
@@ -570,7 +559,7 @@ def video_remix(
     video_id: str,
     prompt: str,
     timeout=600,  # default to 10 minutes
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
     # The extra values given here take precedence over values defined on the client or passed to this method.
     extra_headers: dict[str, object] | None = None,
@@ -609,11 +598,11 @@ def video_remix(
         # get provider config
         video_remix_provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=custom_llm_provider,
+            provider=litellm.LlmProviders(custom_llm_provider),
         )
 
         if video_remix_provider_config is None:
-            raise _unsupported_video_call("video remix", custom_llm_provider)
+            raise ValueError(f"video remix is not supported for {custom_llm_provider}")
 
         local_vars.update(kwargs)
         # For video remix, we need the video_id and prompt
@@ -671,7 +660,7 @@ async def avideo_list(
     order: str | None = None,
     api_key: str | None = None,
     timeout=600,  # default to 10 minutes
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
     # The extra values given here take precedence over values defined on the client or passed to this method.
     extra_headers: dict[str, object] | None = None,
@@ -785,7 +774,7 @@ def video_list(
     limit: int | None = None,
     order: str | None = None,
     timeout=600,  # default to 10 minutes
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
     # The extra values given here take precedence over values defined on the client or passed to this method.
     extra_headers: dict[str, object] | None = None,
@@ -821,11 +810,11 @@ def video_list(
         # get provider config
         video_list_provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=custom_llm_provider,
+            provider=litellm.LlmProviders(custom_llm_provider),
         )
 
         if video_list_provider_config is None:
-            raise _unsupported_video_call("video list", custom_llm_provider)
+            raise ValueError(f"video list is not supported for {custom_llm_provider}")
 
         local_vars.update(kwargs)
         # For video list, we need the query parameters
@@ -882,7 +871,7 @@ def video_list(
 async def avideo_status(
     video_id: str,
     timeout=600,  # default to 10 minutes
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
     # The extra values given here take precedence over values defined on the client or passed to this method.
     extra_headers: dict[str, object] | None = None,
@@ -981,7 +970,7 @@ def video_status(
 def video_status(
     video_id: str,
     timeout=600,  # default to 10 minutes
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
     # The extra values given here take precedence over values defined on the client or passed to this method.
     extra_headers: dict[str, object] | None = None,
@@ -1042,11 +1031,11 @@ def video_status(
         # get provider config
         video_status_provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=custom_llm_provider,
+            provider=litellm.LlmProviders(custom_llm_provider),
         )
 
         if video_status_provider_config is None:
-            raise _unsupported_video_call("video status", custom_llm_provider)
+            raise ValueError(f"video status is not supported for {custom_llm_provider}")
 
         local_vars.update(kwargs)
         # For video status, we need the video_id
@@ -1099,7 +1088,7 @@ async def avideo_create_character(
     name: str,
     video: FileTypes,
     timeout=600,
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     extra_headers: dict[str, object] | None = None,
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
@@ -1154,7 +1143,7 @@ def video_create_character(
     name: str,
     video: FileTypes,
     timeout=600,
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     extra_headers: dict[str, object] | None = None,
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
@@ -1183,11 +1172,11 @@ def video_create_character(
 
         provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=custom_llm_provider,
+            provider=litellm.LlmProviders(custom_llm_provider),
         )
 
         if provider_config is None:
-            raise _unsupported_video_call("video create character", custom_llm_provider)
+            raise ValueError(f"video create character is not supported for {custom_llm_provider}")
 
         local_vars.update(kwargs)
         request_params: Final[dict] = {"name": name}
@@ -1229,7 +1218,7 @@ def video_create_character(
 async def avideo_get_character(
     character_id: str,
     timeout=600,
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     extra_headers: dict[str, object] | None = None,
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
@@ -1279,7 +1268,7 @@ async def avideo_get_character(
 def video_get_character(
     character_id: str,
     timeout=600,
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     extra_headers: dict[str, object] | None = None,
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
@@ -1308,11 +1297,11 @@ def video_get_character(
 
         provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=custom_llm_provider,
+            provider=litellm.LlmProviders(custom_llm_provider),
         )
 
         if provider_config is None:
-            raise _unsupported_video_call("video get character", custom_llm_provider)
+            raise ValueError(f"video get character is not supported for {custom_llm_provider}")
 
         local_vars.update(kwargs)
         request_params: Final[dict] = {"character_id": character_id}
@@ -1354,7 +1343,7 @@ async def avideo_edit(
     video_id: str,
     prompt: str,
     timeout=600,
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     extra_headers: dict[str, object] | None = None,
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
@@ -1409,7 +1398,7 @@ def video_edit(
     video_id: str,
     prompt: str,
     timeout=600,
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     extra_headers: dict[str, object] | None = None,
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
@@ -1441,11 +1430,11 @@ def video_edit(
 
         provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=custom_llm_provider,
+            provider=litellm.LlmProviders(custom_llm_provider),
         )
 
         if provider_config is None:
-            raise _unsupported_video_call("video edit", custom_llm_provider)
+            raise ValueError(f"video edit is not supported for {custom_llm_provider}")
 
         local_vars.update(kwargs)
         request_params: Final[dict] = {"video_id": video_id, "prompt": prompt}
@@ -1491,7 +1480,7 @@ async def avideo_extension(
     prompt: str,
     seconds: str,
     timeout=600,
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     extra_headers: dict[str, object] | None = None,
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
@@ -1545,7 +1534,7 @@ def video_extension(
     prompt: str,
     seconds: str,
     timeout=600,
-    custom_llm_provider: str | None = None,
+    custom_llm_provider=None,
     extra_headers: dict[str, object] | None = None,
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
@@ -1575,11 +1564,11 @@ def video_extension(
 
         provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=custom_llm_provider,
+            provider=litellm.LlmProviders(custom_llm_provider),
         )
 
         if provider_config is None:
-            raise _unsupported_video_call("video extension", custom_llm_provider)
+            raise ValueError(f"video extension is not supported for {custom_llm_provider}")
 
         local_vars.update(kwargs)
         request_params: Final[dict] = {

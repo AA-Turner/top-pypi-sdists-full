@@ -10,7 +10,7 @@ from logging import getLogger
 
 from pathlib import Path
 
-from typing import TextIO
+from typing import Any, TextIO, cast
 from collections.abc import Callable, Iterable
 from deadcode.constants import UnusedCodeType
 from deadcode.data_types import Args, Part
@@ -76,6 +76,7 @@ class DeadCodeVisitor(ast.NodeVisitor):
         self.bare_used_names: dict[str, set[str]] = {}
         self.wildcard_imports: dict[str, set[str]] = {}
         self.explicit_imports: dict[str, set[str]] = {}
+        self.qualified_imports: dict[str, dict[str, str]] = {}
 
         self.filename = Path()
         self.code: list[str] = []
@@ -149,6 +150,7 @@ class DeadCodeVisitor(ast.NodeVisitor):
                 filename = os.path.basename(file_path)
                 module_name = os.path.splitext(filename)[0]
                 self.module_name = module_name
+                self.qualified_imports[self.module_name] = {}
                 self.scope_parts = [module_name]
 
                 file_content = f.read()
@@ -242,6 +244,7 @@ class DeadCodeVisitor(ast.NodeVisitor):
             # We can't easily detect when "os.path" is used.
             name = name_and_alias.name.partition('.')[0]
             alias = name_and_alias.asname
+            self._record_qualified_import(node, name_and_alias)
             self._define(
                 self.defined_imports,
                 alias or name,
@@ -250,6 +253,32 @@ class DeadCodeVisitor(ast.NodeVisitor):
             )
             if alias is not None:
                 self.add_used_name(name_and_alias.name)
+
+    def _record_qualified_import(self, node: ast.Import | ast.ImportFrom, name_and_alias: ast.alias) -> None:
+        """Record absolute imports so qualified names can be resolved."""
+        qualified_imports = self.qualified_imports.setdefault(self.module_name, {})
+        if isinstance(node, ast.Import):
+            if name_and_alias.asname:
+                qualified_imports[name_and_alias.asname] = name_and_alias.name
+            else:
+                top_level = name_and_alias.name.partition('.')[0]
+                qualified_imports[top_level] = top_level
+            return
+
+        if node.level > 0 or node.module is None or node.module == '__future__':
+            return
+        if name_and_alias.name == '*':
+            return
+        local_name = name_and_alias.asname or name_and_alias.name
+        qualified_imports[local_name] = f'{node.module}.{name_and_alias.name}'
+
+    def _resolve_qualified_expression(self, expression: str) -> str | None:
+        """Resolve the first component of a dotted expression through absolute imports."""
+        first_component, separator, remaining = expression.partition('.')
+        target = self.qualified_imports.get(self.module_name, {}).get(first_component)
+        if target is None:
+            return None
+        return f'{target}{separator}{remaining}' if separator else target
 
     def _collect_commented_out_code(self, file_content: bytes) -> None:
         """Collect comments whose text parses as Python code."""
@@ -363,7 +392,7 @@ class DeadCodeVisitor(ast.NodeVisitor):
 
     def _get_else_linenos(self, node: ast.If | ast.IfExp | ast.While, first_else_node: ast.AST) -> tuple[int, ...]:
         """Return line numbers of the `else` keyword preceding the first else statement."""
-        for lineno in range(first_else_node.lineno - 1, node.lineno, -1):
+        for lineno in range(int(cast('Any', first_else_node).lineno) - 1, int(cast('Any', node).lineno), -1):
             if 0 < lineno <= len(self.code) and self.code[lineno - 1].strip().startswith('else:'):
                 return (lineno,)
         return ()
@@ -388,8 +417,10 @@ class DeadCodeVisitor(ast.NodeVisitor):
                 or _match(self.filename, self.args.ignore_names_in_files)
                 or _match_many(decorator_names, self.args.ignore_names_if_decorated_with)
                 or _match_many(decorator_names, IGNORED_INTERFACE_DECORATOR_NAMES)
-                or (item_inherits_from := getattr(first_node, 'inherits_from', None))
-                and _match_many(item_inherits_from, self.args.ignore_names_if_inherits_from)
+                or (
+                    (item_inherits_from := getattr(first_node, 'inherits_from', None))
+                    and _match_many(item_inherits_from, self.args.ignore_names_if_inherits_from)
+                )
                 or self.should_ignore_new_definitions
                 or any(noqa.ignore_line(self.noqa_lines, lineno, ERROR_CODES[type_]) for lineno in linenos)
             )
@@ -399,19 +430,19 @@ class DeadCodeVisitor(ast.NodeVisitor):
 
         first_lineno = lines.get_first_line_number(first_node)
         last_lineno = lines.get_last_line_number(last_node)
-        name_line = last_node.lineno
+        name_line = int(cast('Any', last_node).lineno)
 
         removal_node_end_lineno = getattr(removal_node, 'end_lineno', None)
         if removal_node is not None and removal_node_end_lineno is not None:
             line_start = lines.get_first_line_number(removal_node)
             line_end = removal_node_end_lineno
-            col_start = removal_node.col_offset
-            col_end = removal_node.end_col_offset or 0
+            col_start = int(cast('Any', removal_node).col_offset)
+            col_end = int(cast('Any', removal_node).end_col_offset or 0)
         else:
             line_start = first_lineno
             line_end = last_lineno
-            col_start = last_node.col_offset
-            col_end = last_node.end_col_offset or 0
+            col_start = int(cast('Any', last_node).col_offset)
+            col_end = int(cast('Any', last_node).end_col_offset or 0)
 
         inherits_from = getattr(first_node, 'inherits_from', None)
         code_item = CodeItem(
@@ -421,7 +452,7 @@ class DeadCodeVisitor(ast.NodeVisitor):
             code_parts=[Part(line_start, line_end, col_start, col_end)],
             scope=self.scope,
             name_line=name_line,  # TODO: Maybe this should be a property?
-            name_column=last_node.col_offset,  # TODO: Maybe this should be a property?
+            name_column=int(cast('Any', last_node).col_offset),  # TODO: Maybe this should be a property?
             message=message,
             inherits_from=inherits_from,
         )
@@ -541,8 +572,15 @@ class DeadCodeVisitor(ast.NodeVisitor):
         )
 
     def _get_decorator_names(self, node: ast.AST) -> list[str]:
-        """Returns decorator names of the given node."""
-        return [utils.get_decorator_name(decorator) for decorator in getattr(node, 'decorator_list', ())]
+        """Returns decorator names of the given node, including resolved absolute imports."""
+        decorator_names = []
+        for decorator in getattr(node, 'decorator_list', ()):
+            name = utils.get_decorator_name(decorator)
+            decorator_names.append(name)
+            resolved = self._resolve_qualified_expression(name[1:])
+            if resolved is not None and '@' + resolved != name:
+                decorator_names.append('@' + resolved)
+        return decorator_names
 
     def get_inherits_from(self, node: ast.AST) -> list[str] | None:
         """Returns a set of base classes from any level in inheritance tree."""
@@ -550,7 +588,14 @@ class DeadCodeVisitor(ast.NodeVisitor):
         if not (bases_attr := getattr(node, 'bases', None)):
             return None
 
-        bases = [name for base in bases_attr for name in utils.get_base_class_names(base)]
+        bases = []
+        for base in bases_attr:
+            bases.extend(utils.get_base_class_names(base))
+            if isinstance(base, (ast.Name, ast.Attribute)):
+                source = ast.unparse(base)
+                resolved = self._resolve_qualified_expression(source)
+                if resolved is not None and resolved != source:
+                    bases.append(resolved)
         inherits_from = bases[:]
 
         for base in bases:
@@ -561,7 +606,7 @@ class DeadCodeVisitor(ast.NodeVisitor):
         return list(dict.fromkeys(inherits_from))
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        decorator_names = [utils.get_decorator_name(decorator) for decorator in node.decorator_list]
+        decorator_names = self._get_decorator_names(node)
         for decorator in node.decorator_list:
             if _match(utils.get_decorator_name(decorator), self.ignore_decorators):
                 self._log(f'Ignoring class "{node.name}" (decorator whitelisted)')
@@ -577,7 +622,7 @@ class DeadCodeVisitor(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._record_annotation_names(node.returns)
-        decorator_names = [utils.get_decorator_name(decorator) for decorator in node.decorator_list]
+        decorator_names = self._get_decorator_names(node)
 
         first_arg = node.args.args[0].arg if node.args.args else None
 
@@ -630,6 +675,19 @@ class DeadCodeVisitor(ast.NodeVisitor):
             for elt in node.value.elts:
                 if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
                     self.add_used_name(elt.value)
+
+        if (
+            len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == 'MIDDLEWARE'
+            and len(self.scope_parts) == 1
+            and isinstance(node.value, (ast.List, ast.Tuple))
+        ):
+            for elt in node.value.elts:
+                if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                    final_component = elt.value.rpartition('.')[2]
+                    if final_component:
+                        self.add_used_name(final_component)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         self._record_annotation_names(node.annotation)

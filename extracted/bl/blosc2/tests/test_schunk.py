@@ -186,6 +186,15 @@ def test_schunk(contiguous, urlpath, mode, mmap_mode, nbytes, cparams, dparams, 
     blosc2.remove_urlpath(urlpath)
 
 
+def test_schunk_meta_setitem_missing_name():
+    # This used to copy and free an uninitialized pointer, which aborted the process
+    schunk = blosc2.SChunk(meta={"test": 1})
+    with pytest.raises(KeyError, match="missing not found"):
+        schunk.meta["missing"] = 2
+    assert "missing" not in schunk.meta
+    assert schunk.meta["test"] == 1
+
+
 def test_schunk_info_has_human_sizes():
     schunk = blosc2.SChunk(chunksize=32)
     schunk.append_data(b"a" * 32)
@@ -347,6 +356,27 @@ def test_schunk_update_special():
 
     with pytest.raises(IndexError):
         schunk2.update_special(5, blosc2.SpecialValue.UNINIT)
+
+
+@pytest.mark.parametrize(
+    ("special", "value", "expected"),
+    [
+        (blosc2.SpecialValue.ZERO, None, 0.0),
+        (blosc2.SpecialValue.NAN, None, np.nan),
+        (blosc2.SpecialValue.VALUE, np.float64(7.5).tobytes(), 7.5),
+        (blosc2.SpecialValue.VALUE, 7.5, 7.5),
+    ],
+)
+def test_schunk_update_special_ndarray(special, value, expected):
+    # The special chunk must have the block size of the array (b2nd reads blocks selectively, and
+    # checks their number per chunk), not the one a plain SChunk would choose
+    x = np.arange(100 * 100, dtype=np.float64).reshape(100, 100)
+    a = blosc2.asarray(x, chunks=(50, 50), blocks=(10, 10))
+    a.schunk.update_special(1, special, value)
+    assert blosc2.get_cbuffer_sizes(a.schunk.get_chunk(1))[2] == 10 * 10 * 8
+    x[:50, 50:] = expected
+    np.testing.assert_array_equal(a[:], x)
+    np.testing.assert_array_equal(a[2:5, 48:53], x[2:5, 48:53])
 
 
 def test_get_lazychunk_sections(tmp_path):

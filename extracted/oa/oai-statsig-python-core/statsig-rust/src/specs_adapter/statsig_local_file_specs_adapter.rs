@@ -1,22 +1,22 @@
 use crate::hashing::djb2;
 use crate::networking::{DEFAULT_CDN_SPECS_URL, ResponseData, config_specs_url};
+use crate::specs_adapter::remote_config_value_hydrator::unsupported_entity_error;
 use crate::specs_adapter::statsig_http_specs_adapter::SpecsSyncTrigger;
 use crate::specs_adapter::{SpecsAdapter, SpecsSource, SpecsUpdate, SpecsUpdateListener};
 use crate::specs_response::{
-    spec_types::SpecsResponseFull, specs_hash_map::raw_spec_has_unhydrated_remote_config_metadata,
+    spec_types::SpecsResponseFull,
+    specs_hash_map::{INLINE_ONLY_ENTITY_MAPS, json_maps_have_remote_metadata},
 };
 use crate::statsig_err::StatsigErr;
 use crate::{StatsigOptions, StatsigRuntime, log_e, log_w};
 use async_trait::async_trait;
 use chrono::Utc;
 use parking_lot::RwLock;
-use serde_json::value::RawValue;
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use super::{SpecsInfo, StatsigHttpSpecsAdapter};
 
 const TAG: &str = stringify!(StatsigLocalFileSpecsAdapter);
-type RawJsonObject = HashMap<String, Box<RawValue>>;
 
 pub struct StatsigLocalFileSpecsAdapter {
     file_path: String,
@@ -55,7 +55,13 @@ impl StatsigLocalFileSpecsAdapter {
     }
 
     pub async fn fetch_and_write_to_file(&self) -> Result<(), StatsigErr> {
-        let specs_info = match self.read_hydrated_specs_from_file().await {
+        let mut write_result = Ok(());
+        let existing = self
+            .read_hydrated_specs_from_file(|bytes| {
+                write_result = self.write_specs_to_file_bytes(bytes);
+            })
+            .await;
+        let specs_info = match existing {
             Ok(Some(specs)) => SpecsInfo {
                 lcut: Some(specs.time),
                 checksum: specs.checksum,
@@ -80,18 +86,22 @@ impl StatsigLocalFileSpecsAdapter {
 
         if let Some(response) = self.parse_specs_data_to_full_response(&data) {
             if response.has_updates {
-                self.write_specs_to_file_bytes(data.as_bytes());
+                return self.write_specs_to_file_bytes(data.as_bytes());
             }
         }
 
-        Ok(())
+        write_result
     }
 
     /// Replays a local file after hydrating and rewriting any legacy remote
     /// config placeholders it contains.
     pub async fn resync_from_file_with_hydration(&self) -> Result<(), StatsigErr> {
         let data = self
-            .read_hydrated_response_data_from_file()
+            .read_hydrated_response_data_from_file(|bytes| {
+                if let Err(e) = self.write_specs_to_file_bytes(bytes) {
+                    log_w!(TAG, "Failed to rewrite hydrated specs: {}", e);
+                }
+            })
             .await?
             .ok_or_else(|| StatsigErr::FileError("Specs file does not exist".to_string()))?;
         self.send_response_data_to_listener(data)
@@ -105,6 +115,9 @@ impl StatsigLocalFileSpecsAdapter {
             }
         };
         if may_have_remote_config_metadata(&bytes) {
+            if json_maps_have_remote_metadata(&bytes, INLINE_ONLY_ENTITY_MAPS.iter().copied()) {
+                return Err(unsupported_entity_error());
+            }
             return Err(StatsigErr::InvalidOperation(
                 "Legacy remote config metadata requires resync_from_file_with_hydration"
                     .to_string(),
@@ -114,8 +127,14 @@ impl StatsigLocalFileSpecsAdapter {
         self.send_response_data_to_listener(ResponseData::from_bytes(bytes))
     }
 
-    async fn read_hydrated_specs_from_file(&self) -> Result<Option<SpecsResponseFull>, StatsigErr> {
-        let Some(mut data) = self.read_hydrated_response_data_from_file().await? else {
+    async fn read_hydrated_specs_from_file(
+        &self,
+        write_hydrated: impl FnOnce(&[u8]),
+    ) -> Result<Option<SpecsResponseFull>, StatsigErr> {
+        let Some(mut data) = self
+            .read_hydrated_response_data_from_file(write_hydrated)
+            .await?
+        else {
             return Ok(None);
         };
 
@@ -130,6 +149,7 @@ impl StatsigLocalFileSpecsAdapter {
 
     async fn read_hydrated_response_data_from_file(
         &self,
+        write_hydrated: impl FnOnce(&[u8]),
     ) -> Result<Option<ResponseData>, StatsigErr> {
         if !std::path::Path::new(&self.file_path).exists() {
             return Ok(None);
@@ -147,7 +167,7 @@ impl StatsigLocalFileSpecsAdapter {
             .await?;
         let hydrated = data.read_to_bytes()?;
         if hydrated != original {
-            self.write_specs_to_file_bytes(&hydrated);
+            write_hydrated(&hydrated);
         }
 
         Ok(Some(ResponseData::from_bytes(hydrated)))
@@ -184,41 +204,17 @@ impl StatsigLocalFileSpecsAdapter {
         }
     }
 
-    fn write_specs_to_file_bytes(&self, data: &[u8]) {
-        match std::fs::write(&self.file_path, data) {
-            Ok(()) => (),
-            Err(e) => log_w!(TAG, "Failed to write specs to file: {}", e),
-        }
+    fn write_specs_to_file_bytes(&self, data: &[u8]) -> Result<(), StatsigErr> {
+        std::fs::write(&self.file_path, data)
+            .map_err(|error| StatsigErr::FileError(error.to_string()))
     }
 }
 
 fn may_have_remote_config_metadata(bytes: &[u8]) -> bool {
-    const METADATA_KEY: &str = "remoteConfigMetadata";
-
-    // The same key is legal inside an ordinary user-provided JSON value. Only
-    // producer-owned dynamic-config and rule fields require async hydration.
-    if !bytes
-        .windows(METADATA_KEY.len())
-        .any(|window| window == METADATA_KEY.as_bytes())
-        && !bytes.windows(2).any(|window| window == b"\\u")
-    {
-        return false;
-    }
-
-    // Keep response/config values raw for the same reason as the JSON
-    // decoder guard: arbitrary user number lexemes must not hide metadata.
-    let Ok(payload) = serde_json::from_slice::<RawJsonObject>(bytes) else {
-        return false;
-    };
-    let Some(configs) = payload.get("dynamic_configs") else {
-        return false;
-    };
-    let Ok(configs) = serde_json::from_str::<RawJsonObject>(configs.get()) else {
-        return false;
-    };
-    configs
-        .values()
-        .any(|config| raw_spec_has_unhydrated_remote_config_metadata(config.get()))
+    json_maps_have_remote_metadata(
+        bytes,
+        std::iter::once("dynamic_configs").chain(INLINE_ONLY_ENTITY_MAPS.iter().copied()),
+    )
 }
 
 #[async_trait]

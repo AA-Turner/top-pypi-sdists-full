@@ -54,6 +54,8 @@ from .type_defs import (
     GetNamespaceResponseTypeDef,
     GetTableBucketEncryptionRequestTypeDef,
     GetTableBucketEncryptionResponseTypeDef,
+    GetTableBucketLoggingRequestTypeDef,
+    GetTableBucketLoggingResponseTypeDef,
     GetTableBucketMaintenanceConfigurationRequestTypeDef,
     GetTableBucketMaintenanceConfigurationResponseTypeDef,
     GetTableBucketMetricsConfigurationRequestTypeDef,
@@ -101,6 +103,7 @@ from .type_defs import (
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     PutTableBucketEncryptionRequestTypeDef,
+    PutTableBucketLoggingRequestTypeDef,
     PutTableBucketMaintenanceConfigurationRequestTypeDef,
     PutTableBucketMetricsConfigurationRequestTypeDef,
     PutTableBucketPolicyRequestTypeDef,
@@ -349,6 +352,16 @@ class S3TablesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#get_table_bucket_encryption)
         """
 
+    def get_table_bucket_logging(
+        self, **kwargs: Unpack[GetTableBucketLoggingRequestTypeDef]
+    ) -> GetTableBucketLoggingResponseTypeDef:
+        """
+        Gets the server access logging configuration for a table bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/get_table_bucket_logging.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#get_table_bucket_logging)
+        """
+
     def get_table_bucket_maintenance_configuration(
         self, **kwargs: Unpack[GetTableBucketMaintenanceConfigurationRequestTypeDef]
     ) -> GetTableBucketMaintenanceConfigurationResponseTypeDef:
@@ -572,6 +585,17 @@ class S3TablesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/put_table_bucket_encryption.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#put_table_bucket_encryption)
+        """
+
+    def put_table_bucket_logging(
+        self, **kwargs: Unpack[PutTableBucketLoggingRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Sets, updates, or removes the server access logging configuration for a table
+        bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/put_table_bucket_logging.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#put_table_bucket_logging)
         """
 
     def put_table_bucket_maintenance_configuration(

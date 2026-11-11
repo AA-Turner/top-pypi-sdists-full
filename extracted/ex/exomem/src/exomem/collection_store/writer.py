@@ -40,6 +40,7 @@ from .. import structured_collections as collections
 from ..governance import connector_boundary
 from ..governance.principal import effective_principal
 from ..planning_values import PlanningValues
+from ..query_engine import reference_report
 from ..query_engine.indexes import IndexDeclarationError
 from . import (
     aliases,
@@ -53,6 +54,8 @@ from . import (
     governance,
     index_migrations,
     log_view,
+    reference_declarations,
+    reference_index,
     references,
     rollups,
     schema,
@@ -605,7 +608,13 @@ class CollectionWriter:
                 authorize_path=self._operation.allows_file,
             )
             # Recipient inspection cannot publish full-state guards or import provenance; owners retain them below.
+            references = (reference_report.check_collection(self.root, self.handle.path,
+                                                          manifest.collection_id)
+                          if collections.declared_references(field_plan.manifest.schema) else [])
             return {"kind": "collection", "report_only": True,
+                    "references": references,
+                    "inbound": reference_index.inbound(
+                        self._operation, self.connection, field_plan.manifest),
                     "contract": record_governance._inspection_contract(field_plan.manifest),
                     "snapshot": snapshot,
                     "source_versions": [{"path": manifest.path, "hash": manifest.manifest_version.hash},
@@ -725,8 +734,14 @@ class CollectionWriter:
                                     "migration": migration})
         guards = {"expected_manifest_hash": manifest.manifest_version.hash,
                   "expected_container_hash": self._container(row) if complete else visible_snapshot}
+        references = (reference_report.check_collection(self.root, self.handle.path,
+                                                        manifest.collection_id)
+                      if collections.declared_references(field_plan.manifest.schema) else [])
         payload = {
             "kind": "collection", "report_only": True,
+            "references": references,
+            "inbound": reference_index.inbound(
+                self._operation, self.connection, manifest),
             "contract": record_governance._inspection_contract(manifest),
             "snapshot": visible_snapshot,
             "source_versions": [{"path": v.path, "hash": v.hash} for v in source_versions[:record_governance._MAX_ITEM_ENTRIES]],
@@ -2052,8 +2067,9 @@ class CollectionWriter:
                     for cid, facts in affected.items()}, why=why)
         return result
 
-    def backfill_derived(self, collection, *, limit=128, projection=True, rollup=True) -> tuple[bool, bool]:
-        """Advance this collection's query projection and building rollups by one batch each, in one transaction.
+    def backfill_derived(self, collection, *, limit=128, projection=True, rollup=True,
+                         references=True) -> tuple[bool, bool]:
+        """Advance this collection's query projection, building rollups and reference index by one batch each, in one transaction.
 
         Internal maintenance under the writer lease and current authority, not a
         public route; the serving store thread drives it. A collection with no
@@ -2071,8 +2087,24 @@ class CollectionWriter:
                 published = index_migrations.backfill_batch(accounted, manifest.collection_id, limit=limit)
             if rollup:
                 ready = rollups.backfill_batch(accounted, manifest.collection_id, limit=limit)
+            if references:
+                reference_index.backfill(accounted, manifest, limit=limit)
             self._precommit(manifest)
         return published, ready
+
+    def seed_references(self) -> None:
+        """Seed warming state rows for declarations a store gained outside the create path."""
+        with self._mutation():
+            reference_index.seed_missing(
+                index_migrations.AccountedWriter(self.connection, self._execute))
+
+    def rebuild_references(self, collection) -> None:
+        """Reset the collection's reference index to warming for test and repair rebuilds."""
+        with self._mutation():
+            _, manifest, _ = self._collection(collection)
+            reference_index.rebuild(index_migrations.AccountedWriter(self.connection, self._execute),
+                                    manifest.collection_id)
+            self._precommit(manifest)
 
     def backfill_query_indexes(self, collection, *, limit=128) -> bool:
         """One projection batch alone; True when it publishes the projection."""
@@ -2159,31 +2191,7 @@ class CollectionWriter:
                 admission.check(identity, digest, replay)
             if replay is not None:
                 return replay
-            manifest = collections.parse_manifest_bytes(
-                self.root, manifest_path, manifest_text.encode()
-            )
-            declared = types.type_for_manifest(manifest)
-            if self._facade_profile is not None and manifest.semantic_profile != self._facade_profile:
-                raise collections.CollectionError(
-                    "PLANNING_PROFILE_REQUIRED" if self._facade_profile == "planning" else "RECORDS_PROFILE_REQUIRED",
-                    f"{self._facade_profile.title()} collection is required",
-                )
-            if self._facade_profile == "planning" and scaffold:
-                manifest_text = planning._with_default_scaffold(
-                    manifest_text, manifest, vault_root=self.root
-                )
-                manifest = collections.parse_manifest_bytes(self.root, manifest_path, manifest_text.encode())
-            if declared.kind == "intended":
-                planning.require_planning_profile(manifest)
-            records._refuse_excluded_manifest_fields(manifest)
-            record_formats.validate_storage_contract(manifest)
-            if manifest.storage.strategy == "dataset":
-                raise collections.CollectionError(
-                    "READ_ONLY_COLLECTION", "datasets remain file-canonical"
-                )
-            if manifest.view_diagnostics:
-                diagnostic = manifest.view_diagnostics[0]
-                raise collections.CollectionError(diagnostic.code, diagnostic.reason)
+            manifest, manifest_text, declared = self._prepare_create(manifest_path, manifest_text, scaffold)
             try:
                 connector_boundary.require_create(self.root, manifest.path)
                 connector_boundary.require_create(self.root, manifest.storage.source)
@@ -2223,6 +2231,10 @@ class CollectionWriter:
                 },
             )
             self._manifest(manifest, manifest_text, 1, txn["txn_id"])
+            reference_index.revise(
+                index_migrations.AccountedWriter(self.connection, self._execute),
+                manifest.collection_id, dropped=(),
+                added=tuple(collections.declared_references(manifest.schema)), retargeted=())
             if manifest.view_mode == summary.SUMMARY:
                 # An empty summary collection publishes its native payload/query pair here.
                 if typed_storage.migrate_batch(index_migrations.AccountedWriter(self.connection, self._execute),
@@ -2263,6 +2275,41 @@ class CollectionWriter:
         writer_lease.mark_active_mutation_committed()
         records._refresh_manifest_due_state(self.root, manifest)
         return receipt
+
+    def _prepare_create(self, manifest_path, manifest_text, scaffold):
+        """Every check on a new collection's manifest that reads no store state a create would write.
+
+        Returns the parsed manifest, its text (a Planning scaffold may add to it) and its type.
+        """
+        manifest = collections.parse_manifest_bytes(self.root, manifest_path, manifest_text.encode())
+        declared = types.type_for_manifest(manifest)
+        if self._facade_profile is not None and manifest.semantic_profile != self._facade_profile:
+            raise collections.CollectionError(
+                "PLANNING_PROFILE_REQUIRED" if self._facade_profile == "planning" else "RECORDS_PROFILE_REQUIRED",
+                f"{self._facade_profile.title()} collection is required",
+            )
+        if self._facade_profile == "planning" and scaffold:
+            manifest_text = planning._with_default_scaffold(manifest_text, manifest, vault_root=self.root)
+            manifest = collections.parse_manifest_bytes(self.root, manifest_path, manifest_text.encode())
+        if declared.kind == "intended":
+            planning.require_planning_profile(manifest)
+        records._refuse_excluded_manifest_fields(manifest)
+        record_formats.validate_storage_contract(manifest)
+        if manifest.storage.strategy == "dataset":
+            raise collections.CollectionError("READ_ONLY_COLLECTION", "datasets remain file-canonical")
+        if manifest.view_diagnostics:
+            diagnostic = manifest.view_diagnostics[0]
+            raise collections.CollectionError(diagnostic.code, diagnostic.reason)
+        reference_declarations.require_targets(self._operation, manifest)
+        return manifest, manifest_text, declared
+
+    def validate_create(self, manifest_path, manifest_text, *, scaffold=True):
+        """Refuse a new manifest that create would refuse for its own content, with create's error.
+
+        Reads under the policy a create is held to and writes nothing.
+        """
+        with self.read_snapshot(mutation=True):
+            self._prepare_create(manifest_path, manifest_text, scaffold)
 
     def _new_item_key_scheme(self, manifest) -> str:
         """The item key scheme a collection takes at creation; the store fixes it for the collection's life.
@@ -2677,6 +2724,8 @@ class CollectionWriter:
         index_migrations.maintain_item(index_migrations.AccountedWriter(self.connection, self._execute),
                                        manifest.collection_id, row_id, key, version, values,
                                        previous=json.loads(before["values_json"]) if before else None)
+        reference_index.maintain(index_migrations.AccountedWriter(self.connection, self._execute),
+                                 manifest, row_id, values)
         for source_ordinal, source in enumerate(sources):
             self._execute(tables.INSERT_SOURCE, {"row_id": row_id, "row_version": version,
                           "ordinal": source_ordinal, "source_ref": source})
@@ -2718,6 +2767,8 @@ class CollectionWriter:
                 txn_id=txn["txn_id"], schema_version=manifest.schema.version, scope=scope)
         index_migrations.maintain_new_items(index_migrations.AccountedWriter(self.connection, self._execute),
             manifest.collection_id, [(row_ids[key], key, 1, values) for key, values, _, _, _, _ in plans])
+        reference_index.maintain_many(index_migrations.AccountedWriter(self.connection, self._execute),
+            manifest, [(row_ids[key], values) for key, values, _, _, _, _ in plans])
         # Immediate source FKs require every payload identity to exist before sources attach.
         self._execute(tables.INSERT_SOURCE, [{"row_id": row_ids[key], "row_version": 1,
             "ordinal": 0, "source_ref": source} for key, _, _, _, _, source in plans])
@@ -2912,7 +2963,8 @@ class CollectionWriter:
             for key, values, _, path, before, _ in plans:
                 advisory = records._due_state_carrier(self.root, manifest, path=path or manifest.path, key=key,
                                                       values=values, previous=json.loads(before["values_json"]) if before else None)
-        return {"due_state": advisory, **result} if advisory else result
+        result = {"due_state": advisory, **result} if advisory else result
+        return self._reference_check(result, manifest, [values for _, values, *_ in plans])
 
     def _item_carriers(self, result, manifest, *, path, key, values, previous=None):
         """Refresh derived state only after a new item write has committed."""
@@ -2924,7 +2976,20 @@ class CollectionWriter:
         )
         sweep = records._capture_sweep_carrier(self.root, manifest, key=key)
         result = {"due_state": advisory, **result} if advisory else result
-        return {"capture_sweep": sweep, **result} if sweep else result
+        result = {"capture_sweep": sweep, **result} if sweep else result
+        return self._reference_check(result, manifest, [values] if values is not None else [])
+
+    def _reference_check(self, result, manifest, rows: list):
+        """Report unresolved declared references of the committed rows; never fails the write."""
+        if not collections.declared_references(manifest.schema):
+            return result
+        report = reference_report.check_values(self.root, self.handle.path,
+                                               manifest.collection_id, rows)
+        if report is None:
+            return result
+        result = {**result, "reference_check": report}
+        warns = reference_report.warnings(report)
+        return records._with_warnings(result, warns) if warns else result
 
     def append_record(
         self,
@@ -3440,10 +3505,28 @@ class CollectionWriter:
         if refused is not None:
             raise refused
         records._refuse_excluded_manifest_fields(proposed)
+        kept = {item.dotted for item in collections.declared_references(proposed.schema)}
+        dropped = {item.dotted: item for item in collections.declared_references(current.schema)
+                   if item.dotted not in kept}
+        # A view that still names a removed reference is the revise's problem, not the
+        # view's: the caller must drop both in the same revise.
+        in_use = [diagnostic for diagnostic in proposed.view_diagnostics
+                  if diagnostic.code == "SAVED_VIEW_REFERENCE_UNDECLARED" and diagnostic.reference in dropped]
+        if in_use:
+            declaration = dropped[in_use[0].reference]
+            raise collections.CollectionError(
+                "REFERENCE_IN_USE",
+                "a saved view uses this reference; remove or revise those views in the same revise",
+                {"field": f"{declaration.location}.references",
+                 "views": sorted({diagnostic.location.split(".", 1)[-1] for diagnostic in in_use}),
+                 "expected": "no saved view naming the reference",
+                 "example": f"drop the view, or its {declaration.dotted} fields, in the same revise"},
+            )
         if proposed.view_diagnostics:
             diagnostic = proposed.view_diagnostics[0]
             raise collections.CollectionError(diagnostic.code, diagnostic.reason)
         record_formats.validate_storage_contract(proposed)
+        reference_declarations.require_targets(self._operation, proposed, current)
         if declared.kind == "intended":
             planning.require_planning_profile(proposed)
         plans = {
@@ -3514,6 +3597,16 @@ class CollectionWriter:
                 raise summary.mode_change_refused(current.view_mode, proposed.view_mode)
             txn = self._txn(row, proposed, "revise", why, identity, digest)
             self._manifest(proposed, manifest_text, txn["manifest_version_after"], txn["txn_id"])
+            old_refs = {d.dotted: d for d in collections.declared_references(current.schema)}
+            new_refs = {d.dotted: d for d in collections.declared_references(proposed.schema)}
+            reference_index.revise(
+                index_migrations.AccountedWriter(self.connection, self._execute),
+                current.collection_id,
+                dropped=tuple(sorted(set(old_refs) - set(new_refs))),
+                added=tuple(new_refs[name] for name in sorted(set(new_refs) - set(old_refs))),
+                retargeted=tuple(new_refs[name] for name in sorted(set(old_refs) & set(new_refs))
+                                 if new_refs[name].collection != old_refs[name].collection),
+            )
             if mode_change:
                 self._execute("UPDATE collections SET view_mode=? WHERE collection_id=?",
                               (proposed.view_mode, current.collection_id))
@@ -3637,6 +3730,16 @@ class CollectionWriter:
             manifest_text, proposed = conversion.summary_form(self.root, self._operation, current, declared, stored)
             txn = self._txn(row, proposed, "revise", why, identity, digest)
             self._manifest(proposed, manifest_text, txn["manifest_version_after"], txn["txn_id"])
+            old_refs = {d.dotted: d for d in collections.declared_references(current.schema)}
+            new_refs = {d.dotted: d for d in collections.declared_references(proposed.schema)}
+            reference_index.revise(
+                index_migrations.AccountedWriter(self.connection, self._execute),
+                current.collection_id,
+                dropped=tuple(sorted(set(old_refs) - set(new_refs))),
+                added=tuple(new_refs[name] for name in sorted(set(new_refs) - set(old_refs))),
+                retargeted=tuple(new_refs[name] for name in sorted(set(old_refs) & set(new_refs))
+                                 if new_refs[name].collection != old_refs[name].collection),
+            )
             self._execute("UPDATE collections SET view_mode=?, manifest_version=?, audit_reader_version=2 "
                           "WHERE collection_id=?", (summary.SUMMARY, txn["manifest_version_after"], cid))
             self._execute("DELETE FROM projection_state WHERE collection_id=? AND kind='item'", (cid,))

@@ -55,6 +55,7 @@ from omnibase_core.validation.checker_precommit_pin_parity import (
     normalize_repo_url,
 )
 from omnibase_core.validation.checker_rule_parameters import (
+    rule_int,
     rule_string,
     rule_strings,
 )
@@ -63,6 +64,9 @@ __all__ = [
     "RULE_CYCLE",
     "RULE_FACTS",
     "RULE_HOOK_BEHIND",
+    "RULE_HOOK_EXEMPTED",
+    "RULE_HOOK_EXEMPTION_EXPIRED",
+    "RULE_HOOK_NEAR_BOUND",
     "RULE_HOOK_UNRESOLVED",
     "RULE_INVENTORY",
     "RULE_LAYER",
@@ -91,6 +95,9 @@ RULE_SPECIFIER = "specifier_excludes_newest_release"
 RULE_PIN_STYLE = "pin_style"
 RULE_INVENTORY = "release_inventory_unreadable"
 RULE_HOOK_BEHIND = "hook_rev_behind"
+RULE_HOOK_NEAR_BOUND = "hook_rev_near_bound"
+RULE_HOOK_EXEMPTED = "hook_rev_exempted"
+RULE_HOOK_EXEMPTION_EXPIRED = "hook_rev_exemption_expired"
 RULE_HOOK_UNRESOLVED = "hook_rev_unresolved"
 RULE_FACTS = "facts_lookup"
 
@@ -118,6 +125,9 @@ def validate_rules(rules: Mapping[str, ModelValidatorRule]) -> None:
         RULE_PIN_STYLE,
         RULE_INVENTORY,
         RULE_HOOK_BEHIND,
+        RULE_HOOK_NEAR_BOUND,
+        RULE_HOOK_EXEMPTED,
+        RULE_HOOK_EXEMPTION_EXPIRED,
         RULE_HOOK_UNRESOLVED,
         RULE_FACTS,
     ):
@@ -127,6 +137,8 @@ def validate_rules(rules: Mapping[str, ModelValidatorRule]) -> None:
         rule_string(rules[RULE_UNREADABLE], key)
     re.compile(rule_string(rules[RULE_UNREADABLE], "name_separator_pattern"))
     rule_strings(rules[RULE_PIN_STYLE], "exact_operators")
+    rule_int(rules[RULE_HOOK_NEAR_BOUND], "margin")
+    re.compile(rule_string(rules[RULE_HOOK_EXEMPTED], "full_rev_pattern"))
 
 
 def _fmt(rules: Mapping[str, ModelValidatorRule], key: str) -> str:
@@ -723,6 +735,8 @@ def _hook_issues(
         normalize_repo_url(h.url): h for h in request.hook_histories
     }
     repos = {normalize_repo_url(h.url): h.repo for h in policy.hook_repos}
+    near_margin = rule_int(rules[RULE_HOOK_NEAR_BOUND], "margin")
+    full_rev_pattern = rule_string(rules[RULE_HOOK_EXEMPTED], "full_rev_pattern")
     issues: list[ModelValidationIssue] = []
     for pin in pins:
         url = normalize_repo_url(pin.repo)
@@ -746,7 +760,59 @@ def _hook_issues(
             continue
         committed = next(t.committed_at for t in history.rev_times if t.rev == pin.rev)
         behind = sum(1 for t in history.release_times if t > committed)
-        if behind > policy.hook_rev_max_releases_behind:
+        bound = policy.hook_rev_max_releases_behind
+        exemption = next(
+            (
+                e
+                for e in policy.hook_rev_exemptions
+                if normalize_repo_url(e.url) == url
+                and re.fullmatch(full_rev_pattern, pin.rev)
+                and pin.rev.startswith(e.rev)
+            ),
+            None,
+        )
+        if exemption is not None:
+            rule_id = (
+                RULE_HOOK_EXEMPTION_EXPIRED
+                if request.checked_on is None or request.checked_on > exemption.expires
+                else RULE_HOOK_EXEMPTED
+            )
+            issues.extend(
+                _report(
+                    rules,
+                    rule_id,
+                    path,
+                    line=pin.line,
+                    url=pin.repo,
+                    rev=pin.rev,
+                    hooks=hooks,
+                    repo=repos[url],
+                    behind=behind,
+                    bound=bound,
+                    expires=exemption.expires.isoformat(),
+                    ruling=exemption.ruling,
+                    ticket=exemption.ticket,
+                )
+            )
+            if rule_id == RULE_HOOK_EXEMPTED:
+                continue
+        if bound - near_margin <= behind <= bound and behind > 0:
+            issues.extend(
+                _report(
+                    rules,
+                    RULE_HOOK_NEAR_BOUND,
+                    path,
+                    line=pin.line,
+                    behind=behind,
+                    bound=bound,
+                    margin=near_margin,
+                    url=pin.repo,
+                    rev=pin.rev,
+                    hooks=hooks,
+                    repo=repos[url],
+                )
+            )
+        if behind > bound:
             issues.extend(
                 _report(
                     rules,

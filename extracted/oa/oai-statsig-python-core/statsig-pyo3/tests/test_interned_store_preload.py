@@ -41,7 +41,6 @@ def test_interned_store_preload(server_setup):
     specs_url, log_event_url = server_setup
 
     log_provider = MockOutputLoggerProvider()
-    log_provider.logs = []
 
     statsig = Statsig(
         "secret-key",
@@ -127,7 +126,6 @@ def _assert_interned_store_mmap_preload(specs_url, log_event_url, preload_kind, 
         assert memory.vma_segment_count is None
 
     log_provider = MockOutputLoggerProvider()
-    log_provider.logs = []
 
     statsig = Statsig(
         sdk_key,

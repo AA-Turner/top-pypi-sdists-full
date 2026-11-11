@@ -9,8 +9,10 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 
 from . import settings
+from .adapter import get_adapter
 from .models import MagicLink, MagicLinkError
-from .utils import get_client_ip, get_url_path
+from .signals import magiclink_requested
+from .utils import anonymize_ip, get_url_path
 
 
 def create_magiclink(
@@ -30,7 +32,11 @@ def create_magiclink(
         magic_links = MagicLink.objects.filter(email=email, disabled=False)
         magic_links.update(disabled=True)
 
-    return MagicLink.objects.create(**_magiclink_fields(email, request, redirect_url))
+    magiclink = MagicLink.objects.create(
+        **_magiclink_fields(email, request, redirect_url)
+    )
+    magiclink_requested.send(sender=MagicLink, magiclink=magiclink, request=request)
+    return magiclink
 
 
 async def acreate_magiclink(
@@ -50,9 +56,13 @@ async def acreate_magiclink(
         magic_links = MagicLink.objects.filter(email=email, disabled=False)
         await magic_links.aupdate(disabled=True)
 
-    return await MagicLink.objects.acreate(
+    magiclink = await MagicLink.objects.acreate(
         **_magiclink_fields(email, request, redirect_url)
     )
+    await magiclink_requested.asend(
+        sender=MagicLink, magiclink=magiclink, request=request
+    )
+    return magiclink
 
 
 def _magiclink_fields(
@@ -63,9 +73,9 @@ def _magiclink_fields(
 
     client_ip = None
     if settings.REQUIRE_SAME_IP:
-        client_ip = get_client_ip(request)
+        client_ip = get_adapter().get_client_ip(request)
         if client_ip and settings.ANONYMIZE_IP:
-            client_ip = client_ip[: client_ip.rfind(".") + 1] + "0"
+            client_ip = anonymize_ip(client_ip)
 
     return {
         "email": email,

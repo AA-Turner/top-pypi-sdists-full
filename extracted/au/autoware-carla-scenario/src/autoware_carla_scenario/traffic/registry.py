@@ -45,15 +45,21 @@ TrafficBackendFactory = Callable[[Mapping[str, Any]], TrafficBackend]
 
 _BACKENDS: dict[str, TrafficBackendFactory] = {}
 
-#: Whether the entry-point walk has already run in this process.
+#: Whether the entry-point walk has already run in this process.  Set only
+#: once the walk is over (#2037).
 _plugins_loaded = False
+
+#: Whether the walk is running right now, on the thread holding the plugin
+#: lock (a plugin's import calling load_traffic_backend_plugins again).
+_plugins_loading = False
 
 
 def register_backend(name: str, factory: TrafficBackendFactory) -> None:
     """Make *factory* selectable as ``traffic.backend=<name>``.
 
     Re-registering a name replaces it, which is what a package overriding a
-    built-in backend means to do.
+    built-in backend means to do; :func:`load_traffic_backend_plugins` still
+    logs a warning naming the plugin that did.
 
     Args:
         name: The name the config selects this backend by.
@@ -137,16 +143,50 @@ def build_backend(
 def load_traffic_backend_plugins() -> None:
     """Import every package advertising a backend entry point.
 
+    The entry points load sorted by distribution and entry-point name.  A
+    plugin that overrides a backend registered before them (a built-in) is
+    logged as a warning, and so are two plugins registering the same name, of
+    which the one loaded last wins.
+
     Loading is idempotent: subsequent calls are no-ops within a single process,
     which matters because a Hydra ``--multirun`` sweep builds a backend once per
     job in one process, and re-running a third-party package's registration code
     once per job is unbounded work this package does not control.
+
+    Loading is thread-safe (#2037), as
+    :func:`~autoware_carla_scenario.registry.load_scenario_plugins` is, and
+    under the same lock: concurrent first callers wait for the one that walks,
+    a call a plugin makes while it is being loaded returns at once, and a walk
+    that fails outright is not retried.
     """
-    global _plugins_loaded
+    global _plugins_loaded, _plugins_loading
     if _plugins_loaded:
         return
-    _plugins_loaded = True
 
+    from ..registry import _PLUGIN_LOAD_LOCK  # noqa: PLC0415
+
+    with _PLUGIN_LOAD_LOCK:
+        if _plugins_loaded or _plugins_loading:
+            return
+        _plugins_loading = True
+        try:
+            _walk_traffic_backend_plugins()
+        finally:
+            _plugins_loaded = True
+            _plugins_loading = False
+
+
+def _walk_traffic_backend_plugins() -> None:
+    """Load every traffic backend plugin (under the plugin lock)."""
     from ..registry import load_entry_point_plugins  # noqa: PLC0415
 
-    load_entry_point_plugins(TRAFFIC_BACKEND_ENTRY_POINT_GROUP, "traffic backend")
+    # A plugin that overrides a built-in backend means to (register_backend),
+    # but it is still reported, as is one that takes another plugin's name:
+    # the last one loaded wins, in the fixed order load_entry_point_plugins
+    # walks the entry points in (#2034).
+    load_entry_point_plugins(
+        TRAFFIC_BACKEND_ENTRY_POINT_GROUP,
+        "traffic backend",
+        snapshot=lambda: dict(_BACKENDS),
+        override_intended=True,
+    )

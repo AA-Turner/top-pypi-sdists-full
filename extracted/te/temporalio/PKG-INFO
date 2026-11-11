@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.35.0
+Version: 1.36.0
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: nexus-rpc==1.4.0
-Requires-Dist: protobuf>=3.20,<8.0.0
-Requires-Dist: python-dateutil>=2.8.2,<3 ; python_full_version < '3.11'
-Requires-Dist: types-protobuf>=3.20,<8.0.0
+Classifier: Programming Language :: Python :: 3.15
+Requires-Dist: nexus-rpc==1.5.0
+Requires-Dist: protobuf>=4.21.12,<8.0.0
+Requires-Dist: types-protobuf>=4.24,<8.0.0
 Requires-Dist: typing-extensions>=4.2.0,<5
 Requires-Dist: aioboto3>=10.4.0 ; extra == 'aioboto3'
 Requires-Dist: types-aioboto3[s3]>=10.4.0 ; extra == 'aioboto3'
@@ -18,18 +17,18 @@ Requires-Dist: opentelemetry-api>=1.26,<2 ; extra == 'cloud-run-worker-otel'
 Requires-Dist: opentelemetry-sdk>=1.26,<2 ; extra == 'cloud-run-worker-otel'
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.11.1,<2 ; extra == 'cloud-run-worker-otel'
 Requires-Dist: protobuf<7 ; extra == 'cloud-run-worker-otel'
-Requires-Dist: temporalio-deepagents>=0.0.1 ; python_full_version >= '3.11' and extra == 'deepagents'
+Requires-Dist: temporalio-deepagents>=0.0.1 ; extra == 'deepagents'
 Requires-Dist: gcloud-aio-storage>=9.6.4,<10 ; extra == 'gcloud-aio-storage'
 Requires-Dist: temporalio-google-adk[mcp]>=0.0.1 ; extra == 'google-adk'
 Requires-Dist: temporalio-google-genai[mcp]>=0.1.0 ; extra == 'google-genai'
-Requires-Dist: grpcio>=1.48.2,<2 ; extra == 'grpc'
+Requires-Dist: grpcio>=1.49.1,<2 ; extra == 'grpc'
 Requires-Dist: opentelemetry-api>=1.26,<2 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-sdk>=1.26,<2 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.11.1,<2 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-semantic-conventions>=0.40b0,<1 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-sdk-extension-aws>=2.0.0,<3 ; extra == 'lambda-worker-otel'
 Requires-Dist: temporalio-langgraph>=0.1.0 ; extra == 'langgraph'
-Requires-Dist: temporalio-langsmith>=0.1.0 ; extra == 'langsmith'
+Requires-Dist: temporalio-langsmith>=0.1.1 ; extra == 'langsmith'
 Requires-Dist: temporalio-openai-agents>=1.0.0 ; extra == 'openai-agents'
 Requires-Dist: opentelemetry-api>=1.26,<2 ; extra == 'opentelemetry'
 Requires-Dist: opentelemetry-sdk>=1.26,<2 ; extra == 'opentelemetry'
@@ -54,7 +53,7 @@ Summary: Temporal.io Python SDK
 Keywords: temporal,workflow
 Author-email: Temporal Technologies Inc <sdk@temporal.io>
 License-Expression: MIT
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Bug Tracker, https://github.com/temporalio/sdk-python/issues
 Project-URL: Documentation, https://docs.temporal.io/docs/python
@@ -63,7 +62,7 @@ Project-URL: Repository, https://github.com/temporalio/sdk-python
 
 ![Temporal Python SDK](https://assets.temporal.io/w/py.png)
 
-[![Python 3.10+](https://img.shields.io/pypi/pyversions/temporalio.svg?style=for-the-badge)](https://pypi.org/project/temporalio)
+[![Python 3.11+](https://img.shields.io/pypi/pyversions/temporalio.svg?style=for-the-badge)](https://pypi.org/project/temporalio)
 [![PyPI](https://img.shields.io/pypi/v/temporalio.svg?style=for-the-badge)](https://pypi.org/project/temporalio)
 [![MIT](https://img.shields.io/pypi/l/temporalio.svg?style=for-the-badge)](LICENSE)
 
@@ -175,7 +174,7 @@ informal introduction to the features and their implementation.
       - [Metrics](#metrics)
       - [OpenTelemetry Tracing](#opentelemetry-tracing)
       - [OpenTelemetry Metrics](#opentelemetry-metrics)
-    - [Protobuf 3.x vs 4.x](#protobuf-3x-vs-4x)
+    - [Protobuf compatibility](#protobuf-compatibility)
     - [Known Compatibility Issues](#known-compatibility-issues)
       - [gevent Patching](#gevent-patching)
 - [Development](#development)
@@ -947,6 +946,10 @@ deterministic:
 
 * `asyncio.as_completed()` - use `workflow.as_completed()`
 * `asyncio.wait()` - use `workflow.wait()`
+
+`asyncio.TaskGroup` tracks tasks in a `set()`, so cancellation order can differ between execution and replay.
+This can cause non-determinism errors, even if the workflow catches the task group's exception and completes
+successfully. The sandbox warns when a task group is created.
 
 #### Asyncio Cancellation
 
@@ -2090,17 +2093,12 @@ async with MetricsExporter(buffer, meter_provider):
 exported, since it works by draining the buffer on a fixed interval (`poll_interval`, default one second) -- per the
 warning on `MetricBuffer`, updates are dropped if the buffer isn't drained regularly.
 
-### Protobuf 3.x vs 4.x
+### Protobuf compatibility
 
-Python currently has two somewhat-incompatible protobuf library versions - the 3.x series and the 4.x series. Python
-currently recommends 4.x and that is the primary supported version. Some libraries like
-[Pulumi](https://github.com/pulumi/pulumi) require 4.x. Other libraries such as [ONNX](https://github.com/onnx/onnx) and
-[Streamlit](https://github.com/streamlit/streamlit), for one reason or another, have/will not leave 3.x.
-
-To support these, Temporal Python SDK allows any protobuf library >= 3.19. However, the C extension in older Python
-versions can cause issues with the sandbox due to global state sharing. Temporal strongly recommends using the latest
-protobuf 4.x library unless you absolutely cannot at which point some proto libraries may have to be marked as
-[Passthrough Modules](#passthrough-modules).
+The SDK requires `protobuf>=4.21.12,<8` and supports protobuf 4, 5, 6, and 7 runtimes.
+Its Python bindings are generated with `grpcio-tools` 1.49.1, which bundles
+protoc 3.21.6 (Python protobuf 4.21.6).
+The optional `grpc` extra requires `grpcio>=1.49.1,<2`.
 
 ### Known Compatibility Issues
 
@@ -2115,7 +2113,7 @@ users are encouraged to not use gevent in asyncio applications (including Tempor
 
 # Development
 
-The Python SDK is built to work with Python 3.10 and newer. It is built using
+The Python SDK supports Python 3.11 through 3.15. It is built using
 [SDK Core](https://github.com/temporalio/sdk-rust/) which is written in Rust.
 
 ### Building
@@ -2311,18 +2309,16 @@ poe test -s --log-cli-level=DEBUG -k test_sync_activity_thread_cancel_caught
 
 #### Proto Generation and Testing
 
-If you have docker available, run
+Generate protobuf code:
 
 ```
-poe gen-protos-docker
+poe gen-protos
 ```
 
-Alternatively: to generate protobuf code, you must be on Python <= 3.10, and then run `uv add
-"protobuf<4"` + `uv sync --all-extras`. Then the protobuf files can be generated via `poe
-gen-protos` followed by `poe format`. Do not commit `uv.lock` or `pyproject.toml` changes. To go
-back from this downgrade, restore both of those files and run `uv sync --all-extras`. Tests can be
-run for protobuf version 3 by setting the `TEMPORAL_TEST_PROTO3` env var to `1` prior to running
-tests.
+`uv` runs the protobuf compiler in an isolated Python 3.11 environment using the
+dependencies declared in `scripts/gen_protos.py` and locked in
+`scripts/gen_protos.py.lock`. It downloads Python if needed and leaves the SDK
+development environment unchanged.
 
 ### Style
 

@@ -11,6 +11,7 @@ from polar.base import (
 )
 from polar.v2027_01.errors import (
     HTTPValidationError,
+    NotPermitted,
     ResourceNotFound,
 )
 from polar.v2027_01.inputs import (
@@ -36,16 +37,16 @@ class EventsSync(SyncServiceBase):
     def list(
         self,
         *,
+        organization_id: str | builtins.list[str] | None = None,
+        query: str | None = None,
         filter: str | None = None,
         start_timestamp: str | None = None,
         end_timestamp: str | None = None,
-        organization_id: str | builtins.list[str] | None = None,
         customer_id: str | builtins.list[str] | None = None,
         external_customer_id: str | builtins.list[str] | None = None,
         meter_id: str | None = None,
         name: str | builtins.list[str] | None = None,
         source: EventSource | builtins.list[EventSource] | None = None,
-        query: str | None = None,
         parent_id: str | None = None,
         depth: int | None = None,
         page: int = 1,
@@ -61,16 +62,16 @@ class EventsSync(SyncServiceBase):
         **Scopes**: `events:read` `events:write`
 
         Args:
+            organization_id: Filter by organization ID.
+            query: Query to filter events.
             filter: Filter events following filter clauses. JSON string following the same schema a meter filter clause.
             start_timestamp: Filter events after this timestamp.
             end_timestamp: Filter events before this timestamp.
-            organization_id: Filter by organization ID.
             customer_id: Filter by customer ID.
             external_customer_id: Filter by external customer ID.
             meter_id: Filter by a meter filter clause.
             name: Filter by event name.
             source: Filter by event source.
-            query: Query to filter events.
             parent_id: When combined with depth, use this event as the anchor instead of root events.
             depth: Fetch descendants up to this depth. When set: 0=root events only, 1=roots+children, etc. Max 5. When not set, returns all events.
             page: Page number, defaults to 1.
@@ -92,16 +93,16 @@ class EventsSync(SyncServiceBase):
             url="/v1/events/",
             path_params={},
             query_params={
+                "organization_id": organization_id,
+                "query": query,
                 "filter": filter,
                 "start_timestamp": start_timestamp,
                 "end_timestamp": end_timestamp,
-                "organization_id": organization_id,
                 "customer_id": customer_id,
                 "external_customer_id": external_customer_id,
                 "meter_id": meter_id,
                 "name": name,
                 "source": source,
-                "query": query,
                 "parent_id": parent_id,
                 "depth": depth,
                 "page": page,
@@ -303,6 +304,7 @@ class EventsSync(SyncServiceBase):
             **kwargs: Request body parameters
 
         Raises:
+            NotPermitted: Forbidden
             HTTPValidationError: Validation Error
             PolarNetworkError: Raised when a network error occurs while making the request.
             PolarRateLimitError: Raised when the rate limit is exceeded.
@@ -319,6 +321,7 @@ class EventsSync(SyncServiceBase):
         )
         response = self.client.send_request(request)
         method_errors = {
+            403: NotPermitted,
             422: HTTPValidationError,
         }
         return parse_response_json(response, EventsIngestResponse, method_errors)
@@ -328,16 +331,16 @@ class EventsAsync(AsyncServiceBase):
     async def list(
         self,
         *,
+        organization_id: str | builtins.list[str] | None = None,
+        query: str | None = None,
         filter: str | None = None,
         start_timestamp: str | None = None,
         end_timestamp: str | None = None,
-        organization_id: str | builtins.list[str] | None = None,
         customer_id: str | builtins.list[str] | None = None,
         external_customer_id: str | builtins.list[str] | None = None,
         meter_id: str | None = None,
         name: str | builtins.list[str] | None = None,
         source: EventSource | builtins.list[EventSource] | None = None,
-        query: str | None = None,
         parent_id: str | None = None,
         depth: int | None = None,
         page: int = 1,
@@ -353,16 +356,16 @@ class EventsAsync(AsyncServiceBase):
         **Scopes**: `events:read` `events:write`
 
         Args:
+            organization_id: Filter by organization ID.
+            query: Query to filter events.
             filter: Filter events following filter clauses. JSON string following the same schema a meter filter clause.
             start_timestamp: Filter events after this timestamp.
             end_timestamp: Filter events before this timestamp.
-            organization_id: Filter by organization ID.
             customer_id: Filter by customer ID.
             external_customer_id: Filter by external customer ID.
             meter_id: Filter by a meter filter clause.
             name: Filter by event name.
             source: Filter by event source.
-            query: Query to filter events.
             parent_id: When combined with depth, use this event as the anchor instead of root events.
             depth: Fetch descendants up to this depth. When set: 0=root events only, 1=roots+children, etc. Max 5. When not set, returns all events.
             page: Page number, defaults to 1.
@@ -384,16 +387,16 @@ class EventsAsync(AsyncServiceBase):
             url="/v1/events/",
             path_params={},
             query_params={
+                "organization_id": organization_id,
+                "query": query,
                 "filter": filter,
                 "start_timestamp": start_timestamp,
                 "end_timestamp": end_timestamp,
-                "organization_id": organization_id,
                 "customer_id": customer_id,
                 "external_customer_id": external_customer_id,
                 "meter_id": meter_id,
                 "name": name,
                 "source": source,
-                "query": query,
                 "parent_id": parent_id,
                 "depth": depth,
                 "page": page,
@@ -596,6 +599,7 @@ class EventsAsync(AsyncServiceBase):
             **kwargs: Request body parameters
 
         Raises:
+            NotPermitted: Forbidden
             HTTPValidationError: Validation Error
             PolarNetworkError: Raised when a network error occurs while making the request.
             PolarRateLimitError: Raised when the rate limit is exceeded.
@@ -612,6 +616,7 @@ class EventsAsync(AsyncServiceBase):
         )
         response = await self.client.send_request(request)
         method_errors = {
+            403: NotPermitted,
             422: HTTPValidationError,
         }
         return parse_response_json(response, EventsIngestResponse, method_errors)

@@ -412,6 +412,62 @@ fn cache_hit_respects_inline_disable_for_cross_file_rule() {
     );
 }
 
+/// The fragment of a reference definition, used or not, is checked against the
+/// file it names, and the warning sits on the definition's destination.
+#[test]
+fn md051_checks_reference_definition_fragments_without_cache() {
+    let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path();
+
+    write_target(dir);
+    fs::write(
+        dir.join("a.md"),
+        "# Source\n\n## Local\n\nSee [the target][t].\n\n\
+         [t]: b.md#nonexistent\n[unused]: #locl\n[fine]: b.md#real-heading\n[here]: #local\n",
+    )
+    .unwrap();
+
+    let (success, out) = run_with_status(dir, &["check", ".", "--no-cache", "--isolated"]);
+    assert!(!success, "broken definition fragments must fail:\n{out}");
+    let mut md051: Vec<&str> = out.lines().filter(|line| line.contains("[MD051]")).collect();
+    md051.sort_unstable();
+    assert_eq!(
+        md051,
+        [
+            "a.md:7:6: [MD051] Link fragment 'nonexistent' not found in 'b.md'",
+            "a.md:8:11: [MD051] Link anchor '#locl' does not exist in document headings (did you mean '#local'?)",
+        ],
+        "{out}"
+    );
+}
+
+/// A reference definition's fragment is cached in the index like an inline
+/// link's: the rebuilt index after a lint-cache hit still reports it, and a
+/// target gaining the heading clears it.
+#[test]
+fn md051_reference_definition_fragment_survives_the_cache() {
+    let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path();
+
+    fs::write(dir.join(".rumdl.toml"), "").unwrap();
+    write_target(dir);
+    fs::write(dir.join("a.md"), "# Source\n\nSee [later][t].\n\n[t]: b.md#later\n").unwrap();
+
+    let first = run(dir, &["check", "."]);
+    assert!(first.contains("Link fragment 'later' not found in 'b.md'"), "{first}");
+
+    delete_workspace_index(dir);
+    let second = run(dir, &["check", "."]);
+    assert!(
+        second.contains("Link fragment 'later' not found in 'b.md'"),
+        "a lint-cache hit must rebuild the definition's index entry:\n{second}"
+    );
+
+    fs::write(dir.join("b.md"), "# Target\n\n## Later\n").unwrap();
+    let (third_success, third) = run_with_status(dir, &["check", "."]);
+    assert!(third_success, "the new heading must clear the warning:\n{third}");
+}
+
 #[test]
 fn per_file_ignores_suppresses_cross_file_rule_without_cache() {
     let temp = tempfile::tempdir().unwrap();
@@ -448,5 +504,83 @@ fn per_file_ignores_suppresses_cross_file_rule_on_cache_hit() {
     assert!(
         !out.contains("MD051"),
         "per-file-ignores must suppress cross-file MD051 on a cache hit, got:\n{out}"
+    );
+}
+
+/// The index cache is replaced by an atomic rename, so a rewrite gives the
+/// file a new inode.
+#[cfg(unix)]
+fn workspace_index_inode(dir: &Path) -> u64 {
+    use std::os::unix::fs::MetadataExt;
+    fs::metadata(dir.join(".rumdl_cache").join("workspace_index.bin"))
+        .expect("workspace index cache must exist")
+        .ino()
+}
+
+#[cfg(unix)]
+#[test]
+fn workspace_index_cache_is_kept_when_no_file_changed() {
+    let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path();
+
+    fs::write(dir.join(".rumdl.toml"), "").unwrap();
+    write_target(dir);
+    fs::write(dir.join("a.md"), "# Source\n\n[link](b.md#nonexistent)\n").unwrap();
+
+    let first = run(dir, &["check", "."]);
+    assert!(first.contains("MD051"), "broken fragment must be reported:\n{first}");
+    let saved = workspace_index_inode(dir);
+
+    // Every file hits both caches: the cross-file verdict comes from the
+    // loaded index alone, and that index is left as it was.
+    let second = run(dir, &["check", "."]);
+    assert_eq!(
+        second.matches("MD051").count(),
+        first.matches("MD051").count(),
+        "got:\n{second}"
+    );
+    assert_eq!(
+        workspace_index_inode(dir),
+        saved,
+        "an unchanged workspace must not rewrite the index cache"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn workspace_index_cache_is_saved_when_files_change() {
+    let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path();
+
+    fs::write(dir.join(".rumdl.toml"), "").unwrap();
+    write_target(dir);
+    fs::write(dir.join("a.md"), "# Source\n\n[link](b.md#added-heading)\n").unwrap();
+    fs::write(dir.join("c.md"), "# Other\n").unwrap();
+
+    let first = run(dir, &["check", "."]);
+    assert!(first.contains("MD051"), "missing heading must be reported:\n{first}");
+    let saved = workspace_index_inode(dir);
+
+    // An edited target updates the index, and the next fully cached run
+    // reads the saved update.
+    fs::write(dir.join("b.md"), "# Target\n\n## Added Heading\n").unwrap();
+    let edited = run(dir, &["check", "."]);
+    assert!(!edited.contains("MD051"), "the added heading must resolve:\n{edited}");
+    let after_edit = workspace_index_inode(dir);
+    assert_ne!(after_edit, saved, "an edited file must be saved to the index cache");
+    let cached = run(dir, &["check", "."]);
+    assert!(
+        !cached.contains("MD051"),
+        "the saved index must hold the edit:\n{cached}"
+    );
+
+    // A deleted file is pruned from the index, which is then saved too.
+    fs::remove_file(dir.join("c.md")).unwrap();
+    let pruned = run(dir, &["check", "."]);
+    assert!(!pruned.contains("MD051"), "got:\n{pruned}");
+    assert_ne!(
+        workspace_index_inode(dir),
+        after_edit,
+        "a pruned file must be saved to the index cache"
     );
 }

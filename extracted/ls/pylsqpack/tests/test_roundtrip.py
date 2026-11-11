@@ -1,10 +1,10 @@
 from unittest import TestCase
 
-from pylsqpack import Decoder, Encoder, StreamBlocked
+from pylsqpack import Decoder, Encoder, FieldSectionTooLarge, StreamBlocked
 
 
 class RoundtripTest(TestCase):
-    def test_cancel_stream(self):
+    def test_cancel_stream(self) -> None:
         encoder = Encoder()
         decoder = Decoder(0x100, 0x10)
         stream_id = 0
@@ -29,7 +29,50 @@ class RoundtripTest(TestCase):
         # the decoder no longer reports the stream as unblocked
         self.assertEqual(decoder.feed_encoder(control), [])
 
-    def test_large_headers(self):
+    def test_field_section_too_large(self) -> None:
+        """
+        After a header block is refused for exceeding the maximum field section
+        size, the decoder cancels the stream and keeps decoding header blocks
+        which use the dynamic table, in step with the encoder.
+        """
+        encoder = Encoder()
+        # (3 + 3 + 32) + (3 + 3 + 32) = 76 bytes, so headers fit but not twice.
+        decoder = Decoder(0x100, 0x10, max_field_section_size=100)
+        headers = [(b"one", b"foo"), (b"two", b"bar")]
+
+        # apply decoder settings
+        encoder.apply_settings(0x100, 0x10)
+
+        # ROUND 1: the headers are sent as literals
+        control, data = encoder.encode(0, headers)
+        self.assertEqual(control, b"")
+        self.assertEqual(decoder.feed_header(0, data), (b"", headers))
+
+        # ROUND 2: the headers are inserted into the dynamic table, then
+        # referenced twice, which exceeds the limit
+        control, data = encoder.encode(4, headers * 2)
+        self.assertEqual(control, b"b=E\x82\x94\xe7Ctwo\x03bar")
+        self.assertEqual(data, b"\x03\x81\x10\x11\x10\x11")
+        self.assertEqual(decoder.feed_encoder(control), [])
+        with self.assertRaises(FieldSectionTooLarge):
+            decoder.feed_header(4, data)
+
+        # the stream is cancelled, the encoder accepts the instruction
+        cancel = decoder.cancel_stream(4)
+        self.assertEqual(cancel, b"\x44")
+        encoder.feed_decoder(cancel)
+
+        # ROUND 3: the headers reference the dynamic table entries, and the
+        # encoder accepts the acknowledgment
+        control, data = encoder.encode(8, headers)
+        self.assertEqual(control, b"")
+        self.assertEqual(data, b"\x03\x00\x81\x80")
+        control, decoded = decoder.feed_header(8, data)
+        self.assertEqual(control, b"\x88")
+        self.assertEqual(decoded, headers)
+        encoder.feed_decoder(control)
+
+    def test_large_headers(self) -> None:
         # Regression test for #57: the encoder used to write the header block
         # into a fixed 4 kB buffer, and reject any header whose name and value
         # exceeded 4 kB. Headers such as large cookies made encoding fail.
@@ -54,7 +97,7 @@ class RoundtripTest(TestCase):
         self.assertEqual(control, b"")
         self.assertEqual(decoded, headers)
 
-    def test_large_headers_with_settings(self):
+    def test_large_headers_with_settings(self) -> None:
         # Regression test for #57: when the dynamic table is enabled, inserting
         # a large header produces encoder stream data, which the encoder used
         # to write into a separate fixed 4 kB buffer.
@@ -95,7 +138,7 @@ class RoundtripTest(TestCase):
         self.assertEqual(control, b"\x80")
         self.assertEqual(decoded, headers)
 
-    def test_simple(self):
+    def test_simple(self) -> None:
         encoder = Encoder()
         decoder = Decoder(0x100, 0x10)
         stream_id = 0
@@ -111,7 +154,7 @@ class RoundtripTest(TestCase):
         self.assertEqual(control, b"")
         self.assertEqual(headers, [(b"one", b"foo"), (b"two", b"bar")])
 
-    def test_with_settings(self):
+    def test_with_settings(self) -> None:
         encoder = Encoder()
         decoder = Decoder(0x100, 0x10)
         stream_id = 0

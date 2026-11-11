@@ -14,6 +14,7 @@ refused, a session unknown to the process resumed from its record; and
 
 import asyncio
 import json
+import time
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, Iterator, List
 
@@ -335,6 +336,87 @@ def test_a_prompt_is_streamed_when_the_client_takes_events(
     assert events[0]["threadId"] == UID
 
 
+def test_a_sessions_prompts_carry_its_earlier_turns(
+    client: TestClient, model: Said
+) -> None:
+    # A {"prompt"} caller sends only its new message: the session's earlier
+    # turns, kept in this process, go before it (10 November 2026).
+    first = client.post(
+        "/invocations",
+        headers={SESSION_HEADER: SID},
+        json={"prompt": "Remember PELICAN"},
+    )
+    assert first.json()["response"] == "Heard 1: Remember PELICAN"
+    second = client.post(
+        "/invocations", headers={SESSION_HEADER: SID}, json={"prompt": "What word?"}
+    )
+    assert second.json()["response"] == "Heard 2: What word?"
+    assert model.prompts[-1] == ["Remember PELICAN", "What word?"]
+
+
+def test_a_streamed_prompt_is_remembered_too_and_sessions_stay_apart(
+    client: TestClient, model: Said
+) -> None:
+    events_of(
+        client.post(
+            "/invocations",
+            headers={SESSION_HEADER: SID, "Accept": "text/event-stream"},
+            json={"prompt": "One"},
+        )
+    )
+    again = client.post(
+        "/invocations", headers={SESSION_HEADER: SID}, json={"prompt": "Two"}
+    )
+    assert again.json()["response"] == "Heard 2: Two"
+    from agent_runtimes.agentcore.session_ids import session_uid_to_agentcore
+
+    alone = client.post(
+        "/invocations",
+        headers={SESSION_HEADER: session_uid_to_agentcore("session-0002")},
+        json={"prompt": "Fresh"},
+    )
+    assert alone.json()["response"] == "Heard 1: Fresh"
+
+
+def test_an_ag_ui_run_brings_its_own_conversation(
+    client: TestClient, model: Said
+) -> None:
+    client.post("/invocations", headers={SESSION_HEADER: SID}, json={"prompt": "Kept"})
+    events_of(
+        client.post(
+            "/invocations", headers={SESSION_HEADER: SID}, json=run_input("Alone")
+        )
+    )
+    assert model.prompts[-1] == ["Alone"]
+
+
+def test_a_prompt_after_ag_ui_runs_carries_their_conversation(
+    client: TestClient, model: Said
+) -> None:
+    # The Studio's turns (AG-UI, through ai-agents), then a `loop` prompt on the
+    # same session: the prompt goes after the conversation the last run had
+    # (the drill's step 2, 10 November 2026).
+    events_of(
+        client.post(
+            "/invocations",
+            headers={SESSION_HEADER: SID},
+            json=run_input("Remember HERON"),
+        )
+    )
+    second = run_input("And teal")
+    second["messages"] = [
+        {"id": "u1", "role": "user", "content": "Remember HERON"},
+        {"id": "a1", "role": "assistant", "content": "Heard 1: Remember HERON"},
+        {"id": "u2", "role": "user", "content": [{"type": "text", "text": "And teal"}]},
+    ]
+    events_of(client.post("/invocations", headers={SESSION_HEADER: SID}, json=second))
+    answer = client.post(
+        "/invocations", headers={SESSION_HEADER: SID}, json={"prompt": "Both?"}
+    )
+    assert answer.status_code == 200
+    assert model.prompts[-1] == ["Remember HERON", "And teal", "Both?"]
+
+
 def test_a_run_naming_another_thread_is_refused_in_a_sentence(
     client: TestClient, model: Said
 ) -> None:
@@ -472,6 +554,55 @@ def test_a_session_unknown_here_is_resumed_from_its_record(
     assert recorded.prompts[-1] == ["Remember", "Third"]
 
 
+def test_each_invocation_is_recorded_with_its_wall_time(
+    client: TestClient, recorded: Said
+) -> None:
+    """The run's end in the record carries its invocation: what the usage sums
+    as invocation hours, measured from the invocation's arrival to the run's end."""
+    from agent_runtimes.apps.record import agent_recorder
+
+    recorder = agent_recorder(AGENT_ID)
+    assert recorder is not None
+    bodies: List[Dict[str, Any]] = []
+
+    async def kept(body: Dict[str, Any]) -> None:
+        bodies.append(body)
+
+    recorder.send = kept
+    sid = session_uid_to_agentcore("session-invoked-0001")
+    before = time.time()
+    for prompt in ("One", "Two"):
+        answer = client.post(
+            "/invocations", headers={SESSION_HEADER: sid}, json={"prompt": prompt}
+        )
+        assert answer.json()["status"] == "success"
+    # Streamed as SSE: the same.
+    streamed = client.post(
+        "/invocations",
+        headers={SESSION_HEADER: sid},
+        json=run_input("Three", "session-invoked-0001"),
+    )
+    assert streamed.status_code == 200
+    ends = [
+        entry["payload"]
+        for body in bodies
+        for entry in body["entries"]
+        if entry["kind"] == "output"
+    ]
+    assert len(ends) == 3
+    for end in ends:
+        invocation = end["invocation"]
+        assert invocation["target"] == "agentcore"
+        assert invocation["ended_at"] == end["ended_at"]
+        assert 0 <= invocation["seconds"] <= time.time() - before
+        # The process's start, the same on every invocation it answers.
+        assert (
+            invocation["microvm_started_at"]
+            == ends[0]["invocation"]["microvm_started_at"]
+        )
+    assert ends[0]["invocation"]["started_at"] <= ends[1]["invocation"]["started_at"]
+
+
 def test_a_first_session_is_run_as_it_comes(client: TestClient, recorded: Said) -> None:
     sid = session_uid_to_agentcore("session-new-0001")
     answer = client.post(
@@ -603,18 +734,36 @@ def test_a_run_holds_the_workload_token_agentcore_sent():
     from agent_runtimes.agentcore import identity
     from agent_runtimes.agentcore.contract import collected
 
-    seen: list[str] = []
+    seen: list[tuple[str, str]] = []
 
     async def agent_app(scope, receive, send):
-        seen.append(identity._WORKLOAD_TOKEN.get())
+        from agent_runtimes.otel import genai
+
+        seen.append(
+            (
+                identity._WORKLOAD_TOKEN.get(),
+                identity.invocation_token(),
+                genai._SESSION_ID.get(),
+            )
+        )
         await send({"type": "http.response.start", "status": 200, "headers": []})
         await send({"type": "http.response.body", "body": b"{}"})
 
     scope = {
         "type": "http",
-        "headers": [(b"workloadaccesstoken", b"wat-123"), (b"host", b"x")],
+        "headers": [
+            (b"workloadaccesstoken", b"wat-123"),
+            (b"authorization", b"Bearer inbound-rs256"),
+            (
+                b"x-amzn-bedrock-agentcore-runtime-session-id",
+                b"datalayer-session-padded-s1",
+            ),
+            (b"host", b"x"),
+        ],
     }
     status, _, _ = asyncio.run(collected(agent_app, scope, {"messages": []}, []))
     assert status == 200
-    assert seen == ["wat-123"]
+    # And the token the invocation carried, which a consent is bound with.
+    assert seen == [("wat-123", "inbound-rs256", "datalayer-session-padded-s1")]
     assert identity._WORKLOAD_TOKEN.get() == ""
+    assert identity.invocation_token() == ""

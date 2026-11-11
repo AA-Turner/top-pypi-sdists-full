@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapli
-Version: 2026.10.14
+Version: 2026.11.11
 Summary: Fast, flexible, sync/async, Python 3.10+ screen scraping client specifically for network devices
 Author-email: Carl Montanari <carl.r.montanari@gmail.com>
 License-Expression: MIT

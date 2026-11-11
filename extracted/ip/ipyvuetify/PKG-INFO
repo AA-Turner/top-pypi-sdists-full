@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipyvuetify
-Version: 3.1.0
+Version: 3.1.1
 Summary: Jupyter widgets based on vuetify UI components
 Author-email: Mario Buikhuizen <mbuikhuizen@gmail.com>, Maarten Breddels <maartenbreddels@gmail.com>
 License: MIT
@@ -39,6 +39,8 @@ Requires-Dist: jupyter-sphinx; extra == "doc"
 Requires-Dist: ipykernel; extra == "doc"
 Requires-Dist: pydata-sphinx-theme; extra == "doc"
 Requires-Dist: sphinx-design; extra == "doc"
+Requires-Dist: reacton; extra == "doc"
+Requires-Dist: markdown-it-py; extra == "doc"
 Dynamic: license-file
 
 # ipyvuetify

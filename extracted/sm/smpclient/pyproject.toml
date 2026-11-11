@@ -21,7 +21,7 @@ classifiers = [
 "Operating System :: MacOS :: MacOS X",
 ]
 dependencies = [
-"smp>=4.1.0",
+"smp>=4.3.0",
 "intelhex>=2.3.0",
 "async-timeout>=5.0.1; python_version < '3.11'",
 ]
@@ -63,7 +63,8 @@ dev = [
 "pytest-cov>=7.0.0",
 "pytest-asyncio>=0.23.2",
 "ruff>=0.12.0",
-"camas[mcp,check]==0.1.14",
+"camas[mcp]==0.1.29",
+"pyright>=1.1,<2",
 ]
 doc = [
 "mkdocstrings[python]>=0.26.1",
@@ -71,7 +72,7 @@ doc = [
 "mkdocs-material>=9.5.38",
 "griffe-inherited-docstrings>=1.0.1",
 "griffe>=1.3.1",
-"smp>=4.1.0",
+"smp>=4.3.0",
 ]
 
 [tool.ruff]
@@ -123,3 +124,7 @@ exclude_lines = [
 ':\s*\.\.\.\s*$',
 '^\s*\.\.\.\s*$',
 ]
+
+[tool.pyright]
+include = ["src", "tests", "examples"]
+typeCheckingMode = "standard"

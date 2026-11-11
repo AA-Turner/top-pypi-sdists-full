@@ -67,6 +67,8 @@ __all__ = (
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateProfileAssociationRequestTypeDef",
+    "UpdateProfileAssociationResponseTypeDef",
     "UpdateProfileResourceAssociationRequestTypeDef",
     "UpdateProfileResourceAssociationResponseTypeDef",
 )
@@ -78,15 +80,16 @@ class TagTypeDef(TypedDict):
 
 
 class ProfileAssociationTypeDef(TypedDict):
-    CreationTime: NotRequired[datetime]
     Id: NotRequired[str]
-    ModificationTime: NotRequired[datetime]
     Name: NotRequired[str]
     OwnerId: NotRequired[str]
     ProfileId: NotRequired[str]
     ResourceId: NotRequired[str]
     Status: NotRequired[ProfileStatusType]
     StatusMessage: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    ModificationTime: NotRequired[datetime]
+    Priority: NotRequired[int]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -98,37 +101,37 @@ class ResponseMetadataTypeDef(TypedDict):
 
 
 class AssociateResourceToProfileRequestTypeDef(TypedDict):
-    Name: str
     ProfileId: str
     ResourceArn: str
+    Name: str
     ResourceProperties: NotRequired[str]
 
 
 class ProfileResourceAssociationTypeDef(TypedDict):
-    CreationTime: NotRequired[datetime]
     Id: NotRequired[str]
-    ModificationTime: NotRequired[datetime]
     Name: NotRequired[str]
     OwnerId: NotRequired[str]
     ProfileId: NotRequired[str]
     ResourceArn: NotRequired[str]
-    ResourceProperties: NotRequired[str]
     ResourceType: NotRequired[str]
+    ResourceProperties: NotRequired[str]
     Status: NotRequired[ProfileStatusType]
     StatusMessage: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    ModificationTime: NotRequired[datetime]
 
 
 class ProfileTypeDef(TypedDict):
-    Arn: NotRequired[str]
-    ClientToken: NotRequired[str]
-    CreationTime: NotRequired[datetime]
     Id: NotRequired[str]
-    ModificationTime: NotRequired[datetime]
+    Arn: NotRequired[str]
     Name: NotRequired[str]
     OwnerId: NotRequired[str]
-    ShareStatus: NotRequired[ShareStatusType]
     Status: NotRequired[ProfileStatusType]
     StatusMessage: NotRequired[str]
+    ShareStatus: NotRequired[ShareStatusType]
+    CreationTime: NotRequired[datetime]
+    ModificationTime: NotRequired[datetime]
+    ClientToken: NotRequired[str]
 
 
 class DeleteProfileRequestTypeDef(TypedDict):
@@ -164,17 +167,18 @@ class PaginatorConfigTypeDef(TypedDict):
 
 
 class ListProfileAssociationsRequestTypeDef(TypedDict):
+    ResourceId: NotRequired[str]
+    ProfileId: NotRequired[str]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-    ProfileId: NotRequired[str]
-    ResourceId: NotRequired[str]
 
 
 class ListProfileResourceAssociationsRequestTypeDef(TypedDict):
     ProfileId: str
+    ResourceType: NotRequired[str]
+    ResourceArn: NotRequired[str]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-    ResourceType: NotRequired[str]
 
 
 class ListProfilesRequestTypeDef(TypedDict):
@@ -183,8 +187,8 @@ class ListProfilesRequestTypeDef(TypedDict):
 
 
 class ProfileSummaryTypeDef(TypedDict):
-    Arn: NotRequired[str]
     Id: NotRequired[str]
+    Arn: NotRequired[str]
     Name: NotRequired[str]
     ShareStatus: NotRequired[ShareStatusType]
 
@@ -203,6 +207,12 @@ class UntagResourceRequestTypeDef(TypedDict):
     TagKeys: Sequence[str]
 
 
+class UpdateProfileAssociationRequestTypeDef(TypedDict):
+    ProfileAssociationId: str
+    Name: NotRequired[str]
+    Priority: NotRequired[int]
+
+
 class UpdateProfileResourceAssociationRequestTypeDef(TypedDict):
     ProfileResourceAssociationId: str
     Name: NotRequired[str]
@@ -210,15 +220,16 @@ class UpdateProfileResourceAssociationRequestTypeDef(TypedDict):
 
 
 class AssociateProfileRequestTypeDef(TypedDict):
-    Name: str
     ProfileId: str
     ResourceId: str
+    Name: str
     Tags: NotRequired[Sequence[TagTypeDef]]
+    Priority: NotRequired[int]
 
 
 class CreateProfileRequestTypeDef(TypedDict):
-    ClientToken: str
     Name: str
+    ClientToken: str
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
@@ -245,6 +256,11 @@ class ListProfileAssociationsResponseTypeDef(TypedDict):
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
     Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateProfileAssociationResponseTypeDef(TypedDict):
+    ProfileAssociation: ProfileAssociationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -290,14 +306,15 @@ class GetProfileResponseTypeDef(TypedDict):
 
 
 class ListProfileAssociationsRequestPaginateTypeDef(TypedDict):
-    ProfileId: NotRequired[str]
     ResourceId: NotRequired[str]
+    ProfileId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListProfileResourceAssociationsRequestPaginateTypeDef(TypedDict):
     ProfileId: str
     ResourceType: NotRequired[str]
+    ResourceArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 

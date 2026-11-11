@@ -327,6 +327,7 @@ output_dir, exit_code, work_dir = pathlib.Path(sys.argv[1]), int(sys.argv[2]), p
 commands = []
 both_failed = False
 incomplete = False
+exercised_partial = False
 not_exercised = False
 setup_error = False
 could_not_test = False
@@ -346,6 +347,8 @@ for exit_path in sorted(work_dir.glob("*.exit-code")):
                 both_failed = both_failed or value.lower() == "true"
             if separator and key == "incomplete":
                 incomplete = incomplete or value.lower() == "true"
+            if separator and key == "exercised_partial":
+                exercised_partial = exercised_partial or value.lower() == "true"
             if separator and key == "not_exercised":
                 not_exercised = not_exercised or value.lower() == "true"
             if separator and key == "setup_error":
@@ -364,6 +367,7 @@ summary = {
     "success": exit_code == 0 and all(item["passed"] for item in commands),
     "both_failed": both_failed,
     "incomplete": incomplete,
+    "exercised_partial": exercised_partial,
     "not_exercised": not_exercised,
     "setup_error": setup_error,
     "could_not_test": could_not_test,

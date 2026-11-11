@@ -1,0 +1,168 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Python SDK tasks. Run `mise tasks` to list them and `mise run ci` for the
+# full pipeline. Bindings are generated from core's proto/ at the ref pinned in
+# OPENSHELL_CORE_REF and committed under src/openshell/_proto, so building the
+# package needs no core checkout and no network.
+
+min_version = { soft = "2026.9.9" }
+
+# Python is pinned once, in .python-version, which both uv and mise read.
+[settings]
+idiomatic_version_file_enable_tools = ["python"]
+
+[tools]
+buf = "1.72.0"
+uv = "0.10.12"
+
+[env]
+# The single core pin: a release tag. scripts/core-sync/ requires a tag.
+OPENSHELL_CORE_REF = "v0.1.8"
+# The package version for builds. CI and local builds use 0.0.0; the release
+# workflow sets OPENSHELL_SDK_VERSION to the release's version.
+SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OPENSHELL = "{{ get_env(name='OPENSHELL_SDK_VERSION', default='0.0.0') }}"
+
+[vars]
+python_paths = "src/ tests/ scripts/"
+
+[tasks."core:version"]
+description = "Print the pinned core ref"
+run = "echo $OPENSHELL_CORE_REF"
+
+[tasks.sync]
+description = "Install the SDK and its development dependencies"
+run = "uv sync --frozen --group dev"
+
+[tasks."proto:fetch"]
+description = "Export the SDK's protos from core at the pinned ref into proto/"
+# buf follows the imports of the two root files, so proto/ holds exactly the
+# files the SDK compiles.
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+rm -rf proto
+buf export "https://github.com/NVIDIA/OpenShell.git#ref=${OPENSHELL_CORE_REF},depth=1,subdir=proto" \
+  --path openshell.proto --path credential_driver.proto --output proto
+"""
+sources = ["mise.toml"]
+outputs = ["proto/openshell.proto"]
+
+[tasks."proto:gen"]
+description = "Generate the Python bindings into src/openshell/_proto"
+depends = ["sync", "proto:fetch"]
+run = "uv run --frozen python scripts/generate_python_proto.py"
+
+[tasks."proto:check"]
+description = "Fail if the committed bindings differ from the pinned protos"
+depends = ["proto:gen"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+if ! git diff --exit-code --stat -- src/openshell/_proto \
+   || [ -n "$(git ls-files --others --exclude-standard -- src/openshell/_proto)" ]; then
+  echo "ERROR: src/openshell/_proto is stale; run 'mise run proto:gen' and commit." >&2
+  exit 1
+fi
+"""
+
+[tasks."vendored:check"]
+description = "Fail if a file copied from core (scripts/vendored-core-files.txt) differs from core at the pinned ref"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+core=$(mktemp -d)
+trap 'rm -rf "$core"' EXIT
+files=$(grep -v '^#' scripts/vendored-core-files.txt)
+# shellcheck disable=SC2046 # one argument per core path
+scripts/fetch-core.sh "$OPENSHELL_CORE_REF" "$core" $(awk '{ print $1 }' <<<"$files")
+while read -r src dst; do
+  diff -u "$core/$src" "$dst"
+done <<<"$files"
+"""
+
+[tasks.lint]
+description = "Lint with ruff"
+depends = ["sync"]
+run = "uv run --frozen ruff check {{vars.python_paths}}"
+
+[tasks.format]
+description = "Format with ruff"
+depends = ["sync"]
+run = "uv run --frozen ruff format {{vars.python_paths}}"
+
+[tasks."format:check"]
+description = "Check formatting with ruff"
+depends = ["sync"]
+run = "uv run --frozen ruff format --check {{vars.python_paths}}"
+
+[tasks.typecheck]
+description = "Type check with ty"
+depends = ["sync"]
+run = "uv run --frozen ty check {{vars.python_paths}}"
+
+[tasks.test]
+description = "Run unit tests (set UV_PYTHON to pick the interpreter)"
+depends = ["sync", "proto:fetch"]
+run = "uv run --frozen pytest -n auto --ignore=tests/e2e"
+
+[tasks."e2e:image"]
+description = "Build the E2E sandbox image: Python from .python-version plus cloudpickle, for exec_python"
+run = """
+docker build --file tests/e2e/Dockerfile.workload   --build-arg "PYTHON_VERSION=$(cat .python-version)"   --tag openshell/e2e-python:dev tests/e2e
+"""
+
+[tasks.e2e]
+description = "Run the E2E suite against the gateway named in OPENSHELL_GATEWAY (see scripts/e2e/start-gateway.sh)"
+depends = ["sync"]
+run = "uv run --frozen pytest tests/e2e -n ${E2E_PARALLEL:-5}"
+
+[tasks.check]
+description = "Run formatting, lint, type, and drift checks"
+depends = ["format:check", "lint", "typecheck", "proto:check", "vendored:check"]
+
+[tasks.build]
+description = "Build the wheel and sdist, verify the wheel, and install both on the oldest Python"
+depends = ["sync"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+rm -rf dist
+uv build --out-dir dist
+uv run --no-project python scripts/verify-python-wheel.py dist \
+  --expected-version "$SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OPENSHELL"
+
+# Install each artifact into a clean environment on the oldest supported
+# Python and import the public API and the generated bindings.
+smoke=$(mktemp -d)
+trap 'rm -rf "$smoke"' EXIT
+for artifact in dist/*.whl dist/*.tar.gz; do
+  uv venv --quiet --clear --python "${SMOKE_PYTHON:-3.11}" "$smoke/venv"
+  uv pip install --quiet --python "$smoke/venv/bin/python" "$artifact"
+  "$smoke/venv/bin/python" -I -c 'import openshell, openshell._proto.openshell_pb2_grpc; print(openshell.__version__, len(openshell.__all__))'
+done
+"""
+
+[tasks.ci]
+description = "Run the full CI pipeline"
+depends = ["check", "test", "build"]
+
+[tasks."core:tags"]
+description = "List core release tags newer than the pin (newest pre-release only, --all for every tag)"
+run = "scripts/core-sync/core-tags.sh"
+
+[tasks."core:bump"]
+description = "Open the update proposal for a core tag: mise run core:bump -- <tag> [--dry-run]"
+run = "scripts/core-sync/open-bump-pr.sh"
+
+[tasks."core:drift"]
+description = "Compare core main with the pin: mise run core:drift -- --out <report.md>"
+run = "scripts/core-sync/drift-check.sh"
+
+[tasks."core:drift-issue"]
+description = "Create, update, or close the core main drift issue from a report: mise run core:drift-issue -- <report.md> [--dry-run]"
+run = "scripts/core-sync/update-drift-issue.sh"
+
+[tasks."core:report-failure"]
+description = "Record a failed automation run in the drift issue: mise run core:report-failure -- <job> <run-url> [--dry-run]"
+run = "scripts/core-sync/report-failure.sh"

@@ -6,7 +6,8 @@ import pytest
 from flask import jsonify, request
 
 from schemathesis.generation.modes import GenerationMode
-from test.utils import has_hypothesis_failure_header
+from test.apps.catalog.openapi import basic
+from test.pytest.utils import has_hypothesis_failure_header
 
 
 def test_missing_base_url_error_message(testdir):
@@ -195,14 +196,17 @@ def test(case, data):
     assert "Solution: Create separate test functions" in stdout
 
 
-def test_given_with_dangling_example_reference(testdir):
+@pytest.mark.parametrize(
+    "test_source",
+    [
+        "@schema.parametrize()\ndef test(case):\n    pass",
+        "@schema.parametrize()\n@schema.given(data=st.data())\ndef test(case, data):\n    pass",
+    ],
+    ids=["plain", "given"],
+)
+def test_dangling_example_reference_fails_only_its_operation(testdir, test_source):
     testdir.make_test(
-        """
-@schema.parametrize()
-@schema.given(data=st.data())
-def test(case, data):
-    pass
-        """,
+        test_source,
         paths={
             "/users": {
                 "get": {
@@ -216,12 +220,20 @@ def test(case, data):
                     ],
                     "responses": {"200": {"description": "OK"}},
                 }
-            }
+            },
+            "/health": {"get": {"responses": {"200": {"description": "OK"}}}},
         },
+        schema_name="simple_openapi.yaml",
     )
     result = testdir.runpytest("-v")
-    result.assert_outcomes(errors=1)
-    assert "RefResolutionError: Pointer '/components/examples/Nope' does not exist" in result.stdout.str()
+    result.assert_outcomes(passed=1, failed=1)
+    result.stdout.re_match_lines(
+        [
+            r".+test\[GET /users\] FAILED",
+            r".+test\[GET /health\] PASSED",
+            r"schemathesis.core.errors.RefResolutionError: Pointer '/components/examples/Nope' does not exist",
+        ]
+    )
 
 
 def test_given_with_explicit_hypothesis_example(testdir):
@@ -999,9 +1011,12 @@ def test(case):
     result = testdir.runpytest()
     # We should skip checking for a server error
     result.assert_outcomes(failed=1)
-    assert (
-        "hypothesis.errors.Unsatisfiable: Failed to generate test cases from examples for this API operation"
-        in result.stdout.str()
+    result.stdout.re_match_lines(
+        [
+            r"E +hypothesis.errors.Unsatisfiable: Failed to generate test cases from examples for this API operation",
+            r" +Cannot generate test data for query parameter 'key'",
+            r" +Nothing satisfies `minimum: 5` and `maximum: 4`",
+        ]
     )
 
 
@@ -1125,6 +1140,52 @@ def test(case):
     )
     result = testdir.runpytest()
     result.assert_outcomes(passed=1)
+
+
+@pytest.mark.parametrize(
+    ("body_schema", "expected"),
+    [
+        ({"$ref": "#/components/schemas/Missing"}, ["coverage"]),
+        ({"type": "object"}, ["coverage", "fuzzing"]),
+    ],
+    ids=["unresolvable", "usable"],
+)
+def test_required_body_phases(testdir, ctx, app_runner, tmp_path, body_schema, expected):
+    # Without a usable body schema, every request is body-less; only the coverage case omitting the body is fair.
+    app, raw_schema = ctx.openapi.make_flask_app(
+        {
+            "/things": {
+                "post": {
+                    "requestBody": {"required": True, "content": {"application/json": {"schema": body_schema}}},
+                    "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/things", methods=["POST"])
+    def things():
+        if not isinstance(request.get_json(silent=True), dict):
+            return jsonify({"error": "object body required"}), 400
+        return jsonify({})
+
+    log_path = tmp_path / "phases.log"
+    testdir.make_test(
+        f"""
+schema.config.update(base_url="{app_runner.openapi_url(app, path="")}")
+
+@schema.parametrize()
+@settings(max_examples=5)
+def test(case):
+    with open({str(log_path)!r}, "a") as f:
+        f.write(f"{{case.meta.phase.name.value}}\\n")
+    case.call_and_validate()
+""",
+        schema=raw_schema,
+    )
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=1)
+    assert sorted(set(log_path.read_text().splitlines())) == expected
 
 
 def test_non_serializable_example(testdir, ctx):
@@ -1254,7 +1315,7 @@ def test(case):
     ),
 )
 def test_filter_combination(ctx, testdir, filter, expected):
-    api = ctx.openapi.apps.success_text_and_write_only()
+    api = ctx.openapi.serve(basic.success_text_and_write_only())
     testdir.make_test(f"""
 config = schemathesis.Config.from_dict({{
     "operations": [{{

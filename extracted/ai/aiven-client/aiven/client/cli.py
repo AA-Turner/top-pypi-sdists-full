@@ -18,7 +18,7 @@ from argparse import ArgumentParser, ArgumentTypeError
 from ast import literal_eval
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from http import HTTPStatus
 from typing import IO, Any, ClassVar, Final, Protocol, TypeVar
@@ -136,7 +136,7 @@ def parse_iso8601(value: str) -> datetime:
 
 
 def get_current_date() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def connection_lifetime_arg(value: str) -> float | None:
@@ -163,27 +163,27 @@ class ClientFactory(Protocol):
 class AivenCLI(argx.CommandLineTool):
     client: AivenClient
 
-    def __init__(self, client_factory: ClientFactory = AivenClient):
-        argx.CommandLineTool.__init__(self, "avn")
+    def __init__(self, client_factory: ClientFactory = AivenClient, env: Mapping[str, str] = os.environ):
+        argx.CommandLineTool.__init__(self, "avn", env=env)
         self.client_factory = client_factory
 
     def add_args(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "--auth-ca",
             help="CA certificate to use [AIVEN_CA_CERT], default %(default)r",
-            default=envdefault.AIVEN_CA_CERT,
+            default=self.env.get("AIVEN_CA_CERT"),
             metavar="FILE",
         )
         parser.add_argument(
             "--auth-token",
             help="Client auth token to use [AIVEN_AUTH_TOKEN], [AIVEN_CREDENTIALS_FILE]",
-            default=envdefault.AIVEN_AUTH_TOKEN,
+            default=self.env.get("AIVEN_AUTH_TOKEN"),
         )
         parser.add_argument("--show-http", help="Show HTTP requests and responses", action="store_true")
         parser.add_argument(
             "--url",
             help="Server base url default %(default)r",
-            default=envdefault.AIVEN_WEB_URL,
+            default=envdefault.web_url(self.env),
         )
         parser.add_argument(
             "--request-timeout",
@@ -301,7 +301,7 @@ class AivenCLI(argx.CommandLineTool):
 
     def enter_password(self, prompt: str, var: str = "AIVEN_PASSWORD", confirm: bool = False) -> str:
         """Prompt user for a password"""
-        password = os.environ.get(var)
+        password = self.env.get(var)
         if password:
             return password
 
@@ -322,16 +322,18 @@ class AivenCLI(argx.CommandLineTool):
         print("*" * longest)
 
     def confirm(self, prompt: str = "confirm (y/N)? ") -> bool:
-        if self.args.force or is_truthy(os.environ.get("AIVEN_FORCE", "no")):
+        if self.args.force or is_truthy(self.env.get("AIVEN_FORCE", "no")):
             return True
 
         answer = input(prompt)
         return is_truthy(answer)
 
     def get_project(self, raise_if_none: bool = True, fallback_to_default_project: bool = True) -> str:
-        """Return project given as cmdline argument or the default project from config file"""
+        """Return project given as cmdline argument, AIVEN_PROJECT or the default project from config file"""
         if getattr(self.args, "project", None) and self.args.project:
             return self.args.project
+        if self.env.get("AIVEN_PROJECT"):
+            return self.env["AIVEN_PROJECT"]
 
         if fallback_to_default_project:
             default_project = self.config.get("default_project", "")
@@ -569,6 +571,11 @@ class AivenCLI(argx.CommandLineTool):
     )
     @arg("-n", "--limit", type=int, default=100, help="Get up to N rows of logs")
     @arg("-f", "--follow", action="store_true", default=False)
+    @arg(
+        "--log-type",
+        choices=["application-build", "application-run"],
+        help="Aiven Runtime: build or run logs (default: application-run)",
+    )
     def service__logs(self) -> None:
         """View project logs"""
         previous_offset: str | None = None
@@ -582,6 +589,7 @@ class AivenCLI(argx.CommandLineTool):
                     offset=previous_offset,
                     service=self.args.service_name,
                     sort_order=self.args.sort_order,
+                    log_type=self.args.log_type,
                 )
             except requests.RequestException as ex:
                 if not self.args.follow:
@@ -1582,7 +1590,7 @@ class AivenCLI(argx.CommandLineTool):
             )
 
         try:
-            os.execvpe(command, [command] + params + self.args.arg, dict(os.environ, **env))
+            os.execvpe(command, [command] + params + self.args.arg, dict(self.env, **env))
         except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
@@ -1969,6 +1977,7 @@ ssl.truststore.type=JKS
                 missing_user_items.append("certificate")
             else:
                 with open(os.path.join(self.args.target_directory, "service.cert"), "w", encoding="utf-8") as fp:
+                    os.chmod(fp.name, 0o600)
                     fp.write(cert)
                 downloaded_items.append("certificate")
 
@@ -1977,6 +1986,7 @@ ssl.truststore.type=JKS
                 missing_user_items.append("key")
             else:
                 with open(os.path.join(self.args.target_directory, "service.key"), "w", encoding="utf-8") as fp:
+                    os.chmod(fp.name, 0o600)
                     fp.write(key)
                 downloaded_items.append("key")
 
@@ -2564,26 +2574,18 @@ ssl.truststore.type=JKS
         remote_storage_config = topic_config.get("remote_storage_enable", {})
         is_tiered = isinstance(remote_storage_config, Mapping) and remote_storage_config.get("value")
 
-        cgroups = []
-        for p in topic["partitions"]:
-            for cg in p["consumer_groups"]:
-                if None not in {p["latest_offset"], cg["offset"]}:
-                    lag = p["latest_offset"] - cg["offset"]
-                else:
-                    lag = "UNDEFINED"
-                cgroups.append(
-                    {
-                        "partition": p["partition"],
-                        "consumer_group": cg["group_name"],
-                        "offset": cg["offset"],
-                        "lag": lag,
-                    }
-                )
+        cgroups = self._topic_consumer_groups(topic)
+        sgroups = self._topic_share_groups(topic)
 
         if self.args.json:
             # If JSON output is requested, output the entire object in a single step
             self.print_response(
-                {"config": topic_config, "partitions": topic["partitions"], "consumer_groups": cgroups},
+                {
+                    "config": topic_config,
+                    "partitions": topic["partitions"],
+                    "consumer_groups": cgroups,
+                    "share_groups": sgroups,
+                },
                 json=True,
             )
         else:
@@ -2603,15 +2605,62 @@ ssl.truststore.type=JKS
             )
             print()
 
-            if not cgroups:
-                print("(No consumer groups)")
-            else:
-                self.print_response(
-                    cgroups,
-                    format=self.args.format,
-                    json=self.args.json,
-                    table_layout=[["partition", "consumer_group", "offset", "lag"]],
+            self._print_topic_groups(cgroups, sgroups)
+
+    @staticmethod
+    def _topic_consumer_groups(topic: Mapping[str, Any]) -> list[dict[str, Any]]:
+        cgroups = []
+        for p in topic["partitions"]:
+            for cg in p["consumer_groups"]:
+                if None not in {p["latest_offset"], cg["offset"]}:
+                    lag = p["latest_offset"] - cg["offset"]
+                else:
+                    lag = "UNDEFINED"
+                cgroups.append(
+                    {
+                        "partition": p["partition"],
+                        "consumer_group": cg["group_name"],
+                        "offset": cg["offset"],
+                        "lag": lag,
+                    }
                 )
+        return cgroups
+
+    @staticmethod
+    def _topic_share_groups(topic: Mapping[str, Any]) -> list[dict[str, Any]]:
+        return [
+            {
+                "partition": p["partition"],
+                "share_group": sg["group_name"],
+                "start_offset": sg.get("start_offset"),
+                "lag": sg.get("lag"),
+            }
+            for p in topic["partitions"]
+            for sg in p.get("share_groups") or []
+        ]
+
+    def _print_topic_groups(self, cgroups: list[dict[str, Any]], sgroups: list[dict[str, Any]]) -> None:
+        if not cgroups and not sgroups:
+            print("(No consumer groups)")
+            return
+
+        if cgroups:
+            self.print_response(
+                cgroups,
+                format=self.args.format,
+                json=self.args.json,
+                table_layout=[["partition", "consumer_group", "offset", "lag"]],
+            )
+        if cgroups and sgroups:
+            print()
+
+        if sgroups:
+            self.print_response(
+                sgroups,
+                format=self.args.format,
+                json=self.args.json,
+                table_layout=[["partition", "share_group", "start_offset", "lag"]],
+            )
 
     @arg.project
     @arg.service_name
@@ -3495,12 +3544,109 @@ ssl.truststore.type=JKS
 
             time.sleep(3.0)
 
+    @arg.organization_id
+    @arg.json
+    def service__application__vcs_integration__list(self) -> None:
+        """List the VCS (GitHub) accounts connected to an organization for Aiven Runtime"""
+        integrations = self.client.list_application_vcs_integrations(organization_id=self.args.organization_id)
+        layout = ["vcs_integration_id", "vcs_type", "vcs_account_name", "create_time"]
+        self.print_response(integrations, json=self.args.json, table_layout=layout)
+
+    def _log_next_cursor(self, response: Mapping[str, Any]) -> None:
+        if response.get("next") and not self.args.json:
+            self.log.info("More results available: --cursor %s", response["next"])
+
+    @arg.organization_id
+    @arg.vcs_integration_id
+    @arg("--search", help="Search repositories by name")
+    @arg("--cursor", help="Pagination cursor from a previous page; excludes --search")
+    @arg.json
+    def service__application__repository__list(self) -> None:
+        """List repositories of a VCS integration available to Aiven Runtime"""
+        response = self.client.list_application_vcs_repositories(
+            organization_id=self.args.organization_id,
+            vcs_integration_id=self.args.vcs_integration_id,
+            search=self.args.search,
+            cursor=self.args.cursor,
+        )
+        if self.args.json:
+            self.print_response(response, json=True)
+            return
+        layout = ["remote_repository_id", "full_name", "source_url", "default_branch_name"]
+        self.print_response(response["repositories"], json=False, table_layout=layout)
+        self._log_next_cursor(response)
+
+    @arg.organization_id
+    @arg.vcs_integration_id
+    @arg.remote_repository_id
+    @arg("--cursor", help="Pagination cursor from a previous page")
+    @arg.json
+    def service__application__branch__list(self) -> None:
+        """List branches and their head commits of a repository available to Aiven Runtime"""
+        response = self.client.list_application_vcs_branches(
+            organization_id=self.args.organization_id,
+            vcs_integration_id=self.args.vcs_integration_id,
+            remote_repository_id=self.args.remote_repository_id,
+            cursor=self.args.cursor,
+        )
+        if self.args.json:
+            self.print_response(response, json=True)
+            return
+        self.print_response(response["branches"], json=False, table_layout=["name", "commit_sha"])
+        self._log_next_cursor(response)
+
+    @arg.organization_id
+    @arg.vcs_integration_id
+    @arg.remote_repository_id
+    @arg.commit_sha
+    @arg.json
+    def service__application__container_manifest__list(self) -> None:
+        """List Containerfiles, Dockerfiles and Compose files in a repository at a commit"""
+        files = self.client.list_application_container_manifest_files(
+            organization_id=self.args.organization_id,
+            vcs_integration_id=self.args.vcs_integration_id,
+            remote_repository_id=self.args.remote_repository_id,
+            commit_sha=self.args.commit_sha,
+        )
+        layout = ["file_path", "container_manifest_type", "file_sha"]
+        self.print_response(files, json=self.args.json, table_layout=layout)
+
+    @arg.organization_id
+    @arg.vcs_integration_id
+    @arg.remote_repository_id
+    @arg.commit_sha
+    @arg("--branch", required=True, help="Branch the suggested services deploy from")
+    @arg(
+        "--repository-url",
+        required=True,
+        help="Repository URL, e.g. the source_url from 'service application repository list'",
+    )
+    @arg("--file-path", required=True, help="Manifest path (see 'service application container-manifest list')")
+    @arg.json
+    def service__application__container_manifest__scan(self) -> None:
+        """Scan a container manifest and suggest Aiven Runtime application and service configurations"""
+        file_scan = self.client.scan_application_container_manifest(
+            organization_id=self.args.organization_id,
+            vcs_integration_id=self.args.vcs_integration_id,
+            remote_repository_id=self.args.remote_repository_id,
+            commit_sha=self.args.commit_sha,
+            branch=self.args.branch,
+            file_path=self.args.file_path,
+            repository_url=self.args.repository_url,
+        )
+        if self.args.json:
+            self.print_response(file_scan, json=True)
+            return
+        self.print_response(
+            file_scan.get("service_suggestions", []), json=False, table_layout=["service_name", "service_type"]
+        )
+
     @arg.project
     @arg.force
     @arg("service_name", help="Service name", nargs="+")
     def service__terminate(self) -> None:
         """Terminate service"""
-        if not self.args.force and os.environ.get("AIVEN_FORCE") != "true":
+        if not self.args.force and self.env.get("AIVEN_FORCE") != "true":
             self.print_boxed(
                 [
                     "Please re-enter the service name(s) to confirm the service termination.",
@@ -3901,6 +4047,7 @@ ssl.truststore.type=JKS
         default=False,
         help="do not fail if service already exists",
     )
+    @arg.user_config_json()
     @arg.user_config
     @arg(
         "--project-vpc-id",
@@ -3945,8 +4092,7 @@ ssl.truststore.type=JKS
 
         project_vpc_id = self._get_service_project_vpc_id()
         project = self.get_project()
-        user_config_schema = self._get_service_type_user_config_schema(project=project, service_type=service_type)
-        user_config = self.create_user_config(user_config_schema)
+        user_config = self._get_service_user_config(project=project, service_type=service_type)
 
         # If the user requests a specific version, check EOL status
         requested_version = self._extract_user_config_version(service_type, user_config)
@@ -4020,6 +4166,17 @@ ssl.truststore.type=JKS
         else:
             did_you_mean = ""
         return "Unknown {} {!r}{} (available options: {})".format(option_type, option, did_you_mean, ", ".join(options))
+
+    def _get_service_user_config(self, project: str, service_type: str) -> dict[str, Any]:
+        """Build user_config from --user-config-json or from -c options"""
+        user_config = self.args.user_config_json
+        if user_config is None:
+            user_config_schema = self._get_service_type_user_config_schema(project=project, service_type=service_type)
+            return self.create_user_config(user_config_schema)
+        # service create has no --remove-option.
+        if getattr(self.args, "user_option_remove", None):
+            raise argx.UserError("--remove-option and --user-config-json parameters can not be used at the same time")
+        return dict(user_config)
 
     def _get_service_type_user_config_schema(self, project: str, service_type: str) -> Mapping[str, Any]:
         try:
@@ -4128,6 +4285,7 @@ ssl.truststore.type=JKS
     @arg.service_name
     @arg("--group-name", help="New service group (deprecated)")
     @arg.cloud
+    @arg.user_config_json()
     @arg.user_config
     @arg.user_option_remove
     @arg("-p", "--plan", help="subscription plan of service", required=False)
@@ -4205,8 +4363,7 @@ ssl.truststore.type=JKS
         project = self.get_project()
         service = self.client.get_service(project=project, service=self.args.service_name)
         plan = self.args.plan or service["plan"]
-        user_config_schema = self._get_service_type_user_config_schema(project=project, service_type=service["service_type"])
-        user_config = self.create_user_config(user_config_schema)
+        user_config = self._get_service_user_config(project=project, service_type=service["service_type"])
         # If the user requests a version change, check EOL status
         service_type = service["service_type"]
         requested_version = self._extract_user_config_version(service_type, user_config)
@@ -4405,7 +4562,7 @@ ssl.truststore.type=JKS
         except client.Error as ex:
             print(ex.response.text)
             raise argx.UserError("Project '{}' update failed".format(project_name))
-        if self.args.name and self.config["default_project"] == project_name:
+        if self.args.name and self.config.get("default_project") == project_name:
             self.config["default_project"] = project["project_name"]
             self.config.save()
         self._show_projects([dict(project)])
@@ -4423,64 +4580,6 @@ ssl.truststore.type=JKS
             raise argx.UserError("Project '{}' CA get failed".format(project_name))
         with open(self.args.target_filepath, "w", encoding="utf-8") as fp:
             fp.write(result["certificate"])
-
-    @arg.project
-    @arg.email
-    @arg(
-        "--role",
-        help="Project role for new invited user ('admin', 'operator', 'developer')",
-    )
-    def project__user_invite(self) -> None:
-        """Invite a new user to the project"""
-        project_name = self.get_project()
-        try:
-            self.client.invite_project_user(
-                project=project_name,
-                user_email=self.args.email,
-                member_type=self.args.role,
-            )
-        except client.Error as ex:
-            print(ex.response.text)
-            raise argx.UserError("Project '{}' invite for {} failed".format(project_name, self.args.email))
-        self.log.info("Invited %r into project %r", self.args.email, project_name)
-
-    @arg.project
-    @arg.email
-    def project__user_remove(self) -> None:
-        """Remove a user from the project"""
-        project_name = self.get_project()
-        try:
-            self.client.remove_project_user(project=project_name, user_email=self.args.email)
-        except client.Error as ex:
-            print(ex.response.text)
-            raise argx.UserError("Project '{}' removal of user {} failed".format(project_name, self.args.email))
-        self.log.info("Removed %r from project %r", self.args.email, project_name)
-
-    @arg.json
-    @arg.project
-    def project__user_list(self) -> None:
-        """Project user list"""
-        project_name = self.get_project()
-        try:
-            user_list = self.client.list_project_users(project=project_name)
-            layout = [["user_email", "member_type", "create_time"]]
-            self.print_response(user_list, json=self.args.json, table_layout=layout)
-        except client.Error as ex:
-            print(ex.response.text)
-            raise argx.UserError("Project user listing for '{}' failed".format(project_name))
-
-    @arg.json
-    @arg.project
-    def project__invite_list(self) -> None:
-        """Project user list"""
-        project_name = self.get_project()
-        try:
-            user_list = self.client.list_invited_project_users(project=project_name)
-            layout = [["invited_user_email", "inviting_user_email", "member_type", "invite_time"]]
-            self.print_response(user_list, json=self.args.json, table_layout=layout)
-        except client.Error as ex:
-            print(ex.response.text)
-            raise argx.UserError("Project user listing for '{}' failed".format(project_name))
 
     def _print_tags(self, tags: Mapping[str, Any]) -> None:
         layout = [["key", "value"]]
@@ -4599,8 +4698,7 @@ ssl.truststore.type=JKS
             pass
 
     def _get_auth_token_file_name(self) -> str:
-        default_token_file_path = os.path.join(envdefault.AIVEN_CONFIG_DIR, "aiven-credentials.json")
-        return os.environ.get("AIVEN_CREDENTIALS_FILE") or default_token_file_path
+        return envdefault.credentials_file(self.env)
 
     def _get_auth_token(self) -> str | None:
         token = self.args.auth_token
@@ -4949,233 +5047,6 @@ ssl.truststore.type=JKS
             return
         layout = [["principal_id", "principal_type", "permissions"]]
         self.print_response(permissions, json=self.args.json, table_layout=layout)
-
-    @arg.json
-    @arg.project
-    def credits__list(self) -> None:
-        """List claimed credits"""
-        project_name = self.get_project()
-        project_credits = self.client.list_project_credits(project=project_name)
-        layout = [["code", "remaining_value"]]
-        self.print_response(project_credits, json=self.args.json, table_layout=layout)
-
-    def _print_billing_groups(self, billing_groups: Sequence[dict[str, Any]]) -> None:
-        for billing_group in billing_groups:
-            billing_group["credit_card"] = self._format_card_info(billing_group)
-            billing_group["billing_emails"] = [item["email"] for item in billing_group["billing_emails"]]
-        layout: list = [
-            [
-                "billing_group_id",
-                "billing_group_name",
-                "account_name",
-            ]
-        ]
-        if self.args.verbose:
-            layout.extend(
-                [
-                    "payment_method",
-                    "credit_card",
-                    "vat_id",
-                    "billing_currency",
-                    "estimated_balance_usd",
-                    "estimated_balance_local",
-                    "billing_extra_text",
-                    "billing_emails",
-                    "company",
-                    "address_lines",
-                    "country_code",
-                    "city",
-                    "state",
-                    "zip_code",
-                    "billing_address",
-                ]
-            )
-        self.print_response(billing_groups, json=self.args.json, table_layout=layout)
-
-    @arg("name", help="Billing group name")
-    @arg("--account-id", required=True, help="Account ID of the project")
-    @arg.card_id
-    @arg.vat_id
-    @arg.billing_currency
-    @arg.billing_extra_text
-    @arg.billing_email
-    @arg("--company", help="Company name")
-    @arg("--address-line", action="append", help="Address line")
-    @arg.country_code
-    @arg("--city", help="City")
-    @arg("--state", help="State / Province")
-    @arg("--zip-code", help="ZIP / Postal code")
-    @arg(
-        "--no-fail-if-exists",
-        action="store_true",
-        default=False,
-        help="Do not fail if billing group already exists",
-    )
-    @arg.json
-    @arg.verbose
-    def billing_group__create(self) -> None:
-        """Create a billing group"""
-        billing_group = self.client.create_billing_group(
-            billing_group_name=self.args.name,
-            account_id=self.args.account_id,
-            card_id=self.args.card_id,
-            vat_id=self.args.vat_id,
-            billing_currency=self.args.billing_currency,
-            billing_extra_text=self.args.billing_extra_text,
-            billing_emails=self.args.billing_email,
-            company=self.args.company,
-            address_lines=self.args.address_line,
-            country_code=self.args.country_code,
-            city=self.args.city,
-            state=self.args.state,
-            zip_code=self.args.zip_code,
-        )
-        self._print_billing_groups([dict(billing_group)])
-
-    @arg.billing_group
-    @arg("--name", help="Billing group name")
-    @arg("--account-id", help="Account ID of the project")
-    @arg.card_id
-    @arg.vat_id
-    @arg.billing_currency
-    @arg.billing_extra_text
-    @arg.billing_email
-    @arg("--company", help="Company name")
-    @arg("--address-line", action="append", help="Address line")
-    @arg.country_code
-    @arg("--city", help="City")
-    @arg("--state", help="State / Province")
-    @arg("--zip-code", help="ZIP / Postal code")
-    def billing_group__update(self) -> None:
-        """Update a billing group"""
-        self.client.update_billing_group(
-            billing_group=self.args.id,
-            billing_group_name=self.args.name,
-            account_id=self.args.account_id,
-            card_id=self.args.card_id,
-            vat_id=self.args.vat_id,
-            billing_currency=self.args.billing_currency,
-            billing_extra_text=self.args.billing_extra_text,
-            billing_emails=self.args.billing_email,
-            company=self.args.company,
-            address_lines=self.args.address_line,
-            country_code=self.args.country_code,
-            city=self.args.city,
-            state=self.args.state,
-            zip_code=self.args.zip_code,
-        )
-
-    @arg.json
-    @arg.verbose
-    def billing_group__list(self) -> None:
-        """Lists billing groups"""
-        billing_groups = self.client.get_billing_groups()
-        self._print_billing_groups(billing_groups)
-
-    @arg.billing_group
-    @arg.json
-    @arg.verbose
-    def billing_group__get(self) -> None:
-        """Get a project"""
-        billing_group = self.client.get_billing_group(billing_group=self.args.id)
-        self._print_billing_groups([dict(billing_group)])
-        if self.args.verbose and not self.args.json:
-            print("Billing group projects")
-            projects = self.client.get_billing_group_projects(billing_group=self.args.id)
-            if not projects:
-                print("None")
-                return
-            layout = [
-                [
-                    "project_name",
-                    "estimated_balance",
-                    "available_credits",
-                ]
-            ]
-            self.print_response(projects, json=False, table_layout=layout)
-
-    @arg.billing_group
-    def billing_group__delete(self) -> None:
-        """Delete a project"""
-        self.client.delete_billing_group(billing_group=self.args.id)
-
-    @arg.billing_group
-    @arg("projects", nargs="+", help="Project names")
-    def billing_group__assign_projects(self) -> None:
-        """Assign projects to billing group"""
-        self.client.assign_projects_to_billing_group(
-            billing_group=self.args.id,
-            project_names=self.args.projects,
-        )
-
-    @arg.billing_group
-    @arg.json
-    @arg("-n", "--limit", type=int, default=100, help="Get up to N rows of logs")
-    def billing_group__events(self) -> None:
-        """View project event logs"""
-        events = self.client.get_billing_group_events(billing_group=self.args.id, limit=self.args.limit)
-        layout = ["create_time", "actor", "event_desc"]
-        self.print_response(events, json=self.args.json, table_layout=layout)
-
-    @arg.billing_group
-    @arg.json
-    def billing_group__credits_list(self) -> None:
-        """List claimed credits"""
-        result = self.client.list_billing_group_credits(billing_group=self.args.id)
-        layout = [["code", "remaining_value"]]
-        self.print_response(result, json=self.args.json, table_layout=layout)
-
-    @arg.billing_group
-    @arg.json
-    @arg("code", help="Credit code")
-    def billing_group__credits_claim(self) -> None:
-        """Claim a credit code"""
-        result = self.client.claim_billing_group_credit(billing_group=self.args.id, credit_code=self.args.code)
-        if self.args.json:
-            self.print_response(result, json=True)
-
-    @arg.billing_group
-    @arg(
-        "--sort",
-        choices=["invoice_number", "period_begin", "period_end", "state", "currency", "total_inc_vat", "total_vat_zero"],
-    )
-    @arg.json
-    @arg.verbose
-    def billing_group__invoice_list(self) -> None:
-        """List billing group invoices"""
-        result = self.client.list_billing_group_invoices(billing_group=self.args.id, sort=self.args.sort)
-        layout: list = [
-            [
-                "invoice_number",
-                "period_begin",
-                "period_end",
-                "state",
-                "total_inc_vat",
-                "total_vat_zero",
-            ]
-        ]
-        if self.args.verbose:
-            layout.extend(["currency", "download"])
-        self.print_response(result, json=self.args.json, table_layout=layout)
-
-    @arg.billing_group
-    @arg("invoice", help="Invoice number")
-    @arg.json
-    def billing_group__invoice_lines(self) -> None:
-        """Get billing group invoice lines"""
-        result = self.client.get_billing_group_invoice_lines(billing_group=self.args.id, invoice_number=self.args.invoice)
-        layout = [
-            [
-                "timestamp_begin",
-                "timestamp_end",
-                "line_type",
-                "description",
-                "line_total_local",
-                "local_currency",
-                "line_total_usd",
-            ]
-        ]
-        self.print_response(result, json=self.args.json, table_layout=layout)
 
     @arg.json
     @arg.project
@@ -5658,7 +5529,7 @@ ssl.truststore.type=JKS
     @arg.project
     @arg.service_name
     @arg("--file_path", help="A path to the file", required=True)
-    @arg("--file_type", choices=["synonyms", "stopwords", "wordnet"], required=True)
+    @arg("--file_type", choices=["synonyms", "stopwords", "wordnet", "hyphenation_patterns"], required=True)
     @arg("--file_name", help="A name for the file", required=True)
     def service__custom_file__upload(self) -> None:
         """Upload custom file for the specified service"""
@@ -5857,90 +5728,6 @@ ssl.truststore.type=JKS
 
         self.client.delete_user_group(self.args.organization_id, self.args.group_id)
 
-    def _get_stripe_payment_method_id(self, name: str, number: str, exp_month: int, exp_year: int, cvc: str) -> str:
-        """Obtains payment method identifier from Stripe"""
-        stripe_key = self.client.get_stripe_key()
-        raw_client_secret = self.client.create_payment_method_setup_intent()
-
-        request_payload = {
-            "client_secret": raw_client_secret,
-            "payment_method_data[billing_details][name]": name,
-            "payment_method_data[card][number]": number,
-            "payment_method_data[card][cvc]": cvc,
-            "payment_method_data[card][exp_month]": exp_month,
-            "payment_method_data[card][exp_year]": exp_year,
-            "payment_method_data[type]": "card",
-        }
-
-        client_secret_url_part = "_".join(raw_client_secret.split("_")[:2])
-        response = requests.post(
-            f"https://api.stripe.com/v1/setup_intents/{client_secret_url_part}/confirm",
-            data=request_payload,
-            auth=(stripe_key, ""),
-            timeout=30,
-        )
-
-        if not response.ok:
-            response.raise_for_status()
-        return response.json()["payment_method"]
-
-    @arg.json
-    @arg.organization_id
-    def organization__card__list(self) -> None:
-        """List organization cards"""
-        cards = self.client.list_payment_methods(self.args.organization_id)
-        for card in cards:
-            card["expiration"] = f"{card['exp_month']:02d}/{card['exp_year']}"
-            card["number"] = f"**** **** **** {card['last4']}"
-
-        layout = [
-            "card_id",
-            "name",
-            "number",
-            "expiration",
-        ]
-        self.print_response(cards, json=self.args.json, table_layout=layout)
-
-    @arg.json
-    @arg.organization_id
-    @arg("--cvc", help="Credit card security code", required=True)
-    @arg("--exp-month", help="Card expiration month (1-12)", type=int, required=True)
-    @arg("--exp-year", help="Card expiration year", type=int, required=True)
-    @arg("--name", help="Name on card", required=True)
-    @arg("--number", help="Credit card number", type=int, required=True)
-    def organization__card__create(self) -> None:
-        """Add a credit card"""
-
-        payment_method_id = self._get_stripe_payment_method_id(
-            self.args.name,
-            self.args.number,
-            self.args.exp_month,
-            self.args.exp_year,
-            self.args.cvc,
-        )
-        card = self.client.attach_payment_method(self.args.organization_id, payment_method_id)
-
-        card["expiration"] = f"{card['exp_month']:02d}/{card['exp_year']}"
-        card["number"] = f"**** **** **** {card['last4']}"
-        layout = [
-            "card_id",
-            "name",
-            "number",
-            "expiration",
-        ]
-        self.print_response(card, json=self.args.json, table_layout=layout, single_item=True)
-
-    @arg.json
-    @arg.force
-    @arg.organization_id
-    @arg("card_id", help="Credit card identifier")
-    def organization__card__delete(self) -> None:
-        """Delete organization card"""
-        if not self.confirm("Confirm delete (y/N)?"):
-            raise argx.UserError("Aborted")
-        self.client.delete_organization_card(self.args.organization_id, self.args.card_id)
-        print("Deleted")
-
     @arg.json
     @arg.organization_id
     @arg.verbose
@@ -6123,70 +5910,37 @@ ssl.truststore.type=JKS
 
     @arg("--organization-id", required=True, help="Identifier of the organization of the custom cloud environment")
     @arg("--organization-vpc-id", required=True)
-    @arg("--peering-connection-id", required=True)
+    @arg("--peer-cloud-account", required=True, help=_peer_cloud_account_help)
+    @arg("--peer-resource-group", help=_peer_resource_group_help)
+    @arg("--peer-vpc", required=True, help=_peer_vpc_help)
     @arg("cidrs", nargs="+", metavar="CIDR")
     @arg.json
     def organization__vpc__peering_connection__user_peer_network_cidrs__add(self) -> None:
-        """Add user peer network CIDRs for an organization VPC peering connection."""
+        """Add user peer network CIDRs for an organization VPC."""
+        add_base = {
+            "peer_cloud_account": self.args.peer_cloud_account,
+            "peer_vpc": self.args.peer_vpc,
+        }
+        if self.args.peer_resource_group is not None:
+            add_base["peer_resource_group"] = self.args.peer_resource_group
+        add = [dict(add_base, cidr=cidr) for cidr in self.args.cidrs]
         self.client.organization_vpc_user_peer_network_cidrs_update(
             organization_id=self.args.organization_id,
             organization_vpc_id=self.args.organization_vpc_id,
-            peering_connection_id=self.args.peering_connection_id,
-            add=[{"cidr": cidr} for cidr in self.args.cidrs],
+            add=add,
         )
 
     @arg("--organization-id", required=True, help="Identifier of the organization of the custom cloud environment")
     @arg("--organization-vpc-id", required=True)
-    @arg("--peering-connection-id", required=True)
     @arg("cidrs", nargs="+", metavar="CIDR")
     @arg.json
     def organization__vpc__peering_connection__user_peer_network_cidrs__delete(self) -> None:
-        """Delete user peer network CIDRs from an organization VPC peering connection."""
+        """Delete user peer network CIDRs from an organization VPC."""
         self.client.organization_vpc_user_peer_network_cidrs_update(
             organization_id=self.args.organization_id,
             organization_vpc_id=self.args.organization_vpc_id,
-            peering_connection_id=self.args.peering_connection_id,
             delete=self.args.cidrs,
         )
-
-    @arg.project
-    @arg.cloud
-    @arg.json
-    @arg.service_type
-    @arg("-p", "--plan", help="subscription plan of service")
-    def sustainability__service_plan_emissions_project(self) -> None:
-        """Estimate emissions for a service plan"""
-        project = self.get_project()
-        service_type = self._get_service_type()
-        plan = self._get_plan()
-        cloud = self.args.cloud
-
-        estimate = self.client.sustainability_service_plan_emissions_project(
-            project=project, service_type=service_type, plan=plan, cloud=cloud
-        )
-        records = [{"measurement": k, "value": v} for k, v in estimate["emissions"].items()]
-
-        layout = ["measurement", "value"]
-
-        self.print_response(records, json=self.args.json, table_layout=layout)
-
-    @arg.project
-    @arg.json
-    @arg("--since", help="Period begin datestamp in format YYYYMMDD", required=True)
-    @arg("--until", help="Period begin datestamp in format YYYYMMDD", required=True)
-    def sustainability__project_emissions_estimate(self) -> None:
-        """Estimate emissions for a project"""
-        project = self.get_project()
-        since = self.args.since
-        until = self.args.until
-
-        estimate = self.client.sustainability_project_emissions_estimate(project=project, since=since, until=until)
-
-        records = [{"measurement": k, "value": v} for k, v in estimate["emissions"].items()]
-
-        layout = ["measurement", "value"]
-
-        self.print_response(records, json=self.args.json, table_layout=layout)
 
     @arg("--organization-id", required=True, help="Identifier of the organization of the custom cloud environment")
     @arg("--deployment-model", required=True, help="Deployment model for the BYOC cloud")
@@ -6924,10 +6678,66 @@ ssl.truststore.type=JKS
         offerings = sorted(offerings, key=lambda x: x.get("compute_tier", 0))
         if self.args.ingress is not None:
             offerings = [offering for offering in offerings if offering.get("max_ingress_mbps", 0) >= self.args.ingress]
+
         layout = [
-            ["offering_name", "max_ingress_mbps", "max_egress_mbps"],
+            [
+                "offering_name",
+                "max_ingress_mbps",
+                "max_egress_mbps",
+                "node_count",
+                "volume_size",
+                "cpu_count",
+                "memory",
+                "max_partitions",
+            ]
         ]
-        self.print_response(offerings, json=self.args.json, table_layout=layout)
+
+        response = []
+        for offering in offerings:
+            volume_size = offering.get("volume_size")
+            volume_count = offering.get("volume_count")
+            volume_info = (
+                f"{round(units.convert_bytes_to_gib(float(volume_size)))} GiB (x{volume_count})" if volume_size else None
+            )
+
+            cpu_by_provider = {}
+            memory_by_provider = {}
+            max_partitions_by_provider = {}
+
+            for info in offering.get("node_info", []):
+                provider = info.get("cloud_provider")
+                memory = info.get("memory")
+                cpu_by_provider[provider] = info.get("cpu_count")
+                memory_by_provider[provider] = round(units.convert_bytes_to_gib(float(memory))) if memory else None
+                max_partitions_by_provider[provider] = info.get("max_partitions")
+
+            cpu_info = ", ".join(
+                [f"{provider}: {cpu_count}" for provider, cpu_count in sorted(cpu_by_provider.items(), key=lambda p: p)]
+            )
+            memory_info = ", ".join(
+                [f"{provider}: {memory} GiB" for provider, memory in sorted(memory_by_provider.items(), key=lambda p: p)]
+            )
+            max_partitions_info = ", ".join(
+                [
+                    f"{provider}: {max_partitions}"
+                    for provider, max_partitions in sorted(max_partitions_by_provider.items(), key=lambda p: p)
+                ]
+            )
+
+            response.append(
+                {
+                    "offering_name": offering.get("offering_name"),
+                    "max_ingress_mbps": offering.get("max_ingress_mbps"),
+                    "max_egress_mbps": offering.get("max_egress_mbps"),
+                    "node_count": offering.get("node_count"),
+                    "volume_size": volume_info,
+                    "cpu_count": cpu_info,
+                    "memory": memory_info,
+                    "max_partitions": max_partitions_info,
+                }
+            )
+
+        self.print_response(response, json=self.args.json, table_layout=layout)
 
     @arg.json
     @arg.organization_id
@@ -7141,6 +6951,216 @@ ssl.truststore.type=JKS
         project_name = self.get_project()
         self.client.upgrade_pipeline_step_validate(
             project_name=project_name, service_name=self.args.service_name, comment=self.args.comment
+        )
+
+    # ---- Kafka Connect custom plugins ----------------------------------------
+
+    def _resolve_kafka_plugin_file_id(self) -> str:
+        """Resolve a plugin file ID from --plugin-file-id or --plugin-name/--plugin-version."""
+        plugin_file_id = self.args.plugin_file_id
+        if plugin_file_id is not None:
+            return plugin_file_id
+        if not self.args.plugin_name or not self.args.plugin_version:
+            raise argx.UserError("Either --plugin-file-id or both --plugin-name and --plugin-version must be provided")
+        files = self.client.kafka_connect_custom_plugin_file_list(
+            organization_id=self.args.organization_id,
+            plugin_name=self.args.plugin_name,
+        )
+        matches = [f for f in files if f["plugin_version"] == self.args.plugin_version]
+        if not matches:
+            raise argx.UserError(
+                f"No plugin file found for plugin {self.args.plugin_name!r} version {self.args.plugin_version!r}"
+            )
+        return matches[0]["plugin_file_id"]
+
+    @arg.json
+    @arg.organization_id
+    @arg.kafka_connect_plugin_name
+    @arg("--plugin-version", required=True, help="Plugin version (semver, e.g. 2.7.14)")
+    @arg("--source", required=True, help="Path to the JAR or ZIP file to upload")
+    @arg(
+        "--content-type",
+        default="application/java-archive",
+        choices=["application/java-archive", "application/zip"],
+        help="MIME type of the plugin file (default: application/java-archive)",
+    )
+    @arg("--plugin-description", help="Human-readable description of the plugin (all versions)")
+    @arg("--file-description", help="Human-readable change notes for this version")
+    def organization__kafka_plugin__file__create(self) -> None:
+        """Create and upload a Kafka plugin file"""
+        if not os.path.isfile(self.args.source):
+            raise argx.UserError(f"Source file not found: {self.args.source!r}")
+        rsp = self.client.kafka_connect_custom_plugin_file_create(
+            organization_id=self.args.organization_id,
+            plugin_name=self.args.plugin_name,
+            plugin_version=self.args.plugin_version,
+            content_type=self.args.content_type,
+            plugin_description=self.args.plugin_description,
+            file_description=self.args.file_description,
+        )
+        upload_info = rsp.get("upload_info", {})
+        presigned_url = upload_info.get("url")
+        if not presigned_url:
+            raise argx.UserError("API did not return a presigned upload URL")
+
+        with open(self.args.source, "rb") as f:
+            put_response = requests.put(
+                presigned_url,
+                data=f,
+                headers={"Content-Type": self.args.content_type},
+                timeout=300,
+            )
+        if not put_response.ok:
+            raise argx.UserError(f"File upload failed: HTTP {put_response.status_code}: {put_response.text}")
+
+        safe_rsp = dict(rsp)
+        if isinstance(safe_rsp.get("upload_info"), dict):
+            safe_upload_info = dict(safe_rsp["upload_info"])
+            safe_upload_info.pop("url", None)
+            safe_rsp["upload_info"] = safe_upload_info
+        self.print_response(safe_rsp, json=self.args.json)
+
+    @arg.json
+    @arg.organization_id
+    @arg.kafka_connect_plugin_name
+    @arg("--plugin-description", required=True, help="New plugin description")
+    def organization__kafka_plugin__update(self) -> None:
+        """Update a Kafka Plugin description"""
+        self.print_response(
+            self.client.kafka_connect_custom_plugin_update(
+                organization_id=self.args.organization_id,
+                plugin_name=self.args.plugin_name,
+                plugin_description=self.args.plugin_description,
+            ),
+            json=self.args.json,
+        )
+
+    @arg.json
+    @arg.organization_id
+    @arg.kafka_connect_plugin_file_id
+    @arg("--file-description", required=True, help="New file description")
+    def organization__kafka_plugin__file__update(self) -> None:
+        """Update a Kafka Plugin file description"""
+        self.print_response(
+            self.client.kafka_connect_custom_plugin_file_update(
+                organization_id=self.args.organization_id,
+                plugin_file_id=self.args.plugin_file_id,
+                file_description=self.args.file_description,
+            ),
+            json=self.args.json,
+        )
+
+    @arg.organization_id
+    @arg("--plugin-file-id", help="Kafka Plugin file ID")
+    @arg("--plugin-name", help="Kafka Plugin name")
+    @arg("--plugin-version", help="Plugin version (e.g. 2.7.14)")
+    def organization__kafka_plugin__file__delete(self) -> None:
+        """Delete a Kafka Plugin file"""
+        plugin_file_id = self._resolve_kafka_plugin_file_id()
+        self.client.kafka_connect_custom_plugin_file_delete(
+            organization_id=self.args.organization_id,
+            plugin_file_id=plugin_file_id,
+        )
+
+    @arg.json
+    @arg.organization_id
+    def organization__kafka_plugin__list(self) -> None:
+        """List Kafka Plugins"""
+        self.print_response(
+            self.client.kafka_connect_custom_plugin_list(organization_id=self.args.organization_id),
+            json=self.args.json,
+            table_layout=["plugin_name", "plugin_description", "created_at"],
+        )
+
+    @arg.json
+    @arg.organization_id
+    @arg.kafka_connect_plugin_name
+    def organization__kafka_plugin__file__list(self) -> None:
+        """List Kafka Plugin files"""
+        self.print_response(
+            self.client.kafka_connect_custom_plugin_file_list(
+                organization_id=self.args.organization_id,
+                plugin_name=self.args.plugin_name,
+            ),
+            json=self.args.json,
+            table_layout=[
+                "plugin_file_id",
+                "plugin_version",
+                "file_description",
+                "file_status",
+                "created_at",
+                "verify_error_code",
+                "verify_error_message",
+            ],
+        )
+
+    @arg.json
+    @arg.organization_id
+    def organization__kafka_plugin__class__list(self) -> None:
+        """List Kafka Plugin classes"""
+        self.print_response(
+            self.client.kafka_connect_custom_plugin_class_list(organization_id=self.args.organization_id),
+            json=self.args.json,
+            table_layout=["plugin_class", "plugin_class_type", "title", "created_at"],
+        )
+
+    @arg.json
+    @arg.organization_id
+    @arg.kafka_connect_plugin_name
+    def organization__kafka_plugin__show(self) -> None:
+        """Show Kafka Plugin details"""
+        self.print_response(
+            [
+                self.client.kafka_connect_custom_plugin_get(
+                    organization_id=self.args.organization_id,
+                    plugin_name=self.args.plugin_name,
+                )
+            ],
+            json=self.args.json,
+            table_layout=["plugin_name", "plugin_description", "created_at"],
+        )
+
+    @arg.json
+    @arg.organization_id
+    @arg("--plugin-file-id", help="Kafka Plugin file ID")
+    @arg("--plugin-name", help="Kafka Plugin name")
+    @arg("--plugin-version", help="Plugin version (e.g. 2.7.14)")
+    def organization__kafka_plugin__file__show(self) -> None:
+        """Show Kafka Plugin file details"""
+        plugin_file_id = self._resolve_kafka_plugin_file_id()
+        self.print_response(
+            [
+                self.client.kafka_connect_custom_plugin_file_get(
+                    organization_id=self.args.organization_id,
+                    plugin_file_id=plugin_file_id,
+                )
+            ],
+            json=self.args.json,
+            table_layout=[
+                "plugin_file_id",
+                "plugin_version",
+                "file_description",
+                "file_status",
+                "created_at",
+                "verify_error_code",
+                "verify_error_message",
+            ],
+        )
+
+    @arg.json
+    @arg.organization_id
+    @arg.kafka_connect_plugin_class_name
+    def organization__kafka_plugin__class__show(self) -> None:
+        """Show Kafka Plugin class details"""
+        self.print_response(
+            [
+                self.client.kafka_connect_custom_plugin_class_get(
+                    organization_id=self.args.organization_id,
+                    plugin_class_name=self.args.plugin_class_name,
+                )
+            ],
+            json=self.args.json,
+            table_layout=["plugin_class", "plugin_class_type", "title", "created_at", "description", "author", "doc_url"],
         )
 
 

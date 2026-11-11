@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fastapi-cloud-cli
-Version: 0.27.1
+Version: 0.28.0
 Summary: Deploy and manage FastAPI Cloud apps from the command line 🚀
 Author-Email: Patrick Arminio <patrick@fastapilabs.com>
 License: MIT
@@ -23,6 +23,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Project-URL: Homepage, https://github.com/fastapilabs/fastapi-cloud-cli
 Project-URL: Documentation, https://fastapi.tiangolo.com/fastapi-cloud-cli/
 Project-URL: Repository, https://github.com/fastapilabs/fastapi-cloud-cli

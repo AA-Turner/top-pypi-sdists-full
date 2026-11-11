@@ -10768,12 +10768,16 @@ class CfnWebACL(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.AssociationConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"request_body": "requestBody"},
+        name_mapping={
+            "challenge_javascript_sdk_injection": "challengeJavascriptSdkInjection",
+            "request_body": "requestBody",
+        },
     )
     class AssociationConfigProperty:
         def __init__(
             self,
             *,
+            challenge_javascript_sdk_injection: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_aws_cdk_0cae9daa.IResolvable"]] = None,
             request_body: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebACL.RequestBodyAssociatedResourceTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifies custom configurations for the associations between the web ACL and protected resources.
@@ -10785,6 +10789,7 @@ class CfnWebACL(
 
             For Application Load Balancer and AWS AppSync , the limit is fixed at 8 KB (8,192 bytes).
 
+            :param challenge_javascript_sdk_injection: Map of AssociatedResourceType and ChallengeJavascriptSdkInjectionConfig.
             :param request_body: Customizes the maximum size of the request body that your protected CloudFront, API Gateway, Amazon Cognito, App Runner, and Verified Access resources forward to AWS WAF for inspection. The default size is 16 KB (16,384 bytes). You can change the setting for any of the available resource types. .. epigraph:: You are charged additional fees when your protected resources forward body sizes that are larger than the default. For more information, see `AWS WAF Pricing <https://docs.aws.amazon.com/waf/pricing/>`_ . Example JSON: ``{ "API_GATEWAY": "KB_48", "APP_RUNNER_SERVICE": "KB_32" }`` For Application Load Balancer and AWS AppSync , the limit is fixed at 8 KB (8,192 bytes).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-associationconfig.html
@@ -10796,7 +10801,12 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
+                # challenge_javascript_sdk_injection: Any
+                
                 association_config_property = wafv2.CfnWebACL.AssociationConfigProperty(
+                    challenge_javascript_sdk_injection={
+                        "challenge_javascript_sdk_injection_key": challenge_javascript_sdk_injection
+                    },
                     request_body={
                         "request_body_key": wafv2.CfnWebACL.RequestBodyAssociatedResourceTypeConfigProperty(
                             default_size_inspection_limit="defaultSizeInspectionLimit"
@@ -10806,10 +10816,24 @@ class CfnWebACL(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__889bff55ba91160187275a11669025b829161457b27db183745c6a70c6fb0947)
+                check_type(argname="argument challenge_javascript_sdk_injection", value=challenge_javascript_sdk_injection, expected_type=type_hints["challenge_javascript_sdk_injection"])
                 check_type(argname="argument request_body", value=request_body, expected_type=type_hints["request_body"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if challenge_javascript_sdk_injection is not None:
+                self._values["challenge_javascript_sdk_injection"] = challenge_javascript_sdk_injection
             if request_body is not None:
                 self._values["request_body"] = request_body
+
+        @builtins.property
+        def challenge_javascript_sdk_injection(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Map of AssociatedResourceType and ChallengeJavascriptSdkInjectionConfig.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-associationconfig.html#cfn-wafv2-webacl-associationconfig-challengejavascriptsdkinjection
+            '''
+            result = self._values.get("challenge_javascript_sdk_injection")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def request_body(
@@ -21927,6 +21951,7 @@ def _typecheckingstub__8995ed18208bf9dcca46075f2ba4072467a8327472896fee5efcf1415
 
 def _typecheckingstub__889bff55ba91160187275a11669025b829161457b27db183745c6a70c6fb0947(
     *,
+    challenge_javascript_sdk_injection: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _aws_cdk_0cae9daa.IResolvable]] = None,
     request_body: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebACL.RequestBodyAssociatedResourceTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""

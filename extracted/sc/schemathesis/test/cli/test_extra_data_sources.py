@@ -3,6 +3,9 @@ import uuid
 import pytest
 from flask import abort, jsonify, request
 
+from test.apps.catalog.openapi import basic
+from test.apps.runtime import OpenAPIApp
+
 
 def _object_schema(properties, *, required=None, **extra):
     schema = {"type": "object", "properties": properties, **extra}
@@ -132,6 +135,72 @@ def test_extra_data_sources_records_from_mixed_success_failure_scenarios(cli, sn
         )
         == snapshot_cli
     )
+
+
+def test_pool_captures_response_only_under_its_documented_status(cli, ctx):
+    string = {"type": "string"}
+    orders: list[str] = []
+    jobs: list[str] = []
+    order_lookups: list[str] = []
+    job_lookups: list[str] = []
+
+    def lookup(name):
+        return {
+            "get": {
+                "parameters": [_path_param(f"{name}_id")],
+                "responses": {
+                    "200": _json_response({"$ref": f"#/components/schemas/{name.capitalize()}"}),
+                    "404": {"description": "Not found"},
+                },
+            }
+        }
+
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/orders": {
+                "post": {
+                    "requestBody": _json_request_body(_object_schema({"item": string}, required=["item"])),
+                    "responses": {
+                        "201": _json_response({"$ref": "#/components/schemas/Order"}, description="Created"),
+                        "202": _json_response({"$ref": "#/components/schemas/Job"}, description="Accepted"),
+                    },
+                }
+            },
+            "/orders/{order_id}": lookup("order"),
+            "/jobs/{job_id}": lookup("job"),
+        },
+        components={
+            "schemas": {
+                "Order": _object_schema({"id": string, "item": string}, required=["id", "item"]),
+                "Job": _object_schema({"id": string, "state": string}, required=["id", "state"]),
+            }
+        },
+    )
+
+    @app.route("/orders", methods=["POST"])
+    def create_order():
+        if len(orders) <= len(jobs):
+            orders.append(f"order-{uuid.uuid4().hex}")
+            return jsonify({"id": orders[-1], "item": "book"}), 201
+        jobs.append(f"job-{uuid.uuid4().hex}")
+        return jsonify({"id": jobs[-1], "state": "queued"}), 202
+
+    @app.route("/orders/<order_id>", methods=["GET"])
+    def get_order(order_id):
+        order_lookups.append(order_id)
+        return (jsonify({"id": order_id, "item": "book"}), 200) if order_id in orders else ("", 404)
+
+    @app.route("/jobs/<job_id>", methods=["GET"])
+    def get_job(job_id):
+        job_lookups.append(job_id)
+        return (jsonify({"id": job_id, "state": "queued"}), 200) if job_id in jobs else ("", 404)
+
+    cli.run_openapi_app(app, "--phases=fuzzing", "--max-examples=10", "-c not_a_server_error", "--mode=positive")
+
+    assert not set(job_lookups) & set(orders), f"Order ids sent as job ids: {job_lookups}"
+    assert not set(order_lookups) & set(jobs), f"Job ids sent as order ids: {order_lookups}"
+    assert set(job_lookups) & set(jobs)
+    assert set(order_lookups) & set(orders)
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -529,7 +598,7 @@ def test_examples_phase_uses_pool_for_body_fields(cli, snapshot_cli, ctx):
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_no_false_positive_when_pool_body_missing_required_fields(cli, snapshot_cli, ctx):
     # Pool-seeded body with only a subset of required fields must not trigger positive_data_acceptance.
-    api = ctx.openapi.apps.sessions_and_log_event()
+    api = ctx.openapi.serve(basic.sessions_and_log_event())
 
     assert (
         cli.run(
@@ -1198,6 +1267,86 @@ def test_pool_captures_subresources_from_every_parent(
         )
         == snapshot_cli
     )
+
+
+@pytest.mark.parametrize(
+    ("booking_properties", "parameter", "item_properties", "wrapped"),
+    [
+        ({"firstname": {"type": "string"}}, "id", None, True),
+        ({"id": {"type": "string"}, "firstname": {"type": "string"}}, "id", None, False),
+        (
+            {"firstname": {"type": "string"}},
+            "name",
+            {"name": {"type": "string"}, "firstname": {"type": "string"}},
+            True,
+        ),
+        ({"id": {"type": "string"}, "firstname": {"type": "string"}}, "id", None, True),
+    ],
+    ids=[
+        "identifier-next-to-resource",
+        "identifier-inside-resource",
+        "name-only-in-item-response",
+        "declared-id-next-to-identifier",
+    ],
+)
+def test_pool_reuses_created_identifiers(cli, ctx, booking_properties, parameter, item_properties, wrapped):
+    bookings: dict[str, dict] = {}
+    booking_ids: set[str] = set()
+    booking_ref = {"$ref": "#/components/schemas/Booking"}
+    item_schema = booking_ref if item_properties is None else _object_schema(item_properties, required=item_properties)
+    created_schema = booking_ref
+    if wrapped:
+        created_schema = _object_schema(
+            {"bookingid": {"type": "string"}, "booking": booking_ref}, required=["bookingid", "booking"]
+        )
+    app, spec = ctx.openapi.make_flask_app(
+        {
+            "/bookings": {
+                "post": {
+                    "operationId": "createBooking",
+                    "requestBody": _json_request_body(booking_ref),
+                    "responses": {"200": _json_response(created_schema)},
+                }
+            },
+            f"/bookings/{{{parameter}}}": {
+                "get": {
+                    "operationId": "getBooking",
+                    "parameters": [_path_param(parameter)],
+                    "responses": {"200": _json_response(item_schema), "404": {"description": "Not found"}},
+                }
+            },
+        },
+        components={"schemas": {"Booking": _object_schema(booking_properties, required=booking_properties)}},
+    )
+
+    @app.route("/bookings", methods=["POST"])
+    def create_booking():
+        number = 7_000_001 + len(bookings)
+        booking_id = f"booking-{number}"
+        item = {field: f"{field}-{number}" for field in item_properties or booking_properties}
+        bookings[item.get(parameter, booking_id)] = item
+        booking = {field: item[field] for field in booking_properties}
+        if not wrapped:
+            return jsonify(booking)
+        booking_ids.add(booking_id)
+        return jsonify({"bookingid": booking_id, "booking": booking})
+
+    @app.route("/bookings/<key>", methods=["GET"])
+    def get_booking(key):
+        if key not in bookings:
+            return "", 404
+        return jsonify(bookings[key])
+
+    api = ctx.openapi.serve(OpenAPIApp(spec=spec, server=app))
+    cli.run(api.schema_url, "--phases=fuzzing", "--max-examples=10", "--mode=positive", "-c not_a_server_error")
+
+    requested = {call.path for call in api.calls_under("/bookings/", method="GET")}
+    created = {f"/bookings/{key}" for key in bookings}
+    # Only item responses carry the name, so nothing captures one to reuse.
+    if item_properties is None:
+        assert requested & created, f"No created booking requested: {requested}"
+    misplaced = {f"/bookings/{booking_id}" for booking_id in booking_ids} - created
+    assert requested & misplaced == set(), f"Envelope identifier sent as `{parameter}`"
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)

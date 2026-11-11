@@ -28,6 +28,7 @@ CHECK_NAMES = frozenset(
         "Reproduction case",
         "Spec compatibility",
         "Stream coverage",
+        "Stream coverage (new streams)",
     }
 )
 _TOP_LEVEL_KEYS = {
@@ -38,6 +39,7 @@ _TOP_LEVEL_KEYS = {
     "regression_detected",
     "both_failed",
     "incomplete",
+    "exercised_partial",
     "not_exercised",
     "setup_error",
     "could_not_test",
@@ -235,7 +237,7 @@ def build_verdict(output_dir: Path) -> dict[str, Any]:
         incomplete or not_exercised or setup_error or could_not_test
     )
     verdict = {
-        "schema_version": 3,
+        "schema_version": 4,
         "output_mode": "masked",
         "commands": commands,
         "success": success,
@@ -245,6 +247,12 @@ def build_verdict(output_dir: Path) -> dict[str, Any]:
         "both_failed": summary.get("both_failed") is True
         or any(report.get("both_failed") is True for _, report in reports),
         "incomplete": incomplete,
+        "exercised_partial": any(
+            report.get("exercised_partial") is True
+            and report.get("incomplete") is True
+            and report.get("success") is False
+            for _, report in reports
+        ),
         "not_exercised": not_exercised,
         "setup_error": setup_error,
         "could_not_test": could_not_test,
@@ -263,10 +271,14 @@ def build_verdict(output_dir: Path) -> dict[str, Any]:
 
 def validate_verdict(data: Any) -> None:
     """Reject free text, unknown keys, and non-metadata values."""
-    if not isinstance(data, dict) or set(data) != _TOP_LEVEL_KEYS:
+    if not isinstance(data, dict):
         raise ValueError("verdict has an invalid key set")
-    if type(data["schema_version"]) is not int or data["schema_version"] != 3:
-        raise ValueError("verdict schema_version must be 3")
+    version = data.get("schema_version")
+    if type(version) is not int or version not in {3, 4}:
+        raise ValueError("verdict schema_version must be 3 or 4")
+    keys = _TOP_LEVEL_KEYS if version == 4 else _TOP_LEVEL_KEYS - {"exercised_partial"}
+    if set(data) != keys:
+        raise ValueError("verdict has an invalid key set")
     if data["output_mode"] != "masked":
         raise ValueError("verdict output_mode must be masked")
     for key in (
@@ -282,6 +294,13 @@ def validate_verdict(data: Any) -> None:
     ):
         if type(data[key]) is not bool:
             raise ValueError(f"verdict {key} must be boolean")
+    if version == 4:
+        if type(data["exercised_partial"]) is not bool:
+            raise ValueError("verdict exercised_partial must be boolean")
+        if data["exercised_partial"] and (not data["incomplete"] or data["success"]):
+            raise ValueError(
+                "verdict exercised_partial requires incomplete and not success"
+            )
     if data["success"] and (
         data["incomplete"]
         or data["not_exercised"]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import queue
 import threading
 import time
 import uuid
@@ -24,9 +25,10 @@ from schemathesis.engine.control import ExecutionControl
 from schemathesis.engine.run import relay_events
 from schemathesis.generation import GenerationMode
 from schemathesis.specs.openapi.stateful._link_chooser import collect_link_candidates
+from test.apps.catalog.openapi import basic
 from test.apps.fragments import handlers
 from test.apps.fragments.schemas import linked_users
-from test.engine._late_put import attach_late_put
+from test.utils import run_given
 
 
 def _make_flaky_repro_schema(ctx):
@@ -129,13 +131,6 @@ def test_fuzz_entry_point_emits_engine_started_and_finished(ctx):
     api = ctx.openapi.apps.success_and_failure()
     schema = schemathesis.openapi.from_url(api.schema_url)
     _assert_engine_started_and_finished(_fuzz_events(schema))
-
-
-def test_fuzz_scenario_events_are_paired(ctx):
-    api = ctx.openapi.apps.success()
-    schema = schemathesis.openapi.from_url(api.schema_url)
-    collected = _collect_until_finished(schema)
-    _assert_scenario_pairs(collected)
 
 
 # Only waits at or above the reporting threshold are announced, so the test sleeps that long once.
@@ -271,10 +266,10 @@ def _fail_generation(case):
 
 
 @pytest.mark.parametrize(
-    ("app", "transform", "expected"),
+    ("factory", "transform", "expected"),
     [
         (
-            "success_and_failure",
+            basic.success_and_failure,
             _reject,
             [
                 events.NonFatalError(error=Unsatisfiable(), phase=None, label=label, related_to_operation=True)
@@ -282,7 +277,7 @@ def _fail_generation(case):
             ],
         ),
         (
-            "path_variable",
+            basic.path_variable,
             _fail_generation,
             [
                 events.NonFatalError(
@@ -296,8 +291,8 @@ def _fail_generation(case):
     ],
     ids=["unsatisfiable", "generation-error"],
 )
-def test_fuzz_preflight_excludes_all_operations(ctx, app, transform, expected):
-    api = getattr(ctx.openapi.apps, app)()
+def test_fuzz_preflight_excludes_all_operations(ctx, factory, transform, expected):
+    api = ctx.openapi.serve(factory())
     schema = schemathesis.openapi.from_url(api.schema_url)
 
     @schema.hook
@@ -488,7 +483,6 @@ def test_fuzz_multiple_workers_emit_distinct_worker_ids(ctx):
     assert worker_ids == {0, 1}
 
 
-@pytest.mark.usefixtures("restore_checks")
 def test_fuzz_scenario_interrupted_status(ctx):
     api = ctx.openapi.apps.success()
     schema = schemathesis.openapi.from_url(api.schema_url)
@@ -501,7 +495,6 @@ def test_fuzz_scenario_interrupted_status(ctx):
     assert _finished_scenarios(collected, status=Status.INTERRUPTED)
 
 
-@pytest.mark.usefixtures("restore_checks")
 def test_fuzz_scenario_error_status(ctx):
     api = ctx.openapi.apps.success()
     schema = schemathesis.openapi.from_url(api.schema_url)
@@ -654,7 +647,6 @@ def test_fuzz_exception_thrown_into_stream_stops_workers(ctx):
     assert raised == [error]
 
 
-@pytest.mark.usefixtures("restore_checks")
 def test_fuzz_runs_class_based_checks(ctx):
     seen = []
 
@@ -832,6 +824,82 @@ def test_iter_link_candidates_edge_links(ctx, case_factory, response_factory, li
     assert candidates == []
 
 
+@pytest.mark.parametrize(
+    ("extension", "expected"),
+    [
+        (None, {"productId": "abc", "quantity": 1}),
+        ({"merge_body": False}, {"productId": "abc"}),
+    ],
+    ids=["merge", "replace"],
+)
+def test_link_candidate_body_merging(ctx, case_factory, response_factory, extension, expected):
+    link = {"operationId": "createOrder", "requestBody": {"productId": "$response.body#/productId"}}
+    if extension is not None:
+        link["x-schemathesis"] = extension
+    schema = ctx.openapi.load_schema(
+        {
+            "/products": {
+                "post": {
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object", "properties": {"productId": {"type": "string"}}}
+                                }
+                            },
+                            "links": {"CreateOrder": link},
+                        }
+                    }
+                }
+            },
+            "/orders": {
+                "post": {
+                    "operationId": "createOrder",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["productId", "quantity"],
+                                    "additionalProperties": False,
+                                    "properties": {
+                                        "productId": {"type": "string"},
+                                        "quantity": {"type": "integer", "enum": [1]},
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "Created"}},
+                }
+            },
+        }
+    )
+    source = schema["/products"]["POST"]
+    target = schema["/orders"]["POST"]
+    response = Response.from_requests(
+        response_factory.requests(status_code=201, content=json.dumps({"productId": "abc"}).encode()),
+        verify=True,
+    )
+    [(operation, overrides)] = schema.iter_link_candidates(
+        operation=source,
+        case=case_factory(operation=source),
+        response=response,
+        operations_by_label={source.label: source, target.label: target},
+        excluded_labels=set(),
+    )
+    bodies = []
+
+    @run_given(operation.as_strategy(**overrides), max_examples=5)
+    def collect(case):
+        bodies.append(case.body)
+
+    assert bodies
+    assert [body for body in bodies if body != expected] == []
+
+
 def test_fuzz_follows_wildcard_link_with_one_listed_identifier(ctx, app_runner):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -902,7 +970,21 @@ def test_relay_events_drains_event_put_right_before_worker_exit():
     exited.join()
     event_queue: Queue = Queue()
     late_event = events.EngineStarted()
-    attach_late_put(event_queue, late_event)
+    original_get = event_queue.get
+    planted = []
+
+    # The worker's final put lands right after `get(timeout=...)` gave up with Empty.
+    def get(block: bool = True, timeout: float | None = None) -> events.EngineEvent:
+        try:
+            return original_get(block, timeout)
+        except queue.Empty:
+            if not planted:
+                planted.append(late_event)
+                event_queue.put(late_event)
+            raise
+
+    # Replacing a bound method on one instance is the only way to hook into this exact moment.
+    event_queue.get = get  # type: ignore[method-assign]
 
     assert list(relay_events(event_queue, [exited], timeout=0.01)) == [late_event]
 

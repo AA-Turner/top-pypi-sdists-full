@@ -12,11 +12,11 @@ from scrapli.transport import TelnetOptions as TransportTelnetOptions
 from scrapli.transport import TestOptions as TransportTestOptions
 
 # set in ci on release
-__version__ = "2026.10.14"
-__semver_version__ = "2.0.2"
-__calendar_version__ = "2026.10.14"
+__version__ = "2026.11.11"
+__semver_version__ = "2.0.3"
+__calendar_version__ = "2026.11.11"
 
-__definitions_version__ = "0.0.5"
+__definitions_version__ = "0.0.6"
 
 __all__ = (
     "AuthOptions",

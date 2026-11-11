@@ -20,12 +20,21 @@ import stat
 import threading
 import warnings
 from collections.abc import Buffer, Callable, Iterable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
-from typing import Any, Literal, Protocol, TypeVar, cast, overload, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Literal,
+    Protocol,
+    TypedDict,
+    TypeVar,
+    cast,
+    overload,
+    runtime_checkable,
+)
 
 from tensorfs.executor import Answer, Publish, PublishPart
 
@@ -51,7 +60,18 @@ from cozy_runtime.author._files import (
     digest_bytes,
 )
 from cozy_runtime.author._media import AudioMedia, ImageMedia, VideoMedia, normalize, slot_kind
-from cozy_runtime.author._observations import DEVICE, Attribution, EventRing, Observation, Scalar
+from cozy_runtime.author._observations import (
+    DEVICE,
+    Attribution,
+    EventRing,
+    Kind,
+    Observation,
+    Scalar,
+)
+from cozy_runtime.canonical_json import JsonValue
+
+if TYPE_CHECKING:
+    from PIL.Image import Image
 
 T = TypeVar("T")
 S = TypeVar("S")
@@ -92,17 +112,35 @@ class ProgressFrame:
     advance: int
     position: int | None = None
     total: int | None = None
-    overall_fraction: float | None = None
     step_ms: float = 0.0
     call_request: str | None = None
     call_attempt: int | None = None
+
+
+class _VideoFormat(TypedDict):
+    """A streamed MP4's video track, as `StreamingMP4Encoder` takes it."""
+
+    width: int
+    height: int
+    frame_rate: Fraction
+    pixel_aspect_ratio: Fraction
+    color_primaries: int
+    color_transfer: int
+    color_matrix: int
+    color_range: int
+
+
+class _LoopState(TypedDict):
+    said: bool
+    calls: int
+    shown: float
+    began: tuple[float, object] | None
 
 
 @dataclass(frozen=True, slots=True)
 class _ProgressScope:
     telemetry: Telemetry
     name: str
-    bounds: tuple[float, float] | None
 
 
 _progress_scope: ContextVar[_ProgressScope | None] = ContextVar("cozy_progress_scope", default=None)
@@ -117,7 +155,7 @@ def stage_progress() -> Callable[[float], None] | None:
     if current is None:
         return None
     telemetry, name = current
-    return lambda fraction: telemetry.progress(fraction, stage=name)
+    return lambda fraction: telemetry._progress(fraction, stage=name)
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,13 +175,13 @@ class HostFrame:
     raw: Path
     raw_bytes: int
     charge: int
-    facts: dict[str, Any]
+    facts: dict[str, JsonValue]
 
     @property
     def media_type(self) -> str:
         return _codec.FRAME_MEDIA_TYPES[self.codec]
 
-    def row(self) -> dict[str, Any]:
+    def row(self) -> dict[str, JsonValue]:
         """The seam row: a spool FILE NAME and facts, never an absolute path."""
         return {
             "handle": self.handle,
@@ -169,6 +207,10 @@ class Attempt:
     the media type and no size or digest until then."""
     settle_at_save: bool = False
     """Encode at the save instead (a fake harness: there is no worker to defer to)."""
+    writes: bool = True
+    """False on a group's other GPUs: GPU 0's saves are the run's, so a save here registers its
+    asset and writes, encodes and settles nothing. Its video facts are `unwritten`'s."""
+    unwritten: dict[str, SavedVideo] = field(default_factory=dict)
     entered: bool = False
     """Whether the package handler itself was entered."""
     pending: dict[str, File] = field(default_factory=dict)
@@ -217,8 +259,10 @@ class Attempt:
     shown: set[str] = field(default_factory=set)
     #: A composite asset's parts, by its handle: what `publish` sends instead of one file.
     parts: dict[str, tuple[PublishPart, ...]] = field(default_factory=dict)
-    _overall_fraction: float | None = None
     _progress_diagnostics: set[str] = field(default_factory=set)
+    #: Its open `tel.stage`s, innermost last: `ctx.progress` from a thread of its own counts
+    #: under the innermost.
+    _stages: list[str] = field(default_factory=list)
     #: Overlapped calls (`author.concurrently`) record from their own threads.
     _recording: threading.Lock = field(default_factory=threading.Lock)
     #: Whether a model component-use scope is open; media reads refuse while one is.
@@ -240,7 +284,8 @@ class Attempt:
     def emit(self, kind: str, name: str, value: Scalar = None, /, **fields: Scalar) -> Observation:
         """One RETAINED record: the bounded ring, its emit-boundary checks, then the lane."""
         with self._recording:
-            observation = self.ring.emit(cast("Any", kind), name, value, **fields)
+            # The ring checks `kind` against its `Kind`s and refuses another.
+            observation = self.ring.emit(cast("Kind", kind), name, value, **fields)
             if self.sink is not None:
                 self.sink(observation)
         return observation
@@ -427,13 +472,15 @@ class Outputs(_Bound):
 
         return _codec.AAC_FRAME_SAMPLES
 
-    def save_image(self, image: object, *, format: str = "png") -> ImageFile:
-        frame = as_frame(image)
+    def save_image(self, image: ImageFrame | Image, *, format: str = "png") -> ImageFile:
         if format not in ("png", "webp"):
             raise OutputError(
                 f"image format {format!r} has no encoder: choose png or lossless webp",
                 code="encoder_unavailable",
             )
+        if not self._attempt.writes:
+            return self._unwritten_file(ImageFile, format)
+        frame = as_frame(image)
         return self._register_frame(
             ImageFile,
             format,
@@ -442,7 +489,9 @@ class Outputs(_Bound):
             charge=len(frame.pixels),
         )
 
-    def save_audio(self, waveform: object, *, sample_rate: int, format: str = "flac") -> AudioFile:
+    def save_audio(
+        self, waveform: _codec.Samples, *, sample_rate: int, format: str = "flac"
+    ) -> AudioFile:
         self._attempt.check_open("Outputs.save_audio")
         if format != "flac":
             raise OutputError(
@@ -450,6 +499,8 @@ class Outputs(_Bound):
                 code="encoder_unavailable",
             )
         self._check_rate(sample_rate)
+        if not self._attempt.writes:
+            return self._unwritten_file(AudioFile, "flac")
         planar, clipped = _codec.snapshot_audio(waveform, self._attempt.max_output_bytes)
         self._clip_row(clipped)
         channels, samples = planar.shape
@@ -463,10 +514,10 @@ class Outputs(_Bound):
 
     def save_video(
         self,
-        frames: object,
+        frames: _codec.Samples,
         *,
         fps: float,
-        audio: object = None,
+        audio: _codec.Samples | None = None,
         sample_rate: int | None = None,
         format: str = "mp4",
     ) -> VideoFile:
@@ -478,11 +529,15 @@ class Outputs(_Bound):
             )
         if not (isinstance(fps, (int, float)) and 0 < fps < 1000 and fps == fps):
             raise OutputError(f"fps {fps!r} is not a positive frame rate", code="frame_rate")
+        if not self._attempt.writes:
+            return self._unwritten_file(VideoFile, "mp4")
         video = _codec.snapshot_video(frames, self._attempt.max_output_bytes)
         _, height, width, _ = video.shape
-        shaped = getattr(frames, "shape", ())
+        shaped: tuple[int, ...] = getattr(frames, "shape", ())
         if len(shaped) == 4 and (int(shaped[1]), int(shaped[2])) != (height, width):
-            self._attempt.warn("video", f"H.264 takes even sides, so it was cut to {width}x{height}")
+            self._attempt.warn(
+                "video", f"H.264 takes even sides, so it was cut to {width}x{height}"
+            )
         planar = None
         if audio is not None:
             if sample_rate is None:
@@ -494,7 +549,7 @@ class Outputs(_Bound):
             self._check_rate(sample_rate)
             planar, clipped = _codec.snapshot_audio(audio, self._attempt.max_output_bytes)
             self._clip_row(clipped)
-        facts: dict[str, Any] = {
+        facts: dict[str, JsonValue] = {
             "shape": list(video.shape),
             "fps": float(fps),
             "video_bytes": len(video),
@@ -529,7 +584,8 @@ class Outputs(_Bound):
         even = (width - width % 2, height - height % 2)
         if even != (width, height):
             self._attempt.warn(
-                "video", f"H.264 takes even sides, so {width}x{height} was cut to {even[0]}x{even[1]}"
+                "video",
+                f"H.264 takes even sides, so {width}x{height} was cut to {even[0]}x{even[1]}",
             )
         audio_format = header.audio
 
@@ -598,7 +654,7 @@ class Outputs(_Bound):
             return audio_samples
 
         return self._save_mp4(
-            dict(
+            _VideoFormat(
                 width=even[0],
                 height=even[1],
                 frame_rate=rate,
@@ -630,6 +686,15 @@ class Outputs(_Bound):
         _codec.require_encoder()
         if not videos:
             raise OutputError("a joined video needs at least one video", code="media_header")
+        if not self._attempt.writes:
+            shapes = [self._shape(video) for video in videos]
+            source = _AuthorEvents(soundtrack([shape.frame_count for shape in shapes]))
+            header = next(source, None)
+            audio_format = header.audio if isinstance(header, DecodedMediaHeader) else None
+            samples = sum(e.sample_count for e in source if isinstance(e, DecodedAudioChunk))
+            frames = sum(shape.frame_count for shape in shapes)
+            handle = self._attempt.next_handle(VideoFile.kind)
+            return self._unwritten(handle, _Picture.of(shapes[0]), audio_format, frames, samples)
         paths = []
         for video in videos:
             if (
@@ -677,7 +742,7 @@ class Outputs(_Bound):
             return audio_samples
 
         return self._save_mp4(
-            dict(
+            _VideoFormat(
                 width=copy.width,
                 height=copy.height,
                 frame_rate=copy.frame_rate,
@@ -705,7 +770,57 @@ class Outputs(_Bound):
         """
         self._attempt.check_open("Outputs.join_video")
         _codec.require_encoder()
-        return VideoJoin(self, audio)
+        return VideoJoin(self, audio) if self._attempt.writes else _UnwrittenJoin(self, audio)
+
+    def _unwritten(
+        self,
+        handle: str,
+        picture: _Picture,
+        audio: DecodedAudioFormat | None,
+        frames: int,
+        samples: int,
+    ) -> SavedVideo:
+        """A video saved on a group's other GPU: its asset and the facts GPU 0's would have."""
+        saved = SavedVideo(
+            video=VideoFile(handle, media_type="video/mp4", attempt=self._attempt.request_id),
+            width=picture.width,
+            height=picture.height,
+            frame_count=frames,
+            frame_rate=picture.frame_rate,
+            pixel_aspect_ratio=picture.pixel_aspect_ratio,
+            video_codec="h264",
+            video_profile=None,
+            color_primaries=picture.color_primaries,
+            color_transfer=picture.color_transfer,
+            color_matrix=picture.color_matrix,
+            color_range=picture.color_range,
+            audio=(
+                SavedAudioFacts(
+                    "aac",
+                    None,
+                    audio.channels,
+                    audio.sample_rate,
+                    _codec.AAC_FRAME_SAMPLES,
+                    samples,
+                )
+                if audio is not None
+                else None
+            ),
+            submitted_audio_samples=samples,
+        )
+        self._attempt.pending[handle] = saved.video
+        self._attempt.unwritten[handle] = saved
+        return saved
+
+    def _shape(self, video: VideoFile) -> SavedVideo | _codec.EncodedVideoFacts:
+        """A video's facts on a group's other GPU: its own unwritten save's, or an input's probe."""
+        if (saved := self._attempt.unwritten.get(video.ref)) is not None:
+            return saved
+        if video._local is None:
+            raise CapabilityError(
+                "joined videos must be hydrated inputs of this attempt", code="foreign_asset"
+            )
+        return _codec.probe_mp4(video._local)
 
     def _write_audio(
         self,
@@ -756,7 +871,7 @@ class Outputs(_Bound):
 
     def _save_mp4(
         self,
-        video: dict[str, Any],
+        video: _VideoFormat,
         audio_format: DecodedAudioFormat | None,
         source: _AuthorEvents,
         feed: Callable[[_codec.StreamingMP4Encoder], int],
@@ -765,6 +880,12 @@ class Outputs(_Bound):
         """Write, probe and atomically register one MP4; `feed` writes `source` and returns
         its audio samples. Only encoder failures become `output_encode`."""
         handle = self._attempt.next_handle(VideoFile.kind)
+        if not self._attempt.writes:
+            counted = _Unwritten()
+            # the author's events still run: only the encode is gone
+            samples = feed(cast(_codec.StreamingMP4Encoder, counted))
+            frames = sum(copy.frames) if copy is not None else counted.video_frames
+            return self._unwritten(handle, _Picture(**video), audio_format, frames, samples)
         tail = handle.rsplit("/", 1)[-1]
         temporary = self._attempt.spool / f".video-{tail}.partial"
         final = self._attempt.spool / f"video-{tail}"
@@ -972,6 +1093,10 @@ class Outputs(_Bound):
         if source.is_symlink() or not source.is_dir():
             raise OutputError("output tree must be a regular directory", code="output_tree")
         handle = self._attempt.next_handle("tree")
+        if not self._attempt.writes:
+            tree = Tree(handle, root=source, attempt=self._attempt.request_id)
+            self._attempt.pending_trees[handle] = tree
+            return tree
         target = self._attempt.spool / f"tree-{handle.rsplit('/', 1)[-1]}"
         target.mkdir()
         available = self._attempt.max_output_bytes - self._pending_bytes()
@@ -1024,6 +1149,8 @@ class Outputs(_Bound):
     def save_file(self, path: Path | str, *, media_type: str = "application/octet-stream") -> File:
         """Copies immediately: a MUTABLE AUTHOR PATH is never retained (§3.4 step 2). Typed as
         `save_bytes` types its bytes."""
+        if not self._attempt.writes:
+            return self._unwritten_file(_saved(media_type), media_type)
         return self._register(Path(path).read_bytes(), _saved(media_type), media_type)
 
     def temporary_file(self, suffix: str = "") -> Path:
@@ -1045,6 +1172,8 @@ class Outputs(_Bound):
                 f"over its {self._attempt.max_output_bytes}-byte aggregate limit",
                 code="output_too_large",
             )
+        if not self._attempt.writes:
+            return self._unwritten_file(kind, media_type)
         handle = self._attempt.next_handle(kind.kind)
         blob = self._attempt.spool / f"{kind.kind}-{handle.rsplit('/', 1)[-1]}"
         blob.write_bytes(data)
@@ -1064,7 +1193,7 @@ class Outputs(_Bound):
         kind: type[A],
         codec: str,
         parts: tuple[Buffer, ...],
-        facts: dict[str, Any],
+        facts: dict[str, JsonValue],
         *,
         charge: int,
     ) -> A:
@@ -1092,6 +1221,16 @@ class Outputs(_Bound):
         if self._attempt.settle_at_save:
             settle_frame(self._attempt, handle)
         return asset
+
+    def _unwritten_file(self, kind: type[A], codec: str) -> A:
+        """A save on a group's other GPU: GPU 0's is the run's, so this one names its asset and
+        reads, copies, encodes and writes nothing."""
+        self._attempt.check_open("Outputs.save")
+        handle = self._attempt.next_handle(kind.kind)
+        media_type = _codec.FRAME_MEDIA_TYPES.get(codec, codec)
+        unwritten = kind(handle, media_type=media_type, attempt=self._attempt.request_id)
+        self._attempt.pending[handle] = unwritten
+        return unwritten
 
     def _pending_bytes(self) -> int:
         return (
@@ -1261,6 +1400,86 @@ class VideoJoin:
         return revision
 
 
+class _Unwritten:
+    """What a save on a group's other GPU feeds its events into: it counts frames, no more."""
+
+    def __init__(self) -> None:
+        self.video_frames = 0
+
+    def write_video(self, rgb: object) -> None:
+        self.video_frames += 1
+
+    def write_audio(self, planar: object) -> None:
+        return None
+
+    def copy_video(self, before: Callable[[Fraction | None], None]) -> None:
+        return None
+
+
+@dataclass(frozen=True, slots=True)
+class _Picture:
+    """A video's picture facts, which a save a group's other GPU does not write still states."""
+
+    width: int
+    height: int
+    frame_rate: Fraction
+    pixel_aspect_ratio: Fraction
+    color_primaries: int
+    color_transfer: int
+    color_matrix: int
+    color_range: int
+
+    @classmethod
+    def of(cls, shape: SavedVideo | _codec.EncodedVideoFacts) -> _Picture:
+        return cls(
+            shape.width,
+            shape.height,
+            shape.frame_rate,
+            shape.pixel_aspect_ratio,
+            shape.color_primaries,
+            shape.color_transfer,
+            shape.color_matrix,
+            shape.color_range,
+        )
+
+
+class _UnwrittenJoin(VideoJoin):
+    """`Outputs.join_video` on a group's other GPU: soundtracks run, nothing is copied."""
+
+    def __init__(self, outputs: Outputs, audio: DecodedAudioFormat | None) -> None:
+        self._outputs, self._attempt, self._audio = outputs, outputs._attempt, audio
+        self._attempt.next_handle("join")
+        self._shapes: list[SavedVideo | _codec.EncodedVideoFacts] = []
+        self._samples = 0
+
+    def append(
+        self,
+        video: VideoFile,
+        soundtrack: Callable[[int], Iterable[DecodedMediaEvent]] = lambda frames: (),
+        *,
+        last: bool = False,
+    ) -> VideoFile:
+        self._attempt.check_open("VideoJoin.append")
+        shape = self._outputs._shape(video)
+        self._shapes.append(shape)
+        for event in soundtrack(shape.frame_count):
+            if isinstance(event, DecodedAudioChunk):
+                self._samples += event.sample_count
+        self._attempt.shown.add(video.ref)
+        handle = self._attempt.next_handle("revision")
+        return VideoFile(handle, media_type="video/mp4", attempt=self._attempt.request_id)
+
+    def finish(self) -> SavedVideo:
+        self._attempt.check_open("VideoJoin.finish")
+        if not self._shapes:
+            raise OutputError("a joined video needs at least one video", code="media_header")
+        handle = self._attempt.next_handle(VideoFile.kind)
+        frames = sum(shape.frame_count for shape in self._shapes)
+        return self._outputs._unwritten(
+            handle, _Picture.of(self._shapes[0]), self._audio, frames, self._samples
+        )
+
+
 class Telemetry(_Bound):
     """User-facing status and operator diagnostics (`tel`). Observability only: it never
     changes availability, placement, or the ComponentUseContract."""
@@ -1271,13 +1490,9 @@ class Telemetry(_Bound):
         super().__init__(attempt)
         self._ctx = ctx
 
-    def progress(
-        self,
-        stage_fraction: float,
-        *,
-        stage: str | None = None,
-        overall_fraction: float | None = None,
-    ) -> None:
+    def _progress(self, stage_fraction: float, *, stage: str) -> None:
+        """A share of `stage` done: the Runtime's own work that counts no steps (a decode, a
+        quantization). Authors report steps with `ctx.progress`."""
         attempt = self._attempt
         attempt.check_open("Telemetry.progress")
         self._ctx.raise_if_cancelled()
@@ -1285,22 +1500,11 @@ class Telemetry(_Bound):
         if name is None:
             return
         fraction = self._fraction(stage_fraction, "stage_fraction")
-        overall = self._overall(overall_fraction)
-        if fraction is not None or overall is not None:
-            self._progress_frame(
-                name,
-                stage_fraction=fraction,
-                overall_fraction=overall,
-            )
+        if fraction is not None:
+            self._progress_frame(name, stage_fraction=fraction)
 
-    def step_callback(
-        self,
-        total: int,
-        *,
-        stage: str | None = None,
-        overall_range: tuple[float, float] | None = None,
-    ) -> Any:
-        """Return one counted-work hook carrying stage and optional overall coordinates.
+    def _step_counter(self, total: int, *, stage: str) -> Callable[[int], None]:
+        """One count of `total` steps under `stage`, called with each finished step's index.
 
         It is also the STEP-TIME instrument: the interval between consecutive calls is
         accumulated in place (five floats per stage), so inference step time is attributable
@@ -1308,9 +1512,8 @@ class Telemetry(_Bound):
         handful of float operations.
         """
         attempt = self._attempt
-        attempt.check_open("Telemetry.step_callback")
-        name = self._stage_name(stage or "step")
-        bounds = self._overall_range(overall_range)
+        attempt.check_open("ctx.progress")
+        name = self._stage_name(stage)
         valid_total = (
             isinstance(total, int) and not isinstance(total, bool) and 0 < total <= 1_000_000_000
         )
@@ -1357,17 +1560,11 @@ class Telemetry(_Bound):
                 elif valid_total and isinstance(step, int) and not 0 <= step < total:
                     self._diagnose("step must be within the declared total")
                 return
-            raw_fraction = (step + 1) / total
-            fraction = round(raw_fraction, 6)
-            overall = None
-            if bounds is not None:
-                overall = self._overall(bounds[0] + raw_fraction * (bounds[1] - bounds[0]))
             self._progress_frame(
                 name,
-                stage_fraction=fraction,
+                stage_fraction=round((step + 1) / total, 6),
                 position=step + 1,
                 total=total,
-                overall_fraction=overall,
                 step_ms=step_ms,
             )
 
@@ -1376,24 +1573,26 @@ class Telemetry(_Bound):
     def loop_progress(self) -> tuple[Callable[[int, int], None], Callable[[str], None]]:
         """`ctx.progress(step, total)` and a model method call's activity (`ctx._called`).
 
-        Progress is `step_callback`'s frame under the enclosing stage (else "denoise"); a step 0
-        starts a new count, timed from the first model call after the previous progress. Until
-        the attempt reports progress, model calls show as a count, at most two frames a second.
+        Progress is a step count under the enclosing stage: this thread's, else the attempt's
+        innermost open one, else "denoise". A step 0 starts a new count, timed from the first
+        model call after the previous progress. Until the attempt reports progress, model calls
+        show as a count, at most two frames a second.
         """
         attempt = self._attempt
         counts: dict[tuple[str, int], Callable[[int], None]] = {}
-        state: dict[str, Any] = {"said": False, "calls": 0, "shown": 0.0, "began": None}
+        state: _LoopState = {"said": False, "calls": 0, "shown": 0.0, "began": None}
 
         def stage(otherwise: str) -> str:
             current = _stage.get()
-            ours = current is not None and current[0]._attempt is attempt
-            return current[1] if current is not None and ours else otherwise
+            if current is not None and current[0]._attempt is attempt:
+                return current[1]
+            return attempt._stages[-1] if attempt._stages else otherwise
 
         def progress(step: int, total: int) -> None:
             state["said"] = True
             key = (stage("denoise"), total)
             if step == 0 or key not in counts:
-                counts[key] = self.step_callback(total, stage=key[0])
+                counts[key] = self._step_counter(total, stage=key[0])
                 if state["began"] is not None:
                     attempt._step_mark, attempt._step_device = state["began"]
             state["began"] = None
@@ -1418,43 +1617,26 @@ class Telemetry(_Bound):
         self._attempt.emit("log", message, level, **fields)
 
     @contextmanager
-    def scope(
-        self, name: str, *, overall_range: tuple[float, float] | None = None
-    ) -> Iterator[None]:
-        """Compose local or managed child progress inside a named work range.
-
-        Ranges describe ordered planned work, not elapsed time. Concurrent operations
-        should leave the range unknown. Ordinary timing stages keep their semantics.
-        """
+    def scope(self, name: str) -> Iterator[None]:
+        """Name a part of the work: progress inside it, a managed call's too, shows as
+        `<name> / <stage>`. Ordinary timing stages keep their semantics."""
         self._attempt.check_open("Telemetry.scope")
         self._ctx.raise_if_cancelled()
         stage = self._stage_name(name)
-        bounds = self._overall_range(overall_range)
         if stage is None:
             yield
             return
         parent = _progress_scope.get()
         if parent is not None and parent.telemetry._attempt is self._attempt:
             stage = f"{parent.name} / {stage}"[:120]
-            if bounds is not None and parent.bounds is not None:
-                start, end = parent.bounds
-                bounds = (start + bounds[0] * (end - start), start + bounds[1] * (end - start))
-            elif parent.bounds is None:
-                bounds = None
-        self._progress_frame(
-            stage, overall_fraction=self._overall(bounds[0], scoped=False) if bounds else None
-        )
-        token = _progress_scope.set(_ProgressScope(self, stage, bounds))
-        succeeded = False
+        self._progress_frame(stage)
+        token = _progress_scope.set(_ProgressScope(self, stage))
         try:
             yield
-            succeeded = True
         finally:
             _progress_scope.reset(token)
-            if succeeded and bounds is not None:
-                self._progress_frame(stage, overall_fraction=self._overall(bounds[1], scoped=False))
 
-    def _child_progress(self, payload: Mapping[str, Any], scope: _ProgressScope) -> None:
+    def _child_progress(self, payload: Mapping[str, object], scope: _ProgressScope) -> None:
         """Relay measured child coordinates without making child completion parent completion."""
         self._attempt.check_open("Telemetry.child_progress")
         stage_name = payload.get("stage")
@@ -1470,12 +1652,6 @@ class Telemetry(_Bound):
             if "stage_fraction" in payload
             else None
         )
-        overall = None
-        if scope.bounds is not None and "overall_fraction" in payload:
-            child = self._fraction(payload["overall_fraction"], "overall_fraction")
-            if child is not None:
-                start, end = scope.bounds
-                overall = self._overall(start + child * (end - start), scoped=False)
         position, total = payload.get("position"), payload.get("total")
         if not (
             type(position) is int
@@ -1484,18 +1660,18 @@ class Telemetry(_Bound):
             and total > 0
         ):
             position = total = None
-        step_ms = payload.get("step_ms", 0.0)
+        timing = payload.get("step_ms", 0.0)
+        step_ms = 0.0
         try:
-            valid_timing = (
-                not isinstance(step_ms, bool)
-                and isinstance(step_ms, (int, float))
-                and math.isfinite(step_ms)
-                and step_ms >= 0
-            )
+            if (
+                not isinstance(timing, bool)
+                and isinstance(timing, (int, float))
+                and math.isfinite(timing)
+                and timing >= 0
+            ):
+                step_ms = timing
         except OverflowError:
-            valid_timing = False
-        if not valid_timing:
-            step_ms = 0.0
+            pass
         call_request, call_attempt = payload.get("call_request"), payload.get("call_attempt")
         if not isinstance(call_request, str) or not 0 < len(call_request) <= 255:
             call_request = None
@@ -1506,7 +1682,6 @@ class Telemetry(_Bound):
             stage_fraction=fraction,
             position=position,
             total=total,
-            overall_fraction=overall,
             step_ms=step_ms,
             call_request=call_request,
             call_attempt=call_attempt,
@@ -1514,39 +1689,34 @@ class Telemetry(_Bound):
         )
 
     @contextmanager
-    def stage(
-        self, name: str, *, overall_range: tuple[float, float] | None = None
-    ) -> Iterator[None]:
+    def stage(self, name: str) -> Iterator[None]:
         """Per-stage timing bracket; `stage_ms` feeds the duration model and benchmarks.
+        `ctx.progress` inside it counts this stage's steps.
 
         Structurally separate from a component-use scope: this records a NUMBER and touches
         no residency, no placement and no ComponentUseContract.
         """
-        self._attempt.check_open("Telemetry.stage")
+        attempt = self._attempt
+        attempt.check_open("Telemetry.stage")
         self._ctx.raise_if_cancelled()
         stage = self._stage_name(name)
-        bounds = self._overall_range(overall_range)
         if stage is not None:
-            self._progress_frame(
-                stage,
-                overall_fraction=self._overall(bounds[0]) if bounds is not None else None,
-            )
+            self._progress_frame(stage)
+            attempt._stages.append(stage)
         start = work_clock()
-        succeeded = False
         token = _stage.set((self, stage)) if stage is not None else None
         try:
             yield
             settle()
-            succeeded = True
         finally:
             if token is not None:
                 _stage.reset(token)
             elapsed = (work_clock() - start) * 1000
             if stage is not None:
-                self._attempt.attribution.stage(stage, elapsed)
-                self._attempt.emit("stage", stage, round(elapsed, 3))
-                if succeeded and bounds is not None:
-                    self._progress_frame(stage, overall_fraction=self._overall(bounds[1]))
+                with suppress(ValueError):
+                    attempt._stages.remove(stage)
+                attempt.attribution.stage(stage, elapsed)
+                attempt.emit("stage", stage, round(elapsed, 3))
 
     def metric(self, name: str, value: float, *, unit: str | None = None) -> None:
         self._attempt.check_open("Telemetry.metric")
@@ -1575,7 +1745,6 @@ class Telemetry(_Bound):
         stage_fraction: float | None = None,
         position: int | None = None,
         total: int | None = None,
-        overall_fraction: float | None = None,
         step_ms: float = 0.0,
         call_request: str | None = None,
         call_attempt: int | None = None,
@@ -1600,7 +1769,6 @@ class Telemetry(_Bound):
                 advance=attempt.position + 1,
                 position=position,
                 total=total,
-                overall_fraction=overall_fraction,
                 step_ms=step_ms,
                 call_request=call_request,
                 call_attempt=call_attempt,
@@ -1626,40 +1794,6 @@ class Telemetry(_Bound):
             self._diagnose(f"{field} must be a finite number in 0..1")
             return None
         return round(number, 6)
-
-    def _overall(self, value: object | None, *, scoped: bool = True) -> float | None:
-        if value is None:
-            return None
-        overall = self._fraction(value, "overall_fraction")
-        if overall is None:
-            return None
-        scope = _progress_scope.get() if scoped else None
-        if scope is not None and scope.telemetry._attempt is self._attempt:
-            if scope.bounds is None:
-                return None
-            start, end = scope.bounds
-            overall = round(start + overall * (end - start), 6)
-        previous = self._attempt._overall_fraction
-        if previous is not None and overall < previous:
-            self._diagnose("overall_fraction must not move backward")
-            return None
-        self._attempt._overall_fraction = overall
-        return overall
-
-    def _overall_range(self, value: object | None) -> tuple[float, float] | None:
-        if value is None:
-            return None
-        if not isinstance(value, tuple) or len(value) != 2:
-            self._diagnose("overall_range must be a (start, end) pair")
-            return None
-        start = self._fraction(value[0], "overall_range start")
-        end = self._fraction(value[1], "overall_range end")
-        if start is None or end is None:
-            return None
-        if end < start:
-            self._diagnose("overall_range end must not precede its start")
-            return None
-        return start, end
 
     def _diagnose(self, reason: str) -> None:
         attempt = self._attempt
@@ -1730,6 +1864,10 @@ class EgressResponse:
     body: bytes
 
 
+#: `(url, method, headers, body)` to the response the broker fetched.
+type EgressBroker = Callable[[str, str, dict[str, str], bytes | None], object]
+
+
 class Egress(_Bound):
     """Worker-brokered outbound HTTP (`net`) — connector endpoints only (§1.3).
 
@@ -1743,7 +1881,7 @@ class Egress(_Bound):
 
     __slots__ = ("_broker",)
 
-    def __init__(self, attempt: Attempt, broker: Any = None) -> None:
+    def __init__(self, attempt: Attempt, broker: EgressBroker | None = None) -> None:
         super().__init__(attempt)
         self._broker = broker
 

@@ -1,20 +1,18 @@
 from contextlib import contextmanager
 from functools import partial
-import hashlib
 from pathlib import Path
 
 from docutils import nodes
 from docutils.parsers.rst import directives
-from sphinx import version_info as sphinx_version
 from sphinx.application import Sphinx
-from sphinx.environment import BuildEnvironment
 from sphinx.transforms import SphinxTransform
 
-from . import compiled as static_module
-from ._compat import findall, read_text
+from .accordion import setup_accordion
 from .article_info import setup_article_info
+from .aside import setup_aside
 from .badges_buttons import setup_badges_and_buttons
 from .cards import setup_cards
+from .config import get_sd_config, setup_sd_config
 from .dropdown import setup_dropdown
 from .grids import setup_grids
 from .icons import setup_icons
@@ -24,13 +22,16 @@ from .shared import (
     create_component,
     setup_custom_directives,
 )
+from .steps import setup_steps
 from .tabs import setup_tabs
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 
 def setup_extension(app: Sphinx) -> None:
     """Set up the sphinx extension."""
-    app.connect("builder-inited", update_css_js)
-    app.connect("env-updated", update_css_links)
+    setup_sd_config(app)
+    app.connect("builder-inited", add_static_assets)
     # we override container html visitors, to stop the default behaviour
     # of adding the `container` class to all nodes.container
     app.add_node(
@@ -51,14 +52,17 @@ def setup_extension(app: Sphinx) -> None:
         setup_cards(app)
         setup_grids(app)
         setup_dropdown(app)
+        setup_accordion(app)
         setup_icons(app)
         setup_tabs(app)
+        setup_steps(app)
         setup_article_info(app)
+        setup_aside(app)
 
-    app.add_config_value("sd_custom_directives", {}, "env")
     app.connect(
         "config-inited", partial(setup_custom_directives, directive_map=directive_map)
     )
+    app.connect("doctree-resolved", _resolve_new_tab_refs)
 
 
 @contextmanager
@@ -71,50 +75,53 @@ def capture_directives(app: Sphinx):
         directive_map[name] = directive
         add_directive(name, directive, **kwargs)
 
-    app.add_directive = _add_directive
+    app.add_directive = _add_directive  # type: ignore[assignment,method-assign]
     yield directive_map
-    app.add_directive = add_directive
+    app.add_directive = add_directive  # type: ignore[method-assign]
 
 
-def update_css_js(app: Sphinx):
-    """Copy the CSS to the build directory."""
-    # reset changed identifier
-    app.env.sphinx_design_css_changed = False
-    # setup up new static path in output dir
-    static_path = (Path(app.outdir) / "_sphinx_design_static").absolute()
-    static_existed = static_path.exists()
-    static_path.mkdir(exist_ok=True)
-    app.config.html_static_path.append(str(static_path))
-    # Copy JS to the build directory.
-    js_path = static_path / "design-tabs.js"
-    app.add_js_file(js_path.name)
-    if not js_path.exists():
-        content = read_text(static_module, "sd_tabs.js")
-        js_path.write_text(content)
-    # Read the css content and hash it
-    content = read_text(static_module, "style.min.css")
-    # Write the css file
-    if sphinx_version < (7, 1):
-        hash = hashlib.md5(content.encode("utf8"), usedforsecurity=False).hexdigest()
-        css_path = static_path / f"sphinx-design.{hash}.min.css"
-    else:
-        # since sphinx 7.1 a checksum is added to the css file URL, so there is no need to do it here
-        # https://github.com/sphinx-doc/sphinx/pull/11415
-        css_path = static_path / "sphinx-design.min.css"
-    app.add_css_file(css_path.name)
-    if css_path.exists():
+def _has_new_tab_marker(node: nodes.Node) -> bool:
+    """Return whether ``node`` is an element marked to open its links in a new tab."""
+    return isinstance(node, nodes.Element) and bool(node.get("sd_new_tab"))
+
+
+def _resolve_new_tab_refs(app: Sphinx, doctree: nodes.document, docname: str) -> None:
+    """Set ``target`` and ``rel`` on the link references that request a new tab.
+
+    A component that opens in a new tab (a card with ``link-new-tab``,
+    a button with ``new-tab``) marks the element containing its reference
+    with ``sd_new_tab``.
+    Cross-references are resolved to ``nodes.reference`` during the write
+    phase, before ``doctree-resolved`` fires, so we can safely walk the tree
+    here for both URL and internal links.
+    A reference that already has a ``target`` (for example a link nested in
+    a button's text, given its own attributes) is left as authored.
+    Writers other than HTML ignore both attributes.
+    """
+    for container in doctree.findall(_has_new_tab_marker):
+        for ref in container.findall(nodes.reference):
+            if "target" in ref:
+                continue
+            ref["target"] = "_blank"
+            ref["rel"] = "noreferrer noopener"
+
+
+def add_static_assets(app: Sphinx) -> None:
+    """Register the extension's static assets (HTML-format builders only)."""
+    if app.builder.format != "html":
         return
-    if static_existed:
-        app.env.sphinx_design_css_changed = True
-    for path in static_path.glob("*.css"):
-        path.unlink()
-    css_path.write_text(content, encoding="utf8")
-
-
-def update_css_links(app: Sphinx, env: BuildEnvironment):
-    """If CSS has changed, all files must be re-written, to include the correct stylesheets."""
-    if env.sphinx_design_css_changed:
-        return list(env.all_docs.keys())
+    app.config.html_static_path.append(str(STATIC_DIR))
+    app.add_css_file("sphinx-design.min.css")
+    # deliver the (configurable) tab-storage key prefix declaratively,
+    # as a data attribute on the script tag (read by design-tabs.js at startup)
+    sd_config = get_sd_config(app.env)
+    js_attributes: dict[str, str] = {
+        "data-sd-tabs-storage-prefix": sd_config.tabs_storage_prefix
+    }
+    # the ignore is because mypy checks the unpacked values against the
+    # explicit ``priority: int`` parameter, but they only ever land in
+    # ``**kwargs`` (the HTML attributes)
+    app.add_js_file("design-tabs.js", **js_attributes)  # type: ignore[arg-type]
 
 
 def visit_container(self, node: nodes.Node):
@@ -174,15 +181,15 @@ class AddFirstTitleCss(SphinxTransform):
 
     def apply(self):
         hide = False
-        for docinfo in findall(self.document)(nodes.docinfo):
-            for name in findall(docinfo)(nodes.field_name):
+        for docinfo in self.document.findall(nodes.docinfo):
+            for name in docinfo.findall(nodes.field_name):
                 if name.astext() == "sd_hide_title":
                     hide = True
                     break
             break
         if not hide:
             return
-        for section in findall(self.document)(nodes.section):
+        for section in self.document.findall(nodes.section):
             if isinstance(section.children[0], nodes.title):
                 if "classes" in section.children[0]:
                     section.children[0]["classes"].append("sd-d-none")

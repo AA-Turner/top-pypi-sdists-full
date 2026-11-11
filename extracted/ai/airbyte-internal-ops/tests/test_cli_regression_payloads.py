@@ -86,6 +86,8 @@ pytestmark = pytest.mark.unit
         "cap",
         "timeout",
         "stopped_not_exercised",
+        "partial_cap",
+        "partial_timeout",
     ],
 )
 def test_output_verdict_comes_from_report_model(
@@ -97,6 +99,7 @@ def test_output_verdict_comes_from_report_model(
     reports = []
     printed = []
     models = []
+    summaries = []
     clean = {"success": True, "exit_code": 0, "record_counts_per_stream": {"items": 2}}
     target = dict(clean)
     control = dict(clean)
@@ -106,14 +109,24 @@ def test_output_verdict_comes_from_report_model(
         "setup_error",
         "could_not_test",
         "stopped_not_exercised",
+        "partial_cap",
+        "partial_timeout",
     }
     if shape in {"regression", "both_failed"}:
         target.update(success=False, exit_code=1)
     if shape == "both_failed":
         control.update(success=False, exit_code=1)
-    if shape in {"cap", "timeout", "stopped_not_exercised"}:
+    if shape in {"partial_cap", "partial_timeout"}:
+        target["record_counts_per_stream"] = {"items": 2, "new_stream": 2}
+    if shape in {
+        "cap",
+        "timeout",
+        "stopped_not_exercised",
+        "partial_cap",
+        "partial_timeout",
+    }:
         target["stopped_early"] = {
-            "reason": "cap" if shape == "cap" else "timeout",
+            "reason": "cap" if shape in {"cap", "partial_cap"} else "timeout",
             "records_seen": 2,
             "elapsed_s": 10,
         }
@@ -154,8 +167,22 @@ def test_output_verdict_comes_from_report_model(
     monkeypatch.setattr(
         cloud, "write_json_output", lambda _, payload: reports.append(payload)
     )
-    monkeypatch.setattr(cloud, "write_github_summary", lambda _: None)
+    monkeypatch.setattr(cloud, "write_github_summary", summaries.append)
     monkeypatch.setattr(cloud, "write_html_report", html)
+    if single and new_stream:
+        monkeypatch.setattr(
+            cloud,
+            "_inject_discovered_streams",
+            lambda **_: (
+                None,
+                None,
+                InjectedCatalogs(
+                    target_catalog={"streams": []},
+                    control_catalog={"streams": []},
+                    new_streams=("new_stream",),
+                ),
+            ),
+        )
     comparison = (
         RecordComparisonSummary(
             passed=False,
@@ -176,6 +203,8 @@ def test_output_verdict_comes_from_report_model(
         output_dir=str(tmp_path),
         enable_http_replay=False,
         skip_record_comparison=shape != "errored",
+        discover_missing_streams=single and new_stream,
+        selected_streams="new_stream" if single and new_stream else None,
     )
     model = models[0]
     assert {
@@ -185,6 +214,12 @@ def test_output_verdict_comes_from_report_model(
         key: reports[0][key] for key in model.verdict_flags()
     } == model.verdict_flags()
     assert reports[0]["check_results"] == model.check_results()
+    assert outputs["exercised_partial"] is shape.startswith("partial_")
+    assert reports[0]["partial_streams"] == (
+        ["new_stream"] if shape.startswith("partial_") else []
+    )
+    assert "partial_streams" not in outputs
+    assert "partial_streams" not in printed[0]
     expected = json.loads(
         (Path(__file__).parent / "fixtures" / "regression_cli_golden.json").read_text()
     )[f"{shape}:{single}"]
@@ -192,6 +227,22 @@ def test_output_verdict_comes_from_report_model(
     markdown = (tmp_path / "report.md").read_text()
     markdown = re.sub(r"^- \*\*Test Date:\*\*.*$", "DATE", markdown, flags=re.M)
     markdown = re.sub(r"^- \*\*Tester:\*\*.*$", "TESTER", markdown, flags=re.M)
+    result_line = next(
+        line for line in markdown.splitlines() if line.startswith("**Result:**")
+    )
+    partial_note = "Exercised (partial):"
+    assert (partial_note in result_line) is outputs["exercised_partial"]
+    assert (
+        any(partial_note in summary for summary in summaries)
+        is outputs["exercised_partial"]
+    )
+    if model.partial_streams:
+        evidence = (
+            "Exercised (partial): 1 new stream(s) emitted records before the read "
+            f"stopped ({target['stopped_early']['reason']}): new_stream"
+        )
+        assert f"; {evidence}" in result_line
+        assert any(evidence in summary for summary in summaries)
     assert markdown == expected["markdown"]
     payload = dict(printed[0])
     if not single:
@@ -5873,7 +5924,7 @@ def test_target_only_catalog_pk_and_cursor_paths_are_strict_failures(
 
 
 def test_stopped_target_record_check_detail_is_partial(
-    tmp_path, capsys, monkeypatch, stub_comparison_run
+    tmp_path, capsys, monkeypatch, fake_clock, stub_comparison_run
 ):
     _target_only(monkeypatch, "audit_logs")
     catalog = _record_catalog(tmp_path / "catalog.json")
@@ -5899,8 +5950,11 @@ def test_stopped_target_record_check_detail_is_partial(
     payload = _logged_payload(capsys.readouterr().out)
 
     assert payload["incomplete"] is True
+    assert payload["exercised_partial"] is True
+    assert seen["json_output"]["partial_streams"] == ["audit_logs"]
+    assert payload["record_checks"]["audit_logs"]["check_failed"] is False
     assert payload["record_checks"]["audit_logs"]["partial"] is True
-    assert "exercised (partial), record checks passed" in "\n".join(
+    assert "Exercised (partial): 1 new stream(s) emitted records" in "\n".join(
         seen["step_summary"]
     )
 
@@ -6221,6 +6275,156 @@ def test_a_stopped_read_with_an_unexercised_stream_is_incomplete_with_both_flags
         "- Not exercised: 1 stream(s) the control did not read returned no records: "
         "audit_logs" in summary
     )
+
+
+@pytest.mark.parametrize("fault", [False, True])
+@pytest.mark.parametrize("output_mode", ["raw", "masked"])
+@pytest.mark.parametrize(
+    ("scenario", "label", "flag", "coverage"),
+    [
+        ("empty", "NOT EXERCISED", "not_exercised", False),
+        ("records", "PASS", None, True),
+        ("undefined", "SETUP ERROR", "setup_error", None),
+        ("config", "COULD NOT TEST (config error)", "could_not_test", None),
+        ("crash", "FAIL", "not_exercised", False),
+        ("unknown", "PASS", None, None),
+        ("kept", "NOT EXERCISED", "not_exercised", False),
+        ("stopped", "INCOMPLETE", "not_exercised", False),
+        ("partial_cap", "INCOMPLETE", None, True),
+        ("partial_timeout", "INCOMPLETE", None, True),
+    ],
+)
+def test_single_version_injection_verdict_outputs(
+    tmp_path,
+    monkeypatch,
+    fake_clock,
+    stub_run,
+    fault,
+    output_mode,
+    scenario,
+    label,
+    flag,
+    coverage,
+):
+    outputs = stub_run({})
+    reports = []
+    models = []
+    result = {
+        "success": scenario not in {"config", "crash"},
+        "exit_code": 1 if scenario in {"config", "crash"} else 0,
+        "record_counts_per_stream": (
+            {"new_stream": 2}
+            if scenario in {"records", "partial_cap", "partial_timeout"}
+            else {}
+        ),
+    }
+    if scenario in {"stopped", "partial_cap", "partial_timeout"}:
+        result["stopped_early"] = {
+            "reason": "cap" if scenario == "partial_cap" else "timeout",
+            "records_seen": 0,
+            "elapsed_s": 1,
+        }
+    comparable = ComparableOutputs(
+        stream_statuses={"new_stream": ["INCOMPLETE"]}
+        if scenario == "undefined"
+        else {},
+        stream_errors={
+            "new_stream": [StreamError("config_error", "Missing permission")]
+        }
+        if scenario == "config"
+        else {},
+    )
+    injection = InjectedCatalogs(
+        target_catalog={"streams": []},
+        control_catalog={"streams": []},
+        new_streams=() if scenario in {"unknown", "kept"} else ("new_stream",),
+        unknown_streams=("new_stream",) if scenario == "unknown" else (),
+        kept_target_only=("new_stream",) if scenario == "kept" else (),
+    )
+    monkeypatch.setattr(
+        cloud, "_inject_discovered_streams", lambda **_: (None, None, injection)
+    )
+    monkeypatch.setattr(cloud, "_configured_stream_names", lambda *_: ("new_stream",))
+    monkeypatch.setattr(
+        cloud, "_run_connector_command", lambda **_: (result, comparable)
+    )
+    monkeypatch.setattr(
+        cloud, "write_json_output", lambda _, payload: reports.append(payload)
+    )
+    build = cloud.build_single_version_report_model
+
+    def capture(**kwargs):
+        model = build(**kwargs)
+        models.append(model)
+        return model
+
+    monkeypatch.setattr(cloud, "build_single_version_report_model", capture)
+    if fault:
+
+        def crash(*_, **__):
+            assert {
+                key: outputs[key] for key in models[0].verdict_flags(github=True)
+            } == models[0].verdict_flags(github=True)
+            assert reports[0]["check_results"] == models[0].check_results()
+            raise RuntimeError("report-only failure")
+
+        monkeypatch.setattr(cloud, "_collect_connection_objects", crash)
+    cloud.regression_test(
+        skip_compare=True,
+        test_image="airbyte/source-test:2",
+        command="read",
+        discover_missing_streams=True,
+        selected_streams="new_stream",
+        output_dir=str(tmp_path),
+        enable_http_replay=False,
+        output_mode=output_mode,
+    )
+    model = models[0]
+    expected_partial = scenario in {"partial_cap", "partial_timeout"}
+    assert model.exercised_partial is expected_partial
+    assert reports[0]["partial_streams"] == (["new_stream"] if expected_partial else [])
+    assert outputs["exercised_partial"] is expected_partial
+    assert "partial_streams" not in outputs
+    assert all("partial_streams" not in row for row in reports[0]["check_results"])
+    assert model.verdict_label == label
+    assert model.passed is (label == "PASS")
+    assert {
+        key: outputs[key] for key in model.verdict_flags(github=True)
+    } == model.verdict_flags(github=True)
+    if scenario in {"config", "crash"}:
+        assert model.verdict_flags(github=True) == {
+            "success": False,
+            "incomplete": False,
+            "not_exercised": scenario == "crash",
+            "setup_error": False,
+            "could_not_test": scenario == "config",
+            "exercised_partial": False,
+        }
+    assert {
+        key: reports[0][key] for key in model.verdict_flags()
+    } == model.verdict_flags()
+    assert model.regression_detected is False
+    assert reports[0].get("regression_detected", False) is False
+    for name in ("not_exercised", "setup_error", "could_not_test"):
+        assert reports[0][name] is (flag == name)
+    rows = [
+        row
+        for row in reports[0]["check_results"]
+        if row["name"] == "Stream coverage (new streams)"
+    ]
+    assert rows == (
+        []
+        if coverage is None
+        else [
+            {
+                "name": "Stream coverage (new streams)",
+                "passed": coverage,
+                "severity": "strict",
+            }
+        ]
+    )
+    if scenario in {"stopped", "partial_timeout"}:
+        assert result["stopped_early"]["share_s"] == 13800
 
 
 def test_a_single_version_read_carries_not_exercised_false(tmp_path, capsys, stub_run):

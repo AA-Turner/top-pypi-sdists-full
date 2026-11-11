@@ -21,64 +21,58 @@
 
 use std::marker::PhantomData;
 
+use super::structural_common::{raw_ffi_any_same_as, structural_error_from_raw};
+
 use crate::any::{Any, AnyView, TryFromTemp};
-use crate::error::{Error, Result, TYPE_ERROR};
+use crate::error::{Error, Result};
 use crate::tvm_ffi_sys::{TVMFFIAny, TVMFFITypeIndex};
 use crate::type_traits::{AnyCompatible, ContainerElement};
 
-/// A structural mutation that keeps its input without acquiring another owner.
+/// A marker result that keeps the original value.
 ///
-/// This marker may be returned directly from a map or mutation callback. A
-/// pre-order map still descends into the original value's children.
+/// A map or mutation callback returns `Unchanged`, usually as
+/// `Unchanged.into()`, to keep the value it was given without retaining or
+/// cloning it. A pre-order map still descends into the original value's
+/// children.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_ffi::{Any, Unchanged, UnchangedOr};
+///
+/// let result: UnchangedOr<Any> = Unchanged.into();
+/// assert!(result.is_unchanged());
+/// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Unchanged;
 
-// SAFETY: the unchanged ABI tag has no payload or owned resources.
-unsafe impl AnyCompatible for Unchanged {
-    unsafe fn copy_to_any_view(_src: &Self, data: &mut TVMFFIAny) {
-        *data = TVMFFIAny::new();
-        data.type_index = TVMFFITypeIndex::kTVMFFIUnchanged as i32;
-    }
-
-    unsafe fn move_to_any(src: Self, data: &mut TVMFFIAny) {
-        Self::copy_to_any_view(&src, data);
-    }
-
-    unsafe fn check_any_strict(data: &TVMFFIAny) -> bool {
-        data.type_index == TVMFFITypeIndex::kTVMFFIUnchanged as i32
-    }
-
-    unsafe fn copy_from_any_view_after_check(_data: &TVMFFIAny) -> Self {
-        Self
-    }
-
-    unsafe fn move_from_any_after_check(_data: &mut TVMFFIAny) -> Self {
-        Self
-    }
-
-    unsafe fn try_cast_from_any_view(data: &TVMFFIAny) -> std::result::Result<Self, ()> {
-        Self::check_any_strict(data).then_some(Self).ok_or(())
-    }
-
-    fn type_str() -> std::string::String {
-        "Unchanged".into()
-    }
-
-    fn type_schema() -> std::string::String {
-        crate::type_traits::type_schema("ffi.Unchanged", &[])
-    }
-}
-
-crate::impl_try_from_any!(Unchanged);
-
-/// A typed replacement or an [`Unchanged`] marker, stored in one FFI Any cell.
+/// Either a replacement value of type `T`, or [`Unchanged`] to keep the
+/// original.
 ///
-/// `T` may be an FFI value type or [`Any`]. Use `Result<UnchangedOr<T>>` to
-/// propagate errors. Callbacks can return this wrapper, [`Unchanged`], a
-/// replacement value, or a `Result` containing any of these.
+/// Structural map and mutation callbacks return `Result<UnchangedOr<Any>>`.
+/// It is like `Option<T>` whose `None` means "keep what was there", stored in
+/// one FFI value. `UnchangedOr<Any>` converts with `.into()` from
+/// [`Unchanged`], from a managed reference or scalar, and from a typed
+/// `UnchangedOr<T>`. `T` is an FFI value type or [`Any`]. Converting the
+/// wrapper into `Any` keeps the marker; use [`value_or_unchanged`](Self::value_or_unchanged) or
+/// [`into_option`](Self::into_option) when an actual value is needed.
 ///
-/// Converting this wrapper to `Any` preserves the marker. Use
-/// [`Self::value_or`] or [`Self::value_or_else`] when an actual value is needed.
+/// # Examples
+///
+/// ```
+/// use tvm_ffi::UnchangedOr;
+///
+/// fn double_even(value: i64) -> UnchangedOr<i64> {
+///     if value % 2 == 0 {
+///         UnchangedOr::changed(value * 2)
+///     } else {
+///         UnchangedOr::unchanged()
+///     }
+/// }
+///
+/// assert_eq!(double_even(4).value_or_unchanged(4), 8);
+/// assert_eq!(double_even(3).value_or_unchanged(3), 3);
+/// ```
 #[repr(transparent)]
 pub struct UnchangedOr<T: ContainerElement = Any> {
     data: Any,
@@ -86,7 +80,12 @@ pub struct UnchangedOr<T: ContainerElement = Any> {
 }
 
 impl<T: ContainerElement> UnchangedOr<T> {
-    /// Keep the original value without borrowing or cloning it.
+    /// Create a result that keeps the original value, without borrowing or cloning
+    /// it.
+    ///
+    /// # Returns
+    ///
+    /// An unchanged result.
     #[inline]
     pub fn unchanged() -> Self {
         Self {
@@ -95,7 +94,15 @@ impl<T: ContainerElement> UnchangedOr<T> {
         }
     }
 
-    /// Supply an owning replacement value.
+    /// Create a result that replaces the original value.
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - The replacement.
+    ///
+    /// # Returns
+    ///
+    /// A result holding `value`.
     #[inline]
     pub fn changed(value: T) -> Self {
         let mut raw = TVMFFIAny::new();
@@ -109,13 +116,36 @@ impl<T: ContainerElement> UnchangedOr<T> {
         }
     }
 
-    /// Whether this result asks its caller to keep the original value.
+    /// Return whether this result keeps the original value.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the result is unchanged.
     #[inline]
     pub fn is_unchanged(&self) -> bool {
         is_unchanged(&self.data)
     }
 
-    /// Whether the result is unchanged or has the original shallow identity.
+    /// Return whether this result is unchanged or holds `original` itself.
+    ///
+    /// An object counts as the same only when it is the same object, not an equal
+    /// copy. Use it to tell whether anything was rewritten.
+    ///
+    /// # Arguments
+    ///
+    /// * `original` - The original value.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the result is unchanged or holds `original`.
+    ///
+    /// ```
+    /// use tvm_ffi::{Array, UnchangedOr};
+    /// let original = Array::from_vec(vec![1_i64]);
+    /// assert!(UnchangedOr::changed(original.clone()).unchanged_or_same_as(&original));
+    /// ```
+    ///
+    /// See also [`UnchangedOr`].
     #[inline]
     pub fn unchanged_or_same_as(&self, original: &T) -> bool {
         if self.is_unchanged() {
@@ -126,10 +156,14 @@ impl<T: ContainerElement> UnchangedOr<T> {
         unsafe {
             T::container_copy_to_any_view(original, &mut raw);
         }
-        super::structural_common::same_shallow(raw, *self.data.as_raw_ffi_any())
+        raw_ffi_any_same_as(raw, *self.data.as_raw_ffi_any())
     }
 
-    /// Move out the replacement, returning None when unchanged.
+    /// Move out the replacement.
+    ///
+    /// # Returns
+    ///
+    /// The replacement, or `None` when the result is unchanged.
     #[inline]
     pub fn into_option(self) -> Option<T> {
         if self.is_unchanged() {
@@ -142,19 +176,32 @@ impl<T: ContainerElement> UnchangedOr<T> {
         }
     }
 
-    /// Move the replacement or the supplied original value out of this result.
+    /// Move out the replacement, or `original` when the result is unchanged.
+    ///
+    /// `original` is the value the callback was given; to produce it only when
+    /// needed, use `into_option().unwrap_or_else(..)`.
+    ///
+    /// # Arguments
+    ///
+    /// * `original` - The original value, kept when the result is unchanged.
+    ///
+    /// # Returns
+    ///
+    /// The replacement, or `original`.
     #[inline]
-    pub fn value_or(self, original: T) -> T {
-        self.value_or_else(|| original)
+    pub fn value_or_unchanged(self, original: T) -> T {
+        self.into_option().unwrap_or(original)
     }
 
-    /// Materialize the original only if this result is unchanged.
-    #[inline]
-    pub fn value_or_else(self, original: impl FnOnce() -> T) -> T {
-        self.into_option().unwrap_or_else(original)
-    }
-
-    /// Convert only the replacement, preserving an unchanged marker.
+    /// Convert only the replacement, preserving an unchanged result.
+    ///
+    /// # Arguments
+    ///
+    /// * `convert` - Converts the replacement; called only when there is one.
+    ///
+    /// # Returns
+    ///
+    /// The converted result.
     #[inline]
     pub fn map<U: ContainerElement>(self, convert: impl FnOnce(T) -> U) -> UnchangedOr<U> {
         match self.into_option() {
@@ -162,50 +209,26 @@ impl<T: ContainerElement> UnchangedOr<T> {
             None => UnchangedOr::unchanged(),
         }
     }
-
-    /// Fallibly convert only the replacement, propagating its error unchanged.
-    #[inline]
-    pub fn try_map<U: ContainerElement, E>(
-        self,
-        convert: impl FnOnce(T) -> std::result::Result<U, E>,
-    ) -> std::result::Result<UnchangedOr<U>, E> {
-        match self.into_option() {
-            Some(value) => convert(value).map(UnchangedOr::changed),
-            None => Ok(UnchangedOr::unchanged()),
-        }
-    }
-
-    /// Check a replacement's FFI type without cloning it.
-    ///
-    /// An unchanged result is compatible with every replacement type. Erased
-    /// and narrowing conversions retain the strict type check used by
-    /// [`Any::try_as`]. For a known typed conversion, use `map(Into::into)`.
-    #[inline]
-    pub fn try_cast<U: ContainerElement>(self) -> Result<UnchangedOr<U>> {
-        if unsafe { UnchangedOr::<U>::check_any_strict(self.data.as_raw_ffi_any()) } {
-            Ok(UnchangedOr {
-                data: self.data,
-                _marker: PhantomData,
-            })
-        } else {
-            Err(Error::new(
-                TYPE_ERROR,
-                &format!(
-                    "structural mutation result does not match {}",
-                    U::container_type_str()
-                ),
-                "",
-            ))
-        }
-    }
 }
 
 impl UnchangedOr<Any> {
-    #[inline]
+    /// Wrap a successful erased carrier, which may hold the unchanged marker.
+    #[inline(always)]
+    pub(crate) fn from_any(data: Any) -> Self {
+        Self {
+            data,
+            _marker: PhantomData,
+        }
+    }
+
+    #[inline(always)]
     pub(crate) fn from_carrier(data: Any) -> Result<Self> {
         if data.type_index() == TVMFFITypeIndex::kTVMFFIError as i32 {
-            return match Error::try_from(data) {
-                Ok(error) | Err(error) => Err(error),
+            core::hint::cold_path();
+            // Transfer ownership directly into the checked cold conversion.
+            return unsafe {
+                let raw = Any::into_raw_ffi_any(data);
+                Err(structural_error_from_raw(raw))
             };
         }
         Ok(Self {
@@ -225,58 +248,13 @@ impl<T: ContainerElement> Clone for UnchangedOr<T> {
     }
 }
 
-// SAFETY: the carrier contains either the resource-free marker or exactly
-// T's owning representation. Borrowing never acquires ownership; moving
-// transfers the carrier once. Non-strict conversions materialize a valid T.
-unsafe impl<T: ContainerElement> AnyCompatible for UnchangedOr<T> {
-    unsafe fn copy_to_any_view(src: &Self, data: &mut TVMFFIAny) {
-        *data = *src.data.as_raw_ffi_any();
-    }
+crate::impl_into_arg!(impl[T: ContainerElement] UnchangedOr<T>);
 
-    unsafe fn move_to_any(src: Self, data: &mut TVMFFIAny) {
-        *data = Any::into_raw_ffi_any(src.data);
-    }
-
-    unsafe fn check_any_strict(data: &TVMFFIAny) -> bool {
-        if T::CONTAINER_IS_ANY {
-            // An erased successful result excludes the ABI's error channel.
-            data.type_index != TVMFFITypeIndex::kTVMFFIError as i32
-        } else {
-            Unchanged::check_any_strict(data) || T::container_check_any_strict(data)
-        }
-    }
-
-    unsafe fn copy_from_any_view_after_check(data: &TVMFFIAny) -> Self {
-        if Unchanged::check_any_strict(data) {
-            return Self::unchanged();
-        }
-        // Materialize T, including numeric narrowing, before storing its value.
-        Self::changed(T::container_copy_from_any_view_after_check(data))
-    }
-
-    unsafe fn move_from_any_after_check(data: &mut TVMFFIAny) -> Self {
-        Self {
-            data: Any::from_raw_ffi_any(std::mem::replace(data, TVMFFIAny::new())),
-            _marker: PhantomData,
-        }
-    }
-
-    unsafe fn try_cast_from_any_view(data: &TVMFFIAny) -> std::result::Result<Self, ()> {
-        if T::CONTAINER_IS_ANY && data.type_index == TVMFFITypeIndex::kTVMFFIError as i32 {
-            return Err(());
-        }
-        if Unchanged::check_any_strict(data) {
-            return Ok(Self::unchanged());
-        }
-        T::container_try_cast_from_any_view(data).map(Self::changed)
-    }
-
-    fn type_str() -> std::string::String {
-        format!("UnchangedOr<{}>", T::container_type_str())
-    }
-
-    fn type_schema() -> std::string::String {
-        crate::type_traits::type_schema("UnchangedOr", &[T::container_type_schema()])
+impl<'b, T: ContainerElement> TryFrom<&'b Any> for UnchangedOr<T> {
+    type Error = Error;
+    #[inline]
+    fn try_from(value: &'b Any) -> Result<Self> {
+        TryFromTemp::<Self>::try_from(value).map(TryFromTemp::into_value)
     }
 }
 
@@ -300,3 +278,160 @@ impl<'a, T: ContainerElement> TryFrom<AnyView<'a>> for UnchangedOr<T> {
 pub(crate) fn is_unchanged(value: &Any) -> bool {
     value.type_index() == TVMFFITypeIndex::kTVMFFIUnchanged as i32
 }
+
+// -----------------------------------------------------------------------------
+// AnyCompatible: low-level FFI carrier conversions.
+// -----------------------------------------------------------------------------
+
+// SAFETY: the unchanged ABI tag has no payload or owned resources.
+unsafe impl AnyCompatible for Unchanged {
+    unsafe fn copy_to_any_view(_src: &Self, data: &mut TVMFFIAny) {
+        *data = TVMFFIAny::new();
+        data.type_index = TVMFFITypeIndex::kTVMFFIUnchanged as i32;
+    }
+
+    unsafe fn move_to_any(src: Self, data: &mut TVMFFIAny) {
+        unsafe { Self::copy_to_any_view(&src, data) };
+    }
+
+    unsafe fn check_any_strict(data: &TVMFFIAny) -> bool {
+        data.type_index == TVMFFITypeIndex::kTVMFFIUnchanged as i32
+    }
+
+    unsafe fn copy_from_any_view_after_check(_data: &TVMFFIAny) -> Self {
+        Self
+    }
+
+    unsafe fn move_from_any_after_check(_data: &mut TVMFFIAny) -> Self {
+        Self
+    }
+
+    unsafe fn try_cast_from_any_view(data: &TVMFFIAny) -> std::result::Result<Self, ()> {
+        unsafe { Self::check_any_strict(data).then_some(Self).ok_or(()) }
+    }
+
+    fn type_str() -> std::string::String {
+        "Unchanged".into()
+    }
+
+    fn type_schema() -> std::string::String {
+        crate::type_traits::type_schema("ffi.Unchanged", &[])
+    }
+}
+
+crate::impl_try_from_any!(Unchanged);
+crate::impl_into_arg!(Unchanged);
+
+// SAFETY: the carrier contains either the resource-free marker or exactly
+// T's owning representation. Borrowing never acquires ownership; moving
+// transfers the carrier once. Non-strict conversions materialize a valid T.
+unsafe impl<T: ContainerElement> AnyCompatible for UnchangedOr<T> {
+    unsafe fn copy_to_any_view(src: &Self, data: &mut TVMFFIAny) {
+        *data = *src.data.as_raw_ffi_any();
+    }
+
+    unsafe fn move_to_any(src: Self, data: &mut TVMFFIAny) {
+        *data = Any::into_raw_ffi_any(src.data);
+    }
+
+    unsafe fn check_any_strict(data: &TVMFFIAny) -> bool {
+        if T::CONTAINER_IS_ANY {
+            // An erased successful result excludes the ABI's error channel.
+            data.type_index != TVMFFITypeIndex::kTVMFFIError as i32
+        } else {
+            unsafe { Unchanged::check_any_strict(data) || T::container_check_any_strict(data) }
+        }
+    }
+
+    unsafe fn match_constraints(data: &TVMFFIAny) -> bool {
+        unsafe { Unchanged::check_any_strict(data) || T::container_match_constraints(data) }
+    }
+
+    unsafe fn copy_from_any_view_after_check(data: &TVMFFIAny) -> Self {
+        if unsafe { Unchanged::check_any_strict(data) } {
+            return Self::unchanged();
+        }
+        // Materialize T, including numeric narrowing, before storing its value.
+        unsafe { Self::changed(T::container_copy_from_any_view_after_check(data)) }
+    }
+
+    unsafe fn move_from_any_after_check(data: &mut TVMFFIAny) -> Self {
+        unsafe {
+            Self {
+                data: Any::from_raw_ffi_any(std::mem::replace(data, TVMFFIAny::new())),
+                _marker: PhantomData,
+            }
+        }
+    }
+
+    unsafe fn try_cast_from_any_view(data: &TVMFFIAny) -> std::result::Result<Self, ()> {
+        if T::CONTAINER_IS_ANY && data.type_index == TVMFFITypeIndex::kTVMFFIError as i32 {
+            return Err(());
+        }
+        if unsafe { Unchanged::check_any_strict(data) } {
+            return Ok(Self::unchanged());
+        }
+        unsafe { T::container_try_cast_from_any_view(data).map(Self::changed) }
+    }
+
+    fn type_str() -> std::string::String {
+        format!("UnchangedOr<{}>", T::container_type_str())
+    }
+
+    fn type_schema() -> std::string::String {
+        crate::type_traits::type_schema("UnchangedOr", &[T::container_type_schema()])
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Conversions into an erased mutation result.
+// -----------------------------------------------------------------------------
+
+/// `Unchanged.into()` keeps the original value.
+impl From<Unchanged> for UnchangedOr<Any> {
+    #[inline]
+    fn from(_: Unchanged) -> Self {
+        Self::unchanged()
+    }
+}
+
+/// A managed reference replaces the original value.
+impl<T: crate::object::ObjectRefCore> From<T> for UnchangedOr<Any> {
+    #[inline]
+    fn from(value: T) -> Self {
+        Self::changed(Any::from(value))
+    }
+}
+
+/// A typed result keeps its unchanged marker or replacement.
+impl<T: crate::object::ObjectRefCore> From<UnchangedOr<T>> for UnchangedOr<Any> {
+    #[inline]
+    fn from(value: UnchangedOr<T>) -> Self {
+        Self::from_any(Any::from(value))
+    }
+}
+
+macro_rules! impl_unchanged_or_any_from_scalar {
+    ($($ty:ty),*) => {
+        $(
+            /// A scalar replaces the original value.
+            impl From<$ty> for UnchangedOr<Any> {
+                #[inline]
+                fn from(value: $ty) -> Self {
+                    Self::changed(Any::from(value))
+                }
+            }
+
+            /// A typed scalar result keeps its unchanged marker or replacement.
+            impl From<UnchangedOr<$ty>> for UnchangedOr<Any> {
+                #[inline]
+                fn from(value: UnchangedOr<$ty>) -> Self {
+                    Self::from_any(Any::from(value))
+                }
+            }
+        )*
+    };
+}
+impl_unchanged_or_any_from_scalar!(
+    bool, i8, i16, i32, i64, isize, u8, u16, u32, u64, usize, f32, f64
+);

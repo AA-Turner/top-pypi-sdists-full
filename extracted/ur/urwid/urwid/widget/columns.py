@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import functools
 import math
 import sys
 import typing
@@ -21,7 +20,9 @@ from .container import (
     _SELECT_COMMANDS,
     SelectNavigationListContentsMixin,
     _ContainerElementSizingFlag,
+    _invalidate_on_focus_change,
     _UnfocusedFocusAttrMixin,
+    _WeakCallback,
 )
 from .monitored_list import MonitoredFocusList
 from .widget import (
@@ -38,6 +39,7 @@ if typing.TYPE_CHECKING:
     from collections.abc import Collection, Iterable, Iterator, Sequence
 
     from .attr_map import _AttrMapLike
+    from .container import _UnfocusedFocusAttrFunc
 
 # Flag combinations tested on every element of every ``Columns.sizing()`` call, hoisted out of the loop
 # so that the enum member lookups and the OR-ing happen once per import instead of once per element.
@@ -259,6 +261,7 @@ class Columns(
         *,
         select_navigation: bool = False,
         unfocused_focus_attr: _AttrMapLike | None = None,
+        unfocused_focus_attr_func: _UnfocusedFocusAttrFunc | None = None,
     ) -> None:
         """Initialize a new Columns instance.
 
@@ -276,6 +279,8 @@ class Columns(
             see :ref:`select-navigation`.
         :param unfocused_focus_attr: attribute map applied to the focus child while the columns renders without
             focus, in any form :class:`AttrMap` takes; see :attr:`unfocused_focus_attr`.
+        :param unfocused_focus_attr_func: function that gives the map applied to the focus child while the columns
+            renders without focus, instead of *unfocused_focus_attr*; see :attr:`unfocused_focus_attr_func`.
         :raises ColumnsError: an item of *widget_list* is not a widget or a valid ``(width, widget)`` pair.
         :raises ValueError: *focus_column* is a widget that is not in *widget_list*.
         :warns ColumnsWarning: an item of *widget_list* is not a widget.
@@ -320,9 +325,9 @@ class Columns(
                 tuple[Literal[WHSettings.GIVEN], int, bool] | tuple[Literal[WHSettings.WEIGHT], int | float, bool],
             ]
         ] = MonitoredFocusList()
-        self._contents.set_modified_callback(self._contents_modified)
-        self._contents.set_focus_changed_callback(lambda f: self._invalidate())
-        self._contents.set_validate_contents_modified(self._validate_contents_modified)
+        self._contents.set_modified_callback(_WeakCallback(self, type(self)._contents_modified))
+        self._contents.set_focus_changed_callback(_WeakCallback(self, _invalidate_on_focus_change))
+        self._contents.set_validate_contents_modified(_WeakCallback(self, type(self)._validate_contents_modified))
 
         box_columns = set(box_columns or ())
 
@@ -398,8 +403,9 @@ class Columns(
         self._cache_maxcol: int | None = None
         self.select_navigation = select_navigation
         self._set_unfocused_focus_attr(unfocused_focus_attr)
+        self._unfocused_focus_attr_func = unfocused_focus_attr_func
         # connected last, so that filling the contents during construction sends no signal
-        self._contents.set_focus_moved_callback(functools.partial(self._emit, "focus changed"))
+        self._contents.set_focus_moved_callback(_WeakCallback(self, type(self)._emit, "focus changed"))
 
     def _repr_words(self) -> list[str]:
         """Return the base repr words followed by the number of items in the contents."""
@@ -423,6 +429,7 @@ class Columns(
             "min_width": self.min_width,
             "select_navigation": self.select_navigation,
             "unfocused_focus_attr": self._unfocused_focus_attr,
+            "unfocused_focus_attr_func": self._unfocused_focus_attr_func,
         }
         return remove_defaults(attrs, Columns.__init__)
 
@@ -455,6 +462,7 @@ class Columns(
         yield "box_columns", box_columns
         yield "select_navigation", self.select_navigation, False
         yield "unfocused_focus_attr", self._unfocused_focus_attr, None
+        yield "unfocused_focus_attr_func", self._unfocused_focus_attr_func, None
 
     def __len__(self) -> int:
         """Return the number of columns."""
@@ -1074,7 +1082,7 @@ class Columns(
             # widget kind and size arguments matched separately
             canvas = w.render(w_size, focus=focus and is_focus)  # type: ignore[arg-type]
             if is_focus and not focus:
-                canvas = self._mark_unfocused_focus(canvas)
+                canvas = self._mark_unfocused_focus(canvas, self._unfocused_focus_map_for(w))
             data.append((canvas, i, is_focus, width))
 
         if not data:

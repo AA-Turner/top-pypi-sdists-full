@@ -124,6 +124,29 @@ problem_percentage = cloudwatch.MathExpression(
 )
 ```
 
+Like `Metric`, a `MathExpression` can be hidden from a graph by setting
+`visible: false`. This keeps the expression available (for example, as an input
+to another expression) while removing its line from the widget:
+
+```python
+# fn: lambda.Function
+# dashboard: cloudwatch.Dashboard
+
+
+error_rate = cloudwatch.MathExpression(
+    expression="errors / invocations * 100",
+    using_metrics={
+        "errors": fn.metric_errors(),
+        "invocations": fn.metric_invocations()
+    },
+    visible=False
+)
+
+dashboard.add_widgets(cloudwatch.GraphWidget(
+    left=[fn.metric_invocations(), error_rate]
+))
+```
+
 ### Metric ID Usage in Math Expressions
 
 When metrics have custom IDs, you can reference them directly in math expressions.
@@ -177,6 +200,25 @@ cross_account_search = cloudwatch.SearchExpression(
     search_region="us-west-2",
     label="Production Lambda Invocations"
 )
+```
+
+Like `Metric` and `MathExpression`, a `SearchExpression` can be hidden from a
+graph by setting `visible: false`. The time series stay on the widget without
+being rendered, so they can still be toggled on in the CloudWatch console:
+
+```python
+# dashboard: cloudwatch.Dashboard
+
+
+hidden_search = cloudwatch.SearchExpression(
+    expression="SEARCH('{AWS/EC2,InstanceId} MetricName=\"CPUUtilization\"', 'Average', 300)",
+    label="EC2 CPU Utilization",
+    visible=False
+)
+
+dashboard.add_widgets(cloudwatch.GraphWidget(
+    left=[hidden_search]
+))
 ```
 
 ### Aggregation
@@ -935,6 +977,19 @@ dashboard.add_widgets(cloudwatch.SingleValueWidget(
     metrics=[],
 
     period=Duration.minutes(15)
+))
+```
+
+The widget can show live data published within the last minute that has not been fully aggregated.
+
+```python
+# dashboard: cloudwatch.Dashboard
+
+
+dashboard.add_widgets(cloudwatch.SingleValueWidget(
+    metrics=[],
+
+    live_data=True
 ))
 ```
 
@@ -2631,6 +2686,1438 @@ class CalendarDateTime:
 
     def __repr__(self) -> str:
         return "CalendarDateTime(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IAccessGrantRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnAccessGrant(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAccessGrant",
+):
+    '''Resource Type definition for AWS::CloudWatch::AccessGrant.
+
+    An access grant authorizes a principal to perform a set of actions on resources in a space.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessgrant.html
+    :cloudformationResource: AWS::CloudWatch::AccessGrant
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_access_grant = cloudwatch.CfnAccessGrant(self, "MyCfnAccessGrant",
+            domain_id="domainId",
+            name="name",
+            permission="permission",
+            principal=cloudwatch.CfnAccessGrant.AccessGrantPrincipalProperty(
+                principal_type="principalType",
+        
+                # the properties below are optional
+                principal_attributes=[cloudwatch.CfnAccessGrant.AccessGrantPrincipalAttributeProperty(
+                    key="key",
+                    value="value"
+                )],
+                principal_id="principalId"
+            ),
+            space_id="spaceId",
+        
+            # the properties below are optional
+            scoped_actions=[cloudwatch.CfnAccessGrant.ScopedActionsProperty(
+                actions=["actions"],
+        
+                # the properties below are optional
+                context_conditions={
+                    "context_conditions_key": ["contextConditions"]
+                },
+                resources=[cloudwatch.CfnAccessGrant.ResourceScopeProperty(
+                    resource_type="resourceType",
+        
+                    # the properties below are optional
+                    resource_arns=["resourceArns"],
+                    row_scope_groups=[[cloudwatch.CfnAccessGrant.RowScopeProperty(
+                        field="field",
+                        operator="operator",
+                        values=["values"]
+                    )]],
+                    signal_types=["signalTypes"],
+                    tags={
+                        "tags_key": "tags"
+                    }
+                )]
+            )],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        domain_id: builtins.str,
+        name: builtins.str,
+        permission: builtins.str,
+        principal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessGrant.AccessGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+        space_id: builtins.str,
+        scoped_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessGrant.ScopedActionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::AccessGrant``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param domain_id: The ID of the domain the grant belongs to.
+        :param name: A name that identifies the access grant.
+        :param permission: The permission granted.
+        :param principal: The principal receiving the grant. Specify PrincipalId, PrincipalAttributes, or both.
+        :param space_id: The space this grant applies to. Domain-scoped grants are returned by ListDomainAccessGrantsForOrganization instead.
+        :param scoped_actions: Groups of actions allowed by the grant, each with the resource scopes and conditions that limit those actions.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__18c56660dc9692f5c04348a76d9515ec89f077d2ab6585d5f02fb762c168350e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAccessGrantProps(
+            domain_id=domain_id,
+            name=name,
+            permission=permission,
+            principal=principal,
+            space_id=space_id,
+            scoped_actions=scoped_actions,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAccessGrant")
+    @builtins.classmethod
+    def arn_for_access_grant(
+        cls,
+        resource: "_aws_cloudwatch_70717108.IAccessGrantRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ff9157018ef69b848d8d93e39c44ed6a0dfa48fccca6b843d0b98fc41e765228)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAccessGrant", [resource]))
+
+    @jsii.member(jsii_name="isCfnAccessGrant")
+    @builtins.classmethod
+    def is_cfn_access_grant(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAccessGrant.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ba952e5eb836088a584133cb1b885e5d36c3527ce3112fd2273c561aab5224f3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccessGrant", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__423e4b4ae5541b8c6c5959940bbe72abe331b4c43e15e7260d7946f0f5ac8c8f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a058c27c0f195b50e104df1676f2f6835c022bb1603b65645f72eb6164bee7b9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessGrantRef")
+    def access_grant_ref(self) -> "_aws_cloudwatch_70717108.AccessGrantReference":
+        '''A reference to a AccessGrant resource.'''
+        return typing.cast("_aws_cloudwatch_70717108.AccessGrantReference", jsii.get(self, "accessGrantRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccountId")
+    def attr_account_id(self) -> builtins.str:
+        '''The AWS account ID that owns the grant.
+
+        :cloudformationAttribute: AccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the access grant.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the grant was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The principal that created the grant.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGrantId")
+    def attr_grant_id(self) -> builtins.str:
+        '''The unique ID of the access grant.
+
+        :cloudformationAttribute: GrantId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrGrantId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGrantType")
+    def attr_grant_type(self) -> builtins.str:
+        '''Who manages the grant.
+
+        :cloudformationAttribute: GrantType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrGrantType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the grant was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainId")
+    def domain_id(self) -> builtins.str:
+        '''The ID of the domain the grant belongs to.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainId"))
+
+    @domain_id.setter
+    def domain_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__20e126ac99268d86dcaf00e9167b25e1587eb31fee80e93aa4cda4a221135ef9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A name that identifies the access grant.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c9c2cee36aa04e8bc161c5a4c80405c5485952998eb95391f495cd436447ec50)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="permission")
+    def permission(self) -> builtins.str:
+        '''The permission granted.'''
+        return typing.cast(builtins.str, jsii.get(self, "permission"))
+
+    @permission.setter
+    def permission(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6f219e2b8e681b1004ac95349c9ab6fafd7cdf20518c173cf647757cfac95b30)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "permission", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="principal")
+    def principal(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.AccessGrantPrincipalProperty"]:
+        '''The principal receiving the grant.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.AccessGrantPrincipalProperty"], jsii.get(self, "principal"))
+
+    @principal.setter
+    def principal(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.AccessGrantPrincipalProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a5a231e353ece289fc703be129c1a6c56d1dc6bd4de3f7f7883c89a529133c1d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "principal", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="spaceId")
+    def space_id(self) -> builtins.str:
+        '''The space this grant applies to.'''
+        return typing.cast(builtins.str, jsii.get(self, "spaceId"))
+
+    @space_id.setter
+    def space_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8f5d4f00809b5a0187ad29600733f42b6e52f2aee4cd28ea5f09c0a82bfa9f03)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "spaceId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="scopedActions")
+    def scoped_actions(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.ScopedActionsProperty"]]]]:
+        '''Groups of actions allowed by the grant, each with the resource scopes and conditions that limit those actions.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.ScopedActionsProperty"]]]], jsii.get(self, "scopedActions"))
+
+    @scoped_actions.setter
+    def scoped_actions(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.ScopedActionsProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3c1ef8fc3d572fea09a37040897cb1180e04a82e4c5edf5c88ee9cbfa674d373)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scopedActions", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__740ce85fa87fe0edacd418973d7a6a045a428e0c2b3b71f2d387560ba41ededb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAccessGrant.AccessGrantPrincipalAttributeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class AccessGrantPrincipalAttributeProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''A single attribute condition used to match principals for attribute-based access.
+
+            :param key: The Identity Center user attribute to match on. One of userName, active, userStatus, displayName, email, name.givenName, name.familyName, enterprise.department, enterprise.division, enterprise.organization, enterprise.costCenter, or enterprise.employeeNumber.
+            :param value: The attribute value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-accessgrantprincipalattribute.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                access_grant_principal_attribute_property = cloudwatch.CfnAccessGrant.AccessGrantPrincipalAttributeProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__33af0fc551041795bb5f05d4c7dd0c98853020904df25e212ef8eca3da220f2b)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The Identity Center user attribute to match on.
+
+            One of userName, active, userStatus, displayName, email, name.givenName, name.familyName, enterprise.department, enterprise.division, enterprise.organization, enterprise.costCenter, or enterprise.employeeNumber.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-accessgrantprincipalattribute.html#cfn-cloudwatch-accessgrant-accessgrantprincipalattribute-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The attribute value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-accessgrantprincipalattribute.html#cfn-cloudwatch-accessgrant-accessgrantprincipalattribute-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AccessGrantPrincipalAttributeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAccessGrant.AccessGrantPrincipalProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "principal_type": "principalType",
+            "principal_attributes": "principalAttributes",
+            "principal_id": "principalId",
+        },
+    )
+    class AccessGrantPrincipalProperty:
+        def __init__(
+            self,
+            *,
+            principal_type: builtins.str,
+            principal_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessGrant.AccessGrantPrincipalAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            principal_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The principal receiving the grant.
+
+            Specify PrincipalId, PrincipalAttributes, or both.
+
+            :param principal_type: The type of principal receiving the grant.
+            :param principal_attributes: Attribute conditions for attribute-based access. When provided, the grant targets any principal matching all specified conditions. Supported only for IDC_USER principals.
+            :param principal_id: The ID of the principal receiving the grant. An IAM principal ARN, an Identity Center UUID, or a service-defined identifier.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-accessgrantprincipal.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                access_grant_principal_property = cloudwatch.CfnAccessGrant.AccessGrantPrincipalProperty(
+                    principal_type="principalType",
+                
+                    # the properties below are optional
+                    principal_attributes=[cloudwatch.CfnAccessGrant.AccessGrantPrincipalAttributeProperty(
+                        key="key",
+                        value="value"
+                    )],
+                    principal_id="principalId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__bc85691c681d17a47c4f8b8a0415be0814b6ce3b17adc81635b991062aa9d26d)
+                check_type(argname="argument principal_type", value=principal_type, expected_type=type_hints["principal_type"])
+                check_type(argname="argument principal_attributes", value=principal_attributes, expected_type=type_hints["principal_attributes"])
+                check_type(argname="argument principal_id", value=principal_id, expected_type=type_hints["principal_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "principal_type": principal_type,
+            }
+            if principal_attributes is not None:
+                self._values["principal_attributes"] = principal_attributes
+            if principal_id is not None:
+                self._values["principal_id"] = principal_id
+
+        @builtins.property
+        def principal_type(self) -> builtins.str:
+            '''The type of principal receiving the grant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-accessgrantprincipal.html#cfn-cloudwatch-accessgrant-accessgrantprincipal-principaltype
+            '''
+            result = self._values.get("principal_type")
+            assert result is not None, "Required property 'principal_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def principal_attributes(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.AccessGrantPrincipalAttributeProperty"]]]]:
+            '''Attribute conditions for attribute-based access.
+
+            When provided, the grant targets any principal matching all specified conditions. Supported only for IDC_USER principals.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-accessgrantprincipal.html#cfn-cloudwatch-accessgrant-accessgrantprincipal-principalattributes
+            '''
+            result = self._values.get("principal_attributes")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.AccessGrantPrincipalAttributeProperty"]]]], result)
+
+        @builtins.property
+        def principal_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the principal receiving the grant.
+
+            An IAM principal ARN, an Identity Center UUID, or a service-defined identifier.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-accessgrantprincipal.html#cfn-cloudwatch-accessgrant-accessgrantprincipal-principalid
+            '''
+            result = self._values.get("principal_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AccessGrantPrincipalProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAccessGrant.ResourceScopeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "resource_type": "resourceType",
+            "resource_arns": "resourceArns",
+            "row_scope_groups": "rowScopeGroups",
+            "signal_types": "signalTypes",
+            "tags": "tags",
+        },
+    )
+    class ResourceScopeProperty:
+        def __init__(
+            self,
+            *,
+            resource_type: builtins.str,
+            resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+            row_scope_groups: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessGrant.RowScopeProperty", typing.Dict[builtins.str, typing.Any]]]]]]]] = None,
+            signal_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+            tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        ) -> None:
+            '''A single resource scope entry within an access grant.
+
+            Associates a resource type with optional ARN patterns, tag conditions, and row-level filters.
+
+            :param resource_type: The resource type name, for example DataSet or OmniDashboard.
+            :param resource_arns: Specific resource ARNs or ARN patterns. When set, actions are limited to these resources. When absent, defaults to all resources of the type.
+            :param row_scope_groups: Row-level filters for this scope, as an OR of AND-groups: a row is visible when it matches every filter in any one group. Requires SignalTypes.
+            :param signal_types: Signal types this scope's row filtering applies to. Required when RowScopeGroups is set.
+            :param tags: Tag-based conditions for dynamic resource scoping. Access applies only to resources carrying all of the specified tag key-value pairs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-resourcescope.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                resource_scope_property = cloudwatch.CfnAccessGrant.ResourceScopeProperty(
+                    resource_type="resourceType",
+                
+                    # the properties below are optional
+                    resource_arns=["resourceArns"],
+                    row_scope_groups=[[cloudwatch.CfnAccessGrant.RowScopeProperty(
+                        field="field",
+                        operator="operator",
+                        values=["values"]
+                    )]],
+                    signal_types=["signalTypes"],
+                    tags={
+                        "tags_key": "tags"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__344ab4fea62bf0a727255079df4c046ef7d8099a105fb03ba99b9fecaac55c4e)
+                check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
+                check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
+                check_type(argname="argument row_scope_groups", value=row_scope_groups, expected_type=type_hints["row_scope_groups"])
+                check_type(argname="argument signal_types", value=signal_types, expected_type=type_hints["signal_types"])
+                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "resource_type": resource_type,
+            }
+            if resource_arns is not None:
+                self._values["resource_arns"] = resource_arns
+            if row_scope_groups is not None:
+                self._values["row_scope_groups"] = row_scope_groups
+            if signal_types is not None:
+                self._values["signal_types"] = signal_types
+            if tags is not None:
+                self._values["tags"] = tags
+
+        @builtins.property
+        def resource_type(self) -> builtins.str:
+            '''The resource type name, for example DataSet or OmniDashboard.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-resourcescope.html#cfn-cloudwatch-accessgrant-resourcescope-resourcetype
+            '''
+            result = self._values.get("resource_type")
+            assert result is not None, "Required property 'resource_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Specific resource ARNs or ARN patterns.
+
+            When set, actions are limited to these resources. When absent, defaults to all resources of the type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-resourcescope.html#cfn-cloudwatch-accessgrant-resourcescope-resourcearns
+            '''
+            result = self._values.get("resource_arns")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def row_scope_groups(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.RowScopeProperty"]]]]]]:
+            '''Row-level filters for this scope, as an OR of AND-groups: a row is visible when it matches every filter in any one group.
+
+            Requires SignalTypes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-resourcescope.html#cfn-cloudwatch-accessgrant-resourcescope-rowscopegroups
+            '''
+            result = self._values.get("row_scope_groups")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.RowScopeProperty"]]]]]], result)
+
+        @builtins.property
+        def signal_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Signal types this scope's row filtering applies to.
+
+            Required when RowScopeGroups is set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-resourcescope.html#cfn-cloudwatch-accessgrant-resourcescope-signaltypes
+            '''
+            result = self._values.get("signal_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+            '''Tag-based conditions for dynamic resource scoping.
+
+            Access applies only to resources carrying all of the specified tag key-value pairs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-resourcescope.html#cfn-cloudwatch-accessgrant-resourcescope-tags
+            '''
+            result = self._values.get("tags")
+            return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourceScopeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAccessGrant.RowScopeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"field": "field", "operator": "operator", "values": "values"},
+    )
+    class RowScopeProperty:
+        def __init__(
+            self,
+            *,
+            field: builtins.str,
+            operator: builtins.str,
+            values: typing.Sequence[builtins.str],
+        ) -> None:
+            '''A single additive row-level filter on an access grant.
+
+            A row is visible when its value for the given field matches the filter's values.
+
+            :param field: The field the allowlist applies to, for example serviceName or accountId.
+            :param operator: Match operator applied to this filter's values.
+            :param values: The values the field is matched against.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-rowscope.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                row_scope_property = cloudwatch.CfnAccessGrant.RowScopeProperty(
+                    field="field",
+                    operator="operator",
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b071228d7f5e65b07015e58a62787b8464823add4d1bbf62cbade747ff7b7d68)
+                check_type(argname="argument field", value=field, expected_type=type_hints["field"])
+                check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "field": field,
+                "operator": operator,
+                "values": values,
+            }
+
+        @builtins.property
+        def field(self) -> builtins.str:
+            '''The field the allowlist applies to, for example serviceName or accountId.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-rowscope.html#cfn-cloudwatch-accessgrant-rowscope-field
+            '''
+            result = self._values.get("field")
+            assert result is not None, "Required property 'field' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def operator(self) -> builtins.str:
+            '''Match operator applied to this filter's values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-rowscope.html#cfn-cloudwatch-accessgrant-rowscope-operator
+            '''
+            result = self._values.get("operator")
+            assert result is not None, "Required property 'operator' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def values(self) -> typing.List[builtins.str]:
+            '''The values the field is matched against.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-rowscope.html#cfn-cloudwatch-accessgrant-rowscope-values
+            '''
+            result = self._values.get("values")
+            assert result is not None, "Required property 'values' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RowScopeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAccessGrant.ScopedActionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "actions": "actions",
+            "context_conditions": "contextConditions",
+            "resources": "resources",
+        },
+    )
+    class ScopedActionsProperty:
+        def __init__(
+            self,
+            *,
+            actions: typing.Sequence[builtins.str],
+            context_conditions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Sequence[builtins.str]]]] = None,
+            resources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessGrant.ResourceScopeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''A group of actions within an access grant, together with the resource scopes and context conditions that apply to exactly those actions.
+
+            :param actions: The actions this group applies to, each in vendor-code:Action form.
+            :param context_conditions: Context conditions for fine-grained access control on these actions, as a map of condition keys to lists of allowed values.
+            :param resources: Resource scopes constraining these actions to specific resources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-scopedactions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                scoped_actions_property = cloudwatch.CfnAccessGrant.ScopedActionsProperty(
+                    actions=["actions"],
+                
+                    # the properties below are optional
+                    context_conditions={
+                        "context_conditions_key": ["contextConditions"]
+                    },
+                    resources=[cloudwatch.CfnAccessGrant.ResourceScopeProperty(
+                        resource_type="resourceType",
+                
+                        # the properties below are optional
+                        resource_arns=["resourceArns"],
+                        row_scope_groups=[[cloudwatch.CfnAccessGrant.RowScopeProperty(
+                            field="field",
+                            operator="operator",
+                            values=["values"]
+                        )]],
+                        signal_types=["signalTypes"],
+                        tags={
+                            "tags_key": "tags"
+                        }
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__022bcee37e6cb159f31a6f306df948f66bf7fd005c1590c1175e99d5b563a608)
+                check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+                check_type(argname="argument context_conditions", value=context_conditions, expected_type=type_hints["context_conditions"])
+                check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "actions": actions,
+            }
+            if context_conditions is not None:
+                self._values["context_conditions"] = context_conditions
+            if resources is not None:
+                self._values["resources"] = resources
+
+        @builtins.property
+        def actions(self) -> typing.List[builtins.str]:
+            '''The actions this group applies to, each in vendor-code:Action form.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-scopedactions.html#cfn-cloudwatch-accessgrant-scopedactions-actions
+            '''
+            result = self._values.get("actions")
+            assert result is not None, "Required property 'actions' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def context_conditions(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.List[builtins.str]]]]:
+            '''Context conditions for fine-grained access control on these actions, as a map of condition keys to lists of allowed values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-scopedactions.html#cfn-cloudwatch-accessgrant-scopedactions-contextconditions
+            '''
+            result = self._values.get("context_conditions")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.List[builtins.str]]]], result)
+
+        @builtins.property
+        def resources(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.ResourceScopeProperty"]]]]:
+            '''Resource scopes constraining these actions to specific resources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-accessgrant-scopedactions.html#cfn-cloudwatch-accessgrant-scopedactions-resources
+            '''
+            result = self._values.get("resources")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.ResourceScopeProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScopedActionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAccessGrantProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_id": "domainId",
+        "name": "name",
+        "permission": "permission",
+        "principal": "principal",
+        "space_id": "spaceId",
+        "scoped_actions": "scopedActions",
+        "tags": "tags",
+    },
+)
+class CfnAccessGrantProps:
+    def __init__(
+        self,
+        *,
+        domain_id: builtins.str,
+        name: builtins.str,
+        permission: builtins.str,
+        principal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessGrant.AccessGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+        space_id: builtins.str,
+        scoped_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAccessGrant.ScopedActionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAccessGrant``.
+
+        :param domain_id: The ID of the domain the grant belongs to.
+        :param name: A name that identifies the access grant.
+        :param permission: The permission granted.
+        :param principal: The principal receiving the grant. Specify PrincipalId, PrincipalAttributes, or both.
+        :param space_id: The space this grant applies to. Domain-scoped grants are returned by ListDomainAccessGrantsForOrganization instead.
+        :param scoped_actions: Groups of actions allowed by the grant, each with the resource scopes and conditions that limit those actions.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessgrant.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_access_grant_props = cloudwatch.CfnAccessGrantProps(
+                domain_id="domainId",
+                name="name",
+                permission="permission",
+                principal=cloudwatch.CfnAccessGrant.AccessGrantPrincipalProperty(
+                    principal_type="principalType",
+            
+                    # the properties below are optional
+                    principal_attributes=[cloudwatch.CfnAccessGrant.AccessGrantPrincipalAttributeProperty(
+                        key="key",
+                        value="value"
+                    )],
+                    principal_id="principalId"
+                ),
+                space_id="spaceId",
+            
+                # the properties below are optional
+                scoped_actions=[cloudwatch.CfnAccessGrant.ScopedActionsProperty(
+                    actions=["actions"],
+            
+                    # the properties below are optional
+                    context_conditions={
+                        "context_conditions_key": ["contextConditions"]
+                    },
+                    resources=[cloudwatch.CfnAccessGrant.ResourceScopeProperty(
+                        resource_type="resourceType",
+            
+                        # the properties below are optional
+                        resource_arns=["resourceArns"],
+                        row_scope_groups=[[cloudwatch.CfnAccessGrant.RowScopeProperty(
+                            field="field",
+                            operator="operator",
+                            values=["values"]
+                        )]],
+                        signal_types=["signalTypes"],
+                        tags={
+                            "tags_key": "tags"
+                        }
+                    )]
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3bc4355ab780ba14d6fdf7731fbee96d9fdb0a615117786ae23d6dd25c90ef4e)
+            check_type(argname="argument domain_id", value=domain_id, expected_type=type_hints["domain_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument permission", value=permission, expected_type=type_hints["permission"])
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+            check_type(argname="argument space_id", value=space_id, expected_type=type_hints["space_id"])
+            check_type(argname="argument scoped_actions", value=scoped_actions, expected_type=type_hints["scoped_actions"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_id": domain_id,
+            "name": name,
+            "permission": permission,
+            "principal": principal,
+            "space_id": space_id,
+        }
+        if scoped_actions is not None:
+            self._values["scoped_actions"] = scoped_actions
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def domain_id(self) -> builtins.str:
+        '''The ID of the domain the grant belongs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessgrant.html#cfn-cloudwatch-accessgrant-domainid
+        '''
+        result = self._values.get("domain_id")
+        assert result is not None, "Required property 'domain_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A name that identifies the access grant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessgrant.html#cfn-cloudwatch-accessgrant-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def permission(self) -> builtins.str:
+        '''The permission granted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessgrant.html#cfn-cloudwatch-accessgrant-permission
+        '''
+        result = self._values.get("permission")
+        assert result is not None, "Required property 'permission' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.AccessGrantPrincipalProperty"]:
+        '''The principal receiving the grant.
+
+        Specify PrincipalId, PrincipalAttributes, or both.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessgrant.html#cfn-cloudwatch-accessgrant-principal
+        '''
+        result = self._values.get("principal")
+        assert result is not None, "Required property 'principal' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.AccessGrantPrincipalProperty"], result)
+
+    @builtins.property
+    def space_id(self) -> builtins.str:
+        '''The space this grant applies to.
+
+        Domain-scoped grants are returned by ListDomainAccessGrantsForOrganization instead.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessgrant.html#cfn-cloudwatch-accessgrant-spaceid
+        '''
+        result = self._values.get("space_id")
+        assert result is not None, "Required property 'space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def scoped_actions(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.ScopedActionsProperty"]]]]:
+        '''Groups of actions allowed by the grant, each with the resource scopes and conditions that limit those actions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessgrant.html#cfn-cloudwatch-accessgrant-scopedactions
+        '''
+        result = self._values.get("scoped_actions")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAccessGrant.ScopedActionsProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessgrant.html#cfn-cloudwatch-accessgrant-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAccessGrantProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IAccessProfileRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnAccessProfile(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAccessProfile",
+):
+    '''Resource type definition for AWS::CloudWatch::AccessProfile.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessprofile.html
+    :cloudformationResource: AWS::CloudWatch::AccessProfile
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_access_profile = cloudwatch.CfnAccessProfile(self, "MyCfnAccessProfile",
+            name="name",
+            space_id="spaceId",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        space_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::AccessProfile``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the access profile.
+        :param space_id: The unique identifier of the space the access profile belongs to.
+        :param description: The description of the access profile.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3d487732bbae1abd770c2135179f75ba3d9f739d998d7cd3ecc21c4b190b166c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAccessProfileProps(
+            name=name, space_id=space_id, description=description, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAccessProfile")
+    @builtins.classmethod
+    def arn_for_access_profile(
+        cls,
+        resource: "_aws_cloudwatch_70717108.IAccessProfileRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cce0b72d512a41bb1d53ba340aa91e12afd91d359e72f044543b632e2979e4f6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAccessProfile", [resource]))
+
+    @jsii.member(jsii_name="isCfnAccessProfile")
+    @builtins.classmethod
+    def is_cfn_access_profile(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAccessProfile.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9ea40fd8ecfbb24693f17760695960688651d18a81aaaa5afd38ac83b0e39d14)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccessProfile", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d7ab7ec518741c63201068536f433e46783d217a674f2b9bf6cb231c9e79ea56)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c4df0d17c8295525f7d63812658a40cc5b92efc527ebd8b8b524f275c4ed9a8e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessProfileRef")
+    def access_profile_ref(self) -> "_aws_cloudwatch_70717108.AccessProfileReference":
+        '''A reference to a AccessProfile resource.'''
+        return typing.cast("_aws_cloudwatch_70717108.AccessProfileReference", jsii.get(self, "accessProfileRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the access profile.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssumeStatus")
+    def attr_assume_status(self) -> builtins.str:
+        '''Whether the calling principal is authorized to assume the access profile.
+
+        :cloudformationAttribute: AssumeStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAssumeStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time the access profile was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProfileId")
+    def attr_profile_id(self) -> builtins.str:
+        '''The unique identifier of the access profile.
+
+        :cloudformationAttribute: ProfileId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProfileId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProfileType")
+    def attr_profile_type(self) -> builtins.str:
+        '''Whether the access profile is managed by the service or by the customer.
+
+        :cloudformationAttribute: ProfileType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProfileType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The time the access profile was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the access profile.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e28f17f6ed75b6d1302e0854fb41b1b61c80937f670ad960e6e43389f699f559)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="spaceId")
+    def space_id(self) -> builtins.str:
+        '''The unique identifier of the space the access profile belongs to.'''
+        return typing.cast(builtins.str, jsii.get(self, "spaceId"))
+
+    @space_id.setter
+    def space_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__848ada76305601cc9faccb0def205ed808d98dc064591004a64035221cb66b9f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "spaceId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the access profile.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__288f9ad0b1fc2a64a70498696ade00037bf19cfe2f4993fcee3d5381d4f5501d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7759f8f183778c3224762cf6d6c74544011f33b985ffb137897973d2f14a0c6c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAccessProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "space_id": "spaceId",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnAccessProfileProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        space_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAccessProfile``.
+
+        :param name: The name of the access profile.
+        :param space_id: The unique identifier of the space the access profile belongs to.
+        :param description: The description of the access profile.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_access_profile_props = cloudwatch.CfnAccessProfileProps(
+                name="name",
+                space_id="spaceId",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ead5408df5624c8aad3109f51f3235dd877fa42d72d5c43b72c9a3f4896b23b3)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument space_id", value=space_id, expected_type=type_hints["space_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "space_id": space_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the access profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessprofile.html#cfn-cloudwatch-accessprofile-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def space_id(self) -> builtins.str:
+        '''The unique identifier of the space the access profile belongs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessprofile.html#cfn-cloudwatch-accessprofile-spaceid
+        '''
+        result = self._values.get("space_id")
+        assert result is not None, "Required property 'space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the access profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessprofile.html#cfn-cloudwatch-accessprofile-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-accessprofile.html#cfn-cloudwatch-accessprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAccessProfileProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -5895,12 +7382,12 @@ class CfnAnomalyDetector(
         return typing.cast("_aws_cloudwatch_70717108.AnomalyDetectorReference", jsii.get(self, "anomalyDetectorRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrAnomalyDetectorId")
-    def attr_anomaly_detector_id(self) -> builtins.str:
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
         '''
-        :cloudformationAttribute: AnomalyDetectorId
+        :cloudformationAttribute: Id
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAnomalyDetectorId"))
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6255,81 +7742,6 @@ class CfnAnomalyDetector(
 
         def __repr__(self) -> str:
             return "MetricCharacteristicsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.MetricConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "excluded_time_ranges": "excludedTimeRanges",
-            "metric_time_zone": "metricTimeZone",
-        },
-    )
-    class MetricConfigurationProperty:
-        def __init__(
-            self,
-            *,
-            excluded_time_ranges: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.RangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            metric_time_zone: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''
-            :param excluded_time_ranges: 
-            :param metric_time_zone: 
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                metric_configuration_property = cloudwatch.CfnAnomalyDetector.MetricConfigurationProperty(
-                    excluded_time_ranges=[cloudwatch.CfnAnomalyDetector.RangeProperty(
-                        end_time="endTime",
-                        start_time="startTime"
-                    )],
-                    metric_time_zone="metricTimeZone"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__08f89e2eab67232e4dfe8fcbab34c49cf3d56717de9b66dc338f14d587f70128)
-                check_type(argname="argument excluded_time_ranges", value=excluded_time_ranges, expected_type=type_hints["excluded_time_ranges"])
-                check_type(argname="argument metric_time_zone", value=metric_time_zone, expected_type=type_hints["metric_time_zone"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if excluded_time_ranges is not None:
-                self._values["excluded_time_ranges"] = excluded_time_ranges
-            if metric_time_zone is not None:
-                self._values["metric_time_zone"] = metric_time_zone
-
-        @builtins.property
-        def excluded_time_ranges(
-            self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.RangeProperty"]]]]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricconfiguration.html#cfn-cloudwatch-anomalydetector-metricconfiguration-excludedtimeranges
-            '''
-            result = self._values.get("excluded_time_ranges")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.RangeProperty"]]]], result)
-
-        @builtins.property
-        def metric_time_zone(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricconfiguration.html#cfn-cloudwatch-anomalydetector-metricconfiguration-metrictimezone
-            '''
-            result = self._values.get("metric_time_zone")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MetricConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -8490,6 +9902,1717 @@ class CfnDashboardProps:
 
     def __repr__(self) -> str:
         return "CfnDashboardProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IDomainRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnDomain(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDomain",
+):
+    '''Resource Type definition for AWS::CloudWatch::Domain.
+
+    A domain is the identity and access boundary for CloudWatch Omni. It configures the identity providers users sign in through and provides the sign-in URL for your team.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domain.html
+    :cloudformationResource: AWS::CloudWatch::Domain
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_domain = cloudwatch.CfnDomain(self, "MyCfnDomain",
+            identity_providers=["identityProviders"],
+            name="name",
+        
+            # the properties below are optional
+            identity_provider_configuration=cloudwatch.CfnDomain.IdentityProviderConfigurationProperty(
+                identity_center_configuration=cloudwatch.CfnDomain.IdentityCenterConfigurationProperty(
+                    identity_center_instance_arn="identityCenterInstanceArn"
+                )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        identity_providers: typing.Sequence[builtins.str],
+        name: builtins.str,
+        identity_provider_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.IdentityProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::Domain``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param identity_providers: The identity providers configured for the domain.
+        :param name: A name that identifies the domain.
+        :param identity_provider_configuration: Identity provider configuration for the domain.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__359583552865f39ef5a497c251dad3ea83625a0633cada57f812e3ec58d0eb3e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDomainProps(
+            identity_providers=identity_providers,
+            name=name,
+            identity_provider_configuration=identity_provider_configuration,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDomain")
+    @builtins.classmethod
+    def arn_for_domain(
+        cls,
+        resource: "_aws_cloudwatch_70717108.IDomainRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0a0c811353dfb2b66a314b8bd429972cf36c7c678a82e29ee9f405149262d7e7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDomain", [resource]))
+
+    @jsii.member(jsii_name="isCfnDomain")
+    @builtins.classmethod
+    def is_cfn_domain(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDomain.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__af0d15b2c930a25b3e752e6aa7462624a0a347e79455135521f7b954a27801e5)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDomain", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__befef99d0ff4a43fe5a958cd300e6d9199166103a1bbdb01596e2f18f5047b45)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2cfda25bddc04d0ea527b0ef131c0acbc05528c367e0da64367e39401df7c81e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the domain.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the domain was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCustomEndpointUrls")
+    def attr_custom_endpoint_urls(self) -> typing.List[builtins.str]:
+        '''Additional endpoint URLs derived from the domain name.
+
+        :cloudformationAttribute: CustomEndpointUrls
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrCustomEndpointUrls"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDomainEndpointUrl")
+    def attr_domain_endpoint_url(self) -> builtins.str:
+        '''The HTTPS endpoint URL for accessing the domain.
+
+        :cloudformationAttribute: DomainEndpointUrl
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDomainEndpointUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDomainId")
+    def attr_domain_id(self) -> builtins.str:
+        '''The unique ID of the domain.
+
+        :cloudformationAttribute: DomainId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDomainId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIdentityCenterApplicationArn")
+    def attr_identity_center_application_arn(self) -> builtins.str:
+        '''The ARN of the Identity Center application.
+
+        Absent for IAM-only domains.
+
+        :cloudformationAttribute: IdentityCenterApplicationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIdentityCenterApplicationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegion")
+    def attr_region(self) -> builtins.str:
+        '''The Region where this domain was created.
+
+        :cloudformationAttribute: Region
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Current status of the domain.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the domain was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> "_aws_cloudwatch_70717108.DomainReference":
+        '''A reference to a Domain resource.'''
+        return typing.cast("_aws_cloudwatch_70717108.DomainReference", jsii.get(self, "domainRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="identityProviders")
+    def identity_providers(self) -> typing.List[builtins.str]:
+        '''The identity providers configured for the domain.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "identityProviders"))
+
+    @identity_providers.setter
+    def identity_providers(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__501c186ace7f4af1cf2cdc99a177444299128fed6078aef4d8275b1f8131c1b1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "identityProviders", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A name that identifies the domain.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ad521f4ead67abe4e12a8d3aff8d6f23b87262439fe2be206962440523499cae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="identityProviderConfiguration")
+    def identity_provider_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdentityProviderConfigurationProperty"]]:
+        '''Identity provider configuration for the domain.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdentityProviderConfigurationProperty"]], jsii.get(self, "identityProviderConfiguration"))
+
+    @identity_provider_configuration.setter
+    def identity_provider_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdentityProviderConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1c68917ca2a424b5dfcbe02d458d34b7b2dfbada8fb27a12df3efcf6c4f9292d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "identityProviderConfiguration", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d2ac6ad96a5e78de03e4496247eb3f8324a4afbf9469ea87040a96e1806b9572)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDomain.IdentityCenterConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"identity_center_instance_arn": "identityCenterInstanceArn"},
+    )
+    class IdentityCenterConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            identity_center_instance_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Identity Center configuration.
+
+            Required when identityProviders includes IDC.
+
+            :param identity_center_instance_arn: Identity Center instance ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domain-identitycenterconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                identity_center_configuration_property = cloudwatch.CfnDomain.IdentityCenterConfigurationProperty(
+                    identity_center_instance_arn="identityCenterInstanceArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__94e6439ffeb27be3a1a1b9f41de1da4458ea1a8be8f1eb8dd3ea8da6976ed806)
+                check_type(argname="argument identity_center_instance_arn", value=identity_center_instance_arn, expected_type=type_hints["identity_center_instance_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if identity_center_instance_arn is not None:
+                self._values["identity_center_instance_arn"] = identity_center_instance_arn
+
+        @builtins.property
+        def identity_center_instance_arn(self) -> typing.Optional[builtins.str]:
+            '''Identity Center instance ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domain-identitycenterconfiguration.html#cfn-cloudwatch-domain-identitycenterconfiguration-identitycenterinstancearn
+            '''
+            result = self._values.get("identity_center_instance_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IdentityCenterConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDomain.IdentityProviderConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"identity_center_configuration": "identityCenterConfiguration"},
+    )
+    class IdentityProviderConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            identity_center_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.IdentityCenterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Identity provider configuration for the domain.
+
+            :param identity_center_configuration: Identity Center configuration. Required when identityProviders includes IDC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domain-identityproviderconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                identity_provider_configuration_property = cloudwatch.CfnDomain.IdentityProviderConfigurationProperty(
+                    identity_center_configuration=cloudwatch.CfnDomain.IdentityCenterConfigurationProperty(
+                        identity_center_instance_arn="identityCenterInstanceArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__bcc4f7b654b2b4a188e7fc2c17ebcfdbb3d9343a311febcf532f7234eed6c929)
+                check_type(argname="argument identity_center_configuration", value=identity_center_configuration, expected_type=type_hints["identity_center_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if identity_center_configuration is not None:
+                self._values["identity_center_configuration"] = identity_center_configuration
+
+        @builtins.property
+        def identity_center_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdentityCenterConfigurationProperty"]]:
+            '''Identity Center configuration.
+
+            Required when identityProviders includes IDC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domain-identityproviderconfiguration.html#cfn-cloudwatch-domain-identityproviderconfiguration-identitycenterconfiguration
+            '''
+            result = self._values.get("identity_center_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdentityCenterConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IdentityProviderConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IDomainAccessGrantForOrganizationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnDomainAccessGrantForOrganization(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDomainAccessGrantForOrganization",
+):
+    '''Resource Type definition for AWS::CloudWatch::DomainAccessGrantForOrganization.
+
+    An organization access grant authorizes a principal to administer an organization domain.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainaccessgrantfororganization.html
+    :cloudformationResource: AWS::CloudWatch::DomainAccessGrantForOrganization
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_domain_access_grant_for_organization = cloudwatch.CfnDomainAccessGrantForOrganization(self, "MyCfnDomainAccessGrantForOrganization",
+            domain_id="domainId",
+            name="name",
+            permission="permission",
+            principal=cloudwatch.CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty(
+                principal_type="principalType",
+        
+                # the properties below are optional
+                principal_attributes=[cloudwatch.CfnDomainAccessGrantForOrganization.PrincipalAttributeProperty(
+                    key="key",
+                    value="value"
+                )],
+                principal_id="principalId"
+            ),
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        domain_id: builtins.str,
+        name: builtins.str,
+        permission: builtins.str,
+        principal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::DomainAccessGrantForOrganization``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param domain_id: The ID of the organization domain the grant belongs to.
+        :param name: A name that identifies the access grant.
+        :param permission: The permission granted.
+        :param principal: The principal the grant is issued to. Supply PrincipalId, or PrincipalAttributes for an attribute-based grant.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9e604e53d24f2071ffffd544bb1d6b6db305dbaf52c1de7634b2432c81b7051c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDomainAccessGrantForOrganizationProps(
+            domain_id=domain_id,
+            name=name,
+            permission=permission,
+            principal=principal,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDomainAccessGrantForOrganization")
+    @builtins.classmethod
+    def arn_for_domain_access_grant_for_organization(
+        cls,
+        resource: "_aws_cloudwatch_70717108.IDomainAccessGrantForOrganizationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d449107c72415a2a1f6fb005df6ab95e64245f9b27a2f8585cc18355c78692cc)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDomainAccessGrantForOrganization", [resource]))
+
+    @jsii.member(jsii_name="isCfnDomainAccessGrantForOrganization")
+    @builtins.classmethod
+    def is_cfn_domain_access_grant_for_organization(
+        cls,
+        x: typing.Any,
+    ) -> builtins.bool:
+        '''Checks whether the given object is a CfnDomainAccessGrantForOrganization.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__19a2a4c55a74f51f7634c01bedf89039db6b1b17b8cb550a80db5211e09e8d98)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDomainAccessGrantForOrganization", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9e60bae31e0ef62c57bcd0030b46de663efc7c3c35eebb131553e57375051045)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5a0c22aebfa67d0c377a7d7025043e40687659741e7b5afc35c15e1b7eab4805)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the access grant.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the grant was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The principal that created the grant.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGrantId")
+    def attr_grant_id(self) -> builtins.str:
+        '''The unique ID of the access grant.
+
+        :cloudformationAttribute: GrantId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrGrantId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGrantType")
+    def attr_grant_type(self) -> builtins.str:
+        '''Who manages the grant.
+
+        :cloudformationAttribute: GrantType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrGrantType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the grant was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainAccessGrantForOrganizationRef")
+    def domain_access_grant_for_organization_ref(
+        self,
+    ) -> "_aws_cloudwatch_70717108.DomainAccessGrantForOrganizationReference":
+        '''A reference to a DomainAccessGrantForOrganization resource.'''
+        return typing.cast("_aws_cloudwatch_70717108.DomainAccessGrantForOrganizationReference", jsii.get(self, "domainAccessGrantForOrganizationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainId")
+    def domain_id(self) -> builtins.str:
+        '''The ID of the organization domain the grant belongs to.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainId"))
+
+    @domain_id.setter
+    def domain_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__43378b305f61a74b3c55f7c6d341fc4c2581ac13b13d292ff1e386606dea46ac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A name that identifies the access grant.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6a2e8640114b92bb6e0ff4e47a2917c19463edb3d10226e293f0779c4389e94)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="permission")
+    def permission(self) -> builtins.str:
+        '''The permission granted.'''
+        return typing.cast(builtins.str, jsii.get(self, "permission"))
+
+    @permission.setter
+    def permission(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4169bcc9133c318defa2ad12b8aedba753139108b73c3dfc675f1d2afe0f2539)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "permission", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="principal")
+    def principal(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty"]:
+        '''The principal the grant is issued to.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty"], jsii.get(self, "principal"))
+
+    @principal.setter
+    def principal(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3b56955a9718f1eb4a3aaad031d6c902426102fe0deb606a0ef2ea48995a1b1d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "principal", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__52818d0f0cd747970bf60b8c6b45015c64b5c250706ef85c0355e182c1aadc4c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "principal_type": "principalType",
+            "principal_attributes": "principalAttributes",
+            "principal_id": "principalId",
+        },
+    )
+    class OrganizationAccessGrantPrincipalProperty:
+        def __init__(
+            self,
+            *,
+            principal_type: builtins.str,
+            principal_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomainAccessGrantForOrganization.PrincipalAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            principal_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The principal the grant is issued to.
+
+            Supply PrincipalId, or PrincipalAttributes for an attribute-based grant.
+
+            :param principal_type: The type of principal the grant is issued to.
+            :param principal_attributes: Attribute key-value pairs that select the principals the grant applies to.
+            :param principal_id: The identifier of the principal, such as an IAM role ARN or an Identity Center user ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domainaccessgrantfororganization-organizationaccessgrantprincipal.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                organization_access_grant_principal_property = cloudwatch.CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty(
+                    principal_type="principalType",
+                
+                    # the properties below are optional
+                    principal_attributes=[cloudwatch.CfnDomainAccessGrantForOrganization.PrincipalAttributeProperty(
+                        key="key",
+                        value="value"
+                    )],
+                    principal_id="principalId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fb96fc05dd322ada65a3ca18aa297a0be67f70f38603cc09a7c0634ea33f87b6)
+                check_type(argname="argument principal_type", value=principal_type, expected_type=type_hints["principal_type"])
+                check_type(argname="argument principal_attributes", value=principal_attributes, expected_type=type_hints["principal_attributes"])
+                check_type(argname="argument principal_id", value=principal_id, expected_type=type_hints["principal_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "principal_type": principal_type,
+            }
+            if principal_attributes is not None:
+                self._values["principal_attributes"] = principal_attributes
+            if principal_id is not None:
+                self._values["principal_id"] = principal_id
+
+        @builtins.property
+        def principal_type(self) -> builtins.str:
+            '''The type of principal the grant is issued to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domainaccessgrantfororganization-organizationaccessgrantprincipal.html#cfn-cloudwatch-domainaccessgrantfororganization-organizationaccessgrantprincipal-principaltype
+            '''
+            result = self._values.get("principal_type")
+            assert result is not None, "Required property 'principal_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def principal_attributes(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainAccessGrantForOrganization.PrincipalAttributeProperty"]]]]:
+            '''Attribute key-value pairs that select the principals the grant applies to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domainaccessgrantfororganization-organizationaccessgrantprincipal.html#cfn-cloudwatch-domainaccessgrantfororganization-organizationaccessgrantprincipal-principalattributes
+            '''
+            result = self._values.get("principal_attributes")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainAccessGrantForOrganization.PrincipalAttributeProperty"]]]], result)
+
+        @builtins.property
+        def principal_id(self) -> typing.Optional[builtins.str]:
+            '''The identifier of the principal, such as an IAM role ARN or an Identity Center user ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domainaccessgrantfororganization-organizationaccessgrantprincipal.html#cfn-cloudwatch-domainaccessgrantfororganization-organizationaccessgrantprincipal-principalid
+            '''
+            result = self._values.get("principal_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OrganizationAccessGrantPrincipalProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDomainAccessGrantForOrganization.PrincipalAttributeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class PrincipalAttributeProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''An attribute key-value pair used to select principals.
+
+            :param key: The attribute name.
+            :param value: The attribute value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domainaccessgrantfororganization-principalattribute.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                principal_attribute_property = cloudwatch.CfnDomainAccessGrantForOrganization.PrincipalAttributeProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__87d7c2971a5f3dc18d3b56a1cd0ca2c8a70a74a63b2adeae1baee014133107fd)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The attribute name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domainaccessgrantfororganization-principalattribute.html#cfn-cloudwatch-domainaccessgrantfororganization-principalattribute-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The attribute value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domainaccessgrantfororganization-principalattribute.html#cfn-cloudwatch-domainaccessgrantfororganization-principalattribute-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PrincipalAttributeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDomainAccessGrantForOrganizationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_id": "domainId",
+        "name": "name",
+        "permission": "permission",
+        "principal": "principal",
+        "tags": "tags",
+    },
+)
+class CfnDomainAccessGrantForOrganizationProps:
+    def __init__(
+        self,
+        *,
+        domain_id: builtins.str,
+        name: builtins.str,
+        permission: builtins.str,
+        principal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDomainAccessGrantForOrganization``.
+
+        :param domain_id: The ID of the organization domain the grant belongs to.
+        :param name: A name that identifies the access grant.
+        :param permission: The permission granted.
+        :param principal: The principal the grant is issued to. Supply PrincipalId, or PrincipalAttributes for an attribute-based grant.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainaccessgrantfororganization.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_domain_access_grant_for_organization_props = cloudwatch.CfnDomainAccessGrantForOrganizationProps(
+                domain_id="domainId",
+                name="name",
+                permission="permission",
+                principal=cloudwatch.CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty(
+                    principal_type="principalType",
+            
+                    # the properties below are optional
+                    principal_attributes=[cloudwatch.CfnDomainAccessGrantForOrganization.PrincipalAttributeProperty(
+                        key="key",
+                        value="value"
+                    )],
+                    principal_id="principalId"
+                ),
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__45e4a5c75f3261ebdc66ca6a47b487e3868d7663751fc7281c9ef5f98c62a8da)
+            check_type(argname="argument domain_id", value=domain_id, expected_type=type_hints["domain_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument permission", value=permission, expected_type=type_hints["permission"])
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_id": domain_id,
+            "name": name,
+            "permission": permission,
+            "principal": principal,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def domain_id(self) -> builtins.str:
+        '''The ID of the organization domain the grant belongs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainaccessgrantfororganization.html#cfn-cloudwatch-domainaccessgrantfororganization-domainid
+        '''
+        result = self._values.get("domain_id")
+        assert result is not None, "Required property 'domain_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A name that identifies the access grant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainaccessgrantfororganization.html#cfn-cloudwatch-domainaccessgrantfororganization-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def permission(self) -> builtins.str:
+        '''The permission granted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainaccessgrantfororganization.html#cfn-cloudwatch-domainaccessgrantfororganization-permission
+        '''
+        result = self._values.get("permission")
+        assert result is not None, "Required property 'permission' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty"]:
+        '''The principal the grant is issued to.
+
+        Supply PrincipalId, or PrincipalAttributes for an attribute-based grant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainaccessgrantfororganization.html#cfn-cloudwatch-domainaccessgrantfororganization-principal
+        '''
+        result = self._values.get("principal")
+        assert result is not None, "Required property 'principal' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainaccessgrantfororganization.html#cfn-cloudwatch-domainaccessgrantfororganization-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDomainAccessGrantForOrganizationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IDomainForOrganizationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnDomainForOrganization(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDomainForOrganization",
+):
+    '''Resource Type definition for AWS::CloudWatch::DomainForOrganization.
+
+    An organization domain provides a single sign-in URL and centralized identity provider configuration for your AWS Organization, removing the need for each account to configure its own domain. Only the management account can create it.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainfororganization.html
+    :cloudformationResource: AWS::CloudWatch::DomainForOrganization
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_domain_for_organization = cloudwatch.CfnDomainForOrganization(self, "MyCfnDomainForOrganization",
+            domain_access_role_arn="domainAccessRoleArn",
+            identity_providers=["identityProviders"],
+            name="name",
+        
+            # the properties below are optional
+            identity_provider_configuration=cloudwatch.CfnDomainForOrganization.IdentityProviderConfigurationProperty(
+                identity_center_configuration=cloudwatch.CfnDomainForOrganization.IdentityCenterConfigurationProperty(
+                    identity_center_instance_arn="identityCenterInstanceArn"
+                )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        domain_access_role_arn: builtins.str,
+        identity_providers: typing.Sequence[builtins.str],
+        name: builtins.str,
+        identity_provider_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomainForOrganization.IdentityProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::DomainForOrganization``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param domain_access_role_arn: The ARN of the customer-provided IAM role in the management account used for domain access.
+        :param identity_providers: The identity providers configured for the organization domain.
+        :param name: A name that identifies the organization domain.
+        :param identity_provider_configuration: Identity provider configuration for the domain.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__270e2f2f8f17e0e41e1c525c670cf84577810e6c5b442403a8c051cfc5840279)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDomainForOrganizationProps(
+            domain_access_role_arn=domain_access_role_arn,
+            identity_providers=identity_providers,
+            name=name,
+            identity_provider_configuration=identity_provider_configuration,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDomainForOrganization")
+    @builtins.classmethod
+    def arn_for_domain_for_organization(
+        cls,
+        resource: "_aws_cloudwatch_70717108.IDomainForOrganizationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b9a81715d340f904de531a4de846900469d610fceaf3eb9a89423fade9a1e9a4)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDomainForOrganization", [resource]))
+
+    @jsii.member(jsii_name="isCfnDomainForOrganization")
+    @builtins.classmethod
+    def is_cfn_domain_for_organization(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDomainForOrganization.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b01b0c277500d19f04fde38c7fa47777c6126b1526b8b9a8a0942fae17c73dd4)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDomainForOrganization", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2da72bb135a2b7aca47e2c2b5e028383afac856dfc54d98fb825f3bbccc6a478)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fc560d2c5a5eaacdf90d40d2f29f69f3f505ddd95a5b755afa4cd3edbd124516)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the organization domain.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the organization domain was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCustomEndpointUrls")
+    def attr_custom_endpoint_urls(self) -> typing.List[builtins.str]:
+        '''Additional endpoint URLs derived from the domain name.
+
+        :cloudformationAttribute: CustomEndpointUrls
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrCustomEndpointUrls"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDomainEndpointUrl")
+    def attr_domain_endpoint_url(self) -> builtins.str:
+        '''The HTTPS endpoint URL for accessing the organization domain.
+
+        :cloudformationAttribute: DomainEndpointUrl
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDomainEndpointUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDomainId")
+    def attr_domain_id(self) -> builtins.str:
+        '''The unique ID of the organization domain.
+
+        :cloudformationAttribute: DomainId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDomainId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIdentityCenterApplicationArn")
+    def attr_identity_center_application_arn(self) -> builtins.str:
+        '''The ARN of the Identity Center application.
+
+        Absent for IAM-only domains.
+
+        :cloudformationAttribute: IdentityCenterApplicationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIdentityCenterApplicationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOrganizationId")
+    def attr_organization_id(self) -> builtins.str:
+        '''The ID of the AWS Organization that owns the domain.
+
+        :cloudformationAttribute: OrganizationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOrganizationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOwnerAccountId")
+    def attr_owner_account_id(self) -> builtins.str:
+        '''The AWS account ID that owns the organization domain.
+
+        :cloudformationAttribute: OwnerAccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOwnerAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegion")
+    def attr_region(self) -> builtins.str:
+        '''The Region where this organization domain was created.
+
+        :cloudformationAttribute: Region
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Current status of the organization domain.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the organization domain was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainForOrganizationRef")
+    def domain_for_organization_ref(
+        self,
+    ) -> "_aws_cloudwatch_70717108.DomainForOrganizationReference":
+        '''A reference to a DomainForOrganization resource.'''
+        return typing.cast("_aws_cloudwatch_70717108.DomainForOrganizationReference", jsii.get(self, "domainForOrganizationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainAccessRoleArn")
+    def domain_access_role_arn(self) -> builtins.str:
+        '''The ARN of the customer-provided IAM role in the management account used for domain access.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainAccessRoleArn"))
+
+    @domain_access_role_arn.setter
+    def domain_access_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8d963d85fa2c3afccaca6e3ff540d1d03a4f22f9de2399a684569a5d258ca080)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainAccessRoleArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="identityProviders")
+    def identity_providers(self) -> typing.List[builtins.str]:
+        '''The identity providers configured for the organization domain.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "identityProviders"))
+
+    @identity_providers.setter
+    def identity_providers(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ba2358c227ff83339c03087109bba579de3d8480493e86be04ab483dfa26471)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "identityProviders", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A name that identifies the organization domain.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aca361867e9d284214677f975f16f8a328e22c36050116d642550cdfcce824b3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="identityProviderConfiguration")
+    def identity_provider_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainForOrganization.IdentityProviderConfigurationProperty"]]:
+        '''Identity provider configuration for the domain.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainForOrganization.IdentityProviderConfigurationProperty"]], jsii.get(self, "identityProviderConfiguration"))
+
+    @identity_provider_configuration.setter
+    def identity_provider_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainForOrganization.IdentityProviderConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a9a2b01d0aceeffc49e2cb1fcec89927affc14e00e460fe9590d71ef8a0a3c94)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "identityProviderConfiguration", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9a670877828f458da9c2eeef28f706b07a6178f41bab12d43acb3416b3471cf3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDomainForOrganization.IdentityCenterConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"identity_center_instance_arn": "identityCenterInstanceArn"},
+    )
+    class IdentityCenterConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            identity_center_instance_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Identity Center configuration.
+
+            Required when identityProviders includes IDC.
+
+            :param identity_center_instance_arn: Identity Center instance ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domainfororganization-identitycenterconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                identity_center_configuration_property = cloudwatch.CfnDomainForOrganization.IdentityCenterConfigurationProperty(
+                    identity_center_instance_arn="identityCenterInstanceArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ba62fda5ffa86863e1a93c662a1d1c2555c6cce3f89e6a128f9234f77e878c85)
+                check_type(argname="argument identity_center_instance_arn", value=identity_center_instance_arn, expected_type=type_hints["identity_center_instance_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if identity_center_instance_arn is not None:
+                self._values["identity_center_instance_arn"] = identity_center_instance_arn
+
+        @builtins.property
+        def identity_center_instance_arn(self) -> typing.Optional[builtins.str]:
+            '''Identity Center instance ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domainfororganization-identitycenterconfiguration.html#cfn-cloudwatch-domainfororganization-identitycenterconfiguration-identitycenterinstancearn
+            '''
+            result = self._values.get("identity_center_instance_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IdentityCenterConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDomainForOrganization.IdentityProviderConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"identity_center_configuration": "identityCenterConfiguration"},
+    )
+    class IdentityProviderConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            identity_center_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomainForOrganization.IdentityCenterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Identity provider configuration for the domain.
+
+            :param identity_center_configuration: Identity Center configuration. Required when identityProviders includes IDC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domainfororganization-identityproviderconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                identity_provider_configuration_property = cloudwatch.CfnDomainForOrganization.IdentityProviderConfigurationProperty(
+                    identity_center_configuration=cloudwatch.CfnDomainForOrganization.IdentityCenterConfigurationProperty(
+                        identity_center_instance_arn="identityCenterInstanceArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1ee6797e6a33801957828abf086d8118aea89ed2dee646cc3482dffbbec17bce)
+                check_type(argname="argument identity_center_configuration", value=identity_center_configuration, expected_type=type_hints["identity_center_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if identity_center_configuration is not None:
+                self._values["identity_center_configuration"] = identity_center_configuration
+
+        @builtins.property
+        def identity_center_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainForOrganization.IdentityCenterConfigurationProperty"]]:
+            '''Identity Center configuration.
+
+            Required when identityProviders includes IDC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-domainfororganization-identityproviderconfiguration.html#cfn-cloudwatch-domainfororganization-identityproviderconfiguration-identitycenterconfiguration
+            '''
+            result = self._values.get("identity_center_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainForOrganization.IdentityCenterConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IdentityProviderConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDomainForOrganizationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_access_role_arn": "domainAccessRoleArn",
+        "identity_providers": "identityProviders",
+        "name": "name",
+        "identity_provider_configuration": "identityProviderConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnDomainForOrganizationProps:
+    def __init__(
+        self,
+        *,
+        domain_access_role_arn: builtins.str,
+        identity_providers: typing.Sequence[builtins.str],
+        name: builtins.str,
+        identity_provider_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomainForOrganization.IdentityProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDomainForOrganization``.
+
+        :param domain_access_role_arn: The ARN of the customer-provided IAM role in the management account used for domain access.
+        :param identity_providers: The identity providers configured for the organization domain.
+        :param name: A name that identifies the organization domain.
+        :param identity_provider_configuration: Identity provider configuration for the domain.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainfororganization.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_domain_for_organization_props = cloudwatch.CfnDomainForOrganizationProps(
+                domain_access_role_arn="domainAccessRoleArn",
+                identity_providers=["identityProviders"],
+                name="name",
+            
+                # the properties below are optional
+                identity_provider_configuration=cloudwatch.CfnDomainForOrganization.IdentityProviderConfigurationProperty(
+                    identity_center_configuration=cloudwatch.CfnDomainForOrganization.IdentityCenterConfigurationProperty(
+                        identity_center_instance_arn="identityCenterInstanceArn"
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0de900d9a43dd51ffaea1785a1ebdb5d3273acecd2b4b8ca6a734d552d707629)
+            check_type(argname="argument domain_access_role_arn", value=domain_access_role_arn, expected_type=type_hints["domain_access_role_arn"])
+            check_type(argname="argument identity_providers", value=identity_providers, expected_type=type_hints["identity_providers"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument identity_provider_configuration", value=identity_provider_configuration, expected_type=type_hints["identity_provider_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_access_role_arn": domain_access_role_arn,
+            "identity_providers": identity_providers,
+            "name": name,
+        }
+        if identity_provider_configuration is not None:
+            self._values["identity_provider_configuration"] = identity_provider_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def domain_access_role_arn(self) -> builtins.str:
+        '''The ARN of the customer-provided IAM role in the management account used for domain access.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainfororganization.html#cfn-cloudwatch-domainfororganization-domainaccessrolearn
+        '''
+        result = self._values.get("domain_access_role_arn")
+        assert result is not None, "Required property 'domain_access_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def identity_providers(self) -> typing.List[builtins.str]:
+        '''The identity providers configured for the organization domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainfororganization.html#cfn-cloudwatch-domainfororganization-identityproviders
+        '''
+        result = self._values.get("identity_providers")
+        assert result is not None, "Required property 'identity_providers' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A name that identifies the organization domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainfororganization.html#cfn-cloudwatch-domainfororganization-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def identity_provider_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainForOrganization.IdentityProviderConfigurationProperty"]]:
+        '''Identity provider configuration for the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainfororganization.html#cfn-cloudwatch-domainfororganization-identityproviderconfiguration
+        '''
+        result = self._values.get("identity_provider_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomainForOrganization.IdentityProviderConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domainfororganization.html#cfn-cloudwatch-domainfororganization-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDomainForOrganizationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDomainProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "identity_providers": "identityProviders",
+        "name": "name",
+        "identity_provider_configuration": "identityProviderConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnDomainProps:
+    def __init__(
+        self,
+        *,
+        identity_providers: typing.Sequence[builtins.str],
+        name: builtins.str,
+        identity_provider_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.IdentityProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDomain``.
+
+        :param identity_providers: The identity providers configured for the domain.
+        :param name: A name that identifies the domain.
+        :param identity_provider_configuration: Identity provider configuration for the domain.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domain.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_domain_props = cloudwatch.CfnDomainProps(
+                identity_providers=["identityProviders"],
+                name="name",
+            
+                # the properties below are optional
+                identity_provider_configuration=cloudwatch.CfnDomain.IdentityProviderConfigurationProperty(
+                    identity_center_configuration=cloudwatch.CfnDomain.IdentityCenterConfigurationProperty(
+                        identity_center_instance_arn="identityCenterInstanceArn"
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ef42a8c8f536114ba9056d21669d9e09b958975fc725dddd88fb881e8d451c55)
+            check_type(argname="argument identity_providers", value=identity_providers, expected_type=type_hints["identity_providers"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument identity_provider_configuration", value=identity_provider_configuration, expected_type=type_hints["identity_provider_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "identity_providers": identity_providers,
+            "name": name,
+        }
+        if identity_provider_configuration is not None:
+            self._values["identity_provider_configuration"] = identity_provider_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def identity_providers(self) -> typing.List[builtins.str]:
+        '''The identity providers configured for the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domain.html#cfn-cloudwatch-domain-identityproviders
+        '''
+        result = self._values.get("identity_providers")
+        assert result is not None, "Required property 'identity_providers' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A name that identifies the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domain.html#cfn-cloudwatch-domain-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def identity_provider_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdentityProviderConfigurationProperty"]]:
+        '''Identity provider configuration for the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domain.html#cfn-cloudwatch-domain-identityproviderconfiguration
+        '''
+        result = self._values.get("identity_provider_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.IdentityProviderConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-domain.html#cfn-cloudwatch-domain-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDomainProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -12106,6 +15229,394 @@ class CfnOTelEnrichmentProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IOmniDashboardRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnOmniDashboard(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnOmniDashboard",
+):
+    '''Resource Type definition for AWS::CloudWatch::OmniDashboard.
+
+    A dashboard is a saved arrangement of panels that shows your team one agreed view of a system, backed by queries against your space's telemetry.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-omnidashboard.html
+    :cloudformationResource: AWS::CloudWatch::OmniDashboard
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_omni_dashboard = cloudwatch.CfnOmniDashboard(self, "MyCfnOmniDashboard",
+            body="body",
+            name="name",
+            space_id="spaceId",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        body: builtins.str,
+        name: builtins.str,
+        space_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::OmniDashboard``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param body: The dashboard definition.
+        :param name: A name that identifies the dashboard.
+        :param space_id: The unique ID of the space to create the dashboard in.
+        :param description: An optional description of the dashboard.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8b9be69daaaa6a9d85fc8e32e2aee8e10d7a6af7c1d3e9e66fe37b22b4682ec2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnOmniDashboardProps(
+            body=body, name=name, space_id=space_id, description=description, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForOmniDashboard")
+    @builtins.classmethod
+    def arn_for_omni_dashboard(
+        cls,
+        resource: "_aws_cloudwatch_70717108.IOmniDashboardRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__caac8698e25d1981e8540f72dece080db014587aa0bd8a1028dd0d2949768cfe)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOmniDashboard", [resource]))
+
+    @jsii.member(jsii_name="isCfnOmniDashboard")
+    @builtins.classmethod
+    def is_cfn_omni_dashboard(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnOmniDashboard.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4e6fa1fd0d076a5f4f944d4cd096c73b0c3dd1c21a2e434b15257f770dd09626)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOmniDashboard", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9665ba394bbe6af4728387ed7cf1dcdd9b1075c8e7fac66d6dfaf4d789932a0f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b7a608b5cb0d5143391e2d1e5eb66ebec7a27fe3b60a1c9eb6d077c6bc40ced9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the dashboard.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the dashboard was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The principal that created the dashboard.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDashboardId")
+    def attr_dashboard_id(self) -> builtins.str:
+        '''The unique ID of the dashboard.
+
+        :cloudformationAttribute: DashboardId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDashboardId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the dashboard was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="omniDashboardRef")
+    def omni_dashboard_ref(self) -> "_aws_cloudwatch_70717108.OmniDashboardReference":
+        '''A reference to a OmniDashboard resource.'''
+        return typing.cast("_aws_cloudwatch_70717108.OmniDashboardReference", jsii.get(self, "omniDashboardRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="body")
+    def body(self) -> builtins.str:
+        '''The dashboard definition.'''
+        return typing.cast(builtins.str, jsii.get(self, "body"))
+
+    @body.setter
+    def body(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f6b0ccf4320a294d6825b3290a8ef562f6c99a8191535b40d2af5e32bf7afb83)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "body", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A name that identifies the dashboard.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4ebe98133ece90bbd6f0545d69676b917a7c34faf5eee05753a6f23e0d5965ea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="spaceId")
+    def space_id(self) -> builtins.str:
+        '''The unique ID of the space to create the dashboard in.'''
+        return typing.cast(builtins.str, jsii.get(self, "spaceId"))
+
+    @space_id.setter
+    def space_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8aaee239dbcaf08712b30668591072c82d340d70da4b4e5cc70e896c3e1b24eb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "spaceId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description of the dashboard.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2642aa979ba459292925084a7c4508c5834944aeee0319f2aade2d52e5267f06)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f18b9a00bc27b8cc2bda1a1e9813943af4dedc97bcf811933ca23326b414b58d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnOmniDashboardProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "body": "body",
+        "name": "name",
+        "space_id": "spaceId",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnOmniDashboardProps:
+    def __init__(
+        self,
+        *,
+        body: builtins.str,
+        name: builtins.str,
+        space_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOmniDashboard``.
+
+        :param body: The dashboard definition.
+        :param name: A name that identifies the dashboard.
+        :param space_id: The unique ID of the space to create the dashboard in.
+        :param description: An optional description of the dashboard.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-omnidashboard.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_omni_dashboard_props = cloudwatch.CfnOmniDashboardProps(
+                body="body",
+                name="name",
+                space_id="spaceId",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6e10d43b09cce1c5bbf799cab4b064561e2324c8380e11666a40530a0f716933)
+            check_type(argname="argument body", value=body, expected_type=type_hints["body"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument space_id", value=space_id, expected_type=type_hints["space_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "body": body,
+            "name": name,
+            "space_id": space_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def body(self) -> builtins.str:
+        '''The dashboard definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-omnidashboard.html#cfn-cloudwatch-omnidashboard-body
+        '''
+        result = self._values.get("body")
+        assert result is not None, "Required property 'body' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A name that identifies the dashboard.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-omnidashboard.html#cfn-cloudwatch-omnidashboard-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def space_id(self) -> builtins.str:
+        '''The unique ID of the space to create the dashboard in.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-omnidashboard.html#cfn-cloudwatch-omnidashboard-spaceid
+        '''
+        result = self._values.get("space_id")
+        assert result is not None, "Required property 'space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description of the dashboard.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-omnidashboard.html#cfn-cloudwatch-omnidashboard-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-omnidashboard.html#cfn-cloudwatch-omnidashboard-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOmniDashboardProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IResourceMetricsConfigurationRef)
 class CfnResourceMetricsConfiguration(
     _aws_cdk_0cae9daa.CfnResource,
@@ -12401,6 +15912,545 @@ class CfnResourceMetricsConfigurationProps:
 
     def __repr__(self) -> str:
         return "CfnResourceMetricsConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.ISpaceRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnSpace(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnSpace",
+):
+    '''Resource type definition for AWS::CloudWatch::Space.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html
+    :cloudformationResource: AWS::CloudWatch::Space
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_space = cloudwatch.CfnSpace(self, "MyCfnSpace",
+            data_access_role_arn="dataAccessRoleArn",
+            domain_id="domainId",
+            name="name",
+        
+            # the properties below are optional
+            agent_core_evaluation_role_arn="agentCoreEvaluationRoleArn",
+            encryption_configuration=cloudwatch.CfnSpace.EncryptionConfigurationProperty(
+                encryption_strategy="encryptionStrategy",
+        
+                # the properties below are optional
+                kms_key_arn="kmsKeyArn"
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        data_access_role_arn: builtins.str,
+        domain_id: builtins.str,
+        name: builtins.str,
+        agent_core_evaluation_role_arn: typing.Optional[builtins.str] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSpace.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::Space``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role the space uses to access observability data.
+        :param domain_id: The identifier of the domain the space belongs to.
+        :param name: The name of the space.
+        :param agent_core_evaluation_role_arn: The Amazon Resource Name (ARN) of the IAM role used for AgentCore evaluation.
+        :param encryption_configuration: The encryption configuration for the space.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__09358c654c7e62f29e5ec65b70df6e411b3b8bfcfc09f22272fcce1e6d4585fe)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSpaceProps(
+            data_access_role_arn=data_access_role_arn,
+            domain_id=domain_id,
+            name=name,
+            agent_core_evaluation_role_arn=agent_core_evaluation_role_arn,
+            encryption_configuration=encryption_configuration,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSpace")
+    @builtins.classmethod
+    def arn_for_space(
+        cls,
+        resource: "_aws_cloudwatch_70717108.ISpaceRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e137d97e400c7544c910af3ec6d09d1cd13e005f8612fb6163ade1942481a4bd)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSpace", [resource]))
+
+    @jsii.member(jsii_name="isCfnSpace")
+    @builtins.classmethod
+    def is_cfn_space(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSpace.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e5488d3bf2e216bf1f7206778958df992f7a0d76d604ba41f5ab1266bc8d98a8)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSpace", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__597ae7409beeeaab91598046be24b440cca4b237d806149bfdcb1909c2f345a3)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eef2e30c2bb61c29673817d481015f460e7139f1656dc21766520ce1d73c8880)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the space.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time the space was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOwnerAccountId")
+    def attr_owner_account_id(self) -> builtins.str:
+        '''The AWS account that owns the space.
+
+        :cloudformationAttribute: OwnerAccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOwnerAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegion")
+    def attr_region(self) -> builtins.str:
+        '''The AWS Region the space resides in.
+
+        :cloudformationAttribute: Region
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSpaceId")
+    def attr_space_id(self) -> builtins.str:
+        '''The unique identifier of the space.
+
+        :cloudformationAttribute: SpaceId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSpaceId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the space.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The time the space was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="spaceRef")
+    def space_ref(self) -> "_aws_cloudwatch_70717108.SpaceReference":
+        '''A reference to a Space resource.'''
+        return typing.cast("_aws_cloudwatch_70717108.SpaceReference", jsii.get(self, "spaceRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataAccessRoleArn")
+    def data_access_role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role the space uses to access observability data.'''
+        return typing.cast(builtins.str, jsii.get(self, "dataAccessRoleArn"))
+
+    @data_access_role_arn.setter
+    def data_access_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0166f3578520691e6fe86011394b3c34ac6e1705c7be8732fb5d00e1ef2eaa49)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dataAccessRoleArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="domainId")
+    def domain_id(self) -> builtins.str:
+        '''The identifier of the domain the space belongs to.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainId"))
+
+    @domain_id.setter
+    def domain_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5943a51a1711cfe7530d97adc2e2f1c31b70c75ffe0ddd486ef749316136a55b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the space.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1393f027f864c4411a101c7f8756be4899e284e4f12c81d3bde05e88e70c4a44)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="agentCoreEvaluationRoleArn")
+    def agent_core_evaluation_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role used for AgentCore evaluation.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "agentCoreEvaluationRoleArn"))
+
+    @agent_core_evaluation_role_arn.setter
+    def agent_core_evaluation_role_arn(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__101b8486752651fd7d0dac093b796fa4f9a07a8cf94104d3bdae74721585a15b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "agentCoreEvaluationRoleArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfiguration")
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSpace.EncryptionConfigurationProperty"]]:
+        '''The encryption configuration for the space.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSpace.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+
+    @encryption_configuration.setter
+    def encryption_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSpace.EncryptionConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__45161d2e112f077f9dc1398fda12859b923dc45f2a9eb47e2e0389d1826a4245)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionConfiguration", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c883b9b86173d5aa56354a44e7d73b80408605ff6a123d1fb4220467ef54e630)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnSpace.EncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "encryption_strategy": "encryptionStrategy",
+            "kms_key_arn": "kmsKeyArn",
+        },
+    )
+    class EncryptionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            encryption_strategy: builtins.str,
+            kms_key_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The encryption configuration for the space.
+
+            :param encryption_strategy: Whether the space is encrypted with an AWS owned key or a customer managed key.
+            :param kms_key_arn: The Amazon Resource Name (ARN) of the customer managed KMS key. Required when encryptionStrategy is CUSTOMER_MANAGED.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-space-encryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                encryption_configuration_property = cloudwatch.CfnSpace.EncryptionConfigurationProperty(
+                    encryption_strategy="encryptionStrategy",
+                
+                    # the properties below are optional
+                    kms_key_arn="kmsKeyArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4ec5f9a8f7ff993113c9e3457e74441cfbabbcb6d18f73491ab3647a09aa870f)
+                check_type(argname="argument encryption_strategy", value=encryption_strategy, expected_type=type_hints["encryption_strategy"])
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "encryption_strategy": encryption_strategy,
+            }
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
+
+        @builtins.property
+        def encryption_strategy(self) -> builtins.str:
+            '''Whether the space is encrypted with an AWS owned key or a customer managed key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-space-encryptionconfiguration.html#cfn-cloudwatch-space-encryptionconfiguration-encryptionstrategy
+            '''
+            result = self._values.get("encryption_strategy")
+            assert result is not None, "Required property 'encryption_strategy' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the customer managed KMS key.
+
+            Required when encryptionStrategy is CUSTOMER_MANAGED.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-space-encryptionconfiguration.html#cfn-cloudwatch-space-encryptionconfiguration-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnSpaceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_access_role_arn": "dataAccessRoleArn",
+        "domain_id": "domainId",
+        "name": "name",
+        "agent_core_evaluation_role_arn": "agentCoreEvaluationRoleArn",
+        "encryption_configuration": "encryptionConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnSpaceProps:
+    def __init__(
+        self,
+        *,
+        data_access_role_arn: builtins.str,
+        domain_id: builtins.str,
+        name: builtins.str,
+        agent_core_evaluation_role_arn: typing.Optional[builtins.str] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSpace.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSpace``.
+
+        :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role the space uses to access observability data.
+        :param domain_id: The identifier of the domain the space belongs to.
+        :param name: The name of the space.
+        :param agent_core_evaluation_role_arn: The Amazon Resource Name (ARN) of the IAM role used for AgentCore evaluation.
+        :param encryption_configuration: The encryption configuration for the space.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_space_props = cloudwatch.CfnSpaceProps(
+                data_access_role_arn="dataAccessRoleArn",
+                domain_id="domainId",
+                name="name",
+            
+                # the properties below are optional
+                agent_core_evaluation_role_arn="agentCoreEvaluationRoleArn",
+                encryption_configuration=cloudwatch.CfnSpace.EncryptionConfigurationProperty(
+                    encryption_strategy="encryptionStrategy",
+            
+                    # the properties below are optional
+                    kms_key_arn="kmsKeyArn"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0e48982774f1dd3fd4c5b690433dba971894b5f0e7add9d9efc1edfb55d5f5ba)
+            check_type(argname="argument data_access_role_arn", value=data_access_role_arn, expected_type=type_hints["data_access_role_arn"])
+            check_type(argname="argument domain_id", value=domain_id, expected_type=type_hints["domain_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument agent_core_evaluation_role_arn", value=agent_core_evaluation_role_arn, expected_type=type_hints["agent_core_evaluation_role_arn"])
+            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_access_role_arn": data_access_role_arn,
+            "domain_id": domain_id,
+            "name": name,
+        }
+        if agent_core_evaluation_role_arn is not None:
+            self._values["agent_core_evaluation_role_arn"] = agent_core_evaluation_role_arn
+        if encryption_configuration is not None:
+            self._values["encryption_configuration"] = encryption_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def data_access_role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role the space uses to access observability data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html#cfn-cloudwatch-space-dataaccessrolearn
+        '''
+        result = self._values.get("data_access_role_arn")
+        assert result is not None, "Required property 'data_access_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain_id(self) -> builtins.str:
+        '''The identifier of the domain the space belongs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html#cfn-cloudwatch-space-domainid
+        '''
+        result = self._values.get("domain_id")
+        assert result is not None, "Required property 'domain_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the space.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html#cfn-cloudwatch-space-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def agent_core_evaluation_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role used for AgentCore evaluation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html#cfn-cloudwatch-space-agentcoreevaluationrolearn
+        '''
+        result = self._values.get("agent_core_evaluation_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSpace.EncryptionConfigurationProperty"]]:
+        '''The encryption configuration for the space.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html#cfn-cloudwatch-space-encryptionconfiguration
+        '''
+        result = self._values.get("encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSpace.EncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-space.html#cfn-cloudwatch-space-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSpaceProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -15282,6 +19332,7 @@ class MathExpression(
         period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param expression: The expression defining the metric. When an expression contains a SEARCH function, it cannot be used within an Alarm.
@@ -15291,6 +19342,7 @@ class MathExpression(
         :param period: The period over which the math expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Specifying a searchAccount has no effect to the account used for metrics within the expression (passed via usingMetrics). Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Specifying a searchRegion has no effect to the region used for metrics within the expression (passed via usingMetrics). Default: - Deployment region.
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = MathExpressionProps(
             expression=expression,
@@ -15300,6 +19352,7 @@ class MathExpression(
             period=period,
             search_account=search_account,
             search_region=search_region,
+            visible=visible,
         )
 
         jsii.create(self.__class__, self, [props])
@@ -15374,6 +19427,7 @@ class MathExpression(
         period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> "MathExpression":
         '''Return a copy of Metric with properties changed.
 
@@ -15384,6 +19438,7 @@ class MathExpression(
         :param period: The period over which the math expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Specifying a searchAccount has no effect to the account used for metrics within the expression (passed via usingMetrics). Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Specifying a searchRegion has no effect to the region used for metrics within the expression (passed via usingMetrics). Default: - Deployment region.
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         props = MathExpressionOptions(
             color=color,
@@ -15391,6 +19446,7 @@ class MathExpression(
             period=period,
             search_account=search_account,
             search_region=search_region,
+            visible=visible,
         )
 
         return typing.cast("MathExpression", jsii.invoke(self, "with", [props]))
@@ -15438,6 +19494,12 @@ class MathExpression(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "searchRegion"))
 
     @builtins.property
+    @jsii.member(jsii_name="visible")
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether this metric should be visible in dashboard graphs.'''
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "visible"))
+
+    @builtins.property
     @jsii.member(jsii_name="warnings")
     def warnings(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(deprecated) Warnings generated by this math expression.
@@ -15466,6 +19528,7 @@ class MathExpression(
         "period": "period",
         "search_account": "searchAccount",
         "search_region": "searchRegion",
+        "visible": "visible",
     },
 )
 class MathExpressionOptions:
@@ -15477,6 +19540,7 @@ class MathExpressionOptions:
         period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Configurable options for MathExpressions.
 
@@ -15485,6 +19549,7 @@ class MathExpressionOptions:
         :param period: The period over which the math expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Specifying a searchAccount has no effect to the account used for metrics within the expression (passed via usingMetrics). Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Specifying a searchRegion has no effect to the region used for metrics within the expression (passed via usingMetrics). Default: - Deployment region.
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :exampleMetadata: fixture=_generated
 
@@ -15500,7 +19565,8 @@ class MathExpressionOptions:
                 label="label",
                 period=cdk.Duration.minutes(30),
                 search_account="searchAccount",
-                search_region="searchRegion"
+                search_region="searchRegion",
+                visible=False
             )
         '''
         if __debug__:
@@ -15510,6 +19576,7 @@ class MathExpressionOptions:
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
             check_type(argname="argument search_account", value=search_account, expected_type=type_hints["search_account"])
             check_type(argname="argument search_region", value=search_region, expected_type=type_hints["search_region"])
+            check_type(argname="argument visible", value=visible, expected_type=type_hints["visible"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if color is not None:
             self._values["color"] = color
@@ -15521,6 +19588,8 @@ class MathExpressionOptions:
             self._values["search_account"] = search_account
         if search_region is not None:
             self._values["search_region"] = search_region
+        if visible is not None:
+            self._values["visible"] = visible
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
@@ -15595,6 +19664,18 @@ class MathExpressionOptions:
         result = self._values.get("search_region")
         return typing.cast(typing.Optional[builtins.str], result)
 
+    @builtins.property
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether this metric should be visible in dashboard graphs.
+
+        Setting this to false is useful when you want to hide raw metrics
+        that are used in math expressions, and show only the expression results.
+
+        :default: true
+        '''
+        result = self._values.get("visible")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -15616,6 +19697,7 @@ class MathExpressionOptions:
         "period": "period",
         "search_account": "searchAccount",
         "search_region": "searchRegion",
+        "visible": "visible",
         "expression": "expression",
         "using_metrics": "usingMetrics",
     },
@@ -15629,6 +19711,7 @@ class MathExpressionProps(MathExpressionOptions):
         period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
+        visible: typing.Optional[builtins.bool] = None,
         expression: builtins.str,
         using_metrics: typing.Optional[typing.Mapping[builtins.str, "IMetric"]] = None,
     ) -> None:
@@ -15639,6 +19722,7 @@ class MathExpressionProps(MathExpressionOptions):
         :param period: The period over which the math expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Specifying a searchAccount has no effect to the account used for metrics within the expression (passed via usingMetrics). Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Specifying a searchRegion has no effect to the region used for metrics within the expression (passed via usingMetrics). Default: - Deployment region.
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         :param expression: The expression defining the metric. When an expression contains a SEARCH function, it cannot be used within an Alarm.
         :param using_metrics: The metrics used in the expression, in a map. The key is the identifier that represents the given metric in the expression, and the value is the actual Metric object. The ``period`` of each metric in ``usingMetrics`` is ignored and instead overridden by the ``period`` specified for the ``MathExpression`` construct. Even if no ``period`` is specified for the ``MathExpression``, it will be overridden by the default value (``Duration.minutes(5)``). Example:: declare const metrics: elbv2.IApplicationLoadBalancerMetrics; new cloudwatch.MathExpression({ expression: 'm1+m2', label: 'AlbErrors', usingMetrics: { m1: metrics.custom('HTTPCode_ELB_500_Count', { period: Duration.minutes(1), // <- This period will be ignored statistic: 'Sum', label: 'HTTPCode_ELB_500_Count', }), m2: metrics.custom('HTTPCode_ELB_502_Count', { period: Duration.minutes(1), // <- This period will be ignored statistic: 'Sum', label: 'HTTPCode_ELB_502_Count', }), }, period: Duration.minutes(3), // <- This overrides the period of each metric in `usingMetrics` // (Even if not specified, it is overridden by the default value) }); Default: - Empty map.
 
@@ -15669,6 +19753,7 @@ class MathExpressionProps(MathExpressionOptions):
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
             check_type(argname="argument search_account", value=search_account, expected_type=type_hints["search_account"])
             check_type(argname="argument search_region", value=search_region, expected_type=type_hints["search_region"])
+            check_type(argname="argument visible", value=visible, expected_type=type_hints["visible"])
             check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
             check_type(argname="argument using_metrics", value=using_metrics, expected_type=type_hints["using_metrics"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -15684,6 +19769,8 @@ class MathExpressionProps(MathExpressionOptions):
             self._values["search_account"] = search_account
         if search_region is not None:
             self._values["search_region"] = search_region
+        if visible is not None:
+            self._values["visible"] = visible
         if using_metrics is not None:
             self._values["using_metrics"] = using_metrics
 
@@ -15759,6 +19846,18 @@ class MathExpressionProps(MathExpressionOptions):
         '''
         result = self._values.get("search_region")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether this metric should be visible in dashboard graphs.
+
+        Setting this to false is useful when you want to hide raw metrics
+        that are used in math expressions, and show only the expression results.
+
+        :default: true
+        '''
+        result = self._values.get("visible")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def expression(self) -> builtins.str:
@@ -15925,6 +20024,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> "MathExpression":
         '''Creates an anomaly detection metric from the provided metric.
 
@@ -15935,6 +20035,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         :param period: The period over which the math expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Specifying a searchAccount has no effect to the account used for metrics within the expression (passed via usingMetrics). Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Specifying a searchRegion has no effect to the region used for metrics within the expression (passed via usingMetrics). Default: - Deployment region.
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :return: An anomaly detection metric
         '''
@@ -15946,6 +20047,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
             period=period,
             search_account=search_account,
             search_region=search_region,
+            visible=visible,
         )
 
         return typing.cast("MathExpression", jsii.sinvoke(cls, "anomalyDetectionFor", [props]))
@@ -17876,10 +21978,10 @@ class SearchExpression(
 
     Example::
 
-        cpu_utilization = cloudwatch.SearchExpression(
-            expression="SEARCH('{AWS/EC2,InstanceId} MetricName=\"CPUUtilization\"', 'Average', 900)",
+        search_expression = cloudwatch.SearchExpression(
+            expression="SEARCH('{AWS/EC2,InstanceId} CPUUtilization', 'Average', 300)",
             label="EC2 CPU Utilization",
-            color="#ff7f0e"
+            period=Duration.minutes(5)
         )
     '''
 
@@ -17892,6 +21994,7 @@ class SearchExpression(
         period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param expression: The search expression defining the metrics to be retrieved. A search expression cannot be used within an Alarm. A search expression allows you to retrieve and graph multiple related metrics in a single statement. It can return up to 500 time series. Examples: - ``SEARCH('{AWS/EC2,InstanceId} CPUUtilization', 'Average', 300)`` - ``SEARCH('{AWS/ApplicationELB,LoadBalancer} RequestCount', 'Sum', 60)`` - ``SEARCH('{MyNamespace,ServiceName} Errors', 'Sum')`` For more information about search expression syntax, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/search-expression-syntax.html
@@ -17900,6 +22003,7 @@ class SearchExpression(
         :param period: The period over which the search expression's statistics are applied. This period overrides the period defined within the search expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Default: - Deployment region.
+        :param visible: Whether the time series produced by this search expression should be visible in dashboard graphs. Setting this to false keeps the time series on the widget without rendering them, so they can still be toggled on in the CloudWatch console. Default: true
         '''
         props = SearchExpressionProps(
             expression=expression,
@@ -17908,6 +22012,7 @@ class SearchExpression(
             period=period,
             search_account=search_account,
             search_region=search_region,
+            visible=visible,
         )
 
         jsii.create(self.__class__, self, [props])
@@ -17931,6 +22036,7 @@ class SearchExpression(
         period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> "SearchExpression":
         '''Return a copy of SearchExpression with properties changed.
 
@@ -17941,6 +22047,7 @@ class SearchExpression(
         :param period: The period over which the search expression's statistics are applied. This period overrides the period defined within the search expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Default: - Deployment region.
+        :param visible: Whether the time series produced by this search expression should be visible in dashboard graphs. Setting this to false keeps the time series on the widget without rendering them, so they can still be toggled on in the CloudWatch console. Default: true
         '''
         props = SearchExpressionOptions(
             color=color,
@@ -17948,6 +22055,7 @@ class SearchExpression(
             period=period,
             search_account=search_account,
             search_region=search_region,
+            visible=visible,
         )
 
         return typing.cast("SearchExpression", jsii.invoke(self, "with", [props]))
@@ -17989,6 +22097,12 @@ class SearchExpression(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "searchRegion"))
 
     @builtins.property
+    @jsii.member(jsii_name="visible")
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether the time series produced by this search expression should be visible in dashboard graphs.'''
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "visible"))
+
+    @builtins.property
     @jsii.member(jsii_name="warnings")
     def warnings(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(deprecated) Warnings generated by this search expression.
@@ -18017,6 +22131,7 @@ class SearchExpression(
         "period": "period",
         "search_account": "searchAccount",
         "search_region": "searchRegion",
+        "visible": "visible",
     },
 )
 class SearchExpressionOptions:
@@ -18028,6 +22143,7 @@ class SearchExpressionOptions:
         period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
+        visible: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Configurable options for SearchExpressions.
 
@@ -18036,6 +22152,7 @@ class SearchExpressionOptions:
         :param period: The period over which the search expression's statistics are applied. This period overrides the period defined within the search expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Default: - Deployment region.
+        :param visible: Whether the time series produced by this search expression should be visible in dashboard graphs. Setting this to false keeps the time series on the widget without rendering them, so they can still be toggled on in the CloudWatch console. Default: true
 
         :exampleMetadata: fixture=_generated
 
@@ -18051,7 +22168,8 @@ class SearchExpressionOptions:
                 label="label",
                 period=cdk.Duration.minutes(30),
                 search_account="searchAccount",
-                search_region="searchRegion"
+                search_region="searchRegion",
+                visible=False
             )
         '''
         if __debug__:
@@ -18061,6 +22179,7 @@ class SearchExpressionOptions:
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
             check_type(argname="argument search_account", value=search_account, expected_type=type_hints["search_account"])
             check_type(argname="argument search_region", value=search_region, expected_type=type_hints["search_region"])
+            check_type(argname="argument visible", value=visible, expected_type=type_hints["visible"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if color is not None:
             self._values["color"] = color
@@ -18072,6 +22191,8 @@ class SearchExpressionOptions:
             self._values["search_account"] = search_account
         if search_region is not None:
             self._values["search_region"] = search_region
+        if visible is not None:
+            self._values["visible"] = visible
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
@@ -18140,6 +22261,18 @@ class SearchExpressionOptions:
         '''
         result = self._values.get("search_region")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether the time series produced by this search expression should be visible in dashboard graphs.
+
+        Setting this to false keeps the time series on the widget without rendering
+        them, so they can still be toggled on in the CloudWatch console.
+
+        :default: true
+        '''
+        result = self._values.get("visible")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18162,6 +22295,7 @@ class SearchExpressionOptions:
         "period": "period",
         "search_account": "searchAccount",
         "search_region": "searchRegion",
+        "visible": "visible",
         "expression": "expression",
     },
 )
@@ -18174,6 +22308,7 @@ class SearchExpressionProps(SearchExpressionOptions):
         period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
+        visible: typing.Optional[builtins.bool] = None,
         expression: builtins.str,
     ) -> None:
         '''Properties for a SearchExpression.
@@ -18183,16 +22318,17 @@ class SearchExpressionProps(SearchExpressionOptions):
         :param period: The period over which the search expression's statistics are applied. This period overrides the period defined within the search expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Default: - Deployment region.
+        :param visible: Whether the time series produced by this search expression should be visible in dashboard graphs. Setting this to false keeps the time series on the widget without rendering them, so they can still be toggled on in the CloudWatch console. Default: true
         :param expression: The search expression defining the metrics to be retrieved. A search expression cannot be used within an Alarm. A search expression allows you to retrieve and graph multiple related metrics in a single statement. It can return up to 500 time series. Examples: - ``SEARCH('{AWS/EC2,InstanceId} CPUUtilization', 'Average', 300)`` - ``SEARCH('{AWS/ApplicationELB,LoadBalancer} RequestCount', 'Sum', 60)`` - ``SEARCH('{MyNamespace,ServiceName} Errors', 'Sum')`` For more information about search expression syntax, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/search-expression-syntax.html
 
         :exampleMetadata: infused
 
         Example::
 
-            cpu_utilization = cloudwatch.SearchExpression(
-                expression="SEARCH('{AWS/EC2,InstanceId} MetricName=\"CPUUtilization\"', 'Average', 900)",
+            search_expression = cloudwatch.SearchExpression(
+                expression="SEARCH('{AWS/EC2,InstanceId} CPUUtilization', 'Average', 300)",
                 label="EC2 CPU Utilization",
-                color="#ff7f0e"
+                period=Duration.minutes(5)
             )
         '''
         if __debug__:
@@ -18202,6 +22338,7 @@ class SearchExpressionProps(SearchExpressionOptions):
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
             check_type(argname="argument search_account", value=search_account, expected_type=type_hints["search_account"])
             check_type(argname="argument search_region", value=search_region, expected_type=type_hints["search_region"])
+            check_type(argname="argument visible", value=visible, expected_type=type_hints["visible"])
             check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "expression": expression,
@@ -18216,6 +22353,8 @@ class SearchExpressionProps(SearchExpressionOptions):
             self._values["search_account"] = search_account
         if search_region is not None:
             self._values["search_region"] = search_region
+        if visible is not None:
+            self._values["visible"] = visible
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
@@ -18284,6 +22423,18 @@ class SearchExpressionProps(SearchExpressionOptions):
         '''
         result = self._values.get("search_region")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether the time series produced by this search expression should be visible in dashboard graphs.
+
+        Setting this to false keeps the time series on the widget without rendering
+        them, so they can still be toggled on in the CloudWatch console.
+
+        :default: true
+        '''
+        result = self._values.get("visible")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def expression(self) -> builtins.str:
@@ -18343,6 +22494,7 @@ class Shading(enum.Enum):
         "metrics": "metrics",
         "end": "end",
         "full_precision": "fullPrecision",
+        "live_data": "liveData",
         "period": "period",
         "set_period_to_time_range": "setPeriodToTimeRange",
         "sparkline": "sparkline",
@@ -18361,6 +22513,7 @@ class SingleValueWidgetProps(MetricWidgetProps):
         metrics: typing.Sequence["IMetric"],
         end: typing.Optional[builtins.str] = None,
         full_precision: typing.Optional[builtins.bool] = None,
+        live_data: typing.Optional[builtins.bool] = None,
         period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         set_period_to_time_range: typing.Optional[builtins.bool] = None,
         sparkline: typing.Optional[builtins.bool] = None,
@@ -18376,6 +22529,7 @@ class SingleValueWidgetProps(MetricWidgetProps):
         :param metrics: Metrics to display.
         :param end: The end of the time range to use for each widget independently from those of the dashboard. If you specify a value for end, you must also specify a value for start. Specify an absolute time in the ISO 8601 format. For example, 2018-12-17T06:00:00.000Z. Default: When the dashboard loads, the end date will be the current time.
         :param full_precision: Whether to show as many digits as can fit, before rounding. Default: false
+        :param live_data: Whether the widget should show live data, which is data published within the last minute that has not been fully aggregated. Default: false
         :param period: The default period for all metrics in this widget. The period is the length of time represented by one data point on the graph. This default can be overridden within each metric definition. Default: cdk.Duration.seconds(300)
         :param set_period_to_time_range: Whether to show the value from the entire time range. Default: false
         :param sparkline: Whether to show a graph below the value illustrating the value for the whole time range. Cannot be used in combination with ``setPeriodToTimeRange`` Default: false
@@ -18391,7 +22545,7 @@ class SingleValueWidgetProps(MetricWidgetProps):
             dashboard.add_widgets(cloudwatch.SingleValueWidget(
                 metrics=[],
             
-                period=Duration.minutes(15)
+                full_precision=True
             ))
         '''
         if __debug__:
@@ -18404,6 +22558,7 @@ class SingleValueWidgetProps(MetricWidgetProps):
             check_type(argname="argument metrics", value=metrics, expected_type=type_hints["metrics"])
             check_type(argname="argument end", value=end, expected_type=type_hints["end"])
             check_type(argname="argument full_precision", value=full_precision, expected_type=type_hints["full_precision"])
+            check_type(argname="argument live_data", value=live_data, expected_type=type_hints["live_data"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
             check_type(argname="argument set_period_to_time_range", value=set_period_to_time_range, expected_type=type_hints["set_period_to_time_range"])
             check_type(argname="argument sparkline", value=sparkline, expected_type=type_hints["sparkline"])
@@ -18425,6 +22580,8 @@ class SingleValueWidgetProps(MetricWidgetProps):
             self._values["end"] = end
         if full_precision is not None:
             self._values["full_precision"] = full_precision
+        if live_data is not None:
+            self._values["live_data"] = live_data
         if period is not None:
             self._values["period"] = period
         if set_period_to_time_range is not None:
@@ -18515,6 +22672,15 @@ class SingleValueWidgetProps(MetricWidgetProps):
         :default: false
         '''
         result = self._values.get("full_precision")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def live_data(self) -> typing.Optional[builtins.bool]:
+        '''Whether the widget should show live data, which is data published within the last minute that has not been fully aggregated.
+
+        :default: false
+        '''
+        result = self._values.get("live_data")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -19743,7 +23909,7 @@ class TextWidgetProps:
         '''Properties for a Text widget.
 
         :param markdown: The text to display, in MarkDown format.
-        :param background: Background for the widget. Default: solid
+        :param background: Background for the widget. Default: TextWidgetBackground.TRANSPARENT
         :param height: Height of the widget. Default: 2
         :param width: Width of the widget, in a grid of 24 units wide. Default: 6
 
@@ -19785,7 +23951,7 @@ class TextWidgetProps:
     def background(self) -> typing.Optional["TextWidgetBackground"]:
         '''Background for the widget.
 
-        :default: solid
+        :default: TextWidgetBackground.TRANSPARENT
         '''
         result = self._values.get("background")
         return typing.cast(typing.Optional["TextWidgetBackground"], result)
@@ -20979,6 +25145,7 @@ class AlarmWidgetProps(MetricWidgetProps):
         "period": "period",
         "search_account": "searchAccount",
         "search_region": "searchRegion",
+        "visible": "visible",
         "metric": "metric",
         "std_devs": "stdDevs",
     },
@@ -20992,6 +25159,7 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
         period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
+        visible: typing.Optional[builtins.bool] = None,
         metric: "IMetric",
         std_devs: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -21002,6 +25170,7 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
         :param period: The period over which the math expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Specifying a searchAccount has no effect to the account used for metrics within the expression (passed via usingMetrics). Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Specifying a searchRegion has no effect to the region used for metrics within the expression (passed via usingMetrics). Default: - Deployment region.
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         :param metric: The metric to add the alarm on. Metric objects can be obtained from most resources, or you can construct custom Metric objects by instantiating one.
         :param std_devs: The number of standard deviations to use for the anomaly detection band. The higher the value, the wider the band. - Must be greater than 0. A value of 0 or negative values would not make sense in the context of calculating standard deviations. - There is no strict maximum value defined, as standard deviations can theoretically extend infinitely. However, in practice, values beyond 5 or 6 standard deviations are rarely used, as they would result in an extremely wide anomaly detection band, potentially missing significant anomalies. Default: 2
 
@@ -21025,7 +25194,8 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
                 period=cdk.Duration.minutes(30),
                 search_account="searchAccount",
                 search_region="searchRegion",
-                std_devs=123
+                std_devs=123,
+                visible=False
             )
         '''
         if __debug__:
@@ -21035,6 +25205,7 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
             check_type(argname="argument search_account", value=search_account, expected_type=type_hints["search_account"])
             check_type(argname="argument search_region", value=search_region, expected_type=type_hints["search_region"])
+            check_type(argname="argument visible", value=visible, expected_type=type_hints["visible"])
             check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
             check_type(argname="argument std_devs", value=std_devs, expected_type=type_hints["std_devs"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -21050,6 +25221,8 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
             self._values["search_account"] = search_account
         if search_region is not None:
             self._values["search_region"] = search_region
+        if visible is not None:
+            self._values["visible"] = visible
         if std_devs is not None:
             self._values["std_devs"] = std_devs
 
@@ -21125,6 +25298,18 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
         '''
         result = self._values.get("search_region")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def visible(self) -> typing.Optional[builtins.bool]:
+        '''Whether this metric should be visible in dashboard graphs.
+
+        Setting this to false is useful when you want to hide raw metrics
+        that are used in math expressions, and show only the expression results.
+
+        :default: true
+        '''
+        result = self._values.get("visible")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def metric(self) -> "IMetric":
@@ -21902,17 +26087,14 @@ class GraphWidget(
         # dashboard: cloudwatch.Dashboard
         
         
-        dashboard.add_widgets(cloudwatch.GraphWidget(
-            # ...
-            account_id="123456789012"
-        ))
+        hidden_search = cloudwatch.SearchExpression(
+            expression="SEARCH('{AWS/EC2,InstanceId} MetricName=\"CPUUtilization\"', 'Average', 300)",
+            label="EC2 CPU Utilization",
+            visible=False
+        )
         
-        dashboard.add_widgets(cloudwatch.LogQueryWidget(
-            log_group_names=["my-log-group"],
-            # ...
-            account_id="123456789012",
-            query_lines=["fields @message"
-            ]
+        dashboard.add_widgets(cloudwatch.GraphWidget(
+            left=[hidden_search]
         ))
     '''
 
@@ -22108,17 +26290,14 @@ class GraphWidgetProps(MetricWidgetProps):
             # dashboard: cloudwatch.Dashboard
             
             
-            dashboard.add_widgets(cloudwatch.GraphWidget(
-                # ...
-                account_id="123456789012"
-            ))
+            hidden_search = cloudwatch.SearchExpression(
+                expression="SEARCH('{AWS/EC2,InstanceId} MetricName=\"CPUUtilization\"', 'Average', 300)",
+                label="EC2 CPU Utilization",
+                visible=False
+            )
             
-            dashboard.add_widgets(cloudwatch.LogQueryWidget(
-                log_group_names=["my-log-group"],
-                # ...
-                account_id="123456789012",
-                query_lines=["fields @message"
-                ]
+            dashboard.add_widgets(cloudwatch.GraphWidget(
+                left=[hidden_search]
             ))
         '''
         if isinstance(left_y_axis, dict):
@@ -22582,7 +26761,7 @@ class SingleValueWidget(
         dashboard.add_widgets(cloudwatch.SingleValueWidget(
             metrics=[],
         
-            period=Duration.minutes(15)
+            full_precision=True
         ))
     '''
 
@@ -22592,6 +26771,7 @@ class SingleValueWidget(
         metrics: typing.Sequence["IMetric"],
         end: typing.Optional[builtins.str] = None,
         full_precision: typing.Optional[builtins.bool] = None,
+        live_data: typing.Optional[builtins.bool] = None,
         period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         set_period_to_time_range: typing.Optional[builtins.bool] = None,
         sparkline: typing.Optional[builtins.bool] = None,
@@ -22606,6 +26786,7 @@ class SingleValueWidget(
         :param metrics: Metrics to display.
         :param end: The end of the time range to use for each widget independently from those of the dashboard. If you specify a value for end, you must also specify a value for start. Specify an absolute time in the ISO 8601 format. For example, 2018-12-17T06:00:00.000Z. Default: When the dashboard loads, the end date will be the current time.
         :param full_precision: Whether to show as many digits as can fit, before rounding. Default: false
+        :param live_data: Whether the widget should show live data, which is data published within the last minute that has not been fully aggregated. Default: false
         :param period: The default period for all metrics in this widget. The period is the length of time represented by one data point on the graph. This default can be overridden within each metric definition. Default: cdk.Duration.seconds(300)
         :param set_period_to_time_range: Whether to show the value from the entire time range. Default: false
         :param sparkline: Whether to show a graph below the value illustrating the value for the whole time range. Cannot be used in combination with ``setPeriodToTimeRange`` Default: false
@@ -22620,6 +26801,7 @@ class SingleValueWidget(
             metrics=metrics,
             end=end,
             full_precision=full_precision,
+            live_data=live_data,
             period=period,
             set_period_to_time_range=set_period_to_time_range,
             sparkline=sparkline,
@@ -22768,7 +26950,7 @@ class TextWidget(
     ) -> None:
         '''
         :param markdown: The text to display, in MarkDown format.
-        :param background: Background for the widget. Default: solid
+        :param background: Background for the widget. Default: TextWidgetBackground.TRANSPARENT
         :param height: Height of the widget. Default: 2
         :param width: Width of the widget, in a grid of 24 units wide. Default: 6
         '''
@@ -23732,6 +27914,10 @@ __all__ = [
     "AtLeastOptions",
     "AtLeastThreshold",
     "CalendarDateTime",
+    "CfnAccessGrant",
+    "CfnAccessGrantProps",
+    "CfnAccessProfile",
+    "CfnAccessProfileProps",
     "CfnAlarm",
     "CfnAlarmMuteRule",
     "CfnAlarmMuteRuleProps",
@@ -23742,6 +27928,12 @@ __all__ = [
     "CfnCompositeAlarmProps",
     "CfnDashboard",
     "CfnDashboardProps",
+    "CfnDomain",
+    "CfnDomainAccessGrantForOrganization",
+    "CfnDomainAccessGrantForOrganizationProps",
+    "CfnDomainForOrganization",
+    "CfnDomainForOrganizationProps",
+    "CfnDomainProps",
     "CfnInsightRule",
     "CfnInsightRuleProps",
     "CfnIntegration",
@@ -23752,8 +27944,12 @@ __all__ = [
     "CfnMetricStreamProps",
     "CfnOTelEnrichment",
     "CfnOTelEnrichmentProps",
+    "CfnOmniDashboard",
+    "CfnOmniDashboardProps",
     "CfnResourceMetricsConfiguration",
     "CfnResourceMetricsConfigurationProps",
+    "CfnSpace",
+    "CfnSpaceProps",
     "CfnView",
     "CfnViewProps",
     "Color",
@@ -23985,6 +28181,216 @@ def _typecheckingstub__5ca6d4dc1bec254a9d741551c4afab31383a60beda0edfde136ef2712
     minute: jsii.Number,
     month: jsii.Number,
     year: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18c56660dc9692f5c04348a76d9515ec89f077d2ab6585d5f02fb762c168350e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    domain_id: builtins.str,
+    name: builtins.str,
+    permission: builtins.str,
+    principal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessGrant.AccessGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
+    space_id: builtins.str,
+    scoped_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessGrant.ScopedActionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff9157018ef69b848d8d93e39c44ed6a0dfa48fccca6b843d0b98fc41e765228(
+    resource: _aws_cloudwatch_70717108.IAccessGrantRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba952e5eb836088a584133cb1b885e5d36c3527ce3112fd2273c561aab5224f3(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__423e4b4ae5541b8c6c5959940bbe72abe331b4c43e15e7260d7946f0f5ac8c8f(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a058c27c0f195b50e104df1676f2f6835c022bb1603b65645f72eb6164bee7b9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20e126ac99268d86dcaf00e9167b25e1587eb31fee80e93aa4cda4a221135ef9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9c2cee36aa04e8bc161c5a4c80405c5485952998eb95391f495cd436447ec50(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f219e2b8e681b1004ac95349c9ab6fafd7cdf20518c173cf647757cfac95b30(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5a231e353ece289fc703be129c1a6c56d1dc6bd4de3f7f7883c89a529133c1d(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAccessGrant.AccessGrantPrincipalProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f5d4f00809b5a0187ad29600733f42b6e52f2aee4cd28ea5f09c0a82bfa9f03(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c1ef8fc3d572fea09a37040897cb1180e04a82e4c5edf5c88ee9cbfa674d373(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAccessGrant.ScopedActionsProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__740ce85fa87fe0edacd418973d7a6a045a428e0c2b3b71f2d387560ba41ededb(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__33af0fc551041795bb5f05d4c7dd0c98853020904df25e212ef8eca3da220f2b(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc85691c681d17a47c4f8b8a0415be0814b6ce3b17adc81635b991062aa9d26d(
+    *,
+    principal_type: builtins.str,
+    principal_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessGrant.AccessGrantPrincipalAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    principal_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__344ab4fea62bf0a727255079df4c046ef7d8099a105fb03ba99b9fecaac55c4e(
+    *,
+    resource_type: builtins.str,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    row_scope_groups: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessGrant.RowScopeProperty, typing.Dict[builtins.str, typing.Any]]]]]]]] = None,
+    signal_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b071228d7f5e65b07015e58a62787b8464823add4d1bbf62cbade747ff7b7d68(
+    *,
+    field: builtins.str,
+    operator: builtins.str,
+    values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__022bcee37e6cb159f31a6f306df948f66bf7fd005c1590c1175e99d5b563a608(
+    *,
+    actions: typing.Sequence[builtins.str],
+    context_conditions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Sequence[builtins.str]]]] = None,
+    resources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessGrant.ResourceScopeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3bc4355ab780ba14d6fdf7731fbee96d9fdb0a615117786ae23d6dd25c90ef4e(
+    *,
+    domain_id: builtins.str,
+    name: builtins.str,
+    permission: builtins.str,
+    principal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessGrant.AccessGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
+    space_id: builtins.str,
+    scoped_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAccessGrant.ScopedActionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d487732bbae1abd770c2135179f75ba3d9f739d998d7cd3ecc21c4b190b166c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    space_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cce0b72d512a41bb1d53ba340aa91e12afd91d359e72f044543b632e2979e4f6(
+    resource: _aws_cloudwatch_70717108.IAccessProfileRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ea40fd8ecfbb24693f17760695960688651d18a81aaaa5afd38ac83b0e39d14(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7ab7ec518741c63201068536f433e46783d217a674f2b9bf6cb231c9e79ea56(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4df0d17c8295525f7d63812658a40cc5b92efc527ebd8b8b524f275c4ed9a8e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e28f17f6ed75b6d1302e0854fb41b1b61c80937f670ad960e6e43389f699f559(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__848ada76305601cc9faccb0def205ed808d98dc064591004a64035221cb66b9f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__288f9ad0b1fc2a64a70498696ade00037bf19cfe2f4993fcee3d5381d4f5501d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7759f8f183778c3224762cf6d6c74544011f33b985ffb137897973d2f14a0c6c(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ead5408df5624c8aad3109f51f3235dd877fa42d72d5c43b72c9a3f4896b23b3(
+    *,
+    name: builtins.str,
+    space_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24576,14 +28982,6 @@ def _typecheckingstub__782bb184e35a5f89f30dd279aa12cf0d77b7069596cc47017cd113eb3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__08f89e2eab67232e4dfe8fcbab34c49cf3d56717de9b66dc338f14d587f70128(
-    *,
-    excluded_time_ranges: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.RangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    metric_time_zone: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__d07af40dc753cdda4381651fa3711189e996a0d1ada4554c36c730242ecee721(
     *,
     id: builtins.str,
@@ -24887,6 +29285,277 @@ def _typecheckingstub__42d47a219edd6b2c040597f718bfa93d023a9554d8079e5c8295ecd47
     *,
     dashboard_body: builtins.str,
     dashboard_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__359583552865f39ef5a497c251dad3ea83625a0633cada57f812e3ec58d0eb3e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    identity_providers: typing.Sequence[builtins.str],
+    name: builtins.str,
+    identity_provider_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a0c811353dfb2b66a314b8bd429972cf36c7c678a82e29ee9f405149262d7e7(
+    resource: _aws_cloudwatch_70717108.IDomainRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af0d15b2c930a25b3e752e6aa7462624a0a347e79455135521f7b954a27801e5(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__befef99d0ff4a43fe5a958cd300e6d9199166103a1bbdb01596e2f18f5047b45(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2cfda25bddc04d0ea527b0ef131c0acbc05528c367e0da64367e39401df7c81e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__501c186ace7f4af1cf2cdc99a177444299128fed6078aef4d8275b1f8131c1b1(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad521f4ead67abe4e12a8d3aff8d6f23b87262439fe2be206962440523499cae(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c68917ca2a424b5dfcbe02d458d34b7b2dfbada8fb27a12df3efcf6c4f9292d(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomain.IdentityProviderConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2ac6ad96a5e78de03e4496247eb3f8324a4afbf9469ea87040a96e1806b9572(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94e6439ffeb27be3a1a1b9f41de1da4458ea1a8be8f1eb8dd3ea8da6976ed806(
+    *,
+    identity_center_instance_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bcc4f7b654b2b4a188e7fc2c17ebcfdbb3d9343a311febcf532f7234eed6c929(
+    *,
+    identity_center_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.IdentityCenterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e604e53d24f2071ffffd544bb1d6b6db305dbaf52c1de7634b2432c81b7051c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    domain_id: builtins.str,
+    name: builtins.str,
+    permission: builtins.str,
+    principal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d449107c72415a2a1f6fb005df6ab95e64245f9b27a2f8585cc18355c78692cc(
+    resource: _aws_cloudwatch_70717108.IDomainAccessGrantForOrganizationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19a2a4c55a74f51f7634c01bedf89039db6b1b17b8cb550a80db5211e09e8d98(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e60bae31e0ef62c57bcd0030b46de663efc7c3c35eebb131553e57375051045(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a0c22aebfa67d0c377a7d7025043e40687659741e7b5afc35c15e1b7eab4805(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43378b305f61a74b3c55f7c6d341fc4c2581ac13b13d292ff1e386606dea46ac(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6a2e8640114b92bb6e0ff4e47a2917c19463edb3d10226e293f0779c4389e94(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4169bcc9133c318defa2ad12b8aedba753139108b73c3dfc675f1d2afe0f2539(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b56955a9718f1eb4a3aaad031d6c902426102fe0deb606a0ef2ea48995a1b1d(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52818d0f0cd747970bf60b8c6b45015c64b5c250706ef85c0355e182c1aadc4c(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb96fc05dd322ada65a3ca18aa297a0be67f70f38603cc09a7c0634ea33f87b6(
+    *,
+    principal_type: builtins.str,
+    principal_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomainAccessGrantForOrganization.PrincipalAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    principal_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87d7c2971a5f3dc18d3b56a1cd0ca2c8a70a74a63b2adeae1baee014133107fd(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45e4a5c75f3261ebdc66ca6a47b487e3868d7663751fc7281c9ef5f98c62a8da(
+    *,
+    domain_id: builtins.str,
+    name: builtins.str,
+    permission: builtins.str,
+    principal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomainAccessGrantForOrganization.OrganizationAccessGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__270e2f2f8f17e0e41e1c525c670cf84577810e6c5b442403a8c051cfc5840279(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    domain_access_role_arn: builtins.str,
+    identity_providers: typing.Sequence[builtins.str],
+    name: builtins.str,
+    identity_provider_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomainForOrganization.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9a81715d340f904de531a4de846900469d610fceaf3eb9a89423fade9a1e9a4(
+    resource: _aws_cloudwatch_70717108.IDomainForOrganizationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b01b0c277500d19f04fde38c7fa47777c6126b1526b8b9a8a0942fae17c73dd4(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2da72bb135a2b7aca47e2c2b5e028383afac856dfc54d98fb825f3bbccc6a478(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc560d2c5a5eaacdf90d40d2f29f69f3f505ddd95a5b755afa4cd3edbd124516(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d963d85fa2c3afccaca6e3ff540d1d03a4f22f9de2399a684569a5d258ca080(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ba2358c227ff83339c03087109bba579de3d8480493e86be04ab483dfa26471(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aca361867e9d284214677f975f16f8a328e22c36050116d642550cdfcce824b3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9a2b01d0aceeffc49e2cb1fcec89927affc14e00e460fe9590d71ef8a0a3c94(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDomainForOrganization.IdentityProviderConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a670877828f458da9c2eeef28f706b07a6178f41bab12d43acb3416b3471cf3(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba62fda5ffa86863e1a93c662a1d1c2555c6cce3f89e6a128f9234f77e878c85(
+    *,
+    identity_center_instance_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ee6797e6a33801957828abf086d8118aea89ed2dee646cc3482dffbbec17bce(
+    *,
+    identity_center_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomainForOrganization.IdentityCenterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0de900d9a43dd51ffaea1785a1ebdb5d3273acecd2b4b8ca6a734d552d707629(
+    *,
+    domain_access_role_arn: builtins.str,
+    identity_providers: typing.Sequence[builtins.str],
+    name: builtins.str,
+    identity_provider_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomainForOrganization.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef42a8c8f536114ba9056d21669d9e09b958975fc725dddd88fb881e8d451c55(
+    *,
+    identity_providers: typing.Sequence[builtins.str],
+    name: builtins.str,
+    identity_provider_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -25503,6 +30172,84 @@ def _typecheckingstub__3a40f7e692baf052d4c6a917734ab6c697e5a650efc5dd4c30282b646
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8b9be69daaaa6a9d85fc8e32e2aee8e10d7a6af7c1d3e9e66fe37b22b4682ec2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    body: builtins.str,
+    name: builtins.str,
+    space_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__caac8698e25d1981e8540f72dece080db014587aa0bd8a1028dd0d2949768cfe(
+    resource: _aws_cloudwatch_70717108.IOmniDashboardRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4e6fa1fd0d076a5f4f944d4cd096c73b0c3dd1c21a2e434b15257f770dd09626(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9665ba394bbe6af4728387ed7cf1dcdd9b1075c8e7fac66d6dfaf4d789932a0f(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7a608b5cb0d5143391e2d1e5eb66ebec7a27fe3b60a1c9eb6d077c6bc40ced9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6b0ccf4320a294d6825b3290a8ef562f6c99a8191535b40d2af5e32bf7afb83(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ebe98133ece90bbd6f0545d69676b917a7c34faf5eee05753a6f23e0d5965ea(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8aaee239dbcaf08712b30668591072c82d340d70da4b4e5cc70e896c3e1b24eb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2642aa979ba459292925084a7c4508c5834944aeee0319f2aade2d52e5267f06(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f18b9a00bc27b8cc2bda1a1e9813943af4dedc97bcf811933ca23326b414b58d(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e10d43b09cce1c5bbf799cab4b064561e2324c8380e11666a40530a0f716933(
+    *,
+    body: builtins.str,
+    name: builtins.str,
+    space_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c800866ce1748e1c8a48f4e6566ca815f360c345638338333c85c18b1b3ae91c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -25554,6 +30301,100 @@ def _typecheckingstub__2ed799e08c0b146eb284180377b148f070ad200cf3979f36703e0afc3
     *,
     resource_arn: builtins.str,
     metric_selections: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09358c654c7e62f29e5ec65b70df6e411b3b8bfcfc09f22272fcce1e6d4585fe(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    data_access_role_arn: builtins.str,
+    domain_id: builtins.str,
+    name: builtins.str,
+    agent_core_evaluation_role_arn: typing.Optional[builtins.str] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSpace.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e137d97e400c7544c910af3ec6d09d1cd13e005f8612fb6163ade1942481a4bd(
+    resource: _aws_cloudwatch_70717108.ISpaceRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5488d3bf2e216bf1f7206778958df992f7a0d76d604ba41f5ab1266bc8d98a8(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__597ae7409beeeaab91598046be24b440cca4b237d806149bfdcb1909c2f345a3(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eef2e30c2bb61c29673817d481015f460e7139f1656dc21766520ce1d73c8880(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0166f3578520691e6fe86011394b3c34ac6e1705c7be8732fb5d00e1ef2eaa49(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5943a51a1711cfe7530d97adc2e2f1c31b70c75ffe0ddd486ef749316136a55b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1393f027f864c4411a101c7f8756be4899e284e4f12c81d3bde05e88e70c4a44(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__101b8486752651fd7d0dac093b796fa4f9a07a8cf94104d3bdae74721585a15b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45161d2e112f077f9dc1398fda12859b923dc45f2a9eb47e2e0389d1826a4245(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSpace.EncryptionConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c883b9b86173d5aa56354a44e7d73b80408605ff6a123d1fb4220467ef54e630(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ec5f9a8f7ff993113c9e3457e74441cfbabbcb6d18f73491ab3647a09aa870f(
+    *,
+    encryption_strategy: builtins.str,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e48982774f1dd3fd4c5b690433dba971894b5f0e7add9d9efc1edfb55d5f5ba(
+    *,
+    data_access_role_arn: builtins.str,
+    domain_id: builtins.str,
+    name: builtins.str,
+    agent_core_evaluation_role_arn: typing.Optional[builtins.str] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSpace.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25849,6 +30690,7 @@ def _typecheckingstub__f28a14de04cee7a41ccdb702d4444beec1719a2620a487cbc8e934b85
     period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     search_account: typing.Optional[builtins.str] = None,
     search_region: typing.Optional[builtins.str] = None,
+    visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25860,6 +30702,7 @@ def _typecheckingstub__7cfb588e44acd0977aa0e09f00c3e2435bad84385ab7b6d163b332963
     period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     search_account: typing.Optional[builtins.str] = None,
     search_region: typing.Optional[builtins.str] = None,
+    visible: typing.Optional[builtins.bool] = None,
     expression: builtins.str,
     using_metrics: typing.Optional[typing.Mapping[builtins.str, IMetric]] = None,
 ) -> None:
@@ -26044,6 +30887,7 @@ def _typecheckingstub__9f60f6548f685a7de97fff8e4e2d7ad81a4a32dbef7d990d9298e0490
     period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     search_account: typing.Optional[builtins.str] = None,
     search_region: typing.Optional[builtins.str] = None,
+    visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26055,6 +30899,7 @@ def _typecheckingstub__ea7b0e5733d6f08911d542fd96929aa00fb8c855f30bc6cce35d09d7e
     period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     search_account: typing.Optional[builtins.str] = None,
     search_region: typing.Optional[builtins.str] = None,
+    visible: typing.Optional[builtins.bool] = None,
     expression: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -26070,6 +30915,7 @@ def _typecheckingstub__4596565f40195bdcc9fe939fa585a3bdf484f8a4a6817e427c6f9e1e4
     metrics: typing.Sequence[IMetric],
     end: typing.Optional[builtins.str] = None,
     full_precision: typing.Optional[builtins.bool] = None,
+    live_data: typing.Optional[builtins.bool] = None,
     period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     set_period_to_time_range: typing.Optional[builtins.bool] = None,
     sparkline: typing.Optional[builtins.bool] = None,
@@ -26355,6 +31201,7 @@ def _typecheckingstub__c5ab1cfa142c158cb621ab2339ccaa469bd13773cd7f760d978164625
     period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     search_account: typing.Optional[builtins.str] = None,
     search_region: typing.Optional[builtins.str] = None,
+    visible: typing.Optional[builtins.bool] = None,
     metric: IMetric,
     std_devs: typing.Optional[jsii.Number] = None,
 ) -> None:

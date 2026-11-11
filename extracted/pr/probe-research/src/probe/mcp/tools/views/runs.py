@@ -3,6 +3,7 @@
 from __future__ import annotations
 from typing import Any
 from ....sdk import errors
+from ....sdk.values.run_command_words import CommandListPart
 from ....shared.reads.search_contract import (
     EntityType,
     MissingMarker)
@@ -39,6 +40,9 @@ _COMMAND_FIELDS = (
     "id", "seq", "kind", "args", "state", "requested_by", "note", "reason", "result", "write_epoch", "created_at",
     "claimed_at", "ended_at",
 )  # fmt: skip
+#: What the commands view says about the run itself (`?with=writer`, first page only): the kinds it accepts now,
+#: whether a writer is there to take one, and its last check-in. A server older than them leaves them out.
+_COMMAND_WRITER_FIELDS = ("accepts", "writer", "writer_seen_at", "writer_role")
 
 
 def _span_subtree(spans: list[dict], root_id: str) -> list[dict] | None:
@@ -389,23 +393,30 @@ class RunViewsMixin:
 
     def _build_run_commands_view(self, entity: dict, request: _Req) -> _ViewData:
         """What was asked of the run while it ran, oldest first: a checkpoint, an LR change or a stop explains a turn
-        in its curves; a refused or expired row says why nothing happened."""
+        in its curves; a refused or expired row says why nothing happened. The first page also says what the run
+        accepts now and whether its writer is there (`_COMMAND_WRITER_FIELDS`)."""
         run_id = str(entity["id"])
+        writer: dict[str, Any] | None = {} if request.offset == 0 else None
         rows, more, capped = self._bounded(
-            lambda limit: self._fetch_command_pages(run_id, limit), request.offset, _COMMAND_BACKEND_MAX
+            lambda limit: self._fetch_command_pages(run_id, limit, writer), request.offset, _COMMAND_BACKEND_MAX
         )
         shaped = [{key: row[key] for key in _COMMAND_FIELDS if row.get(key) is not None}
                   for row in rows if isinstance(row, dict)]  # fmt: skip
-        return _ViewData(rows=shaped, rows_key="commands", more_beyond=more,
+        return _ViewData(payload=writer or {}, rows=shaped, rows_key="commands", more_beyond=more,
                          missing=[MissingMarker.COMMANDS_BEYOND_WALK_BOUND] if capped else [])  # fmt: skip
 
-    def _fetch_command_pages(self, run_id: str, limit: int) -> list[dict]:
+    def _fetch_command_pages(self, run_id: str, limit: int, writer: dict[str, Any] | None = None) -> list[dict]:
         """`limit` command rows by seq, following the route's `after=` cursor (one walk from the first, never kept:
-        `_trial_pages`' rule). An empty page ends it even with a cursor."""
+        `_trial_pages`' rule). An empty page ends it even with a cursor. `writer`: filled from the first route page,
+        the only one that asks `?with=writer` (each ask is two lease reads)."""
         rows: list[dict] = []
         after: int | None = None
         while len(rows) < limit:
-            page = self.source.run_commands(run_id, after=after, limit=min(_COMMAND_ROUTE_PAGE, limit - len(rows)))
+            parts = (CommandListPart.WRITER,) if writer is not None and after is None else ()
+            page = self.source.run_commands(run_id, after=after, limit=min(_COMMAND_ROUTE_PAGE, limit - len(rows)),
+                                            parts=parts)  # fmt: skip
+            if writer is not None and parts:
+                writer.update({key: page[key] for key in _COMMAND_WRITER_FIELDS if page.get(key) is not None})
             items = list(page.get("commands") or [])
             rows.extend(items)
             after = page.get("next_after")

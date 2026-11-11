@@ -10,9 +10,9 @@ from collections import defaultdict
 from enum import IntEnum
 from functools import partial
 from io import StringIO
-from typing import TYPE_CHECKING, Any, NamedTuple, TypeAlias, TypeGuard
+from typing import TYPE_CHECKING, Any, NamedTuple, TypeAlias, TypeGuard, cast
 
-from datamodel_code_generator._builtin_line_split import format_logical_line, str_width
+from datamodel_code_generator._builtin_line_split import format_logical_line, iter_fexpr_spans, str_width
 from datamodel_code_generator._constraint_applicability import json_integer
 from datamodel_code_generator._format_types import (
     DEFAULT_KNOWN_FIRST_PARTY,
@@ -209,9 +209,14 @@ def _alias_sort_key(alias: str, names: _ImportNames = _PLAIN_NAMES) -> tuple[_Al
     return category, _natural_key(lower(name, target))
 
 
-def _format_from_import(module: str, aliases: list[str], line_length: int) -> str:
+def _format_from_import(module: str, aliases: list[str], line_length: int, restore: Callable[[str], str] = str) -> str:
+    """Lay out one ``from`` import as isort does: a star import stays a statement of its own, before the other names."""
+    if "*" in aliases:
+        rest = [alias for alias in aliases if alias != "*"]
+        star = from_import(module, ["*"])
+        return f"{star}\n{_format_from_import(module, rest, line_length, restore)}" if rest else star
     line = from_import(module, aliases)
-    if len(line) <= line_length and "*" not in aliases:
+    if str_width(restore(line)) <= line_length:
         return line
     imports = "\n".join(f"    {alias}," for alias in aliases)
     return f"from {module} import (\n{imports}\n)"
@@ -258,11 +263,7 @@ def _pep695_type_alias_start(line: str) -> re.Match[str] | None:
 
 
 def _needs_pep695_type_alias_placeholders(python_version: PythonVersion | None) -> bool:
-    return (
-        python_version is not None
-        and python_version.version_key >= (3, 12)
-        and (3, 10) <= sys.version_info[:2] < (3, 12)
-    )
+    return python_version is not None and python_version.version_key >= (3, 12) and sys.version_info[:2] < (3, 12)
 
 
 def _pep695_type_alias_statement_end(lines: list[str], start_index: int) -> int:
@@ -328,7 +329,8 @@ def _format_import_node_without_reordering(
     names: _ImportNames = _PLAIN_NAMES,
 ) -> tuple[_ImportCategory, str]:
     end_lineno = node.end_lineno or node.lineno
-    raw_import = "\n".join(lines[node.lineno - 1 : end_lineno])
+    indent = _line_indent(lines[node.lineno - 1])
+    raw_import = "\n".join(line.removeprefix(indent) for line in lines[node.lineno - 1 : end_lineno])
     return _import_node_category(node, known_first_party, names), raw_import
 
 
@@ -349,25 +351,6 @@ def _import_node_category(
     raise TypeError(msg)
 
 
-def _format_import_node(
-    node: ast.ImportFrom,
-    line_length: int,
-    known_first_party: frozenset[str] = DEFAULT_KNOWN_FIRST_PARTY,
-    names: _ImportNames = _PLAIN_NAMES,
-) -> tuple[_ImportCategory, str]:
-    category = _import_node_category(node, known_first_party, names)
-    module = "." * node.level + (node.module or "")
-    if any(alias.asname is not None for alias in node.names):
-        lines = [
-            _format_from_import(module, [_format_alias(alias)], line_length)
-            for alias in sorted(node.names, key=lambda alias: _alias_sort_key(_format_alias(alias), names))
-        ]
-        return category, "\n".join(lines)
-
-    aliases = sorted((_format_alias(alias) for alias in node.names), key=lambda alias: _alias_sort_key(alias, names))
-    return category, _format_from_import(module, aliases, line_length)
-
-
 def _from_import_key(node: ast.ImportFrom) -> tuple[int, str]:
     return node.level, node.module or ""
 
@@ -380,38 +363,36 @@ def _modules_with_aliased_imports(import_nodes: list[ast.Import | ast.ImportFrom
     }
 
 
-def _can_merge_from_imports(node: ast.ImportFrom, aliased_modules: set[tuple[int, str]]) -> bool:
-    return node.level == 0 and _from_import_key(node) not in aliased_modules
-
-
 def _iter_aliased_from_import_lines(
     module: str,
     aliases: list[tuple[int, str, bool]],
     line_length: int,
     names: _ImportNames = _PLAIN_NAMES,
-) -> Iterator[str]:
-    """Keep aliased names, and plain names also imported under an alias, on their own lines like isort."""
+) -> Iterator[tuple[int, str]]:
+    """Keep aliased names, and plain names also imported under an alias, on their own lines like isort.
+
+    Each line comes with the index of the import its names come from.
+    """
     sorted_aliases = sorted(aliases, key=lambda item: _alias_sort_key(item[1], names))
     renamed = {_alias_imported_name(alias) for _, alias, is_aliased in aliases if is_aliased}
     chunk: list[str] = []
-    chunk_group: int | None = None
+    chunk_group = -1
     for group_index, alias, is_aliased in sorted_aliases:
         if is_aliased or alias in renamed:
             if chunk:
-                yield _format_from_import(module, chunk, line_length)
+                yield chunk_group, _format_from_import(module, chunk, line_length, names.restore)
                 chunk = []
-                chunk_group = None
-            yield _format_from_import(module, [alias], line_length)
+            yield group_index, _format_from_import(module, [alias], line_length, names.restore)
             continue
 
         if chunk and chunk_group != group_index:
-            yield _format_from_import(module, chunk, line_length)
+            yield chunk_group, _format_from_import(module, chunk, line_length, names.restore)
             chunk = []
         chunk.append(alias)
         chunk_group = group_index
 
     if chunk:
-        yield _format_from_import(module, chunk, line_length)
+        yield chunk_group, _format_from_import(module, chunk, line_length, names.restore)
 
 
 def _import_line_sort_key(
@@ -431,67 +412,86 @@ def _import_line_sort_key(
     return 1, 0, _natural_key(lower(module, target)), int(alias_category), alias_name, line_key
 
 
-def _build_builtin_import_block(
+def _build_builtin_import_block(  # noqa: PLR0913
     import_nodes: list[ast.Import | ast.ImportFrom],
     line_length: int,
     lines: list[str],
     known_first_party: frozenset[str],
     names: _ImportNames = _PLAIN_NAMES,
+    *,
+    comments_above: Mapping[int, list[str]] | None = None,
 ) -> str:
+    """Sort, merge and group the imports as isort does.
+
+    ``comments_above`` maps the index of an import to the comment lines right above it, which stay above the line it
+    becomes, after a blank line when an import comes before it, as black puts one after an import.
+    """
     categorized_lines: defaultdict[_ImportCategory, list[str]] = defaultdict(list)
-    grouped_from_imports: defaultdict[tuple[_ImportCategory, int, str], list[str]] = defaultdict(list)
-    aliased_from_imports: defaultdict[tuple[_ImportCategory, int, str], list[tuple[int, str, bool]]] = defaultdict(list)
+    grouped_from_imports: defaultdict[tuple[_ImportCategory, str], list[str]] = defaultdict(list)
+    aliased_from_imports: defaultdict[tuple[_ImportCategory, str], list[tuple[int, str, bool]]] = defaultdict(list)
     aliased_modules = _modules_with_aliased_imports(import_nodes)
+    line_comments: defaultdict[str, list[str]] = defaultdict(list)
+    module_comments: defaultdict[tuple[_ImportCategory, str], list[str]] = defaultdict(list)
+    comments_above = comments_above or {}
 
     for node_index, node in enumerate(import_nodes):
+        comments = comments_above.get(node_index, ())
         if _has_inline_comment(lines, node):
             category, raw_import = _format_import_node_without_reordering(node, lines, known_first_party, names)
             categorized_lines[category].append(raw_import)
-            continue
-
-        if isinstance(node, ast.ImportFrom) and _from_import_key(node) in aliased_modules:
-            module = "." * node.level + (node.module or "")
-            category = _import_node_category(node, known_first_party, names)
-            for alias in node.names:
-                aliased_from_imports[category, node.level, module].append((
-                    node_index,
-                    _format_alias(alias),
-                    alias.asname is not None,
-                ))
-            continue
-
-        if isinstance(node, ast.ImportFrom) and _can_merge_from_imports(node, aliased_modules):
-            category = _import_node_category(node, known_first_party, names)
-            for alias in node.names:
-                grouped_from_imports[category, node.level, node.module or ""].append(_format_alias(alias))
+            line_comments[raw_import].extend(comments)
             continue
 
         if isinstance(node, ast.Import):
             for alias in node.names:
                 category = _import_category(names.restore(alias.name), 0, known_first_party, names.python_version)
-                categorized_lines[category].append(module_import(_format_alias(alias)))
+                categorized_lines[category].append(import_line := module_import(_format_alias(alias)))
+                line_comments[import_line].extend(comments)
+                comments = ()
             continue
 
-        category, import_line = _format_import_node(node, line_length, known_first_party, names)
-        categorized_lines[category].append(import_line)
+        module = "." * node.level + (node.module or "")
+        category = _import_node_category(node, known_first_party, names)
+        if _from_import_key(node) in aliased_modules:
+            aliased_from_imports[category, module].extend(
+                (node_index, _format_alias(alias), alias.asname is not None) for alias in node.names
+            )
+        else:
+            grouped_from_imports[category, module].extend(_format_alias(alias) for alias in node.names)
+            module_comments[category, module].extend(comments)
 
-    for (category, _level, module), aliases in grouped_from_imports.items():
+    for (category, module), aliases in grouped_from_imports.items():
         categorized_lines[category].append(
-            _format_from_import(
-                module, sorted(dict.fromkeys(aliases), key=lambda alias: _alias_sort_key(alias, names)), line_length
+            import_line := _format_from_import(
+                module,
+                sorted(dict.fromkeys(aliases), key=lambda alias: _alias_sort_key(alias, names)),
+                line_length,
+                names.restore,
             )
         )
-    for (category, _level, module), aliases in aliased_from_imports.items():
-        for import_line in _iter_aliased_from_import_lines(module, aliases, line_length, names):
+        line_comments[import_line].extend(module_comments[category, module])
+    for (category, module), aliases in aliased_from_imports.items():
+        commented = set(comments_above)
+        for node_index, import_line in _iter_aliased_from_import_lines(module, aliases, line_length, names):
             categorized_lines[category].append(import_line)
+            if node_index in commented:
+                line_comments[import_line].extend(comments_above[node_index])
+                commented.discard(node_index)
 
-    groups = [
-        "\n".join(
-            sorted(dict.fromkeys(categorized_lines[category]), key=lambda line: _import_line_sort_key(line, names))
-        )
-        for category in sorted(categorized_lines)
-    ]
+    groups = (
+        _import_group(categorized_lines[category], line_comments, names) for category in sorted(categorized_lines)
+    )
     return "\n\n".join(group for group in groups if group)
+
+
+def _import_group(import_lines: list[str], line_comments: Mapping[str, list[str]], names: _ImportNames) -> str:
+    """Sort the import lines of one section, each after its comments, with a blank line before comments after a line."""
+    group: list[str] = []
+    for import_line in sorted(dict.fromkeys(import_lines), key=lambda line: _import_line_sort_key(line, names)):
+        if comments := line_comments.get(import_line):
+            group.extend(("", *comments) if group else comments)
+        group.append(import_line)
+    return "\n".join(group)
 
 
 def _is_name_or_attr(node: ast.AST, name: str) -> bool:
@@ -500,122 +500,52 @@ def _is_name_or_attr(node: ast.AST, name: str) -> bool:
     return isinstance(node, ast.Attribute) and node.attr == name
 
 
-def _is_type_checking_if(node: ast.AST) -> TypeGuard[ast.If]:
-    return isinstance(node, ast.If) and _is_name_or_attr(node.test, "TYPE_CHECKING")
-
-
 def _is_string_constant(node: ast.AST | None) -> TypeGuard[ast.Constant]:
     return isinstance(node, ast.Constant) and isinstance(node.value, str)
-
-
-def _format_type_checking_block(
-    node: ast.If,
-    lines: list[str],
-    line_length: int,
-    known_first_party: frozenset[str],
-    names: _ImportNames = _PLAIN_NAMES,
-) -> str | None:
-    import_nodes = [statement for statement in node.body if isinstance(statement, (ast.Import, ast.ImportFrom))]
-    if not import_nodes or len(import_nodes) != len(node.body):
-        return None
-
-    indent = _line_indent(lines[node.lineno - 1])
-    import_block = _build_builtin_import_block(import_nodes, line_length, lines, known_first_party, names)
-    indented_import_block = "\n".join(
-        f"{indent}    {line}" if line else line for line in _split_python_lines(import_block)
-    )
-    return f"{indent}if TYPE_CHECKING:\n{indented_import_block}"
 
 
 _LineReplacement = tuple[int, int, list[str]]
 _NON_CODE_TOKENS = frozenset({tokenize.NL, tokenize.COMMENT})
 
 
-def _replacement(node: ast.stmt, text: str, end: int | None = None) -> _LineReplacement:
-    """Replace the lines of ``node``, or its lines up to ``end``, with the lines of ``text``."""
-    return node.lineno, end or node.end_lineno or node.lineno, _split_python_lines(text)
+def _takes_own_lines(statement: ast.stmt, lines: list[str]) -> bool:
+    """Return whether ``statement`` alone takes its lines: nothing before it on its first line or after it on its last.
+
+    A statement after a ``;`` or after a compound statement's ``:`` on the same line does not.
+    """
+    end = statement.end_lineno or statement.lineno
+    return statement.col_offset == len(_line_indent(lines[statement.lineno - 1])) and statement.end_col_offset == len(
+        lines[end - 1].encode()
+    )
 
 
-def _iter_boolean_operand_lines(node: ast.BoolOp, source: bytes, indent: str, line_length: int) -> Iterator[str]:
-    """Split boolean operands, wrapping nested groups that exceed the line length."""
-    operator = "and" if isinstance(node.op, ast.And) else "or"
-    operator_bytes = operator.encode()
-    start = node.col_offset
-    last_index = len(node.values) - 1
-    for index, value in enumerate(node.values):
-        # The gap between AST operands contains only their parentheses and this operator.
-        end = (
-            source.index(operator_bytes, value.end_col_offset, node.values[index + 1].col_offset)
-            if index < last_index
-            else node.end_col_offset
-        )
-        operand = source[start:end].decode().strip()
-        start = (end or 0) + len(operator_bytes)
-        operand_prefix = f"{operator} " if index else ""
-        line = f"{indent}{operand_prefix}{operand}"
-        if len(line) > line_length and isinstance(value, ast.BoolOp):
-            yield from _format_boolean_group(value, source, indent, line_length, operand_prefix)
-        else:
-            yield line
+def _nested_bodies(statement: ast.stmt) -> Iterator[list[ast.stmt]]:
+    """Yield the bodies nested in ``statement``: its own, its ``else`` and ``finally``, and those of its clauses."""
+    for name in ("body", "orelse", "finalbody"):
+        if body := getattr(statement, name, None):
+            yield body
+    for clause in (*getattr(statement, "handlers", ()), *getattr(statement, "cases", ())):
+        yield clause.body
 
 
-def _format_boolean_group(
-    node: ast.BoolOp, source: bytes, indent: str, line_length: int, prefix: str = ""
-) -> list[str]:
-    """Wrap a boolean group and any nested groups exposed by the added indent."""
-    operand_indent = f"{indent}    "
-    single_line = f"{operand_indent}{source[node.col_offset : node.end_col_offset].decode()}"
-    return [
-        f"{indent}{prefix}(",
-        *(
-            (single_line,)
-            if len(single_line) <= line_length
-            else _iter_boolean_operand_lines(node, source, operand_indent, line_length)
-        ),
-        f"{indent})",
-    ]
+def _import_runs(body: list[ast.stmt], lines: list[str]) -> Iterator[list[ast.Import | ast.ImportFrom]]:
+    """Yield the runs of imports in ``body`` that isort sorts as one block.
 
-
-def _collect_function_boolean_replacements(
-    function: ast.FunctionDef | ast.AsyncFunctionDef,
-    lines: list[str],
-    line_length: int,
-) -> list[_LineReplacement]:
-    """Wrap parenthesized boolean groups and guards inside generated methods."""
-    candidates = {
-        number
-        for number in range(function.lineno, (function.end_lineno or function.lineno) + 1)
-        if len(line := lines[number - 1]) > line_length and (" and " in line or " or " in line)
-    }
-    if not candidates:
-        return []
-    replacements: list[_LineReplacement] = []
-    for node in ast.walk(function):
-        if not isinstance(node, ast.BoolOp) or node.lineno not in candidates or node.lineno != node.end_lineno:
-            continue
-        line = lines[node.lineno - 1]
-        source = line.encode()
-        before, after = source[: node.col_offset].strip(), source[node.end_col_offset :].strip()
-        indent = _line_indent(line)
-        match before, after:
-            case (b"(", b")") | (b"if not (", _) | (_, b"):") if (
-                before == b"("
-                or (after == b"):" and before.startswith(b"if ") and before.endswith(b"("))
-                or (after.startswith((b") or ", b") and ")) and after.endswith(b":"))
-            ):
-                formatted = _format_boolean_group(node, source, indent, line_length, before[:-1].decode())
-                formatted[-1] += after[1:].decode()
-            case b"", b"" if (
-                1 < node.lineno < len(lines)
-                and lines[node.lineno - 2].endswith("(")
-                and lines[node.lineno].lstrip().startswith(")")
-            ):
-                formatted = list(_iter_boolean_operand_lines(node, source, indent, line_length))
-            case _:
-                continue
-        replacements.append((node.lineno, node.lineno, formatted))
-        candidates.discard(node.lineno)
-    return replacements
+    A run holds imports that take their own lines with only blank lines between them; a comment ends it.
+    """
+    run: list[ast.Import | ast.ImportFrom] = []
+    for statement in body:
+        if run and not (
+            isinstance(statement, (ast.Import, ast.ImportFrom))
+            and _takes_own_lines(statement, lines)
+            and not any(line.strip() for line in lines[run[-1].end_lineno or run[-1].lineno : statement.lineno - 1])
+        ):
+            yield run
+            run = []
+        if isinstance(statement, (ast.Import, ast.ImportFrom)) and _takes_own_lines(statement, lines):
+            run.append(statement)
+    if run:
+        yield run
 
 
 def _statement_start(statement: ast.stmt, lines: list[str]) -> int:
@@ -627,10 +557,18 @@ def _statement_start(statement: ast.stmt, lines: list[str]) -> int:
     return start
 
 
-_SIMPLE_STATEMENTS = tuple(
-    getattr(ast, name) for name in ("Assign", "AnnAssign", "AugAssign", "Expr", "TypeAlias") if hasattr(ast, name)
+_ASSIGNMENTS = (ast.Assign, ast.AnnAssign, ast.AugAssign)
+_SIMPLE_STATEMENTS = (
+    *_ASSIGNMENTS,
+    ast.Expr,
+    ast.Return,
+    ast.Delete,
+    ast.Assert,
+    ast.Raise,
+    *(getattr(ast, name) for name in ("TypeAlias",) if hasattr(ast, name)),
 )
 _MAGIC_TRAILING_COMMA = re.compile(r",\s*[)\]}]")
+_JOINED_STRINGS = re.compile(r"""['"]\s+[rRbBuUfF]*['"]""")
 
 
 def _logical_line_replacement(  # noqa: PLR0913
@@ -649,6 +587,7 @@ def _logical_line_replacement(  # noqa: PLR0913
         len(source_lines) == 1
         and str_width(restore(line := source_lines[0])) <= line_length
         and not _MAGIC_TRAILING_COMMA.search(line)
+        and not (wrap_string_literal and _JOINED_STRINGS.search(line))
     ):
         return None
     result = format_logical_line(
@@ -666,6 +605,18 @@ def _logical_line_replacement(  # noqa: PLR0913
     return start, start - 1 + rows, formatted
 
 
+def _is_type_alias_placeholder(statement: ast.stmt) -> bool:
+    """Return whether ``statement`` is the placeholder a ``type`` statement was parsed as on an older interpreter."""
+    return isinstance(statement, ast.Assign) and _is_name_or_attr(statement.targets[0], PEP695_TYPE_ALIAS_PLACEHOLDER)
+
+
+def _statement_end(statement: ast.stmt, lines: list[str]) -> int:
+    """Return the last line of ``statement``, also of a ``type`` statement parsed as a placeholder."""
+    if _is_type_alias_placeholder(statement):
+        return _pep695_type_alias_statement_end(lines, statement.lineno - 1) + 1
+    return statement.end_lineno or statement.lineno
+
+
 def _statement_replacement(
     statement: ast.stmt,
     lines: list[str],
@@ -676,88 +627,181 @@ def _statement_replacement(
 ) -> _LineReplacement | None:
     """Lay out a simple statement as black does; docstrings and other bare strings stay as they are.
 
-    A statement that shares its lines with another one, after a ``;`` or a class header's ``:``, stays as it is too.
+    A statement that shares its lines with another one, after a ``;`` or a compound statement's ``:``, stays as it is
+    too.
     """
     if not isinstance(statement, _SIMPLE_STATEMENTS) or (
         isinstance(statement, ast.Expr) and _is_string_constant(statement.value)
     ):
         return None
-    end = statement.end_lineno or statement.lineno
-    if isinstance(statement, ast.Assign) and _is_name_or_attr(statement.targets[0], PEP695_TYPE_ALIAS_PLACEHOLDER):
-        end = _pep695_type_alias_statement_end(lines, statement.lineno - 1) + 1
-    elif statement.col_offset != len(_line_indent(lines[statement.lineno - 1])) or statement.end_col_offset != len(
-        lines[end - 1].encode()
-    ):
+    if not _is_type_alias_placeholder(statement) and not _takes_own_lines(statement, lines):
         return None
     return _logical_line_replacement(
         lines,
         statement.lineno,
-        end,
+        _statement_end(statement, lines),
         line_length,
         wrap_string_literal=wrap_string_literal,
         restore=restore,
-        assignment=not isinstance(statement, ast.Expr),
+        assignment=isinstance(statement, _ASSIGNMENTS),
     )
 
 
-def _collect_definition_header_replacements(
-    node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+_DEFINITIONS = (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+_ClauseStatement: TypeAlias = (
+    ast.ClassDef
+    | ast.FunctionDef
+    | ast.AsyncFunctionDef
+    | ast.If
+    | ast.For
+    | ast.AsyncFor
+    | ast.While
+    | ast.With
+    | ast.AsyncWith
+    | ast.Try
+)
+_CLAUSE_STATEMENTS = (
+    *_DEFINITIONS,
+    ast.If,
+    ast.For,
+    ast.AsyncFor,
+    ast.While,
+    ast.With,
+    ast.AsyncWith,
+    ast.Try,
+    *(getattr(ast, name) for name in ("TryStar",) if hasattr(ast, name)),
+    ast.Match,
+)
+
+
+def _is_stub_body(body: list[ast.stmt], lines: list[str]) -> bool:
+    """Return whether ``body`` is one ``...`` after the header's colon, ending the line, which black keeps there."""
+    if not (
+        len(body) == 1
+        and isinstance(statement := body[0], ast.Expr)
+        and isinstance(statement.value, ast.Constant)
+        and statement.value.value is Ellipsis
+    ):
+        return False
+    line = lines[statement.lineno - 1]
+    return statement.end_col_offset == len(line.encode()) and line.encode()[: statement.col_offset].rstrip().endswith(
+        b":"
+    )
+
+
+def _collect_header_replacements(
+    statement: ast.stmt,
     lines: list[str],
     line_length: int,
     *,
     wrap_string_literal: bool,
     restore: Callable[[str], str] = str,
 ) -> Iterator[_LineReplacement]:
-    """Lay out the decorators and the header line of a class or function definition as black does."""
+    """Lay out the decorators of a definition and the header of each clause of a compound statement as black does.
+
+    A definition's stub body ``...`` on its header line is laid out with the header, as black keeps it there. Another
+    header with its body on the same line stays as it is.
+    """
+    if not isinstance(statement, _CLAUSE_STATEMENTS):
+        return
     lay_out = partial(
         _logical_line_replacement,
         lines,
         line_length=line_length,
         wrap_string_literal=wrap_string_literal,
         restore=restore,
+        assignment=False,
     )
-    for decorator in node.decorator_list:
-        if (
-            replacement := lay_out(decorator.lineno, decorator.end_lineno or decorator.lineno, assignment=False)
-        ) is not None:
+    for decorator in getattr(statement, "decorator_list", ()):
+        if (replacement := lay_out(decorator.lineno, decorator.end_lineno or decorator.lineno)) is not None:
             yield replacement
-    if (
-        node.body[0].lineno > node.lineno
-        and (replacement := lay_out(node.lineno, node.body[0].lineno - 1, assignment=False)) is not None
-    ):
-        yield replacement
+    for start, next_line, body in _clause_headers(statement, lines):
+        if body is not None and _is_stub_body(body, lines):
+            end = body[0].end_lineno or body[0].lineno
+        elif next_line > start:
+            end = _header_end(lines, start, next_line)
+        else:
+            continue
+        if (replacement := lay_out(start, end)) is not None:
+            yield replacement
 
 
-def _collect_class_replacements(
-    node: ast.ClassDef,
+def _clause_headers(
+    statement: _ClauseStatement | ast.Match, lines: list[str]
+) -> Iterator[tuple[int, int, list[ast.stmt] | None]]:
+    """Yield the first line of each clause header of ``statement``, the line after it starts on and a definition's body.
+
+    A ``match`` statement's header is followed by its first ``case``, whose header starts on its pattern's line.
+    """
+    if isinstance(statement, ast.Match):
+        yield statement.lineno, statement.cases[0].pattern.lineno, None
+        for case in statement.cases:
+            if lines[case.pattern.lineno - 1].lstrip().startswith("case"):
+                yield case.pattern.lineno, _statement_start(case.body[0], lines), None
+        return
+    yield (
+        statement.lineno,
+        _statement_start(statement.body[0], lines),
+        statement.body if isinstance(statement, _DEFINITIONS) else None,
+    )
+    for handler in getattr(statement, "handlers", ()):
+        yield handler.lineno, _statement_start(handler.body[0], lines), None
+
+
+def _import_run_replacements(  # noqa: PLR0913
+    body: list[ast.stmt],
     lines: list[str],
     line_length: int,
+    known_first_party: frozenset[str],
+    names: _ImportNames,
+    *,
+    after: int = 0,
+) -> Iterator[_LineReplacement]:
+    """Sort each run of imports in ``body`` that starts after line ``after`` as isort sorts the module's imports.
+
+    A run is indented as its first import, at the line length that indent leaves.
+    """
+    for run in _import_runs(body, lines):
+        if run[0].lineno <= after:
+            continue
+        indent = _line_indent(lines[run[0].lineno - 1])
+        block = _build_builtin_import_block(run, line_length - len(indent), lines, known_first_party, names)
+        yield (
+            run[0].lineno,
+            run[-1].end_lineno or run[-1].lineno,
+            [f"{indent}{line}" if line else line for line in _split_python_lines(block)],
+        )
+
+
+def _collect_statement_replacements(  # noqa: PLR0913
+    statement: ast.stmt,
+    lines: list[str],
+    line_length: int,
+    known_first_party: frozenset[str],
     *,
     wrap_string_literal: bool,
-    restore: Callable[[str], str] = str,
+    names: _ImportNames = _PLAIN_NAMES,
 ) -> Iterator[_LineReplacement]:
-    """Lay out the decorators, header and simple statements of a class, and of the definitions nested in it."""
-    yield from _collect_definition_header_replacements(
-        node, lines, line_length, wrap_string_literal=wrap_string_literal, restore=restore
+    """Lay out ``statement`` and the statements of the bodies nested in it, at any depth, as black does.
+
+    A simple statement is laid out whole, a compound statement by its headers. The import runs of a nested body are
+    sorted as isort sorts the module's imports: indented as their first import, at the line length that indent leaves.
+    """
+    if (
+        replacement := _statement_replacement(
+            statement, lines, line_length, wrap_string_literal=wrap_string_literal, restore=names.restore
+        )
+    ) is not None:
+        yield replacement
+    yield from _collect_header_replacements(
+        statement, lines, line_length, wrap_string_literal=wrap_string_literal, restore=names.restore
     )
-    for statement in node.body:
-        match statement:
-            case ast.ClassDef():
-                yield from _collect_class_replacements(
-                    statement, lines, line_length, wrap_string_literal=wrap_string_literal, restore=restore
-                )
-            case ast.FunctionDef() | ast.AsyncFunctionDef():
-                yield from _collect_function_boolean_replacements(statement, lines, line_length)
-                yield from _collect_definition_header_replacements(
-                    statement, lines, line_length, wrap_string_literal=wrap_string_literal, restore=restore
-                )
-            case _:
-                if (
-                    replacement := _statement_replacement(
-                        statement, lines, line_length, wrap_string_literal=wrap_string_literal, restore=restore
-                    )
-                ) is not None:
-                    yield replacement
+    for body in _nested_bodies(statement):
+        yield from _import_run_replacements(body, lines, line_length, known_first_party, names)
+        for child in body:
+            yield from _collect_statement_replacements(
+                child, lines, line_length, known_first_party, wrap_string_literal=wrap_string_literal, names=names
+            )
 
 
 def _collect_builtin_replacements(  # noqa: PLR0913
@@ -768,50 +812,332 @@ def _collect_builtin_replacements(  # noqa: PLR0913
     *,
     wrap_string_literal: bool,
     names: _ImportNames = _PLAIN_NAMES,
+    import_block: tuple[int, int] = (0, 0),
+    moved_comments: list[str] | None = None,
 ) -> list[_LineReplacement]:
+    """Lay out every statement as black does and put black's blank lines between them, keeping every comment.
+
+    The lines of ``import_block``, the first and last line of the module's import block, are rebuilt elsewhere; the
+    import runs after it are sorted, and ``moved_comments``, the lines isort moves out of the block, come after it.
+    """
     replacements: list[_LineReplacement] = []
     for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            replacements.extend(_collect_function_boolean_replacements(node, lines, line_length))
-            replacements.extend(
-                _collect_definition_header_replacements(
-                    node, lines, line_length, wrap_string_literal=wrap_string_literal, restore=names.restore
-                )
+        replacements.extend(
+            _collect_statement_replacements(
+                node, lines, line_length, known_first_party, wrap_string_literal=wrap_string_literal, names=names
             )
-        if _is_type_checking_if(node):
-            formatted_type_checking = _format_type_checking_block(node, lines, line_length, known_first_party, names)
-            if formatted_type_checking is not None:
-                replacements.append(_replacement(node, formatted_type_checking))
-            continue
-        if (
-            replacement := _statement_replacement(
-                node, lines, line_length, wrap_string_literal=wrap_string_literal, restore=names.restore
-            )
-        ) is not None:
-            replacements.append(replacement)
-
-        if isinstance(node, ast.ClassDef):
-            replacements.extend(
-                _collect_class_replacements(
-                    node, lines, line_length, wrap_string_literal=wrap_string_literal, restore=names.restore
-                )
-            )
-            if len(node.body) > 1 and (docstring_node := _docstring_node(node.body[0])) is not None:
-                docstring_end = docstring_node.end_lineno or docstring_node.lineno
-                next_start = _statement_start(node.body[1], lines)
-                if docstring_end + 1 == next_start:
-                    replacements.append((docstring_end, docstring_end, [lines[docstring_end - 1], ""]))
-                elif docstring_end + 2 < next_start:
-                    replacements.append((docstring_end + 1, next_start - 1, [""]))
-            for previous_statement, next_statement in zip(node.body, node.body[1:], strict=False):
-                if previous_statement is node.body[0] and _docstring_node(previous_statement) is not None:
-                    continue
-                previous_end = previous_statement.end_lineno or previous_statement.lineno
-                next_start = _statement_start(next_statement, lines)
-                if previous_end + 2 < next_start:
-                    replacements.append((previous_end + 1, next_start - 1, [""]))
-
+        )
+    replacements.extend(
+        _import_run_replacements(tree.body, lines, line_length, known_first_party, names, after=import_block[1])
+    )
+    replacements.extend(_BlankLinePlacer(lines, import_block, moved_comments or []).place(tree))
     return replacements
+
+
+_DECORATOR, _DEF, _CLASS, _IMPORT, _COMMENT, _DOCSTRING, _STUB_DEF, _OPENS_BLOCK, _DEPENDENT_CLAUSE, _BODY_BELOW = (
+    1 << bit for bit in range(10)
+)
+_INDEPENDENT_CLAUSES = frozenset({"with", "try", "for", "while", "if", "match"})
+_FIRST_WORD = re.compile(r"\s*(\w*)")
+_CASE_KEYWORD = re.compile(r"\s*case\b")
+_DOCSTRING_STARTS = frozenset(b"\"'rRuU")
+_LogicalLine: TypeAlias = tuple[int, int, int, int]
+
+
+def _is_gap_line(line: str) -> bool:
+    """Return whether ``line`` holds no code: it is blank or a comment, as the lines between statements are."""
+    return not (stripped := line.lstrip()) or stripped[0] == "#"
+
+
+def _header_end(lines: list[str], start: int, body_start: int) -> int:
+    """Return the last line of a clause header that starts on ``start``, above the gap lines before its body."""
+    end = body_start - 1
+    while end > start and _is_gap_line(lines[end - 1]):
+        end -= 1
+    return end
+
+
+def _body_on_header_line(body: list[ast.stmt], lines: list[str]) -> bool:
+    return bool(lines[body[0].lineno - 1].encode()[: body[0].col_offset].strip())
+
+
+def _logical_lines(body: list[ast.stmt], lines: list[str], depth: int) -> Iterator[_LogicalLine]:
+    """Yield black's logical lines of ``body`` in source order, each as its first and last line, depth and kind."""
+    for index, statement in enumerate(body):
+        for decorator in getattr(statement, "decorator_list", ()):
+            start = decorator.lineno
+            while not lines[start - 1].lstrip().startswith("@"):
+                start -= 1
+            yield start, decorator.end_lineno or decorator.lineno, depth, _DECORATOR
+        if isinstance(statement, _CLAUSE_STATEMENTS):
+            for start, clause_body, clause_depth, flags in _clauses(statement, lines, depth):
+                yield from _clause_lines(start, clause_body, lines, clause_depth, flags)
+            continue
+        if isinstance(statement, (ast.Import, ast.ImportFrom)):
+            flags = _IMPORT
+        elif (
+            not index
+            and isinstance(statement, ast.Expr)
+            and _is_string_constant(statement.value)
+            and lines[statement.lineno - 1].encode()[statement.col_offset] in _DOCSTRING_STARTS
+        ):
+            flags = _DOCSTRING
+        else:
+            flags = 0
+        yield statement.lineno, _statement_end(statement, lines), depth, flags
+
+
+def _clauses(
+    statement: _ClauseStatement | ast.Match, lines: list[str], depth: int
+) -> Iterator[tuple[int, list[ast.stmt] | None, int, int]]:
+    """Yield the clauses of a compound statement: the first line of each header, its body, depth and kind.
+
+    A ``match`` header has no body of its own; its ``case`` clauses are one level deeper.
+    """
+    if isinstance(statement, ast.Match):
+        yield statement.lineno, None, depth, 0
+        for case in statement.cases:
+            case_line = case.pattern.lineno
+            while not _CASE_KEYWORD.match(lines[case_line - 1]):
+                case_line -= 1
+            yield case_line, case.body, depth + 1, 0
+        return
+    flags = 0
+    if isinstance(statement, ast.ClassDef):
+        flags = _CLASS
+    elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        flags = _DEF | (_STUB_DEF if _is_stub_body(statement.body, lines) else 0)
+    yield statement.lineno, statement.body, depth, flags
+    orelse = getattr(statement, "orelse", [])
+    while (
+        len(orelse) == 1
+        and isinstance(elif_ := orelse[0], ast.If)
+        and lines[elif_.lineno - 1].encode()[elif_.col_offset :].startswith(b"elif")
+    ):
+        yield elif_.lineno, elif_.body, depth, 0
+        orelse = elif_.orelse
+    for handler in getattr(statement, "handlers", ()):
+        yield handler.lineno, handler.body, depth, 0
+    for body in (orelse, getattr(statement, "finalbody", None)):
+        if body:
+            if _body_on_header_line(body, lines):
+                yield body[0].lineno, body, depth, 0
+            else:
+                yield _header_end(lines, 1, _statement_start(body[0], lines)), body, depth, 0
+
+
+def _clause_lines(
+    start: int, body: list[ast.stmt] | None, lines: list[str], depth: int, flags: int
+) -> Iterator[_LogicalLine]:
+    """Yield a clause header that starts on ``start`` and the logical lines of its body.
+
+    A body on the header's line is read from that line, after the header, as black splits it there, but a definition's
+    ``...`` stays on the header's line. The header of a ``match`` statement ends above its first ``case``.
+    """
+    if body is None:
+        case_line = start + 1
+        while not _CASE_KEYWORD.match(lines[case_line - 1]):
+            case_line += 1
+        end = _header_end(lines, start, case_line)
+        flags |= _BODY_BELOW
+    elif _body_on_header_line(body, lines):
+        if _is_stub_body(body, lines) and flags & (_CLASS | _DEF):
+            yield start, _statement_end(body[0], lines), depth, flags
+            return
+        end = body[0].lineno
+    else:
+        end = _header_end(lines, start, _statement_start(body[0], lines))
+        flags |= _BODY_BELOW
+    if (match := _FIRST_WORD.match(lines[start - 1])) is not None and match[1] not in _INDEPENDENT_CLAUSES:
+        flags |= _DEPENDENT_CLAUSE
+    yield start, end, depth, flags | _OPENS_BLOCK
+    if body is not None:
+        yield from _logical_lines(body, lines, depth + 1)
+
+
+_LeadingComment: TypeAlias = "tuple[list[int], int | None, int]"
+
+
+class _EmptyLineTracker:
+    """Black's ``EmptyLineTracker`` (stable style) over logical lines given by their kind and depth.
+
+    Each line gets a block ``[before, after]``: the blank lines before and after it. A comment that leads a definition
+    gets the definition's blank lines in its own block, set when the definition comes.
+    """
+
+    __slots__ = ("code_lines", "defs", "leading_comment", "previous", "previous_block", "previous_depth")
+
+    def __init__(self) -> None:
+        self.defs: list[int] = []
+        self.previous: int | None = None
+        self.previous_depth = 0
+        self.previous_block: list[int] = [0, 0]
+        self.leading_comment: _LeadingComment | None = None
+        self.code_lines = 0
+
+    def add(self, flags: int, depth: int, before: int) -> list[int]:
+        """Read the next logical line, with ``before`` blank lines written before it, and return its block."""
+        previous, previous_block = self.previous, self.previous_block
+        before, after = self._empty_lines(flags, depth, min(before, 1 if depth else 2))
+        before = max(0, before - previous_block[1])
+        if self._follows_module_docstring(flags):
+            before = 1
+        block = [before, after]
+        if flags & _COMMENT:
+            if previous is None or (
+                not previous & _DECORATOR and (before or (not previous & _COMMENT and self.leading_comment is None))
+            ):
+                self.leading_comment = block, previous, previous_block[1]
+        else:
+            self.code_lines += 1
+            if not flags & _DECORATOR or before:
+                self.leading_comment = None
+        self.previous, self.previous_depth, self.previous_block = flags, depth, block
+        return block
+
+    def _follows_module_docstring(self, flags: int) -> bool:
+        """Return whether a line other than a definition follows the module docstring, after comments only."""
+        return (
+            self.previous is not None
+            and bool(self.previous & _DOCSTRING)
+            and self.code_lines == 1
+            and not self.previous_depth
+            and not flags & (_CLASS | _DEF)
+        )
+
+    def _empty_lines(self, flags: int, depth: int, before: int) -> tuple[int, int]:
+        user_had_newline = bool(before)
+        previous_def = None
+        while self.defs and self.defs[-1] >= depth:
+            previous_def = self.defs.pop()
+        if flags & (_DEF | _CLASS):
+            self.defs.append(depth)
+        if (previous := self.previous) is None:
+            return 0, 0
+        if flags & _DOCSTRING:
+            if previous & _CLASS:
+                return 0, 1
+            if previous & _OPENS_BLOCK and previous & _DEF:
+                return 0, 0
+        if previous_def is not None:
+            before = 1 if depth or (previous_def and flags & _DEPENDENT_CLAUSE) else 2
+        if flags & (_DECORATOR | _DEF | _CLASS):
+            return self._empty_lines_before_definition(depth, before, user_had_newline=user_had_newline), 0
+        if previous & _IMPORT and not flags & _IMPORT and depth == self.previous_depth:
+            return (before or 1) if depth else 1, 0
+        return before, 0
+
+    def _empty_lines_before_definition(self, depth: int, before: int, *, user_had_newline: bool) -> int:
+        previous = cast("int", self.previous)
+        if previous & _DECORATOR:
+            return 0
+        if self.previous_depth < depth and previous & (_CLASS | _DEF):
+            return int(user_had_newline)
+        leading_comment = None
+        if previous & _COMMENT and self.previous_depth == depth and not before:
+            leading_comment = self.leading_comment
+            if (
+                leading_comment is None
+                or leading_comment[1] is None
+                or leading_comment[1] & (_CLASS | _OPENS_BLOCK)
+                or leading_comment[0][0] > 1
+            ):
+                return 0
+        newlines = 1 if depth else 2
+        if previous & _STUB_DEF and not user_had_newline:
+            newlines = 0
+        if leading_comment is not None:
+            block, _, previous_after = leading_comment
+            block[0] = max(block[0], newlines) - previous_after
+            return 0
+        return newlines
+
+
+class _BlankLinePlacer:
+    """Put black's blank lines between the logical lines of a module and indent each comment as its block.
+
+    A comment between statements belongs to the block a black parse gives it: one after the last statement of a block
+    stays in it while it is indented at least as far, else it moves to the enclosing block. The lines between the
+    imports of the module's import block are left as they are; the lines before and after it are always written,
+    and the lines after it start with ``moved_comments``.
+    """
+
+    __slots__ = ("columns", "import_block", "indents", "lines", "moved_comments", "previous", "replacements", "tracker")
+
+    def __init__(self, lines: list[str], import_block: tuple[int, int], moved_comments: list[str]) -> None:
+        self.lines = lines
+        self.import_block = import_block
+        self.moved_comments = moved_comments
+        self.replacements: list[_LineReplacement] = []
+        self.tracker = _EmptyLineTracker()
+        self.columns: list[int] = []
+        self.indents: list[str] = []
+        self.previous = (0, 0, 0)
+
+    def place(self, tree: ast.Module) -> list[_LineReplacement]:
+        """Return the replacements of the lines between the logical lines of ``tree``."""
+        for start, end, depth, flags in _logical_lines(tree.body, self.lines, 0):
+            previous_end = self.previous[0]
+            if start <= previous_end:
+                self.tracker.add(flags, depth, 0)
+                self.previous = max(previous_end, end), self.previous[1], self.previous[2]
+                continue
+            line = self.lines[start - 1]
+            indent = line[: len(line) - len(line.lstrip(" \t"))]
+            after, comments, blank = self._gap_comments(start - 1, depth, indent)
+            self._replace_gap(start - 1, after, comments, self.tracker.add(flags, depth, blank)[0])
+            del self.columns[depth:], self.indents[depth:]
+            self.columns.append(len(indent))
+            self.indents.append(indent)
+            self.previous = end, depth, flags
+        if self.previous[0] < len(self.lines) or self.moved_comments:
+            after, comments, _ = self._gap_comments(len(self.lines), 0, "")
+            self._replace_gap(len(self.lines), after, comments, 0)
+        return self.replacements
+
+    def _gap_comments(self, end: int, depth: int, indent: str) -> tuple[int, list[tuple[list[int], str]], int]:
+        """Read the comments of the gap that ends on ``end``, before a line at ``depth`` indented by ``indent``.
+
+        Return the blank lines after the line before the gap, each comment's block and text, and the blank lines left.
+        """
+        previous_end, previous_depth, previous_flags = self.previous
+        after = self.tracker.previous_block[1]
+        comments: list[tuple[list[int], str]] = []
+        blank = 0
+        level = depth if previous_flags & _BODY_BELOW else previous_depth
+        gap = self.lines[previous_end:end]
+        if previous_end == self.import_block[1] and self.moved_comments:
+            gap = [*self.moved_comments, *gap]
+        for line in gap:
+            if not (text := line.lstrip()):
+                blank += 1
+                continue
+            if not previous_flags & _BODY_BELOW:
+                column = len(line) - len(line.lstrip(" \t"))
+                while level > depth and column < self.columns[level]:
+                    level -= 1
+            comments.append((
+                self.tracker.add(_COMMENT, level, blank),
+                f"{indent if level == depth else self.indents[level]}{text}",
+            ))
+            blank = 0
+        return after, comments, blank
+
+    def _replace_gap(self, end: int, after: int, comments: list[tuple[list[int], str]], blank: int) -> None:
+        previous_end = self.previous[0]
+        import_block_start, import_block_end = self.import_block
+        if import_block_start <= previous_end < import_block_end:
+            return
+        new_lines: list[str] = []
+        for block, text in comments:
+            new_lines.extend([""] * (after + block[0]))
+            new_lines.append(text)
+            after = block[1]
+        new_lines.extend([""] * (after + blank))
+        if (
+            import_block_end and (end + 1 == import_block_start or previous_end == import_block_end)
+        ) or new_lines != self.lines[previous_end:end]:
+            self.replacements.append((previous_end + 1, end, new_lines))
 
 
 def _module_docstring_node(tree: ast.Module) -> ast.Expr | None:
@@ -826,18 +1152,6 @@ def _docstring_node(first_node: ast.stmt) -> ast.Expr | None:
     return None
 
 
-def _leading_lines_before_imports(lines: list[str], first_import_line: int, tree: ast.Module) -> list[str]:
-    leading_lines = list(lines[: first_import_line - 1])
-    docstring_node = _module_docstring_node(tree)
-    if (
-        docstring_node is not None
-        and docstring_node.end_lineno == len(leading_lines)
-        and (not leading_lines or leading_lines[-1].strip())
-    ):
-        leading_lines.append("")
-    return leading_lines
-
-
 def _iter_module_import_nodes(tree: ast.Module) -> list[ast.Import | ast.ImportFrom]:
     body_nodes = tree.body
     if _module_docstring_node(tree) is not None:
@@ -846,14 +1160,54 @@ def _iter_module_import_nodes(tree: ast.Module) -> list[ast.Import | ast.ImportF
     import_nodes: list[ast.Import | ast.ImportFrom] = []
     for node in body_nodes:
         if not isinstance(node, (ast.Import, ast.ImportFrom)):
+            while import_nodes and (import_nodes[-1].end_lineno or import_nodes[-1].lineno) >= node.lineno:
+                import_nodes.pop()
             break
         import_nodes.append(node)
     return import_nodes
 
 
+def _import_block_comments(
+    import_nodes: list[ast.Import | ast.ImportFrom], lines: list[str]
+) -> tuple[dict[int, list[str]], list[str]]:
+    """Split the comment lines between the imports of the module's import block as isort does.
+
+    Return the comment lines right above each import, which move with it, and the lines from each other comment to the
+    blank line that ends it, which isort moves below the block.
+    """
+    comments_above: dict[int, list[str]] = {}
+    moved: list[str] = []
+    for index in range(1, len(import_nodes)):
+        previous = import_nodes[index - 1]
+        gap = lines[previous.end_lineno or previous.lineno : import_nodes[index].lineno - 1]
+        if not any(gap):
+            continue
+        split = len(gap)
+        while split and gap[split - 1]:
+            split -= 1
+        if split < len(gap):
+            comments_above[index] = [line.strip() for line in gap[split:]]
+        if (first := next((line_index for line_index, line in enumerate(gap[:split]) if line), None)) is not None:
+            moved.extend(line.strip() for line in gap[first:split])
+    return comments_above, moved
+
+
+def _disjoint_replacements(replacements: list[_LineReplacement]) -> list[_LineReplacement]:
+    """Return the replacements in line order, leaving out each one whose lines another one before it replaces.
+
+    A replacement inside another one, such as the blank lines between two imports of a sorted run, is part of it. One
+    that ends before it starts inserts its lines there, before a replacement that starts on the same line.
+    """
+    kept: list[_LineReplacement] = []
+    for replacement in sorted(replacements, key=lambda item: (item[0], item[1] >= item[0], -item[1])):
+        if not kept or replacement[0] > kept[-1][1]:
+            kept.append(replacement)
+    return kept
+
+
 def _apply_line_replacements(lines: list[str], replacements: list[_LineReplacement], *, offset: int = 0) -> list[str]:
     formatted_lines = list(lines)
-    for start, end, replacement_lines in sorted(replacements, reverse=True):
+    for start, end, replacement_lines in reversed(_disjoint_replacements(replacements)):
         start_index = start - offset - 1
         end_index = end - offset
         if start_index < 0 or end_index > len(formatted_lines):  # pragma: no cover
@@ -870,6 +1224,11 @@ def _previous_non_empty_line_index(lines: list[str]) -> int:
 
 
 def _normalize_top_level_blank_lines(code: str) -> str:
+    """Put black's blank lines between top-level statements: two around definitions, none after a decorator.
+
+    A definition right after a function whose body is a stub ``...`` on its header line gets none, as black keeps a
+    run of ``@overload`` stubs together.
+    """
     string_lines: set[int] = set()
     # Multi-line STRING tokens can only come from triple quotes or backslash-continuation.
     if ('"""' in code) or ("'''" in code) or ("\\\n" in code) or ("\\\r\n" in code):
@@ -879,7 +1238,7 @@ def _normalize_top_level_blank_lines(code: str) -> str:
 
     lines = _split_python_lines(code)
     formatted_lines: list[str] = []
-    previous_definition = False
+    previous_definition = previous_function = False
     in_decorator = False
     for line_number, line in enumerate(lines, start=1):
         if line and not line.startswith((" ", "\t")) and line_number not in string_lines:
@@ -893,8 +1252,11 @@ def _normalize_top_level_blank_lines(code: str) -> str:
                 (
                     starts_definition
                     and not (
-                        formatted_lines[previous_line_index].startswith("#")
-                        and previous_line_index == len(formatted_lines) - 1
+                        previous_line_index == len(formatted_lines) - 1
+                        and (
+                            formatted_lines[previous_line_index].startswith("#")
+                            or (previous_function and formatted_lines[previous_line_index].endswith(": ..."))
+                        )
                     )
                 )
                 or (
@@ -911,6 +1273,7 @@ def _normalize_top_level_blank_lines(code: str) -> str:
                 formatted_lines.pop()
             if not continuation:
                 previous_definition = line.startswith(_DEF_PREFIXES)
+                previous_function = line.startswith(_DEF_PREFIXES[1:])
                 in_decorator = line.startswith("@")
         formatted_lines.append(line)
     return "\n".join(formatted_lines)
@@ -936,29 +1299,64 @@ def _string_tokens(code: str) -> Iterator[tokenize.TokenInfo]:
             yield tokenize.TokenInfo(tokenize.STRING, text, first.start, last.end, first.line)
 
 
+_ESCAPED_QUOTES = {quote: re.compile(rf"([^\\]|^)\\((?:\\\\)*){quote}") for quote in "'\""}
+_UNESCAPED_QUOTES = {quote: re.compile(rf"(([^\\]|^)(\\\\)*){quote}") for quote in "'\""}
+
+
+def _sub_twice(pattern: re.Pattern[str], replacement: str, text: str) -> str:
+    """Replace the matches of ``pattern`` twice, so that matches that share a character are all replaced."""
+    return pattern.sub(replacement, pattern.sub(replacement, text))
+
+
+def _has_escaped_f_string_field(prefix: str, body: str) -> bool:
+    return "f" in prefix.casefold() and any("\\" in body[start:end] for start, end in iter_fexpr_spans(body))
+
+
+def _normalized_string_quotes(prefix: str, quote: str, body: str) -> str:
+    """Return a one-quote string literal with the quotes black's ``normalize_string_quotes`` chooses.
+
+    Double quotes are preferred unless they need more escapes; escapes the chosen quotes do not need are removed. A
+    raw string keeps its body, and an f-string whose replacement fields would hold a backslash keeps its quotes.
+    """
+    new_quote = "'" if quote == '"' else '"'
+    if _has_escaped_f_string_field(prefix, body):
+        return f"{prefix}{quote}{body}{quote}"
+    if "r" in prefix.casefold():
+        if _UNESCAPED_QUOTES[new_quote].search(body):
+            return f"{prefix}{quote}{body}{quote}"
+        new_body = body
+    else:
+        body = _sub_twice(_ESCAPED_QUOTES[new_quote], rf"\1\2{new_quote}", body)
+        new_body = _sub_twice(_ESCAPED_QUOTES[quote], rf"\1\2{quote}", body)
+        new_body = _sub_twice(_UNESCAPED_QUOTES[new_quote], rf"\1\\{new_quote}", new_body)
+    escapes, new_escapes = body.count("\\"), new_body.count("\\")
+    if (
+        _has_escaped_f_string_field(prefix, new_body)
+        or new_escapes > escapes
+        or (new_escapes == escapes and quote == '"')
+    ):
+        return f"{prefix}{quote}{body}{quote}"
+    return f"{prefix}{new_quote}{new_body}{new_quote}"
+
+
 def _normalize_string_quotes(code: str) -> str:
+    """Give each one-quote string literal of ``code`` the quotes black chooses; triple-quoted strings stay."""
     tokens: list[tokenize.TokenInfo] = []
     for token in _string_tokens(code):
-        normalized_token = token
-        if token.type == tokenize.STRING and (string_match := STRING_PREFIX_PATTERN.match(token.string)) is not None:
-            prefix, quote = string_match.groups()
-            if quote == "'":
-                body = token.string[string_match.end() : -1]
-                if '"' not in body and not body.endswith("\\"):
-                    normalized_token = tokenize.TokenInfo(
-                        token.type,
-                        f'{prefix}"{body}"',
-                        token.start,
-                        token.end,
-                        token.line,
-                    )
-        tokens.append(normalized_token)
+        if (
+            token.type == tokenize.STRING
+            and (string_match := STRING_PREFIX_PATTERN.match(token.string)) is not None
+            and len(quote := string_match[2]) == 1
+        ):
+            text = _normalized_string_quotes(string_match[1], quote, token.string[string_match.end() : -1])
+            token = tokenize.TokenInfo(token.type, text, token.start, token.end, token.line)  # noqa: PLW2901
+        tokens.append(token)
     return tokenize.untokenize(tokens)
 
 
 def _normalize_string_quotes_if_needed(code: str, *, source_is_valid: bool) -> str:
     """Normalize string quotes when the already-validated source may contain a candidate."""
-    if type(code) is not str or not source_is_valid or "'" in code or "\t" in code or "\f" in code:
+    if type(code) is not str or not source_is_valid or any(character in code for character in "'\\\t\f"):
         return _normalize_string_quotes(code)
     return code
 
@@ -968,8 +1366,10 @@ def _finalize_builtin_code(
     *,
     string_normalization: bool,
     source_is_valid: bool = False,
+    blank_lines_placed: bool = False,
 ) -> str:
-    formatted_code = _normalize_top_level_blank_lines(code.strip("\n"))
+    """End the code with one newline, put black's top-level blank lines unless they are placed, and normalize quotes."""
+    formatted_code = code.strip("\n") if blank_lines_placed else _normalize_top_level_blank_lines(code.strip("\n"))
     if string_normalization:
         formatted_code = _normalize_string_quotes_if_needed(formatted_code, source_is_valid=source_is_valid)
     return f"{formatted_code}\n"
@@ -1026,7 +1426,7 @@ def _try_apply_builtin_generated_formatter(  # noqa: PLR0911, PLR0913
     for source_line in _split_python_lines(code):
         line = source_line.rstrip()
         if (
-            len(line) > line_length  # noqa: PLR0916
+            str_width(line) > line_length  # noqa: PLR0916
             or "ConfigDict(" in line
             or "TypeAlias" in line
             or "TypedDict(" in line
@@ -1183,11 +1583,11 @@ def _laid_out_docstring(text: str, indent: str, line_length: int) -> str:
     docstring = body[quote_length:-quote_length]
     started_empty = not docstring
     docstring = _fix_multiline_docstring(docstring, indent) if "\n" in text else docstring.strip()
-    trailing_backslash = False
+    trailing_backslash = ends_with_quote = False
     if docstring:
         if docstring[0] == quote_char:
             docstring = f" {docstring}"
-        if docstring[-1] == quote_char:
+        if ends_with_quote := docstring[-1] == quote_char:
             docstring += " "
         if (len(docstring) - len(docstring.rstrip("\\"))) % 2:
             docstring += " "
@@ -1204,7 +1604,7 @@ def _laid_out_docstring(text: str, indent: str, line_length: int) -> str:
         and not trailing_backslash
         and text[-1 - quote_length] != "\n"
     ):
-        return f"{prefix}{quote}{docstring}\n{indent}{quote}"
+        return f"{prefix}{quote}{docstring[:-1] if ends_with_quote else docstring}\n{indent}{quote}"
     return f"{prefix}{quote}{docstring}{quote}"
 
 
@@ -1249,6 +1649,145 @@ def _strip_line_ends(code: str, line_length: int) -> str:
     return "".join(pieces)
 
 
+_COMMENT_EXCEPTIONS = " !:#'"
+_FMT_DIRECTIVES = frozenset({
+    "# fmt: off",
+    "# fmt:off",
+    "# yapf: disable",
+    "# fmt: skip",
+    "# fmt:skip",
+    "# fmt: on",
+    "# fmt:on",
+    "# yapf: enable",
+})
+_F_STRING_STARTS = frozenset(
+    getattr(tokenize, name) for name in ("FSTRING_START", "TSTRING_START") if hasattr(tokenize, name)
+)
+_F_STRING_ENDS = frozenset(
+    getattr(tokenize, name) for name in ("FSTRING_END", "TSTRING_END") if hasattr(tokenize, name)
+)
+
+
+def _is_type_comment(text: str) -> bool:
+    return text.startswith("#") and text[1:].lstrip().startswith("type:")
+
+
+def _has_fmt_directive(comment: str) -> bool:
+    """Return whether ``comment`` holds a ``fmt``/``yapf`` directive, alone or among others, as black reads it."""
+    return (
+        comment in _FMT_DIRECTIVES
+        or any(f"# {part.strip()}" in _FMT_DIRECTIVES for part in comment.split("# ")[1:])
+        or any(f"# {part.strip()}" in _FMT_DIRECTIVES for part in comment.strip("# ").split(";"))
+    )
+
+
+def _black_comment(comment: str) -> str:
+    """Return ``comment`` as black writes it: one space after the hash, except before ``!``, ``:``, ``#``, ``'``.
+
+    A type comment is spelled ``# type: <value>`` and a leading no-break space becomes a space.
+    """
+    content = comment[1:]
+    if content[:1] == "\N{NO-BREAK SPACE}" and not _is_type_comment(f"# {content.lstrip()}"):
+        content = f" {content[1:]}"
+    if "\N{NO-BREAK SPACE}" not in content and _is_type_comment(f"#{content}"):
+        type_part, value_part = content.split(":", 1)
+        content = f"{type_part.strip()}: {value_part.strip()}"
+    if content and content[0] not in _COMMENT_EXCEPTIONS:
+        content = f" {content}"
+    return f"#{content}"
+
+
+def _normalize_comments(code: str) -> str:
+    """Write each comment as black does, with two spaces between code and a comment after it.
+
+    A comment in an f-string's replacement field, and the spacing before a comment with a ``fmt`` directive, stay as
+    they are. Code the tokenizer rejects stays as it is.
+    """
+    if "#" not in code:
+        return code
+    lines = code.split("\n")
+    f_string_depth = 0
+    try:
+        for token in tokenize.generate_tokens(StringIO(code).readline):
+            if token.type in _F_STRING_STARTS:
+                f_string_depth += 1
+            elif token.type in _F_STRING_ENDS:
+                f_string_depth -= 1
+            elif token.type == tokenize.COMMENT and not f_string_depth:
+                if _has_fmt_directive(token.string):
+                    continue
+                row, column = token.start
+                line = lines[row - 1]
+                comment = _black_comment(token.string)
+                code_before = line[:column].rstrip()
+                lines[row - 1] = f"{code_before}  {comment}" if code_before else f"{line[:column]}{comment}"
+    except (tokenize.TokenError, SyntaxError):
+        return code
+    return "\n".join(lines)
+
+
+_INDENT = "    "
+
+
+def _is_misindented(tree: ast.Module, lines: list[str]) -> bool:
+    """Return whether a logical line of ``tree`` is not indented by four spaces for each block it is in."""
+    previous_end = 0
+    for start, end, depth, _ in _logical_lines(tree.body, lines, 0):
+        if start > previous_end and (
+            not (line := lines[start - 1]).startswith(_INDENT * depth) or line[len(_INDENT) * depth] in " \t"
+        ):
+            return True
+        previous_end = max(previous_end, end)
+    return False
+
+
+def _reindented(code: str) -> str:
+    """Indent ``code``, which parses, by four spaces for each block, as black does.
+
+    The lines that continue a statement move with its first line, a comment line between statements takes the indent
+    of the deepest open block it is indented as far as, and the lines inside a string stay as they are.
+    """
+    lines = code.split("\n")
+    columns = [0]
+    first_row = delta = 0
+    string_rows: set[int] = set()
+    f_string_rows: list[int] = []
+    for token in tokenize.generate_tokens(StringIO(code).readline):
+        kind, (row, column) = token.type, token.start
+        if kind == tokenize.INDENT:
+            columns.append(len(token.string))
+        elif kind == tokenize.DEDENT:
+            columns.pop()
+        elif kind in _F_STRING_STARTS:
+            f_string_rows.append(row)
+        elif kind in _F_STRING_ENDS or kind == tokenize.STRING:
+            string_rows.update(range((f_string_rows.pop() if kind in _F_STRING_ENDS else row) + 1, token.end[0] + 1))
+        if kind in _LAYOUT_TOKENS:
+            continue
+        if first_row:
+            if kind == tokenize.NEWLINE:
+                _shift_lines(lines, range(first_row, row), delta, string_rows)
+                first_row = 0
+        elif kind == tokenize.COMMENT:
+            lines[row - 1] = f"{_INDENT * sum(1 for indent in columns[1:] if indent <= column)}{token.string}"
+        else:
+            first_row = row
+            delta = len(_INDENT) * (len(columns) - 1) - column
+            lines[row - 1] = f"{_INDENT * (len(columns) - 1)}{lines[row - 1][column:]}"
+    return "\n".join(lines)
+
+
+_LAYOUT_TOKENS = frozenset({tokenize.INDENT, tokenize.DEDENT, tokenize.NL, tokenize.ENDMARKER})
+
+
+def _shift_lines(lines: list[str], indexes: range, delta: int, string_rows: set[int]) -> None:
+    """Move the lines at ``indexes`` right by ``delta`` columns, but not those a string continues on."""
+    for index in indexes:
+        if index + 1 not in string_rows and (line := lines[index]):
+            lead = len(line) - len(line.lstrip(" \t"))
+            lines[index] = f"{' ' * max(0, lead + delta)}{line[lead:]}"
+
+
 def _strip_ends_before_last(text: str) -> str:
     """Strip the end of every line of ``text`` but the last, which a string literal continues."""
     *complete, last = text.split("\n")
@@ -1266,7 +1805,8 @@ def _apply_builtin_formatter(  # noqa: PLR0913, PLR0914
     lent: HostIdentifiers | None,
 ) -> str:
     python_version = names.python_version
-    lines = _split_python_lines(_strip_line_ends(normalize_newlines(code), line_length))
+    stripped = _strip_line_ends(normalize_newlines(code), line_length)
+    lines = _split_python_lines(_normalize_comments(stripped))
     start = 0
     while start < len(lines) and not lines[start]:
         start += 1
@@ -1278,10 +1818,28 @@ def _apply_builtin_formatter(  # noqa: PLR0913, PLR0914
 
     tree, source_is_valid = _parse_builtin_code_with_source_validity(code, python_version)
     if tree is None:
-        return f"{code}\n"
+        # Code that does not parse (also newer-target syntax the running Python cannot read) keeps its comments as
+        # written: the tokenizer may read part of a string as a comment.
+        written = "\n".join(_split_python_lines(stripped)).strip("\n")
+        return f"{written}\n"
+    if _is_misindented(tree, lines):
+        reindented = _strip_line_ends(_reindented(code), line_length)
+        reindented_tree, reindented_is_valid = _parse_builtin_code_with_source_validity(reindented, python_version)
+        if reindented_tree is not None:
+            code, tree, source_is_valid = reindented, reindented_tree, reindented_is_valid
+            lines = _split_python_lines(code)
+    if (
+        string_normalization
+        and (normalized := _normalize_string_quotes_if_needed(code, source_is_valid=source_is_valid)) != code
+        and (normalized_tree := _parse_builtin_code_with_source_validity(normalized, python_version)[0]) is not None
+    ):
+        code, tree = normalized, normalized_tree
+        lines = _split_python_lines(code)
     if lent is not None:
         _rename_lent_identifiers(tree, lent)
 
+    import_nodes = _iter_module_import_nodes(tree)
+    comments_above, moved_comments = _import_block_comments(import_nodes, lines)
     replacements = _collect_builtin_replacements(
         tree,
         lines,
@@ -1289,28 +1847,35 @@ def _apply_builtin_formatter(  # noqa: PLR0913, PLR0914
         known_first_party,
         wrap_string_literal=wrap_string_literal,
         names=names,
+        import_block=(import_nodes[0].lineno, import_nodes[-1].end_lineno or import_nodes[-1].lineno)
+        if import_nodes
+        else (0, 0),
+        moved_comments=moved_comments,
     )
-    import_nodes = _iter_module_import_nodes(tree)
 
     if not import_nodes:
         formatted_lines = _apply_line_replacements(lines, replacements)
         return _finalize_builtin_code(
             "\n".join(formatted_lines),
-            string_normalization=string_normalization,
+            string_normalization=string_normalization and wrap_string_literal,
             source_is_valid=source_is_valid,
+            blank_lines_placed=True,
         )
 
     first_line = import_nodes[0].lineno
     last_line = import_nodes[-1].end_lineno or import_nodes[-1].lineno
-    leading = "\n".join(_leading_lines_before_imports(lines, first_line, tree))
+    leading = "\n".join(
+        _apply_line_replacements(lines[: first_line - 1], [item for item in replacements if item[1] < first_line])
+    )
     body_lines = _apply_line_replacements(lines[last_line:], replacements, offset=last_line)
-    body = "\n".join(body_lines).strip("\n")
-    import_block = _build_builtin_import_block(import_nodes, line_length, lines, known_first_party, names)
+    body = "\n".join(body_lines).rstrip("\n")
+    import_block = _build_builtin_import_block(
+        import_nodes, line_length, lines, known_first_party, names, comments_above=comments_above
+    )
     formatted_code = f"{leading}\n{import_block}" if leading else import_block
-    if body:
-        formatted_code = _join_import_block(formatted_code, body) if formatted_code else body
     return _finalize_builtin_code(
-        formatted_code,
-        string_normalization=string_normalization,
+        f"{formatted_code}\n{body}" if body else formatted_code,
+        string_normalization=string_normalization and wrap_string_literal,
         source_is_valid=source_is_valid,
+        blank_lines_placed=True,
     )

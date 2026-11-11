@@ -19,17 +19,18 @@
 //! Word-level integer algorithms behind the `BigInt` operators.
 //!
 //! Every fallback takes canonical two's-complement words, least-significant
-//! first, and returns a canonical `BigInt`. The functions mirror C++
-//! `detail::int_ops` in `include/tvm/ffi/big_int.h` one for one; keep them in
-//! sync. Word arithmetic wraps modulo 2^64 on purpose, hence the explicit
-//! `wrapping_*`/`overflowing_*` forms. As in C++, a result whose words are each
-//! computed once is written straight into a fresh object and pruned in place
-//! (`BigInt::build`); multiplication and division accumulate into a zeroed
-//! [`WordsBuf`] and finish with [`BigInt::from_words`].
+//! first, and returns a canonical `BigInt`. Word arithmetic wraps modulo 2^64
+//! on purpose, hence the explicit `wrapping_*`/`overflowing_*` forms. A result
+//! whose words are each computed once is written straight into a fresh object
+//! and pruned in place (`BigInt::build`); multiplication and division
+//! accumulate into a zeroed [`WordsBuf`] and finish with [`BigInt::from_words`].
+
+// The functions mirror C++ `detail::int_ops` in `include/tvm/ffi/big_int.h` one
+// for one; keep them in sync.
 #![allow(clippy::needless_range_loop)]
 
 use super::BigInt;
-use crate::error::{Error, Result, OVERFLOW_ERROR, VALUE_ERROR, ZERO_DIVISION_ERROR};
+use crate::error::{Error, OVERFLOW_ERROR, Result, VALUE_ERROR, ZERO_DIVISION_ERROR};
 use std::mem::MaybeUninit;
 
 const BASE: u64 = 1 << 32;
@@ -76,15 +77,15 @@ impl WordsBuf {
 }
 
 pub(super) fn zero_division() -> Error {
-    Error::new(ZERO_DIVISION_ERROR, "Division by zero", "")
+    Error::new(ZERO_DIVISION_ERROR, "Division by zero")
 }
 
 fn negative_shift() -> Error {
-    Error::new(VALUE_ERROR, "Negative BigInt shift count", "")
+    Error::new(VALUE_ERROR, "Negative BigInt shift count")
 }
 
 fn overflow(message: &str) -> Error {
-    Error::new(OVERFLOW_ERROR, message, "")
+    Error::new(OVERFLOW_ERROR, message)
 }
 
 /// Whether a nonempty signed-word view represents a negative integer.
@@ -96,11 +97,7 @@ pub(super) fn is_negative(x: &[i64]) -> bool {
 /// The word that sign-extends `x` beyond its length.
 #[inline]
 pub(super) fn extension(x: &[i64]) -> u64 {
-    if is_negative(x) {
-        u64::MAX
-    } else {
-        0
-    }
+    if is_negative(x) { u64::MAX } else { 0 }
 }
 
 /// Word `i` of `x`, sign-extended past its length.
@@ -194,11 +191,7 @@ pub(super) fn shr_i64(a: i64, b: i64) -> Result<i64> {
         return Err(negative_shift());
     }
     Ok(if b >= 64 {
-        if a < 0 {
-            -1
-        } else {
-            0
-        }
+        if a < 0 { -1 } else { 0 }
     } else {
         a >> b
     })

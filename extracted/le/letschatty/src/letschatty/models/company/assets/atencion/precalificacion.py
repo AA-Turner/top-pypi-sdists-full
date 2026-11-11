@@ -34,6 +34,7 @@ from .acciones_basicas import (
     limpiar_casos_de_derivacion,
     limpiar_mensaje_al_derivar,
 )
+from .accion_externa import AccionExterna
 from .acciones_fijas import AccionesFijas
 from .al_responder import AlResponder
 from .seguimientos import Seguimientos
@@ -73,6 +74,12 @@ class Rama(BaseModel):
     acciones: Optional[AccionesFijas] = Field(
         default=None, description="Acciones fijas que se aplican apenas corre la rama"
     )
+    # 0.6.57.1: avisarle a un sistema del cliente (un `DestinoExterno`) cuando corre la rama o cuando la IA
+    # reservó el turno (ver `accion_externa.AccionExterna`). Convive con `enviar` y `acciones`; no se hereda
+    # del motivo. Primera versión: sólo en ramas de precalificación.
+    accion_externa: Optional[AccionExterna] = Field(
+        default=None, description="Acción externa: avisar a un destino externo de la empresa"
+    )
 
     @model_validator(mode="after")
     def validar(self) -> "Rama":
@@ -88,6 +95,12 @@ class Rama(BaseModel):
             (a.target_funnel_id, a.target_stage_id) != (self.target_funnel_id, self.target_stage_id)
         ):
             raise ValueError("La rama ya mueve a otra etapa: elegí la etapa en un solo lugar")
+        if (
+            self.accion_externa is not None
+            and self.accion_externa.cuando == "al_agendar"
+            and getattr(self.enviar, "tipo", None) != "agendar"
+        ):
+            raise ValueError("«Al agendar» necesita que la rama ofrezca agendar")
         return self
 
 

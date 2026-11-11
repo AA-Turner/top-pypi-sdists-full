@@ -48,6 +48,27 @@ class ArgSingle(object):
 		:return: ArgSingle object of an open list type"""
 		return cls(name, value, data_type, enum_type, False, True, 1, None)
 
+	@classmethod
+	def compose_cmd_string(cls, name: str, value, data_type: DataType, enum_type=None, is_optional: bool = False, is_open_list: bool = False, repetition: int = 1, intern_link: str | None = None) -> str:
+		"""Composes one argument into a SCPI parameter string.
+		An optional argument with value None returns an empty string.
+		:param name: name of the argument
+		:param value: value of the argument
+		:param data_type: data type of the argument
+		:param enum_type: enum type if the data_type is Enum or EnumExt (or list of those)
+		:param is_optional: True for an optional argument. None then produces an empty string
+		:param is_open_list: True for an open list argument
+		:param repetition: number of repetitions for an interleaved list argument
+		:param intern_link: internal linking name
+		:return: SCPI parameter string"""
+		# Imported here to avoid a cycle: ArgStringComposer imports ArgSingle.
+		from .ArgStringComposer import SingleComposer
+
+		arg = cls(name, value, data_type, enum_type, is_optional, is_open_list, repetition, intern_link)
+		if arg.data_type.is_list:
+			return SingleComposer.from_list_arg(arg)
+		return SingleComposer.from_scalar_arg(arg)
+
 	def __str__(self):
 		opt = '~' if self.is_optional else ''
 		name = f" '{self.name}'" if self.name != '' else ''
@@ -67,23 +88,26 @@ class ArgSingle(object):
 			out += f", Linking: '{self.intern_link}'"
 		return out
 
-	# noinspection PyUnusedLocal
 	def has_value(self, value_obj=None) -> bool:
 		"""Returns true, if the argument has value."""
+		# Same signature as ArgStruct.has_value. The scalar value is stored on self.
+		_ = value_obj
 		return self.value is not None
 
-	# noinspection PyUnusedLocal
 	def assert_is_optional(self, obj=None) -> None:
 		"""Asserts that the parameter is optional.
 		If not, the method throws an exception."""
+		# Same signature as ArgStruct.assert_is_optional. The scalar value is stored on self.
+		_ = obj
 		if self.is_optional:
 			return
 		raise RsInstrException(f'Single argument is not optional: {self}')
 
-	# noinspection PyUnusedLocal
 	def assert_mandatory_has_value(self, value_obj=None) -> None:
 		"""Asserts that if the parameter is mandatory, it must have value assigned.
 		If not, the method throws an exception."""
+		# Same signature as ArgStruct.assert_mandatory_has_value. The scalar value is stored on self.
+		_ = value_obj
 		if self.is_optional:
 			return
 		if self.value is None:

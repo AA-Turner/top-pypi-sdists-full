@@ -28,6 +28,11 @@ class _BillingTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._En
     """Usage is charged on the invoice cycle."""
     BILLING_TYPE_CREDIT_ONLY: _BillingType.ValueType  # 2
     """Usage is settled by a prepaid credit balance."""
+    BILLING_TYPE_RESERVED_ONLY: _BillingType.ValueType  # 3
+    """Usage is covered only by the line item's reserved (included) units, never pay-as-you-go (ie size analyses).
+    The reserved units are still charged on the invoice cycle. Usage past them does not draw on a PAYG budget;
+    only a grant or trial adds capacity.
+    """
 
 class BillingType(_BillingType, metaclass=_BillingTypeEnumTypeWrapper):
     """How a line item's usage is settled."""
@@ -38,4 +43,9 @@ BILLING_TYPE_INVOICE_CYCLE: BillingType.ValueType  # 1
 """Usage is charged on the invoice cycle."""
 BILLING_TYPE_CREDIT_ONLY: BillingType.ValueType  # 2
 """Usage is settled by a prepaid credit balance."""
+BILLING_TYPE_RESERVED_ONLY: BillingType.ValueType  # 3
+"""Usage is covered only by the line item's reserved (included) units, never pay-as-you-go (ie size analyses).
+The reserved units are still charged on the invoice cycle. Usage past them does not draw on a PAYG budget;
+only a grant or trial adds capacity.
+"""
 global___BillingType = BillingType

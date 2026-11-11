@@ -17,31 +17,29 @@
  * under the License.
  */
 
-//! Static init blocks: code that runs when the program or library that holds it loads, as a C++
-//! `TVM_FFI_STATIC_INIT_BLOCK` does. The blocks of a program or library are gathered at link
-//! time, wherever in it they are, and a constructor runs them when it loads. Once Python loads a
-//! library built on this crate, by any means, it sees what the blocks registered, as it sees the
-//! registrations of a C++ library. A block that several libraries of a process have, as each
-//! links its own copy of a crate they share, runs once. See
+//! Static init blocks: code that runs when the program or library that holds it loads. The
+//! blocks of a program or library are gathered at link time, wherever in it they are, and a
+//! constructor runs them when it loads. Once Python loads a library built on this crate, by any
+//! means, it sees what the blocks registered, such as global functions. A block that several
+//! libraries of a process have, as each links its own copy of a crate they share, runs once. See
 //! [`static_init_block!`](crate::static_init_block).
 
 use std::ffi::c_void;
 use std::panic::catch_unwind;
 use std::sync::{Once, OnceLock};
 
-use crate::function_internal::panic_to_error;
-use crate::{Any, Error, Function, Result, INTERNAL_ERROR};
+use crate::{Any, Error, Function, INTERNAL_ERROR, Result};
 
 #[doc(hidden)]
 pub use linkme;
 
-/// Run code when the program or library that holds it loads, as a C++
-/// `TVM_FFI_STATIC_INIT_BLOCK` does. The body is the body of a function that returns
+/// Run code when the program or library that holds it loads, the Rust form of
+/// `TVM_FFI_STATIC_INIT_BLOCK`. The body is the body of a function that returns
 /// [`Result<()>`](crate::Result): it registers what the library defines, such as global functions,
 /// and stops at its first error, which `?` returns. A body whose statements all end in `;` returns
 /// `Ok(())`; one that ends in an expression returns it, a `Result<()>`.
 ///
-/// ```
+/// ```standalone_crate
 /// use tvm_ffi::{Function, Result};
 ///
 /// fn add_one(x: i64) -> Result<i64> {
@@ -73,7 +71,13 @@ pub use linkme;
 /// library that runs it registers what it defines, and the others skip it. A block of another
 /// version of the crate, or whose text differs, is another block, and registering what it defines
 /// again is an error. A change to the body of a function the block calls does not make another
-/// block: rebuild every library that links a crate after changing it.
+/// block: rebuild every library that links a crate after changing it. A block is known by the
+/// module path, line, crate version and text, so two crates of the same name and version, such as
+/// plugins built from one template, share the identities of their blocks and only the first runs:
+/// give them distinct crate names.
+///
+/// A panic in a block is caught and reported as its error, except under `panic = "abort"`, where
+/// it aborts the process; a failed `rs_object` registration is such a panic.
 #[macro_export]
 macro_rules! static_init_block {
     ($($body:tt)*) => {
@@ -82,13 +86,13 @@ macro_rules! static_init_block {
             #[linkme(crate = $crate::static_init::linkme)]
             static BLOCK: $crate::static_init::StaticInitBlock =
                 $crate::static_init::StaticInitBlock::__new(
-                    module_path!(),
-                    line!(),
-                    match option_env!("CARGO_PKG_VERSION") {
-                        Some(version) => version,
-                        None => "",
+                    ::core::module_path!(),
+                    ::core::line!(),
+                    match ::core::option_env!("CARGO_PKG_VERSION") {
+                        ::core::option::Option::Some(version) => version,
+                        ::core::option::Option::None => "",
                     },
-                    stringify!($($body)*),
+                    ::core::stringify!($($body)*),
                     __tvm_ffi_static_init_block_body,
                 );
             // A function item rather than a closure, to carry the attribute: a body that diverges,
@@ -98,9 +102,9 @@ macro_rules! static_init_block {
                 $crate::static_init::IntoStaticInitResult::into_static_init_result({ $($body)* })
             }
             #[used]
-            #[cfg_attr(target_os = "linux", link_section = ".init_array")]
-            #[cfg_attr(target_os = "macos", link_section = "__DATA,__mod_init_func")]
-            #[cfg_attr(windows, link_section = ".CRT$XCU")]
+            #[cfg_attr(target_os = "linux", unsafe(link_section = ".init_array"))]
+            #[cfg_attr(target_os = "macos", unsafe(link_section = "__DATA,__mod_init_func"))]
+            #[cfg_attr(windows, unsafe(link_section = ".CRT$XCU"))]
             static RUN_AT_LOAD: extern "C" fn() = $crate::static_init::__run_at_load;
         };
     };
@@ -229,7 +233,7 @@ impl StaticInitBlock {
             (None, Ok(())) => Ok(()),
             (None, Err(text)) => {
                 let message = format!("The static init block at {} failed: {text}", self.place());
-                Err(Error::new(INTERNAL_ERROR, &message, ""))
+                Err(Error::new(INTERNAL_ERROR, &message))
             }
         }
     }
@@ -241,7 +245,7 @@ impl StaticInitBlock {
     fn run_once(&self) -> Result<()> {
         let marker = self.marker();
         if Function::get_global(&marker).is_err() {
-            catch_unwind(self.body).unwrap_or_else(|payload| Err(panic_to_error(payload)))?;
+            catch_unwind(self.body).unwrap_or_else(|payload| Err(Error::from_panic(payload)))?;
             Function::register_global(&marker, Function::from_packed(|_| Ok(Any::default())))?;
         }
         Ok(())
@@ -290,6 +294,8 @@ fn run_blocks() -> Vec<(&'static StaticInitBlock, Error)> {
 /// [`tvm_ffi_dll_export_typed_func!`](crate::tvm_ffi_dll_export_typed_func), for its loader to
 /// call. Where the loader does not run the blocks, call it before using what they define.
 pub fn run_static_init_blocks() -> Result<()> {
+    // As at load: what the blocks register keeps this library's code.
+    keep_loaded();
     let mut failures = run_blocks();
     if failures.len() <= 1 {
         return failures.pop().map_or(Ok(()), |(_, error)| Err(error));
@@ -303,7 +309,7 @@ pub fn run_static_init_blocks() -> Result<()> {
             error.message()
         ));
     }
-    Err(Error::new(failures[0].1.kind(), &message, ""))
+    Err(Error::new(failures[0].1.kind(), &message))
 }
 
 /// The constructor of every [`static_init_block!`](crate::static_init_block), which the loader
@@ -336,7 +342,7 @@ pub extern "C" fn __run_at_load() {
 /// module, would leave the registrations dangling. Returns the path of the library.
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn keep_loaded() -> Option<std::string::String> {
-    use std::ffi::{c_char, c_int, CStr};
+    use std::ffi::{CStr, c_char, c_int};
 
     #[repr(C)]
     struct DlInfo {
@@ -345,7 +351,7 @@ fn keep_loaded() -> Option<std::string::String> {
         sname: *const c_char,
         saddr: *mut c_void,
     }
-    extern "C" {
+    unsafe extern "C" {
         fn dladdr(addr: *const c_void, info: *mut DlInfo) -> c_int;
         fn dlopen(filename: *const c_char, flags: c_int) -> *mut c_void;
     }
@@ -382,7 +388,7 @@ fn keep_loaded() -> Option<std::string::String> {
 
     type Module = *mut c_void;
     #[link(name = "kernel32")]
-    extern "system" {
+    unsafe extern "system" {
         fn GetModuleHandleExW(flags: u32, module_name: *const u16, module: *mut Module) -> i32;
         fn GetModuleFileNameW(module: Module, filename: *mut u16, size: u32) -> u32;
     }

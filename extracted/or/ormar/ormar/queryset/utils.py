@@ -1,15 +1,38 @@
+import asyncio
 import collections.abc
 import copy
+from contextlib import nullcontext
+from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Iterable,
+    Optional,
+    TypeVar,
+    Union,
+)
+from weakref import WeakKeyDictionary
 
 import ormar_rust_utils
+import sqlalchemy.exc
+from sqlalchemy.ext.asyncio import AsyncConnection
 
-from ormar.exceptions import QueryDefinitionError
+from ormar.exceptions import NoMatch, QueryDefinitionError
 from ormar.relations.aliases import alias_for
 
 if TYPE_CHECKING:  # pragma no cover
     from ormar import BaseField, Model
+    from ormar.databases.connection import DatabaseConnection
+
+T = TypeVar("T")
+
+savepoint_locks: "WeakKeyDictionary[AsyncConnection, asyncio.Lock]" = (
+    WeakKeyDictionary()
+)
+holds_savepoint_lock = ContextVar("holds_savepoint_lock", default=False)
 
 
 PathParts = tuple[str, ...]
@@ -455,7 +478,9 @@ def get_relationship_alias_model_and_str(
     models is the path of the many to many relation followed by the through model
     name - also when the relation itself was omitted in the related parts.
 
-    Note that through model names are removed from passed related_parts.
+    Note that through model names are removed from passed related_parts, or
+    replaced with the many to many relation they belong to if it was omitted, so
+    that the relation string joins the through model.
 
     :param related_parts: list of related names extracted from string
     :type related_parts: Union[list, list[str]]
@@ -496,11 +521,13 @@ def resolve_implicit_through_relation(
     previous_models: list[type["Model"]],
 ) -> Optional[str]:
     """
-    Removes the through model name from related parts and returns the name of the
-    many to many relation the through model belongs to, if that relation was not
-    part of the path (i.e. ``postcategory__sort_order`` used from ``Post``).
+    Removes the through model name from related parts, or replaces it with the
+    name of the many to many relation the through model belongs to and returns
+    that name, if the relation was not part of the path
+    (i.e. ``postcategory__sort_order`` used from ``Post``).
 
-    :param related_parts: split relation string, through name is removed in place
+    :param related_parts: split relation string, through name is removed or
+        replaced in place
     :type related_parts: list[str]
     :param relation: name of the through field
     :type relation: str
@@ -511,10 +538,57 @@ def resolve_implicit_through_relation(
     :return: name of the omitted many to many relation or None if it was in the path
     :rtype: Optional[str]
     """
-    related_parts.remove(relation)
-    through_field = related_field.owner.ormar_config.model_fields[
-        related_field.related_name or ""
-    ]
+    through_index = related_parts.index(relation)
+    relation_name = related_field.related_name or ""
+    through_field = related_field.owner.ormar_config.model_fields[relation_name]
     if len(previous_models) > 1 and previous_models[-2] == through_field.to:
+        del related_parts[through_index]
         return None
-    return related_field.related_name
+    related_parts[through_index] = relation_name
+    return relation_name
+
+
+async def get_or_create_with_retry(
+    database: "DatabaseConnection",
+    get: Callable[[], Awaitable[T]],
+    create: Callable[[], Awaitable[T]],
+) -> tuple[T, bool]:
+    """
+    Shared body of ``get_or_create`` for querysets and relation proxies.
+
+    On ``IntegrityError`` from ``create`` the ``get`` is retried once and the
+    error re-raised if it still finds nothing. Inside a transaction ``create``
+    runs in a savepoint, serialised per transaction connection because
+    releasing a savepoint releases the ones opened after it; nested calls in
+    the same task (e.g. from a ``pre_save`` signal) reuse the held lock.
+
+    :param database: database the model belongs to
+    :type database: DatabaseConnection
+    :param get: coroutine factory looking up the row
+    :type get: Callable[[], Awaitable[T]]
+    :param create: coroutine factory creating the row
+    :type create: Callable[[], Awaitable[T]]
+    :return: model instance and whether it was created
+    :rtype: tuple[T, bool]
+    """
+    try:
+        return await get(), False
+    except NoMatch:
+        pass
+    connection = database.get_transaction_connection()
+    try:
+        if connection is None:
+            return await create(), True
+        lock = savepoint_locks.setdefault(connection, asyncio.Lock())
+        async with nullcontext() if holds_savepoint_lock.get() else lock:
+            token = holds_savepoint_lock.set(True)
+            try:
+                async with database.transaction():
+                    return await create(), True
+            finally:
+                holds_savepoint_lock.reset(token)
+    except sqlalchemy.exc.IntegrityError as integrity_error:
+        try:
+            return await get(), False
+        except NoMatch:
+            raise integrity_error from None

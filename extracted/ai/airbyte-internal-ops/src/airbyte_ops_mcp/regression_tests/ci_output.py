@@ -813,6 +813,16 @@ def not_exercised_note(streams: Sequence[str]) -> str | None:
     return f"Not exercised: {describe_not_exercised(streams)}" if streams else None
 
 
+def describe_exercised_partial(
+    streams: Sequence[str] | None = None, reason: str | None = None
+) -> str:
+    """Describe limited new-stream evidence, optionally without EU-private names."""
+    subject = f"{len(streams)} new stream(s)" if streams is not None else "New streams"
+    stop = f" ({reason})" if reason else ""
+    names = f": {', '.join(streams)}" if streams else ""
+    return f"Exercised (partial): {subject} emitted records before the read stopped{stop}{names}"
+
+
 def new_stream_verdict_label(
     *,
     stopped: bool,
@@ -1145,6 +1155,10 @@ def generate_action_test_comparison_report(
             detail += f", and the comparison found {strict_problems} problem{plural}"
         if comparison_errored:
             detail += "; the record comparison errored, so it is inconclusive"
+        if report_model.partial_streams:
+            detail += "; " + describe_exercised_partial(
+                report_model.partial_streams, target_result["stopped_early"]["reason"]
+            )
         line = f"**Result:** {verdict_label} — {detail}"
         if strict_problems or (
             outcome.regression_detected
@@ -1479,6 +1493,10 @@ def generate_single_version_report(
     verdict = report_model.verdict_label
     if report_model.incomplete:
         verdict += f" — {describe_stopped_early(stopped, side_count=1)}"
+    if report_model.partial_streams:
+        verdict += "; " + describe_exercised_partial(
+            report_model.partial_streams, result["stopped_early"]["reason"]
+        )
 
     lines.extend(
         [

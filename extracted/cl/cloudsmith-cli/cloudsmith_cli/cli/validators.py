@@ -158,8 +158,12 @@ def validate_untrusted_proxy(proxy, allowed_suffixes=()):
 
 
 def validate_slashes(
-    param, value, minimum=2, maximum=None, form=None, allow_blank=False
-):
+    param: click.Parameter | None,
+    value: str,
+    minimum: int = 2,
+    maximum: int | None = None,
+    form: str | None = None,
+) -> list[str]:
     """Ensure that parameter has slashes and minimum parts."""
     try:
         value = value.split("/")
@@ -174,20 +178,26 @@ def validate_slashes(
         raise click.BadParameter(f"Must be in the form of {form}", param=param)
 
     value = [v.strip() for v in value]
-    if not allow_blank and not all(value):
+    # Shell completion leaves "OWNER/", so an empty optional trailing part is not given.
+    while len(value) > minimum and not value[-1]:
+        value.pop()
+
+    if not all(value):
         raise click.BadParameter("Individual values cannot be blank", param=param)
 
     return value
 
 
-def validate_optional_owner_repo(ctx, param, value):
+def validate_optional_owner_repo(
+    ctx: click.Context | None, param: click.Parameter | None, value: str | None
+) -> list[str] | None:
     """Ensure that owner/repo is formatted correctly, where owner and repo are optional."""
     # pylint: disable=unused-argument
     form = "OWNER/REPO"
+    if value is None:
+        return None
 
-    return validate_slashes(
-        param, value, minimum=0, maximum=2, form=form, allow_blank=True
-    )
+    return validate_slashes(param, value, minimum=0, maximum=2, form=form) or None
 
 
 def validate_required_owner_optional_repo(ctx, param, value):
@@ -252,7 +262,7 @@ def validate_page_size(ctx, param, value):
     return value
 
 
-def enforce_page_all_exclusive(ctx, wildcard_used=False):
+def enforce_page_all_exclusive(ctx, wildcard_used=False, page_all=None):
     """Order-independent mutual exclusivity check for pagination options.
 
     Raises click.BadParameter bound to the --page-all option if it was used
@@ -263,8 +273,11 @@ def enforce_page_all_exclusive(ctx, wildcard_used=False):
         ctx: Click context
         wildcard_used: If True, validates even if --page-all wasn't explicitly passed
                       (used when --page-size '*' or -1 was used)
+        page_all: The resolved --page-all value, if it can differ from the
+                  parsed parameter (the deprecated --show-all also sets it)
     """
-    page_all = ctx.params.get("page_all")
+    if page_all is None:
+        page_all = ctx.params.get("page_all")
     if not page_all and not wildcard_used:
         return
 
@@ -289,7 +302,7 @@ def enforce_page_all_exclusive(ctx, wildcard_used=False):
         page_all_param = next(
             (p for p in ctx.command.params if p.name == "page_all"), None
         )
-        error_msg = "Cannot be used with --page (-p) or --page-size (-l). (--show-all is an alias for --page-all)"
+        error_msg = "Cannot be used with --page (-p) or --page-size (-l)."
         if wildcard_used:
             error_msg = "Wildcard '*' or -1 in --page-size cannot be used with --page (-p). Use --page-all instead."
         raise click.BadParameter(

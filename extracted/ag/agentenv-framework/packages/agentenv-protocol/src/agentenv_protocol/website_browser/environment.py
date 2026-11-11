@@ -18,7 +18,7 @@ from starlette.websockets import WebSocket
 
 from ..agent_env_environment import (OP_ADD_DATA, add_data, add_websocket_route, agent_skill, extension, get_data,
                                      reset_data)
-from ..browser_cdp import ROUTE, Relay, Tokens, reached, websocket_form
+from ..browser_cdp import ROUTE, Relay, Tokens, reached, under, websocket_form
 from ..computer import AppDeclaration, ComputerAppEnvironment, Launch, install_step, ready_check
 from ..computer import app as computer_app
 from ..computer import app_data
@@ -42,7 +42,7 @@ SITES = SOCKET.parent / "sites.json"
 #: port, since the browser is reached only over its pipe.
 OWNED_FLAGS = ("--user-data-dir", "--remote-debugging-", "--remote-allow-origins", "--proxy-", "--no-proxy-server",
                "--headless", "--window-size", "--lang", "--force-webrtc-ip-handling-policy", "--disk-cache-dir",
-               "--disable-dev-shm-usage")
+               "--disable-dev-shm-usage", "--enable-unsafe-swiftshader")
 #: Below this much /dev/shm, as Docker's 64 MiB default, the browser keeps its shared memory in files instead.
 SHM_MIN_BYTES = 1 << 30
 #: Chromium's content setting that denies a permission without a prompt.
@@ -163,7 +163,8 @@ class WebsiteBrowserEnvironment(ComputerAppEnvironment):
 
     def agentenv_flags(self) -> list[str]:
         """The flags agentenv owns. A browser alone goes out only through its site proxy, so it won't launch without
-        one; in a computer it goes through one when the computer has one, loopback aside."""
+        one; in a computer it goes through one when the computer has one, loopback aside. Alone it runs headful on the
+        X server its computer gives it, where WebGL draws with SwiftShader since no GPU is there, else headless."""
         settings, alone, proxy = self.settings, _alone(), os.environ.get(SITE_PROXY_ENV)
         flags = [f"--user-data-dir={self.profile_dir()}", f"--disk-cache-dir={self.cache_dir()}",
                  "--remote-debugging-pipe", "--no-first-run", "--no-default-browser-check", f"--lang={settings.locale}"]
@@ -179,8 +180,7 @@ class WebsiteBrowserEnvironment(ComputerAppEnvironment):
                              "names none")
         if alone:
             flags.append(f"--window-size={settings.window.width},{settings.window.height}")
-        if alone:
-            flags.append("--headless=new")
+            flags.append("--enable-unsafe-swiftshader" if _x_server() else "--headless=new")
         return flags
 
     def _launch_for(self, launch: Launch) -> Launch:
@@ -304,12 +304,13 @@ class WebsiteBrowserEnvironment(ComputerAppEnvironment):
         "is its window's, a PNG of it, and CDP input calls sent to it in order. navigate and history open a URL in "
         "the active tab, or go back, forward or reload; tabs/list, tabs/open, tabs/activate and tabs/close manage "
         "its tabs by their ids; dialog/answer answers the dialog open on the active tab; files/choose gives the file "
-        "chooser open on it files in ~/Uploads, headless; and page/state is the active tab's id, URL and title and "
+        "chooser open on it files in ~/Uploads, alone; and page/state is the active tab's id, URL and title and "
         "what is open on it. cookies/get, cookies/set and cookies/delete, and local_storage/get, local_storage/set and "
         "local_storage/clear, read and change its default context's cookies and local storage as Playwright's "
         "storageState has them, a cookie's max_age set as an expiry on the browser's clock; downloads/list and "
         "downloads/get are its downloads, get with its file, uploaded under a write_namespace grant or inline. cdp "
-        "returns a user's CDP address, http_url to discover from and ws_url to connect to, "
+        "returns a user's CDP address, http_url to discover from and ws_url to connect to, under origin, where the "
+        "caller's agent reaches the env, when it names one, else at the address the call reached the browser at, "
         "with a token agentenv mints in its path: each connection to it gets its own browser-level session behind a "
         "guard, and record lists them as cdp_connections, each with the commands the guard refused or changed. "
         "sites/set hands it the env's own sites, by name and domains: a start tab on one must load, its document's "
@@ -333,11 +334,14 @@ class WebsiteBrowserEnvironment(ComputerAppEnvironment):
         return {}
 
     @extension(BROWSER, op="cdp")
-    async def browser_cdp(self, user: str, request: Request) -> dict:
-        """``user``'s CDP address at the address this call reached the browser at, once it's ready: the same one each
-        time it's asked for, as the server that minted it keeps it."""
+    async def browser_cdp(self, user: str, request: Request, origin: Optional[str] = None) -> dict:
+        """``user``'s CDP address once the browser's ready, the same one each time it's asked for, as the server that
+        minted it keeps it: under ``origin``, where the caller's agent reaches the env, when the caller names it, as a
+        deploy names the env's other addresses, since a tunnel in front of the env may not say how it was reached;
+        else at the address this call reached the browser at."""
+        base = under(_origin(origin), request) if origin is not None else reached(request)
         await self._until_ready()
-        address = self.cdp_tokens.mint(user, reached(request))
+        address = self.cdp_tokens.mint(user, base, named=origin is not None)
         return {"http_url": address.http_url, "ws_url": address.ws_url}
 
     def create_app(self) -> Any:
@@ -349,11 +353,11 @@ class WebsiteBrowserEnvironment(ComputerAppEnvironment):
         return app
 
     async def _cdp_discovery(self, request: Request) -> Response:
-        """``json/version`` and ``json/list`` under a CDP address, answered from the browser, with its WebSocket at the
-        address the client reached: a browser on a pipe has no endpoints of its own. 403 for a token agentenv didn't
-        mint."""
+        """``json/version`` and ``json/list`` under a CDP address, answered from the browser, with its WebSocket as
+        minted when its caller named the origin, else at the address the client reached: a browser on a pipe has no
+        endpoints of its own. 403 for a token agentenv didn't mint."""
         token = request.path_params["token"]
-        if self.cdp_tokens.address(token) is None:
+        if (address := self.cdp_tokens.address(token)) is None:
             return JSONResponse({"error": "agentenv didn't mint this CDP address"}, status_code=403)
         try:
             version = await self.devtools.call("Browser.getVersion")
@@ -362,7 +366,8 @@ class WebsiteBrowserEnvironment(ComputerAppEnvironment):
                     "Browser": version.get("product"), "Protocol-Version": version.get("protocolVersion"),
                     "User-Agent": version.get("userAgent"), "V8-Version": version.get("jsVersion"),
                     "WebKit-Version": version.get("revision"),
-                    "webSocketDebuggerUrl": f"{websocket_form(reached(request))}{ROUTE}{token}/devtools/browser"})
+                    "webSocketDebuggerUrl": address.ws_url if address.named else
+                    f"{websocket_form(reached(request))}{ROUTE}{token}/devtools/browser"})
             tabs = await self.control.tab_list()
         except (ConnectionError, DevToolsError, asyncio.TimeoutError) as e:
             return JSONResponse({"error": f"the browser isn't answering: {e}"}, status_code=503)
@@ -600,7 +605,7 @@ class WebsiteBrowserEnvironment(ComputerAppEnvironment):
 
     def extension_params(self, uri: str) -> dict:
         if uri == BROWSER:
-            params: dict[str, Any] = {"chromium": self.version, "clock": "real"}
+            params: dict[str, Any] = {"chromium": self.version, "clock": "real", "mode": _mode()}
             if _alone():
                 params["window"] = self.settings.window.model_dump()
             return params
@@ -650,8 +655,34 @@ def start_tab_why(tab: dict) -> str:
 
 
 def _alone() -> bool:
-    """Whether it runs on a computer with no display, a browser computer's, alone and headless."""
+    """Whether it runs on a computer with no display, a browser computer's, alone: its page is that computer's screen."""
     return computer_app.detect().display == "none"
+
+
+def _x_server() -> bool:
+    """Whether an X server is there for it, as a browser computer gives its browser one no agent sees."""
+    return bool(os.environ.get("DISPLAY"))
+
+
+def _mode() -> str:
+    """How it runs: headless alone with no X server, else headful, on its own X server alone or on the desktop."""
+    return "headless" if _alone() and not _x_server() else "headful"
+
+
+def _origin(value: Any) -> str:
+    """``value`` as an origin a CDP address is minted under, its scheme in lower case as the address's WebSocket form
+    reads it: an http or https URL, a path allowed, with no query, fragment or credentials; InvalidArgument for anything
+    else."""
+    try:
+        parts = urlsplit(value)
+        valid = (value.isprintable() and parts.scheme in ("http", "https") and bool(parts.hostname)
+                 and "@" not in parts.netloc and not parts.query and not parts.fragment
+                 and (parts.port is None or 0 < parts.port))
+    except (AttributeError, TypeError, ValueError):
+        valid = False
+    if not valid:
+        raise InvalidArgument("origin is an http or https URL with no query, fragment or credentials")
+    return f"{parts.scheme}://{parts.netloc}{parts.path}"
 
 
 def _parsed(model: type[BaseModel], items: Any, what: str) -> list:

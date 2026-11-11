@@ -156,6 +156,13 @@ def test_only_environments_that_hold_an_agent_are_offered(
     assert [e.name for e in offer.agent_environments] == ["ai-agents-env"]
     assert [r.runtime_name for r in offer.agent_runtimes] == ["runtime-9"]
     assert agent_capable(ENVIRONMENTS[0]) and not agent_capable(ENVIRONMENTS[1])
+    # A runtime launched for a deployment serves its application only: not one to go back to.
+    kept = Running("runtime-10", "ai-agents-env", expired_at=time.time() + 900)
+    kept.deployment_uid = "d-1"
+    datalayer.running.append(kept)
+    assert [r.runtime_name for r in read_offer(datalayer).agent_runtimes] == [
+        "runtime-9"
+    ]
 
     lines = offer_lines(offer)
     assert lines[0] == "Credits: 100.00 left."
@@ -471,6 +478,12 @@ class FakeRuntime:
             if path == "/api/v1/configure/agents/default/spec":
                 return JSONResponse(
                     {"agent_spec_id": runtime.spec_id, "skills": ["pdf"]}
+                )
+            if path == "/api/v1/runtime/status":
+                # What the prompt asks first: this one keeps no agent sessions,
+                # so its turns go to the plain AG-UI endpoint the fake serves.
+                return JSONResponse(
+                    {"status": "ready", "version": "1.5.128", "agent_sessions": False}
                 )
             if path == "/api/v1/agents":
                 return JSONResponse({"agents": [{"id": "default"}]})

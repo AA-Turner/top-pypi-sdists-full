@@ -48,7 +48,7 @@ from pygeodesy.rhumb.bases import RhumbBase, RhumbLineBase, \
 from math import ceil as _ceil, fabs, radians
 
 __all__ = _ALL_LAZY.rhumb_aux_
-__version__ = '25.08.31'
+__version__ = '26.11.08'
 
 # DIGITS = (sizeof(real) * 8) bits
 #        = (ctypes.sizeof(ctypes.c_double(1.0)) * 8) bits
@@ -303,10 +303,11 @@ def _RAseries(auxD):
     Cs = _RACoeffs[aL]
     # assert len(Cs) == (aL * (aL + 1)) // 2
     pP = []
+    _P =  pP.append
     _p = _polynomial
-    for m in _reverange(aL):  # order
-        j  = i + m + 1
-        pP.append(_p(n, Cs, i, j) * d)
+    for j in _reverange(aL):  # order
+        j += i + 1
+        _P(_p(n, Cs, i, j) * d)
         d *= n
         i  = j
     # assert i == len(pP)
@@ -356,7 +357,7 @@ __all__ += _ALL_DOCS(Caps)
 
 # **) MIT License
 #
-# Copyright (C) 2023-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2023-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

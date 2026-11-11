@@ -96,8 +96,8 @@ def validate(declared: Declaration) -> None:
         )
     if declared.memoize and {"egress", "secrets"} & set(services):
         raise ConformanceError(
-            "a memoized invocable cannot depend on external egress or unrecorded secrets",
-            code="invocable_memoize_effect",
+            f"{name}: a memoized function cannot depend on external egress or unrecorded secrets",
+            code="memoize_effect",
         )
     # A capability nothing can grant refuses at BUILD, not at the first request: a package
     # author can do nothing about it on that clock, and a caller pays for it.
@@ -152,7 +152,7 @@ def _fields(
     it can). A group with a required member the box can't draw is one it can't draw: it stays
     off the box when it has a default, as any such field does (a model's `regions`)."""
     shapes: list[str] = []
-    for f in msgspec.structs.fields(struct):  # type: ignore[arg-type]
+    for f in msgspec.structs.fields(struct):  # type: ignore[arg-type]  # a payload or group: a Struct type
         path = prefix + f.name
         base, markers = strip(f.type)
         inner, _ = unwrap_optional(base)
@@ -197,7 +197,9 @@ def _undrawable(tp: object, markers: Sequence[object], listed: bool) -> str:
     slot = (
         isinstance(tp, type) and issubclass(tp, (*_FILES, *_MEDIA)) and not issubclass(tp, Latents)
     )
-    struct = is_struct(tp) and not slot and not issubclass(tp, (Pickup, Prompt))  # type: ignore[arg-type]
+    struct = (
+        isinstance(tp, type) and is_struct(tp) and not slot and not issubclass(tp, (Pickup, Prompt))
+    )
     if listed:
         return "" if slot else "group" if struct else "a list of anything but slots or groups"
     if tp is AspectRatio:
@@ -220,20 +222,11 @@ def _writes(declared: Declaration) -> None:
     """What a function writes is its own declaration, and grants mint off it (§2)."""
     name = declared.name
     names = [output.name for output in declared.weights_outputs]
-    publishes = declared.publishes or declared.emits_media
-    if (names or publishes) and declared.memoize:
+    if names and declared.memoize:
         raise ConformanceError(
-            f"{name}: memoize on a function that declares weights=, publishes= or "
-            "emits_media= — a writer's repeat is answered by TensorFS derivation replay and "
-            "its destination, never by the memo",
+            f"{name}: memoize on a function that declares weights= — a writer's repeat is "
+            "answered by TensorFS derivation replay, never by the memo",
             code="memoized_writer",
-        )
-    if publishes and "save" not in declared.services:
-        raise ConformanceError(
-            f"{name}: declares publishes/emits_media but its signature names no "
-            "Outputs — a declaration the body cannot act on would grant a destination "
-            "nothing can write",
-            code="publication_declaration",
         )
     if len(names) > MAX_WEIGHTS_OUTPUTS:
         raise ConformanceError(
@@ -249,10 +242,9 @@ def _writes(declared: Declaration) -> None:
             f"{name}: declares weights outputs but its signature has no Context",
             code="weights_sink_declaration",
         )
-    if names and ("save" in declared.services or declared.publishes):
+    if names and "save" in declared.services:
         raise ConformanceError(
-            f"{name}: a model-producing function cannot mix TensorFS outputs with "
-            "Outputs/publishes",
+            f"{name}: a model-producing function cannot mix TensorFS outputs with Outputs",
             code="mixed_weights_outputs",
         )
 

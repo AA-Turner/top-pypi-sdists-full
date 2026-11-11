@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from typing import Any, TypeVar
 
 import httpx2
 from aiolimiter import AsyncLimiter
+from httpx2._config import DEFAULT_LIMITS
 from solders.rpc.requests import Body
 from solders.rpc.responses import RPCError, RPCResult
 
 from ..exceptions import SolanaRpcException, handle_async_exceptions
 from .core import RPCException
-from .jsonrpc import JsonRpcRequestSerializer
+from .jsonrpc import JsonRpcErrorObject, JsonRpcRequestSerializer
 from .types import URI
 
 T = TypeVar("T", bound=RPCResult)
@@ -81,9 +83,13 @@ class AsyncHTTPProvider:
             )
         ):
             client_kwargs["limits"] = httpx2.Limits(
-                max_connections=max_connections,
-                max_keepalive_connections=max_keepalive_connections,
-                keepalive_expiry=keepalive_expiry,
+                max_connections=DEFAULT_LIMITS.max_connections if max_connections is None else max_connections,
+                max_keepalive_connections=(
+                    DEFAULT_LIMITS.max_keepalive_connections
+                    if max_keepalive_connections is None
+                    else max_keepalive_connections
+                ),
+                keepalive_expiry=DEFAULT_LIMITS.keepalive_expiry if keepalive_expiry is None else keepalive_expiry,
             )
         self.session = httpx2.AsyncClient(**client_kwargs)
         self._limiter: AsyncLimiter | None = AsyncLimiter(rate_limit, time_period=1) if rate_limit > 0 else None
@@ -146,6 +152,9 @@ def _parse_raw(raw: str, parser: type[T]) -> T:
     parsed = parser.from_json(raw)  # type: ignore
     if isinstance(parsed, RPCError.__args__):  # type: ignore # TODO: drop py37 and use typing.get_args
         raise RPCException(parsed)
+    if isinstance(parsed, int):
+        # solders has no type for some error codes, such as -32020, and returns only the code.
+        raise RPCException(JsonRpcErrorObject.model_validate(json.loads(raw)["error"]))
     return parsed  # type: ignore
 
 

@@ -10,7 +10,10 @@ from typing import Annotated
 from cyclopts import Parameter
 
 from airbyte_ops_mcp.cli._base import App
-from airbyte_ops_mcp.regression_tests.ci_output import new_stream_verdict_label
+from airbyte_ops_mcp.regression_tests.ci_output import (
+    describe_exercised_partial,
+    new_stream_verdict_label,
+)
 from airbyte_ops_mcp.regression_tests.eu_runner.job_spec import build_batch_job
 from airbyte_ops_mcp.regression_tests.eu_runner.verdict import (
     build_verdict,
@@ -107,6 +110,21 @@ def render_summary(
         )
         if result is None:
             result = "passed" if safe_verdict["success"] else "failed"
+        if (
+            result == "NOT EXERCISED"
+            and safe_verdict["commands"]
+            and all(
+                command["control_exit_code"] is None
+                for command in safe_verdict["commands"]
+            )
+            and any(
+                check["check_name"] == "Command execution" and not check["passed"]
+                for check in safe_verdict["checks"]
+            )
+        ):
+            result = "FAIL"
+        if safe_verdict.get("exercised_partial"):
+            result += f" — {describe_exercised_partial()}"
         lines.extend(
             [
                 "",

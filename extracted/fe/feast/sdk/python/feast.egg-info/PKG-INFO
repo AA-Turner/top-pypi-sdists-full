@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: feast
-Version: 0.67.0
+Version: 0.68.0
 Summary: Python SDK for Feast
 Author: Feast
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/feast-dev/feast
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.10.0
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.11.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: attrs
@@ -143,6 +143,8 @@ Requires-Dist: psycopg[c,pool]>=3.2.5; extra == "postgres-c"
 Provides-Extra: pytorch
 Requires-Dist: torch>=2.7.0; extra == "pytorch"
 Requires-Dist: torchvision>=0.22.1; extra == "pytorch"
+Provides-Extra: pinecone
+Requires-Dist: pinecone<6.0,>=5.0; extra == "pinecone"
 Provides-Extra: qdrant
 Requires-Dist: qdrant-client>=1.12.0; extra == "qdrant"
 Provides-Extra: rag
@@ -150,8 +152,8 @@ Requires-Dist: transformers>=4.36.0; extra == "rag"
 Requires-Dist: datasets>=3.6.0; extra == "rag"
 Requires-Dist: sentence-transformers>=3.0.0; extra == "rag"
 Provides-Extra: ray
-Requires-Dist: ray>=2.47.0; python_version == "3.10" and extra == "ray"
-Requires-Dist: codeflare-sdk>=0.31.1; python_version > "3.10" and extra == "ray"
+Requires-Dist: ray>=2.47.0; python_version == "3.11" and extra == "ray"
+Requires-Dist: codeflare-sdk>=0.31.1; extra == "ray"
 Requires-Dist: datasets>=3.6.0; extra == "ray"
 Provides-Extra: redis
 Requires-Dist: redis<8,>=4.2.2; extra == "redis"
@@ -192,7 +194,7 @@ Requires-Dist: minio==7.2.11; extra == "test"
 Requires-Dist: python-keycloak<5,>=4.7.3; extra == "test"
 Requires-Dist: cryptography>=43.0; extra == "test"
 Provides-Extra: ci
-Requires-Dist: feast[aws,azure,cassandra,clickhouse,couchbase,delta,docling,duckdb,elasticsearch,faiss,gcp,ge,glide,go,grpcio,hazelcast,hbase,ibis,iceberg,image,k8s,lance,mcp,mcp-server,milvus,mlflow,mongodb,mssql,mysql,openlineage,opentelemetry,oracle,postgres,pytorch,qdrant,rag,ray,redis,scylladb,singlestore,snowflake,spark,sqlite_vec,test,trino]; extra == "ci"
+Requires-Dist: feast[aws,azure,cassandra,clickhouse,couchbase,delta,docling,duckdb,elasticsearch,faiss,gcp,ge,glide,go,grpcio,hazelcast,hbase,ibis,iceberg,image,k8s,lance,mcp,mcp-server,milvus,mlflow,mongodb,mssql,mysql,openlineage,opentelemetry,oracle,pinecone,postgres,pytorch,qdrant,rag,ray,redis,scylladb,singlestore,snowflake,spark,sqlite_vec,test,trino]; extra == "ci"
 Requires-Dist: build; extra == "ci"
 Requires-Dist: virtualenv==21.14.1; extra == "ci"
 Requires-Dist: dbt-artifacts-parser; extra == "ci"

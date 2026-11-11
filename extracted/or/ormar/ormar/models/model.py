@@ -1,8 +1,9 @@
 import builtins
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, Union, cast
 
 from sqlalchemy import Executable
+from sqlalchemy.exc import IntegrityError
 
 import ormar.queryset  # noqa I100
 from ormar.exceptions import ModelPersistenceError, NoMatch
@@ -178,6 +179,20 @@ class Model(ModelRow):
         :return: saved Model
         :rtype: Model
         """
+        return cast(T, await self._save())
+
+    async def _save(
+        self: T, on_conflict: Optional[Literal["ignore"]] = None
+    ) -> Optional[T]:
+        """
+        Body of ``save()``. With ``on_conflict="ignore"`` a row conflicting with
+        an existing one is skipped: ``None`` is returned, ``post_save`` not sent.
+
+        :param on_conflict: ``ignore`` to skip a conflicting row
+        :type on_conflict: Optional[Literal["ignore"]]
+        :return: saved Model, ``None`` when the row was skipped
+        :rtype: Optional[Model]
+        """
         self.verify_writable()
         await self._emit_signal("pre_save", instance=self)
         self_fields = self._extract_model_db_fields()
@@ -203,10 +218,30 @@ class Model(ModelRow):
 
         self_fields = self.translate_columns_to_aliases(self_fields)
         self._verify_key_parts_set(row=self_fields)
-        template = insert_template(model_cls=type(self), values=self_fields)
+        # MySQL has no conflict clause telling an insert from a skipped row, so
+        # it runs a plain insert and a duplicate key error means skipped
+        rules = self.ormar_config.database.rules
+        returning = bool(on_conflict) and rules.conflict_returning
+        template = insert_template(
+            model_cls=type(self),
+            values=self_fields,
+            on_conflict=on_conflict if returning else None,
+            returning=returning,
+        )
+        try:
+            pk = await self._execute_query(
+                expr=template.statement, is_select=returning, params=template.params
+            )
+        except IntegrityError as error:
+            if not on_conflict or not rules.is_duplicate_key(error=error):
+                raise
+            return None  # pragma: no cover
+        if returning:  # pragma: no cover
+            if pk is None:
+                return None
+            pk = key.getter(keys=key.column_aliases())(pk)
 
         pk_returned_from_insert = False
-        pk = await self._execute_query(expr=template.statement, params=template.params)
         if pk and self.pk is None and isinstance(pk, key.python_type()):
             for field, part in key.to_dict(value=pk).items():
                 setattr(self, field, part)

@@ -61,9 +61,14 @@ from airbyte_ops_mcp.regression_tests.ci_output import (
     _describe_run,
     _format_delta,
     command_result_succeeded,
+    config_error_streams,
+    could_not_test,
+    describe_could_not_test,
+    describe_exercised_partial,
     describe_masking,
     describe_not_exercised,
     describe_readable_cursors,
+    describe_setup_error,
     describe_stopped_early,
     evaluate_comparison_outcome,
     github_artifact_name,
@@ -76,7 +81,9 @@ from airbyte_ops_mcp.regression_tests.ci_output import (
     run_readable_fields,
     stopped_early_notes,
     stopped_early_sides,
+    undefined_streams,
 )
+from airbyte_ops_mcp.regression_tests.models import StreamError
 from airbyte_ops_mcp.regression_tests.regression.comparators import (
     EXCLUDE_PATHS,
     ComparisonResult,
@@ -474,6 +481,7 @@ class RegressionReportModel:
     both_failed: bool = False
     strict_failed: bool = False
     comparison_errored: bool = False
+    partial_streams: tuple[str, ...] = ()
     # Extension seam for diffs that belong to the run rather than to one stream
     # -- a spec diff, for instance. Rendered above the per-stream sections.
     diff_blocks: tuple[DiffBlock, ...] = ()
@@ -481,6 +489,10 @@ class RegressionReportModel:
     # state, discovered catalog. "Which catalog did this actually run with" is
     # the first question when a record count looks wrong.
     connection_objects: tuple[DiffBlock, ...] = ()
+
+    @property
+    def exercised_partial(self) -> bool:
+        return bool(self.partial_streams)
 
     @property
     def is_comparison(self) -> bool:
@@ -495,6 +507,7 @@ class RegressionReportModel:
             "not_exercised": self.not_exercised,
             "setup_error": self.setup_error,
             "could_not_test": self.could_not_test,
+            "exercised_partial": self.exercised_partial,
         }
         if self.is_comparison:
             flags.update(
@@ -986,6 +999,58 @@ def _stream_coverage_check(
         passed=False,
         severity="diagnostic",
         summary=f"{summary}; no records from {listed}",
+    )
+
+
+def _new_stream_coverage_check(
+    streams: tuple[str, ...], unexercised: tuple[str, ...]
+) -> CheckResult | None:
+    """Report target-only coverage without turning missing evidence into regression."""
+    if not streams:
+        return None
+    summary = f"{len(streams) - len(unexercised)} of {len(streams)} new stream(s) emitted records"
+    if unexercised:
+        summary += f"; no records from {', '.join(unexercised)}"
+    return CheckResult(
+        name="Stream coverage (new streams)",
+        passed=not unexercised,
+        severity="strict",
+        summary=summary,
+    )
+
+
+def _partial_new_streams(
+    streams: tuple[str, ...],
+    counts: Mapping[str, int],
+    target_result: Mapping[str, Any],
+    checks: tuple[CheckResult, ...],
+    *,
+    blocked: bool,
+    failed_new_streams: tuple[str, ...],
+    incomplete: bool,
+    passed: bool,
+) -> tuple[str, ...]:
+    stopped = target_result.get("stopped_early") or {}
+    if (
+        blocked
+        or not incomplete
+        or passed
+        or stopped.get("reason") not in {"cap", "timeout"}
+        or failed_checks(
+            tuple(
+                check
+                for check in checks
+                if check.name != "Stream coverage (new streams)"
+            )
+        )
+    ):
+        return ()
+    return tuple(
+        sorted(
+            stream
+            for stream in streams
+            if counts.get(stream, 0) > 0 and stream not in failed_new_streams
+        )
     )
 
 
@@ -2550,6 +2615,7 @@ def build_comparison_report_model(
     connection_objects: tuple[DiffBlock, ...] = (),
     reproduction: ReproductionVerdict | None = None,
     target_only_streams: tuple[str, ...] = (),
+    failed_new_streams: tuple[str, ...] = (),
     include_report_sections: bool = True,
 ) -> RegressionReportModel:
     """Build the report model for a target-versus-control run.
@@ -2608,10 +2674,17 @@ def build_comparison_report_model(
     stopped = stopped_early_sides(
         ("control", control_result), ("target", target_result)
     )
+    eligible_new_streams = tuple(
+        stream
+        for stream in target_only_streams
+        if stream not in target_result.get("excluded_not_exercised_streams", ())
+    )
     not_exercised = not_exercised_streams(
-        target_only_streams,
+        eligible_new_streams,
         target_result.get("record_counts_per_stream", {}),
-        excluded_streams=target_result.get("excluded_not_exercised_streams", ()),
+    )
+    new_stream_coverage = _new_stream_coverage_check(
+        eligible_new_streams, not_exercised
     )
     setup_error = bool(target_result.get("setup_error"))
     setup_error_clears_regression = bool(
@@ -2677,6 +2750,7 @@ def build_comparison_report_model(
             summary=verdict_detail,
         ),
         *([coverage] if coverage is not None else []),
+        *([new_stream_coverage] if new_stream_coverage is not None else []),
         *comparison_checks,
         # Diagnostic, so deliberately not folded into the verdict below.
         *([replay_coverage] if replay_coverage is not None else []),
@@ -2782,8 +2856,30 @@ def build_comparison_report_model(
         if other_reasons:
             verdict_detail += "; " + "; ".join(other_reasons)
 
+    partial_streams = _partial_new_streams(
+        eligible_new_streams,
+        target_counts,
+        target_result,
+        checks,
+        blocked=(
+            outcome.regression_detected
+            or strict_failed
+            or record_comparison_errored
+            or record_checks_errored
+            or not outcome.success
+            or bool(reproduction and not reproduction.success)
+        ),
+        failed_new_streams=failed_new_streams,
+        incomplete=bool(stopped),
+        passed=passed,
+    )
+    if partial_streams:
+        verdict_detail += "; " + describe_exercised_partial(
+            partial_streams, target_result["stopped_early"]["reason"]
+        )
     model = RegressionReportModel(
         mode="comparison",
+        partial_streams=partial_streams,
         command=command,
         passed=passed,
         verdict_label=verdict_label,
@@ -3046,6 +3142,10 @@ def build_single_version_report_model(
     result: dict[str, Any],
     extra_checks: tuple[CheckResult, ...] = (),
     configured_streams: tuple[str, ...] = (),
+    target_only_streams: tuple[str, ...] = (),
+    failed_new_streams: tuple[str, ...] = (),
+    stream_statuses: Mapping[str, Sequence[str]] | None = None,
+    stream_errors: Mapping[str | None, Sequence[StreamError]] | None = None,
     connection_objects: tuple[DiffBlock, ...] = (),
     include_report_sections: bool = True,
 ) -> RegressionReportModel:
@@ -3061,6 +3161,9 @@ def build_single_version_report_model(
         extra_checks: Validation checks to fold into the verdict and show on both
             surfaces. Supply them here rather than appending to the returned
             model, which would leave `passed` stale.
+        target_only_streams: Streams known to be new relative to the reference image.
+        stream_statuses: Per-stream statuses from the single read.
+        stream_errors: Attributed errors from the single read.
         include_report_sections: Whether to enrich the core with display-only
             sections. Disable this to write verdict outputs before calling
             `enrich_report_model`.
@@ -3074,6 +3177,20 @@ def build_single_version_report_model(
 
     counts = result.get("record_counts_per_stream", {})
     coverage = _stream_coverage_check(configured_streams, counts)
+    errors = stream_errors or {}
+    setup_streams = undefined_streams(
+        target_only_streams, stream_statuses or {}, counts, errors
+    )
+    config_streams = config_error_streams(target_only_streams, errors)
+    eligible_new_streams = tuple(
+        stream
+        for stream in target_only_streams
+        if stream not in (*setup_streams, *config_streams)
+    )
+    unexercised = not_exercised_streams(eligible_new_streams, counts)
+    setup_error = bool(setup_streams)
+    could_not_test_result = could_not_test(target_only_streams, errors)
+    new_stream_coverage = _new_stream_coverage_check(eligible_new_streams, unexercised)
 
     checks = (
         CheckResult(
@@ -3082,23 +3199,66 @@ def build_single_version_report_model(
             summary=verdict_detail,
         ),
         *([coverage] if coverage is not None else []),
+        *([new_stream_coverage] if new_stream_coverage is not None else []),
         *extra_checks,
     )
     passed, verdict_label, verdict_detail = _fold_check_results(
         extra_checks, side.passed, "PASS" if side.passed else "FAIL", verdict_detail
     )
-    if stopped:
+    new_stream_label = new_stream_verdict_label(
+        stopped=bool(stopped),
+        setup_error=setup_error,
+        strict_failed=bool(failed_checks(extra_checks)),
+        regression=False,
+        both_failed=False,
+        comparison_errored=False,
+        could_not_test=could_not_test_result,
+        not_exercised=bool(unexercised),
+    )
+    if new_stream_label is not None:
+        detail = {
+            "INCOMPLETE": (
+                describe_stopped_early(stopped, side_count=1) if stopped else ""
+            ),
+            "SETUP ERROR": describe_setup_error(setup_streams),
+            "COULD NOT TEST (config error)": describe_could_not_test(
+                config_streams, errors
+            ),
+            "NOT EXERCISED": describe_not_exercised(unexercised),
+        }.get(new_stream_label, verdict_detail)
         passed, verdict_label, verdict_detail = _never_a_pass_verdict(
-            describe_stopped_early(stopped, side_count=1),
-            verdict_label="INCOMPLETE",
+            detail,
+            verdict_label=(
+                "FAIL"
+                if not side.passed and new_stream_label == "NOT EXERCISED"
+                else new_stream_label
+            ),
             command_detail=None if side.passed else side.description,
             failed=failed_checks(extra_checks),
             regression=False,
         )
 
+    partial_streams = _partial_new_streams(
+        eligible_new_streams,
+        counts,
+        result,
+        checks,
+        blocked=not side.passed,
+        failed_new_streams=failed_new_streams,
+        incomplete=bool(stopped),
+        passed=passed,
+    )
+    if partial_streams:
+        verdict_detail += "; " + describe_exercised_partial(
+            partial_streams, result["stopped_early"]["reason"]
+        )
     model = RegressionReportModel(
         mode="single_version",
+        partial_streams=partial_streams,
         incomplete=bool(stopped),
+        not_exercised=bool(unexercised),
+        setup_error=setup_error,
+        could_not_test=could_not_test_result,
         command=command,
         passed=passed,
         verdict_label=verdict_label,
@@ -3109,6 +3269,7 @@ def build_single_version_report_model(
             None,
             stopped_early_notes(stopped),
             run_output_mode(result),
+            not_exercised_note=(not_exercised_note(unexercised) if stopped else None),
         ),
         sides=(side,),
         checks=checks,

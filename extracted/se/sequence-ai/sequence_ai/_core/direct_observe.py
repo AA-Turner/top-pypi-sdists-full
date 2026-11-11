@@ -81,6 +81,13 @@ class _ObservationStream:
             self._say_refusals(stream)
         return n
 
+    def _observed(self) -> list:
+        """Under the lock: the worker-side ids of the episodes observed and not ended here - what close() ends with the
+        connection. An episode a person drove from its first step reached its worker in observations alone, and its
+        worker's copy held it from the next robot for up to its 300 s. {dev 11-10: a worker's second robot, "all replicas
+        bound to active episodes (1): a replica frees when its episode ends (episode_end) or has had no act for 300 s"}"""
+        return [self._worker_episode if e == self._caller_episode and self._worker_episode else e for e in self._numbers]
+
     def _stream_for(self, worker: "_WorkerTransport") -> "_observe.ObserveStream":
         """The stream posting to `worker` - made the first time it is asked for, and anew for another worker, posting
         again what the one before kept since each episode's last served act. Called under self._lock."""

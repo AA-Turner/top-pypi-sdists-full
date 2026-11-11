@@ -19,6 +19,7 @@ import click
 from attrs import asdict
 from exit_codes import ExitCode
 from rich.logging import RichHandler
+from sqlalchemy.exc import DatabaseError
 
 import cosmic_ray.commands
 import cosmic_ray.distribution.http
@@ -28,7 +29,7 @@ import cosmic_ray.plugins
 from cosmic_ray.config import load_config, serialize_config
 from cosmic_ray.mutating import apply_mutation
 from cosmic_ray.progress import report_progress
-from cosmic_ray.work_db import WorkDB, use_db
+from cosmic_ray.work_db import InvalidSessionError, WorkDB, use_db
 from cosmic_ray.work_item import MutationSpec, TestOutcome, WorkItem
 
 log = logging.getLogger()
@@ -336,6 +337,12 @@ def main(argv=None):
     except PermissionError as exc:
         print(exc, file=sys.stderr)
         return ExitCode.NO_PERM
+    except InvalidSessionError as exc:
+        print(exc, file=sys.stderr)
+        return ExitCode.DATA_ERR
+    except DatabaseError as exc:
+        print(f"Database error: {exc}", file=sys.stderr)
+        return ExitCode.DATA_ERR
     except cosmic_ray.config.ConfigError as exc:
         print(repr(exc), file=sys.stderr)
         if exc.__cause__ is not None:

@@ -25,22 +25,26 @@ class Motor(_message.Message):
     ACTUATOR_NAME_FIELD_NUMBER: _builtins.int
     TORQUE_CONSTANT_FIELD_NUMBER: _builtins.int
     CURRENT_LIMIT_FIELD_NUMBER: _builtins.int
+    ROTOR_INERTIA_FIELD_NUMBER: _builtins.int
     actuator_name: _builtins.str
     """The MJCF name of the motor actuator. Initialize refuses a motor without a name."""
     torque_constant: _builtins.float
     """Newton metres of motor torque per amp of drive current."""
     current_limit: _builtins.float
     """The current the drive is limited to, in amps."""
+    rotor_inertia: _builtins.float
+    """The moment of inertia of the motor's rotor at its shaft, in kilogram square metres. Zero adds no inertia."""
     def __init__(
         self,
         *,
         actuator_name: _builtins.str = ...,
         torque_constant: _builtins.float = ...,
         current_limit: _builtins.float = ...,
+        rotor_inertia: _builtins.float = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["actuator_name", b"actuator_name", "current_limit", b"current_limit", "torque_constant", b"torque_constant"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["actuator_name", b"actuator_name", "current_limit", b"current_limit", "rotor_inertia", b"rotor_inertia", "torque_constant", b"torque_constant"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

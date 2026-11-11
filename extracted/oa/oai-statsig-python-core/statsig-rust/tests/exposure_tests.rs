@@ -8,7 +8,10 @@ use chrono::Utc;
 use serde_json::{Map, Value, json};
 #[cfg(feature = "ffi-support")]
 use statsig_rust::{BulkEvaluationOptions, statsig_types_raw::PartialLayerRaw};
-use statsig_rust::{Statsig, StatsigOptions, StatsigUser, StatsigUserBuilder};
+use statsig_rust::{
+    DynamicConfigEvaluationOptions, FeatureGateEvaluationOptions, PreparedUserBase, Statsig,
+    StatsigOptions, StatsigUser, StatsigUserBuilder,
+};
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
@@ -16,6 +19,110 @@ use tokio::time::sleep;
 
 const SEC_EXPO_AS_PRIMARY_FLAG: &str = "sec_expo_as_primary:abc123";
 const SEC_EXPO_AS_PRIMARY_FLAG_BUCKET: u64 = 307;
+
+#[tokio::test]
+async fn test_prepared_user_exposures_after_drop() {
+    let gate_name = "test_custom_gt";
+    let config_name = "test_custom_config";
+    let custom = json!({"pod": "west", "newUser": "false", "level": "9"});
+    let expected_user = json!({"userID": "pod-user", "custom": custom});
+
+    enum Input {
+        Ordinary,
+        Map,
+        Fields,
+    }
+    for input in [Input::Ordinary, Input::Map, Input::Fields] {
+        let logger = Arc::new(MockEventLoggingAdapter::new_with_background_flush(false));
+        let statsig = create_statsig(&create_bootrapped_specs_adapter(), &logger);
+        statsig.initialize().await.unwrap();
+
+        let (gate, config) = if matches!(input, Input::Map | Input::Fields) {
+            let base = PreparedUserBase::from_custom(
+                serde_json::from_value(json!({"pod": "west", "newUser": "true"})).unwrap(),
+            );
+            let id = Some("pod-user".into());
+            let user = if matches!(input, Input::Fields) {
+                base.prepare_with_fields(
+                    id,
+                    [
+                        ("level", "0".into()),
+                        ("newUser", "true".into()),
+                        ("level", "9".into()),
+                        ("newUser", "false".into()),
+                    ],
+                )
+            } else {
+                let request =
+                    serde_json::from_value(json!({"newUser": "false", "level": "9"})).unwrap();
+                base.prepare(id, Some(request))
+            };
+            let silent = base.prepare(Some("silent-user".into()), None);
+            statsig.check_gate_prepared(
+                &silent,
+                gate_name,
+                FeatureGateEvaluationOptions {
+                    disable_exposure_logging: true,
+                },
+            );
+            statsig.get_dynamic_config_prepared(
+                &silent,
+                config_name,
+                DynamicConfigEvaluationOptions {
+                    disable_exposure_logging: true,
+                },
+            );
+            (
+                statsig.check_gate_prepared(&user, gate_name, Default::default()),
+                statsig.get_dynamic_config_prepared(&user, config_name, Default::default()),
+            )
+        } else {
+            let user = StatsigUserBuilder::new_with_user_id("pod-user")
+                .custom_from_str_map(Some(serde_json::from_value(custom.clone()).unwrap()))
+                .build();
+            (
+                statsig.check_gate(&user, gate_name),
+                statsig.get_dynamic_config(&user, config_name),
+            )
+        };
+        assert!(gate);
+        assert_eq!(config.value["header_text"], "old user test");
+        assert_eq!(config.rule_id, "3ZCniK9rvnQyXDQlQ1tGD9");
+        drop(config);
+
+        // Both the request user and its base have gone out of scope before serialization.
+        statsig.flush_events().await;
+        let payloads = logger.logged_payloads.lock().unwrap();
+        let exposures: Vec<_> = payloads
+            .iter()
+            .flat_map(|payload| payload.events.as_array().unwrap())
+            .filter(|event| {
+                matches!(
+                    event["eventName"].as_str(),
+                    Some("statsig::gate_exposure" | "statsig::config_exposure")
+                )
+            })
+            .collect();
+        assert_eq!(exposures.len(), 2);
+        for (event_name, metadata) in [
+            (
+                "statsig::gate_exposure",
+                json!({"gate": gate_name, "gateValue": "true", "ruleID": "S1iXv16qdg4Zns9HAP5j7"}),
+            ),
+            (
+                "statsig::config_exposure",
+                json!({"config": config_name, "ruleID": "3ZCniK9rvnQyXDQlQ1tGD9"}),
+            ),
+        ] {
+            let event = exposures
+                .iter()
+                .find(|event| event["eventName"] == event_name)
+                .unwrap();
+            assert_eq!(event["user"], expected_user);
+            assert_json_include!(actual: event["metadata"], expected: metadata);
+        }
+    }
+}
 
 #[tokio::test]
 async fn test_gate_exposures_initialized() {

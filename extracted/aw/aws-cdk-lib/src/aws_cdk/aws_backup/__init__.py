@@ -1838,6 +1838,573 @@ class BackupVaultProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.IBackupAccessPointRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnBackupAccessPoint(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_backup.CfnBackupAccessPoint",
+):
+    '''Creates a backup access point for an Amazon S3 recovery point.
+
+    A backup access point provides on-demand, read-only access to the backup data in a recovery point through an Amazon S3 access point, without initiating a restore. While a backup access point is active for a recovery point, Backup pauses lifecycle transitions and blocks deletion of that recovery point.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupaccesspoint.html
+    :cloudformationResource: AWS::Backup::BackupAccessPoint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_backup as backup
+        
+        # access_point_policy: Any
+        
+        cfn_backup_access_point = backup.CfnBackupAccessPoint(self, "MyCfnBackupAccessPoint",
+            recovery_point_arn="recoveryPointArn",
+        
+            # the properties below are optional
+            access_point_in_time="accessPointInTime",
+            access_point_policy=access_point_policy,
+            name="name",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        recovery_point_arn: builtins.str,
+        access_point_in_time: typing.Optional[builtins.str] = None,
+        access_point_policy: typing.Any = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Backup::BackupAccessPoint``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param recovery_point_arn: The Amazon Resource Name (ARN) of the recovery point for which to create the backup access point. The recovery point must be an Amazon S3 recovery point in the AVAILABLE, STOPPED, or COMPLETED state.
+        :param access_point_in_time: For continuous (point-in-time) recovery points, the timestamp in ISO 8601 format (for example 2021-11-27T03:30:27Z) that determines the point-in-time view of the backup data. The timestamp must be within the continuous backup's retention period at the time the access point is created. Do not specify this for snapshot recovery points. The service reports it back under AccessPointMetadata.
+        :param access_point_policy: An optional resource-based policy document, in JSON, to apply to the underlying Amazon S3 access point. The policy controls how backup data can be accessed through the access point. If you do not specify a policy, access is governed by the caller's IAM permissions. The serialized policy may not exceed 200000 characters. This value is not returned by the service and cannot be updated in place.
+        :param name: The name of the backup access point. This name is shared with the Amazon S3 access point namespace. It must be unique within your account and Region and cannot conflict with an existing Amazon S3 access point. If omitted, a name is generated.
+        :param tags: The tags to assign to the backup access point.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__15d546cf66295dd5866ee685b91c0b8852b0da1907574a1753e7066b8b3eab9e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnBackupAccessPointProps(
+            recovery_point_arn=recovery_point_arn,
+            access_point_in_time=access_point_in_time,
+            access_point_policy=access_point_policy,
+            name=name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForBackupAccessPoint")
+    @builtins.classmethod
+    def arn_for_backup_access_point(
+        cls,
+        resource: "_aws_backup_bc4c1c6b.IBackupAccessPointRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6bfe6cc1540deb02ead70dae766206c380b866c0a0985712960d96807aa67517)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBackupAccessPoint", [resource]))
+
+    @jsii.member(jsii_name="isCfnBackupAccessPoint")
+    @builtins.classmethod
+    def is_cfn_backup_access_point(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBackupAccessPoint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fce0877fd70eaf7ac82543b82f2724ea8d538e6905be423edcddef4458b244be)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBackupAccessPoint", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f52abf3d7551ce4a2fb2625b7db68b3ffa85d4e0b3f22f01909aa1f9db42ecc8)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__31fb6b78a0ea4baebb7797a41b2fd76ce5d6c8e309382fc4f906afc9c4579df4)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccessPointMetadata")
+    def attr_access_point_metadata(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Metadata the service reports for the backup access point.
+
+        Once the access point reaches the AVAILABLE status this carries the Amazon S3 access point ARN and alias; for continuous recovery points it also echoes the AccessPointInTime that was supplied at create time.
+
+        :cloudformationAttribute: AccessPointMetadata
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrAccessPointMetadata"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccessPointMetadataAccessPointInTime")
+    def attr_access_point_metadata_access_point_in_time(self) -> builtins.str:
+        '''For a continuous recovery point, the point in time the backup access point exposes, echoed back by the service as supplied at create time.
+
+        Absent for snapshot recovery points. A plain string rather than a date-time, because it is one entry of the service's string-to-string metadata map.
+
+        :cloudformationAttribute: AccessPointMetadata.AccessPointInTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccessPointMetadataAccessPointInTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccessPointMetadataS3AccessPointAlias")
+    def attr_access_point_metadata_s3_access_point_alias(self) -> builtins.str:
+        '''The alias of the Amazon S3 access point that Backup provisioned.
+
+        Use this with standard Amazon S3 read APIs to access the backup data. Populated once the backup access point reaches the AVAILABLE status.
+
+        :cloudformationAttribute: AccessPointMetadata.S3AccessPointAlias
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccessPointMetadataS3AccessPointAlias"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccessPointMetadataS3AccessPointArn")
+    def attr_access_point_metadata_s3_access_point_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Amazon S3 access point that Backup provisioned.
+
+        Use this with standard Amazon S3 read APIs to access the backup data. Populated once the backup access point reaches the AVAILABLE status.
+
+        :cloudformationAttribute: AccessPointMetadata.S3AccessPointArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccessPointMetadataS3AccessPointArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) that uniquely identifies the backup access point.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBackupVaultArn")
+    def attr_backup_vault_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the backup vault that contains the recovery point.
+
+        :cloudformationAttribute: BackupVaultArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrBackupVaultArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBackupVaultName")
+    def attr_backup_vault_name(self) -> builtins.str:
+        '''The name of the backup vault that contains the recovery point.
+
+        :cloudformationAttribute: BackupVaultName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrBackupVaultName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The date and time that the backup access point was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceArn")
+    def attr_resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource that was backed up, such as an Amazon S3 bucket.
+
+        :cloudformationAttribute: ResourceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceType")
+    def attr_resource_type(self) -> builtins.str:
+        '''The type of Amazon Web Services resource associated with the recovery point.
+
+        For example, S3 for Amazon Simple Storage Service.
+
+        :cloudformationAttribute: ResourceType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the backup access point.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="backupAccessPointRef")
+    def backup_access_point_ref(
+        self,
+    ) -> "_aws_backup_bc4c1c6b.BackupAccessPointReference":
+        '''A reference to a BackupAccessPoint resource.'''
+        return typing.cast("_aws_backup_bc4c1c6b.BackupAccessPointReference", jsii.get(self, "backupAccessPointRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointPolicy")
+    def access_point_policy(self) -> typing.Any:
+        '''An optional resource-based policy document, in JSON, to apply to the underlying Amazon S3 access point.'''
+        return typing.cast(typing.Any, jsii.get(self, "accessPointPolicy"))
+
+    @access_point_policy.setter
+    def access_point_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bde7a13bad6620c97858c62f1565a05c980e1353b7dc13541ed4d918f497bbfd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accessPointPolicy", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="recoveryPointArn")
+    def recovery_point_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the recovery point for which to create the backup access point.'''
+        return typing.cast(builtins.str, jsii.get(self, "recoveryPointArn"))
+
+    @recovery_point_arn.setter
+    def recovery_point_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6dd0236be172580fd163d10f565f19769fa6e10497af3e8b3d316e68b037ad99)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recoveryPointArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointInTime")
+    def access_point_in_time(self) -> typing.Optional[builtins.str]:
+        '''For continuous (point-in-time) recovery points, the timestamp in ISO 8601 format (for example 2021-11-27T03:30:27Z) that determines the point-in-time view of the backup data.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "accessPointInTime"))
+
+    @access_point_in_time.setter
+    def access_point_in_time(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cc51879a320a4589af2abae5c381fca7b6d4596096712af3716e9e6fd2101a75)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accessPointInTime", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the backup access point.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__27169d711bb6e312ef7acbf0216295069b1e7a2930fdb46182cbf45b8b1521d9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to assign to the backup access point.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c0180089e27c299e0c96bac5bd231167060fbb39050335ddb1867d0a80ace66e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_backup.CfnBackupAccessPoint.AccessPointMetadataProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "access_point_in_time": "accessPointInTime",
+            "s3_access_point_alias": "s3AccessPointAlias",
+            "s3_access_point_arn": "s3AccessPointArn",
+        },
+    )
+    class AccessPointMetadataProperty:
+        def __init__(
+            self,
+            *,
+            access_point_in_time: typing.Optional[builtins.str] = None,
+            s3_access_point_alias: typing.Optional[builtins.str] = None,
+            s3_access_point_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Metadata the service reports for the backup access point.
+
+            Once the access point reaches the AVAILABLE status this carries the Amazon S3 access point ARN and alias; for continuous recovery points it also echoes the AccessPointInTime that was supplied at create time.
+
+            :param access_point_in_time: For a continuous recovery point, the point in time the backup access point exposes, echoed back by the service as supplied at create time. Absent for snapshot recovery points. A plain string rather than a date-time, because it is one entry of the service's string-to-string metadata map.
+            :param s3_access_point_alias: The alias of the Amazon S3 access point that Backup provisioned. Use this with standard Amazon S3 read APIs to access the backup data. Populated once the backup access point reaches the AVAILABLE status.
+            :param s3_access_point_arn: The Amazon Resource Name (ARN) of the Amazon S3 access point that Backup provisioned. Use this with standard Amazon S3 read APIs to access the backup data. Populated once the backup access point reaches the AVAILABLE status.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupaccesspoint-accesspointmetadata.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_backup as backup
+                
+                access_point_metadata_property = backup.CfnBackupAccessPoint.AccessPointMetadataProperty(
+                    access_point_in_time="accessPointInTime",
+                    s3_access_point_alias="s3AccessPointAlias",
+                    s3_access_point_arn="s3AccessPointArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0236eb3288f9948d3abe3a0508cd12eafc39b97a651cf3a512e8924d8a237a99)
+                check_type(argname="argument access_point_in_time", value=access_point_in_time, expected_type=type_hints["access_point_in_time"])
+                check_type(argname="argument s3_access_point_alias", value=s3_access_point_alias, expected_type=type_hints["s3_access_point_alias"])
+                check_type(argname="argument s3_access_point_arn", value=s3_access_point_arn, expected_type=type_hints["s3_access_point_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if access_point_in_time is not None:
+                self._values["access_point_in_time"] = access_point_in_time
+            if s3_access_point_alias is not None:
+                self._values["s3_access_point_alias"] = s3_access_point_alias
+            if s3_access_point_arn is not None:
+                self._values["s3_access_point_arn"] = s3_access_point_arn
+
+        @builtins.property
+        def access_point_in_time(self) -> typing.Optional[builtins.str]:
+            '''For a continuous recovery point, the point in time the backup access point exposes, echoed back by the service as supplied at create time.
+
+            Absent for snapshot recovery points. A plain string rather than a date-time, because it is one entry of the service's string-to-string metadata map.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupaccesspoint-accesspointmetadata.html#cfn-backup-backupaccesspoint-accesspointmetadata-accesspointintime
+            '''
+            result = self._values.get("access_point_in_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_access_point_alias(self) -> typing.Optional[builtins.str]:
+            '''The alias of the Amazon S3 access point that Backup provisioned.
+
+            Use this with standard Amazon S3 read APIs to access the backup data. Populated once the backup access point reaches the AVAILABLE status.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupaccesspoint-accesspointmetadata.html#cfn-backup-backupaccesspoint-accesspointmetadata-s3accesspointalias
+            '''
+            result = self._values.get("s3_access_point_alias")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_access_point_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the Amazon S3 access point that Backup provisioned.
+
+            Use this with standard Amazon S3 read APIs to access the backup data. Populated once the backup access point reaches the AVAILABLE status.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupaccesspoint-accesspointmetadata.html#cfn-backup-backupaccesspoint-accesspointmetadata-s3accesspointarn
+            '''
+            result = self._values.get("s3_access_point_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AccessPointMetadataProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.CfnBackupAccessPointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "recovery_point_arn": "recoveryPointArn",
+        "access_point_in_time": "accessPointInTime",
+        "access_point_policy": "accessPointPolicy",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnBackupAccessPointProps:
+    def __init__(
+        self,
+        *,
+        recovery_point_arn: builtins.str,
+        access_point_in_time: typing.Optional[builtins.str] = None,
+        access_point_policy: typing.Any = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBackupAccessPoint``.
+
+        :param recovery_point_arn: The Amazon Resource Name (ARN) of the recovery point for which to create the backup access point. The recovery point must be an Amazon S3 recovery point in the AVAILABLE, STOPPED, or COMPLETED state.
+        :param access_point_in_time: For continuous (point-in-time) recovery points, the timestamp in ISO 8601 format (for example 2021-11-27T03:30:27Z) that determines the point-in-time view of the backup data. The timestamp must be within the continuous backup's retention period at the time the access point is created. Do not specify this for snapshot recovery points. The service reports it back under AccessPointMetadata.
+        :param access_point_policy: An optional resource-based policy document, in JSON, to apply to the underlying Amazon S3 access point. The policy controls how backup data can be accessed through the access point. If you do not specify a policy, access is governed by the caller's IAM permissions. The serialized policy may not exceed 200000 characters. This value is not returned by the service and cannot be updated in place.
+        :param name: The name of the backup access point. This name is shared with the Amazon S3 access point namespace. It must be unique within your account and Region and cannot conflict with an existing Amazon S3 access point. If omitted, a name is generated.
+        :param tags: The tags to assign to the backup access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupaccesspoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            # access_point_policy: Any
+            
+            cfn_backup_access_point_props = backup.CfnBackupAccessPointProps(
+                recovery_point_arn="recoveryPointArn",
+            
+                # the properties below are optional
+                access_point_in_time="accessPointInTime",
+                access_point_policy=access_point_policy,
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2b8433cdf3e55d0af2f41225500fb3f21de38764afa9f983ac2f4fc4697a5473)
+            check_type(argname="argument recovery_point_arn", value=recovery_point_arn, expected_type=type_hints["recovery_point_arn"])
+            check_type(argname="argument access_point_in_time", value=access_point_in_time, expected_type=type_hints["access_point_in_time"])
+            check_type(argname="argument access_point_policy", value=access_point_policy, expected_type=type_hints["access_point_policy"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "recovery_point_arn": recovery_point_arn,
+        }
+        if access_point_in_time is not None:
+            self._values["access_point_in_time"] = access_point_in_time
+        if access_point_policy is not None:
+            self._values["access_point_policy"] = access_point_policy
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def recovery_point_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the recovery point for which to create the backup access point.
+
+        The recovery point must be an Amazon S3 recovery point in the AVAILABLE, STOPPED, or COMPLETED state.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupaccesspoint.html#cfn-backup-backupaccesspoint-recoverypointarn
+        '''
+        result = self._values.get("recovery_point_arn")
+        assert result is not None, "Required property 'recovery_point_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_point_in_time(self) -> typing.Optional[builtins.str]:
+        '''For continuous (point-in-time) recovery points, the timestamp in ISO 8601 format (for example 2021-11-27T03:30:27Z) that determines the point-in-time view of the backup data.
+
+        The timestamp must be within the continuous backup's retention period at the time the access point is created. Do not specify this for snapshot recovery points. The service reports it back under AccessPointMetadata.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupaccesspoint.html#cfn-backup-backupaccesspoint-accesspointintime
+        '''
+        result = self._values.get("access_point_in_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def access_point_policy(self) -> typing.Any:
+        '''An optional resource-based policy document, in JSON, to apply to the underlying Amazon S3 access point.
+
+        The policy controls how backup data can be accessed through the access point. If you do not specify a policy, access is governed by the caller's IAM permissions. The serialized policy may not exceed 200000 characters. This value is not returned by the service and cannot be updated in place.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupaccesspoint.html#cfn-backup-backupaccesspoint-accesspointpolicy
+        '''
+        result = self._values.get("access_point_policy")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the backup access point.
+
+        This name is shared with the Amazon S3 access point namespace. It must be unique within your account and Region and cannot conflict with an existing Amazon S3 access point. If omitted, a name is generated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupaccesspoint.html#cfn-backup-backupaccesspoint-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to assign to the backup access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupaccesspoint.html#cfn-backup-backupaccesspoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBackupAccessPointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.IBackupPlanRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnBackupPlan(
     _aws_cdk_0cae9daa.CfnResource,
@@ -9588,6 +10155,8 @@ __all__ = [
     "BackupVault",
     "BackupVaultEvents",
     "BackupVaultProps",
+    "CfnBackupAccessPoint",
+    "CfnBackupAccessPointProps",
     "CfnBackupPlan",
     "CfnBackupPlanProps",
     "CfnBackupSelection",
@@ -9803,6 +10372,93 @@ def _typecheckingstub__6a7555f4b25ca4760e3a057b8e3a9b5e07feed1f99319d6e434cc8fed
     notification_events: typing.Optional[typing.Sequence[BackupVaultEvents]] = None,
     notification_topic: typing.Optional[_aws_sns_07ffc8ab.ITopic] = None,
     removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15d546cf66295dd5866ee685b91c0b8852b0da1907574a1753e7066b8b3eab9e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    recovery_point_arn: builtins.str,
+    access_point_in_time: typing.Optional[builtins.str] = None,
+    access_point_policy: typing.Any = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6bfe6cc1540deb02ead70dae766206c380b866c0a0985712960d96807aa67517(
+    resource: _aws_backup_bc4c1c6b.IBackupAccessPointRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fce0877fd70eaf7ac82543b82f2724ea8d538e6905be423edcddef4458b244be(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f52abf3d7551ce4a2fb2625b7db68b3ffa85d4e0b3f22f01909aa1f9db42ecc8(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__31fb6b78a0ea4baebb7797a41b2fd76ce5d6c8e309382fc4f906afc9c4579df4(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bde7a13bad6620c97858c62f1565a05c980e1353b7dc13541ed4d918f497bbfd(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6dd0236be172580fd163d10f565f19769fa6e10497af3e8b3d316e68b037ad99(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc51879a320a4589af2abae5c381fca7b6d4596096712af3716e9e6fd2101a75(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27169d711bb6e312ef7acbf0216295069b1e7a2930fdb46182cbf45b8b1521d9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0180089e27c299e0c96bac5bd231167060fbb39050335ddb1867d0a80ace66e(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0236eb3288f9948d3abe3a0508cd12eafc39b97a651cf3a512e8924d8a237a99(
+    *,
+    access_point_in_time: typing.Optional[builtins.str] = None,
+    s3_access_point_alias: typing.Optional[builtins.str] = None,
+    s3_access_point_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b8433cdf3e55d0af2f41225500fb3f21de38764afa9f983ac2f4fc4697a5473(
+    *,
+    recovery_point_arn: builtins.str,
+    access_point_in_time: typing.Optional[builtins.str] = None,
+    access_point_policy: typing.Any = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

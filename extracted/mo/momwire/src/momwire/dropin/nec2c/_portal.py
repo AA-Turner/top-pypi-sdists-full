@@ -1827,6 +1827,7 @@ class GroupResult:
     p_radiated: float
     efficiency: float
     fill_ms: int
+    factor_ms: int
     wavelength: float
     # The environment this group ran under, so every readout below the solve
     # reads the same half-space the fill did (#933).
@@ -2037,9 +2038,14 @@ class DeckSolver:
             # miss because the deck's first operating point is filled during
             # construction, and a fill is a fill wherever it is asked for.
             _cache_stats["fills"] += 1
+        # FILL is the O(N^2) fill and FACTOR the O(N^3) LU, apart: one clock
+        # over the port solution hid which a large deck spends its time in.
         started = time.perf_counter()
+        factor_before = _lapack.factor_seconds()
         y_solver, coeffs = _y_and_port_coeffs(built.solver)
-        fill_ms = int(round((time.perf_counter() - started) * 1000.0))
+        factor_s = _lapack.factor_seconds() - factor_before
+        fill_ms = int(round((time.perf_counter() - started - factor_s) * 1000.0))
+        factor_ms = int(round(factor_s * 1000.0))
         signs = _port_signs(built, self.model)
         if signs.shape[0] != y_solver.shape[0]:
             # The congruence below is `y * signs[:, None] * signs[None, :]`,
@@ -2063,6 +2069,7 @@ class DeckSolver:
             "X": coeffs,
             "signs": signs,
             "fill_ms": fill_ms,
+            "factor_ms": factor_ms,
         }
 
     def global_segment(self, wire: int, local: int) -> int:
@@ -2528,6 +2535,7 @@ class DeckSolver:
             p_radiated=p_rad,
             efficiency=(100.0 * p_rad / p_in) if p_in > 0 else 0.0,
             fill_ms=entry["fill_ms"],
+            factor_ms=entry["factor_ms"],
             wavelength=entry["wavelength"],
             ground=group.ground,
             ground_z=(group.environment.ground_z if group.environment.ground else None),
@@ -2554,7 +2562,26 @@ class DeckSolver:
         (`_segment_currents` and `_segment_charges`) share one walk and one
         set of tie-breaks rather than two copies that can drift apart on a
         crossed deck.
+
+        Held per mesh, keyed by the mesh itself (every polyline's points and
+        every edge's element count) rather than by the solver object: a deck
+        solves one mesh at every frequency, and the dense segment-by-element
+        search is O(N^2) in memory and time. The ELT whip (4,392 segments)
+        ran it twice per frequency, 13.4 s of a 41 s, 13-frequency deck.
         """
+        key = (
+            tuple(np.asarray(p, dtype=float).tobytes() for p in solver.wires_polylines),
+            tuple(tuple(int(n) for n in ns) for ns in solver.n_per_edge_per_wire),
+        )
+        held = getattr(self, "_element_match_held", None)
+        if held is not None and held[0] == key:
+            return held[1]
+        result = self._element_match_uncached(solver)
+        self._element_match_held = (key, result)
+        return result
+
+    def _element_match_uncached(self, solver):
+        """`_element_match`'s search, every call (see there)."""
         mids, dirs = [], []
         for w_idx, polyline in enumerate(solver.wires_polylines):
             parts = []
@@ -3826,7 +3853,7 @@ def _render_run_block(
         out += [
             _MATRIX_TIMING_HEADER,
             f"                               FILL: {result.fill_ms} msec"
-            f"  FACTOR: 0 msec",
+            f"  FACTOR: {result.factor_ms} msec",
             "",
             "",
         ]

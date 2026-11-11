@@ -348,6 +348,115 @@ class ExpressGatewayServiceReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ecs.GatewayClusterAssociationsReference",
+    jsii_struct_bases=[],
+    name_mapping={"cluster": "cluster", "gateway": "gateway"},
+)
+class GatewayClusterAssociationsReference:
+    def __init__(self, *, cluster: builtins.str, gateway: builtins.str) -> None:
+        '''A reference to a GatewayClusterAssociations resource.
+
+        :param cluster: The Cluster of the GatewayClusterAssociations resource.
+        :param gateway: The Gateway of the GatewayClusterAssociations resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ecs as interfaces_ecs
+            
+            gateway_cluster_associations_reference = interfaces_ecs.GatewayClusterAssociationsReference(
+                cluster="cluster",
+                gateway="gateway"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__81b6d8b7e226d86f06d18353759dcf0eefeb1dc9a985040810abd350c6ff13a5)
+            check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
+            check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster": cluster,
+            "gateway": gateway,
+        }
+
+    @builtins.property
+    def cluster(self) -> builtins.str:
+        '''The Cluster of the GatewayClusterAssociations resource.'''
+        result = self._values.get("cluster")
+        assert result is not None, "Required property 'cluster' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def gateway(self) -> builtins.str:
+        '''The Gateway of the GatewayClusterAssociations resource.'''
+        result = self._values.get("gateway")
+        assert result is not None, "Required property 'gateway' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GatewayClusterAssociationsReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ecs.GatewayReference",
+    jsii_struct_bases=[],
+    name_mapping={"gateway_arn": "gatewayArn"},
+)
+class GatewayReference:
+    def __init__(self, *, gateway_arn: builtins.str) -> None:
+        '''A reference to a Gateway resource.
+
+        :param gateway_arn: The Arn of the Gateway resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ecs as interfaces_ecs
+            
+            gateway_reference = interfaces_ecs.GatewayReference(
+                gateway_arn="gatewayArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__57f1277f4cafa5299e2ba11c8c6ea4511d9c3a406a546a105e2b45b27c8f0116)
+            check_type(argname="argument gateway_arn", value=gateway_arn, expected_type=type_hints["gateway_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "gateway_arn": gateway_arn,
+        }
+
+    @builtins.property
+    def gateway_arn(self) -> builtins.str:
+        '''The Arn of the Gateway resource.'''
+        result = self._values.get("gateway_arn")
+        assert result is not None, "Required property 'gateway_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GatewayReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.ICapacityProviderRef")
 class ICapacityProviderRef(
     _constructs_77d1e7e8.IConstruct,
@@ -622,6 +731,98 @@ class _IExpressGatewayServiceRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IExpressGatewayServiceRef).__jsii_proxy_class__ = lambda : _IExpressGatewayServiceRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_ecs.IGatewayClusterAssociationsRef"
+)
+class IGatewayClusterAssociationsRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a GatewayClusterAssociations.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayClusterAssociationsRef")
+    def gateway_cluster_associations_ref(self) -> "GatewayClusterAssociationsReference":
+        '''(experimental) A reference to a GatewayClusterAssociations resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGatewayClusterAssociationsRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GatewayClusterAssociations.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ecs.IGatewayClusterAssociationsRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayClusterAssociationsRef")
+    def gateway_cluster_associations_ref(self) -> "GatewayClusterAssociationsReference":
+        '''(experimental) A reference to a GatewayClusterAssociations resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("GatewayClusterAssociationsReference", jsii.get(self, "gatewayClusterAssociationsRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGatewayClusterAssociationsRef).__jsii_proxy_class__ = lambda : _IGatewayClusterAssociationsRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.IGatewayRef")
+class IGatewayRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Gateway.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRef")
+    def gateway_ref(self) -> "GatewayReference":
+        '''(experimental) A reference to a Gateway resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGatewayRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Gateway.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ecs.IGatewayRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRef")
+    def gateway_ref(self) -> "GatewayReference":
+        '''(experimental) A reference to a Gateway resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("GatewayReference", jsii.get(self, "gatewayRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGatewayRef).__jsii_proxy_class__ = lambda : _IGatewayRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.IPrimaryTaskSetRef")
@@ -1050,12 +1251,16 @@ __all__ = [
     "DaemonReference",
     "DaemonTaskDefinitionReference",
     "ExpressGatewayServiceReference",
+    "GatewayClusterAssociationsReference",
+    "GatewayReference",
     "ICapacityProviderRef",
     "IClusterCapacityProviderAssociationsRef",
     "IClusterRef",
     "IDaemonRef",
     "IDaemonTaskDefinitionRef",
     "IExpressGatewayServiceRef",
+    "IGatewayClusterAssociationsRef",
+    "IGatewayRef",
     "IPrimaryTaskSetRef",
     "IServiceRef",
     "ITaskDefinitionRef",
@@ -1111,6 +1316,21 @@ def _typecheckingstub__7ea0eff1c207b387e3ce1c36391f0df7e092a4238b4d23d2392612286
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__81b6d8b7e226d86f06d18353759dcf0eefeb1dc9a985040810abd350c6ff13a5(
+    *,
+    cluster: builtins.str,
+    gateway: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57f1277f4cafa5299e2ba11c8c6ea4511d9c3a406a546a105e2b45b27c8f0116(
+    *,
+    gateway_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4a1b939f002ad0ae1231600a088f90e5a07ee32dc47266ea7d20bc40291c4085(
     *,
     cluster: builtins.str,
@@ -1142,5 +1362,5 @@ def _typecheckingstub__74cd9665edddb0a5616888159b532fdbf6e5e802106c342a4e8d6846d
     """Type checking stubs"""
     pass
 
-for cls in [ICapacityProviderRef, IClusterCapacityProviderAssociationsRef, IClusterRef, IDaemonRef, IDaemonTaskDefinitionRef, IExpressGatewayServiceRef, IPrimaryTaskSetRef, IServiceRef, ITaskDefinitionRef, ITaskSetRef]:
+for cls in [ICapacityProviderRef, IClusterCapacityProviderAssociationsRef, IClusterRef, IDaemonRef, IDaemonTaskDefinitionRef, IExpressGatewayServiceRef, IGatewayClusterAssociationsRef, IGatewayRef, IPrimaryTaskSetRef, IServiceRef, ITaskDefinitionRef, ITaskSetRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

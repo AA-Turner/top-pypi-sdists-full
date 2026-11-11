@@ -22,6 +22,7 @@ from datetime import datetime
 from typing import Union
 
 from .literals import (
+    ActionScopeType,
     AttachmentStatusType,
     ConfigurationSyncStateType,
     ContainerAssociationStatusType,
@@ -30,10 +31,13 @@ from .literals import (
     EnabledAnalysisTypeType,
     EncryptionTypeType,
     FirewallPolicyErrorCodeType,
+    FirewallRuleActionType,
+    FirewallRuleProtocolType,
     FirewallStatusValueType,
     FlowOperationStatusType,
     FlowOperationTypeType,
     GeneratedRulesTypeType,
+    HookKeyType,
     IdentifiedTypeType,
     IPAddressTypeType,
     ListenerPropertyTypeType,
@@ -41,6 +45,8 @@ from .literals import (
     LogTypeType,
     NatGatewayAttachmentStatusType,
     PerObjectSyncStatusType,
+    PolicyDefaultActionType,
+    PolicyModeType,
     ProxyModifyStateType,
     ProxyRulePhaseActionType,
     ProxyStateType,
@@ -52,10 +58,12 @@ from .literals import (
     RuleGroupRequestPhaseType,
     RuleGroupTypeType,
     RuleOrderType,
+    RuleOutputFormatType,
     StatefulActionType,
     StatefulRuleDirectionType,
     StatefulRuleProtocolType,
     StreamExceptionPolicyType,
+    StreamExceptionPolicyV2Type,
     SubscriptionStatusType,
     SummaryRuleOptionType,
     TargetTypeType,
@@ -102,6 +110,8 @@ __all__ = (
     "CreateContainerAssociationResponseTypeDef",
     "CreateFirewallPolicyRequestTypeDef",
     "CreateFirewallPolicyResponseTypeDef",
+    "CreateFirewallPolicyV2RequestTypeDef",
+    "CreateFirewallPolicyV2ResponseTypeDef",
     "CreateFirewallRequestTypeDef",
     "CreateFirewallResponseTypeDef",
     "CreateProxyConfigurationRequestTypeDef",
@@ -126,6 +136,8 @@ __all__ = (
     "DeleteContainerAssociationResponseTypeDef",
     "DeleteFirewallPolicyRequestTypeDef",
     "DeleteFirewallPolicyResponseTypeDef",
+    "DeleteFirewallPolicyV2RequestTypeDef",
+    "DeleteFirewallPolicyV2ResponseTypeDef",
     "DeleteFirewallRequestTypeDef",
     "DeleteFirewallResponseTypeDef",
     "DeleteNetworkFirewallTransitGatewayAttachmentRequestTypeDef",
@@ -152,6 +164,8 @@ __all__ = (
     "DescribeFirewallPolicyRequestTypeDef",
     "DescribeFirewallPolicyRequestWaitTypeDef",
     "DescribeFirewallPolicyResponseTypeDef",
+    "DescribeFirewallPolicyV2RequestTypeDef",
+    "DescribeFirewallPolicyV2ResponseTypeDef",
     "DescribeFirewallRequestTypeDef",
     "DescribeFirewallResponseTypeDef",
     "DescribeFlowOperationRequestTypeDef",
@@ -194,6 +208,20 @@ __all__ = (
     "FirewallPolicyResponseTypeDef",
     "FirewallPolicyTypeDef",
     "FirewallPolicyUnionTypeDef",
+    "FirewallPolicyV2MetadataTypeDef",
+    "FirewallPolicyV2OutputTypeDef",
+    "FirewallPolicyV2ResponseTypeDef",
+    "FirewallPolicyV2TypeDef",
+    "FirewallPolicyV2UnionTypeDef",
+    "FirewallRuleGroupEntryOutputTypeDef",
+    "FirewallRuleGroupEntryTypeDef",
+    "FirewallRuleGroupOutputTypeDef",
+    "FirewallRuleGroupTypeDef",
+    "FirewallRuleGroupUnionTypeDef",
+    "FirewallRuleOutputTypeDef",
+    "FirewallRuleTypeDef",
+    "FirewallRulesSourceOutputTypeDef",
+    "FirewallRulesSourceTypeDef",
     "FirewallStatusTypeDef",
     "FirewallTypeDef",
     "FlowFilterOutputTypeDef",
@@ -212,6 +240,13 @@ __all__ = (
     "IPSetOutputTypeDef",
     "IPSetReferenceTypeDef",
     "IPSetTypeDef",
+    "IpsRuleGroupEntryOutputTypeDef",
+    "IpsRuleGroupEntryTypeDef",
+    "IpsRuleGroupOutputTypeDef",
+    "IpsRuleGroupOverrideTypeDef",
+    "IpsRuleGroupTypeDef",
+    "IpsRuleGroupUnionTypeDef",
+    "IpsRulesSourceTypeDef",
     "ListAnalysisReportsRequestPaginateTypeDef",
     "ListAnalysisReportsRequestTypeDef",
     "ListAnalysisReportsResponseTypeDef",
@@ -221,6 +256,9 @@ __all__ = (
     "ListFirewallPoliciesRequestPaginateTypeDef",
     "ListFirewallPoliciesRequestTypeDef",
     "ListFirewallPoliciesResponseTypeDef",
+    "ListFirewallPoliciesV2RequestPaginateTypeDef",
+    "ListFirewallPoliciesV2RequestTypeDef",
+    "ListFirewallPoliciesV2ResponseTypeDef",
     "ListFirewallsRequestPaginateTypeDef",
     "ListFirewallsRequestTypeDef",
     "ListFirewallsResponseTypeDef",
@@ -309,6 +347,7 @@ __all__ = (
     "RuleGroupResponseTypeDef",
     "RuleGroupTypeDef",
     "RuleGroupUnionTypeDef",
+    "RuleMetadataTypeDef",
     "RuleOptionOutputTypeDef",
     "RuleOptionTypeDef",
     "RuleSummaryTypeDef",
@@ -331,6 +370,7 @@ __all__ = (
     "StartFlowFlushRequestTypeDef",
     "StartFlowFlushResponseTypeDef",
     "StatefulEngineOptionsTypeDef",
+    "StatefulEngineOptionsV2TypeDef",
     "StatefulRuleGroupOverrideTypeDef",
     "StatefulRuleGroupReferenceTypeDef",
     "StatefulRuleOptionsTypeDef",
@@ -378,6 +418,8 @@ __all__ = (
     "UpdateFirewallPolicyChangeProtectionResponseTypeDef",
     "UpdateFirewallPolicyRequestTypeDef",
     "UpdateFirewallPolicyResponseTypeDef",
+    "UpdateFirewallPolicyV2RequestTypeDef",
+    "UpdateFirewallPolicyV2ResponseTypeDef",
     "UpdateLoggingConfigurationRequestTypeDef",
     "UpdateLoggingConfigurationResponseTypeDef",
     "UpdateProxyConfigurationRequestTypeDef",
@@ -523,6 +565,10 @@ class DeleteFirewallPolicyRequestTypeDef(TypedDict):
     FirewallPolicyName: NotRequired[str]
     FirewallPolicyArn: NotRequired[str]
 
+class DeleteFirewallPolicyV2RequestTypeDef(TypedDict):
+    FirewallPolicyV2Arn: NotRequired[str]
+    FirewallPolicyV2Name: NotRequired[str]
+
 class DeleteFirewallRequestTypeDef(TypedDict):
     FirewallName: NotRequired[str]
     FirewallArn: NotRequired[str]
@@ -581,6 +627,11 @@ class DescribeFirewallPolicyRequestTypeDef(TypedDict):
 class WaiterConfigTypeDef(TypedDict):
     Delay: NotRequired[int]
     MaxAttempts: NotRequired[int]
+
+class DescribeFirewallPolicyV2RequestTypeDef(TypedDict):
+    FirewallPolicyV2Arn: NotRequired[str]
+    FirewallPolicyV2Name: NotRequired[str]
+    RuleOutputFormat: NotRequired[RuleOutputFormatType]
 
 class DescribeFirewallRequestTypeDef(TypedDict):
     FirewallName: NotRequired[str]
@@ -649,6 +700,7 @@ DescribeRuleGroupRequestTypeDef = TypedDict(
         "RuleGroupArn": NotRequired[str],
         "Type": NotRequired[RuleGroupTypeType],
         "AnalyzeRuleGroup": NotRequired[bool],
+        "RuleOutputFormat": NotRequired[RuleOutputFormatType],
     },
 )
 DescribeRuleGroupSummaryRequestTypeDef = TypedDict(
@@ -701,6 +753,32 @@ class StatelessRuleGroupReferenceTypeDef(TypedDict):
     ResourceArn: str
     Priority: int
 
+class FirewallPolicyV2MetadataTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Arn: NotRequired[str]
+
+class RuleMetadataTypeDef(TypedDict):
+    RuleEnabled: NotRequired[bool]
+    RuleDescription: NotRequired[str]
+
+class RuleOptionOutputTypeDef(TypedDict):
+    Keyword: str
+    Settings: NotRequired[list[str]]
+
+class RuleOptionTypeDef(TypedDict):
+    Keyword: str
+    Settings: NotRequired[Sequence[str]]
+
+class RulesSourceListOutputTypeDef(TypedDict):
+    Targets: list[str]
+    TargetTypes: list[TargetTypeType]
+    GeneratedRulesType: GeneratedRulesTypeType
+
+class RulesSourceListTypeDef(TypedDict):
+    Targets: Sequence[str]
+    TargetTypes: Sequence[TargetTypeType]
+    GeneratedRulesType: GeneratedRulesTypeType
+
 class TransitGatewayAttachmentSyncStateTypeDef(TypedDict):
     AttachmentId: NotRequired[str]
     TransitGatewayAttachmentStatus: NotRequired[TransitGatewayAttachmentStatusType]
@@ -748,6 +826,12 @@ class IPSetReferenceTypeDef(TypedDict):
 class IPSetTypeDef(TypedDict):
     Definition: Sequence[str]
 
+class IpsRuleGroupOverrideTypeDef(TypedDict):
+    Action: NotRequired[Literal["DROP_TO_ALERT"]]
+
+class IpsRulesSourceTypeDef(TypedDict):
+    RulesString: NotRequired[str]
+
 class ListAnalysisReportsRequestTypeDef(TypedDict):
     FirewallName: NotRequired[str]
     FirewallArn: NotRequired[str]
@@ -759,6 +843,10 @@ class ListContainerAssociationsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class ListFirewallPoliciesRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class ListFirewallPoliciesV2RequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
@@ -929,28 +1017,10 @@ class RejectNetworkFirewallTransitGatewayAttachmentRequestTypeDef(TypedDict):
 class SummaryConfigurationOutputTypeDef(TypedDict):
     RuleOptions: NotRequired[list[SummaryRuleOptionType]]
 
-class RuleOptionOutputTypeDef(TypedDict):
-    Keyword: str
-    Settings: NotRequired[list[str]]
-
-class RuleOptionTypeDef(TypedDict):
-    Keyword: str
-    Settings: NotRequired[Sequence[str]]
-
 class RuleSummaryTypeDef(TypedDict):
     SID: NotRequired[str]
     Msg: NotRequired[str]
     Metadata: NotRequired[str]
-
-class RulesSourceListOutputTypeDef(TypedDict):
-    Targets: list[str]
-    TargetTypes: list[TargetTypeType]
-    GeneratedRulesType: GeneratedRulesTypeType
-
-class RulesSourceListTypeDef(TypedDict):
-    Targets: Sequence[str]
-    TargetTypes: Sequence[TargetTypeType]
-    GeneratedRulesType: GeneratedRulesTypeType
 
 class ServerCertificateTypeDef(TypedDict):
     ResourceArn: NotRequired[str]
@@ -1428,10 +1498,68 @@ class FirewallPolicyResponseTypeDef(TypedDict):
     Errors: NotRequired[list[FirewallPolicyErrorTypeDef]]
     LastModifiedTime: NotRequired[datetime]
 
+class FirewallPolicyV2ResponseTypeDef(TypedDict):
+    FirewallPolicyV2Name: str
+    FirewallPolicyV2Arn: str
+    FirewallPolicyV2Id: str
+    Description: NotRequired[str]
+    FirewallPolicyV2Status: NotRequired[ResourceStatusType]
+    StatusMessage: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+    ConsumedFirewallRuleCapacity: NotRequired[int]
+    ConsumedIpsRuleCapacity: NotRequired[int]
+    ConsumedIpsDomainCapacity: NotRequired[int]
+    NumberOfAssociations: NotRequired[int]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    Errors: NotRequired[list[FirewallPolicyErrorTypeDef]]
+    LastModifiedTime: NotRequired[datetime]
+
 class ListFirewallPoliciesResponseTypeDef(TypedDict):
     FirewallPolicies: list[FirewallPolicyMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class ListFirewallPoliciesV2ResponseTypeDef(TypedDict):
+    FirewallPoliciesV2: list[FirewallPolicyV2MetadataTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+FirewallRuleOutputTypeDef = TypedDict(
+    "FirewallRuleOutputTypeDef",
+    {
+        "Action": FirewallRuleActionType,
+        "ActionScope": ActionScopeType,
+        "Hook": HookKeyType,
+        "Protocol": FirewallRuleProtocolType,
+        "SourceIPs": NotRequired[str],
+        "DestIPs": NotRequired[str],
+        "SourcePorts": NotRequired[str],
+        "DestPorts": NotRequired[str],
+        "RuleOptions": NotRequired[list[RuleOptionOutputTypeDef]],
+        "AcceptPriorHooks": NotRequired[bool],
+        "AlertEnabled": NotRequired[bool],
+        "BypassIPSEnabled": NotRequired[bool],
+        "RuleMetadata": NotRequired[RuleMetadataTypeDef],
+    },
+)
+FirewallRuleTypeDef = TypedDict(
+    "FirewallRuleTypeDef",
+    {
+        "Action": FirewallRuleActionType,
+        "ActionScope": ActionScopeType,
+        "Hook": HookKeyType,
+        "Protocol": FirewallRuleProtocolType,
+        "SourceIPs": NotRequired[str],
+        "DestIPs": NotRequired[str],
+        "SourcePorts": NotRequired[str],
+        "DestPorts": NotRequired[str],
+        "RuleOptions": NotRequired[Sequence[RuleOptionTypeDef]],
+        "AcceptPriorHooks": NotRequired[bool],
+        "AlertEnabled": NotRequired[bool],
+        "BypassIPSEnabled": NotRequired[bool],
+        "RuleMetadata": NotRequired[RuleMetadataTypeDef],
+    },
+)
 
 class ListFlowOperationsResponseTypeDef(TypedDict):
     FlowOperations: list[FlowOperationMetadataTypeDef]
@@ -1441,6 +1569,10 @@ class ListFlowOperationsResponseTypeDef(TypedDict):
 class StatefulEngineOptionsTypeDef(TypedDict):
     RuleOrder: NotRequired[RuleOrderType]
     StreamExceptionPolicy: NotRequired[StreamExceptionPolicyType]
+    FlowTimeouts: NotRequired[FlowTimeoutsTypeDef]
+
+class StatefulEngineOptionsV2TypeDef(TypedDict):
+    StreamExceptionPolicy: NotRequired[StreamExceptionPolicyV2Type]
     FlowTimeouts: NotRequired[FlowTimeoutsTypeDef]
 
 class GetAnalysisReportResultsRequestPaginateTypeDef(TypedDict):
@@ -1458,6 +1590,9 @@ class ListContainerAssociationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListFirewallPoliciesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListFirewallPoliciesV2RequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListFirewallsRequestPaginateTypeDef(TypedDict):
@@ -1512,6 +1647,16 @@ class ListTagsForResourceRequestPaginateTypeDef(TypedDict):
 class ListVpcEndpointAssociationsRequestPaginateTypeDef(TypedDict):
     FirewallArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class StatefulRuleOutputTypeDef(TypedDict):
+    Action: StatefulActionType
+    Header: HeaderTypeDef
+    RuleOptions: list[RuleOptionOutputTypeDef]
+
+class StatefulRuleTypeDef(TypedDict):
+    Action: StatefulActionType
+    Header: HeaderTypeDef
+    RuleOptions: Sequence[RuleOptionTypeDef]
 
 class PolicyVariablesOutputTypeDef(TypedDict):
     RuleVariables: NotRequired[dict[str, IPSetOutputTypeDef]]
@@ -1675,16 +1820,6 @@ RuleGroupResponseTypeDef = TypedDict(
         "SummaryConfiguration": NotRequired[SummaryConfigurationOutputTypeDef],
     },
 )
-
-class StatefulRuleOutputTypeDef(TypedDict):
-    Action: StatefulActionType
-    Header: HeaderTypeDef
-    RuleOptions: list[RuleOptionOutputTypeDef]
-
-class StatefulRuleTypeDef(TypedDict):
-    Action: StatefulActionType
-    Header: HeaderTypeDef
-    RuleOptions: Sequence[RuleOptionTypeDef]
 
 class SummaryTypeDef(TypedDict):
     RuleSummaries: NotRequired[list[RuleSummaryTypeDef]]
@@ -1867,6 +2002,30 @@ class UpdateFirewallPolicyResponseTypeDef(TypedDict):
     FirewallPolicyResponse: FirewallPolicyResponseTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateFirewallPolicyV2ResponseTypeDef(TypedDict):
+    UpdateToken: str
+    FirewallPolicyV2Response: FirewallPolicyV2ResponseTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteFirewallPolicyV2ResponseTypeDef(TypedDict):
+    FirewallPolicyV2Response: FirewallPolicyV2ResponseTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateFirewallPolicyV2ResponseTypeDef(TypedDict):
+    UpdateToken: str
+    FirewallPolicyV2Response: FirewallPolicyV2ResponseTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class FirewallRulesSourceOutputTypeDef(TypedDict):
+    RulesString: NotRequired[str]
+    FirewallRules: NotRequired[list[FirewallRuleOutputTypeDef]]
+    RulesSourceList: NotRequired[RulesSourceListOutputTypeDef]
+
+class FirewallRulesSourceTypeDef(TypedDict):
+    RulesString: NotRequired[str]
+    FirewallRules: NotRequired[Sequence[FirewallRuleTypeDef]]
+    RulesSourceList: NotRequired[RulesSourceListTypeDef]
+
 class DescribeLoggingConfigurationResponseTypeDef(TypedDict):
     FirewallArn: str
     LoggingConfiguration: LoggingConfigurationOutputTypeDef
@@ -1903,6 +2062,16 @@ class RuleDefinitionOutputTypeDef(TypedDict):
 class RuleDefinitionTypeDef(TypedDict):
     MatchAttributes: MatchAttributesTypeDef
     Actions: Sequence[str]
+
+class IpsRuleGroupOutputTypeDef(TypedDict):
+    RulesSource: IpsRulesSourceTypeDef
+    RuleVariables: NotRequired[RuleVariablesOutputTypeDef]
+    ReferenceSets: NotRequired[ReferenceSetsOutputTypeDef]
+
+class IpsRuleGroupTypeDef(TypedDict):
+    RulesSource: IpsRulesSourceTypeDef
+    RuleVariables: NotRequired[RuleVariablesTypeDef]
+    ReferenceSets: NotRequired[ReferenceSetsTypeDef]
 
 class AttachRuleGroupsToProxyConfigurationResponseTypeDef(TypedDict):
     ProxyConfiguration: ProxyConfigurationTypeDef
@@ -2112,6 +2281,16 @@ class CustomActionTypeDef(TypedDict):
     ActionName: str
     ActionDefinition: ActionDefinitionTypeDef
 
+class FirewallRuleGroupOutputTypeDef(TypedDict):
+    RulesSource: FirewallRulesSourceOutputTypeDef
+    RuleVariables: NotRequired[RuleVariablesOutputTypeDef]
+    ReferenceSets: NotRequired[ReferenceSetsOutputTypeDef]
+
+class FirewallRuleGroupTypeDef(TypedDict):
+    RulesSource: FirewallRulesSourceTypeDef
+    RuleVariables: NotRequired[RuleVariablesTypeDef]
+    ReferenceSets: NotRequired[ReferenceSetsTypeDef]
+
 class UpdateLoggingConfigurationRequestTypeDef(TypedDict):
     FirewallArn: NotRequired[str]
     FirewallName: NotRequired[str]
@@ -2131,6 +2310,18 @@ class StatelessRuleOutputTypeDef(TypedDict):
 class StatelessRuleTypeDef(TypedDict):
     RuleDefinition: RuleDefinitionTypeDef
     Priority: int
+
+class IpsRuleGroupEntryOutputTypeDef(TypedDict):
+    ResourceArn: NotRequired[str]
+    InlineRuleGroup: NotRequired[IpsRuleGroupOutputTypeDef]
+    Override: NotRequired[IpsRuleGroupOverrideTypeDef]
+
+class IpsRuleGroupEntryTypeDef(TypedDict):
+    ResourceArn: NotRequired[str]
+    InlineRuleGroup: NotRequired[IpsRuleGroupTypeDef]
+    Override: NotRequired[IpsRuleGroupOverrideTypeDef]
+
+IpsRuleGroupUnionTypeDef = Union[IpsRuleGroupTypeDef, IpsRuleGroupOutputTypeDef]
 
 class ProxyRuleGroupTypeDef(TypedDict):
     ProxyRuleGroupName: NotRequired[str]
@@ -2192,6 +2383,18 @@ class FirewallPolicyTypeDef(TypedDict):
     EnableTLSSessionHolding: NotRequired[bool]
     Route53ResolvedIPValidation: NotRequired[Route53ResolvedIPValidationTypeDef]
 
+class FirewallRuleGroupEntryOutputTypeDef(TypedDict):
+    Priority: NotRequired[int]
+    ResourceArn: NotRequired[str]
+    InlineRuleGroup: NotRequired[FirewallRuleGroupOutputTypeDef]
+
+class FirewallRuleGroupEntryTypeDef(TypedDict):
+    Priority: NotRequired[int]
+    ResourceArn: NotRequired[str]
+    InlineRuleGroup: NotRequired[FirewallRuleGroupTypeDef]
+
+FirewallRuleGroupUnionTypeDef = Union[FirewallRuleGroupTypeDef, FirewallRuleGroupOutputTypeDef]
+
 class DescribeTLSInspectionConfigurationResponseTypeDef(TypedDict):
     UpdateToken: str
     TLSInspectionConfiguration: TLSInspectionConfigurationOutputTypeDef
@@ -2248,6 +2451,26 @@ class DescribeFirewallPolicyResponseTypeDef(TypedDict):
 
 FirewallPolicyUnionTypeDef = Union[FirewallPolicyTypeDef, FirewallPolicyOutputTypeDef]
 
+class FirewallPolicyV2OutputTypeDef(TypedDict):
+    FirewallRuleGroupEntries: NotRequired[list[FirewallRuleGroupEntryOutputTypeDef]]
+    IpsRuleGroupEntries: NotRequired[list[IpsRuleGroupEntryOutputTypeDef]]
+    PolicyMode: NotRequired[PolicyModeType]
+    FirewallDefaultAction: NotRequired[PolicyDefaultActionType]
+    StatefulEngineOptions: NotRequired[StatefulEngineOptionsV2TypeDef]
+    TLSInspectionConfigurationArn: NotRequired[str]
+    PolicyVariables: NotRequired[PolicyVariablesOutputTypeDef]
+    Route53ResolvedIPValidation: NotRequired[Route53ResolvedIPValidationOutputTypeDef]
+
+class FirewallPolicyV2TypeDef(TypedDict):
+    FirewallRuleGroupEntries: NotRequired[Sequence[FirewallRuleGroupEntryTypeDef]]
+    IpsRuleGroupEntries: NotRequired[Sequence[IpsRuleGroupEntryTypeDef]]
+    PolicyMode: NotRequired[PolicyModeType]
+    FirewallDefaultAction: NotRequired[PolicyDefaultActionType]
+    StatefulEngineOptions: NotRequired[StatefulEngineOptionsV2TypeDef]
+    TLSInspectionConfigurationArn: NotRequired[str]
+    PolicyVariables: NotRequired[PolicyVariablesTypeDef]
+    Route53ResolvedIPValidation: NotRequired[Route53ResolvedIPValidationTypeDef]
+
 class CreateTLSInspectionConfigurationRequestTypeDef(TypedDict):
     TLSInspectionConfigurationName: str
     TLSInspectionConfiguration: TLSInspectionConfigurationUnionTypeDef
@@ -2292,6 +2515,14 @@ class UpdateFirewallPolicyRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
 
+class DescribeFirewallPolicyV2ResponseTypeDef(TypedDict):
+    UpdateToken: str
+    FirewallPolicyV2Response: FirewallPolicyV2ResponseTypeDef
+    FirewallPolicyV2: FirewallPolicyV2OutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+FirewallPolicyV2UnionTypeDef = Union[FirewallPolicyV2TypeDef, FirewallPolicyV2OutputTypeDef]
+
 class RuleGroupOutputTypeDef(TypedDict):
     RulesSource: RulesSourceOutputTypeDef
     RuleVariables: NotRequired[RuleVariablesOutputTypeDef]
@@ -2304,9 +2535,28 @@ class RuleGroupTypeDef(TypedDict):
     ReferenceSets: NotRequired[ReferenceSetsTypeDef]
     StatefulRuleOptions: NotRequired[StatefulRuleOptionsTypeDef]
 
+class CreateFirewallPolicyV2RequestTypeDef(TypedDict):
+    FirewallPolicyV2Name: str
+    FirewallPolicyV2: FirewallPolicyV2UnionTypeDef
+    Description: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    DryRun: NotRequired[bool]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+
+class UpdateFirewallPolicyV2RequestTypeDef(TypedDict):
+    UpdateToken: str
+    FirewallPolicyV2: FirewallPolicyV2UnionTypeDef
+    FirewallPolicyV2Arn: NotRequired[str]
+    FirewallPolicyV2Name: NotRequired[str]
+    Description: NotRequired[str]
+    DryRun: NotRequired[bool]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+
 class DescribeRuleGroupResponseTypeDef(TypedDict):
     UpdateToken: str
     RuleGroup: RuleGroupOutputTypeDef
+    FirewallRuleGroup: FirewallRuleGroupOutputTypeDef
+    IpsRuleGroup: IpsRuleGroupOutputTypeDef
     RuleGroupResponse: RuleGroupResponseTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2318,6 +2568,8 @@ CreateRuleGroupRequestTypeDef = TypedDict(
         "Type": RuleGroupTypeType,
         "Capacity": int,
         "RuleGroup": NotRequired[RuleGroupUnionTypeDef],
+        "FirewallRuleGroup": NotRequired[FirewallRuleGroupUnionTypeDef],
+        "IpsRuleGroup": NotRequired[IpsRuleGroupUnionTypeDef],
         "Rules": NotRequired[str],
         "Description": NotRequired[str],
         "Tags": NotRequired[Sequence[TagTypeDef]],
@@ -2335,6 +2587,8 @@ UpdateRuleGroupRequestTypeDef = TypedDict(
         "RuleGroupArn": NotRequired[str],
         "RuleGroupName": NotRequired[str],
         "RuleGroup": NotRequired[RuleGroupUnionTypeDef],
+        "FirewallRuleGroup": NotRequired[FirewallRuleGroupUnionTypeDef],
+        "IpsRuleGroup": NotRequired[IpsRuleGroupUnionTypeDef],
         "Rules": NotRequired[str],
         "Type": NotRequired[RuleGroupTypeType],
         "Description": NotRequired[str],

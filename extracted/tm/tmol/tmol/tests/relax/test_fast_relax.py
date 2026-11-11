@@ -5,31 +5,26 @@ import numpy
 import pytest
 import torch
 
-from tmol.relax import fast_relax
+from tmol import fast_relax
 import tmol.relax._fast_relax as fast_relax_module
-from tmol.relax._fast_relax import _resolve_cuda_graph_mode, DefaultKinematicMinimizer
-from tmol.optimization import CartesianMinimizer
+from tmol.relax._fast_relax import _graph_mode
+from tmol.optimization._minimizers import CartesianMinimizer
 
-from tmol.pose import (
+from tmol import (
+    CartesianRelaxMinimizer,
+    KinematicRelaxMinimizer,
     PoseStack,
     PoseStackBuilder,
-)
-from tmol.score import (
     ScoreFunction,
     ScoreType,
-)
-from tmol.pack import PackerPalette
-from tmol.pack.rotamer import (
-    FixedAAChiSampler,
-    IncludeCurrentSampler,
-)
-from tmol.kinematics import (
+    PackerPalette,
     CartesianMoveMap,
     MoveMap,
     EdgeType,
     FoldForest,
+    pose_stack_from_file,
 )
-from tmol.io import pose_stack_from_file
+from tmol.pack import FixedAAChiSampler, IncludeCurrentSampler
 
 
 @pytest.mark.parametrize("grow", [False, True])
@@ -37,8 +32,8 @@ def test_accept_best_with_different_atom_counts(
     default_database, torch_device, monkeypatch, grow
 ):
     """Packing can change atom counts without changing every pose's winner."""
-    from tmol.io import extended_pose_stack_from_sequences
-    from tmol.relax import accept_best
+    from tmol import extended_pose_stack_from_sequences
+    from tmol.relax._fast_relax import _accept_best
 
     small = extended_pose_stack_from_sequences(["AGA", "AGA"], device=torch_device)
     large = extended_pose_stack_from_sequences(["AKA", "AKA"], device=torch_device)
@@ -53,10 +48,29 @@ def test_accept_best_with_different_atom_counts(
     )
     import attrs
 
-    small = attrs.evolve(small, coords=small.coords[:, :small_width])
+    small = attrs.evolve(
+        small,
+        coords=small.coords[:, :small_width],
+        pdb_info=attrs.evolve(
+            small.pdb_info,
+            atom_occupancy=small.pdb_info.atom_occupancy[:, :small_width],
+            atom_b_factor=small.pdb_info.atom_b_factor[:, :small_width],
+        ),
+    )
     assert small.coords.shape[1] < large.coords.shape[1]
     assert small.packed_block_types is large.packed_block_types
     best, candidate = (small, large) if grow else (large, small)
+    # distinct b-factors show which pose each row's pdb_info came from
+    best, candidate = (
+        attrs.evolve(
+            pose,
+            pdb_info=attrs.evolve(
+                pose.pdb_info,
+                atom_b_factor=numpy.full_like(pose.pdb_info.atom_b_factor, b_factor),
+            ),
+        )
+        for pose, b_factor in ((best, 1.0), (candidate, 2.0))
+    )
     original_best = best.coords.clone()
     original_candidate = candidate.coords.clone()
     sfxn = ScoreFunction(param_db=default_database, device=torch_device)
@@ -65,7 +79,7 @@ def test_accept_best_with_different_atom_counts(
         "render_whole_pose_scoring_module",
         lambda pose: lambda coords: coords.new_tensor([1.0, 3.0]),
     )
-    result, scores = accept_best(
+    result, scores = _accept_best(
         sfxn, best, best.coords.new_tensor([2.0, 2.0]), candidate
     )
     torch.testing.assert_close(scores, best.coords.new_tensor([1.0, 2.0]))
@@ -83,6 +97,12 @@ def test_accept_best_with_different_atom_counts(
             result.coords[row, : expected.coords.shape[1]], expected.coords[row]
         )
         assert not bool(result.coords[row, expected.coords.shape[1] :].any())
+        for name in ("atom_occupancy", "atom_b_factor"):
+            merged = getattr(result.pdb_info, name)
+            expected_info = getattr(expected.pdb_info, name)[row]
+            assert merged.shape[1] == result.coords.shape[1]
+            numpy.testing.assert_equal(merged[row, : len(expected_info)], expected_info)
+            assert not merged[row, len(expected_info) :].any()
     torch.testing.assert_close(best.coords, original_best)
     torch.testing.assert_close(candidate.coords, original_candidate)
 
@@ -115,28 +135,65 @@ def get_relax_sfxn(default_database, torch_device):
     return sfxn
 
 
-@pytest.mark.parametrize(
-    "pdb_fixture, expected",
-    [
-        ("ubq_pdb", False),
-        ("dna_pdb", True),
-        ("rna_pdb", True),
-        ("protein_dna_pdb", True),
-    ],
-)
-def test_fast_relax_automatic_graph_mode(request, pdb_fixture, expected, torch_device):
-    pose_stack = pose_stack_from_file(
-        request.getfixturevalue(pdb_fixture),
-        torch_device,
-        no_optH=True,
-        missing_density_distance_threshold=0.0,
-    )
+class _MinimizerChosen(Exception):
+    pass
 
-    assert _resolve_cuda_graph_mode(pose_stack, None) == (
-        expected and torch_device.type == "cuda"
+
+def test_fast_relax_defaults_to_cartesian(
+    default_database, ubq_pdb, torch_device, monkeypatch
+):
+    """Without a minimizer, fast_relax minimizes every atom coordinate."""
+    pose_stack = pose_stack_from_file(
+        ubq_pdb, torch_device, no_optH=True, missing_density_distance_threshold=0.0
     )
-    assert _resolve_cuda_graph_mode(pose_stack, True)
-    assert not _resolve_cuda_graph_mode(pose_stack, False)
+    chosen = []
+
+    def make(*args, **kwargs):
+        chosen.append((args, kwargs))
+        raise _MinimizerChosen
+
+    monkeypatch.setattr(fast_relax_module, "CartesianRelaxMinimizer", make)
+    with pytest.raises(_MinimizerChosen):
+        fast_relax(pose_stack, get_relax_sfxn(default_database, torch_device))
+    assert chosen == [((), {})]
+
+
+def test_relax_minimizers_reject_the_other_move_map(ubq_pdb, torch_device):
+    pose_stack = pose_stack_from_file(
+        ubq_pdb, torch_device, no_optH=True, missing_density_distance_threshold=0.0
+    )
+    with pytest.raises(TypeError, match="needs a CartesianMoveMap"):
+        CartesianRelaxMinimizer(MoveMap.from_pose_stack(pose_stack))
+    with pytest.raises(TypeError, match="needs a MoveMap"):
+        KinematicRelaxMinimizer(CartesianMoveMap())
+
+
+def test_kinematic_relax_default_move_map(ubq_pdb, torch_device):
+    """Without a move map, every mainchain/sidechain torsion and jump moves."""
+    pose_stack = pose_stack_from_file(
+        ubq_pdb, torch_device, no_optH=True, missing_density_distance_threshold=0.0
+    )
+    minimizer = KinematicRelaxMinimizer()
+    seen = []
+
+    def record(pose, sfxn, fold_forest, move_map, **kwargs):
+        seen.append(move_map)
+        return pose
+
+    minimizer.minimizer = record
+    minimizer(pose_stack, None)
+    (move_map,) = seen
+    assert move_map.move_all_mc and move_map.move_all_sc and move_map.move_all_jumps
+
+
+def test_relax_minimizer_graph_mode(ubq_pdb, torch_device):
+    """None replays CUDA graphs on CUDA poses and runs CPU poses eagerly."""
+    pose_stack = pose_stack_from_file(
+        ubq_pdb, torch_device, no_optH=True, missing_density_distance_threshold=0.0
+    )
+    assert _graph_mode(None, pose_stack) == (torch_device.type == "cuda")
+    assert _graph_mode(True, pose_stack)
+    assert not _graph_mode(False, pose_stack)
 
 
 @pytest.mark.parametrize("n_poses", [1])
@@ -156,13 +213,6 @@ def test_fast_relax_ubq(default_database, ubq_pdb, dun_sampler, torch_device, n_
     pose_stack = PoseStackBuilder.from_poses([p] * n_poses, torch_device)
     sfxn = get_relax_sfxn(default_database, torch_device)
 
-    mm = MoveMap.from_pose_stack(pose_stack)
-    mm.move_all_jumps = True
-    mm.move_all_named_torsions = True
-
-    palette = PackerPalette()
-    fold_forest = FoldForest.reasonable_fold_forest(pose_stack)
-
     def task_op(task):
         task.restrict_to_repacking()
         task.or_bump_check(True)
@@ -174,14 +224,11 @@ def test_fast_relax_ubq(default_database, ubq_pdb, dun_sampler, torch_device, n_
 
     start_time = time.perf_counter()
 
-    # Now let's run fast_relax
+    # Now let's run fast_relax with the default (Cartesian) minimizer
     verbose = True
     new_pose_stack = fast_relax(
         pose_stack,
         sfxn,
-        palette,
-        mm,
-        fold_forest,
         task_operations=[task_op],
         num_repeats=1,
         verbose=verbose,
@@ -241,13 +288,9 @@ def test_kin_fast_relax_ubq(
     new_pose_stack = fast_relax(
         pose_stack,
         sfxn,
-        palette,
-        mm,
-        fold_forest,
+        minimizer=KinematicRelaxMinimizer(mm, fold_forest),
+        packer_palette=palette,
         task_operations=[task_op],
-        min_fn=DefaultKinematicMinimizer(
-            cuda_graph=torch_device == torch.device("cuda")
-        ),
         num_repeats=1,
         verbose=verbose,
     )
@@ -287,7 +330,6 @@ def test_cart_relax_ubq(default_database, ubq_pdb, dun_sampler, torch_device, n_
     # CartesianMoveMap with coord_mask=None moves all atoms.
     cart_mm = CartesianMoveMap()
     palette = PackerPalette()
-    fold_forest = FoldForest.reasonable_fold_forest(pose_stack)
 
     def task_op(task):
         task.restrict_to_repacking()
@@ -304,11 +346,9 @@ def test_cart_relax_ubq(default_database, ubq_pdb, dun_sampler, torch_device, n_
     new_pose_stack = fast_relax(
         pose_stack,
         sfxn,
-        palette,
-        cart_mm,
-        fold_forest,
+        minimizer=CartesianRelaxMinimizer(cart_mm, cuda_graph=True),
+        packer_palette=palette,
         task_operations=[task_op],
-        cuda_graph=True,
         num_repeats=1,
         verbose=verbose,
     )
@@ -337,8 +377,6 @@ def test_fast_relax_releases_minimizer_state_between_packing_stages(
         missing_density_distance_threshold=0.0,
     )
     palette = PackerPalette()
-    move_map = CartesianMoveMap()
-    fold_forest = FoldForest.reasonable_fold_forest(pose)
     schedule = [0.2, 1.0]
     optimizer_kwargs = {
         "max_iter": 1,
@@ -366,15 +404,7 @@ def test_fast_relax_releases_minimizer_state_between_packing_stages(
             self.network_refs = []
             self.optimizer_refs = []
 
-        def __call__(
-            self,
-            current,
-            score_function,
-            *,
-            fold_forest,
-            move_map,
-            verbose,
-        ):
+        def __call__(self, current, score_function, *, verbose):
             result = self.minimizer(
                 current,
                 score_function,
@@ -435,13 +465,11 @@ def test_fast_relax_releases_minimizer_state_between_packing_stages(
         result = fast_relax(
             pose,
             score_function,
-            palette,
-            move_map,
-            fold_forest,
+            minimizer=minimizer,
+            packer_palette=palette,
             task_operations=[task_op],
             num_repeats=1,
             schedule=schedule,
-            min_fn=minimizer,
         )
         return result, assignments, minimizer, pack_entry_allocations
 
@@ -564,9 +592,8 @@ def test_fast_relax_pertuz(
     new_pose_stack = fast_relax(
         pose_stack,
         sfxn,
-        palette,
-        mm,
-        fold_forest,
+        minimizer=KinematicRelaxMinimizer(mm, fold_forest),
+        packer_palette=palette,
         task_operations=[task_op],
         num_repeats=1,
         verbose=verbose,
@@ -645,9 +672,8 @@ def test_fast_relax_for_different_shapes(
     new_pose_stack = fast_relax(
         pose_stack,
         sfxn,
-        palette,
-        mm,
-        fold_forest,
+        minimizer=KinematicRelaxMinimizer(mm, fold_forest),
+        packer_palette=palette,
         task_operations=[task_op],
         num_repeats=1,
         verbose=verbose,

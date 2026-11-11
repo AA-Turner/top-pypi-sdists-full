@@ -112,12 +112,7 @@ impl InternedString {
     }
 
     pub fn from_str_parts(parts: &[&str]) -> Self {
-        let mut value = String::new();
-        for v in parts {
-            value.push_str(v);
-        }
-
-        Self::from_string_uninterned(value)
+        Self::from_string_uninterned(parts.concat())
     }
 
     pub fn as_str(&self) -> &str {

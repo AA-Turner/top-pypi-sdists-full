@@ -13,7 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from time import monotonic, sleep
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 import trustme
@@ -89,18 +89,6 @@ def wait_for_port(port: int, *, timeout: float = 5.0, interval: float = 0.01) ->
     raise RuntimeError(f"Server on port {port} failed to start within {timeout}s")
 
 
-def run(target: Callable, port: int | None = None, timeout: float = 5.0, wait: bool = True, **kwargs: Any) -> int:
-    """Start a daemon thread running the given server target on a free port."""
-    if port is None:
-        port = unused_port()
-    server_thread = threading.Thread(target=target, kwargs={"port": port, **kwargs})
-    server_thread.daemon = True
-    server_thread.start()
-    if wait:
-        wait_for_port(port, timeout=timeout)
-    return port
-
-
 class SubprocessRunner:
     def __init__(self, tmp_path: Path):
         self.tmp_path = tmp_path
@@ -167,12 +155,17 @@ def subprocess_runner(tmp_path):
     runner.cleanup()
 
 
-def run_flask_app(app: Flask, port: int | None = None, timeout: float = 5.0, wait: bool = True) -> int:
-    """Start a thread with the given Flask application."""
-    if port is not None or not wait:
-        return run(app.run, port=port, timeout=timeout, wait=wait)
-    # Binding port 0 inside the server leaves no window for another socket to take a pre-picked port.
-    return _serve(make_server("127.0.0.1", 0, app, threaded=True))
+def run_flask_app(app: Flask, *, delay: float = 0.0) -> int:
+    """Start a thread with the given Flask application, `delay` seconds from now."""
+    if not delay:
+        # Binding port 0 inside the server leaves no window for another socket to take a pre-picked port.
+        return _serve(make_server("127.0.0.1", 0, app, threaded=True))
+    # Until the server starts, its port refuses connections, as the port of a server still booting does.
+    port = unused_port()
+    timer = threading.Timer(delay, lambda: _serve(make_server("127.0.0.1", port, app, threaded=True)))
+    timer.daemon = True
+    timer.start()
+    return port
 
 
 def run_https_flask_app(app: Flask) -> int:
@@ -258,8 +251,8 @@ def run_resetting_server() -> int:
     return listener.getsockname()[1]
 
 
-def run_port_proxy(port: int) -> int:
-    """Relay connections to `port`; once nothing listens there, accept and reset them, as a port proxy does."""
+def run_port_proxy(port: int, *, resets: int = 0) -> int:
+    """Relay connections to `port` after resetting the first `resets`; reset them while nothing listens there."""
     listener = socket.create_server(("127.0.0.1", 0))
 
     def relay(source: socket.socket, target: socket.socket) -> None:
@@ -276,14 +269,22 @@ def run_port_proxy(port: int) -> int:
                 pass
             connection.close()
 
+    def reset(connection: socket.socket) -> None:
+        # Resetting only once the client spoke makes it see a reset rather than a closed connection.
+        connection.recv(65536)
+        connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+        connection.close()
+
     def handle(connection: socket.socket) -> None:
+        nonlocal resets
+        if resets:
+            resets -= 1
+            reset(connection)
+            return
         try:
             upstream = socket.create_connection(("127.0.0.1", port))
         except OSError:
-            # Resetting only once the client spoke makes it see a reset rather than a closed connection.
-            connection.recv(65536)
-            connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
-            connection.close()
+            reset(connection)
             return
         for source, target in ((connection, upstream), (upstream, connection)):
             threading.Thread(target=relay, args=(source, target), daemon=True).start()
@@ -292,28 +293,25 @@ def run_port_proxy(port: int) -> int:
     return listener.getsockname()[1]
 
 
-def openapi_url(app: Flask, *, path: str = "/openapi.json", wait: bool = True) -> str:
+def openapi_url(app: Flask, *, path: str = "/openapi.json", delay: float = 0.0) -> str:
     """Start `app` on a free port and return the URL where the OpenAPI schema is served."""
-    port = run_flask_app(app, wait=wait)
+    port = run_flask_app(app, delay=delay)
     return f"http://127.0.0.1:{port}{path}"
 
 
-def run_asgi_app(app: ASGIApp, port: int | None = None, timeout: float = 5.0, wait: bool = True) -> int:
+def run_asgi_app(app: ASGIApp, wait: bool = True) -> int:
     """Start a daemon thread running uvicorn against the given ASGI application."""
-    sockets = []
-    if port is None:
-        # Keep the bound socket so no other socket can take the port before uvicorn listens on it.
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.bind(("127.0.0.1", 0))
-        port = sock.getsockname()[1]
-        sockets.append(sock)
+    # Keep the bound socket so no other socket can take the port before uvicorn listens on it.
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error", lifespan="off")
     server = uvicorn.Server(config)
     _SERVERS.append(server)
-    thread = threading.Thread(target=server.run, kwargs={"sockets": sockets or None}, daemon=True)
+    thread = threading.Thread(target=server.run, kwargs={"sockets": [sock]}, daemon=True)
     thread.start()
     if wait:
-        wait_for_port(port, timeout=timeout)
+        wait_for_port(port)
     return port
 
 
@@ -323,7 +321,7 @@ class AppRunner:
     run_https_flask_app: Callable[[Flask], int]
     run_client_cert_flask_app: Callable[[Flask, Path], ClientCertServer]
     run_resetting_server: Callable[[], int]
-    run_port_proxy: Callable[[int], int]
+    run_port_proxy: Callable[..., int]
     run_asgi_app: Callable[..., int]
     openapi_url: Callable[..., str]
 
@@ -339,3 +337,12 @@ def app_runner():
         run_asgi_app=run_asgi_app,
         openapi_url=openapi_url,
     )
+
+
+@pytest.fixture
+def silent_url():
+    # A listening socket that never accepts completes the handshake, then never answers.
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        sock.listen()
+        yield f"http://127.0.0.1:{sock.getsockname()[1]}"

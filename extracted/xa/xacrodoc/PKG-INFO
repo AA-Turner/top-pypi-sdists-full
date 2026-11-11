@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: xacrodoc
-Version: 2.0.1
+Version: 2.0.2
 Summary: Compile xacro files to URDF or MJCF from Python or the command line (no ROS required).
 Author-email: Adam Heins <mail@adamheins.com>
 License: MIT
@@ -11,7 +11,8 @@ Requires-Dist: xacro>=2.1.1
 Provides-Extra: mujoco
 Requires-Dist: mujoco==3.2.3; (python_version == '3.8') and extra == 'mujoco'
 Requires-Dist: mujoco==3.3.7; (python_version == '3.9') and extra == 'mujoco'
-Requires-Dist: mujoco>=3.4.0; (python_version > '3.9') and extra == 'mujoco'
+Requires-Dist: mujoco>=3.4.0; (python_version > '3.9' and python_version < '3.14') and extra == 'mujoco'
+Requires-Dist: mujoco>=3.8.0; (python_version >= '3.14') and extra == 'mujoco'
 Description-Content-Type: text/markdown
 
 # xacrodoc

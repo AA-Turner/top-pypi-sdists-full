@@ -19,6 +19,7 @@ from exp.runtime.models.providers.allowed_tools import (
     needs_allowed_tools_translation,
     restrict_to_allowed_tools,
 )
+from exp.runtime.models.providers.anthropic_annotations import anthropic_annotation_disclosures
 from exp.runtime.models.providers.codex_tools import (
     convert_native_history,
     translate_native_tools,
@@ -106,6 +107,7 @@ from exp.runtime.models.providers.server_tools import (
     anthropic_server_tools_message,
     anthropic_server_tools_present,
     disclose_dropped_server_tools,
+    shape_anthropic_advisor,
 )
 from exp.runtime.models.providers.thinking_budget import (
     qwen_uses_total_budget_cap,
@@ -615,35 +617,10 @@ def route_generation_parameter_requests(
         if "messages.provider_specific_fields" not in ignored:
             ignored.append("messages.provider_specific_fields")
 
-    # Anthropic tool annotations (and Responses defer_loading) drop elsewhere with disclosure.
-    if not all(profile.dialect == "anthropic_messages" for profile in profiles):
-        tool_annotation_paths = (
-            (
-                f"tools.cache_control{CACHE_CONTROL_NOT_FORWARDED_SUFFIX}",
-                any(tool.cache_control is not None for tool in request.tools)
-                and not all(profile.preserves_cache_control for profile in profiles),
-            ),
-            (
-                "tools.eager_input_streaming",
-                any(tool.eager_input_streaming is not None for tool in request.tools),
-            ),
-            (
-                "tools.defer_loading",
-                any(tool.defer_loading is not None for tool in request.tools)
-                and not all(profile.dialect == "openai_responses" for profile in profiles),
-            ),
-            (
-                "tools.allowed_callers",
-                any(tool.allowed_callers is not None for tool in request.tools),
-            ),
-            (
-                "tools.input_examples",
-                any(tool.input_examples is not None for tool in request.tools),
-            ),
-        )
-        for path, present in tool_annotation_paths:
-            if present and path not in ignored:
-                ignored.append(path)
+    # Anthropic-native annotations drop elsewhere with disclosure.
+    ignored.extend(
+        d for d in anthropic_annotation_disclosures(profiles, request) if d not in ignored
+    )
 
     # Responses tool-call attribution (the nested-tool `namespace` and the
     # SDK 3.0 programmatic `caller`, on calls and on their results) exists
@@ -779,6 +756,8 @@ def route_generation_parameter_requests(
         provider_updates["provider_server_tools"] = ()
         if clear_tool_choice:
             provider_updates["tool_choice"] = None
+    else:
+        shape_anthropic_advisor(profiles, request, provider_updates, ignored)
     # Codex native Responses tool declarations/history serve verbatim only on a
     # native Responses rung; a foreign wire gets them translated to function
     # tools (namespaces hoisted, custom tools as one ``input`` function; hosted
@@ -836,15 +815,11 @@ def route_generation_parameter_requests(
         and message.provider_native_item is None
         for message in request.messages
     ):
-        # The Anthropic wire rejects empty text content blocks post-dispatch
-        # ("text content blocks must be non-empty"; 2026-09-05, six orgs on
-        # claude-fable routes) and a user turn whose text is all whitespace
-        # ("text content blocks must contain non-whitespace text"; a user
-        # message must have non-empty content, so unlike an assistant turn
-        # it cannot dispatch as an empty array). Empty blocks inside a richer
-        # turn drop loss-free at conversion, but a user turn with no readable
-        # text has nothing to send and dropping the whole message would
-        # change conversation structure, so it is refused by name pre-dispatch.
+        # The Anthropic wire rejects empty or whitespace-only text blocks after
+        # dispatch, and a user turn, unlike an assistant turn, cannot dispatch
+        # as an empty array. Empty blocks inside a richer turn drop loss-free at
+        # conversion, but dropping a whole user turn would change the
+        # conversation structure, so it is refused by name pre-dispatch.
         raise ProviderParameterError(
             message=(
                 "A user message with empty or whitespace-only content cannot be "
@@ -855,7 +830,10 @@ def route_generation_parameter_requests(
             code="invalid_parameter",
         )
 
-    require_assistant_prefill_supported(profiles, request)
+    require_assistant_prefill_supported(
+        profiles,
+        cast("Sequence[GatewayMessage]", provider_updates.get("messages", request.messages)),
+    )
     require_tool_names_supported(profiles, request)
     disclose_anthropic_tool_schemas(profiles, request, ignored)
     disclose_system_fold(profiles, request, ignored)

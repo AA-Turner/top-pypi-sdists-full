@@ -310,6 +310,21 @@ def _collector() -> DisclosureCollector | None:
     return _DISCLOSURE_COLLECTOR.get()
 
 
+@contextmanager
+def decide_without_receipt() -> Iterator[None]:
+    """Decide as the request would, but record no outcome and claim no path outcome.
+
+    For a lookup that releases nothing, such as resolving a title to a page. A receipt row claims its
+    path once, so a lookup's row would be the one kept and would hide the page's own, later release row
+    with its hash, size and ref.
+    """
+    token = _DISCLOSURE_COLLECTOR.set(None)
+    try:
+        yield
+    finally:
+        _DISCLOSURE_COLLECTOR.reset(token)
+
+
 def _record_outcome(value: Mapping[str, Any]) -> None:
     collector = _collector()
     if collector is None:
@@ -483,28 +498,44 @@ def _outcome_for_decision(
         if ref is not None:
             value["ref"] = ref
     else:
-        # Defence in depth: `rel_path` is expected to already be a decided,
-        # vault-relative candidate, but this hash is the last thing that
-        # touches the filesystem before the receipt is written. Confining it
-        # here too means an unconfined candidate that reaches this far still
-        # cannot make the receipt read (and hash the size of) an arbitrary
-        # server file — it just loses its content hash.
-        try:
-            target = Path(vault_root) / rel_path
-            resolved = target.resolve()
-            resolved.relative_to(Path(vault_root).resolve())
-        except (OSError, ValueError):
-            pass
-        else:
-            if resolved.is_file():
-                try:
-                    raw = resolved.read_bytes()
-                except OSError:
-                    pass
-                else:
-                    value["content_hash"] = hashlib.sha256(raw).hexdigest()
-                    value["size"] = len(raw)
+        raw = _receipt_bytes(vault_root, rel_path)
+        if raw is not None:
+            value["content_hash"] = hashlib.sha256(raw).hexdigest()
+            value["size"] = len(raw)
     _record_outcome(value)
+
+
+def _receipt_bytes(vault_root: Path, rel_path: str) -> bytes | None:
+    """The bytes that a decision receipt hashes, or None when there are none to read.
+
+    A page that the store serves is read from the store: its file is a projection that may lag.
+    """
+    from ..vault_store import read
+
+    try:
+        stored = read.owned_bytes(vault_root, rel_path)
+    except OSError:  # the store serves this path but holds no page for it
+        return None
+    if stored is not None:
+        return stored
+    # Defence in depth: `rel_path` is expected to already be a decided,
+    # vault-relative candidate, but this hash is the last thing that
+    # touches the filesystem before the receipt is written. Confining it
+    # here too means an unconfined candidate that reaches this far still
+    # cannot make the receipt read (and hash the size of) an arbitrary
+    # server file — it just loses its content hash.
+    try:
+        target = Path(vault_root) / rel_path
+        resolved = target.resolve()
+        resolved.relative_to(Path(vault_root).resolve())
+    except (OSError, ValueError):
+        return None
+    if not resolved.is_file():
+        return None
+    try:
+        return resolved.read_bytes()
+    except OSError:
+        return None
 
 
 def emit_boundary_receipt(collector: DisclosureCollector) -> None:
@@ -849,6 +880,8 @@ _UNIT_FIELDS: frozenset[str] = frozenset(
         "relation_match",
         "mixed_units_truncated",
         "signals",
+        "dimension",
+        "display",
     }
 )
 
@@ -1888,7 +1921,7 @@ def _mint_escalation_quietly(
             return None
         connection = store.open_authorization_session_connection(vault_root)
         if expected_content_hash is None:
-            fingerprint = hashlib.sha256((vault_root / rel_path).read_bytes()).hexdigest()
+            fingerprint = hashlib.sha256(_page_bytes(vault_root, rel_path)).hexdigest()
         elif re.fullmatch(r"[0-9a-f]{64}", expected_content_hash):
             fingerprint = expected_content_hash
         else:
@@ -2222,6 +2255,18 @@ def container_parent_allows(
     return decision is not None and decision.level >= LEVEL_FULL
 
 
+def _page_bytes(vault_root: Path, rel_path: str) -> bytes:
+    """The bytes of the page at ``rel_path``: the store's page when the store serves it, else the
+    file's.
+
+    A page that the store serves but lacks raises ``FileNotFoundError``, as a missing file does.
+    """
+    from ..vault_store import read
+
+    stored = read.owned_bytes(vault_root, rel_path)
+    return (vault_root / rel_path).read_bytes() if stored is None else stored
+
+
 @canonical_read(projection=True, unavailable=lambda: Decision(DISCLOSURE_MIN), batch=_DECIDE_PATH_BATCH)
 def _decide_path(
     vault_root: Path,
@@ -2280,7 +2325,7 @@ def _decide_path(
         return Decision(DISCLOSURE_MAX)
     full_path = vault_root / rel_path
     try:
-        st = full_path.stat()
+        st = find_corpus.page_stat(full_path, vault_root)
     except OSError:
         return None
 
@@ -2288,7 +2333,7 @@ def _decide_path(
     live_content_hash: str | None = artifact_copy.sha256 if artifact_copy is not None else None
     if _is_markdown_path(rel_path) and artifact_copy is None:
         try:
-            raw = full_path.read_bytes()
+            raw = _page_bytes(vault_root, rel_path)
         except OSError:
             return None
         live_content_hash = hashlib.sha256(raw).hexdigest()
@@ -2349,7 +2394,7 @@ def _decide_path(
             return None
     if live_content_hash is None and authorization_context is not None:
         try:
-            live_content_hash = hashlib.sha256(full_path.read_bytes()).hexdigest()
+            live_content_hash = hashlib.sha256(_page_bytes(vault_root, rel_path)).hexdigest()
         except OSError:
             return None
 
@@ -2989,6 +3034,12 @@ def annotate_hits(
         if decision is None:
             # The page vanished or would not parse: it cannot be shown to
             # have been permitted, so it is withheld rather than released.
+            withheld.add(rel_path)
+            continue
+        if getattr(hit, "dataset_value", False) and decision.level < LEVEL_FULL:
+            # A dataset value is raw content, read by `query_dataset` only at the full level.
+            # Below it the hit is dropped, never an excerpt and never a notice: a notice would
+            # tell a reader who may not read the rows that a value matched.
             withheld.add(rel_path)
             continue
         if decision.level >= RELEASE_FLOOR:
@@ -7190,7 +7241,7 @@ def _release_level_for_path_only_snapshot(
     if who.verified_authorization_session is not None:
         try:
             content_hash = (
-                hashlib.sha256((vault_root / rel_path).read_bytes()).hexdigest()
+                hashlib.sha256(_page_bytes(vault_root, rel_path)).hexdigest()
                 if content_fingerprint is _CURRENT_PATH_FINGERPRINT else content_fingerprint
             )
         except OSError:
@@ -7732,13 +7783,13 @@ def restricted_release_filter(
     """
     if bound_writer(vault_root) is not None:
         return release_walk_filter(vault_root, principal=principal, purpose=purpose)
-    who = _file_mode_restricted_caller(vault_root, principal)
+    who = file_mode_restricted_caller(vault_root, principal)
     if who is None:
         return None
     return release_walk_filter(vault_root, principal=who, purpose=purpose)
 
 
-def _file_mode_restricted_caller(
+def file_mode_restricted_caller(
     vault_root: Path, principal: RequestPrincipal | None
 ) -> RequestPrincipal | None:
     """The file-mode caller that something could be withheld from, or `None`.
@@ -7777,7 +7828,7 @@ def caller_restricted(
     del purpose  # every purpose gets a filter or none alike
     return (
         bound_writer(vault_root) is not None
-        or _file_mode_restricted_caller(vault_root, principal) is not None
+        or file_mode_restricted_caller(vault_root, principal) is not None
     )
 
 
@@ -7822,12 +7873,15 @@ def owner_only_aggregate(
 
         operation = writer._operation
         try:
-            for entry in reserved_paths.list_generic_tree(vault_root, ".", checkpoint=checkpoint):
+            # The disk's census: a collection projects files, and a stored page is no collection's.
+            for entry in reserved_paths.list_generic_tree(
+                vault_root, ".", checkpoint=checkpoint, stored=False
+            ):
                 if checkpoint is not None:
                     checkpoint()
                 path = authority._knowledge_base_spelling(vault_root, entry.relative_path)
                 # A collection projects only into the knowledge base; the marker refuses any path outside it as invalid.
-                if entry.identity.kind != "file" or not path.startswith(f"{kb_dirname()}/"):
+                if entry.kind != "file" or not path.startswith(f"{kb_dirname()}/"):
                     continue
                 canonical = operation.projection_decision(path)
                 if canonical is None:
@@ -8010,6 +8064,23 @@ def page_filter_over(
     # A non-page reference is kept whatever the page verdicts say, so the
     # catalogue publishes only the pages `decide` hands on to the release verdict.
     return AdmittedPredicate(Admission(offered.identity, decide))
+
+
+def edge_view(
+    vault_root: Path, admission: Callable[[str], bool] | None
+) -> Callable[[str], bool] | None:
+    """The pages whose edges count for this caller, or None when nothing is withheld from it.
+
+    A page counts when the request's content `admission` (None when it has none) admits it and the
+    release plane shows it to the caller (`visible_page_filter`, the rule every derived structure
+    reads through). A reader of graph edges passes this view as its `keep`, so an edge never
+    reveals a page that the caller's own hits cannot show, and a vault with the withheld page
+    answers as a vault without it.
+    """
+    visible = visible_page_filter(vault_root)
+    if visible is None or admission is None:
+        return admission if visible is None else visible
+    return lambda path: admission(path) and visible(path)
 
 
 class ReaderViewUnavailable(RuntimeError):

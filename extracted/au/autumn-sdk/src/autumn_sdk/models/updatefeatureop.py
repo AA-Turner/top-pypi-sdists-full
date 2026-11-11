@@ -817,21 +817,6 @@ class UpdateFeatureDimensionsResponse6(BaseModel):
 UpdateFeatureDimensionsToResponseEnum3 = Literal["inf",]
 
 
-UpdateFeatureDimensionsResponseUnion3TypedDict = TypeAliasType(
-    "UpdateFeatureDimensionsResponseUnion3TypedDict",
-    Union[
-        UpdateFeatureDimensionsResponse6TypedDict,
-        UpdateFeatureDimensionsResponse5TypedDict,
-    ],
-)
-
-
-UpdateFeatureDimensionsResponseUnion3 = TypeAliasType(
-    "UpdateFeatureDimensionsResponseUnion3",
-    Union[UpdateFeatureDimensionsResponse6, UpdateFeatureDimensionsResponse5],
-)
-
-
 class UpdateFeatureMultipliersResponse3TypedDict(TypedDict):
     match: Dict[str, str]
     r"""Event properties this entry applies to. Every key must equal the tracked property, compared as strings."""
@@ -1021,6 +1006,21 @@ class UpdateFeatureDimensionsResponse5(BaseModel):
                     m[k] = val
 
         return m
+
+
+UpdateFeatureDimensionsResponseUnion3TypedDict = TypeAliasType(
+    "UpdateFeatureDimensionsResponseUnion3TypedDict",
+    Union[
+        UpdateFeatureDimensionsResponse6TypedDict,
+        UpdateFeatureDimensionsResponse5TypedDict,
+    ],
+)
+
+
+UpdateFeatureDimensionsResponseUnion3 = TypeAliasType(
+    "UpdateFeatureDimensionsResponseUnion3",
+    Union[UpdateFeatureDimensionsResponse6, UpdateFeatureDimensionsResponse5],
+)
 
 
 UpdateFeatureDimensionsToResponseUnion2TypedDict = TypeAliasType(

@@ -35,6 +35,7 @@ from solana._pydantic import PydanticModel
 from solana.exceptions import SolanaRpcException
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Finalized
+from solana.rpc.core import RPCException
 from solana.rpc.async_http_provider import AsyncHTTPProvider
 from solana.rpc.jsonrpc import JsonRpcErrorObject, JsonRpcRequest, SolanaJsonRpcError
 from solana.rpc.models import DataSliceOpts, MemcmpOpts, TokenAccountOpts
@@ -213,6 +214,15 @@ def test_async_http_provider_passes_explicit_http_options():
     )
 
 
+def test_async_http_provider_keeps_unset_default_limits():
+    """Test AsyncHTTPProvider keeps httpx2 defaults for limits that are not set."""
+    with patch("httpx2.AsyncClient") as client_mock:
+        AsyncHTTPProvider(max_connections=8)
+    assert client_mock.call_args.kwargs["limits"] == httpx2.Limits(
+        max_connections=8, max_keepalive_connections=20, keepalive_expiry=5.0
+    )
+
+
 def test_async_client_passes_explicit_http_options():
     """Test AsyncClient forwards explicit HTTP options to the provider."""
     with patch("solana.rpc.async_http_provider.AsyncHTTPProvider") as provider_mock:
@@ -290,6 +300,17 @@ async def test_async_http_provider_can_disable_transport_retries():
         await provider.close()
 
 
+async def test_rpc_error_code_without_a_solders_type_raises(unit_test_http_client_async):
+    """An error code solders has no type for comes back as a bare int, which must not reach the caller."""
+    raw = '{"jsonrpc":"2.0","error":{"code":-32020,"message":"Transaction 1111 not found"},"id":0}'
+    with patch("httpx2.AsyncClient.post") as post_mock:
+        post_mock.return_value = _mock_response(raw)
+        with pytest.raises(RPCException) as exc_info:
+            await unit_test_http_client_async.get_signatures_for_address(SYSTEM_PROGRAM_ID, before=Signature.default())
+    assert exc_info.value.args[0].code == -32020
+    assert exc_info.value.args[0].message == "Transaction 1111 not found"
+
+
 async def test_send_rpc_request_success(unit_test_http_client_async):
     """Test sending a Pydantic-owned JSON-RPC request."""
     raw = '{"jsonrpc":"2.0","id":1,"result":{"value":42}}'
@@ -361,6 +382,15 @@ async def test_send_rpc_request_jsonrpc_error(unit_test_http_client_async):
     assert exc_info.value.request_id == "1"
     assert exc_info.value.method == "testMethod"
     assert exc_info.value.name == "INVALID_PARAMS"
+
+
+async def test_send_rpc_request_jsonrpc_error_null_id(unit_test_http_client_async):
+    raw = '{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid request"}}'
+    with patch("httpx2.AsyncClient.post") as post_mock:
+        post_mock.return_value = _mock_response(raw)
+        with pytest.raises(SolanaJsonRpcError) as exc_info:
+            await unit_test_http_client_async.send_rpc_request(_TestRpcRequest(), _TestRpcResult)
+    assert exc_info.value.request_id is None
 
 
 async def test_send_rpc_request_custom_error_parser(unit_test_http_client_async):
@@ -530,6 +560,15 @@ def test_get_program_accounts_body(unit_test_http_client_async):
         filters=[17, MemcmpOpts(offset=4, bytes="3Mc6vR")],
     )
     assert expected == actual
+
+
+async def test_get_program_accounts_defaults_to_base64(unit_test_http_client_async):
+    """The server's base58 default fails the whole call if any account is over 128 bytes."""
+    raw = '{"jsonrpc":"2.0","result":[],"id":0}'
+    with patch("httpx2.AsyncClient.post") as post_mock:
+        post_mock.return_value = _mock_response(raw)
+        await unit_test_http_client_async.get_program_accounts(SYSTEM_PROGRAM_ID)
+    assert json.loads(post_mock.call_args.kwargs["content"])["params"][1]["encoding"] == "base64"
 
 
 def test_get_token_accounts_by_owner_body(unit_test_http_client_async):

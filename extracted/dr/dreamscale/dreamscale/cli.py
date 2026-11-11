@@ -759,6 +759,8 @@ def sim(
         **({"benchmark": benchmark} if benchmark != "libero" else {}),
         model=model,
         max_steps=resolved_max_steps,
+        # A time limit counts every tick; a step budget counts what the sim's model counts.
+        **({"count_holds": True} if max_duration is not None else {}),
         view=not non_interactive,
         tui=not non_interactive,
         real_time=True,

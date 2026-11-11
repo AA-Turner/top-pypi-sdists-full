@@ -10895,6 +10895,1102 @@ class CfnCodeRepositoryProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.IComputeQuotaRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnComputeQuota(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnComputeQuota",
+):
+    '''Resource Type definition for AWS::SageMaker::ComputeQuota.
+
+    Defines a compute allocation rule for an EKS-orchestrated SageMaker HyperPod cluster's task governance. Available in 15 regions (us-east-1, us-east-2, us-west-1, us-west-2, ap-south-1, ap-southeast-1, ap-southeast-2, ap-southeast-3, ap-northeast-1, eu-central-1, eu-west-1, eu-west-2, eu-north-1, eu-south-2, sa-east-1).
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-computequota.html
+    :cloudformationResource: AWS::SageMaker::ComputeQuota
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_sagemaker as sagemaker
+        
+        cfn_compute_quota = sagemaker.CfnComputeQuota(self, "MyCfnComputeQuota",
+            cluster_arn="clusterArn",
+            compute_quota_config=sagemaker.CfnComputeQuota.ComputeQuotaConfigProperty(
+                compute_quota_resources=[sagemaker.CfnComputeQuota.ComputeQuotaResourceConfigProperty(
+                    instance_type="instanceType",
+        
+                    # the properties below are optional
+                    accelerator_partition=sagemaker.CfnComputeQuota.AcceleratorPartitionConfigProperty(
+                        count=123,
+                        type="type"
+                    ),
+                    accelerators=123,
+                    count=123,
+                    memory_in_gi_b=123,
+                    v_cpu=123
+                )],
+                preempt_team_tasks="preemptTeamTasks",
+                resource_sharing_config=sagemaker.CfnComputeQuota.ResourceSharingConfigProperty(
+                    strategy="strategy",
+        
+                    # the properties below are optional
+                    absolute_borrow_limits=[sagemaker.CfnComputeQuota.ComputeQuotaResourceConfigProperty(
+                        instance_type="instanceType",
+        
+                        # the properties below are optional
+                        accelerator_partition=sagemaker.CfnComputeQuota.AcceleratorPartitionConfigProperty(
+                            count=123,
+                            type="type"
+                        ),
+                        accelerators=123,
+                        count=123,
+                        memory_in_gi_b=123,
+                        v_cpu=123
+                    )],
+                    borrow_limit=123
+                )
+            ),
+            compute_quota_target=sagemaker.CfnComputeQuota.ComputeQuotaTargetProperty(
+                team_name="teamName",
+        
+                # the properties below are optional
+                fair_share_weight=123
+            ),
+            name="name",
+        
+            # the properties below are optional
+            activation_state="activationState",
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        cluster_arn: builtins.str,
+        compute_quota_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeQuota.ComputeQuotaConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        compute_quota_target: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeQuota.ComputeQuotaTargetProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        activation_state: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SageMaker::ComputeQuota``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param cluster_arn: The ARN of the EKS-orchestrated SageMaker HyperPod cluster the compute allocation definition is bound to. Slurm-orchestrated clusters are rejected by the service.
+        :param compute_quota_config: Compute allocation rules: per-resource quotas, idle-borrowing strategy, and team-task preemption policy.
+        :param compute_quota_target: The team this compute allocation rule applies to.
+        :param name: The name of the compute allocation definition.
+        :param activation_state: Whether the compute allocation rule is active. Defaults service-side to 'Enabled' when omitted on Create.
+        :param description: A free-form description of the compute allocation definition.
+        :param tags: Tags to associate with the compute allocation definition.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cb208d029e3387d5cd556f939362c27721d234f0e1a9a8c85ce9f9f0fd3b006b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnComputeQuotaProps(
+            cluster_arn=cluster_arn,
+            compute_quota_config=compute_quota_config,
+            compute_quota_target=compute_quota_target,
+            name=name,
+            activation_state=activation_state,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForComputeQuota")
+    @builtins.classmethod
+    def arn_for_compute_quota(
+        cls,
+        resource: "_aws_sagemaker_2f7a2e3e.IComputeQuotaRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__363d01fc50b64b7718e017edaf2cc87745a655b3d28df60c6bdc3cba6057782e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForComputeQuota", [resource]))
+
+    @jsii.member(jsii_name="isCfnComputeQuota")
+    @builtins.classmethod
+    def is_cfn_compute_quota(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnComputeQuota.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e8bd20b077eee7b3402355f9e84fa9e6622f4f1c84cc7ce548cce522a994118b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnComputeQuota", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3974d013851743a32be75a44205b8250f3788c0187dbd9ea8e88192520e22106)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8b4942c03a88ec68b29885637a47a535545194d3467fb124fab47352fe959aa0)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrComputeQuotaArn")
+    def attr_compute_quota_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the compute allocation definition.
+
+        :cloudformationAttribute: ComputeQuotaArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrComputeQuotaArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrComputeQuotaId")
+    def attr_compute_quota_id(self) -> builtins.str:
+        '''The unique 12-character identifier of the compute allocation definition.
+
+        :cloudformationAttribute: ComputeQuotaId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrComputeQuotaId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrComputeQuotaVersion")
+    def attr_compute_quota_version(self) -> jsii.Number:
+        '''The version of the compute allocation definition.
+
+        Incremented on each successful Update; used for optimistic concurrency control.
+
+        :cloudformationAttribute: ComputeQuotaVersion
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrComputeQuotaVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The ISO-8601 timestamp at which the compute allocation definition was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The ISO-8601 timestamp at which the compute allocation definition was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current lifecycle status of the compute allocation definition.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="computeQuotaRef")
+    def compute_quota_ref(self) -> "_aws_sagemaker_2f7a2e3e.ComputeQuotaReference":
+        '''A reference to a ComputeQuota resource.'''
+        return typing.cast("_aws_sagemaker_2f7a2e3e.ComputeQuotaReference", jsii.get(self, "computeQuotaRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterArn")
+    def cluster_arn(self) -> builtins.str:
+        '''The ARN of the EKS-orchestrated SageMaker HyperPod cluster the compute allocation definition is bound to.'''
+        return typing.cast(builtins.str, jsii.get(self, "clusterArn"))
+
+    @cluster_arn.setter
+    def cluster_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__93fe31774580831b52edb07fff1e6ade3fa126465bebda5158cf9375c0628a81)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="computeQuotaConfig")
+    def compute_quota_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaConfigProperty"]:
+        '''Compute allocation rules: per-resource quotas, idle-borrowing strategy, and team-task preemption policy.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaConfigProperty"], jsii.get(self, "computeQuotaConfig"))
+
+    @compute_quota_config.setter
+    def compute_quota_config(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaConfigProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dd969b859bd00adfd25a2029d6d2c58e610419b05df9bdfa17d71071c57a9b67)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "computeQuotaConfig", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="computeQuotaTarget")
+    def compute_quota_target(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaTargetProperty"]:
+        '''The team this compute allocation rule applies to.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaTargetProperty"], jsii.get(self, "computeQuotaTarget"))
+
+    @compute_quota_target.setter
+    def compute_quota_target(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaTargetProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9a899105dd8d00bfd4eeeb40a58049b06c732987d69e65e2f7792298065caa84)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "computeQuotaTarget", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the compute allocation definition.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__87d779c3776dd6103e2cd1915f342865182d768cfaa78a01ab611773a978e12b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="activationState")
+    def activation_state(self) -> typing.Optional[builtins.str]:
+        '''Whether the compute allocation rule is active.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "activationState"))
+
+    @activation_state.setter
+    def activation_state(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__988793ccbed8027225ba3fefa54ae86820ebe382f1536a469c0b0db84a0a7aa1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "activationState", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A free-form description of the compute allocation definition.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2ec1b0a495221661919845aa921604b584980d683f682fbd6a04d4437aa45664)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the compute allocation definition.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__68a87860f8ca84346ec5f24a3a29d299ef96b0466fcf3bf41066304e1c0c4bed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnComputeQuota.AcceleratorPartitionConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"count": "count", "type": "type"},
+    )
+    class AcceleratorPartitionConfigProperty:
+        def __init__(self, *, count: jsii.Number, type: builtins.str) -> None:
+            '''Multi-instance GPU (MIG) partition profile and count for fractional accelerator allocation.
+
+            :param count: The number of MIG partitions of the specified Type allocated to the team.
+            :param type: MIG profile type. Service rejects MIG profiles that the chosen InstanceType does not support.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-acceleratorpartitionconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                accelerator_partition_config_property = sagemaker.CfnComputeQuota.AcceleratorPartitionConfigProperty(
+                    count=123,
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a2edc2d41d127cebf7b2c6311f1647c28d31e45c7284dbcf8bb37d3c4995f773)
+                check_type(argname="argument count", value=count, expected_type=type_hints["count"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "count": count,
+                "type": type,
+            }
+
+        @builtins.property
+        def count(self) -> jsii.Number:
+            '''The number of MIG partitions of the specified Type allocated to the team.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-acceleratorpartitionconfig.html#cfn-sagemaker-computequota-acceleratorpartitionconfig-count
+            '''
+            result = self._values.get("count")
+            assert result is not None, "Required property 'count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''MIG profile type.
+
+            Service rejects MIG profiles that the chosen InstanceType does not support.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-acceleratorpartitionconfig.html#cfn-sagemaker-computequota-acceleratorpartitionconfig-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AcceleratorPartitionConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnComputeQuota.ComputeQuotaConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "compute_quota_resources": "computeQuotaResources",
+            "preempt_team_tasks": "preemptTeamTasks",
+            "resource_sharing_config": "resourceSharingConfig",
+        },
+    )
+    class ComputeQuotaConfigProperty:
+        def __init__(
+            self,
+            *,
+            compute_quota_resources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeQuota.ComputeQuotaResourceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            preempt_team_tasks: typing.Optional[builtins.str] = None,
+            resource_sharing_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeQuota.ResourceSharingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Compute allocation rules: per-resource quotas, idle-borrowing strategy, and team-task preemption policy.
+
+            :param compute_quota_resources: Per-instance-type compute quotas for the team. When VCpu / MemoryInGiB / Accelerators are partially specified, SageMaker auto-fills the remaining fields ratio-proportionally to the underlying instance — Read may return values the customer did not supply (drift may flag this).
+            :param preempt_team_tasks: Team-task preemption policy. Defaults service-side to 'LowerPriority' when omitted on Create.
+            :param resource_sharing_config: Idle-resource-sharing strategy for this team's quota.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotaconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                compute_quota_config_property = sagemaker.CfnComputeQuota.ComputeQuotaConfigProperty(
+                    compute_quota_resources=[sagemaker.CfnComputeQuota.ComputeQuotaResourceConfigProperty(
+                        instance_type="instanceType",
+                
+                        # the properties below are optional
+                        accelerator_partition=sagemaker.CfnComputeQuota.AcceleratorPartitionConfigProperty(
+                            count=123,
+                            type="type"
+                        ),
+                        accelerators=123,
+                        count=123,
+                        memory_in_gi_b=123,
+                        v_cpu=123
+                    )],
+                    preempt_team_tasks="preemptTeamTasks",
+                    resource_sharing_config=sagemaker.CfnComputeQuota.ResourceSharingConfigProperty(
+                        strategy="strategy",
+                
+                        # the properties below are optional
+                        absolute_borrow_limits=[sagemaker.CfnComputeQuota.ComputeQuotaResourceConfigProperty(
+                            instance_type="instanceType",
+                
+                            # the properties below are optional
+                            accelerator_partition=sagemaker.CfnComputeQuota.AcceleratorPartitionConfigProperty(
+                                count=123,
+                                type="type"
+                            ),
+                            accelerators=123,
+                            count=123,
+                            memory_in_gi_b=123,
+                            v_cpu=123
+                        )],
+                        borrow_limit=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__70ce0b14b99a0750625a5c95031f9ec43901bbc24b0c39d30ceec4e938508866)
+                check_type(argname="argument compute_quota_resources", value=compute_quota_resources, expected_type=type_hints["compute_quota_resources"])
+                check_type(argname="argument preempt_team_tasks", value=preempt_team_tasks, expected_type=type_hints["preempt_team_tasks"])
+                check_type(argname="argument resource_sharing_config", value=resource_sharing_config, expected_type=type_hints["resource_sharing_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if compute_quota_resources is not None:
+                self._values["compute_quota_resources"] = compute_quota_resources
+            if preempt_team_tasks is not None:
+                self._values["preempt_team_tasks"] = preempt_team_tasks
+            if resource_sharing_config is not None:
+                self._values["resource_sharing_config"] = resource_sharing_config
+
+        @builtins.property
+        def compute_quota_resources(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaResourceConfigProperty"]]]]:
+            '''Per-instance-type compute quotas for the team.
+
+            When VCpu / MemoryInGiB / Accelerators are partially specified, SageMaker auto-fills the remaining fields ratio-proportionally to the underlying instance — Read may return values the customer did not supply (drift may flag this).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotaconfig.html#cfn-sagemaker-computequota-computequotaconfig-computequotaresources
+            '''
+            result = self._values.get("compute_quota_resources")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaResourceConfigProperty"]]]], result)
+
+        @builtins.property
+        def preempt_team_tasks(self) -> typing.Optional[builtins.str]:
+            '''Team-task preemption policy.
+
+            Defaults service-side to 'LowerPriority' when omitted on Create.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotaconfig.html#cfn-sagemaker-computequota-computequotaconfig-preemptteamtasks
+            '''
+            result = self._values.get("preempt_team_tasks")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def resource_sharing_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ResourceSharingConfigProperty"]]:
+            '''Idle-resource-sharing strategy for this team's quota.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotaconfig.html#cfn-sagemaker-computequota-computequotaconfig-resourcesharingconfig
+            '''
+            result = self._values.get("resource_sharing_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ResourceSharingConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ComputeQuotaConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnComputeQuota.ComputeQuotaResourceConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "instance_type": "instanceType",
+            "accelerator_partition": "acceleratorPartition",
+            "accelerators": "accelerators",
+            "count": "count",
+            "memory_in_gib": "memoryInGiB",
+            "v_cpu": "vCpu",
+        },
+    )
+    class ComputeQuotaResourceConfigProperty:
+        def __init__(
+            self,
+            *,
+            instance_type: builtins.str,
+            accelerator_partition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeQuota.AcceleratorPartitionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            accelerators: typing.Optional[jsii.Number] = None,
+            count: typing.Optional[jsii.Number] = None,
+            memory_in_gib: typing.Optional[jsii.Number] = None,
+            v_cpu: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Per-instance-type compute quota element.
+
+            Reused under ComputeQuotaConfig.ComputeQuotaResources and ResourceSharingConfig.AbsoluteBorrowLimits.
+
+            :param instance_type: The cluster instance type the quota applies to (e.g., 'ml.m5.xlarge', 'ml.p5.48xlarge'). Validated by the service against the supported HyperPod instance types.
+            :param accelerator_partition: Multi-instance GPU (MIG) partition profile and count for fractional accelerator allocation.
+            :param accelerators: The number of accelerators (e.g., GPUs) of this type allocated to the team. SageMaker auto-fills VCpu / MemoryInGiB ratio-proportionally if only this is set.
+            :param count: The number of instances of this type allocated to the team.
+            :param memory_in_gib: The memory in GiB allocated to the team. Floating-point. SageMaker auto-fills Accelerators / VCpu ratio-proportionally if only this is set.
+            :param v_cpu: The number of vCPUs allocated to the team. Floating-point. SageMaker auto-fills Accelerators / MemoryInGiB ratio-proportionally if only this is set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotaresourceconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                compute_quota_resource_config_property = sagemaker.CfnComputeQuota.ComputeQuotaResourceConfigProperty(
+                    instance_type="instanceType",
+                
+                    # the properties below are optional
+                    accelerator_partition=sagemaker.CfnComputeQuota.AcceleratorPartitionConfigProperty(
+                        count=123,
+                        type="type"
+                    ),
+                    accelerators=123,
+                    count=123,
+                    memory_in_gi_b=123,
+                    v_cpu=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__506dfe16931a06b72e9b1d546792b46f57cb0f667f73faaadcb8cfaac6e46182)
+                check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+                check_type(argname="argument accelerator_partition", value=accelerator_partition, expected_type=type_hints["accelerator_partition"])
+                check_type(argname="argument accelerators", value=accelerators, expected_type=type_hints["accelerators"])
+                check_type(argname="argument count", value=count, expected_type=type_hints["count"])
+                check_type(argname="argument memory_in_gib", value=memory_in_gib, expected_type=type_hints["memory_in_gib"])
+                check_type(argname="argument v_cpu", value=v_cpu, expected_type=type_hints["v_cpu"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "instance_type": instance_type,
+            }
+            if accelerator_partition is not None:
+                self._values["accelerator_partition"] = accelerator_partition
+            if accelerators is not None:
+                self._values["accelerators"] = accelerators
+            if count is not None:
+                self._values["count"] = count
+            if memory_in_gib is not None:
+                self._values["memory_in_gib"] = memory_in_gib
+            if v_cpu is not None:
+                self._values["v_cpu"] = v_cpu
+
+        @builtins.property
+        def instance_type(self) -> builtins.str:
+            '''The cluster instance type the quota applies to (e.g., 'ml.m5.xlarge', 'ml.p5.48xlarge'). Validated by the service against the supported HyperPod instance types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotaresourceconfig.html#cfn-sagemaker-computequota-computequotaresourceconfig-instancetype
+            '''
+            result = self._values.get("instance_type")
+            assert result is not None, "Required property 'instance_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def accelerator_partition(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.AcceleratorPartitionConfigProperty"]]:
+            '''Multi-instance GPU (MIG) partition profile and count for fractional accelerator allocation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotaresourceconfig.html#cfn-sagemaker-computequota-computequotaresourceconfig-acceleratorpartition
+            '''
+            result = self._values.get("accelerator_partition")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.AcceleratorPartitionConfigProperty"]], result)
+
+        @builtins.property
+        def accelerators(self) -> typing.Optional[jsii.Number]:
+            '''The number of accelerators (e.g., GPUs) of this type allocated to the team. SageMaker auto-fills VCpu / MemoryInGiB ratio-proportionally if only this is set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotaresourceconfig.html#cfn-sagemaker-computequota-computequotaresourceconfig-accelerators
+            '''
+            result = self._values.get("accelerators")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def count(self) -> typing.Optional[jsii.Number]:
+            '''The number of instances of this type allocated to the team.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotaresourceconfig.html#cfn-sagemaker-computequota-computequotaresourceconfig-count
+            '''
+            result = self._values.get("count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def memory_in_gib(self) -> typing.Optional[jsii.Number]:
+            '''The memory in GiB allocated to the team.
+
+            Floating-point. SageMaker auto-fills Accelerators / VCpu ratio-proportionally if only this is set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotaresourceconfig.html#cfn-sagemaker-computequota-computequotaresourceconfig-memoryingib
+            '''
+            result = self._values.get("memory_in_gib")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def v_cpu(self) -> typing.Optional[jsii.Number]:
+            '''The number of vCPUs allocated to the team.
+
+            Floating-point. SageMaker auto-fills Accelerators / MemoryInGiB ratio-proportionally if only this is set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotaresourceconfig.html#cfn-sagemaker-computequota-computequotaresourceconfig-vcpu
+            '''
+            result = self._values.get("v_cpu")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ComputeQuotaResourceConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnComputeQuota.ComputeQuotaTargetProperty",
+        jsii_struct_bases=[],
+        name_mapping={"team_name": "teamName", "fair_share_weight": "fairShareWeight"},
+    )
+    class ComputeQuotaTargetProperty:
+        def __init__(
+            self,
+            *,
+            team_name: builtins.str,
+            fair_share_weight: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The team this compute allocation rule applies to.
+
+            :param team_name: The name of the team. Materialized as Kubernetes namespace 'hyperpod-ns-' on the EKS cluster, so the value must satisfy RFC 1123 namespace constraints. Reassignment is not supported (createOnly).
+            :param fair_share_weight: Relative fair-share weight when fair-share scheduling is enabled on the parent ClusterSchedulerConfig. Defaults service-side to 0 when omitted.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotatarget.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                compute_quota_target_property = sagemaker.CfnComputeQuota.ComputeQuotaTargetProperty(
+                    team_name="teamName",
+                
+                    # the properties below are optional
+                    fair_share_weight=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d9d8ea55c0d3ac902d0317fbf40609dd6709cc5093fdc4271960b4b6d4b47b66)
+                check_type(argname="argument team_name", value=team_name, expected_type=type_hints["team_name"])
+                check_type(argname="argument fair_share_weight", value=fair_share_weight, expected_type=type_hints["fair_share_weight"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "team_name": team_name,
+            }
+            if fair_share_weight is not None:
+                self._values["fair_share_weight"] = fair_share_weight
+
+        @builtins.property
+        def team_name(self) -> builtins.str:
+            '''The name of the team.
+
+            Materialized as Kubernetes namespace 'hyperpod-ns-' on the EKS cluster, so the value must satisfy RFC 1123 namespace constraints. Reassignment is not supported (createOnly).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotatarget.html#cfn-sagemaker-computequota-computequotatarget-teamname
+            '''
+            result = self._values.get("team_name")
+            assert result is not None, "Required property 'team_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def fair_share_weight(self) -> typing.Optional[jsii.Number]:
+            '''Relative fair-share weight when fair-share scheduling is enabled on the parent ClusterSchedulerConfig.
+
+            Defaults service-side to 0 when omitted.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-computequotatarget.html#cfn-sagemaker-computequota-computequotatarget-fairshareweight
+            '''
+            result = self._values.get("fair_share_weight")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ComputeQuotaTargetProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnComputeQuota.ResourceSharingConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "strategy": "strategy",
+            "absolute_borrow_limits": "absoluteBorrowLimits",
+            "borrow_limit": "borrowLimit",
+        },
+    )
+    class ResourceSharingConfigProperty:
+        def __init__(
+            self,
+            *,
+            strategy: builtins.str,
+            absolute_borrow_limits: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeQuota.ComputeQuotaResourceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            borrow_limit: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Idle-resource-sharing strategy for this team's quota.
+
+            :param strategy: How this team participates in idle-resource sharing.
+            :param absolute_borrow_limits: Per-instance-type absolute caps on resources this team can borrow.
+            :param borrow_limit: Maximum percentage of the team's idle quota that can be borrowed by other teams. Smithy admits 0..10000; in practice the service-documented operational range is 1..500. Defaults service-side to 50 when omitted on Create.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-resourcesharingconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                resource_sharing_config_property = sagemaker.CfnComputeQuota.ResourceSharingConfigProperty(
+                    strategy="strategy",
+                
+                    # the properties below are optional
+                    absolute_borrow_limits=[sagemaker.CfnComputeQuota.ComputeQuotaResourceConfigProperty(
+                        instance_type="instanceType",
+                
+                        # the properties below are optional
+                        accelerator_partition=sagemaker.CfnComputeQuota.AcceleratorPartitionConfigProperty(
+                            count=123,
+                            type="type"
+                        ),
+                        accelerators=123,
+                        count=123,
+                        memory_in_gi_b=123,
+                        v_cpu=123
+                    )],
+                    borrow_limit=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__02af4041c8ab21b4f54d006d0a945a420be10454455faffa087062654f35e364)
+                check_type(argname="argument strategy", value=strategy, expected_type=type_hints["strategy"])
+                check_type(argname="argument absolute_borrow_limits", value=absolute_borrow_limits, expected_type=type_hints["absolute_borrow_limits"])
+                check_type(argname="argument borrow_limit", value=borrow_limit, expected_type=type_hints["borrow_limit"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "strategy": strategy,
+            }
+            if absolute_borrow_limits is not None:
+                self._values["absolute_borrow_limits"] = absolute_borrow_limits
+            if borrow_limit is not None:
+                self._values["borrow_limit"] = borrow_limit
+
+        @builtins.property
+        def strategy(self) -> builtins.str:
+            '''How this team participates in idle-resource sharing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-resourcesharingconfig.html#cfn-sagemaker-computequota-resourcesharingconfig-strategy
+            '''
+            result = self._values.get("strategy")
+            assert result is not None, "Required property 'strategy' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def absolute_borrow_limits(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaResourceConfigProperty"]]]]:
+            '''Per-instance-type absolute caps on resources this team can borrow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-resourcesharingconfig.html#cfn-sagemaker-computequota-resourcesharingconfig-absoluteborrowlimits
+            '''
+            result = self._values.get("absolute_borrow_limits")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaResourceConfigProperty"]]]], result)
+
+        @builtins.property
+        def borrow_limit(self) -> typing.Optional[jsii.Number]:
+            '''Maximum percentage of the team's idle quota that can be borrowed by other teams.
+
+            Smithy admits 0..10000; in practice the service-documented operational range is 1..500. Defaults service-side to 50 when omitted on Create.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-computequota-resourcesharingconfig.html#cfn-sagemaker-computequota-resourcesharingconfig-borrowlimit
+            '''
+            result = self._values.get("borrow_limit")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourceSharingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnComputeQuotaProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cluster_arn": "clusterArn",
+        "compute_quota_config": "computeQuotaConfig",
+        "compute_quota_target": "computeQuotaTarget",
+        "name": "name",
+        "activation_state": "activationState",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnComputeQuotaProps:
+    def __init__(
+        self,
+        *,
+        cluster_arn: builtins.str,
+        compute_quota_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeQuota.ComputeQuotaConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        compute_quota_target: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeQuota.ComputeQuotaTargetProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        activation_state: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnComputeQuota``.
+
+        :param cluster_arn: The ARN of the EKS-orchestrated SageMaker HyperPod cluster the compute allocation definition is bound to. Slurm-orchestrated clusters are rejected by the service.
+        :param compute_quota_config: Compute allocation rules: per-resource quotas, idle-borrowing strategy, and team-task preemption policy.
+        :param compute_quota_target: The team this compute allocation rule applies to.
+        :param name: The name of the compute allocation definition.
+        :param activation_state: Whether the compute allocation rule is active. Defaults service-side to 'Enabled' when omitted on Create.
+        :param description: A free-form description of the compute allocation definition.
+        :param tags: Tags to associate with the compute allocation definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-computequota.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sagemaker as sagemaker
+            
+            cfn_compute_quota_props = sagemaker.CfnComputeQuotaProps(
+                cluster_arn="clusterArn",
+                compute_quota_config=sagemaker.CfnComputeQuota.ComputeQuotaConfigProperty(
+                    compute_quota_resources=[sagemaker.CfnComputeQuota.ComputeQuotaResourceConfigProperty(
+                        instance_type="instanceType",
+            
+                        # the properties below are optional
+                        accelerator_partition=sagemaker.CfnComputeQuota.AcceleratorPartitionConfigProperty(
+                            count=123,
+                            type="type"
+                        ),
+                        accelerators=123,
+                        count=123,
+                        memory_in_gi_b=123,
+                        v_cpu=123
+                    )],
+                    preempt_team_tasks="preemptTeamTasks",
+                    resource_sharing_config=sagemaker.CfnComputeQuota.ResourceSharingConfigProperty(
+                        strategy="strategy",
+            
+                        # the properties below are optional
+                        absolute_borrow_limits=[sagemaker.CfnComputeQuota.ComputeQuotaResourceConfigProperty(
+                            instance_type="instanceType",
+            
+                            # the properties below are optional
+                            accelerator_partition=sagemaker.CfnComputeQuota.AcceleratorPartitionConfigProperty(
+                                count=123,
+                                type="type"
+                            ),
+                            accelerators=123,
+                            count=123,
+                            memory_in_gi_b=123,
+                            v_cpu=123
+                        )],
+                        borrow_limit=123
+                    )
+                ),
+                compute_quota_target=sagemaker.CfnComputeQuota.ComputeQuotaTargetProperty(
+                    team_name="teamName",
+            
+                    # the properties below are optional
+                    fair_share_weight=123
+                ),
+                name="name",
+            
+                # the properties below are optional
+                activation_state="activationState",
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__73c38c0faf922632d4fe59d082cea4be84519dab3d13032e2fe38460708513bb)
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+            check_type(argname="argument compute_quota_config", value=compute_quota_config, expected_type=type_hints["compute_quota_config"])
+            check_type(argname="argument compute_quota_target", value=compute_quota_target, expected_type=type_hints["compute_quota_target"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument activation_state", value=activation_state, expected_type=type_hints["activation_state"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_arn": cluster_arn,
+            "compute_quota_config": compute_quota_config,
+            "compute_quota_target": compute_quota_target,
+            "name": name,
+        }
+        if activation_state is not None:
+            self._values["activation_state"] = activation_state
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def cluster_arn(self) -> builtins.str:
+        '''The ARN of the EKS-orchestrated SageMaker HyperPod cluster the compute allocation definition is bound to.
+
+        Slurm-orchestrated clusters are rejected by the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-computequota.html#cfn-sagemaker-computequota-clusterarn
+        '''
+        result = self._values.get("cluster_arn")
+        assert result is not None, "Required property 'cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def compute_quota_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaConfigProperty"]:
+        '''Compute allocation rules: per-resource quotas, idle-borrowing strategy, and team-task preemption policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-computequota.html#cfn-sagemaker-computequota-computequotaconfig
+        '''
+        result = self._values.get("compute_quota_config")
+        assert result is not None, "Required property 'compute_quota_config' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaConfigProperty"], result)
+
+    @builtins.property
+    def compute_quota_target(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaTargetProperty"]:
+        '''The team this compute allocation rule applies to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-computequota.html#cfn-sagemaker-computequota-computequotatarget
+        '''
+        result = self._values.get("compute_quota_target")
+        assert result is not None, "Required property 'compute_quota_target' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeQuota.ComputeQuotaTargetProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the compute allocation definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-computequota.html#cfn-sagemaker-computequota-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def activation_state(self) -> typing.Optional[builtins.str]:
+        '''Whether the compute allocation rule is active.
+
+        Defaults service-side to 'Enabled' when omitted on Create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-computequota.html#cfn-sagemaker-computequota-activationstate
+        '''
+        result = self._values.get("activation_state")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A free-form description of the compute allocation definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-computequota.html#cfn-sagemaker-computequota-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the compute allocation definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-computequota.html#cfn-sagemaker-computequota-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnComputeQuotaProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.IContextRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnContext(
     _aws_cdk_0cae9daa.CfnResource,
@@ -70334,6 +71430,8 @@ __all__ = [
     "CfnClusterSchedulerConfigProps",
     "CfnCodeRepository",
     "CfnCodeRepositoryProps",
+    "CfnComputeQuota",
+    "CfnComputeQuotaProps",
     "CfnContext",
     "CfnContextProps",
     "CfnDataQualityJobDefinition",
@@ -71795,6 +72893,146 @@ def _typecheckingstub__c42ae1f0efe0811d1d204114356c2e0129a8f96e7aa17a0078217570e
     *,
     git_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCodeRepository.GitConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     code_repository_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb208d029e3387d5cd556f939362c27721d234f0e1a9a8c85ce9f9f0fd3b006b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    cluster_arn: builtins.str,
+    compute_quota_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeQuota.ComputeQuotaConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    compute_quota_target: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeQuota.ComputeQuotaTargetProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    activation_state: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__363d01fc50b64b7718e017edaf2cc87745a655b3d28df60c6bdc3cba6057782e(
+    resource: _aws_sagemaker_2f7a2e3e.IComputeQuotaRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8bd20b077eee7b3402355f9e84fa9e6622f4f1c84cc7ce548cce522a994118b(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3974d013851743a32be75a44205b8250f3788c0187dbd9ea8e88192520e22106(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b4942c03a88ec68b29885637a47a535545194d3467fb124fab47352fe959aa0(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93fe31774580831b52edb07fff1e6ade3fa126465bebda5158cf9375c0628a81(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd969b859bd00adfd25a2029d6d2c58e610419b05df9bdfa17d71071c57a9b67(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComputeQuota.ComputeQuotaConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a899105dd8d00bfd4eeeb40a58049b06c732987d69e65e2f7792298065caa84(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComputeQuota.ComputeQuotaTargetProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87d779c3776dd6103e2cd1915f342865182d768cfaa78a01ab611773a978e12b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__988793ccbed8027225ba3fefa54ae86820ebe382f1536a469c0b0db84a0a7aa1(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ec1b0a495221661919845aa921604b584980d683f682fbd6a04d4437aa45664(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68a87860f8ca84346ec5f24a3a29d299ef96b0466fcf3bf41066304e1c0c4bed(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2edc2d41d127cebf7b2c6311f1647c28d31e45c7284dbcf8bb37d3c4995f773(
+    *,
+    count: jsii.Number,
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70ce0b14b99a0750625a5c95031f9ec43901bbc24b0c39d30ceec4e938508866(
+    *,
+    compute_quota_resources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeQuota.ComputeQuotaResourceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    preempt_team_tasks: typing.Optional[builtins.str] = None,
+    resource_sharing_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeQuota.ResourceSharingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__506dfe16931a06b72e9b1d546792b46f57cb0f667f73faaadcb8cfaac6e46182(
+    *,
+    instance_type: builtins.str,
+    accelerator_partition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeQuota.AcceleratorPartitionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    accelerators: typing.Optional[jsii.Number] = None,
+    count: typing.Optional[jsii.Number] = None,
+    memory_in_gib: typing.Optional[jsii.Number] = None,
+    v_cpu: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9d8ea55c0d3ac902d0317fbf40609dd6709cc5093fdc4271960b4b6d4b47b66(
+    *,
+    team_name: builtins.str,
+    fair_share_weight: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02af4041c8ab21b4f54d006d0a945a420be10454455faffa087062654f35e364(
+    *,
+    strategy: builtins.str,
+    absolute_borrow_limits: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeQuota.ComputeQuotaResourceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    borrow_limit: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73c38c0faf922632d4fe59d082cea4be84519dab3d13032e2fe38460708513bb(
+    *,
+    cluster_arn: builtins.str,
+    compute_quota_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeQuota.ComputeQuotaConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    compute_quota_target: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeQuota.ComputeQuotaTargetProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    activation_state: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

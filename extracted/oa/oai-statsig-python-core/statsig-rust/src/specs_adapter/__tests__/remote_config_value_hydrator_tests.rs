@@ -3742,3 +3742,6 @@ mod protobuf_budget_tests;
 
 #[path = "remote_config_full_inline_reuse_tests.rs"]
 mod full_inline_reuse_tests;
+
+#[path = "remote_value_entity_contract_tests.rs"]
+mod entity_contract;

@@ -13,6 +13,8 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Mapping,
+    Optional,
+    Sequence,
     Tuple,
     Type,
 )
@@ -24,6 +26,7 @@ from ormar.queryset.templates.cache import StatementTemplate, cached_statement
 from ormar.queryset.templates.slots import value_binds, value_params
 
 if TYPE_CHECKING:  # pragma: no cover
+    from ormar.databases.dialects import DialectRules
     from ormar.models.primary_key import PrimaryKey
 
 
@@ -44,6 +47,55 @@ def build_insert(table: sqlalchemy.Table, names: Tuple[str, ...]) -> Executable:
     :rtype: Executable
     """
     return table.insert().values(value_binds(table=table, names=names))
+
+
+def build_conflict_insert(
+    table: sqlalchemy.Table,
+    names: Tuple[str, ...],
+    rules: "DialectRules",
+    on_conflict: str,
+    target: Tuple[str, ...],
+    update_names: Tuple[str, ...],
+    on_update: Tuple[str, ...],
+    returning: bool,
+) -> Executable:
+    """
+    Build the insert of the database's dialect that skips or updates a row
+    conflicting with an existing one. The value binds are built here, on a
+    cache miss only, so the rules get them ready made::
+
+        INSERT INTO tags (name, score) VALUES (:ormar_v0, :ormar_v1)
+        ON CONFLICT (name) DO UPDATE SET score = excluded.score
+        -- MySQL: ON DUPLICATE KEY UPDATE score = VALUES(score)
+
+    :param table: written table
+    :type table: sqlalchemy.Table
+    :param names: inserted column names, sorted
+    :type names: Tuple[str, ...]
+    :param rules: rules of the database dialect
+    :type rules: DialectRules
+    :param on_conflict: ``ignore`` or ``update``
+    :type on_conflict: str
+    :param target: conflicting column names (the primary key for ``ignore``)
+    :type target: Tuple[str, ...]
+    :param update_names: columns updated from the inserted row
+    :type update_names: Tuple[str, ...]
+    :param on_update: columns updated with their ``on_update`` value
+    :type on_update: Tuple[str, ...]
+    :param returning: return the primary key of a written row
+    :type returning: bool
+    :return: insert statement
+    :rtype: Executable
+    """
+    return rules.conflict_insert(
+        table=table,
+        values=value_binds(table=table, names=names),
+        on_conflict=on_conflict,
+        target=target,
+        update_names=update_names,
+        on_update=on_update,
+        returning=returning,
+    )
 
 
 def build_update(
@@ -143,32 +195,89 @@ def build_bulk_update(
     )
 
 
-def insert_statement(model_cls: Type[Any], names: Tuple[str, ...]) -> Executable:
+def insert_statement(
+    model_cls: Type[Any],
+    names: Tuple[str, ...],
+    on_conflict: Optional[str] = None,
+    conflict_target: Optional[Sequence[str]] = None,
+    update_fields: Optional[Sequence[str]] = None,
+    on_update: Tuple[str, ...] = (),
+    returning: bool = False,
+) -> Executable:
     """
     Return the insert of a model for the given sorted column names, from the
     model's template cache. ``save()`` binds one row to it and
     ``bulk_create`` runs it with ``executemany`` for every row with the same
     columns.
 
+    With ``on_conflict`` the insert skips or updates conflicting rows (see
+    ``build_conflict_insert``): the target defaults to the primary key and the
+    updated columns to the inserted ones but the target, the key and
+    ``on_update``.
+
     :param model_cls: inserted model
     :type model_cls: Type[Any]
     :param names: inserted column names, sorted
     :type names: Tuple[str, ...]
+    :param on_conflict: ``ignore`` or ``update`` conflicting rows
+    :type on_conflict: Optional[str]
+    :param conflict_target: names of the fields of the conflicting unique key
+    :type conflict_target: Optional[Sequence[str]]
+    :param update_fields: names of the fields updated from the inserted row
+    :type update_fields: Optional[Sequence[str]]
+    :param on_update: columns updated with their ``on_update`` value
+    :type on_update: Tuple[str, ...]
+    :param returning: return the primary key of a written row
+    :type returning: bool
     :return: insert statement with ``ormar_v{i}`` binds
     :rtype: Executable
     """
-    table = model_cls.ormar_config.table
+    config = model_cls.ormar_config
+    if not on_conflict:
+        return cached_statement(
+            model_cls=model_cls,
+            key=("insert", names),
+            builder=build_insert,
+            table=config.table,
+            names=names,
+        )
+    pk = config.pk.column_aliases()
+    target = (
+        tuple(
+            column
+            for field_name in conflict_target or ()
+            for column in model_cls.get_column_aliases(field_name=field_name)
+        )
+        or pk
+    )
+    update_names = tuple(
+        sorted(
+            column
+            for field_name in update_fields or ()
+            for column in model_cls.get_column_aliases(field_name=field_name)
+        )
+    ) or tuple(column for column in names if column not in {*target, *pk, *on_update})
+    rules = config.database.rules
+    conflict = dict(
+        on_conflict=on_conflict,
+        target=target,
+        update_names=update_names,
+        on_update=on_update,
+        returning=returning,
+    )
     return cached_statement(
         model_cls=model_cls,
-        key=("insert", names),
-        builder=build_insert,
-        table=table,
+        key=("insert", names, rules.backend_name, *conflict.values()),
+        builder=build_conflict_insert,
+        table=config.table,
         names=names,
+        rules=rules,
+        **conflict,
     )
 
 
 def insert_template(
-    model_cls: Type[Any], values: Mapping[str, Any]
+    model_cls: Type[Any], values: Mapping[str, Any], **statement_kwargs: Any
 ) -> StatementTemplate:
     """
     Return the insert of a model for the given column values, used by
@@ -185,11 +294,13 @@ def insert_template(
     :type model_cls: Type[Any]
     :param values: values by column name
     :type values: Mapping[str, Any]
+    :param statement_kwargs: conflict handling (see ``insert_statement``)
+    :type statement_kwargs: Any
     :return: statement and values to bind
     :rtype: StatementTemplate
     """
     names = tuple(sorted(values))
-    statement = insert_statement(model_cls=model_cls, names=names)
+    statement = insert_statement(model_cls=model_cls, names=names, **statement_kwargs)
     params = value_params(names=names, values=values)
     return StatementTemplate(statement=statement, params=params)
 

@@ -152,7 +152,8 @@ mod basic_execution {
         let mut bash = bash_python();
         let r = bash.exec("python3 -c \"2 + 3\"").await.unwrap();
         assert_eq!(r.exit_code, 0);
-        assert_eq!(r.stdout, "5\n");
+        // Like CPython, the last expression is not echoed.
+        assert_eq!(r.stdout, "");
     }
 
     #[tokio::test]
@@ -216,7 +217,7 @@ mod basic_execution {
         let mut bash = bash_python();
         let r = bash.exec("python3 -c \"'hello'\"").await.unwrap();
         assert_eq!(r.exit_code, 0);
-        assert_eq!(r.stdout, "'hello'\n");
+        assert_eq!(r.stdout, "");
     }
 }
 
@@ -1226,6 +1227,41 @@ mod resource_limits {
         let r = bash.exec("python3 -c \"while True: pass\"").await.unwrap();
         assert_ne!(r.exit_code, 0, "Infinite loop should be killed by timeout");
     }
+
+    /// A Monty time-limit hit reports like the CPython runtime and `timeout`:
+    /// exit 124 and `python3: execution timed out`, keeping earlier output.
+    /// It used to be exit 1 with a `TimeoutError` traceback, so callers could
+    /// only tell a limit from a script error by parsing stderr.
+    #[tokio::test]
+    async fn timeout_limit_exits_124() {
+        let limits = PythonLimits::default().max_duration(Duration::from_millis(200));
+        let mut bash = bash_python_limits(limits);
+        let r = bash
+            .exec("python3 -c \"print('before')\nwhile True: pass\"; echo \"rc=$?\"")
+            .await
+            .unwrap();
+        assert_eq!(r.stdout, "before\nrc=124\n");
+        assert_eq!(r.stderr, "python3: execution timed out after 0.2s\n");
+    }
+
+    /// A script's own TimeoutError is an ordinary exception (exit 1).
+    #[tokio::test]
+    async fn user_timeout_error_is_not_a_limit() {
+        let mut bash = bash_python();
+        let r = bash
+            .exec("python3 -c \"raise TimeoutError('slow')\"")
+            .await
+            .unwrap();
+        assert_eq!(r.exit_code, 1);
+        assert!(r.stderr.contains("TimeoutError: slow"), "{}", r.stderr);
+        // Even one that copies Monty's limit message is a script error.
+        let r = bash
+            .exec("python3 -c \"raise TimeoutError('time limit exceeded: 1s > 1s')\"")
+            .await
+            .unwrap();
+        assert_eq!(r.exit_code, 1, "{}", r.stderr);
+        assert!(r.stderr.contains("Traceback"), "{}", r.stderr);
+    }
 }
 
 // =============================================================================
@@ -1619,6 +1655,67 @@ mod edge_cases {
             .unwrap();
         assert_eq!(r.exit_code, 0);
         assert_eq!(r.stdout, "n is 10\n");
+    }
+}
+
+// =============================================================================
+// 14b. `re` SEMANTICS ACROSS A fancy-regex MAJOR
+// =============================================================================
+
+// The `re` module runs backreference/lookaround patterns on fancy-regex, so a
+// major bump there can move Python-visible behavior. The fork is held at a
+// version ahead of upstream Monty's (see crates/bashkit-monty/Cargo.toml), and
+// 0.20 changed two things these cases pin: `\xHH` above 0x7F in Unicode mode
+// now matches the codepoint rather than the raw byte, and word boundaries
+// compile to one delegated engine instead of one branch per alternative.
+// Every expected value here is what CPython 3.11 prints for the same program.
+mod regex_semantics {
+    use super::*;
+
+    async fn re_line(body: &str) -> String {
+        let mut bash = bash_python();
+        let r = bash
+            .exec(&format!("python3 - <<'PYEOF'\nimport re\n{body}\nPYEOF"))
+            .await
+            .unwrap();
+        assert_eq!(r.exit_code, 0, "stderr: {}", r.stderr);
+        r.stdout.to_string()
+    }
+
+    #[tokio::test]
+    async fn high_escape_matches_the_codepoint_not_the_raw_byte() {
+        // CPython: `re.match('\xff', '\xff')` matches U+00FF.
+        let out = re_line("print(bool(re.match(chr(0xff), chr(0xff))))").await;
+        assert_eq!(out, "True\n");
+    }
+
+    #[tokio::test]
+    async fn non_ascii_class_range_matches() {
+        // Case-folding prefilters for non-ASCII ranges changed in 0.20; a
+        // missed candidate start position would show up as a false negative.
+        let out = re_line(
+            "print(bool(re.search('[' + chr(0xe0) + '-' + chr(0xff) + ']', 'z' + chr(0xe9) + 'z')))",
+        )
+        .await;
+        assert_eq!(out, "True\n");
+    }
+
+    #[tokio::test]
+    async fn word_boundary_alternation_matches() {
+        let out = re_line(r"print(bool(re.search(r'\b(?:foo|bar|baz)\b', 'a bar b')))").await;
+        assert_eq!(out, "True\n");
+    }
+
+    #[tokio::test]
+    async fn backreference_substitution_is_unchanged() {
+        let out = re_line(r"print(re.sub(r'(\w)\1', 'X', 'aabb'))").await;
+        assert_eq!(out, "XX\n");
+    }
+
+    #[tokio::test]
+    async fn fixed_width_lookbehind_matches() {
+        let out = re_line(r"print(bool(re.search(r'(?<=ab)c', 'abc')))").await;
+        assert_eq!(out, "True\n");
     }
 }
 

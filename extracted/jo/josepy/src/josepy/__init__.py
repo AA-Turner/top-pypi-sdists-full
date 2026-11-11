@@ -76,9 +76,9 @@ from josepy.util import (
     ImmutableMap,
 )
 
-if sys.version_info[:2] == (3, 9):
+if sys.version_info[:2] == (3, 10):
     warnings.warn(
-        "Python 3.9 support will be dropped in the next scheduled release of "
+        "Python 3.10 support will be dropped in the next scheduled release of "
         "josepy. Please upgrade your Python version.",
         DeprecationWarning,
     )

@@ -10,7 +10,6 @@ import solana.models as solana_models
 import solana.rpc.models as rpc_models
 import spl.memo.models as memo_models
 import spl.token.models as token_models
-from solana.rpc.commitment import Finalized
 
 
 @pytest.mark.parametrize(
@@ -29,7 +28,7 @@ from solana.rpc.commitment import Finalized
                 "last_valid_block_height",
             ],
         ),
-        (rpc_models.ClusterUrls, ["devnet", "testnet", "mainnet_beta"]),
+        (rpc_models.ClusterUrls, ["devnet", "testnet", "mainnet"]),
         (rpc_models.Endpoint, ["http", "https"]),
         (
             solana_models.WithdrawFromVoteAccountParams,
@@ -59,7 +58,7 @@ def test_defaults_preserved():
     opts = rpc_models.TxOpts()
     assert opts.skip_confirmation is True
     assert opts.skip_preflight is False
-    assert opts.preflight_commitment == Finalized
+    assert opts.preflight_commitment is None
     assert opts.max_retries is None
     assert opts.last_valid_block_height is None
 

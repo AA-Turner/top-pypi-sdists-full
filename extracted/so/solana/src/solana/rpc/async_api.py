@@ -752,7 +752,7 @@ class AsyncClient(_ClientCore):
         self,
         pubkey: Pubkey,
         commitment: Commitment | None = None,
-        encoding: str | None = None,
+        encoding: str | None = "base64",
         data_slice: DataSliceOptsModel | None = None,
         filters: Sequence[int | MemcmpOptsModel] | None = None,
     ) -> GetProgramAccountsResp:
@@ -762,7 +762,7 @@ class AsyncClient(_ClientCore):
             pubkey: Pubkey of program
             commitment: Bank state to query. It can be either "finalized", "confirmed" or "processed".
             encoding: (optional) Encoding for Account data, either "base58" (slow), "base64", "base64+zstd", or
-                "jsonParsed".
+                "jsonParsed". Default is "base64".
             data_slice: (optional) Limit the returned account data using the provided `offset`: <usize> and
                 `length`: <usize> fields; only available for "base58" or "base64" encoding.
             filters: (optional) Options to compare a provided series of bytes with program account data at a particular offset.
@@ -1270,33 +1270,35 @@ class AsyncClient(_ClientCore):
         """
         commitment_to_use = _COMMITMENT_TO_SOLDERS[commitment or self._commitment]
         commitment_rank = int(commitment_to_use)
+
+        def reached_commitment(resp: GetSignatureStatusesResp) -> bool:
+            status = resp.value[0]
+            return (
+                status is not None
+                and status.confirmation_status is not None
+                and int(status.confirmation_status) >= commitment_rank
+            )
+
         if last_valid_block_height:
             current_blockheight = (await self.get_block_height(commitment)).value
             while current_blockheight <= last_valid_block_height:
                 resp = await self.get_signature_statuses([tx_sig])
-                resp_value = resp.value[0]
-                if resp_value is not None:
-                    confirmation_status = resp_value.confirmation_status
-                    if confirmation_status is not None:
-                        confirmation_rank = int(confirmation_status)
-                        if confirmation_rank >= commitment_rank:
-                            break
+                if reached_commitment(resp):
+                    break
                 current_blockheight = (await self.get_block_height(commitment)).value
                 await asyncio.sleep(sleep_seconds)
             else:
-                raise TransactionExpiredBlockheightExceededError(f"{tx_sig} has expired: block height exceeded")
+                # The transaction may have landed between the last status poll and the block height check.
+                resp = await self.get_signature_statuses([tx_sig])
+                if not reached_commitment(resp):
+                    raise TransactionExpiredBlockheightExceededError(f"{tx_sig} has expired: block height exceeded")
             return resp
         else:
             timeout = time() + 90
             while time() < timeout:
                 resp = await self.get_signature_statuses([tx_sig])
-                resp_value = resp.value[0]
-                if resp_value is not None:
-                    confirmation_status = resp_value.confirmation_status
-                    if confirmation_status is not None:
-                        confirmation_rank = int(confirmation_status)
-                        if confirmation_rank >= commitment_rank:
-                            break
+                if reached_commitment(resp):
+                    break
                 await asyncio.sleep(sleep_seconds)
             else:
                 raise UnconfirmedTxError(f"Unable to confirm transaction {tx_sig}")

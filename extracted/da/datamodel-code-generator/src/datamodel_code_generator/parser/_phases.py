@@ -17,11 +17,13 @@ from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast
 
 from typing_extensions import ReadOnly, TypedDict, final
 
+from datamodel_code_generator._model_keys import model_key_of
 from datamodel_code_generator._records import record
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 
+    from datamodel_code_generator._model_keys import ModelKey
     from datamodel_code_generator.model._views import DataTypeView, FieldView, ModelView, ReferenceView
     from datamodel_code_generator.model.base import DataModel
 
@@ -35,6 +37,8 @@ __all__ = [
     "FinalFacts",
     "ModuleFacts",
     "container_copy",
+    "live_model_of",
+    "live_models_by_key",
     "rewrite_additional_properties",
     "rewrite_copied_type",
     "rewrite_field_copy",
@@ -122,6 +126,21 @@ class FinalFacts:
     options: DecisionOptions = DecisionOptions()
 
 
+def live_models_by_key(facts: FinalFacts) -> dict[ModelKey, ModelView]:
+    """Return the live models of ``facts`` by model key: the models a reference names."""
+    return {model_key_of(model.reference): model for model in facts.live_models}
+
+
+def live_model_of(facts: FinalFacts) -> Callable[[ReferenceView], ModelView | None]:
+    """Return the live model of ``facts`` a reference names, or None when it names no live model."""
+    models = live_models_by_key(facts)
+
+    def model_of(reference: ReferenceView) -> ModelView | None:
+        return models.get(model_key_of(reference))
+
+    return model_of
+
+
 @final
 @record
 class DecisionOutcome:
@@ -190,11 +209,7 @@ class _DecisionWriter:
                 field, rewrite_copied_type(self._store, self._copy, field.data_type, rewrites)
             )
         constraints: Any = field.constraints
-        values = {
-            key: value
-            for key, value in constraints.model_dump(by_alias=True).items()
-            if value is not None and key not in keywords
-        }
+        values = {key: value for key, value in constraints.set_values().items() if key not in keywords}
         self._store.set_field_constraints(field, type(constraints).model_validate(values))
         self._changed[id(model)] = cast("DataModel", model)
 

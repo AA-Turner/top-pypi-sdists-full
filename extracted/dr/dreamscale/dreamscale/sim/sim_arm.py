@@ -71,6 +71,15 @@ _SIMS = {entry.id: entry.client.sim for entry in catalog.CATALOG if entry.client
 SIM_MODELS = tuple(_SIMS)
 # Execute each complete chunk, holding while the next request is in flight.
 STATEFUL_MODELS = tuple(model for model, sim in _SIMS.items() if sim.stateful)
+
+
+def _budgets_actions(model: str, count_holds: bool | None) -> bool:
+    """Whether a step budget counts the policy's actions only: by default a stateful LIBERO
+    model's does (LIBERO's own evaluation waits for each plan, so its task horizons count
+    actions), and ``count_holds`` decides it otherwise."""
+    if count_holds is not None:
+        return model in STATEFUL_MODELS and not count_holds
+    return model in STATEFUL_MODELS and "libero" in _SIMS[model].benchmarks
 # Simulators that build their own policy observation and multi-camera preview.
 NATIVE_OBSERVATION_MODELS = tuple(
     model for model, sim in _SIMS.items() if sim.native_observation
@@ -80,7 +89,9 @@ NATIVE_OBSERVATION_MODELS = tuple(
 _BUILDERS = {
     "libero": "build_libero_observation", "rldx_libero": "build_rldx_libero_observation",
     "libero_history": "build_libero_history_observation",
-    "robocasa": "build_robocasa_observation", "franka": "build_franka_observation",
+    "robocasa": "build_robocasa_observation",
+    "robocasa_window": "build_robocasa_window_observation",
+    "franka": "build_franka_observation",
     "rho_end_effector": "build_rho_end_effector_observation",
 }
 # A stateful episode's settings beyond the chunk, by native observation: what it holds while
@@ -93,9 +104,15 @@ _STATEFUL_SETTINGS = {
     "rho_end_effector": {
         "hold_description": "measured end-effector poses and last gripper commands",
         "feedback_description": "current RoboEval camera views and end-effector poses"},
+    # Long-WAM RoboCasa365's own evaluation is synchronous (upstream's SyncPolicy): the world
+    # waits while a plan is computed, then every planned action runs.
+    "robocasa_window": {"hold_description": "physics paused during inference (upstream_eval)",
+                        "feedback_description": "each camera's last 2.4 s and the state",
+                        "pause_for_inference": True},
 }
 # The live viewer's camera layout, by native observation.
 _VIEWER_CAMERAS = {"robocasa": "left | right | wrist",
+                   "robocasa_window": "left | right | wrist",
                    "rho_end_effector": "head | left wrist | right wrist"}
 # RoboLab DROID requests carry three views at 15 Hz: they get twice the usual reply timeout.
 _SLOW_OBSERVATIONS = frozenset({"franka"})
@@ -995,13 +1012,16 @@ class SimArm:
         self._send_window_ahead()
 
     def _send_window_ahead(self) -> None:
-        """A model that sends its window ahead (``wm_libero.SENDS_AHEAD``), on a server that
-        takes history frames: each frame goes out as it is rendered, and requests name them."""
+        """A model that sends its window ahead, on a server that takes history frames: each frame
+        goes out once and requests name them. World-model LIBERO (``wm_libero.SENDS_AHEAD``)
+        sends every frame as it is rendered; a model whose sim sets ``send_ahead_kept`` (a long
+        sparse window) only the frames its next window names."""
         from dreamscale_transport.websocket_client import HISTORY_FRAMES_CAPABILITY
         from dreamscale_transport.wm_libero import SENDS_AHEAD
 
         send_ahead = getattr(self._env, "send_frames_ahead", None)
-        if (self.model not in SENDS_AHEAD or send_ahead is None
+        kept = _SIMS[self.model].send_ahead_kept if self.model in _SIMS else None
+        if ((self.model not in SENDS_AHEAD and kept is None) or send_ahead is None
                 or HISTORY_FRAMES_CAPABILITY not in getattr(self._transport, "capabilities", ())):
             return
 
@@ -1013,17 +1033,24 @@ class SimArm:
             sent.add_done_callback(lambda future: future.exception())  # a lost frame repeats
             return True
 
-        send_ahead(send)
+        if kept is not None:
+            send_ahead(send, kept=kept)
+        else:
+            send_ahead(send)
 
     def do(self, max_steps: int = DEFAULT_SIM_MAX_STEPS, *, tui: bool = True,
            real_time: bool = True,
            sleep: Callable[[float], object] = time.sleep,
            on_frame: Callable[..., None] | None = None,
            on_buffer: Callable[[dict[str, Any]], None] | None = None,
-           on_policy_timing: Callable[[dict[str, Any]], None] | None = None) -> SimResult:
+           on_policy_timing: Callable[[dict[str, Any]], None] | None = None,
+           count_holds: bool | None = None) -> SimResult:
+        """``count_holds``: whether the ticks a stateful model holds while a request is in
+        flight count toward ``max_steps``; by default they do except on LIBERO."""
         if self.model in STATEFUL_MODELS:
             return self._do_stateful(max_steps=max_steps,tui=tui,real_time=real_time,sleep=sleep,
-                on_frame=on_frame,on_buffer=on_buffer,on_policy_timing=on_policy_timing)
+                on_frame=on_frame,on_buffer=on_buffer,on_policy_timing=on_policy_timing,
+                count_holds=not _budgets_actions(self.model, count_holds))
         result = SimResult()
         metrics = SimMetrics(
             max_steps=max_steps,
@@ -1264,7 +1291,8 @@ class SimArm:
             self._runner.run(self._transport.prepare_task(self._env.task_description, **kwargs))
 
     def _do_stateful(
-        self, *, max_steps, tui, real_time, sleep, on_frame, on_buffer, on_policy_timing
+        self, *, max_steps, tui, real_time, sleep, on_frame, on_buffer, on_policy_timing,
+        count_holds=True,
     ):
         from dreamscale.sim.stateful import run_stateful_episode
 
@@ -1402,6 +1430,7 @@ class SimArm:
                 submit=submit,
                 result=result,
                 max_steps=max_steps,
+                count_holds=count_holds,
                 action_hz=self._contract.action_hz,
                 real_time=real_time,
                 sleep=sleep,
@@ -1483,6 +1512,7 @@ def run_sim(*, max_steps: int = DEFAULT_SIM_MAX_STEPS, view: bool = True,
             keep_warm: int = 0,
             output_root: Path | None = None,
             on_line: Callable[[str], None] = print,
+            count_holds: bool | None = None,
             **kwargs) -> SimResult:
     """`dreamscale sim` entry point."""
     from dreamscale.sim.benchmarks import validate_selection
@@ -1492,7 +1522,8 @@ def run_sim(*, max_steps: int = DEFAULT_SIM_MAX_STEPS, view: bool = True,
     contract = _sim_contract(model)
     live_tui = tui and not json_output and sys.stdout.isatty()
     _print_sim_run_card(max_steps=max_steps, view=view, tui=live_tui,
-                        on_line=on_line, model=model, benchmark=benchmark)
+                        on_line=on_line, model=model, benchmark=benchmark,
+                        actions=_budgets_actions(model, count_holds))
     if keep_warm:  # shared models never keep warm, so they say nothing about it
         on_line(f"keep warm: {keep_warm}s after run (billable)")
     recorder = None
@@ -1540,6 +1571,7 @@ def run_sim(*, max_steps: int = DEFAULT_SIM_MAX_STEPS, view: bool = True,
                 on_frame=None if recorder is None else recorder.frame,
                 on_buffer=None if recorder is None else recorder.buffer,
                 on_policy_timing=None if recorder is None else recorder.policy_timing,
+                count_holds=count_holds,
             )
             summary = {
                 "benchmark": benchmark,
@@ -1591,7 +1623,7 @@ def run_sim(*, max_steps: int = DEFAULT_SIM_MAX_STEPS, view: bool = True,
 
 def _print_sim_run_card(*, max_steps: int, view: bool, tui: bool,
                         on_line: Callable[[str], None], model: str = MODEL_LIBERO,
-                        benchmark: str = "libero") -> None:
+                        benchmark: str = "libero", actions: bool = False) -> None:
     contract = _sim_contract(model)
     on_line("Dreamscale sim")
     label = BENCHMARK_LABELS[benchmark]
@@ -1606,7 +1638,9 @@ def _print_sim_run_card(*, max_steps: int, view: bool, tui: bool,
            if model in STATEFUL_MODELS
            else "replan: halfway")
     )
-    on_line(f"max steps: {max_steps} ({max_steps / contract.action_hz:.1f}s sim)")
+    on_line(f"max steps: {max_steps} policy actions; holds while inference is pending run "
+            f"outside it" if actions else
+            f"max steps: {max_steps} ({max_steps / contract.action_hz:.1f}s sim)")
 
 
 def _print_sim_metrics_summary(metrics: dict[str, Any],

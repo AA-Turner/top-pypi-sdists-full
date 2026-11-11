@@ -26,9 +26,9 @@
 //! (tests/cpp/testing_object.h): the first element is visited as a recursive
 //! definition region, the rest inherit the surrounding state.
 
+use tvm_ffi::extra::structural_visit::{DefRegionKind, StructuralVisitorView};
 use tvm_ffi::{
-    structural_visit, Array, DefRegionKind, Result, String as FfiString, StructuralView,
-    StructuralVisitor, VisitInterrupt,
+    AnyView, Array, Result, String as FfiString, VisitInterrupt, dispatch, structural_visit,
 };
 
 /// C++: class TestVisitorObj : public StructuralVisitorObj
@@ -42,20 +42,26 @@ struct RecordingVisitor {
     interrupt_on: Option<i64>,
 }
 
-impl StructuralVisitor for RecordingVisitor {
+#[dispatch(
+    visit,
+    (AnyView<'_>, &mut StructuralVisitorView<'_, Self>),
+    Result<Option<VisitInterrupt>>
+)]
+impl RecordingVisitor {
     /// C++ analog: `TestVisitorObj::VisitImpl` — record every value together
     /// with the active def-region state, optionally interrupt with a payload,
     /// otherwise delegate recursion explicitly. The array arm mirrors
     /// `TFuncObj::StructuralVisit`.
-    fn visit(
+    fn visit_any(
         &mut self,
-        value: &StructuralView,
-        def_region_kind: DefRegionKind,
+        value: AnyView<'_>,
+        visitor: &mut StructuralVisitorView<'_, Self>,
     ) -> Result<Option<VisitInterrupt>> {
-        let integer = value.cast::<i64>();
+        let def_region_kind = visitor.def_region_kind();
+        let integer = value.downcast_ref::<i64>().copied();
         let label = match integer {
             Some(integer) => integer.to_string(),
-            None if value.cast::<Array<i64>>().is_some() => "array".to_string(),
+            None if value.downcast_ref::<Array<i64>>().cloned().is_some() => "array".to_string(),
             None => "obj".to_string(),
         };
         // C++: visited.push_back(value_ref);
@@ -66,26 +72,33 @@ impl StructuralVisitor for RecordingVisitor {
         // C++: if (value_ref.same_as(interrupt_on))
         //          return VisitInterrupt(String("stop"));
         if self.interrupt_on.is_some() && integer == self.interrupt_on {
-            return Ok(Some(VisitInterrupt::with(FfiString::from("stop"))));
+            return Ok(Some(VisitInterrupt::new(FfiString::from("stop"))));
         }
 
         // C++ analog: `TFuncObj::StructuralVisit` — visit "params"
         // (element 0) under a pattern definition region, then the "body"
         // (element 1) under the inherited state.
-        if let Some(array) = value.cast::<Array<i64>>() {
+        if let Some(array) = value.downcast_ref::<Array<i64>>().cloned() {
             // C++: visitor->WithDefRegionKind(kTVMFFIDefRegionKindPattern,
             //          [&] { return visitor->VisitExpected(self->params); })
             let params = array.get(0).unwrap();
-            if let Some(interrupt) = self.visit_child(&params, DefRegionKind::Pattern)? {
+            if let Some(interrupt) = visitor
+                .with_def_region_kind(DefRegionKind::Pattern, |visitor| {
+                    visitor.visit(self, &params)
+                })?
+            {
                 return Ok(Some(interrupt));
             }
             // C++: visitor->VisitExpected(self->body)  (inherits the state)
             let body = array.get(1).unwrap();
-            return self.visit_child(&body, def_region_kind);
+            return visitor
+                .with_def_region_kind(def_region_kind, |visitor| visitor.visit(self, &body));
         }
 
         // C++: return DefaultVisitExpected(value);
-        self.default_visit_children(value, def_region_kind)
+        visitor.with_def_region_kind(def_region_kind, |visitor| {
+            visitor.default_visit(self, value)
+        })
     }
 }
 
@@ -93,7 +106,7 @@ impl StructuralVisitor for RecordingVisitor {
 /// state flips to Recursive under "params" and back to None for the "body".
 #[test]
 fn records_values_and_def_region_modes() {
-    let root = Array::new(vec![10i64, 20]);
+    let root = Array::from_vec(vec![10i64, 20]);
     let mut visitor = RecordingVisitor::default();
 
     let outcome = structural_visit(&root, &mut visitor).unwrap();
@@ -114,7 +127,7 @@ fn records_values_and_def_region_modes() {
 /// halts at the marked value and the payload reaches the caller.
 #[test]
 fn stops_on_interrupt_with_payload() {
-    let root = Array::new(vec![10i64, 20]);
+    let root = Array::from_vec(vec![10i64, 20]);
     let mut visitor = RecordingVisitor {
         interrupt_on: Some(20),
         ..RecordingVisitor::default()
@@ -126,7 +139,12 @@ fn stops_on_interrupt_with_payload() {
         panic!("traversal unexpectedly completed");
     };
     assert_eq!(
-        FfiString::try_from(interrupt.value).unwrap().as_str(),
+        interrupt
+            .value
+            .downcast_ref::<FfiString>()
+            .cloned()
+            .unwrap()
+            .as_str(),
         "stop"
     );
     assert_eq!(visitor.visited, vec!["array", "10", "20"]);

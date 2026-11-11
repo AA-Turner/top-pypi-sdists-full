@@ -16,6 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+use tvm_ffi::device::{current_stream, with_stream};
+use tvm_ffi::tvm_ffi_sys::TVMFFIStreamHandle;
 use tvm_ffi::*;
 
 #[test]
@@ -40,7 +42,7 @@ fn test_device_stream_restored_after_error() {
     // SAFETY: dummy_stream is a test value; CPU device accepts any stream handle.
     let result: Result<()> = unsafe {
         with_stream(&device, dummy_stream, || {
-            Err(Error::new(VALUE_ERROR, "closure failed", ""))
+            Err(Error::new(VALUE_ERROR, "closure failed"))
         })
     };
     assert_eq!(result.unwrap_err().message(), "closure failed");
@@ -65,10 +67,17 @@ fn test_device_stream_restored_after_panic() {
 
 #[test]
 fn test_device_any_conversion() {
-    let device = DLDevice::new(DLDeviceType::kDLCPU, 0);
-    let any_device: Any = device.into();
-    assert_eq!(any_device.type_index(), TypeIndex::kTVMFFIDevice as i32);
-    let converted_device: DLDevice = any_device.try_into().unwrap();
-    assert_eq!(converted_device.device_type, device.device_type);
-    assert_eq!(converted_device.device_id, device.device_id);
+    for device_type in [
+        DLDeviceType::kDLCPU,
+        DLDeviceType::kDLTPU,
+        DLDeviceType::kDLTPUHost,
+        DLDeviceType::kDLAscend,
+    ] {
+        let device = DLDevice::new(device_type, 3);
+        let any_device: Any = device.into();
+        assert_eq!(any_device.type_index(), TypeIndex::kTVMFFIDevice as i32);
+        let converted_device: DLDevice = any_device.try_into().unwrap();
+        assert_eq!(converted_device.device_type, device.device_type);
+        assert_eq!(converted_device.device_id, device.device_id);
+    }
 }

@@ -96,6 +96,7 @@ ArtifactTypeType = Literal[
     "CALABASH_STANDARD_OUTPUT",
     "CUSTOMER_ARTIFACT",
     "CUSTOMER_ARTIFACT_LOG",
+    "DEVICE_CONNECT_COMMAND_LOG",
     "DEVICE_LOG",
     "EXERCISER_MONKEY_OUTPUT",
     "EXPLORER_EVENT_LOG",
@@ -163,7 +164,7 @@ ExecutionStatusType = Literal[
     "STOPPING",
 ]
 GetOfferingStatusPaginatorName = Literal["get_offering_status"]
-InsightsTypeType = Literal["TEST_REPORT"]
+InsightsTypeType = Literal["NONE", "TEST_REPORT"]
 InstanceStatusType = Literal["AVAILABLE", "IN_USE", "NOT_AVAILABLE", "PREPARING"]
 InteractionModeType = Literal["INTERACTIVE", "NO_VIDEO", "VIDEO_ONLY"]
 ListArtifactsPaginatorName = Literal["list_artifacts"]

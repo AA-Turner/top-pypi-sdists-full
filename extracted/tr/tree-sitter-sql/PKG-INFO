@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tree-sitter-sql
-Version: 0.3.12
+Version: 0.3.13
 Summary: Tree-sitter Grammar for SQL
 Author: derek stride
 License: MIT

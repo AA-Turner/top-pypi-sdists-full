@@ -9,7 +9,7 @@ from .StreamReader import StreamReader
 from .StreamWriter import StreamWriter
 
 
-# noinspection PyMethodMayBeStatic,PyUnusedLocal
+# noinspection PyMethodMayBeStatic
 class VisaSessionSim(object):
 	"""Visa session in simulation mode.
 	Provides the properties for the simulation mode.
@@ -76,6 +76,8 @@ class VisaSessionSim(object):
 
 	def _update_cmd_vals_cache(self, cmd: str, param: AnyStr | None = None) -> None:
 		"""Parses out the parameter from the command and stores/updates them in the cache."""
+		# param is accepted by write_raw_bytes. The stored text is parsed from cmd.
+		_ = param
 		aux = cmd.split(' ', 1)
 		if len(aux) < 2:
 			return
@@ -136,6 +138,8 @@ class VisaSessionSim(object):
 
 	def read_all_bytes(self, stream: StreamWriter) -> None:
 		"""Reads all the data from the instrument as bytes to the provided stream."""
+		# Same signature as VisaSession.read_all_bytes. Simulation does not read a stream.
+		_ = stream
 		raise RsInstrException(f'Non-Vxi11 sessions can not read binary data blocks of unknown length.')
 
 	def write_raw_bytes(self, data: bytes) -> None:
@@ -158,16 +162,22 @@ class VisaSessionSim(object):
 	def write_with_opc(self, cmd: str, timeout: int | None = None) -> None:
 		"""Sends command with OPC-sync.
 		If you do not provide timeout, the method uses current opc_timeout."""
+		# Same signature as VisaSession.write_with_opc. Simulation does not wait.
+		_ = timeout
 		self.write(cmd)
 
 	def query_str_with_opc(self, query: str, timeout: int | None = None, context: str = 'Query string with OPC') -> str:
 		"""Query string with OPC synchronization.
 		The response is trimmed for any trailing LF.
 		If you do not provide timeout, the method uses current opc_timeout."""
+		# Same signature as VisaSession.query_str_with_opc. Simulation does not wait.
+		_ = timeout, context
 		return self.query_str(query)
 
 	def query_opc(self, timeout: int = 0) -> bool:
 		"""Sends *OPC? query and reads the result."""
+		# Same signature as VisaSession.query_opc. Simulation does not wait.
+		_ = timeout
 		return True
 
 	def query_and_clear_esr(self) -> int:
@@ -191,6 +201,8 @@ class VisaSessionSim(object):
 
 	def query_bin_block(self, query: str, stream: StreamWriter, exc_if_not_bin: bool = True) -> None:
 		"""Query binary data block and returns it as byte data."""
+		# Same signature as VisaSession.query_bin_block. Simulation always writes a block.
+		_ = exc_if_not_bin
 		self._last_cmd = query
 		cached = self._get_cmd_cached_value(query)
 
@@ -205,11 +217,15 @@ class VisaSessionSim(object):
 
 	def query_bin_block_with_opc(self, query: str, stream: StreamWriter, exc_if_not_bin: bool = True, timeout: int | None = None) -> None:
 		"""Query binary data block with OPC and returns it as byte data."""
+		# Same signature as VisaSession.query_bin_block_with_opc. Simulation does not wait.
+		_ = exc_if_not_bin, timeout
 		self.query_bin_block(query, stream)
 
 	def read_up_to_char(self, stop_chars: bytes, max_cnt: int) -> bytes:
 		"""Reads until one of the stop_chars is read or the max_cnt is reached, or EOT is detected.
 		Returns the read data including the stop character."""
+		# Same signature as VisaSession.read_up_to_char. Simulation returns a fixed response.
+		_ = stop_chars, max_cnt
 		return b'Simulating'
 
 	def get_session_handle(self) -> object:
@@ -218,6 +234,8 @@ class VisaSessionSim(object):
 
 	def go_to_local(self, mixed_mode: bool) -> None:
 		"""Puts the instrument into local state."""
+		# Same signature as VisaSession.go_to_local. Simulation has no local mode to change.
+		_ = mixed_mode
 		return
 
 	def go_to_remote(self) -> None:

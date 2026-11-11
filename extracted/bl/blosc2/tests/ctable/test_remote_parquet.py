@@ -28,6 +28,109 @@ def test_windows_cache_directory_uses_source_basename():
     assert cache_directory_name(r"C:\data\source.parquet", b"cache").startswith("source.parquet--")
 
 
+@pytest.mark.parametrize("view", ["raw", "public"])
+def test_safe_parquet_operand_checks_metadata_without_row_group_reads(tmp_path, monkeypatch, view):
+    path = tmp_path / "numeric.parquet"
+    pq.write_table(pa.table({"x": [1.0, 2.0, 3.0]}), path, row_group_size=1)
+    with blosc2.open(path, lazy=True) as remote:
+        column = remote._cols["x"] if view == "raw" else remote["x"]
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                remote_parquet._ParquetColumn,
+                "__getitem__",
+                lambda *a, **k: pytest.fail("Read during admission"),
+            )
+            expr = blosc2.lazyexpr("sqrt(x)", {"x": column}, evaluation="safe")
+            assert expr.shape == (3,)
+            assert expr.dtype == np.dtype("float64")
+        np.testing.assert_allclose(expr[:], np.sqrt([1.0, 2.0, 3.0]))
+
+
+@pytest.mark.parametrize("state", ["closed", "stale", "metadata"])
+def test_safe_parquet_operand_rejects_invalid_lifetime_before_reads(tmp_path, monkeypatch, state):
+    path = tmp_path / "numeric.parquet"
+    pq.write_table(pa.table({"x": [1.0, 2.0, 3.0]}), path)
+    with blosc2.open(path, lazy=True) as remote:
+        column = remote._cols["x"]
+        expr = blosc2.lazyexpr("sqrt(x)", {"x": column}, evaluation="safe")
+        monkeypatch.setattr(
+            remote_parquet._ParquetColumn, "__getitem__", lambda *a, **k: pytest.fail("Read invalid column")
+        )
+        if state == "closed":
+            column.storage.close()
+        elif state == "stale":
+            column.storage._generation += "-stale"
+        else:
+            column.shape = (4,)
+        with pytest.raises((RuntimeError, ValueError)):
+            expr.compute()
+
+
+@pytest.mark.parametrize(
+    "dependency", ["storage", "owner", "cache", "lock", "schema", "coordinator", "dtype", "shape"]
+)
+def test_safe_parquet_operand_rejects_hostile_dependencies_before_hooks(tmp_path, monkeypatch, dependency):
+    path = tmp_path / "numeric.parquet"
+    pq.write_table(pa.table({"x": [1.0, 2.0, 3.0]}), path)
+    with blosc2.open(path, lazy=True) as remote:
+        column = remote._cols["x"]
+        expr = blosc2.lazyexpr("sqrt(x)", {"x": column}, evaluation="safe")
+
+        class HostileDependency:
+            @property
+            def generation(self):
+                pytest.fail("Read unadmitted owner metadata")
+
+            def __enter__(self):
+                pytest.fail("Entered hostile Parquet lock")
+
+            def __iter__(self):
+                pytest.fail("Iterated hostile Parquet metadata")
+
+            def __eq__(self, other):
+                pytest.fail("Compared hostile Parquet dtype")
+
+        with monkeypatch.context() as patch:
+            if dependency == "storage":
+                patch.setattr(column, "storage", HostileDependency())
+            elif dependency == "owner":
+                patch.setattr(column.storage, "_owner", HostileDependency())
+            elif dependency == "cache":
+                patch.setattr(column.storage._owner, "parquet_cache", HostileDependency())
+            elif dependency == "lock":
+                patch.setattr(column.storage._owner, "lock", HostileDependency())
+            elif dependency == "schema":
+                patch.setattr(column.storage, "schema", HostileDependency())
+            elif dependency == "coordinator":
+                patch.setattr(column.storage._owner, "cache_coordinator", HostileDependency())
+            elif dependency == "dtype":
+                patch.setattr(column, "dtype", HostileDependency())
+            else:
+                patch.setattr(column, "shape", HostileDependency())
+            with pytest.raises(blosc2.UnsafeDeserializationError):
+                expr.compute()
+
+
+def test_safe_parquet_operand_rejects_same_metadata_storage_rebinding(tmp_path, monkeypatch):
+    first, second = tmp_path / "first.parquet", tmp_path / "second.parquet"
+    pq.write_table(pa.table({"x": [1.0, 2.0, 3.0]}), first)
+    pq.write_table(pa.table({"x": [4.0, 5.0, 6.0]}), second)
+    with blosc2.open(first, lazy=True) as left, blosc2.open(second, lazy=True) as right:
+        column = left._cols["x"]
+        expr = blosc2.lazyexpr("sqrt(x)", {"x": column}, evaluation="safe")
+        monkeypatch.setattr(column, "storage", right._cols["x"].storage)
+        with pytest.raises(ValueError, match="storage was rebound"):
+            expr.compute()
+
+
+def test_safe_parquet_ndarray_operand_rejects_unreviewed_row_shape(tmp_path):
+    path = tmp_path / "cells.parquet"
+    pq.write_table(pa.table({"x": pa.array([[1, 2], [3, 4]], type=pa.list_(pa.int32(), 2))}), path)
+    with blosc2.open(path, lazy=True) as remote:
+        with pytest.raises(blosc2.UnsafeDeserializationError, match="registered expression adapter"):
+            blosc2.lazyexpr("sqrt(x)", {"x": remote._cols["x"]}, evaluation="safe")
+
+
 def test_source_url_preserves_non_sensitive_query():
     from blosc2.remote_store import public_source_url
 
@@ -146,6 +249,58 @@ def test_narrow_read_uses_only_one_later_group(tmp_path):
         assert remote.traffic.requests == before + 1
         assert remote["one"][10] == 10
         assert remote.traffic.requests == before + 1
+
+
+@pytest.mark.parametrize("projected", [False, True])
+def test_empty_parquet_slice_is_metadata_only(tmp_path, monkeypatch, projected):
+    path = tmp_path / "dictionary.parquet"
+    source = pa.table({"id": range(12), "category": pa.array(["a", None, "b"] * 4).dictionary_encode()})
+    pq.write_table(source, path, row_group_size=3)
+    with blosc2.open(str(path), lazy=True, cache_policy=blosc2.CachePolicy.NONE) as remote:
+        table = remote.select(["category"]) if projected else remote
+
+        def forbidden(*args, **kwargs):
+            pytest.fail("Empty slice read Parquet data or enumerated live rows")
+
+        monkeypatch.setattr(remote_parquet.ParquetCache, "group", forbidden)
+        monkeypatch.setattr(CTable, "_live_positions_from_valid_rows_chunks", forbidden)
+        for empty in (table.slice(0, 0), table.take([])):
+            assert empty.nrows == 0
+            assert empty.col_names == table.col_names
+            assert schema_to_dict(empty._schema) == schema_to_dict(table._schema)
+            restored = blosc2.ctable_from_cframe(empty.to_cframe())
+            assert restored.nrows == 0
+            assert restored.col_names == table.col_names
+
+
+@pytest.mark.parametrize("projected", [False, True])
+def test_parquet_take_dictionary_reads_only_selected_groups(tmp_path, monkeypatch, projected):
+    path = tmp_path / "dictionary.parquet"
+    source = pa.table(
+        {
+            "id": range(9),
+            "category": pa.array(["a", "b", "a", "c", None, "c", "d", "e", "d"]).dictionary_encode(),
+        }
+    )
+    pq.write_table(source, path, row_group_size=3)
+    with blosc2.open(str(path), lazy=True, cache_policy=blosc2.CachePolicy.NONE) as remote:
+        table = remote.select(["category"]) if projected else remote
+        calls = []
+        original = remote_parquet.ParquetCache.group
+
+        def group(owner, number, physical):
+            calls.append((number, physical))
+            assert number == 1
+            return original(owner, number, physical)
+
+        monkeypatch.setattr(remote_parquet.ParquetCache, "group", group)
+        for result, positions in ((table.slice(3, 6), [3, 4, 5]), (table.take([5, 4, 3, 5]), [5, 4, 3, 5])):
+            expected = source.take(pa.array(positions))
+            if projected:
+                expected = expected.select(["category"])
+            assert result.to_arrow().to_pylist() == expected.to_pylist()
+            assert result._cols["category"].dictionary == ["c"]
+        assert calls
 
 
 @pytest.mark.parametrize(
@@ -1054,6 +1209,55 @@ def test_oversized_memory_group_is_not_retained(tmp_path):
         before = remote.traffic.requests
         assert remote["x"][1] == 2
         assert remote.traffic.requests > before
+
+
+@pytest.mark.skipif(sys.platform in {"emscripten", "wasi"}, reason="Runtime does not provide Python threads")
+@pytest.mark.parametrize(
+    "policy", [blosc2.CachePolicy.NONE, blosc2.CachePolicy.MEMORY, blosc2.CachePolicy.DISK]
+)
+def test_safe_parquet_graph_refresh_waits_for_read_and_invalidates_old_graph(tmp_path, monkeypatch, policy):
+    path = tmp_path / "safe-refresh.parquet"
+    pq.write_table(pa.table({"x": [1.0, 2.0, 3.0, 4.0]}), path, row_group_size=2)
+    options = {"cache_dir": tmp_path / "cache"} if policy is blosc2.CachePolicy.DISK else {}
+    with blosc2.open(path, cache_policy=policy, **options) as remote:
+        owner = remote._remote_storage()._owner
+        expr = blosc2.lazyexpr("sqrt(x) + 1", {"x": remote["x"]}, evaluation="safe")
+        original_group = owner.group
+        entered, resume, updating = threading.Event(), threading.Event(), threading.Event()
+
+        @contextmanager
+        def paused_group(number, physical):
+            with original_group(number, physical) as table:
+                if number == 0:
+                    entered.set()
+                    assert resume.wait(10)
+                yield table
+
+        monkeypatch.setattr(owner, "group", paused_group)
+
+        def refresh():
+            updating.set()
+            remote.refresh()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            read = pool.submit(lambda: expr[:])
+            try:
+                assert entered.wait(10)
+                acquired = owner.lock.acquire(blocking=False)
+                if acquired:
+                    owner.lock.release()
+                assert not acquired
+                update = pool.submit(refresh)
+                assert updating.wait(10)
+                assert not update.done()
+            finally:
+                resume.set()
+            np.testing.assert_allclose(read.result(timeout=10), np.sqrt([1.0, 2.0, 3.0, 4.0]) + 1)
+            update.result(timeout=10)
+        with pytest.raises(RuntimeError, match=r"closed|stale"):
+            expr.compute()
+        replacement = blosc2.lazyexpr("sqrt(x) + 1", {"x": remote["x"]}, evaluation="safe")
+        np.testing.assert_allclose(replacement[:], np.sqrt([1.0, 2.0, 3.0, 4.0]) + 1)
 
 
 @pytest.mark.parametrize(("workers", "budget", "expected"), [(1, 1 << 20, 1), (3, 1 << 20, 3), (3, 1, 1)])

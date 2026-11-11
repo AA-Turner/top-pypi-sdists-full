@@ -17,7 +17,7 @@ from collections.abc import Callable, Sequence
 
 from trilogy.core import graph as nx
 from trilogy.core.constants import ALL_ROWS_ADDRESS, GRAIN_SEPARATOR
-from trilogy.core.domain_graph import DomainEdge, EdgeScope
+from trilogy.core.domain_graph import DomainEdge, EdgeScope, derived_key_inputs
 from trilogy.core.enums import (
     AggregateGroupingMode,
     Derivation,
@@ -35,10 +35,16 @@ from trilogy.core.models.build import (
     BuildRowsetItem,
     BuildRowsetLineage,
     BuildWhereClause,
+    get_concept_arguments,
     is_grouping_identity,
     nonstandard_grouping_spec,
+    rollup_reaggregate,
 )
 from trilogy.core.models.build_environment import BuildEnvironment
+from trilogy.core.processing.aggregate_rollup import (
+    sourced_arguments,
+    sourced_function_arguments,
+)
 from trilogy.core.processing.condition_utility import decompose_condition
 from trilogy.core.processing.discovery_utility import get_upstream_concepts
 from trilogy.core.processing.node_generators.presence_probe import (
@@ -211,12 +217,7 @@ def _derived_key_row_grain(
     own grain, but the stream deriving it holds one per input row, and pairs
     with its siblings on those rows' keys (`crown2` by `cls` and `genus`
     joins back to the trees on both)."""
-    out: set[str] = set()
-    for arg in concept.lineage.concept_arguments if concept.lineage else ():
-        resolved = environment.concepts.get(arg.address) or arg
-        if resolved.grain:
-            out |= resolved.grain.components
-    return frozenset(out)
+    return derived_key_inputs(concept, environment.concepts)
 
 
 def derived_key(concept: BuildConcept) -> bool:
@@ -357,12 +358,12 @@ def pinned_probe_addresses(
 def _lineage_args(
     concept: BuildConcept, environment: BuildEnvironment
 ) -> list[BuildConcept]:
-    """The default: concepts the lineage's expression directly consumes."""
-    if concept.lineage is None:
-        return []
+    """The default: concepts the lineage's expression directly consumes. An
+    aggregate the statement re-aggregates from a partial consumes that partial
+    (`BuildEnvironment.partial_sources`)."""
     return [
         environment.concepts.get(p.address, p) or p
-        for p in concept.lineage.concept_arguments
+        for p in sourced_arguments(concept, environment.partial_sources)
     ]
 
 
@@ -844,21 +845,18 @@ def _aggregate_relation_members(
     Nor a member the aggregate names inside a counted `grain(...)` tuple:
     that is row identity, not an axis (`_row_identity_components`)."""
     candidates = set(aggregate_input_grain)
-    if isinstance(concept.lineage, BuildAggregateWrapper):
-        candidates |= {
-            arg.address
-            for arg in concept.lineage.function.concept_arguments
-            if isinstance(arg, BuildConcept)
-        }
+    read = (
+        [
+            c
+            for arg in sourced_function_arguments(concept, environment.partial_sources)
+            for c in get_concept_arguments(arg)
+        ]
+        if isinstance(concept.lineage, BuildAggregateWrapper)
+        else []
+    )
+    candidates |= {arg.address for arg in read}
     own_anchor_args = {
-        arg.address
-        for arg in (
-            concept.lineage.function.concept_arguments
-            if isinstance(concept.lineage, BuildAggregateWrapper)
-            else ()
-        )
-        if isinstance(arg, BuildConcept)
-        and not isinstance(arg.lineage, BuildRowsetItem)
+        arg.address for arg in read if not isinstance(arg.lineage, BuildRowsetItem)
     }
     row_identity = _row_identity_components(concept, environment)
     return frozenset(
@@ -878,7 +876,7 @@ def _aggregates_a_coalescing_member(
     coalescing = environment.domain_graph.coalescing_relation_members()
     return any(
         isinstance(arg, BuildConcept) and arg.address in coalescing
-        for arg in concept.lineage.function.arguments
+        for arg in sourced_function_arguments(concept, environment.partial_sources)
     )
 
 
@@ -987,7 +985,7 @@ def _upstream_aggregate(
         c for c in _lineage_args(concept, environment) if c.address != ALL_ROWS_ADDRESS
     ]
     if isinstance(concept.lineage, BuildAggregateWrapper):
-        for arg in concept.lineage.function.arguments:
+        for arg in sourced_function_arguments(concept, environment.partial_sources):
             # a rowset member inside an inline expression (`sum(rs.a * rs.b)`)
             # is read at its rowset's identity, as a bare one is
             if isinstance(arg, BuildConceptArgs) and not isinstance(arg, BuildConcept):
@@ -1419,7 +1417,7 @@ def _aggregate_input_grain(
     if not isinstance(concept.lineage, BuildAggregateWrapper):
         return frozenset()
     input_grain: set[str] = set(out_grain)
-    for arg in concept.lineage.function.arguments:
+    for arg in sourced_function_arguments(concept, environment.partial_sources):
         # Descend into inline expressions: `sum(case when ... then
         # web_sales.price else 0)` arrives as a Function, not a BuildConcept, so
         # walking only top-level concept args would miss its fact inputs. Two
@@ -1819,6 +1817,11 @@ def _add_concept(
         if is_materialized_root
         else _aggregate_input_grain(concept, environment, out_grain)
     )
+    # re-aggregated from a partial: it reads that partial's rows, not its
+    # function's own arguments
+    reaggregated = (
+        not is_materialized_root and concept.address in environment.partial_sources
+    )
     # Under a STATEMENT-scoped join to a ROWSET, an aggregate whose inputs
     # ride the relation reads them per relation row: a `union join` axis pairs
     # its input stream, a relation the `by` names widens its grain. Global
@@ -1836,7 +1839,7 @@ def _add_concept(
         and concept.derivation == Derivation.AGGREGATE
         and (
             dimension_grain
-            or null_sensitive(concept)
+            or (not reaggregated and null_sensitive(concept))
             or _aggregates_a_coalescing_member(concept, environment)
         )
     ):
@@ -1876,6 +1879,7 @@ def _add_concept(
         aggregate_input_grain=aggregate_input_grain,
         aggregate_distinct_rewritable=(
             bool(aggregate_input_grain)
+            and not reaggregated
             and _aggregate_distinct_rewritable(
                 concept, datasources, aggregate_input_grain, out_grain
             )
@@ -1885,9 +1889,17 @@ def _add_concept(
             if aggregate_input_grain
             else frozenset()
         ),
-        counted_key=counted.address if (counted := _counted_key(concept)) else None,
+        counted_key=(
+            counted.address
+            if not reaggregated and (counted := _counted_key(concept))
+            else None
+        ),
         aggregate_operator=(
-            concept.lineage.function.operator
+            (
+                rollup_reaggregate(concept)
+                if reaggregated
+                else concept.lineage.function.operator
+            )
             if isinstance(concept.lineage, BuildAggregateWrapper)
             else None
         ),

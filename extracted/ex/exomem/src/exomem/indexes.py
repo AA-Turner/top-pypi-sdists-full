@@ -24,10 +24,11 @@ from . import call_spans, homes, markdown_relations, note_types
 from .entity_types import EntityTypeRegistry, core_registry, load_entity_types
 from .kbdir import kb_prefix
 from .vault import (
-    VAULT_SCAN_SKIP_DIR_PREFIXES,
+    PathGuard,
     PlannedWrite,
     document_newline,
     escape_wikilinks_for_log,
+    is_scan_skipped_runtime_name,
     kb_root,
     read_guarded_text,
     render_wikilinks_for_vault,
@@ -80,6 +81,16 @@ class IndexUpdate:
     top_index_content: str
     log_content: str
     trim_note: str | None  # populated if Recent activity cap-50 trimmed entries
+    # Each guard binds the exact bytes its content was derived from.
+    sources_index_guard: PathGuard
+    top_index_guard: PathGuard
+    log_guard: PathGuard
+
+
+def read_guarded_universal_text(vault_root: Path, path: Path) -> tuple[str, PathGuard]:
+    """Guarded text with universal newlines, the text `Path.read_text` returns."""
+    text, guard = read_guarded_text(vault_root, path)
+    return text.replace("\r\n", "\n").replace("\r", "\n"), guard
 
 
 def compute_updates(
@@ -124,9 +135,12 @@ def compute_updates(
         raise FileNotFoundError(f"log.md missing: {log_file}")
 
     counts = _count_sources(sources_dir) if source_counts is None else dict(source_counts)
+    sources_index_text, sources_index_guard = read_guarded_universal_text(vault_root, sources_index)
+    top_index_text, top_index_guard = read_guarded_universal_text(vault_root, top_index)
+    log_text, log_guard = read_guarded_universal_text(vault_root, log_file)
 
     sources_index_new = _update_sources_index(
-        sources_index.read_text(encoding="utf-8"),
+        sources_index_text,
         folder_title=folder_title,
         folder_description=folder_description,
         counts=counts,
@@ -136,14 +150,14 @@ def compute_updates(
     )
 
     top_index_new, trim_note = _update_top_index(
-        top_index.read_text(encoding="utf-8"),
+        top_index_text,
         counts=counts,
         date_iso=date_iso,
         activity_summary=activity_summary,
     )
 
     log_new = _update_log(
-        log_file.read_text(encoding="utf-8"),
+        log_text,
         date_iso=stamp_iso or date_iso,
         rel_source_path=rel_source_path,
         log_entry_body=log_entry_body
@@ -155,6 +169,9 @@ def compute_updates(
         top_index_content=render_wikilinks_for_vault(top_index_new, vault_root),
         log_content=render_wikilinks_for_vault(log_new, vault_root),
         trim_note=trim_note,
+        sources_index_guard=sources_index_guard,
+        top_index_guard=top_index_guard,
+        log_guard=log_guard,
     )
 
 
@@ -215,9 +232,9 @@ def _count_sources(
         on_error(error)
         return out
     for sub in entries:
-        # A batch workspace is another write in flight, not a source type; it can vanish
-        # between the listing and the stat below.
-        if sub.name.startswith("_") or sub.name.startswith(VAULT_SCAN_SKIP_DIR_PREFIXES):
+        # A batch workspace or a capability probe's scratch is runtime state, not a source
+        # type; it can vanish between the listing and the stat below.
+        if sub.name.startswith("_") or is_scan_skipped_runtime_name(sub.name):
             continue
         try:
             if not stat.S_ISDIR(sub.stat().st_mode):
@@ -655,9 +672,9 @@ def _count_notes_by_subfolder(notes_dir: Path) -> dict[str, dict[str, int]]:
         return out
     for type_folder in notes_dir.iterdir():
         name = type_folder.name
-        # A batch workspace (a publish of `Notes/index.md` in flight) is not a note type, and
-        # it can vanish between the checks below.
-        if name.startswith("_") or name.startswith(VAULT_SCAN_SKIP_DIR_PREFIXES):
+        # A batch workspace (a publish of `Notes/index.md` in flight) or a capability probe's
+        # scratch is not a note type, and it can vanish between the checks below.
+        if name.startswith("_") or is_scan_skipped_runtime_name(name):
             continue
         if not type_folder.is_dir():
             continue

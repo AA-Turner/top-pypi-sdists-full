@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: octostar-python-client
-Version: 0.1.1204
+Version: 0.1.1210
 Summary: A client library for accessing Octostar API
 Author-email: Octostar <systems@octostar.com>
 License-Expression: MIT

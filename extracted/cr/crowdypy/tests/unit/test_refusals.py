@@ -245,8 +245,8 @@ def test_the_age_refusals_are_booleans_and_never_surface_an_age() -> None:
 
 def test_territory_and_minecraft_refusals_carry_their_detail() -> None:
     assert territory_not_supported_of(
-        refused(code="TERRITORY_NOT_SUPPORTED", country="DE")
-    ) == CrowdyTerritoryNotSupported("DE")
+        refused(code="TERRITORY_NOT_SUPPORTED", country="CU")
+    ) == CrowdyTerritoryNotSupported("CU")
     assert territory_not_supported_of(
         refused(code="TERRITORY_NOT_SUPPORTED", country="")
     ) == CrowdyTerritoryNotSupported(None)
@@ -271,6 +271,23 @@ def test_safety_log_consent_and_social_limit_refusals() -> None:
     assert social_limit_reached_of(later) is True
     assert safety_log_required_of(refused(code="SAFETY_LOG_REQUIRED")) is True
     assert not safety_log_required_of(refused(code="PARENTAL_CONSENT_UNAVAILABLE"))
+
+
+def test_the_email_confirmation_refusal_reads_every_shape_and_nothing_else() -> None:
+    from crowdypy.domains.portal import (
+        is_email_confirmation_required_error,
+        is_legal_acceptance_required_error,
+    )
+
+    refusal = refused(code="EMAIL_CONFIRMATION_REQUIRED")
+    assert is_email_confirmation_required_error(refusal) is True
+    assert is_legal_acceptance_required_error(refusal) is False
+    assert legal_acceptance_required_of(refusal) is None
+    assert is_email_confirmation_required_error(refused(code="LEGAL_ACCEPTANCE_REQUIRED")) is False
+    assert is_email_confirmation_required_error(Exception("EMAIL_CONFIRMATION_REQUIRED: x"))
+    assert is_email_confirmation_required_error(ValueError("x")) is False
+    assert crowdypy.EMAIL_CONFIRMATION_REQUIRED_CODE == "EMAIL_CONFIRMATION_REQUIRED"
+    assert crowdypy.is_email_confirmation_required_error is is_email_confirmation_required_error
 
 
 def test_the_safety_moderator_refusal_is_a_boolean_of_its_own() -> None:

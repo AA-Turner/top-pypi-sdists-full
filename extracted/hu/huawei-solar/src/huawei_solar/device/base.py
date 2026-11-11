@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Self
 
 from huawei_solar import register_names as rn
@@ -10,7 +11,17 @@ from huawei_solar.const import MAX_BATCHED_REGISTERS_COUNT, MAX_BATCHED_REGISTER
 from huawei_solar.exceptions import (
     HuaweiSolarException,
     InvalidCredentials,
+    ReadException,
     WriteException,
+)
+from huawei_solar.files import (
+    ActiveAlarm,
+    ActiveAlarmsDataFile,
+    HistoryAlarm,
+    HistoryAlarmsDataFile,
+    InverterPerformanceDataFile,
+    PerformanceDataPoint,
+    PerformanceRequestType,
 )
 from huawei_solar.modbus_pdu import PermissionDeniedError
 from huawei_solar.registers import REGISTERS
@@ -55,6 +66,7 @@ class HuaweiSolarDevice(ABC):
         *,
         model_name: str,
         primary_device: "HuaweiSolarDevice | None" = None,
+        serial_number: str | None = None,
     ) -> Self:
         """Create instance with the necessary information."""
         device = cls(
@@ -62,6 +74,8 @@ class HuaweiSolarDevice(ABC):
             model_name,
             primary_device=primary_device,
         )
+        if serial_number is not None:
+            device.serial_number = serial_number
 
         await device._populate_additional_fields()
 
@@ -96,14 +110,6 @@ class HuaweiSolarDevice(ABC):
         Used by subclasses to prevent read-errors in certain cases.
         """
         return register_names
-
-    def _transform_register_values(
-        self,
-        register_name: rn.RegisterName,  # noqa: ARG002
-        result: "Result[Any]",
-    ) -> "Result[Any]":
-        """Optionally Transform the value of a register before returning it."""
-        return result
 
     async def batch_update(self, register_names: list[rn.RegisterName]) -> "dict[rn.RegisterName, Result[Any]]":
         """Efficiently retrieve the values of all the registers passed in register_names.
@@ -173,9 +179,6 @@ class HuaweiSolarDevice(ABC):
                 first_idx = last_idx + 1
                 last_idx = first_idx
 
-            for key, value in result.items():
-                result[key] = self._transform_register_values(key, value)
-
             return result
 
     async def stop(self) -> bool:
@@ -188,11 +191,95 @@ class HuaweiSolarDevice(ABC):
 
     async def get(self, name: rn.RegisterName) -> "Result[Any]":
         """Get the value of a certain register."""
+        # Public get acquires the device update lock so callers don't need
+        # to manage locking. Internal library code that already holds
+        # `update_lock` should call `_raw_get` to avoid re-acquiring the
+        # lock and deadlocking.
+        async with self.update_lock:
+            return await self._raw_get(name)
+
+    async def _raw_get(self, name: rn.RegisterName) -> "Result[Any]":
+        """Low-level get that does not acquire `update_lock`.
+
+        Use this from internal code when `update_lock` is already held.
+        """
+        assert self.update_lock.locked(), "update_lock must be held when calling _raw_get"
         return await self.client.get(name)
+
+    async def read_file(self, file_type: int, customized_data: bytes | None = None) -> bytes:
+        """Wrap `get_file` from `AsyncHuaweiSolarClient`."""
+        async with self.update_lock:
+            return await self.client.get_file(file_type, customized_data)
 
     async def set(self, name: rn.RegisterName, value: Any) -> bool:  # noqa: ANN401
         """Set a register to a certain value."""
+        # Public set acquires the device update lock so callers don't need
+        # to manage locking. Internal library code that already holds
+        # `update_lock` should call `_raw_set` to avoid re-acquiring the
+        # lock and deadlocking.
+        async with self.update_lock:
+            return await self._raw_set(name, value)
+
+    async def _raw_set(self, name: rn.RegisterName, value: Any) -> bool:  # noqa: ANN401
+        """Low-level set that does not acquire `update_lock`.
+
+        Use this from internal code when `update_lock` is already held.
+        """
+        assert self.update_lock.locked(), "update_lock must be held when calling _raw_set"
         return await self.client.set(name, value)
+
+    async def get_active_alarms(self, equip_id: int = 0) -> list[ActiveAlarm]:
+        """Read Active Alarms Data File from the device.
+
+        Targets: SUN2000 inverters, SmartLogger, EMMA, and other Huawei Solar devices supporting Modbus file upload.
+        """
+        file_data = await self.read_file(
+            ActiveAlarmsDataFile.FILE_TYPE,
+            ActiveAlarmsDataFile.query_active_alarms(equip_id),
+        )
+        active_alarms_file = ActiveAlarmsDataFile(file_data)
+        return active_alarms_file.alarms
+
+    async def get_history_alarms(
+        self,
+        start_time: datetime | int,
+        end_time: datetime | int,
+    ) -> list[HistoryAlarm]:
+        """Read History Alarms Data File from the device.
+
+        Targets: SUN2000 inverters, SmartLogger, EMMA, and other Huawei Solar devices supporting Modbus file upload.
+        """
+        start_epoch = int(start_time.timestamp()) if isinstance(start_time, datetime) else start_time
+        end_epoch = int(end_time.timestamp()) if isinstance(end_time, datetime) else end_time
+
+        file_data = await self.read_file(
+            HistoryAlarmsDataFile.FILE_TYPE,
+            HistoryAlarmsDataFile.query_within_timespan(start_epoch, end_epoch),
+        )
+        history_alarms_file = HistoryAlarmsDataFile(file_data)
+        return history_alarms_file.alarms
+
+    async def get_performance_data(
+        self,
+        request_type: PerformanceRequestType | int,
+        start_time: datetime | int,
+        end_time: datetime | int,
+        cycle: int | None = None,
+    ) -> list[PerformanceDataPoint]:
+        """Read Historical Performance / Energy Data from the device.
+
+        Targets: SUN2000 inverters, SmartLogger, EMMA (covering inverter yield,
+        battery storage, and power meter telemetry).
+        """
+        start_epoch = int(start_time.timestamp()) if isinstance(start_time, datetime) else start_time
+        end_epoch = int(end_time.timestamp()) if isinstance(end_time, datetime) else end_time
+
+        file_data = await self.read_file(
+            InverterPerformanceDataFile.FILE_TYPE,
+            InverterPerformanceDataFile.query_within_timespan(request_type, start_epoch, end_epoch),
+        )
+        performance_file = InverterPerformanceDataFile(file_data, request_type=request_type, cycle=cycle)
+        return performance_file.data_points
 
 
 class HuaweiSolarDeviceWithLogin(HuaweiSolarDevice, ABC):
@@ -238,7 +325,10 @@ class HuaweiSolarDeviceWithLogin(HuaweiSolarDevice, ABC):
 
     async def login(self, username: str, password: str) -> bool:
         """Perform the login-sequence with the provided username/password."""
-        async with self.__login_lock:
+        # Acquire the device-level update lock first to preserve ordering
+        # (`update_lock` -> transport). Then perform the login while holding
+        # the `__login_lock` to protect heartbeat credential state.
+        async with self.update_lock, self.__login_lock:
             if not await self.client.login(username, password):
                 raise InvalidCredentials
 
@@ -268,7 +358,14 @@ class HuaweiSolarDeviceWithLogin(HuaweiSolarDevice, ABC):
         async def heartbeat() -> None:
             while self.__heartbeat_enabled:
                 try:
-                    self.__heartbeat_enabled = await self.client.heartbeat()
+                    # Acquire the device update lock before performing transport
+                    # operations in the heartbeat to preserve the global lock
+                    # ordering: `update_lock` -> transport. This avoids a
+                    # lock-inversion with coordinator reads that hold
+                    # `update_lock` and then use the transport.
+                    async with self.update_lock:
+                        self.__heartbeat_enabled = await self.client.heartbeat()
+
                     await asyncio.sleep(HEARTBEAT_INTERVAL)
                 except HuaweiSolarException as err:
                     _LOGGER.warning("Heartbeat stopped because of, %s", err)
@@ -321,46 +418,70 @@ class HuaweiSolarDeviceWithLogin(HuaweiSolarDevice, ABC):
     ############################
 
     async def has_write_permission(self) -> bool:
-        """Test write permission by getting the time zone and trying to write that same value back to the inverter."""
-        try:
-            result = await self.client.get(WRITE_TEST_REGISTER)
+        """Test write permission.
 
-            await super().set(WRITE_TEST_REGISTER, result.value)
-        except (PermissionDeniedError, WriteException):
-            # We not only catch PermissionDeniedError but also WriteException, because in some firmware versions,
-            # a ServerDeviceFailure error is raised when trying to write to a register without permission, which
-            # propagates up as a WriteException in our code. (cfr. https://github.com/wlcrs/huawei-solar-lib/issues/28)
+        If login credentials are provided, verifying login status is sufficient and avoids
+        performing unnecessary probe writes to holding registers.
+        Otherwise (e.g. unauthenticated Modbus TCP via SDongle), a safe probe register is tested.
+        """
+        if self.__username:
+            try:
+                return await self.ensure_logged_in()
+            except (InvalidCredentials, PermissionDeniedError):
+                return False
+
+        # Acquire the device-level update lock for the entire permission check
+        # so we preserve the lock ordering: `update_lock` -> transport. This
+        # avoids a lock inversion where a coordinator read holds `update_lock`
+        # and waits for the transport while this method holds the transport and
+        # waits for `update_lock`.
+        try:
+            async with self.update_lock:
+                result = await self._raw_get(WRITE_TEST_REGISTER)
+                # Use the low-level `_raw_set` because we already hold
+                # `update_lock` here; calling the public `set` would try to
+                # re-acquire the lock and deadlock.
+                await self._raw_set(WRITE_TEST_REGISTER, result.value)
+        except (PermissionDeniedError, WriteException, ReadException):
+            # We catch PermissionDeniedError, WriteException (e.g. ServerDeviceFailure on restricted
+            # Modbus TCP connections), and ReadException (if WRITE_TEST_REGISTER is not supported).
             return False
         else:
             return True
 
     async def set(self, name: rn.RegisterName, value: Any) -> bool:  # noqa: ANN401
         """Set a register to a certain value."""
-        logged_in = await self.ensure_logged_in()  # we must login again before trying to set the value
+        # Acquire the device-level update lock before performing any transport
+        # operations (login, heartbeat, write). This enforces a consistent lock
+        # ordering (device.update_lock -> transport communication lock) and
+        # prevents the lock-inversion deadlock between coordinator reads (which
+        # acquire `update_lock`) and service writes (which use the transport).
+        async with self.update_lock:
+            logged_in = await self.ensure_logged_in()  # we must login again before trying to set the value
 
-        if not logged_in:
-            _LOGGER.warning("Could not login, setting, %s will probably fail", name)
+            if not logged_in:
+                _LOGGER.warning("Could not login, setting, %s will probably fail", name)
 
-        if self.__heartbeat_enabled:
+            if self.__heartbeat_enabled:
+                try:
+                    await self.client.heartbeat()
+                except HuaweiSolarException:
+                    _LOGGER.warning("Failed to perform heartbeat before write")
+
             try:
-                await self.client.heartbeat()
-            except HuaweiSolarException:
-                _LOGGER.warning("Failed to perform heartbeat before write")
+                return await self._raw_set(name, value)
+            except PermissionDeniedError:
+                if self.__username:
+                    logged_in = await self.ensure_logged_in(force=True)
 
-        try:
-            return await super().set(name, value)
-        except PermissionDeniedError:
-            if self.__username:
-                logged_in = await self.ensure_logged_in(force=True)
+                    if not logged_in:
+                        _LOGGER.exception("Could not login to set %s", name)
+                        raise
 
-                if not logged_in:
-                    _LOGGER.exception("Could not login to set %s", name)
-                    raise
+                    # Force a heartbeat first when connected with username/password credentials
+                    await self.client.heartbeat()
 
-                # Force a heartbeat first when connected with username/password credentials
-                await self.client.heartbeat()
+                    return await self._raw_set(name, value)
 
-                return await super().set(name, value)
-
-            # we have no login-credentials available, pass on permission error
-            raise
+                # we have no login-credentials available, pass on permission error
+                raise

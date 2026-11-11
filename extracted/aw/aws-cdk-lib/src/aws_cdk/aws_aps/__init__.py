@@ -1587,6 +1587,11 @@ class CfnScraper(
         
             # the properties below are optional
             alias="alias",
+            exporters=[aps.CfnScraper.ExporterConfigurationProperty(
+                open_search_configuration=aps.CfnScraper.OpenSearchConfigurationProperty(
+                    domain_arn="domainArn"
+                )
+            )],
             role_configuration=aps.CfnScraper.RoleConfigurationProperty(
                 source_role_arn="sourceRoleArn",
                 target_role_arn="targetRoleArn"
@@ -1624,6 +1629,7 @@ class CfnScraper(
         scrape_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.ScrapeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
         alias: typing.Optional[builtins.str] = None,
+        exporters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.ExporterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         role_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.RoleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         scraper_logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.ScraperLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1636,6 +1642,7 @@ class CfnScraper(
         :param scrape_configuration: The configuration in use by the scraper.
         :param source: The Amazon EKS cluster from which the scraper collects metrics.
         :param alias: An optional user-assigned scraper alias.
+        :param exporters: Exporter configurations for the scraper.
         :param role_configuration: The role configuration in an Amazon Managed Service for Prometheus scraper.
         :param scraper_logging_configuration: The definition of logging configuration in an Amazon Managed Service for Prometheus workspace.
         :param tags: (Optional) The list of tag keys and values associated with the scraper.
@@ -1649,6 +1656,7 @@ class CfnScraper(
             scrape_configuration=scrape_configuration,
             source=source,
             alias=alias,
+            exporters=exporters,
             role_configuration=role_configuration,
             scraper_logging_configuration=scraper_logging_configuration,
             tags=tags,
@@ -1831,6 +1839,24 @@ class CfnScraper(
             type_hints = cached_type_hints(_typecheckingstub__36b98e11e4ea8701c0469eb24a036fb1452c2573d264405f3d5237c104fd77a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alias", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="exporters")
+    def exporters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.ExporterConfigurationProperty"]]]]:
+        '''Exporter configurations for the scraper.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.ExporterConfigurationProperty"]]]], jsii.get(self, "exporters"))
+
+    @exporters.setter
+    def exporters(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.ExporterConfigurationProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__92f39bda77b815291d19796b311c76b7fa4592a5a33d8ea600b93c57174fffd8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "exporters", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleConfiguration")
@@ -2272,6 +2298,118 @@ class CfnScraper(
 
         def __repr__(self) -> str:
             return "EksConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_aps.CfnScraper.ExporterConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"open_search_configuration": "openSearchConfiguration"},
+    )
+    class ExporterConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            open_search_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.OpenSearchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Exporter configuration.
+
+            :param open_search_configuration: Configuration for OpenSearch exporter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-exporterconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_aps as aps
+                
+                exporter_configuration_property = aps.CfnScraper.ExporterConfigurationProperty(
+                    open_search_configuration=aps.CfnScraper.OpenSearchConfigurationProperty(
+                        domain_arn="domainArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__73807daca05aa4a2e7356800571472db1e4f11abd427f090bfe51691a12faf78)
+                check_type(argname="argument open_search_configuration", value=open_search_configuration, expected_type=type_hints["open_search_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "open_search_configuration": open_search_configuration,
+            }
+
+        @builtins.property
+        def open_search_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.OpenSearchConfigurationProperty"]:
+            '''Configuration for OpenSearch exporter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-exporterconfiguration.html#cfn-aps-scraper-exporterconfiguration-opensearchconfiguration
+            '''
+            result = self._values.get("open_search_configuration")
+            assert result is not None, "Required property 'open_search_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.OpenSearchConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ExporterConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_aps.CfnScraper.OpenSearchConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"domain_arn": "domainArn"},
+    )
+    class OpenSearchConfigurationProperty:
+        def __init__(self, *, domain_arn: builtins.str) -> None:
+            '''Configuration for OpenSearch exporter.
+
+            :param domain_arn: ARN of an OpenSearch Service domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-opensearchconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_aps as aps
+                
+                open_search_configuration_property = aps.CfnScraper.OpenSearchConfigurationProperty(
+                    domain_arn="domainArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__379150e799f3a0b04b19a32865a8174398ac684c136cd09934ab63a4f46df837)
+                check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "domain_arn": domain_arn,
+            }
+
+        @builtins.property
+        def domain_arn(self) -> builtins.str:
+            '''ARN of an OpenSearch Service domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-opensearchconfiguration.html#cfn-aps-scraper-opensearchconfiguration-domainarn
+            '''
+            result = self._values.get("domain_arn")
+            assert result is not None, "Required property 'domain_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OpenSearchConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2799,6 +2937,7 @@ class CfnScraper(
         "scrape_configuration": "scrapeConfiguration",
         "source": "source",
         "alias": "alias",
+        "exporters": "exporters",
         "role_configuration": "roleConfiguration",
         "scraper_logging_configuration": "scraperLoggingConfiguration",
         "tags": "tags",
@@ -2812,6 +2951,7 @@ class CfnScraperProps:
         scrape_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.ScrapeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
         alias: typing.Optional[builtins.str] = None,
+        exporters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.ExporterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         role_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.RoleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         scraper_logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScraper.ScraperLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2822,6 +2962,7 @@ class CfnScraperProps:
         :param scrape_configuration: The configuration in use by the scraper.
         :param source: The Amazon EKS cluster from which the scraper collects metrics.
         :param alias: An optional user-assigned scraper alias.
+        :param exporters: Exporter configurations for the scraper.
         :param role_configuration: The role configuration in an Amazon Managed Service for Prometheus scraper.
         :param scraper_logging_configuration: The definition of logging configuration in an Amazon Managed Service for Prometheus workspace.
         :param tags: (Optional) The list of tag keys and values associated with the scraper.
@@ -2864,6 +3005,11 @@ class CfnScraperProps:
             
                 # the properties below are optional
                 alias="alias",
+                exporters=[aps.CfnScraper.ExporterConfigurationProperty(
+                    open_search_configuration=aps.CfnScraper.OpenSearchConfigurationProperty(
+                        domain_arn="domainArn"
+                    )
+                )],
                 role_configuration=aps.CfnScraper.RoleConfigurationProperty(
                     source_role_arn="sourceRoleArn",
                     target_role_arn="targetRoleArn"
@@ -2897,6 +3043,7 @@ class CfnScraperProps:
             check_type(argname="argument scrape_configuration", value=scrape_configuration, expected_type=type_hints["scrape_configuration"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
+            check_type(argname="argument exporters", value=exporters, expected_type=type_hints["exporters"])
             check_type(argname="argument role_configuration", value=role_configuration, expected_type=type_hints["role_configuration"])
             check_type(argname="argument scraper_logging_configuration", value=scraper_logging_configuration, expected_type=type_hints["scraper_logging_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -2907,6 +3054,8 @@ class CfnScraperProps:
         }
         if alias is not None:
             self._values["alias"] = alias
+        if exporters is not None:
+            self._values["exporters"] = exporters
         if role_configuration is not None:
             self._values["role_configuration"] = role_configuration
         if scraper_logging_configuration is not None:
@@ -2958,6 +3107,17 @@ class CfnScraperProps:
         '''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def exporters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.ExporterConfigurationProperty"]]]]:
+        '''Exporter configurations for the scraper.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-exporters
+        '''
+        result = self._values.get("exporters")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScraper.ExporterConfigurationProperty"]]]], result)
 
     @builtins.property
     def role_configuration(
@@ -4432,6 +4592,7 @@ def _typecheckingstub__4d4cb1653b22b80f73c5fa4972418519c1d58f8ac033d22184f1b74ee
     scrape_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.ScrapeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
     alias: typing.Optional[builtins.str] = None,
+    exporters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.ExporterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     role_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.RoleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scraper_logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.ScraperLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4483,6 +4644,12 @@ def _typecheckingstub__4baaa2665d7ddf1c8e51575f5139441f25d102954ee91a2fcbf976440
 
 def _typecheckingstub__36b98e11e4ea8701c0469eb24a036fb1452c2573d264405f3d5237c104fd77a0(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92f39bda77b815291d19796b311c76b7fa4592a5a33d8ea600b93c57174fffd8(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnScraper.ExporterConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4550,6 +4717,20 @@ def _typecheckingstub__d84c728405d664f762d3c86aae8f989f77a50273eb74e76dce90e3e03
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__73807daca05aa4a2e7356800571472db1e4f11abd427f090bfe51691a12faf78(
+    *,
+    open_search_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.OpenSearchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__379150e799f3a0b04b19a32865a8174398ac684c136cd09934ab63a4f46df837(
+    *,
+    domain_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__86bf03aa28256ae3502c8e0745b810c6f1fe11b530f463788b7c7ffd32d996d1(
     *,
     source_role_arn: typing.Optional[builtins.str] = None,
@@ -4610,6 +4791,7 @@ def _typecheckingstub__f302dfc2aa92636b313e32f5d91a0ccfd79ebde0259b977f6291d4c83
     scrape_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.ScrapeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
     alias: typing.Optional[builtins.str] = None,
+    exporters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.ExporterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     role_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.RoleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scraper_logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScraper.ScraperLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,

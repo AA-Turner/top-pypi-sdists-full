@@ -25,7 +25,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           prune-cache: true
 
@@ -36,6 +36,9 @@ jobs:
         uses: pre-commit/action@v3.0.1
         with:
           extra_args: --all-files
+
+      - name: Check imports against declared dependencies
+        run: uv run deptry .
 
   test:
     needs: [quality-checks]
@@ -50,7 +53,7 @@ jobs:
       - uses: ts-graphviz/setup-graphviz@v2
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           prune-cache: true
 
@@ -82,6 +85,16 @@ jobs:
             echo "Run 'make gendoc' and commit the result."
             git status --short docs/schema/
             git diff --stat docs/schema/
+            exit 1
+          fi
+
+      - name: Check for paths that collide on case-insensitive filesystems
+        if: github.event_name == 'pull_request' && matrix.python-version == '3.12'
+        run: |
+          collisions="$(git ls-files | sort -f | uniq -di)"
+          if [ -n "$collisions" ]; then
+            echo "::error::These paths differ only in case, so macOS and Windows checkouts can't hold both:"
+            echo "$collisions"
             exit 1
           fi
 

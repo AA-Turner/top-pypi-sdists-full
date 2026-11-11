@@ -2570,6 +2570,9 @@ class CfnDeploymentGroup(
                 deployment_option="deploymentOption",
                 deployment_type="deploymentType"
             ),
+            ec2_deployment_options=codedeploy.CfnDeploymentGroup.Ec2DeploymentOptionsProperty(
+                auto_scaling_group_processes_to_suspend=["autoScalingGroupProcessesToSuspend"]
+            ),
             ec2_tag_filters=[codedeploy.CfnDeploymentGroup.EC2TagFilterProperty(
                 key="key",
                 type="type",
@@ -2650,6 +2653,7 @@ class CfnDeploymentGroup(
         deployment_config_name: typing.Optional[builtins.str] = None,
         deployment_group_name: typing.Optional[builtins.str] = None,
         deployment_style: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.DeploymentStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ec2_deployment_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.Ec2DeploymentOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ec2_tag_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.EC2TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ec2_tag_set: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.EC2TagSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ecs_services: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.ECSServiceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -2675,6 +2679,7 @@ class CfnDeploymentGroup(
         :param deployment_config_name: A deployment configuration name or a predefined configuration name. With predefined configurations, you can deploy application revisions to one instance at a time ( ``CodeDeployDefault.OneAtATime`` ), half of the instances at a time ( ``CodeDeployDefault.HalfAtATime`` ), or all the instances at once ( ``CodeDeployDefault.AllAtOnce`` ). For more information and valid values, see `Working with Deployment Configurations <https://docs.aws.amazon.com/codedeploy/latest/userguide/deployment-configurations.html>`_ in the *AWS CodeDeploy User Guide* .
         :param deployment_group_name: A name for the deployment group. If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the deployment group name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         :param deployment_style: Attributes that determine the type of deployment to run and whether to route deployment traffic behind a load balancer. If you specify this property with a blue/green deployment type, don't specify the ``AutoScalingGroups`` , ``LoadBalancerInfo`` , or ``Deployment`` properties. .. epigraph:: For blue/green deployments, CloudFormation supports deployments on Lambda compute platforms only. You can perform Amazon ECS blue/green deployments using ``AWS::CodeDeploy::BlueGreen`` hook. See `Perform Amazon ECS blue/green deployments through CodeDeploy using CloudFormation <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/blue-green.html>`_ for more information.
+        :param ec2_deployment_options: Options that control how CodeDeploy manages Amazon EC2 Auto Scaling groups during deployments to the deployment group.
         :param ec2_tag_filters: The Amazon EC2 tags that are already applied to Amazon EC2 instances that you want to include in the deployment group. CodeDeploy includes all Amazon EC2 instances identified by any of the tags you specify in this deployment group. Duplicates are not allowed. You can specify ``EC2TagFilters`` or ``Ec2TagSet`` , but not both.
         :param ec2_tag_set: Information about groups of tags applied to Amazon EC2 instances. The deployment group includes only Amazon EC2 instances identified by all the tag groups. Cannot be used in the same call as ``ec2TagFilter`` .
         :param ecs_services: The target Amazon ECS services in the deployment group. This applies only to deployment groups that use the Amazon ECS compute platform. A target Amazon ECS service is specified as an Amazon ECS cluster and service name pair using the format ``<clustername>:<servicename>`` .
@@ -2701,6 +2706,7 @@ class CfnDeploymentGroup(
             deployment_config_name=deployment_config_name,
             deployment_group_name=deployment_group_name,
             deployment_style=deployment_style,
+            ec2_deployment_options=ec2_deployment_options,
             ec2_tag_filters=ec2_tag_filters,
             ec2_tag_set=ec2_tag_set,
             ecs_services=ecs_services,
@@ -2939,6 +2945,24 @@ class CfnDeploymentGroup(
             type_hints = cached_type_hints(_typecheckingstub__5bf1c6eb87ee1012ff4d9949ecda81e6dcac87415f749d230c6ee6752153ec80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deploymentStyle", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="ec2DeploymentOptions")
+    def ec2_deployment_options(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.Ec2DeploymentOptionsProperty"]]:
+        '''Options that control how CodeDeploy manages Amazon EC2 Auto Scaling groups during deployments to the deployment group.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.Ec2DeploymentOptionsProperty"]], jsii.get(self, "ec2DeploymentOptions"))
+
+    @ec2_deployment_options.setter
+    def ec2_deployment_options(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.Ec2DeploymentOptionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__65a378450927c60b76056afeb37bd42a95c1c53d7a515e295ff658e025842d76)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ec2DeploymentOptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="ec2TagFilters")
@@ -4174,6 +4198,67 @@ class CfnDeploymentGroup(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codedeploy.CfnDeploymentGroup.Ec2DeploymentOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "auto_scaling_group_processes_to_suspend": "autoScalingGroupProcessesToSuspend",
+        },
+    )
+    class Ec2DeploymentOptionsProperty:
+        def __init__(
+            self,
+            *,
+            auto_scaling_group_processes_to_suspend: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Options that control how CodeDeploy manages Amazon EC2 Auto Scaling groups during deployments to the deployment group.
+
+            :param auto_scaling_group_processes_to_suspend: The Amazon EC2 Auto Scaling processes to suspend during an in-place deployment. CodeDeploy suspends these processes before it deploys to instances in an Auto Scaling group, and resumes them when the deployment succeeds, fails, or is stopped. Valid values are Terminate, AZRebalance, InstanceRefresh, and ScheduledActions. Process names are case sensitive. To stop suspending processes, remove the property.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-ec2deploymentoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codedeploy as codedeploy
+                
+                ec2_deployment_options_property = codedeploy.CfnDeploymentGroup.Ec2DeploymentOptionsProperty(
+                    auto_scaling_group_processes_to_suspend=["autoScalingGroupProcessesToSuspend"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__eaf5ceb719226bb635f3905d117dd2a37d8e513a373ed8f4ede38d184dd682e1)
+                check_type(argname="argument auto_scaling_group_processes_to_suspend", value=auto_scaling_group_processes_to_suspend, expected_type=type_hints["auto_scaling_group_processes_to_suspend"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if auto_scaling_group_processes_to_suspend is not None:
+                self._values["auto_scaling_group_processes_to_suspend"] = auto_scaling_group_processes_to_suspend
+
+        @builtins.property
+        def auto_scaling_group_processes_to_suspend(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''The Amazon EC2 Auto Scaling processes to suspend during an in-place deployment.
+
+            CodeDeploy suspends these processes before it deploys to instances in an Auto Scaling group, and resumes them when the deployment succeeds, fails, or is stopped. Valid values are Terminate, AZRebalance, InstanceRefresh, and ScheduledActions. Process names are case sensitive. To stop suspending processes, remove the property.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-ec2deploymentoptions.html#cfn-codedeploy-deploymentgroup-ec2deploymentoptions-autoscalinggroupprocessestosuspend
+            '''
+            result = self._values.get("auto_scaling_group_processes_to_suspend")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "Ec2DeploymentOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_codedeploy.CfnDeploymentGroup.GitHubLocationProperty",
         jsii_struct_bases=[],
         name_mapping={"commit_id": "commitId", "repository": "repository"},
@@ -5236,6 +5321,7 @@ class CfnDeploymentGroup(
         "deployment_config_name": "deploymentConfigName",
         "deployment_group_name": "deploymentGroupName",
         "deployment_style": "deploymentStyle",
+        "ec2_deployment_options": "ec2DeploymentOptions",
         "ec2_tag_filters": "ec2TagFilters",
         "ec2_tag_set": "ec2TagSet",
         "ecs_services": "ecsServices",
@@ -5262,6 +5348,7 @@ class CfnDeploymentGroupProps:
         deployment_config_name: typing.Optional[builtins.str] = None,
         deployment_group_name: typing.Optional[builtins.str] = None,
         deployment_style: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.DeploymentStyleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ec2_deployment_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.Ec2DeploymentOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ec2_tag_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.EC2TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ec2_tag_set: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.EC2TagSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ecs_services: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeploymentGroup.ECSServiceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -5285,6 +5372,7 @@ class CfnDeploymentGroupProps:
         :param deployment_config_name: A deployment configuration name or a predefined configuration name. With predefined configurations, you can deploy application revisions to one instance at a time ( ``CodeDeployDefault.OneAtATime`` ), half of the instances at a time ( ``CodeDeployDefault.HalfAtATime`` ), or all the instances at once ( ``CodeDeployDefault.AllAtOnce`` ). For more information and valid values, see `Working with Deployment Configurations <https://docs.aws.amazon.com/codedeploy/latest/userguide/deployment-configurations.html>`_ in the *AWS CodeDeploy User Guide* .
         :param deployment_group_name: A name for the deployment group. If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the deployment group name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         :param deployment_style: Attributes that determine the type of deployment to run and whether to route deployment traffic behind a load balancer. If you specify this property with a blue/green deployment type, don't specify the ``AutoScalingGroups`` , ``LoadBalancerInfo`` , or ``Deployment`` properties. .. epigraph:: For blue/green deployments, CloudFormation supports deployments on Lambda compute platforms only. You can perform Amazon ECS blue/green deployments using ``AWS::CodeDeploy::BlueGreen`` hook. See `Perform Amazon ECS blue/green deployments through CodeDeploy using CloudFormation <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/blue-green.html>`_ for more information.
+        :param ec2_deployment_options: Options that control how CodeDeploy manages Amazon EC2 Auto Scaling groups during deployments to the deployment group.
         :param ec2_tag_filters: The Amazon EC2 tags that are already applied to Amazon EC2 instances that you want to include in the deployment group. CodeDeploy includes all Amazon EC2 instances identified by any of the tags you specify in this deployment group. Duplicates are not allowed. You can specify ``EC2TagFilters`` or ``Ec2TagSet`` , but not both.
         :param ec2_tag_set: Information about groups of tags applied to Amazon EC2 instances. The deployment group includes only Amazon EC2 instances identified by all the tag groups. Cannot be used in the same call as ``ec2TagFilter`` .
         :param ecs_services: The target Amazon ECS services in the deployment group. This applies only to deployment groups that use the Amazon ECS compute platform. A target Amazon ECS service is specified as an Amazon ECS cluster and service name pair using the format ``<clustername>:<servicename>`` .
@@ -5364,6 +5452,9 @@ class CfnDeploymentGroupProps:
                     deployment_option="deploymentOption",
                     deployment_type="deploymentType"
                 ),
+                ec2_deployment_options=codedeploy.CfnDeploymentGroup.Ec2DeploymentOptionsProperty(
+                    auto_scaling_group_processes_to_suspend=["autoScalingGroupProcessesToSuspend"]
+                ),
                 ec2_tag_filters=[codedeploy.CfnDeploymentGroup.EC2TagFilterProperty(
                     key="key",
                     type="type",
@@ -5440,6 +5531,7 @@ class CfnDeploymentGroupProps:
             check_type(argname="argument deployment_config_name", value=deployment_config_name, expected_type=type_hints["deployment_config_name"])
             check_type(argname="argument deployment_group_name", value=deployment_group_name, expected_type=type_hints["deployment_group_name"])
             check_type(argname="argument deployment_style", value=deployment_style, expected_type=type_hints["deployment_style"])
+            check_type(argname="argument ec2_deployment_options", value=ec2_deployment_options, expected_type=type_hints["ec2_deployment_options"])
             check_type(argname="argument ec2_tag_filters", value=ec2_tag_filters, expected_type=type_hints["ec2_tag_filters"])
             check_type(argname="argument ec2_tag_set", value=ec2_tag_set, expected_type=type_hints["ec2_tag_set"])
             check_type(argname="argument ecs_services", value=ecs_services, expected_type=type_hints["ecs_services"])
@@ -5470,6 +5562,8 @@ class CfnDeploymentGroupProps:
             self._values["deployment_group_name"] = deployment_group_name
         if deployment_style is not None:
             self._values["deployment_style"] = deployment_style
+        if ec2_deployment_options is not None:
+            self._values["ec2_deployment_options"] = ec2_deployment_options
         if ec2_tag_filters is not None:
             self._values["ec2_tag_filters"] = ec2_tag_filters
         if ec2_tag_set is not None:
@@ -5615,6 +5709,17 @@ class CfnDeploymentGroupProps:
         '''
         result = self._values.get("deployment_style")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.DeploymentStyleProperty"]], result)
+
+    @builtins.property
+    def ec2_deployment_options(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.Ec2DeploymentOptionsProperty"]]:
+        '''Options that control how CodeDeploy manages Amazon EC2 Auto Scaling groups during deployments to the deployment group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codedeploy-deploymentgroup.html#cfn-codedeploy-deploymentgroup-ec2deploymentoptions
+        '''
+        result = self._values.get("ec2_deployment_options")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeploymentGroup.Ec2DeploymentOptionsProperty"]], result)
 
     @builtins.property
     def ec2_tag_filters(
@@ -11075,6 +11180,7 @@ def _typecheckingstub__afc1bc74c13d6392d70ae9e55ed64b8ec6f2cfed100b230e370997efe
     deployment_config_name: typing.Optional[builtins.str] = None,
     deployment_group_name: typing.Optional[builtins.str] = None,
     deployment_style: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.DeploymentStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ec2_deployment_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.Ec2DeploymentOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ec2_tag_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.EC2TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ec2_tag_set: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.EC2TagSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ecs_services: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.ECSServiceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -11163,6 +11269,12 @@ def _typecheckingstub__8e42dd2dab2a2d9e3bc41f1ad0d0e48a8811bc6c996da34cbbfacc975
 
 def _typecheckingstub__5bf1c6eb87ee1012ff4d9949ecda81e6dcac87415f749d230c6ee6752153ec80(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.DeploymentStyleProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65a378450927c60b76056afeb37bd42a95c1c53d7a515e295ff658e025842d76(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeploymentGroup.Ec2DeploymentOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11331,6 +11443,13 @@ def _typecheckingstub__1e1b138b2ef18765e84f9ebeee5de46f0b1d44931eeb67199e9796e50
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__eaf5ceb719226bb635f3905d117dd2a37d8e513a373ed8f4ede38d184dd682e1(
+    *,
+    auto_scaling_group_processes_to_suspend: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ed147000e92beb1f04d3f0454dc3a873381abc78c1a6b36b05a6e71f1e816253(
     *,
     commit_id: builtins.str,
@@ -11442,6 +11561,7 @@ def _typecheckingstub__6511a1a48658d7f16b747353194a86e2a15daf184e4957a0f2924cfee
     deployment_config_name: typing.Optional[builtins.str] = None,
     deployment_group_name: typing.Optional[builtins.str] = None,
     deployment_style: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.DeploymentStyleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ec2_deployment_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.Ec2DeploymentOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ec2_tag_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.EC2TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ec2_tag_set: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.EC2TagSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ecs_services: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeploymentGroup.ECSServiceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,

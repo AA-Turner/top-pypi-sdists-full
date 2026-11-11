@@ -24,12 +24,14 @@ from trilogy.core.processing.condition_utility import (
 def _aggregate_signature(
     concept: BuildConcept,
 ) -> tuple[FunctionType, tuple[str, ...]] | None:
-    from trilogy.core.models.build import BuildAggregateWrapper
+    from trilogy.core.models.build import BuildAggregateWrapper, rollup_operator
 
     if not isinstance(concept.lineage, BuildAggregateWrapper):
         return None
+    function = concept.lineage.function
     return (
-        concept.lineage.function.operator,
+        # a distinct count of a key is a count of it
+        rollup_operator(function) or function.operator,
         tuple(
             sorted(
                 arg.canonical_address
@@ -130,6 +132,11 @@ def datasource_has_filter_sensitive_aggregate(
     return True
 
 
+def _reads_subselect(groups: Iterable[tuple[BuildConcept, ...]]) -> bool:
+    """A literal `in (...)` list reports one empty existence group."""
+    return any(group for group in groups)
+
+
 def _datasource_is_exact_match(
     ds: BuildDatasource,
     criteria: SearchCriteria,
@@ -156,7 +163,7 @@ def _datasource_is_exact_match(
         requested_addresses = relevant_concepts or ds_output_addresses
         if (
             allow_filter_application
-            and not conditions.existence_arguments
+            and not _reads_subselect(conditions.existence_arguments)
             and condition_addresses.issubset(ds_output_addresses)
             and condition_addresses.issubset(requested_addresses)
         ) and requested_addresses.isdisjoint(partial_addresses):
@@ -171,7 +178,7 @@ def _datasource_is_exact_match(
             has_aggregate_output
             and partial_addresses
             and allow_filter_application
-            and not conditions.existence_arguments
+            and not _reads_subselect(conditions.existence_arguments)
             and condition_addresses
             and condition_addresses.issubset(ds_output_addresses - partial_addresses)
         ):
@@ -186,7 +193,7 @@ def _datasource_is_exact_match(
             has_aggregate_output
             and canonical_to_concept is not None
             and allow_filter_application
-            and not conditions.existence_arguments
+            and not _reads_subselect(conditions.existence_arguments)
             and condition_addresses
         ):
             ds_grain_components = set(ds.grain.components)
@@ -273,7 +280,7 @@ def _get_collective_condition_matches(
     if not datasources:
         return keep
     for atom in decompose_condition(conditions.conditional):
-        if any(arg for group in atom.existence_arguments for arg in group):
+        if _reads_subselect(atom.existence_arguments):
             return set()
         if not is_scalar_condition(atom):
             return set()

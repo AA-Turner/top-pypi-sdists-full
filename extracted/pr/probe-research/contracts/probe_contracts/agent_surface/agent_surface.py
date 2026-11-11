@@ -123,6 +123,9 @@ class View(StrEnum):
     #: What was asked of a running run (agentic W&B C.1): checkpoint, config, stop or a kind its script declared,
     #: who asked, what happened and why. MCP-only and read-only; `probe run send` asks (GET /v1/runs/{ref}/commands).
     COMMANDS = "commands"
+    #: A project's or experiment's panes (the visuals an agent wrote on its page): slug, title, place, what
+    #: each recipe reads, never the HTML. MCP-only and read-only; `probe pane push` writes (GET .../panes).
+    PANES = "panes"
 
 
 #: What a view MEANS on a kind. The union across both surfaces; each declares the
@@ -150,6 +153,8 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.BRANCHES,
             # Its best pick's history (GET /v1/projects/{P}/best?history=N).
             View.PICKS,
+            # The panes on its page (GET /v1/projects/{P}/panes).
+            View.PANES,
         }
     ),
     ViewKind.EXPERIMENT: frozenset(
@@ -177,6 +182,8 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             # Its own line of work and the ones it split from
             # (GET /v1/projects/{P}/experiments/{E}/branch).
             View.BRANCHES,
+            # The panes on its page (GET /v1/projects/{E}/panes: an experiment is served as a project).
+            View.PANES,
         }
     ),
     ViewKind.RUN: frozenset(
@@ -266,7 +273,8 @@ VIEW_PURPOSE: dict[View, str] = {
     View.BRANCHES: "lines of work: best value, effort, state; view_options.branch for one in full",
     View.PICKS: "the best pick's history, newest first: who picked or cleared what, and why",
     View.EDITS: "the run's data edits, newest first: who changed what, how, why, and whether it was undone",
-    View.COMMANDS: "what was asked of the running script (checkpoint, config, stop, ...): who, its state, why, result",
+    View.COMMANDS: "what was asked of the running script (checkpoint, config, stop...), what happened, what it accepts (first page)",
+    View.PANES: "the visuals an agent wrote on its page: slug, title, place, what each reads; no HTML",
 }
 
 
@@ -346,6 +354,8 @@ VIEW_ADMISSION: dict[View, Admits] = {
     View.EDITS: Admits.NOTHING,
     # What someone asked a live run to do: an account of an ask, never a measurement.
     View.COMMANDS: Admits.NOTHING,
+    # Visuals an agent wrote and the data they ask for: a recipe names keys, never a reading of one.
+    View.PANES: Admits.NOTHING,
 }
 
 

@@ -2527,6 +2527,7 @@ def _new_stream_record_checks(
             "null_cursor_records": None,
             "state_has_cursor_value": None,
             "state_below_max": None,
+            "check_failed": False,
         }
         stream_results[name] = result
         try:
@@ -2538,6 +2539,7 @@ def _new_stream_record_checks(
             result["schema_mismatched_records"] = schema_result.mismatched_records
             result["undeclared_field_records"] = schema_result.undeclared_field_records
             if schema_result.mismatched_records:
+                result["check_failed"] = True
                 schema_failed = True
                 regression_found = True
             elif schema_result.undeclared_field_records:
@@ -2567,10 +2569,11 @@ def _new_stream_record_checks(
                 and not schema_result.undeclared_field_records
             ):
                 schema_summaries.append(
-                    f"{name}: exercised (partial), record checks passed"
+                    f"{name}: declared top-level types match on observed records"
                 )
         except Exception as exc:
             schema_failed = True
+            result["check_failed"] = True
             schema_summaries.append(f"{name}: errored ({type(exc).__name__})")
 
         pk_paths = primary_keys.get(name)
@@ -2586,6 +2589,7 @@ def _new_stream_record_checks(
                     )
                     if not validation.passed:
                         pk_failed = True
+                        result["check_failed"] = True
                         regression_found = True
                         pk_summaries.append(
                             f"{name}: primary key {'.'.join(pk_path)} missing from schema"
@@ -2610,6 +2614,7 @@ def _new_stream_record_checks(
                 result["pk_null"] = null_count
                 result["pk_duplicates"] = duplicate_count
                 pk_failed |= bool(null_count or duplicate_count)
+                result["check_failed"] |= bool(null_count or duplicate_count)
                 regression_found |= bool(null_count or duplicate_count)
                 control_note = (
                     " (stream not read by control)"
@@ -2623,6 +2628,7 @@ def _new_stream_record_checks(
                 )
             except Exception as exc:
                 pk_failed = True
+                result["check_failed"] = True
                 pk_summaries.append(f"{name}: errored ({type(exc).__name__})")
 
         cursor_path = (
@@ -2649,6 +2655,7 @@ def _new_stream_record_checks(
                 )
                 if not validation.passed:
                     cursor_failed = True
+                    result["check_failed"] = True
                     regression_found = True
                     cursor_summaries.append(
                         f"{name}: cursor {'.'.join(cursor_path)} missing from schema"
@@ -2672,6 +2679,7 @@ def _new_stream_record_checks(
                 result["state_has_cursor_value"] = cursor_result.state_has_cursor_value
                 result["state_below_max"] = cursor_result.state_below_max
                 cursor_failed |= cursor_result.strict_failed
+                result["check_failed"] |= cursor_result.strict_failed
                 regression_found |= cursor_result.strict_failed
                 diagnostics = []
                 if cursor_result.null_cursor_records:
@@ -2689,6 +2697,7 @@ def _new_stream_record_checks(
                 )
             except Exception as exc:
                 cursor_failed = True
+                result["check_failed"] = True
                 cursor_summaries.append(f"{name}: errored ({type(exc).__name__})")
 
     checks: list[CheckResult] = []
@@ -3687,11 +3696,11 @@ def regression_test(
             read_budget.read_time_left_s() if read_timeout_seconds is not None else None
         )
         if single_timeout_s is not None and single_timeout_s <= 0:
-            result, _ = _read_not_started(
+            result, single_connector_outputs = _read_not_started(
                 resolved_test_image, cmd, output_path, output_mode
             )
         else:
-            result, _ = _run_connector_command(
+            result, single_connector_outputs = _run_connector_command(
                 connector_image=resolved_test_image,
                 command=cmd,
                 output_dir=output_path,
@@ -3714,6 +3723,13 @@ def regression_test(
             command=command,
             result=result,
             configured_streams=configured_streams,
+            target_only_streams=(
+                tuple(sorted((*injection.new_streams, *injection.kept_target_only)))
+                if injection is not None
+                else ()
+            ),
+            stream_statuses=single_connector_outputs.stream_statuses,
+            stream_errors=single_connector_outputs.stream_errors,
             include_report_sections=False,
         )
 
@@ -3747,6 +3763,7 @@ def regression_test(
                 "output_mode": output_mode,
                 "target": _annotate_run_verdict(command, result),
                 "check_results": report_model.check_results(),
+                "partial_streams": list(report_model.partial_streams),
             },
         )
 
@@ -4113,6 +4130,11 @@ def regression_test(
             include_report_sections=False,
             reproduction=reproduction,
             target_only_streams=target_only_streams,
+            failed_new_streams=tuple(
+                name
+                for name, checks in record_checks_payload.items()
+                if checks.get("check_failed")
+            ),
         )
 
         # Annotate copies of each side, never the originals: `generate_regression_report`
@@ -4169,7 +4191,13 @@ def regression_test(
 
         write_github_outputs(gh_outputs)
 
-        write_json_output("regression_report", combined_result)
+        write_json_output(
+            "regression_report",
+            {
+                **combined_result,
+                "partial_streams": list(report_model.partial_streams),
+            },
+        )
 
         if reproduction is not None and repro_case is not None:
             result_path = output_path / CASE_RESULT_FILE
@@ -4982,8 +5010,7 @@ def _inject_discovered_streams(
             "Every selected stream has no control side: "
             f"{', '.join(injection.target_only_streams)}. The control version would "
             "read nothing, so add one stream the connection already syncs to "
-            "--selected-streams. --skip-compare is no substitute: without a control, "
-            "a new stream that returns no records passes."
+            "--selected-streams, or use --skip-compare for a single-version run."
         )
         _stop_with_setup_error(f"Setup error: {error_msg}")
 

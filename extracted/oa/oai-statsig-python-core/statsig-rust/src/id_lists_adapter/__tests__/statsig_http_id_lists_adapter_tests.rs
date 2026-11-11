@@ -425,7 +425,9 @@ fn test_override_id_list_download_url_preserves_manifest_path_suffix() {
     let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
     let manifest_download_url = "https://fake-id-list-host/v1/download_id_list_file/3wHgh0FhoQH0p";
 
-    let actual = adapter.get_override_id_list_download_url(manifest_download_url);
+    let actual = adapter
+        .get_override_id_list_download_url(manifest_download_url)
+        .unwrap();
 
     assert_eq!(
         actual,
@@ -591,8 +593,13 @@ impl StatsigHttpIdListsAdapter {
         file_id: Option<String>,
     ) -> Result<String, StatsigErr> {
         let job = IdListDownloadJob {
+            plan: IdListDownloadPlan {
+                private_file: false,
+                source_changed: false,
+                range_start,
+            },
             name: "test-list".into(),
-            url: self.get_override_id_list_download_url(url),
+            primary_url: self.get_override_id_list_download_url(url)?,
             metadata: IdListMetadata {
                 name: "test-list".into(),
                 url: url.into(),
@@ -600,18 +607,20 @@ impl StatsigHttpIdListsAdapter {
                 file_id,
                 creation_time: 0,
             },
-            range_start,
         };
         self.network
             .retry_executor(DEFAULT_RETRY_POLICY)
             .run(
-                |fallback, index| self.download_id_list(&job, fallback, index),
+                |fallback, index| self.download_id_list(&job, fallback, index, None),
                 |error| retryable_state_error(error).then_some(u32::MAX),
                 |outcome| outcome == PrimaryOutcome::Exhausted && self.file_can_fallback(&job),
                 || StatsigErr::TaskShutdownFailure,
             )
             .await
-            .map(|(body, _)| body)
+            .map(|download| match download {
+                DownloadedIdList::Raw { changeset, .. } => changeset,
+                DownloadedIdList::Snapshot(_) => panic!("raw-only request received a snapshot"),
+            })
     }
 }
 

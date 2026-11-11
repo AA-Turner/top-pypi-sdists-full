@@ -3,9 +3,11 @@ def test_ignores_non_function_nodes(testdir, plugin_args):
         import pytest
 
         class CustomItem(pytest.Item):
-            def __init__(self, name, **kwargs):
-                super().__init__(name, **kwargs)
-                self._nodeid += "::CUSTOM"
+            def __init__(self, name, parent=None, **kwargs):
+                if "nodeid" not in kwargs and parent is not None:
+                    base = f"{parent.nodeid}::{name}" if parent.nodeid else name
+                    kwargs["nodeid"] = f"{base}::CUSTOM"
+                super().__init__(name, parent=parent, **kwargs)
 
             def runtest(self):
                 pass
@@ -44,6 +46,22 @@ def test_handles_pyargs_non_module_when_both_given(testdir, plugin_args):
         *plugin_args,
     )
     assert result.ret == 0
+
+
+def test_module_level_skip_with_pyargs_remains_a_skip(testdir):
+    testdir.syspathinsert()
+    pkg = testdir.mkpydir("pkg")
+    pkg.join("__init__.py").write("")
+    pkg.join("test_skipped.py").write(
+        "import pytest\n"
+        "pytest.importorskip('gcr_missing_optional_dependency')\n"
+        "def test_never_reached(): pass\n"
+    )
+
+    result = testdir.runpytest("--pyargs", "pkg.test_skipped")
+
+    result.stdout.fnmatch_lines(["*1 skipped*"])
+    assert result.ret == 5
 
 
 def test_does_not_print_empty_snapshot_report(testdir, plugin_args):

@@ -10,7 +10,6 @@ from functools import wraps
 from typing import Any, TypeVar
 
 import json as jsonlib
-import os
 
 __all__ = [
     "arg",
@@ -79,6 +78,11 @@ def user_config_json() -> Callable[[Callable[[CommandLineTool], T]], Callable[[C
                     self.args.user_config_json = get_json_config(self.args.user_config_json)
                 except jsonlib.decoder.JSONDecodeError as err:
                     raise UserError(f"Invalid user_config_json: {err!s}") from err
+                except (OSError, UnicodeDecodeError) as err:
+                    raise UserError(f"Cannot read user_config_json file: {err!s}") from err
+                # Checked here so that 'null' cannot pass for "not provided" (None).
+                if not isinstance(self.args.user_config_json, dict):
+                    raise UserError("Invalid user_config_json: expected a JSON object")
             return fun(self)
 
         return wrapped
@@ -88,13 +92,6 @@ def user_config_json() -> Callable[[Callable[[CommandLineTool], T]], Callable[[C
 
 arg.account_id = arg("account_id", help="Account identifier")
 arg.billing_address = arg("--billing-address", help="Physical billing address for invoices")
-arg.billing_currency = arg("--billing-currency", help="Currency for charges")
-arg.billing_extra_text = arg(
-    "--billing-extra-text",
-    help="Extra text to include in invoices (e.g. cost center id)",
-)
-arg.billing_group = arg("id", help="Billing group ID")
-arg.card_id = arg("--card-id", help="Card ID")
 arg.cloud = arg("--cloud", help="Cloud to use (see 'cloud list' command)")
 arg.cloud_mandatory = arg("--cloud", help="Cloud to use (see 'cloud list' command)", required=True)
 arg.config_cmdline = arg(
@@ -113,7 +110,6 @@ arg.config_file = arg(
     default=[],
     help="Additional configuration option whose value is loaded from file in the form name=filename",
 )
-arg.country_code = arg("--country-code", help="Billing country code")
 arg.disk_space_mb = arg(
     "--disk-space-gib",
     metavar="DISK_SPACE_GIB",
@@ -144,8 +140,7 @@ arg.parent_id_mandatory = arg("--parent-id", required=True, help="Organization o
 arg.partitions = arg("--partitions", type=int, required=True, help="Number of partitions")
 arg.project = arg(
     "--project",
-    help="Project name to use, default %(default)r",
-    default=os.environ.get("AIVEN_PROJECT"),
+    help="Project name to use [AIVEN_PROJECT]",
 )
 arg.replication = arg("--replication", type=int, required=True, help="Replication factor")
 arg.retention = arg(
@@ -223,7 +218,6 @@ arg.user_option_remove = arg(
     default=[],
     help="Remove a configuration setting. See 'avn service types -v' for available settings.",
 )
-arg.vat_id = arg("--vat-id", help="VAT ID of an EU VAT area business")
 arg.verbose = arg("-v", "--verbose", help="Verbose output", action="store_true", default=False)
 arg.connector_name = arg("connector", help="Connector name")
 arg.json_path_or_string = json_path_or_string
@@ -240,9 +234,22 @@ arg.schema = arg("--schema", required=True, help="Schema string quote escaped")
 arg.source_cluster = arg("-s", "--source-cluster", required=True, help="Source cluster alias")
 arg.target_cluster = arg("-t", "--target-cluster", required=True, help="Target cluster alias")
 
-arg.billing_email = arg("--billing-email", action="append", help="Billing email address")
 arg.tech_email = arg("--tech-email", action="append", help="Tech email address")
 
 arg.flink_application_id = arg("--application-id", required=True, help="Flink application id")
 arg.flink_application_version_id = arg("--application-version-id", required=True, help="Flink application version id")
 arg.flink_deployment_id = arg("--deployment-id", required=True, help="Flink deployment id")
+
+arg.kafka_connect_plugin_name = arg("--plugin-name", required=True, help="Kafka Connect custom plugin name")
+arg.kafka_connect_plugin_file_id = arg("--plugin-file-id", required=True, help="Kafka Connect custom plugin file ID")
+arg.kafka_connect_plugin_class_name = arg(
+    "--plugin-class-name", required=True, help="Fully-qualified Kafka Connect plugin class name"
+)
+
+arg.vcs_integration_id = arg(
+    "--vcs-integration-id", required=True, help="VCS integration ID (see 'service application vcs-integration list')"
+)
+arg.remote_repository_id = arg(
+    "--remote-repository-id", required=True, help="Repository ID (see 'service application repository list')"
+)
+arg.commit_sha = arg("--commit-sha", required=True, help="Commit SHA (see 'service application branch list')")

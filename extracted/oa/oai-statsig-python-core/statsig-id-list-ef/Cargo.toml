@@ -1,0 +1,7 @@
+[package]
+name = "statsig-id-list-ef"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Portable, versioned Elias-Fano base for Statsig ID lists"

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Optional
 
 _log = logging.getLogger("testmu")
+
+# How long switch_tab waits for a tab that a previous action is still opening.
+_NEW_TAB_WAIT_MS = 30000
 
 __all__ = ["new_tab", "switch_tab", "close_tab", "ensure_active_page"]
 
@@ -28,9 +32,9 @@ async def switch_tab(context, tab_index, *, title=None, description=None):
     """Switch to a browser tab by 0-based index, or by title.
 
     If *title* is given, switches to the tab whose title matches it exactly and
-    ignores *tab_index*. Otherwise switches by 0-based *tab_index*, waiting for
-    the CDP page-creation event if the tab isn't in the list yet (e.g. a click
-    opened target="_blank").
+    ignores *tab_index*. Otherwise switches by 0-based *tab_index*, waiting up to
+    30s for CDP page-creation events if the tab isn't in the list yet (e.g. a
+    click opened target="_blank").
 
     *description* is accepted for call compatibility and ignored.
     """
@@ -45,12 +49,22 @@ async def switch_tab(context, tab_index, *, title=None, description=None):
     pages = context.pages
     _log.info("    [switch_tab] target_index=%d current_tabs=%d", tab_index, len(pages))
     if tab_index >= len(pages):
-        try:
-            # Tab not in list yet — wait for CDP Target.targetCreated
-            await context.wait_for_event("page", timeout=5000)
-        except Exception:
-            pass  # Playwright TimeoutError isn't Python's built-in TimeoutError
-        pages = context.pages
+        # Tab not in list yet — wait for CDP Target.targetCreated. A slow app can
+        # open the tab seconds after the click, and a page event can be another
+        # popup, so keep waiting until the index exists or the budget runs out.
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + _NEW_TAB_WAIT_MS / 1000
+        while tab_index >= len(pages):
+            remaining_ms = int((deadline - loop.time()) * 1000)
+            if remaining_ms <= 0:
+                break
+            try:
+                await context.wait_for_event("page", timeout=remaining_ms)
+            except Exception:
+                # Playwright TimeoutError isn't Python's built-in TimeoutError
+                pages = context.pages
+                break
+            pages = context.pages
     if tab_index >= len(pages):
         raise ValueError(f"Tab {tab_index} does not exist ({len(pages)} tabs open)")
     page = pages[tab_index]

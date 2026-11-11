@@ -538,8 +538,8 @@ def gpus(*, base_url: str | None = None) -> dict[str, Any]:
     "memory": {"usd_per_gib_hour", "serving_usd_per_gib_hour"}, "storage": {"usd_per_gb_month"},
     "policy_machines": {card: {"cpu", "memory_gib"}}, "min_billable_s"}`. `gpu` is the name `gpu=` takes;
     `usd_per_hour` one card's hour alone; `benchmark` says whether a benchmark's sims may run on it; `cpu` and
-    `memory` what a core and a GiB cost an hour - `serving_*` for a deployed policy's workers, the others for build
-    checks, evals and benchmarks. CPU and memory are billed apart from the card: an hour of a policy's worker is its
+    `memory` what a core and a GiB cost an hour - `serving_*` for a policy's workers, deployed or in an eval, the
+    others for builds, checks, shells and an eval's benchmark machines. CPU and memory are billed apart from the card: an hour of a policy's worker is its
     cards x `usd_per_hour` + its card's standard machine (`policy_machines`), or what it declares where more, at the
     `serving_*` rates, wherever it runs; a benchmark's machine on a shared machine pays the greater of what it
     requests (0.125 at least) and what it uses, its request on a machine of its own; and a worker that declares no GPU

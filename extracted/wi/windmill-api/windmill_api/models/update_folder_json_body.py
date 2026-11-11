@@ -19,6 +19,7 @@ class UpdateFolderJsonBody:
     """
     Attributes:
         summary (Union[Unset, str]):
+        display_name (Union[Unset, str]):
         owners (Union[Unset, List[str]]):
         extra_perms (Union[Unset, Any]):
         default_permissioned_as (Union[Unset, List['UpdateFolderJsonBodyDefaultPermissionedAsItem']]): Ordered list of
@@ -29,6 +30,7 @@ class UpdateFolderJsonBody:
     """
 
     summary: Union[Unset, str] = UNSET
+    display_name: Union[Unset, str] = UNSET
     owners: Union[Unset, List[str]] = UNSET
     extra_perms: Union[Unset, Any] = UNSET
     default_permissioned_as: Union[Unset, List["UpdateFolderJsonBodyDefaultPermissionedAsItem"]] = UNSET
@@ -37,6 +39,7 @@ class UpdateFolderJsonBody:
 
     def to_dict(self) -> Dict[str, Any]:
         summary = self.summary
+        display_name = self.display_name
         owners: Union[Unset, List[str]] = UNSET
         if not isinstance(self.owners, Unset):
             owners = self.owners
@@ -59,6 +62,8 @@ class UpdateFolderJsonBody:
         field_dict.update({})
         if summary is not UNSET:
             field_dict["summary"] = summary
+        if display_name is not UNSET:
+            field_dict["display_name"] = display_name
         if owners is not UNSET:
             field_dict["owners"] = owners
         if extra_perms is not UNSET:
@@ -79,6 +84,8 @@ class UpdateFolderJsonBody:
         d = src_dict.copy()
         summary = d.pop("summary", UNSET)
 
+        display_name = d.pop("display_name", UNSET)
+
         owners = cast(List[str], d.pop("owners", UNSET))
 
         extra_perms = d.pop("extra_perms", UNSET)
@@ -96,6 +103,7 @@ class UpdateFolderJsonBody:
 
         update_folder_json_body = cls(
             summary=summary,
+            display_name=display_name,
             owners=owners,
             extra_perms=extra_perms,
             default_permissioned_as=default_permissioned_as,

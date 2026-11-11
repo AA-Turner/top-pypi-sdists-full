@@ -27,10 +27,13 @@ from __future__ import annotations
 
 import importlib
 import logging
+import operator
 import sys
-from datetime import date, datetime, time
+from collections.abc import Iterable
+from datetime import date, datetime, time, timezone
 from functools import cached_property
 from importlib.util import find_spec
+from itertools import chain, compress, repeat
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, cast
 from uuid import UUID
 
@@ -43,17 +46,19 @@ if TYPE_CHECKING:
 
     from .arrow_serializer import ArrowSerializer
 
-from cachekit._rust_serializer import ByteStorage, EnvelopeIntegrityError
+from cachekit._rust_serializer import ByteStorage, EnvelopeIntegrityError, unpackb_auto
 from cachekit.hash_utils import redact_error_for_log
 
 from .base import (
+    MSGPACK_MAX_NESTING,
     PAYLOAD_DECODE_ERRORS,
     EnvelopeShapeError,
     SerializationError,
     SerializationFormat,
     SerializationMetadata,
+    VerifiedPayload,
     bounded_error,
-    unpackb_bounded,
+    immutable_buffer,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,6 +75,17 @@ _ENVELOPE_FORMATS = frozenset({"msgpack", "dataframe", "series"})
 # Every header `original_type` serialize() can write: the envelope formats plus the two that
 # never travel in an envelope. serialize() always writes the field, so an absent one is rot too.
 _HEADER_FORMATS = _ENVELOPE_FORMATS | {"numpy", "arrow"}
+
+# Bounds on one stored set or frozenset, so a forged entry cannot make set() quadratic by choosing its elements'
+# hashes (why, and what each bound admits: docs/serializers/auto.md#set-size-bound). _set_bound_error applies them to
+# the reader's list and to what _auto_default writes.
+_MAX_NON_STRING_SET_ELEMENTS = 1024
+_MAX_SAME_HASH_SET_ELEMENTS = 8
+_STR_TYPES = frozenset({str, bytes})
+_TZINFO = operator.attrgetter("tzinfo")
+# Naive, or a fixed offset: no tzinfo of these types makes a datetime's UTC offset depend on fold.
+_FIXED_ZONES = frozenset({type(None), timezone})
+_EMPTY_TWICE = 'the empty str or bytes ("" or b"") more than once'
 
 # Error message constants for unsupported types
 PYDANTIC_ERROR_MESSAGE = (
@@ -303,6 +319,16 @@ def _auto_default(obj: Any) -> Any:
 
     # Existing: datetime/date/time support (KEEP)
     if isinstance(obj, datetime):
+        # A pandas Timestamp can hold nanoseconds: its ISO text keeps them and fromisoformat drops them, so it would
+        # read back as another value, and set elements 1 ns apart would read back equal. pd.NaT is a datetime but no
+        # Timestamp, so it never reaches the check (its nanosecond is nan).
+        pd_loaded = sys.modules.get("pandas")
+        if pd_loaded is not None and isinstance(obj, pd_loaded.Timestamp) and cast("pd.Timestamp", obj).nanosecond:
+            raise TypeError(
+                f"AutoSerializer cannot store this {type(obj).__name__}: it has nanoseconds, and a datetime is stored to "
+                "the microsecond, so sub-microsecond precision is not kept. Round it first (ts.floor('us')) or cache its "
+                "int nanoseconds (ts.value)."
+            )
         return {"__datetime__": True, "value": obj.isoformat()}
     if isinstance(obj, date):
         return {"__date__": True, "value": obj.isoformat()}
@@ -315,7 +341,28 @@ def _auto_default(obj: Any) -> Any:
 
     # NEW: set/frozenset support (type-safe roundtrip)
     if isinstance(obj, (set, frozenset)):
-        return {"__set__": True, "value": list(obj), "frozen": isinstance(obj, frozenset)}
+        value = list(obj)
+        types = list(map(type, value))
+        exposed = len(types) - types.count(str) - types.count(bytes)
+        if exposed > _MAX_NON_STRING_SET_ELEMENTS:
+            # A str or bytes subclass reads back as str or bytes: recount as the reader will see them. Below the
+            # bound a subclass counts as exposed, which can only make the writer stricter.
+            exposed = sum(not isinstance(x, (str, bytes)) for x in value)
+        reason = _set_bound_error(value, types, exposed)
+        if reason:
+            raise TypeError(
+                f"AutoSerializer cannot store this {type(obj).__name__}: it holds {reason}, which its reader refuses "
+                "as a hash-flood bound. Cache the elements as a list instead."
+            )
+        # exposed is 0 only when every element is an exact str or bytes, which holds no datetime.
+        if exposed and _fold_shifts_offset(value, types):
+            raise TypeError(
+                f"AutoSerializer cannot store this {type(obj).__name__}: it holds an aware datetime in a wall-clock "
+                "hour its zone repeats or skips, which is stored with its UTC offset but not fold, so it can read back "
+                "equal to another element. Convert it to UTC first (dt.astimezone(timezone.utc)) or cache the elements "
+                "as a list."
+            )
+        return {"__set__": True, "value": value, "frozen": isinstance(obj, frozenset)}
 
     # NumPy array support (nested in dicts/lists via msgpack custom encoder)
     np_loaded = sys.modules.get("numpy")
@@ -338,6 +385,113 @@ def _auto_default(obj: Any) -> Any:
     raise TypeError(f"Object of type {type(obj).__name__} is not MessagePack serializable")
 
 
+def _frozenset_in_tuples(values: list[Any], types: list[type]) -> bool:
+    """Whether a frozenset sits at any depth inside a tuple among ``values``.
+
+    Walked a level at a time in C passes: linear in the tuples' size, and no recursion to overflow.
+    """
+    while True:
+        values = list(chain.from_iterable(compress(values, map(issubclass, types, repeat(tuple)))))
+        if not values:
+            return False
+        types = list(map(type, values))
+        if any(issubclass(t, frozenset) for t in set(types)):
+            return True
+
+
+def _fold_shifts_offset(values: list[Any], types: list[type]) -> bool:
+    """Whether an aware datetime whose UTC offset depends on fold (a wall time its zone repeats or skips) sits among
+    ``values`` or at any depth inside a tuple among them. ``types`` holds each value's type.
+
+    At either fold, such a datetime never equals one in another zone (PEP 495), but it reads back at a fixed offset,
+    without fold, and can then equal one. A frozenset among ``values`` is checked when its own encode runs. Walked a
+    level at a time in C passes, as _frozenset_in_tuples is: only the datetimes outside a fixed-offset zone (UTC
+    included) reach a Python check.
+    """
+    while values:
+        kinds = set(types)
+        if any(issubclass(t, datetime) for t in kinds):
+            stamps = list(compress(values, map(issubclass, types, repeat(datetime))))
+            zones = list(map(type, map(_TZINFO, stamps)))
+            zoned = compress(stamps, map(operator.not_, map(_FIXED_ZONES.__contains__, zones)))
+            if any(d.utcoffset() != d.replace(fold=1 - d.fold).utcoffset() for d in zoned):
+                return True
+        if not any(issubclass(t, tuple) for t in kinds):
+            return False
+        values = list(chain.from_iterable(compress(values, map(issubclass, types, repeat(tuple)))))
+        types = list(map(type, values))
+    return False
+
+
+def _hash_run_over(values: Iterable[Any], limit: int) -> bool:
+    """Whether more than ``limit`` of ``values`` share one hash.
+
+    The hashes are sorted, never tallied in a dict or set: a table keyed by them is the very build being bounded.
+    """
+    hashes = sorted(map(hash, values))
+    return any(map(operator.eq, hashes, hashes[limit:]))
+
+
+def _empty_count(values: list[Any], types: list[type], kind: type) -> int:
+    """How many of ``values`` are an empty ``kind`` (str or bytes), counted in C passes."""
+    return sum(map(operator.not_, compress(values, map(operator.is_, types, repeat(kind)))))
+
+
+def _may_compare_frozensets(values: list[Any], types: list[type], kinds: set[type]) -> bool:
+    """Whether set() over ``values`` could compare two frozensets: two of them share a hash, or two tuples do while a
+    frozenset sits inside one of the set's tuples. ``kinds`` is set(types).
+    """
+    checked: list[type] = [frozenset] if any(issubclass(t, frozenset) for t in kinds) else []
+    if any(issubclass(t, tuple) for t in kinds) and _frozenset_in_tuples(values, types):
+        checked.append(tuple)
+    return any(_hash_run_over(compress(values, map(issubclass, types, repeat(kind))), 1) for kind in checked)
+
+
+def _set_bound_error(values: list[Any], types: list[type], exposed: int | None = None) -> str | None:
+    """Why set() over ``values`` could be quadratic, or None (see docs/serializers/auto.md#set-size-bound).
+
+    ``types`` holds each value's type. ``exposed`` is how many values are neither str nor bytes, by default counted
+    from ``types``. Every pass runs in C, and a pass only runs when its types are present: a Python loop over every
+    element would slow honest sets several-fold.
+    """
+    # Distinct types are few, and a type hashes by identity, so this set is safe to build.
+    kinds = set(types)
+    if len(kinds) == 1 and kinds <= _STR_TYPES:
+        # All str or all bytes, the most common large set: nothing is exposed, and list.count finds the empty value.
+        return _EMPTY_TWICE if values.count(types[0]()) > 1 else None
+    strings = str in kinds or bytes in kinds
+    if exposed is None:
+        exposed = len(types) - types.count(str) - types.count(bytes) if strings else len(types)
+    if exposed > _MAX_NON_STRING_SET_ELEMENTS:
+        return f"more than {_MAX_NON_STRING_SET_ELEMENTS} elements that are neither str nor bytes"
+    # Every other str and bytes hashes under a per-process secret, but "" and b"" hash to 0 in every process, and a
+    # stored list can repeat them for 1 or 2 bytes a copy: each copy would walk whatever forged elements pile on hash
+    # 0's probe path. An honest set holds each at most once.
+    if any(kind in kinds and _empty_count(values, types, kind) > 1 for kind in (str, bytes)):
+        return _EMPTY_TWICE
+    if _may_compare_frozensets(values, types, kinds):
+        return "two frozensets, or two tuples in a set where a tuple holds a frozenset, that share one hash"
+    # The per-hash bound counts the elements that are neither str nor bytes (only one "" and one b"" can join their
+    # run on hash 0), so fewer of them than the bound cannot exceed it.
+    if exposed <= _MAX_SAME_HASH_SET_ELEMENTS:
+        return None
+    others = compress(values, map(operator.not_, map(_STR_TYPES.__contains__, types))) if strings else values
+    if _hash_run_over(others, _MAX_SAME_HASH_SET_ELEMENTS):
+        return f"more than {_MAX_SAME_HASH_SET_ELEMENTS} elements that are neither str nor bytes and share one hash"
+    return None
+
+
+def _check_untrusted_set(values: list[Any]) -> None:
+    """Refuse a stored set's elements if set() over them could be quadratic, before set() builds it."""
+    reason = _set_bound_error(values, list(map(type, values)))
+    if reason:
+        raise SerializationError(
+            f"Invalid set format: {reason}: a hash-flood bound, not a framing error. Either the entry is forged, a "
+            "cachekit version without this bound wrote it, or, for a shared hash, its elements read back equal (such "
+            "as pandas Timestamps that differ only in nanoseconds)."
+        )
+
+
 def _auto_object_hook(obj: Any) -> Any:
     """Custom decoder for types encoded by _auto_default().
 
@@ -353,6 +507,9 @@ def _auto_object_hook(obj: Any) -> Any:
     Returns:
         Restored Python object or original obj if not a special marker
     """
+    # The Rust decode (unpackb_auto) calls this only for a map holding one of the str keys tested below: any
+    # other map it would return unchanged, as each test reads its key with .get(). A new marker key here needs
+    # adding to AUTO_MARKERS in rust/src/msgpack_decode.rs, or its maps decode as plain dicts.
     if isinstance(obj, dict):
         # Strict validation to prevent collision with user dicts like {'__time__': UUID(...)}
         # Only decode if marker is exactly True (not any truthy value)
@@ -396,6 +553,7 @@ def _auto_object_hook(obj: Any) -> Any:
             value_list = obj["value"]
             if not isinstance(value_list, list):
                 raise SerializationError(f"Invalid set format: expected list, got {type(value_list).__name__}")
+            _check_untrusted_set(value_list)
 
             if obj.get("frozen"):
                 return frozenset(value_list)
@@ -543,11 +701,6 @@ class AutoSerializer:
         # tuple in an index, a name or a column label packs as an array. They keep the non-strict
         # packer, under which the default never sees a tuple, so their bytes stay as they were.
         self._columnar_pack_opts = {**self._msgpack_pack_opts, "strict_types": False}
-        self._msgpack_unpack_opts = {
-            "use_list": True,  # Need lists for DataFrame serialization format
-            "raw": False,  # Decode strings properly
-            "object_hook": _auto_object_hook,  # Restore datetime, UUID, set, frozenset
-        }
 
     @cached_property
     def _arrow_serializer(self) -> ArrowSerializer | None:
@@ -685,7 +838,7 @@ class AutoSerializer:
                 * both ``NUMPY_RAW`` routes additionally require the header to AGREE (absent or
                   ``"numpy"``) and RAISE on a disagreement, where the Arrow gate below only skips.
                   Skipping also fails closed — on the envelope gate for an integrity-on reader, on
-                  ``unpackb_bounded`` refusing the payload for an integrity-off one — but each
+                  the bounded decode refusing the payload for an integrity-off one — but each
                   names a cause that is not the disagreement, and the cross-config gate cannot
                   rescue the second: it reads ``metadata.compressed``, which is ``False`` for
                   every numpy entry (#166, it feeds the AAD) and for an Arrow entry too whenever
@@ -810,8 +963,10 @@ class AutoSerializer:
                 whose header lost ``original_type`` still decodes on an integrity-off reader
                 rather than failing closed.
         """
-        # coerce unwrap's zero-copy memoryview; no-op when already bytes (enables .startswith below + Rust retrieve)
-        data = bytes(data)
+        # No bytes() copy of unwrap's zero-copy memoryview: every route below reads a buffer. A mutable one is
+        # snapshotted, so the routing tests and the decode judge the same bytes. bytes skips the call.
+        if type(data) is not bytes:
+            data = immutable_buffer(data)
         # The header's claim about the stored format. Read once: binding it twice under two names
         # is how a header-sourced value reached a variable holding the envelope's format before.
         # Typed once too, here rather than at each of the three sites that compare or echo it —
@@ -829,7 +984,7 @@ class AutoSerializer:
         # digest, failed it, and raised on every read — a permanent miss on a healthy key.
         # Both structural routes hand the delegate the gate-verified body, so it is hashed once.
         numpy_body = None
-        if data.startswith(b"NUMPY_RAW"):
+        if data[:9] == b"NUMPY_RAW":
             numpy_body = memoryview(data)
         elif self._checksummed_prefix(data, b"NUMPY_RAW"):
             numpy_body = memoryview(data)[8:]
@@ -910,27 +1065,7 @@ class AutoSerializer:
                     f"Rust envelope parsing failed, falling back to Python-only deserialization: {redact_error_for_log(e)}"
                 )
             else:
-                # The envelope verified (checksum matched), so its payload is exactly what was
-                # stored; a payload that then fails to decode is corruption or a forged entry
-                # (e.g. a decode bomb) and MUST fail closed. Falling through here used to
-                # re-decode the ENVELOPE bytes as plain MessagePack and return its positional
-                # fields as the cached value — wrong data, silently.
-                # Format by agreement, never by a winner — see Raises:.
-                if format_id not in _ENVELOPE_FORMATS:
-                    raise self._envelope_failure(f"unknown envelope format {format_id!r:.40}")
-                if header_format is not None and header_format != format_id:
-                    raise self._envelope_failure(
-                        f"envelope format {format_id!r:.40} disagrees with header format {header_format!r:.40}"
-                    )
-                try:
-                    if format_id in ("dataframe", "series"):
-                        return self._decode_columnar(original_data, format_id)
-                    return unpackb_bounded(original_data, **self._msgpack_unpack_opts)
-                except PAYLOAD_DECODE_ERRORS as e:
-                    raise SerializationError(
-                        f"Cache entry payload failed to decode inside a verified envelope (format={format_id!r:.40}): "
-                        f"{bounded_error(e)}"
-                    ) from e
+                return self._decode_verified_envelope(original_data, format_id, header_format)
 
         # Reached with integrity on when retrieve() raised the "not an envelope" ValueError
         # (envelope_error is set), or with integrity off (envelope_error is None; a
@@ -941,7 +1076,7 @@ class AutoSerializer:
 
         # Python-only path (no Rust compression) - direct msgpack deserialization
         try:
-            value = unpackb_bounded(data, **self._msgpack_unpack_opts)
+            value = unpackb_auto(data, MSGPACK_MAX_NESTING, _auto_object_hook)
         except PAYLOAD_DECODE_ERRORS as msgpack_error:
             # NUMPY_RAW entries were routed structurally at the top, so nothing reaching here can be
             # a NumPy payload (and a NumPy attempt would fail without the [data] extra). Report every
@@ -973,6 +1108,66 @@ class AutoSerializer:
                 "verified — a rotted envelope, or a value shaped like one; this read cannot tell which"
             )
         return value
+
+    def _decode_verified_envelope(self, original_data: bytes, format_id: str, header_format: str | None) -> Any:
+        """Decode the payload of an envelope ``retrieve()`` verified, whose format is ``format_id``.
+
+        The envelope verified (checksum matched), so its payload is exactly what was stored; a payload that then
+        fails to decode is corruption or a forged entry (e.g. a decode bomb) and MUST fail closed. Falling through
+        used to re-decode the ENVELOPE bytes as plain MessagePack and return its positional fields as the cached
+        value — wrong data, silently. Format by agreement, never by a winner — see :meth:`deserialize`'s Raises:.
+        """
+        if format_id not in _ENVELOPE_FORMATS:
+            raise self._envelope_failure(f"unknown envelope format {format_id!r:.40}")
+        if header_format is not None and header_format != format_id:
+            raise self._envelope_failure(f"envelope format {format_id!r:.40} disagrees with header format {header_format!r:.40}")
+        try:
+            if format_id in ("dataframe", "series"):
+                return self._decode_columnar(original_data, format_id)
+            return unpackb_auto(original_data, MSGPACK_MAX_NESTING, _auto_object_hook)
+        except PAYLOAD_DECODE_ERRORS as e:
+            raise SerializationError(
+                f"Cache entry payload failed to decode inside a verified envelope (format={format_id!r:.40}): {bounded_error(e)}"
+            ) from e
+
+    def _deserialize_keeping(
+        self, data: bytes | memoryview, metadata: SerializationMetadata
+    ) -> tuple[Any, VerifiedPayload] | None:
+        """What :meth:`deserialize` returns for a plain MessagePack envelope when integrity checking is on, plus
+        the MessagePack ``retrieve()`` verified and this decode accepted, for the caller to keep and decode later
+        without retrieve() (:meth:`_deserialize_verified`). Call it only for an integrity-on serializer.
+
+        None, decoding nothing, for every other entry: a header that claims another format (NumPy, Arrow,
+        DataFrame, Series), and any bytes with the ``NUMPY_RAW`` magic at offset 0 or 8. That magic test is
+        deliberately broader than :meth:`deserialize`'s checksum-gated NumPy route, which refuses such bytes
+        under a ``"msgpack"`` header: a broader test only declines to keep. The caller decodes those as any other entry, so only the route
+        :meth:`deserialize` takes for this header to ``retrieve()`` runs here, and it fails as that route does.
+
+        Examples:
+            >>> serializer = AutoSerializer()
+            >>> envelope, metadata = serializer.serialize({"when": (1, 2)})
+            >>> value, kept = serializer._deserialize_keeping(envelope, metadata)
+            >>> value, serializer._deserialize_verified(kept.data)
+            ({'when': (1, 2)}, {'when': (1, 2)})
+        """
+        if metadata.original_type != "msgpack" or data[:9] == b"NUMPY_RAW" or data[8:17] == b"NUMPY_RAW":
+            return None
+        try:
+            msgpack_data, format_id = self._byte_storage.retrieve(data)
+        except Exception as e:  # as deserialize does with a header present: fail closed, never re-parse
+            raise self._envelope_failure(e) from e
+        value = self._decode_verified_envelope(msgpack_data, format_id, "msgpack")
+        return value, VerifiedPayload(msgpack_data, AutoSerializer)
+
+    def _deserialize_verified(self, msgpack_data: bytes) -> Any:
+        """Decode MessagePack a decode in this process already verified (:meth:`_deserialize_keeping`), without
+        retrieve(). Still the bounded decode. Raises SerializationError as deserialize does."""
+        try:
+            return unpackb_auto(msgpack_data, MSGPACK_MAX_NESTING, _auto_object_hook)
+        except PAYLOAD_DECODE_ERRORS as e:
+            raise SerializationError(
+                f"Cache entry payload failed to decode inside a verified envelope (format='msgpack'): {bounded_error(e)}"
+            ) from e
 
     def _serialize_numpy(self, arr: np.ndarray) -> bytes:  # type: ignore[name-defined]
         """Serialize a NumPy array into the ``NUMPY_RAW`` binary format.
@@ -1015,7 +1210,7 @@ class AutoSerializer:
             return xxhash.xxh3_64_digest(raw) + raw
         return raw
 
-    def _deserialize_numpy(self, data: bytes) -> np.ndarray:
+    def _deserialize_numpy(self, data: bytes | memoryview) -> np.ndarray:
         """Deserialize NumPy array from NUMPY_RAW binary format.
 
         Raises:
@@ -1026,7 +1221,7 @@ class AutoSerializer:
         # serialization. Detect by structure (like ArrowSerializer): a checksummed entry is
         # [8-byte checksum][NUMPY_RAW...]; a raw entry (integrity-off / legacy) is [NUMPY_RAW...].
         # A mismatch fails closed (#155) — never reconstructs the corrupted array.
-        if not data.startswith(b"NUMPY_RAW") and len(data) >= 17 and data[8:17] == b"NUMPY_RAW":
+        if data[:9] != b"NUMPY_RAW" and len(data) >= 17 and data[8:17] == b"NUMPY_RAW":
             body = memoryview(data)[8:]
             if xxhash.xxh3_64_digest(body) != data[:8]:
                 raise SerializationError("NumPy integrity check failed: xxHash3-64 checksum mismatch (corrupted cache entry)")
@@ -1126,8 +1321,8 @@ class AutoSerializer:
         """Rebuild a DataFrame from the already-decoded columnar ``document``.
 
         ``document`` is the msgpack-decoded body — every production caller (the verified-envelope
-        route in :meth:`deserialize` and :meth:`_decode_columnar`) decodes under
-        ``unpackb_bounded`` first, so this method never touches the wire bytes and never re-runs
+        route in :meth:`deserialize` and :meth:`_decode_columnar`) decodes with the bounded
+        ``unpackb_auto`` first, so this method never touches the wire bytes and never re-runs
         the decode bound. A forged non-dict body is refused by the ``_expect`` shape gate.
 
         Raises:
@@ -1180,7 +1375,7 @@ class AutoSerializer:
         """Rebuild a Series from the already-decoded columnar ``document``.
 
         ``document`` is the msgpack-decoded body; the same decoded-only contract as
-        :meth:`_deserialize_dataframe` (its callers run ``unpackb_bounded`` first). A forged
+        :meth:`_deserialize_dataframe` (its callers run ``unpackb_auto`` first). A forged
         non-dict body is refused by the ``_expect`` shape gate.
 
         Raises:
@@ -1199,7 +1394,7 @@ class AutoSerializer:
         return series
 
     @staticmethod
-    def _checksummed_prefix(data: bytes, magic: bytes) -> bool:
+    def _checksummed_prefix(data: bytes | memoryview, magic: bytes) -> bool:
         """True iff ``data`` is ``[8-byte xxHash3-64][magic...]`` and the digest matches the body.
 
         One gate for both self-checksummed formats (Arrow, NumPy). It disambiguates a real
@@ -1277,7 +1472,7 @@ class AutoSerializer:
         """
         build = self._deserialize_dataframe if kind == "dataframe" else self._deserialize_series
         try:
-            return build(unpackb_bounded(payload, **self._msgpack_unpack_opts))
+            return build(unpackb_auto(payload, MSGPACK_MAX_NESTING, _auto_object_hook))
         except PAYLOAD_DECODE_ERRORS as e:
             raise SerializationError(f"Cache entry payload failed to decode as {kind}: {bounded_error(e)}") from e
 
@@ -1301,7 +1496,7 @@ class AutoSerializer:
         if msgpack_data[:1] != b"\x94":
             return msgpack_data
         try:
-            decoded = unpackb_bounded(msgpack_data, **self._msgpack_unpack_opts)
+            decoded = unpackb_auto(msgpack_data, MSGPACK_MAX_NESTING, _auto_object_hook)
         except PAYLOAD_DECODE_ERRORS as e:
             raise SerializationError(
                 f"Value cannot be cached by an AutoSerializer with integrity checking off: its reader cannot decode it "
@@ -1354,7 +1549,8 @@ class AutoSerializer:
         else:
             # Python-only mode validation
             try:
-                unpackb_bounded(data, **self._msgpack_unpack_opts)
+                # The Rust decode reads a flat byte buffer: normalise any other view, as deserialize does.
+                unpackb_auto(data if type(data) is bytes else immutable_buffer(data), MSGPACK_MAX_NESTING, _auto_object_hook)
                 return True
             except PAYLOAD_DECODE_ERRORS:
                 return False

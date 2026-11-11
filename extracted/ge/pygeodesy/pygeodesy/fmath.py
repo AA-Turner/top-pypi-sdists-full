@@ -7,8 +7,9 @@ C{fused-multiply-add}, polynomials, roots, etc.
 # make sure int/int division yields float quotient, see .basics
 from __future__ import division as _; del _  # noqa: E702 ;
 
-from pygeodesy.basics import _copysign, copysign0, isbool, isint, isodd, \
-                              isscalar, len2, _xiterable, _zip,  typename
+from pygeodesy.basics import _copysign, copysign0, isbool, iscomplex, \
+                             _xiterable, isint, isodd, isscalar, len2, \
+                             _zip,  typename
 from pygeodesy.constants import EPS0, EPS02, EPS1, NAN, PI, PI_2, PI_4, \
                                _0_0, _0_125, _0_25, _1_3rd, _0_5, _2_3rd, \
                                _1_0, _1_5, _copysign_0_0, isfinite, remainder
@@ -22,16 +23,20 @@ from pygeodesy.streprs import Fmt, unstr
 from pygeodesy.units import Int_, _isHeight, _isRadius
 # from utily import atan2b, atan2p  # _MODS, circular import!
 
+try:
+    from math import trunc as _truncate
+except ImportError:  # Python 3.11-
+    _truncate = int
 from math import fabs, sqrt  # pow
 import operator as _operator  # in .datums, .elliptic, .trf, .utm
 
 __all__ = _ALL_LAZY.fmath
-__version__ = '26.10.04'
+__version__ = '26.11.06'
 
 # 1.4142135623730950_48801688724209 <https://WikiPedia.org/wiki/Square_root_of_2>
 # math.sqrt(2) - 1 == 0.4142135623730950_3 == 3730904090310553 / 9007199254740992
 _0_4142  =  0.4142135623730950488
-_1_6th   =  1 / 6
+_1_6th   = _1_0 / 6
 _h_lt_b_ = 'abs(h) < abs(b)'
 
 
@@ -865,6 +870,17 @@ def fremainder(x, y):
     return r
 
 
+def ftruncate(f):
+    '''(INTERNAL) Truncate C{f} toward C{0} preserving signed C{0}.
+    '''
+    try:
+        i = _truncate(f)
+        f =  i if i else _copysign_0_0(f)
+    except (OverflowError, ValueError):
+        pass
+    return f
+
+
 def _half(half=False):
     return _0_5 if half else _0_4142
 
@@ -983,6 +999,11 @@ def _map0(_f, x, y, x0=_0_0, y0=_0_0, *unused):  # PYLINT W1113
     return _f(x - x0), _f(y - y0)
 
 
+def _map03(_f, x, y, *x0_y0):
+    x, y = _map0(_f, x, y, *x0_y0)
+    return x, y, hypot(x, y)
+
+
 def norm2(x, y, *x0_y0):
     '''Normalize a 2-dimensional vector.
 
@@ -994,19 +1015,10 @@ def norm2(x, y, *x0_y0):
        @return: 2-Tuple C{(x, y)}, normalized.
 
        @raise ValueError: Invalid B{C{x}} or B{C{y}}.
+
+       @see: Function L{polar3}.
     '''
-    try:
-        h    =  None
-        x, y = _map0(float, x, y, *x0_y0)
-        h    =  hypot(x, y)
-        if h:
-            t = (x / h), (y / h)
-        else:
-            t = (_copysign_0_0(x),  # pass?
-                 _copysign_0_0(y))
-    except Exception as X:
-        raise _xError(X, x=x, y=y, h=h)
-    return t
+    return polar3(x, y, *x0_y0)[:2]
 
 
 def norm_(*xs):
@@ -1038,10 +1050,10 @@ def polar2(x, y, *x0_y0):
        @arg y: Y (C{scalar}, an L{Fsum} or L{Fsum2Tuple}).
        @arg x0_y0: Optional reference C{(x0, y0)} (each C{scalar}, an L{Fsum} or L{Fsum2Tuple}).
 
-       @note: Use C{polar(B{y}, B{x}, *B{yx0})} to get the angle as C{bearing} from North.
+       @note: Use C{polar(B{y}, B{x}, *B{y0_x0})} to get the angle as C{bearing} from North.
     '''
-    x, y = _map0(float, x, y, *x0_y0)
-    return hypot(x, y), _MODS.utily.atan2p(y, x)
+    x, y, h = _map03(float, x, y, *x0_y0)
+    return h, _MODS.utily.atan2p(y, x)
 
 
 def polar2d(x, y, *x0_y0):
@@ -1051,10 +1063,32 @@ def polar2d(x, y, *x0_y0):
        @arg y: Y (C{scalar}, an L{Fsum} or L{Fsum2Tuple}).
        @arg x0_y0: Optional reference C{(x0, y0)} (each C{scalar}, an L{Fsum} or L{Fsum2Tuple}).
 
-       @note: Use C{polar2d(B{y}, B{x}, *B{yx0})} to get the angle as C{bearing} from North.
+       @note: Use C{polar2d(B{y}, B{x}, *B{y0_x0})} to get the angle as C{bearing} from North.
     '''
-    x, y = _map0(float, x, y, *x0_y0)
-    return hypot(x, y), _MODS.utily.atan2b(y, x)
+    x, y, h = _map03(float, x, y, *x0_y0)
+    return h, _MODS.utily.atan2b(y, x)
+
+
+def polar3(x, y, *x0_y0):
+    '''Return 3-tuple C{(cosine, sine, length)}.
+
+       @arg x: X (C{scalar}, an L{Fsum} or L{Fsum2Tuple}).
+       @arg y: Y (C{scalar}, an L{Fsum} or L{Fsum2Tuple}).
+       @arg x0_y0: Optional reference C{(x0, y0)} (each C{scalar}, an L{Fsum} or L{Fsum2Tuple}).
+
+       @see: Function L{norm2}.
+    '''
+    try:
+        h       =  None
+        x, y, h = _map03(float, x, y, *x0_y0)
+        if h:
+            t = (x / h), (y / h), h
+        else:
+            t = (_copysign_0_0(x),  # pass?
+                 _copysign_0_0(y), h)
+    except Exception as X:
+        raise _xError(X, x=x, y=y, h=h)
+    return t
 
 
 def _powers(x, n):
@@ -1070,7 +1104,9 @@ def _root(x, p, where):
     '''(INTERNAL) Raise C{x} to power C{0 <= p < 1}.
     '''
     try:
-        if x > 0:
+        if iscomplex(x):
+            return pow(x, p)
+        elif x > 0:
             r = Fsum(f2product=True, nonfinites=True)(x)
             return r.fpow(p).as_iscalar
         elif x < 0:
@@ -1191,7 +1227,7 @@ def zqrt(x):
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

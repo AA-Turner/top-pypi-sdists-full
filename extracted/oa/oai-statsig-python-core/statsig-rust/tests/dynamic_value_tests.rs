@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use more_asserts::assert_gt;
 use serde_json::{Number, Value, json};
-use statsig_rust::{dyn_value, evaluation::dynamic_string::DynamicString};
+use statsig_rust::{
+    DynamicValue, dyn_value,
+    evaluation::{dynamic_string::DynamicString, evaluator_value::MemoizedEvaluatorValue},
+};
 
 macro_rules! assert_dynamic_value {
     (
@@ -29,6 +32,18 @@ macro_rules! assert_dynamic_value {
 
         assert_gt!($dynamic_value.hash_value, 0);
     };
+}
+
+#[test]
+fn string_prefixes_preserve_numeric_coercions() {
+    for raw in [".5", "-0", "+42", "iNFiNiTy", "-Inf", "NaN", "internal", ""] {
+        let value = DynamicValue::from_string(raw);
+        assert_eq!(value.int_value, raw.parse::<i64>().ok(), "{raw:?}");
+        let expected = raw.parse::<f64>().ok().map(f64::to_bits);
+        assert_eq!(value.float_value.map(f64::to_bits), expected, "{raw:?}");
+        let memoized = MemoizedEvaluatorValue::from(raw.to_owned());
+        assert_eq!(memoized.float_value.map(f64::to_bits), expected, "{raw:?}");
+    }
 }
 
 #[test]
@@ -356,4 +371,31 @@ fn test_larget_integer() {
     let dv = dyn_value!(i64::MAX);
     assert_eq!(dv.int_value, Some(i64::MAX));
     assert_eq!(dv.float_value, Some(i64::MAX as f64));
+}
+
+#[test]
+fn test_large_integer_identity() {
+    use statsig_rust::user::fast_statsig_user::{FastStatsigUser, FastUserData};
+    use statsig_rust::{DynamicValue, StatsigUser};
+
+    for id in [
+        9_007_199_254_740_992,
+        9_007_199_254_740_993,
+        i64::MIN,
+        i64::MAX,
+    ] {
+        let public = StatsigUser::with_user_id(id);
+        let mut fast = FastStatsigUser::new(FastUserData::default());
+        fast.set_user_id(id);
+        let expected = id.to_string();
+        assert_eq!(public.get_user_id(), Some(expected.as_str()));
+        assert_eq!(public.get_user_id(), fast.get_user_id());
+    }
+
+    for id in [i64::MAX as u64 + 1, u64::MAX] {
+        let expected = id.to_string();
+        let value: DynamicValue = serde_json::from_str(&expected).unwrap();
+        assert_eq!(value.string_value.unwrap().value.as_str(), expected);
+        assert_eq!(value.int_value, None);
+    }
 }

@@ -6,13 +6,14 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..compat import StrEnum
 from .records import Record
+from .run import RunStatus
 
 #: An open command no producer claimed within this is `expired` ("no running producer holds this sample").
 CLAIM_WITHIN_SECONDS = 120
@@ -57,7 +58,7 @@ class CommandState(StrEnum):
     TAKEN = "taken"  # claimed by a writer session of its epoch (compare-and-set)
     DONE = "done"
     REFUSED = "refused"  # the producer (or the server, at once) said why (`reason`)
-    EXPIRED = "expired"  # open past `CLAIM_WITHIN_SECONDS`, or a resume started a newer write epoch
+    EXPIRED = "expired"  # open past `CLAIM_WITHIN_SECONDS`, its run ended first, or a resume started a newer epoch
     LOST = "lost"  # its claiming writer's lease ended before an answer: never re-sent, ask again
 
 
@@ -205,6 +206,20 @@ class CommandOut(Command.project(*Command.model_fields)):
     """One command as the routes answer it."""
 
 
+class CommandWriter(StrEnum):
+    """Whether the run's script is there to take a run ask, as the ask's refusal judges it."""
+
+    LIVE = "live"  # a script writer of the current epoch holds a lease and said what it can be asked
+    NONE = "none"  # the run is not running, or no writer holds a live lease: start or resume it first
+    UNREPORTED = "unreported"  # a live writer has not said: its first beat is not in, or its SDK predates run commands
+
+
+class CommandListPart(StrEnum):
+    """What `GET /v1/runs/{id}/commands?with=` adds to the page. Each costs a read, so a poll asks for none."""
+
+    WRITER = "writer"  # `accepts`, `writer`, `writer_seen_at`, `writer_role`
+
+
 class CommandList(BaseModel):
     """`GET /v1/runs/{id}/commands?after=`: who asked for what, and what happened, by `seq`."""
 
@@ -213,6 +228,18 @@ class CommandList(BaseModel):
     seq: int = 0
     #: Pass back as `after`; null on the last page.
     next_after: int | None = None
+    #: `?with=writer` only (null otherwise): the run kinds an ask may name now (`checkpoint`, `config`, `stop`, and
+    #: each custom kind's name), read with the refusal's own rule, so an ask outside it is refused or waits.
+    accepts: list[str] | None = None
+    #: `?with=writer` only: whether a script is there to take a run ask (`unreported`: an ask waits for it to say).
+    writer: CommandWriter | None = None
+    #: `?with=writer` only: the last beat of the run's latest script writer lease (a launcher's or observer's only
+    #: when no script one exists), live or ended; null if none ever beat.
+    writer_seen_at: datetime | None = None
+    #: `?with=writer` only: that lease's role (`owner`, `rank`, `launcher`, `observer`).
+    writer_role: Literal["launcher", "rank", "owner", "observer"] | None = None
+    #: `?with=writer` only: the run's status now, so a command still open can say its run crashed.
+    run_status: RunStatus | None = None
 
 
 class CommandAsk(BaseModel):

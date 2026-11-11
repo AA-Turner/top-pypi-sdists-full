@@ -63,6 +63,7 @@ from .literals import (
     LinuxCapabilityType,
     ListComputeInputStatusType,
     LocationFilterType,
+    LogDeliveryDestinationTypeType,
     LogDestinationType,
     MatchmakingConfigurationStatusType,
     MetricNameType,
@@ -278,6 +279,9 @@ __all__ = (
     "GameSessionDetailTypeDef",
     "GameSessionPlacementTypeDef",
     "GameSessionQueueDestinationTypeDef",
+    "GameSessionQueueLogConfigurationOutputTypeDef",
+    "GameSessionQueueLogConfigurationTypeDef",
+    "GameSessionQueueLogConfigurationUnionTypeDef",
     "GameSessionQueueTypeDef",
     "GameSessionTypeDef",
     "GetComputeAccessInputTypeDef",
@@ -343,6 +347,7 @@ __all__ = (
     "LocationStateTypeDef",
     "LocationalDeploymentTypeDef",
     "LogConfigurationTypeDef",
+    "LogDeliveryDestinationTypeDef",
     "ManagedCapacityConfigurationTypeDef",
     "MatchedPlayerSessionTypeDef",
     "MatchmakingConfigurationTypeDef",
@@ -1021,6 +1026,10 @@ class PlayerLatencyTypeDef(TypedDict):
 class PriorityConfigurationOverrideOutputTypeDef(TypedDict):
     LocationOrder: list[str]
     PlacementFallbackStrategy: NotRequired[PlacementFallbackStrategyType]
+
+class LogDeliveryDestinationTypeDef(TypedDict):
+    LogDestination: LogDeliveryDestinationTypeType
+    DestinationArn: NotRequired[str]
 
 class PriorityConfigurationOutputTypeDef(TypedDict):
     PriorityOrder: NotRequired[list[PriorityTypeType]]
@@ -1972,16 +1981,11 @@ class GameSessionPlacementTypeDef(TypedDict):
     PriorityConfigurationOverride: NotRequired[PriorityConfigurationOverrideOutputTypeDef]
     PlayerGatewayStatus: NotRequired[PlayerGatewayStatusType]
 
-class GameSessionQueueTypeDef(TypedDict):
-    Name: NotRequired[str]
-    GameSessionQueueArn: NotRequired[str]
-    TimeoutInSeconds: NotRequired[int]
-    PlayerLatencyPolicies: NotRequired[list[PlayerLatencyPolicyTypeDef]]
-    Destinations: NotRequired[list[GameSessionQueueDestinationTypeDef]]
-    FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
-    PriorityConfiguration: NotRequired[PriorityConfigurationOutputTypeDef]
-    CustomEventData: NotRequired[str]
-    NotificationTarget: NotRequired[str]
+class GameSessionQueueLogConfigurationOutputTypeDef(TypedDict):
+    DeliveryDestinations: list[LogDeliveryDestinationTypeDef]
+
+class GameSessionQueueLogConfigurationTypeDef(TypedDict):
+    DeliveryDestinations: Sequence[LogDeliveryDestinationTypeDef]
 
 class InstanceAccessTypeDef(TypedDict):
     FleetId: NotRequired[str]
@@ -2308,18 +2312,21 @@ class StopGameSessionPlacementOutputTypeDef(TypedDict):
     GameSessionPlacement: GameSessionPlacementTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class CreateGameSessionQueueOutputTypeDef(TypedDict):
-    GameSessionQueue: GameSessionQueueTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class GameSessionQueueTypeDef(TypedDict):
+    Name: NotRequired[str]
+    GameSessionQueueArn: NotRequired[str]
+    TimeoutInSeconds: NotRequired[int]
+    PlayerLatencyPolicies: NotRequired[list[PlayerLatencyPolicyTypeDef]]
+    Destinations: NotRequired[list[GameSessionQueueDestinationTypeDef]]
+    FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
+    PriorityConfiguration: NotRequired[PriorityConfigurationOutputTypeDef]
+    CustomEventData: NotRequired[str]
+    NotificationTarget: NotRequired[str]
+    LogConfiguration: NotRequired[GameSessionQueueLogConfigurationOutputTypeDef]
 
-class DescribeGameSessionQueuesOutputTypeDef(TypedDict):
-    GameSessionQueues: list[GameSessionQueueTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-class UpdateGameSessionQueueOutputTypeDef(TypedDict):
-    GameSessionQueue: GameSessionQueueTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+GameSessionQueueLogConfigurationUnionTypeDef = Union[
+    GameSessionQueueLogConfigurationTypeDef, GameSessionQueueLogConfigurationOutputTypeDef
+]
 
 class GetInstanceAccessOutputTypeDef(TypedDict):
     InstanceAccess: InstanceAccessTypeDef
@@ -2346,17 +2353,6 @@ class StartGameSessionPlacementInputTypeDef(TypedDict):
     GameSessionData: NotRequired[str]
     PriorityConfigurationOverride: NotRequired[PriorityConfigurationOverrideUnionTypeDef]
 
-class CreateGameSessionQueueInputTypeDef(TypedDict):
-    Name: str
-    TimeoutInSeconds: NotRequired[int]
-    PlayerLatencyPolicies: NotRequired[Sequence[PlayerLatencyPolicyTypeDef]]
-    Destinations: NotRequired[Sequence[GameSessionQueueDestinationTypeDef]]
-    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
-    PriorityConfiguration: NotRequired[PriorityConfigurationUnionTypeDef]
-    CustomEventData: NotRequired[str]
-    NotificationTarget: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
 class UpdateGameSessionQueueInputTypeDef(TypedDict):
     Name: str
     TimeoutInSeconds: NotRequired[int]
@@ -2366,6 +2362,8 @@ class UpdateGameSessionQueueInputTypeDef(TypedDict):
     PriorityConfiguration: NotRequired[PriorityConfigurationUnionTypeDef]
     CustomEventData: NotRequired[str]
     NotificationTarget: NotRequired[str]
+    AddLogDeliveryDestinations: NotRequired[Sequence[LogDeliveryDestinationTypeDef]]
+    RemoveLogDeliveryDestinations: NotRequired[Sequence[LogDeliveryDestinationTypeDef]]
 
 class DescribeScalingPoliciesOutputTypeDef(TypedDict):
     ScalingPolicies: list[ScalingPolicyTypeDef]
@@ -2445,6 +2443,31 @@ class StartMatchBackfillOutputTypeDef(TypedDict):
 class StartMatchmakingOutputTypeDef(TypedDict):
     MatchmakingTicket: MatchmakingTicketTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateGameSessionQueueOutputTypeDef(TypedDict):
+    GameSessionQueue: GameSessionQueueTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeGameSessionQueuesOutputTypeDef(TypedDict):
+    GameSessionQueues: list[GameSessionQueueTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class UpdateGameSessionQueueOutputTypeDef(TypedDict):
+    GameSessionQueue: GameSessionQueueTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateGameSessionQueueInputTypeDef(TypedDict):
+    Name: str
+    TimeoutInSeconds: NotRequired[int]
+    PlayerLatencyPolicies: NotRequired[Sequence[PlayerLatencyPolicyTypeDef]]
+    Destinations: NotRequired[Sequence[GameSessionQueueDestinationTypeDef]]
+    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
+    PriorityConfiguration: NotRequired[PriorityConfigurationUnionTypeDef]
+    CustomEventData: NotRequired[str]
+    NotificationTarget: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    LogConfiguration: NotRequired[GameSessionQueueLogConfigurationUnionTypeDef]
 
 class CreateLocationOutputTypeDef(TypedDict):
     Location: LocationModelTypeDef

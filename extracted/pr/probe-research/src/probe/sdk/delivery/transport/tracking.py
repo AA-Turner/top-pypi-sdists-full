@@ -15,7 +15,7 @@ _RUN_CREATE_PATH = re.compile(r"^/v1/projects/[^/?]+(?:/experiments/[^/?]+)?/run
 #: Route families whose create/change requests ARE recording research: the writes the
 #: tracking auto-mark mirrors (`_auto_mark_tracking`). Nested routes (artifacts, notes,
 #: uploads) sit under these prefixes. Kept in step with the CLI vocabulary in
-#: plugins/probe-research/hooks/tracking_guard.py::WRITE_GROUPS (that names COMMANDS for
+#: plugins/probe/hooks/tracking_guard.py::WRITE_GROUPS (that names COMMANDS for
 #: the warn layer, this URL families for the auto-mark); both lean the same way: a miss
 #: costs silence (no mark), never a false mark. Machine plumbing (/v1/tokens, auth,
 #: capabilities, workspaces) is deliberately absent.

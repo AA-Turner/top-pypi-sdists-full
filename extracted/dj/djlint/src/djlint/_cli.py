@@ -107,11 +107,11 @@ def _fail_with_usage_code(func: Callable[..., None]) -> Callable[..., None]:
 
     Left to reach the interpreter, an unhandled error exits 1, the same code
     as "found lint errors" or "would reformat", and a pipeline cannot tell a
-    crash from a normal failing run: a template djLint cannot read looks
-    exactly like a template it disliked. So failures exit 2 instead,
+    crash from a normal failing run: a template that trips a bug looks
+    exactly like a template djLint disliked. So failures exit 2 instead,
     alongside the usage errors click already exits 2 for, while click's own
     control flow, including --help, is re-raised untouched. The traceback is
-    still printed, so bug reports lose nothing.
+    still printed, so bug reports lose nothing. Ctrl+C exits 130.
     """
 
     @wraps(func)
@@ -120,6 +120,11 @@ def _fail_with_usage_code(func: Callable[..., None]) -> Callable[..., None]:
             func(*args, **kwargs)
         except (click.ClickException, click.exceptions.Exit, click.Abort):
             raise
+        except KeyboardInterrupt:
+            # Click would exit 1, which reads as "found something". 130 is
+            # what a shell reports for a command stopped with Ctrl+C.
+            echo("Aborted!", err=True)
+            sys.exit(130)
         except Exception as error:
             if _consumer_hung_up(error):
                 _drop_stdout_so_the_exit_flush_cannot_fail()
@@ -239,7 +244,9 @@ class _SectionedHelpCommand(click.Command):
         records = {
             param.name: record
             for param in self.get_params(ctx)
-            if param.name and (record := param.get_help_record(ctx))
+            if isinstance(param, click.Option)
+            and param.name
+            and (record := param.get_help_record(ctx))
         }
         listed = {*_HELP_OTHER, *(name for _, names in _HELP_SECTIONS for name in names)}
         other = (*_HELP_OTHER, *(name for name in records if name not in listed))
@@ -761,6 +768,7 @@ def main(
 
         file_error, formatted_code = process_stdin(config, stdin_text)
         file_errors = [file_error]
+        unreadable: list[tuple[str, str]] = []
         files_count = 1
 
         if config.reformat or config.check:
@@ -800,7 +808,7 @@ def main(
             ),
         )
 
-        file_errors = []
+        outcomes: list[ProcessResult | tuple[str, str]] = []
         progress_label = click.style(
             f"{message} {files_count}/{files_count} files", fg="blue", bold=True
         )
@@ -821,7 +829,7 @@ def main(
         ) as bar:
             if max_workers == 1:
                 for this_file in file_list:
-                    file_errors.append(process(config, this_file))
+                    outcomes.append(_process_or_report(config, this_file))
                     bar.update(1)
             else:
                 import concurrent.futures  # noqa: PLC0415
@@ -830,7 +838,7 @@ def main(
                     exe: concurrent.futures.Executor = concurrent.futures.ThreadPoolExecutor(
                         max_workers
                     )
-                    results = exe.map(partial(process, config), file_list)
+                    results = exe.map(partial(_process_or_report, config), file_list)
                 else:
                     if sys.platform == "win32":  # pragma: win32 cover
                         max_workers = min(max_workers, _WINDOWS_MAX_PROCESSES)
@@ -844,25 +852,31 @@ def main(
                     )
                 with exe:
                     for result in results:
-                        file_errors.append(result)
+                        outcomes.append(result)
                         bar.update(1)
+
+        file_errors = [x for x in outcomes if not isinstance(x, tuple)]
+        unreadable = [x for x in outcomes if isinstance(x, tuple)]
+        files_count = len(file_errors)
 
     if config.sarif:
         from djlint.sarif_output import print_sarif_output  # noqa: PLC0415
 
-        if print_sarif_output(config, file_errors, files_count) and not config.warn:
-            sys.exit(1)
+        found = print_sarif_output(config, file_errors, files_count, unreadable)
     elif config.github_output:
         from djlint.github_output import print_github_output  # noqa: PLC0415
 
-        if print_github_output(config, file_errors, files_count) and not config.warn:
-            sys.exit(1)
-
+        found = print_github_output(config, file_errors, files_count, unreadable)
     else:
         from djlint.output import print_output  # noqa: PLC0415
 
-        if print_output(config, file_errors, files_count) and not config.warn:
-            sys.exit(1)
+        found = print_output(config, file_errors, files_count, unreadable)
+
+    # These files went unchecked, which --warn does not make a pass.
+    if unreadable:
+        sys.exit(2)
+    if found and not config.warn:
+        sys.exit(1)
 
 
 def _echo_unchanged_stdin(config: Config, stdin_text: str) -> None:
@@ -911,11 +925,29 @@ def _start_worker(src: str, options: dict[str, Any]) -> None:
         _worker_config = Config(src, **options)
 
 
-def _process_in_worker(this_file: Path) -> ProcessResult:
+def _process_in_worker(this_file: Path) -> ProcessResult | tuple[str, str]:
+    """Process a file with the configuration the worker was started with."""
     if _worker_config is None:
         msg = "The worker was started without a configuration."
         raise RuntimeError(msg)
-    return process(_worker_config, this_file)
+    return _process_or_report(_worker_config, this_file)
+
+
+def _process_or_report(config: Config, this_file: Path) -> ProcessResult | tuple[str, str]:
+    """Run linter or formatter, or give the file and why it could not be processed.
+
+    A template that is not utf-8, or one the system will not let djLint
+    open or write, is a problem with that file rather than a djLint failure,
+    as bad input on stdin is. So it is named, without a traceback, and the
+    files after it are still checked. A file is read in full before anything
+    is written to it, so a failed read leaves it as it was.
+    """
+    try:
+        return process(config, this_file)
+    except (UnicodeDecodeError, OSError) as e:
+        if isinstance(e, UnicodeDecodeError):
+            return str(this_file), f"not valid UTF-8: {e}"
+        return str(this_file), e.strerror or str(e)
 
 
 def process(config: Config, this_file: Path) -> ProcessResult:

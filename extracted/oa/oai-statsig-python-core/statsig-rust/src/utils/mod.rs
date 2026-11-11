@@ -1,5 +1,8 @@
 pub(crate) mod random;
 
+#[cfg(all(test, target_os = "linux", target_env = "gnu"))]
+mod heap_trim_tests;
+
 #[cfg(target_env = "gnu")]
 use crate::log_d;
 
@@ -11,10 +14,14 @@ extern "C" {
 
 #[cfg(target_env = "gnu")]
 pub fn try_release_unused_heap_memory() {
-    // Glibc requested more memory than needed when deserializing a big json blob
-    // And memory allocator fails to return it.
-    // To prevent service from OOMing, manually unused heap memory.
+    if matches!(
+        std::env::var("NO_MALLOC_TRIM").as_deref(),
+        Ok("1") | Ok("true")
+    ) {
+        return;
+    }
 
+    // Return free pages that glibc may retain after deserializing large configs.
     unsafe {
         // Free as much memory as possible
         let result = malloc_trim(0);

@@ -79,6 +79,8 @@ from .type_defs import (
     GetDataLakeSettingsResponseTypeDef,
     GetEffectivePermissionsForPathRequestTypeDef,
     GetEffectivePermissionsForPathResponseTypeDef,
+    GetGlueFunctionSessionContextRequestTypeDef,
+    GetGlueFunctionSessionContextResponseTypeDef,
     GetLFTagExpressionRequestTypeDef,
     GetLFTagExpressionResponseTypeDef,
     GetLFTagRequestTypeDef,
@@ -95,6 +97,8 @@ from .type_defs import (
     GetTableObjectsResponseTypeDef,
     GetTemporaryDataLocationCredentialsRequestTypeDef,
     GetTemporaryDataLocationCredentialsResponseTypeDef,
+    GetTemporaryGlueFunctionCredentialsRequestTypeDef,
+    GetTemporaryGlueFunctionCredentialsResponseTypeDef,
     GetTemporaryGluePartitionCredentialsRequestTypeDef,
     GetTemporaryGluePartitionCredentialsResponseTypeDef,
     GetTemporaryGlueTableCredentialsRequestTypeDef,
@@ -510,6 +514,17 @@ class LakeFormationClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#get_effective_permissions_for_path)
         """
 
+    def get_glue_function_session_context(
+        self, **kwargs: Unpack[GetGlueFunctionSessionContextRequestTypeDef]
+    ) -> GetGlueFunctionSessionContextResponseTypeDef:
+        """
+        Returns a session context for one or more user-defined functions that an
+        integrated analytics engine runs together in a job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/get_glue_function_session_context.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#get_glue_function_session_context)
+        """
+
     def get_lf_tag(self, **kwargs: Unpack[GetLFTagRequestTypeDef]) -> GetLFTagResponseTypeDef:
         """
         Returns an LF-tag definition.
@@ -590,6 +605,18 @@ class LakeFormationClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/get_temporary_data_location_credentials.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#get_temporary_data_location_credentials)
+        """
+
+    def get_temporary_glue_function_credentials(
+        self, **kwargs: Unpack[GetTemporaryGlueFunctionCredentialsRequestTypeDef]
+    ) -> GetTemporaryGlueFunctionCredentialsResponseTypeDef:
+        """
+        Returns temporary credentials that you can use to download the artifacts of a
+        user-defined function whose <code>GovernanceMode</code> is
+        <code>LAKE_FORMATION</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/get_temporary_glue_function_credentials.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#get_temporary_glue_function_credentials)
         """
 
     def get_temporary_glue_partition_credentials(

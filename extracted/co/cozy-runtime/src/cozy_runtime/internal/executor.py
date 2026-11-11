@@ -29,8 +29,8 @@ Calls run side by side, as tasks on one bounded pool (`serve`): every per-call c
 reply and frame names its `request_id`, and answers to the executor's requests come back by
 `seq` (`seam.Mux`). Cancellation is call-keyed: `ctx.raise_if_cancelled` reads the mark a
 `cancel` command left for this exact request. Every telemetry step, stage and progress call
-and, in a group, every mirrored call is a safe point. TensorD supervises executor lifetime
-and records each attempt's terminal outcome.
+is a safe point. In a group every GPU runs each attempt's handler (`parallel/spmd`). TensorD
+supervises executor lifetime and records each attempt's terminal outcome.
 
 The env seal is enforced, not trusted: the sealed values are snapshotted BEFORE torch is
 imported, re-imposed before Torch import, CUDA init and every reply, and any names package
@@ -55,9 +55,12 @@ import importlib.util
 import json
 import math
 import os
+import secrets
+import shutil
 import signal
 import socket
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -65,7 +68,7 @@ from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, S
 from dataclasses import replace
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Literal, NoReturn
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, TypedDict, cast
 
 import msgspec
 import tensorfs
@@ -101,9 +104,8 @@ from cozy_runtime.accel.kernels import Launch, Plan, TritonKernels
 from cozy_runtime.author import _activity, _split
 from cozy_runtime.author import _request_path as request_path
 from cozy_runtime.author._activity import ThreadPoolExecutor
-from cozy_runtime.author._app import Registration
 from cozy_runtime.author._artifacts import ModelChoice
-from cozy_runtime.author._calls import Exchange, Nudges, _Broker, _CallType, _export
+from cozy_runtime.author._calls import Exchange, Nudges, _Broker, _CallType
 from cozy_runtime.author._context import CURRENT, Device, place
 from cozy_runtime.author._demand import shape_cell
 from cozy_runtime.author._describe import freeze
@@ -114,7 +116,6 @@ from cozy_runtime.author._errors import (
     MEMORY_EXHAUSTED,
     CapabilityError,
     ConformanceError,
-    DoesNotFit,
     Fault,
     InvalidRequest,
     Outcome,
@@ -127,6 +128,7 @@ from cozy_runtime.author._errors import (
 from cozy_runtime.author._files import File, GrantedInput, InputMetadata, References, Tree
 from cozy_runtime.author._invoke import (
     Invocation,
+    InvocationResult,
     PreparedRequest,
     prepare,
     run_prepared,
@@ -141,9 +143,10 @@ from cozy_runtime.author._model import (
     WarningRow,
     component_use,
 )
-from cozy_runtime.author._observations import DEVICE, PLANS, Attribution
+from cozy_runtime.author._observations import DEVICE, PLANS, Attribution, Observation
 from cozy_runtime.author._services import AdjustmentRow, ProgressFrame
 from cozy_runtime.author._services import Attempt as AuthorAttempt
+from cozy_runtime.author._signature import analyze
 from cozy_runtime.author._weights import Weights as RawWeights
 from cozy_runtime.derive import recipes as declared_recipes
 from cozy_runtime.derive.operations import app as builtin_operations_app
@@ -155,7 +158,6 @@ from cozy_runtime.internal import (
     attention_sol,
     attention_ulysses,
     builtin_operations,
-    call_types,
     canonical,
     child_env,
     contract,
@@ -163,7 +165,6 @@ from cozy_runtime.internal import (
     execution_evidence,
     fp8_linear,
     int8_linear,
-    interface_wheel,
     kernel_cache,
     kernel_compile,
     kernel_ready,
@@ -194,7 +195,7 @@ from cozy_runtime.internal.encoding.selection import (
     measure_device,
     measure_runtime,
 )
-from cozy_runtime.internal.executor_replies import GpuMemory, RankMemory
+from cozy_runtime.internal.executor_replies import GpuMemory
 from cozy_runtime.internal.exits import Exit
 from cozy_runtime.internal.fill import (
     Checkpoint,
@@ -207,7 +208,7 @@ from cozy_runtime.internal.fill import (
 from cozy_runtime.internal.lora_composition import bind as bind_adapters
 from cozy_runtime.internal.lora_contract import read as read_adapter_graph
 from cozy_runtime.internal.model_values import read_values_into
-from cozy_runtime.internal.parallel import commands, copy_engine, cp, links, mirror, wire
+from cozy_runtime.internal.parallel import commands, copy_engine, cp, links, spmd, wire
 from cozy_runtime.internal.parallel.commands import (
     Attention,
     Choice,
@@ -216,10 +217,10 @@ from cozy_runtime.internal.parallel.commands import (
     GroupHardware,
     Join,
     Kernels,
-    RequestMemory,
     Shutdown,
 )
 from cozy_runtime.internal.parallel.group import (
+    ENDED,
     ChildProcess,
     RankGroup,
     RankSpec,
@@ -227,7 +228,6 @@ from cozy_runtime.internal.parallel.group import (
     form_rank,
     ready_rank,
 )
-from cozy_runtime.internal.parallel.mirror import mirror_component
 from cozy_runtime.internal.parallel.plan import (
     GpuDivergence,
     GroupPlan,
@@ -258,8 +258,19 @@ else:
     import resource
 
 if TYPE_CHECKING:
+    import torch.distributed
+    from torch import device as TorchDevice
+    from torch._C._distributed_c10d import Store
+
+    from cozy_runtime.author._context import DeviceType
+    from cozy_runtime.author._model import ModelRegistry, Residency
+    from cozy_runtime.author._observations import Scalar
+    from cozy_runtime.author._signature import Surface
+    from cozy_runtime.internal.discovery import Discovered
+    from cozy_runtime.internal.encoding.selection import DeviceFacts
     from cozy_runtime.internal.residency import Memory
     from cozy_runtime.internal.residency import Request as MemoryRequest
+    from cozy_runtime.internal.weights import Backend, Placement
 
 #: The native inline-result door: a small typed result rides
 #: the terminal envelope and skips the file-store round trip. Larger than this REFUSES at
@@ -285,8 +296,44 @@ _SEALED: dict[str, str] = {}
 _OPEN_MAX = 10240
 
 
-#: Each callable an attempt may call, by (module, export).
-type CallBindings = dict[tuple[str, str], _CallType]
+class CallBindings(Mapping[tuple[str, str], _CallType]):
+    """Each callable an attempt may call, by (module, export). Another package's function is bound
+    from its own code at its first call, so a dependency nothing calls is never imported."""
+
+    def __init__(
+        self, bound: dict[tuple[str, str], _CallType], installed: Collection[tuple[str, str]]
+    ) -> None:
+        self._bound, self._installed = bound, frozenset(installed) - bound.keys()
+
+    def __getitem__(self, key: tuple[str, str]) -> _CallType:
+        binding = self._bound.get(key)
+        if binding is None:
+            if key not in self._installed:
+                raise KeyError(key)
+            module, export = key
+            try:
+                function = getattr(importlib.import_module(module), export, None)
+            except ImportError as exc:
+                raise CapabilityError(
+                    f"{module}:{export} can't be imported here: {exc}", code="child_interface"
+                ) from exc
+            if not callable(function):
+                raise CapabilityError(
+                    f"{module}:{export} is not installed in this environment",
+                    code="child_interface",
+                )
+            binding = self._bound[key] = _serving(module, export, analyze(function, name=export))
+        return binding
+
+    def __iter__(self) -> Iterator[tuple[str, str]]:
+        return iter((*self._bound, *self._installed))
+
+    def __len__(self) -> int:
+        return len(self._bound) + len(self._installed)
+
+
+#: One reply, event or document on the seam: JSON, readers narrow (`seam.Channel.send`).
+type Reply = dict[str, object]
 
 
 def _capture_seal() -> None:
@@ -355,7 +402,7 @@ def _restore_seal() -> tuple[str, ...]:
     return changed
 
 
-def _env_document() -> dict[str, Any]:
+def _env_document() -> Reply:
     """The seal holds for every reply once re-imposed; names package code changed are reported."""
     changed = _restore_seal()
     return {"env_intact": not _env_changes(), "env_changed": list(changed)}
@@ -591,8 +638,12 @@ def _safeguard_rows(found: dict[str, list[str]]) -> list[dict[str, str]]:
     return [
         adjustment_row(
             AdjustmentRow(
-                "warn", "graphs", None, None,
-                f"{graphs.SAFEGUARDS[code]} ({len(whys)}×): {whys[0]}", "Runtime",
+                "warn",
+                "graphs",
+                None,
+                None,
+                f"{graphs.SAFEGUARDS[code]} ({len(whys)}×): {whys[0]}",
+                "Runtime",
             )
         )
         for code, whys in found.items()
@@ -615,25 +666,27 @@ def _granted(input_id: str, file: InputFile) -> GrantedInput:
     )
 
 
-def _serving(module: str, export: str, surface: Any) -> _CallType:
+def _serving(module: str, export: str, surface: Surface) -> _CallType:
     """A callable bound from its own code, called as every function is: `{payload, models}`.
     Its direct caller passes the model slots beside the request fields (`_CallType.models`)."""
     slots = frozenset(binding.param for binding in surface.model_bindings)
-    request, result = surface.payload_type, surface.result_type
-    if not all(isinstance(t, type) and issubclass(t, msgspec.Struct) for t in (request, result)):
+    payload, answer = surface.payload_type, surface.result_type
+    if not all(isinstance(t, type) and issubclass(t, msgspec.Struct) for t in (payload, answer)):
         raise CapabilityError("callable types are not structured", code="child_interface")
+    # Both are Struct classes: checked just above.
+    request, result = cast("type[msgspec.Struct]", payload), cast("type[msgspec.Struct]", answer)
     fields = msgspec.structs.fields(request)
     if any(field.name in slots for field in fields):
         request = msgspec.defstruct(
             request.__name__,
-            # An invocable's defaults are immutable scalars (`_wire_default`), never factories.
+            # Request parameters' defaults are immutable scalars (`_wire_default`), never factories.
             [(f.name, f.type, f.default) for f in fields if f.name not in slots],
             module=module,
             kw_only=True,
             frozen=True,
             forbid_unknown_fields=True,
         )
-    choice: Any = ModelChoice | None
+    choice: object = ModelChoice | None
     models = msgspec.defstruct(
         f"{export}Models",
         [(slot, choice, None) for slot in sorted(slots)],
@@ -644,20 +697,11 @@ def _serving(module: str, export: str, surface: Any) -> _CallType:
     call = msgspec.defstruct(
         f"{export}Call", [("payload", request), ("models", models)], module=module, frozen=True
     )
-    return _CallType("", module, export, call, result, models=slots)
+    struct = next((p.name for p in surface.params if p.role == "payload"), "")
+    return _CallType("", module, export, call, result, models=slots, request_parameter=struct)
 
 
 # --------------------------------------------------------------------------- state
-
-
-@dataclasses.dataclass(slots=True)
-class _RankRequest:
-    """A follower's part of rank 0's attempt: its open request and the record it lands in."""
-
-    construction: str
-    id: str
-    context: contextlib.AbstractContextManager[list[GpuMemory]]
-    rows: list[GpuMemory]
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -671,10 +715,96 @@ class _Install:
     reports: dict[str, Mapping[str, object]]
 
 
+class _Ranks:
+    """GPU 0's hold on one group attempt: once its own handler ends, every follower's answer, and
+    the attempt's outcome over all of them (`settle`)."""
+
+    def __init__(self, group: RankGroup, ranks: spmd.Ranks) -> None:
+        self.group, self.ranks = group, ranks
+        self.settled = False
+        #: each follower's own varena record
+        self.memory: list[GpuMemory] = []
+
+    def settle(
+        self, envelope: InvocationResult | None, outcome: Outcome
+    ) -> tuple[InvocationResult | None, Outcome]:
+        """GPU 0's handler ended with `outcome`. A failure ends every GPU's attempt (`interrupt`);
+        then every follower answers. The attempt's outcome is the first GPU's, in GPU order, that
+        did not just end because another did; all succeeded, their results' shapes agree."""
+        self.settled = True
+        group, ranks = self.group, self.ranks
+        ok = outcome.terminal == "succeeded"
+        # A follower's failure interrupted the group first: GPU 0's own failure is its consequence.
+        followed = group.interrupted
+        with contextlib.suppress(Exception):
+            ranks.end(ok)
+        if not ok:
+            group.interrupt()
+        mine = Executor._ended(outcome, group.interrupted)
+        if followed and not ok:
+            mine = Outcome("failed", "runtime", ENDED, outcome.message)
+        try:
+            frames = group.collect("run", shown=False)
+        except GroupRefusal as lost:
+            return None, classify(GroupRefusal(f"{lost.message}"[:1200], code="group_broken"))
+        replies: list[wire.RunReply] = []
+        for follower, frame in zip(group.followers, frames, strict=True):
+            try:
+                reply = msgspec.convert(frame, wire.RunReply)
+            except msgspec.ValidationError as exc:
+                group._break(f"{follower.gpu} answered its run malformed: {exc}"[:600])
+                return None, classify(GroupRefusal(group.broken, code="group_broken"))
+            replies.append(reply)
+            rank = follower.rank
+            group.working_peaks[rank] = max(
+                group.working_peaks.get(rank, 0), reply.working_peak_bytes
+            )
+            kernel_ready.report(rank, reply.kernels)
+            group.began.extend((rank, kernel) for kernel in reply.began)
+            if reply.evidence is not None:
+                execution_evidence.widen(group.rank_records, rank, reply.evidence)
+            if reply.sol_calls:
+                attention_sol.record_rank(rank, reply.sol_calls)
+            if reply.memory is not None:
+                self.memory.append(msgspec.convert(reply.memory, GpuMemory))
+            group.rank_timing[rank] = {
+                "exchange": reply.exchange,
+                "steps": reply.steps,
+                "stages": reply.stages,
+            }
+        answered = list(zip(group.followers, replies, strict=True))
+        ranks.clear({0: ranks.sequence, **{f.rank: r.meetings for f, r in answered}})
+        rows = [(0, mine)] + [
+            (f.rank, Outcome(r.terminal, r.origin, r.code, r.detail))
+            for f, r in answered
+            if not r.ok
+        ]
+        failed = [(rank, row) for rank, row in rows if row.terminal != "succeeded"]
+        if failed:
+            rank, cause = next(((r, o) for r, o in failed if o.code != ENDED), failed[0])
+            if cause.code == ENDED and rank == 0 and not ok:
+                cause = outcome  # no GPU names another cause: GPU 0's own
+            if rank == 0:
+                return None, cause
+            return None, replace(cause, message=ends(f"{group.gpu(rank)}: {cause.message}", 2048))
+        theirs = spmd.signature(envelope.result) if envelope is not None else ""
+        for follower, reply in answered:
+            if reply.signature != theirs:
+                return None, classify(
+                    GpuDivergence(
+                        follower.gpu,
+                        "result",
+                        f"{group.gpu(0)} returned {theirs[:300]}, "
+                        f"{follower.gpu} {reply.signature[:300]}",
+                    )
+                )
+        return envelope, outcome
+
+
 class _CompositeResidency:
     """The placements of a many-model construction, one per model slot, as one."""
 
-    def __init__(self, rows: Mapping[str, Any]) -> None:
+    def __init__(self, rows: Mapping[str, Placement | _CompositeResidency]) -> None:
         self.rows = dict(rows)
 
     def open_attempt(self) -> None:
@@ -711,8 +841,56 @@ class _CompositeResidency:
         }
 
 
-def _construction_record(facts: Mapping[str, Any]) -> dict[str, Any]:
+class _Delivery(TypedDict, total=False):
+    """A model's delivery facts, as a group prepare sums them (`plan.wire_document`)."""
+
+    variant: str
+    label: str
+    materialization: str
+    routes: dict[str, int]
+    kernels: dict[str, int]
+
+
+class _PrepareFacts(TypedDict, total=False):
+    """The prepare facts this executor writes (`Executor.facts`) and reads back."""
+
+    prepared_unix_ms: int
+    prepare_ms: float
+    fill_ms: float
+    warm_ms: float
+    cuda_init_ms: float
+    stages: list[tuple[str, float]]
+    #: (parameters on meta, parameters on a real device, the bytes those real ones hold)
+    substrate_census: list[int]
+    filled: int
+    filled_bytes: int
+    device_free_bytes: int
+    device_total_bytes: int
+    allocator_bytes: int
+    reserved_bytes: int
+    rss_bytes: int
+    gpu_name: str
+    torch_version: str
+    cuda_version: str
+    declared_scopes: dict[str, list[str]]
+    layouts: dict[str, object]
+    attention: object
+    delivery: _Delivery
+
+
+class _AttentionAnswer(TypedDict, total=False):
+    """A follower's `attention` reply (`select_attention`)."""
+
+    ok: bool
+    rank: int
+    hosts: dict[str, dict[str, int]]
+    code: str
+    detail: str
+
+
+def _construction_record(prepare: Mapping[str, object]) -> Reply:
     """A prepare's run-record entry: when it ended, how long it took and its legs."""
+    facts = cast("_PrepareFacts", prepare)  # this executor wrote them
     return {
         "prepared_unix_ms": int(facts.get("prepared_unix_ms", 0)),
         "prepare_ms": float(facts.get("prepare_ms", 0)),
@@ -727,20 +905,22 @@ class _OnDemand:
     reads it. Until then the runtime's probes see no model, and a request that never reads it
     builds and fetches nothing of it."""
 
-    def __init__(self, build: Callable[[], Any]) -> None:
+    def __init__(self, build: Callable[[], Model[object] | _OnDemand]) -> None:
         self._build = build
-        self._model: Any = None
+        self._model: Model[object] | _OnDemand | None = None
         self._lock = threading.Lock()
 
     @property
-    def _cozy_residency(self) -> Any:
-        return getattr(self._model, "_cozy_residency", None)
+    def _cozy_residency(self) -> Residency | None:
+        residency: Residency | None = getattr(self._model, "_cozy_residency", None)
+        return residency
 
     @property
-    def _cozy_active(self) -> Any:
-        return getattr(self._model, "_cozy_active", None)
+    def _cozy_active(self) -> tuple[str, tuple[str, ...]] | None:
+        active: tuple[str, tuple[str, ...]] | None = getattr(self._model, "_cozy_active", None)
+        return active
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> Any:  # type: ignore[explicit-any]  # forwards to its model
         with self._lock:
             if self._model is None:
                 self._model = self._build()
@@ -789,7 +969,7 @@ def _attention_divergence(mine: Choice, reply: Mapping[str, object]) -> str:
     return attention.difference(mine, theirs)
 
 
-def _segment(stage: str, step: int, held: attention.Applied, at_us: int = 0) -> dict[str, Any]:
+def _segment(stage: str, step: int, held: attention.Applied, at_us: int = 0) -> Reply:
     """A selection a run served from step `step` of `stage` on (`execution_evidence`)."""
     return {
         "stage": stage,
@@ -858,7 +1038,7 @@ class Executor:
         #: HOST ONLY: the constructed slots built on first use (`on_demand=`), by the same path
         self.on_demand: frozenset[str] = frozenset()
         #: each on-demand model built so far, by parameter: its prepare facts (the run record's)
-        self.built_on_demand: dict[str, dict[str, Any]] = {}
+        self.built_on_demand: dict[str, Reply] = {}
         self.active = ""
         self.started = False
         #: torch, the Runtime and the package are imported (`Start.import_only`); no device yet
@@ -867,18 +1047,13 @@ class Executor:
         self.forked: set[int] = set()
         self.package_warmed = False
         #: rank 0 only: each follower's own start ledger, in rank order
-        self.follower_stages: list[list[Any]] = []
+        self.follower_stages: list[list[object]] = []
         #: this generation's load reply
-        self.load_reply: dict[str, Any] = {}
-        #: follower only: the attempt spool and allocator bytes at its first mirrored call
-        self._run_entry: Path | None = None
-        #: follower only: every kernel its processors held across that attempt's calls
-        self._run_held = attention.Applied({}, ())
-        self._rank_request: _RankRequest | None = None
+        self.load_reply: Reply = {}
         #: HOST ONLY: this process's start, for the execution record (wall ms and its legs)
-        self.boot: dict[str, Any] = {}
+        self.boot: Reply = {}
         #: HOST ONLY: this rank's pid, host ordinal, GPU uuid and arch, read once after device init
-        self._identity: dict[str, Any] | None = None
+        self._identity: Reply | None = None
         #: THIS process's rank in its generation's group and the group's size (cr-068). A
         #: plain executor is rank 0 of a world of 1 and forms nothing; rank 0 of a wider
         #: world spawns and drives the followers; a follower's channel is rank 0's seam.
@@ -889,9 +1064,9 @@ class Executor:
         self.group: RankGroup | None = None
         #: the kernels that began serving as this attempt was admitted (`_grant`)
         self._granted: list[str] = []
-        self.pg: Any = None
+        self.pg: torch.distributed.ProcessGroup | None = None
         #: between `join` and `form`: this follower's rank spec and the store it reached
-        self._forming: tuple[RankSpec, Any] | None = None
+        self._forming: tuple[RankSpec, Store] | None = None
         #: HOST ONLY: the group's handle as every installed component reads it (`CpComms`)
         self.comms: cp.CpComms | None = None
         #: rank 0 only: the measured links and route this group formed over
@@ -903,36 +1078,28 @@ class Executor:
         self._boundary: Callable[[], None] | None = None
         #: HOST ONLY: process-lifetime execution stream, selected on every Runtime worker.
         #: Library workspaces/tensors may retain it until exit; do not destroy it at unload.
-        self.execution_stream: Any = None
+        self.execution_stream: torch.cuda.Stream | None = None
         self._startup_reported = False
-        #: the attempt spool while an attempt runs: where a mirrored call's payloads go
-        self._attempt_spool: Path | None = None
-        #: rank 0 only: the attempt whose cancel marker the mirror reads before each call
-        self._attempt_request = ""
         #: cr-038: the fill plane's capture directory, taken from the sealed environment
         #: snapshot at process entry and passed down — never read ambiently.
         self.fill_forensics_dir = fill_forensics_dir
-        self.torch: Any = None
+        self.torch: ModuleType | None = None
         #: The BACKEND this epoch serves. Every device operation below goes through
         #: `accel` with it, so the whole process holds exactly one backend conditional and
         #: it is this line (#447). A weightless executor never reaches a device at all.
         self.device_kind = accel.host_backend_family()
-        self.registry: Any = None
-        self.backend: Any = None
-        self.residency: Any = None
+        self.registry: ModelRegistry | None = None
+        self.backend: Backend | None = None
+        self.residency: Placement | _CompositeResidency | None = None
         self.model_executors: list[Executor] = []
-        self.models: dict[str, Any] = {}
-        # Accepted with this member (or its deferred container), never a per-alias cache.
-        self.group_components: dict[tuple[str, str], tuple[Any, Any]] = {}
+        self.models: dict[str, Model[object] | _OnDemand] = {}
+        #: (model, component) of every sharded root this process holds
         self.group_sharded: set[tuple[str, str]] = set()
-        #: component -> the follower rank that keeps it resident for the whole group
-        self.group_hosted: dict[tuple[str, str], int] = {}
         #: the many-model construction this per-model generation belongs to, if any
         self._group_parent: Executor | None = None
         self._group_model_key = ""
-        self._group_attempts: dict[str, Path] = {}
-        self.surface_names: dict[str, Any] = {}
-        self.discovered: Any = None
+        self.surface_names: dict[str, Surface] = {}
+        self.discovered: Discovered | None = None
         #: HOST ONLY: what its attempts may call (`Start.call_interfaces`), and their bindings
         self.call_interfaces: tuple[CallInterface, ...] = ()
         self._bound_calls: tuple[tuple[CallInterface, ...], CallBindings] | None = None
@@ -959,11 +1126,11 @@ class Executor:
         #: kernel installs waiting for their build on every GPU (`Plan.when_ready`), by set name
         self._installs: list[_Install] = []
         #: Device facts for this prepared generation, reused for per-request pin checks.
-        self.device_facts: Any = None
+        self.device_facts: DeviceFacts | None = None
         #: a follower's hold of rank 0's attention selection for the current attempt
         self._attention_hold = contextlib.ExitStack()
         self._producer_hold: tuple[str, dict[str, object]] | None = None
-        self.facts: dict[str, Any] = {}
+        self.facts: Reply = {}
         #: what this generation's plan serves decoded because the device refused its leaf
         self.refused_leaves: tuple[RefusedLeaves, ...] = ()
         self.schema_digests: dict[str, str] = {}
@@ -980,7 +1147,7 @@ class Executor:
 
     # ------------------------------------------------------------------ prepare
 
-    def handle(self, command: commands.Command, forwarded: Forwarded) -> dict[str, Any]:
+    def handle(self, command: commands.Command, forwarded: Forwarded) -> Reply:
         """Answer one decoded command (a follower's `shutdown` ends its loop before this)."""
         match command:
             case Hello():
@@ -1009,15 +1176,11 @@ class Executor:
                     return self.unsettled(target, exc, command.request_id)
             case Map():
                 return self.map(command)
-            case RequestMemory():
-                reply = msgspec.to_builtins(self.request_memory(command))
-                assert isinstance(reply, dict)
-                return reply
             case _:
                 # `cancel` is the seam's (`Mux`), and `shutdown` ends the loop.
                 raise AssertionError(f"{type(command).__name__} is not answered here")
 
-    def hello(self) -> dict[str, Any]:
+    def hello(self) -> Reply:
         """What TensorD (`Hello`) and rank 0 (`group._Hello`) read: who this process is, its
         versions and its seal."""
         return {
@@ -1034,7 +1197,7 @@ class Executor:
 
     # ------------------------------------------------------------- the group (cr-068)
 
-    def _initialize_device(self, torch: Any) -> dict[str, Any] | None:
+    def _initialize_device(self, torch: ModuleType) -> Reply | None:
         """Runtime's ONE explicit accelerator init boundary, idempotent per process.
 
         Under a group every rank pins its own card: rank r of a seal naming K entries is
@@ -1097,16 +1260,19 @@ class Executor:
         place(self._device())
         return None
 
-    def _execution_context(self) -> contextlib.AbstractContextManager[Any]:
+    def _execution_context(self) -> contextlib.AbstractContextManager[object]:
         """Enter the process's CUDA stream on a command, idle or readiness worker.
 
         Before device initialization this is cold, preserving Hello/Fork behavior. Torch's
         stream context selects the stream's device and restores the caller's actual stream.
         """
         stream = self.host.execution_stream
-        return contextlib.nullcontext() if stream is None else self.torch.cuda.stream(stream)
+        if stream is None:
+            return contextlib.nullcontext()
+        torch = cast("ModuleType", self.torch)  # a stream exists only once the device opened torch
+        return cast("contextlib.AbstractContextManager[object]", torch.cuda.stream(stream))
 
-    def _open_memory(self, torch: Any) -> None:
+    def _open_memory(self, torch: ModuleType) -> None:
         """This executor's local residency and its pure-site execution helpers."""
         from cozy_runtime.internal import execution
         from cozy_runtime.internal.residency import Memory
@@ -1125,12 +1291,12 @@ class Executor:
         host.execution = execution
         host.memory = memory
 
-    def _rank_identity(self) -> dict[str, Any]:
+    def _rank_identity(self) -> Reply:
         owner = self.host
         if owner._identity is None:
             owner._identity = execution_evidence.identity(
                 self.torch,
-                self.device_kind == "cuda" and accel.present(self.torch, self.device_kind),
+                self.device_kind == "cuda" and accel.present(self.torch, self.device_kind),  # type: ignore[arg-type]  # torch is imported before a request reaches here
                 self.rank if self.world > 1 else 0,
                 _sealed_entries(),
             )
@@ -1143,9 +1309,9 @@ class Executor:
         start_us: int,
         end_us: int,
         impl: str = "",
-        segments: Sequence[Mapping[str, Any]] = (),
+        segments: Sequence[Mapping[str, object]] = (),
         refused: Mapping[str, int] | None = None,
-    ) -> dict[str, Any]:
+    ) -> Reply:
         """The attempt's execution record: degree, every GPU, and the setup it ran on."""
         gpus = [
             execution_evidence.record(
@@ -1172,17 +1338,20 @@ class Executor:
                 gpus.append({**row, "attention": {**row["attention"], "requested": pin}})
         facts = self.facts
         transport = self.host.transport
-        crossing: dict[str, Any] = {}
+        crossing: Reply = {}
         if transport is not None:
             from cozy_runtime.internal.parallel import ulysses
 
             crossing = {"transport": {**transport.document(), "exchange": ulysses.taken()}}
+        if self.group is not None:
+            # each follower's exchanges, step points and stalls, by its GPU (`wire.RunReply`)
+            crossing["followers"] = {
+                self.group.gpu(rank): timing for rank, timing in self.group.rank_timing.items()
+            }
         return {
             "degree": self.world,
             "gpus": gpus,
             **crossing,
-            # per spread method: the calls each rank ran, and why a rank declined
-            "spread": dict(self.group.spread_log) if self.group is not None else {},
             "executor": dict(self.host.boot),
             "plan": {k: v for m in self.model_executors or [self] for k, v in m.planned.items()},
             "plan_reports": {
@@ -1204,7 +1373,7 @@ class Executor:
             self.host.display_limit = limits
             memory.limit(self._card_budget(memory.device))
 
-    def _card_budget(self, device: Any) -> int | None:
+    def _card_budget(self, device: TorchDevice) -> int | None:
         """The development `gpu_memory_limit`, and on a GPU that drives a display its limit
         while it does (varena's limit counts the driver's own charge), the lower of the two."""
         host = self.host
@@ -1217,14 +1386,22 @@ class Executor:
         print(f"[memory] GPU {index} drives a display: at most {budget >> 20} MiB", file=sys.stderr)
         return budget
 
-    def _rank_device(self, torch: Any) -> Any:
-        if self.device_kind == "cuda" and accel.present(torch, self.device_kind):
-            return torch.device("cuda", self.rank if self.world > 1 else 0)
-        if self.device_kind == "mps" and accel.present(torch, self.device_kind):
-            return torch.device("mps")
-        return torch.device("cpu")
+    def _seal_fits(self, degree: int) -> bool:
+        """A group of `degree` drives one sealed GPU per process; a CPU group (gloo, the free
+        end-to-end test's) any number of processes."""
+        return degree <= 1 or self.device_kind != "cuda" or degree == len(_sealed_entries())
 
-    def join(self, command: Join) -> dict[str, Any]:
+    def _rank_device(self, torch: ModuleType) -> TorchDevice:
+        device: TorchDevice
+        if self.device_kind == "cuda" and accel.present(torch, self.device_kind):
+            device = torch.device("cuda", self.rank if self.world > 1 else 0)
+        elif self.device_kind == "mps" and accel.present(torch, self.device_kind):
+            device = torch.device("mps")
+        else:
+            device = torch.device("cpu")
+        return device
+
+    def join(self, command: Join) -> Reply:
         """A FOLLOWER's first half of the group: rank 0's store reached and its device current.
         Its answer is the readiness every GPU gives before any enters group init (`form`)."""
         if self.rank == 0:
@@ -1268,7 +1445,7 @@ class Executor:
             return self._unformed(exc, "join")
         return {"ok": True, "rank": self.rank, "world": self.world, "backend": spec.backend}
 
-    def form(self, command: Form) -> dict[str, Any]:
+    def form(self, command: Form) -> Reply:
         """A FOLLOWER's second half: every GPU said it is ready, so it enters group init."""
         forming, self._forming = self._forming, None
         if forming is None:
@@ -1287,12 +1464,12 @@ class Executor:
         reply = {"ok": True, "rank": self.rank, "world": self.world, "backend": spec.backend}
         if command.exchange:
             exchange, reply["check"] = copy_engine.form(
-                self.torch, self.pg, self.rank, self.world, command.exchange, self._host_tier()
+                self.torch, self.pg, self.rank, self.world, command.exchange, self._host_tier()  # type: ignore[arg-type]  # torch is imported before a request reaches here
             )
             copy_engine.install(exchange, self.pg)
         return reply
 
-    def _unformed(self, exc: Exception, step: str) -> dict[str, Any]:
+    def _unformed(self, exc: Exception, step: str) -> Reply:
         self.poisoned = f"{step} failed: {type(exc).__name__}"
         detail = f"{_gpu(self.rank)} could not {step} the group: {type(exc).__name__}: {exc}"
         return {
@@ -1309,16 +1486,16 @@ class Executor:
         name = self.transport.links.exchange
         return "" if name == "nccl" else name
 
-    def _host_tier(self) -> Any:
+    def _host_tier(self) -> varena.Pages | None:
         """This GPU's host tier, which a host-staged exchange's inbox comes from."""
         memory = self.host.memory
         return memory.pages if memory is not None else None
 
-    def _formed(self, pg: Any) -> None:
+    def _formed(self, pg: torch.distributed.ProcessGroup) -> None:
         """Rank 0 maps the exchange of the group and checks its bytes (`copy_engine.form`)."""
         assert self.transport is not None
         exchange, self.transport.check = copy_engine.form(
-            self.torch, pg, 0, self.world, self._group_exchange(), self._host_tier()
+            self.torch, pg, 0, self.world, self._group_exchange(), self._host_tier()  # type: ignore[arg-type]  # torch is imported before a request reaches here
         )
         copy_engine.install(exchange, pg)
         self.transport.route = exchange.name if exchange is not None else "nccl"
@@ -1336,8 +1513,8 @@ class Executor:
                 self._interrupted.set()
 
     def _group_reform(self) -> None:
-        """Rank 0's half of `mirror.mirror_component`: after a GPU ran short of memory in a
-        call, the group forms again for the next attempt (§5.5)."""
+        """After an attempt the group's interrupt ended (a GPU failed, ran short of memory or was
+        cancelled), the group forms again for the next one; weights stay (§5.5)."""
         assert self.group is not None and self.torch is not None
         exchange = self.host._group_exchange()
         self.host.pg = self.group.form(
@@ -1350,214 +1527,213 @@ class Executor:
         if self.host.comms is not None:
             self.host.comms.pg = self.host.pg
 
-    def run(self, command: dict[str, Any]) -> dict[str, Any]:
-        """Run a prepared sharded component, or one this rank hosts, under its leader's
-        scope and execution modes. A hosted call's result returns through the spool."""
+    def run(self, frame: Reply) -> Reply:
+        """A FOLLOWER's part of GPU 0's attempt: the same handler on the same request (`spmd`)."""
         if self.rank == 0:
             return {
                 "ok": False,
                 "code": "not_a_follower",
-                "detail": f"{_gpu(0)} leads the group's calls; it is not sent them",
+                "detail": f"{_gpu(0)} takes its attempts from the machine",
             }
-        if not self.ready or self.torch is None:
-            return {"ok": False, "code": "executor_not_ready", "detail": "no generation is Ready"}
-        if self.poisoned:
-            return {"ok": False, "code": "poisoned_generation", "detail": self.poisoned}
-        named = command.get("component")
-        if (
-            not isinstance(named, list)
-            or len(named) != 2
-            or not all(isinstance(part, str) for part in named)
-        ):
-            return {
-                "ok": False,
-                "code": "gpu_divergence",
-                "detail": "component identity is not a model/root pair",
-            }
-        name = (named[0], named[1])
-        target = self.group_components.get(name)
-        hosted = self.group_hosted.get(name) == self.rank
-        spread = "method" in command
-        if target is None or not (hosted or spread or name in self.group_sharded):
-            self.poisoned = "mirrored call names no prepared sharded component"
-            return {
-                "ok": False,
-                "code": "gpu_divergence",
-                "detail": f"{_gpu(self.rank)} holds no sharded component {name!r}",
-                "rank": self.rank,
-            }
-        _model, component = target
-        sol_counts: dict[str, int] = {}
-        result: Any = None
-        models = {key[0]: model for key, (model, _root) in self.group_components.items()}
-        started_us = execution_evidence.now_us()
-        # A spread call rank 0 waits on over the group: a header always answers it.
-        answered = False
         try:
-            run = wire.RunCommand.read(command)
-            scoped = {scope.model: scope for scope in run.scopes}
-            spool = Path(command["spool"])
-            held = attention.observed(
-                {f"{m}/{c}": root for (m, c), (_, root) in self.group_components.items()}
-            )
-            if self._run_entry != spool:
-                self._run_entry = spool
-                self._run_held = held
-            # A run takes rank 0's kernel at a step boundary (`_upgrade_attention`).
-            self._run_held = self._run_held.joined(held)
-            scopes = command["scopes"]
-            if not isinstance(scopes, list) or not 1 <= len(scopes) <= len(models):
-                raise GroupRefusal("mirrored scope set is not a bounded prepared model set")
-            seen: set[str] = set()
-            active: dict[str, tuple[str, ...]] = {}
-            with contextlib.ExitStack() as stack:
-                for scope in scopes:
-                    key = scope["model"]
-                    if key not in models or key in seen:
-                        raise GroupRefusal("mirrored scope names an unknown or duplicate model")
-                    seen.add(key)
-                    components = tuple(scope["components"])
-                    if not components or any(
-                        (key, root) not in self.group_components for root in components
-                    ):
-                        raise GroupRefusal("mirrored scope names no prepared component")
-                    residency = models[key]._cozy_residency
-                    if residency is not None and self._group_attempts.get(key) != spool:
-                        # A rank that hosts a component holds a set rank 0's plan never
-                        # priced, so it may always make room: demand-pull when measured.
-                        residency.open_attempt()
-                        self._group_attempts[key] = spool
-                    if residency is not None:
-                        choices = scoped[key].lora
-                        if set(choices) != set(components):
-                            raise GroupRefusal(
-                                "mirrored LoRA choices do not cover the scope's components"
-                            )
-                        stack.enter_context(residency.mirrored_lora(choices))
-                    stack.enter_context(models[key]._cozy_scope(scope["method"], components))
-                    active[key] = components
-                if name[0] not in active or name[1] not in active[name[0]]:
-                    raise GroupRefusal("sharded component has no active owning scope")
-                references = {
-                    key: root
-                    for key, (_owner, root) in self.group_components.items()
-                    if key[0] in active and key[1] in active[key[0]]
-                }
-                # Stage the same scopes before allocating the incoming activations.
-                stack.enter_context(self.torch.inference_mode(command["inference_mode"]))
-                stack.enter_context(self.torch.set_grad_enabled(command["grad_enabled"]))
-                if not (hosted or spread):
-                    stack.enter_context(cp.gated_call())
-                for kind, dtype in (command.get("autocast") or {}).items():
-                    stack.enter_context(
-                        self.torch.autocast(device_type=kind, dtype=getattr(self.torch, dtype))
+            asked = commands.decode(cast("dict[str, object]", frame["prepare"]))[0]
+            command = commands.decode(cast("dict[str, object]", frame["invoke"]))[0]
+            entropy, tag = int(cast("int", frame["entropy"])), str(frame["tag"])
+            if not isinstance(asked, PrepareRequest) or not isinstance(command, Invoke):
+                raise ValueError("a run carries a prepare_request and an invoke")
+        except (KeyError, TypeError, ValueError, msgspec.ValidationError) as exc:
+            self.poisoned = "a malformed run"
+            return {"ok": False, "code": "gpu_divergence", "detail": f"{exc}"[:900]}
+        target = self._target(command, attempt=False)  # GPU 0 activated it
+        if isinstance(target, dict):
+            return target
+        return target._rank_attempt(asked, command, entropy, tag)
+
+    def _rank_attempt(
+        self, asked: PrepareRequest, command: Invoke, entropy: int, tag: str
+    ) -> Reply:
+        """The attempt on this follower: prepared and run as GPU 0 runs it, in a private spool,
+        with no progress, publish or child calls, its saves recording only what they would
+        save. Its reply is how its handler ended and its part of the record."""
+        if not self.ready or self.poisoned or self.torch is None or self.discovered is None:
+            code = "poisoned_generation" if self.poisoned else "executor_not_ready"
+            return {"ok": False, "code": code, "detail": self.poisoned or "no generation is Ready"}
+        ranks = spmd.Ranks(
+            rank=self.rank,
+            world=self.world,
+            # A follower runs an attempt only in its formed group.
+            pg=cast("torch.distributed.ProcessGroup", self.host.pg),
+            device=self._rank_device(self.torch),
+            tag=tag,
+            gpu=_gpu,
+        )
+        held = attention.observed(self._attention_roots())
+        hold = self.host._producer_hold
+        states = hold[1] if hold is not None and hold[0] == self.construction else None
+        spool = Path(tempfile.mkdtemp(prefix=f"cozy-gpu{self.rank}-"))
+        started_us = execution_evidence.now_us()
+        rows: list[GpuMemory] = []
+        sol: dict[str, int] = {}
+        served = attention_ulysses.Seen()
+        envelope: InvocationResult | None = None
+        outcome: Outcome | None = None
+        record: AuthorAttempt | None = None
+        working = 0
+        exchange: dict[str, float] = {}
+        from cozy_runtime.internal.parallel import ulysses
+
+        ulysses.taken()  # what an earlier attempt left uncounted is not this one's
+        stage_memo.ENGINE.open(None, spool)
+        if self.residency is not None:
+            self.residency.open_attempt()
+        try:
+            with (
+                self._request(command.request_id) as rows,
+                attention_sol.observing(held=states) as sol,
+                attention_ulysses.observing() as served,
+                spmd.attempt(ranks, entropy),
+            ):
+                try:
+                    registration = self.discovered.app.get(asked.entrypoint)
+                    prepared = prepare(
+                        registration,
+                        asked.payload,  # type: ignore[arg-type]  # an invoke's payload is a JSON object
+                        # TensorFS's own InputMetadata: it has every field prepare reads.
+                        input_metadata=asked.input_metadata,  # type: ignore[arg-type]
                     )
-                stack.enter_context(wire.attention_context(run))
-                states = None
-                if self._producer_hold is not None:
-                    construction, held_store = self._producer_hold
-                    if name[0].startswith(construction + "#"):
-                        states = held_store
-                sol_counts = stack.enter_context(attention_sol.observing(held=states))
-                served = stack.enter_context(attention_ulysses.observing())
-                args, kwargs = wire.run_call(
-                    run,
-                    wire.Broadcast(references).receive(run, self.pg, self._rank_device(self.torch))
-                    if command.get("broadcast")
-                    else wire.TensorSpool(
-                        spool / str(command.get("payloads", "ranks")), references
-                    ),
-                    device=self._rank_device(self.torch),
-                )
-                if spread:
-                    # A pure method call whose one tensor result goes straight to rank 0.
-                    output = getattr(component, str(command["method"]))(*args, **kwargs)
-                    head = wire.p2p_head(output)
-                    # From the header on, rank 0 reads this answer; before it, `send_nothing`.
-                    answered = True
-                    wire.send_tensor(output, head, 0, self.pg)
-                elif hosted:
-                    call = component.get_submodule(str(command.get("module", "")))
-                    result = wire.marshal(
-                        call(*args, **kwargs),
-                        wire.TensorSpool(spool / str(command.get("results", "hosted"))),
+                    envelope, outcome, record = run_prepared(
+                        prepared,
+                        Invocation(
+                            request_id=command.request_id,
+                            spool=spool,
+                            deadline=_deadline(command.deadline_s),
+                            device=self._device(),
+                            cancel=self.host._interrupted.is_set,
+                            # An on-demand proxy stands for its model (`_OnDemand.__getattr__`).
+                            models=cast("Mapping[str, Model[object]]", self.models),
+                            recipes=self.discovered.recipes,
+                            trees=command.trees,
+                            assets=_granted_inputs(command),
+                            max_output_bytes=command.max_output_bytes,
+                            writes=False,
+                        ),
                     )
-                else:
-                    component(*args, **kwargs)
-                accel.drain(self.torch, self.device_kind)
-            self._attempt_spool = spool
-            ranked = self.host._rank_request
-            working = accel.allocator_peak(self.host.memory, ranked.id) if ranked is not None else 0
+                except Exception as exc:
+                    outcome = classify(exc)
+                finally:
+                    with contextlib.suppress(Exception):
+                        ranks.end(outcome is not None and outcome.terminal == "succeeded")
+                if self.host.memory is not None:
+                    working = accel.allocator_peak(self.host.memory, command.request_id)
+                exchange = ulysses.taken()
         except Exception as exc:
-            ending = mirror.ending(exc)
-            # where it was raised, innermost first: a GPU's own traceback stays on that GPU
-            at = " < ".join(
-                f"{Path(f.filename).name}:{f.lineno} {f.name}"
-                for f in reversed(traceback.extract_tb(exc.__traceback__)[-3:])
-            )
-            if spread and not answered:
-                declined = self._declines(exc, ending)
-                with contextlib.suppress(Exception):
-                    wire.send_nothing(
-                        0, self.pg, self._rank_device(self.torch), failed=declined is None
-                    )
-                if declined is not None:
-                    # Nothing moved that this rank must keep: the call is pure and runs on
-                    # another rank. The generation stays Ready.
-                    return {
-                        "ok": True,
-                        "rank": self.rank,
-                        "component": list(name),
-                        "sol_calls": {},
-                        "working_peak_bytes": 0,
-                        "declined": declined,
-                    }
-            if ending is not None and not spread:
-                # Short of memory, or rank 0 ended this collective: never this process's
-                # poison. A mirrored call's GPU waits for the group to form again.
-                return {
-                    "ok": False,
-                    "code": ending,
-                    "detail": f"{type(exc).__name__}: {str(exc)[:640]} (at {at})"[:900],
-                    "rank": self.rank,
-                    **({} if hosted else {"rerun": True}),
-                }
             outcome = classify(exc)
-            self.poisoned = f"mirrored {name} failed: {outcome.code}"
-            return {
-                "ok": False,
-                "code": outcome.code,
-                "detail": f"{type(exc).__name__}: {str(exc)[:640]}"[:900],
-                "rank": self.rank,
-            }
-        return {
-            "ok": True,
-            "rank": self.rank,
-            "component": list(name),
-            "sol_calls": sol_counts,
-            "working_peak_bytes": working,
-            **({"result": result} if hosted else {}),
-            "evidence": execution_evidence.record(
+            with contextlib.suppress(Exception):
+                ranks.end(False)
+        finally:
+            stage_memo.ENGINE.close(lambda *_, **__: None)
+            shutil.rmtree(spool, ignore_errors=True)
+            # As GPU 0's last attempt out: its stream drains, then the last step's holds go.
+            with contextlib.suppress(Exception):
+                accel.drain(self.torch, self.device_kind)
+            if self.residency is not None:
+                self.residency.release()
+        assert outcome is not None
+        outcome = self._ended(outcome, self.host._interrupted.is_set())
+        failed = outcome.terminal == "failed"
+        if failed and (
+            outcome.code == DEVICE_FAULT or not accel.healthy(self.torch, self.device_kind)
+        ):
+            self._poison(f"device fault: {outcome.message}"[:300])
+        reply = wire.RunReply(
+            ok=outcome.terminal == "succeeded",
+            code=outcome.code,
+            detail=ends(outcome.message, 900),
+            terminal=outcome.terminal,
+            origin=outcome.origin,
+            signature=spmd.signature(envelope.result) if envelope is not None else "",
+            meetings=ranks.sequence,
+            sol_calls=dict(sol),
+            working_peak_bytes=working,
+            evidence=execution_evidence.record(
                 self._rank_identity(),
                 started_us,
                 execution_evidence.now_us(),
                 execution_evidence.attention(
-                    observed=execution_evidence.observed(self._run_held.hosts),
+                    observed=execution_evidence.observed(held.hosts),
                     impl=attention.implementations(served),
-                    kernels=attention.evidence(self._run_held.totals(), served.refused),
+                    kernels=attention.evidence(held.totals(), served.refused),
                 ),
             ),
-        }
+            memory=msgspec.to_builtins(rows[0]) if rows else None,
+            exchange=exchange,
+            steps={
+                name: list(track.series or ())
+                for name, track in (record.attribution.steps if record else {}).items()
+            },
+            stages={
+                name: round(track.total_ms, 1)
+                for name, track in (record.attribution.stages if record else {}).items()
+            },
+        )
+        return {**msgspec.to_builtins(reply), "rank": self.rank, "poisoned": bool(self.poisoned)}
 
-    def _declines(self, exc: Exception, ending: str | None) -> str | None:
-        """Why a spread call is declined rather than failed: this GPU's memory refused it up front
-        (`DoesNotFit`, before the pass that would run out), so another GPU takes it. An allocation
-        that failed partway fails the call: nothing runs again for it."""
-        if isinstance(exc, DoesNotFit):
-            return f"{DOES_NOT_FIT}: {exc}"[:300]
-        return None
+    def _poison(self, why: str) -> None:
+        """This process serves nothing more; its first cause stays its cause."""
+        self.poisoned = self.poisoned or why
 
-    def _group_refusal(self, exc: GroupRefusal, *, closing: bool = True) -> dict[str, Any]:
+    @staticmethod
+    def _ended(outcome: Outcome, interrupted: bool) -> Outcome:
+        """An aborted collective after the group's interrupt is that GPU's call ending, not
+        its device failing (`spmd`)."""
+        if (
+            interrupted
+            and outcome.code == DEVICE_FAULT
+            and outcome.message.startswith("DistBackendError")
+        ):
+            return Outcome("failed", "runtime", ENDED, outcome.message)
+        return outcome
+
+    @contextlib.contextmanager
+    def _ranks(self, command: Invoke, prepared: PreparedRequest) -> Iterator[_Ranks | None]:
+        """GPU 0's side of a group attempt: every follower is sent the same request (`run`)
+        before GPU 0's handler starts, and answers once its own ends (`_Ranks.settle`)."""
+        group, asked = self.group, prepared.asked
+        if group is None:
+            yield None
+            return
+        assert isinstance(asked, PrepareRequest)
+        entropy = secrets.randbits(63)
+        tag = f"{entropy:016x}"
+        ranks = spmd.Ranks(
+            rank=0,
+            world=self.world,
+            # A formed group has its process group, and an attempt runs after the device is up.
+            pg=cast("torch.distributed.ProcessGroup", self.host.pg),
+            device=self._rank_device(cast("ModuleType", self.torch)),
+            tag=tag,
+            gpu=_gpu,
+        )
+        group.broadcast(
+            {
+                "cmd": "run",
+                "prepare": commands.encode(asked),
+                "invoke": commands.encode(command),
+                "entropy": entropy,
+                "tag": tag,
+                "kernels": list(kernel_ready.agreed()),
+            }
+        )
+        attempt = _Ranks(group, ranks)
+        try:
+            with spmd.attempt(ranks, entropy):
+                yield attempt
+        finally:
+            if not attempt.settled:
+                with contextlib.suppress(Exception):
+                    attempt.settle(None, Outcome("failed", "runtime", ENDED, "GPU 0 failed"))
+
+    def _group_refusal(self, exc: GroupRefusal, *, closing: bool = True) -> Reply:
         """A group that could not form or hold is THIS process's poison: the worker
         rebuilds the whole cgroup, never a partial group."""
         self.poisoned = f"group: {exc.code}"
@@ -1566,16 +1742,14 @@ class Executor:
         return {"ok": False, "code": exc.code, "detail": exc.message[:900]}
 
     def _install_group(
-        self, torch: Any, model: Any, homes: Mapping[str, int]
-    ) -> dict[str, Any] | None:
-        """Every rank shards its replica, takes its side of the mirror, and keeps the placeable
-        components TensorD homed on its GPU (`Binding.homes`)."""
+        self, torch: ModuleType, model: Model[object], homes: Mapping[str, int]
+    ) -> Reply | None:
+        """Every GPU shards its replica's `_cp_plan` components and keeps the placeable
+        components TensorD homed on its GPU (`Binding.homes`); every GPU runs the handler."""
         if self.world <= 1:
             return None
         owner = self.host
-        roots = self.backend.roots
-        for component, root in roots.items():
-            owner.group_components[(self._group_model_key, component)] = (model, root)
+        roots = cast("Backend", self.backend).roots  # a member shards after its load
         candidates = cp.sharding_candidates(model)
         # An explicitly group-compatible auxiliary model can be replicated beside a
         # sharded model. The complete multi-model prepare still requires a sharded root.
@@ -1589,6 +1763,7 @@ class Executor:
                 return self._group_refusal(exc)
         record = model._cozy_record
         skipped = set(record.skipped) if record is not None else set()
+        sharded: set[str] = set()
         for label, component in candidates:
             component_name = next((name for name, root in roots.items() if root is component), None)
             if component_name is None and label.rpartition(".")[2] in skipped:
@@ -1597,21 +1772,8 @@ class Executor:
                 return self._group_refusal(
                     GroupRefusal("a sharded component is not a prepared root")
                 )
-            name = (self._group_model_key, component_name)
-            owner.group_sharded.add(name)
-            if self.rank == 0:
-                assert self.group is not None
-                mirror_component(
-                    component,
-                    name=name,
-                    prepared=owner.group_components,
-                    group=self.group,
-                    spool=lambda: owner._attempt_spool,
-                    cancelled=owner._attempt_cancelled,
-                    reform=owner._group_reform,
-                    device=self._rank_device(torch),
-                )
-        sharded = {name[1] for name in owner.group_sharded if name[0] == self._group_model_key}
+            owner.group_sharded.add((self._group_model_key, component_name))
+            sharded.add(component_name)
         hosted = {component: gpu for component, gpu in homes.items() if gpu}
         for component, gpu in hosted.items():
             if component not in roots or component in sharded or not 0 < gpu < self.world:
@@ -1619,57 +1781,19 @@ class Executor:
                     GroupRefusal(f"{component} cannot be homed on GPU {gpu}", code="group_unformed")
                 )
         for component_name, home in hosted.items():
-            name = (self._group_model_key, component_name)
-            owner.group_hosted[name] = home
-            if self.rank == 0:
-                assert self.group is not None
-                mirror.host_component(
-                    roots[component_name],
-                    name=name,
-                    prepared=owner.group_components,
-                    group=self.group,
-                    spool=lambda: owner._attempt_spool,
-                    rank=home,
-                    device=self._rank_device(torch),
-                    cancelled=owner._attempt_cancelled,
-                )
-        # Every rank may take a spread call. A rank homing a placeable component takes one
-        # only beside everything it holds (measured room), so it never gives up the
-        # component it hosts for a clip (`Executor.run`).
-        sparing = sorted(set(owner.group_hosted.values()))
-        if self.rank == 0:
-            assert self.group is not None
-            if hosted:
-                object.__setattr__(
-                    model, "_cozy_placement", mirror.GroupPlacement(hosted, self.group, torch)
-                )
-            for component_name, root in roots.items():
-                name = (self._group_model_key, component_name)
-                if name in owner.group_sharded or name in owner.group_hosted:
-                    continue
-                mirror.install_spread(
-                    root,
-                    name=name,
-                    prepared=owner.group_components,
-                    group=self.group,
-                    spool=lambda: owner._attempt_spool,
-                    device=self._rank_device(torch),
-                    cancelled=owner._attempt_cancelled,
-                )
+            spmd.host_component(
+                roots[component_name], name=component_name, home=home, rank=self.rank
+            )
+        if hosted:
+            object.__setattr__(model, "_cozy_placement", spmd.Placement(hosted, self.rank))
         self.facts["sequence_parallel"] = {
             "degree": self.world,
             "rank": self.rank,
             "components": list(installed),
             "hosted": hosted,
-            "spread_ranks": list(range(self.world)),
-            "sparing_ranks": sparing,
             "followers": list(self.group.pids()) if self.group is not None else [],
         }
         return None
-
-    def _attempt_cancelled(self) -> bool:
-        """A group's one attempt is cancelled (its calls on the other GPUs read this)."""
-        return bool(self._attempt_request) and self.mux.cancelled(self._attempt_request)
 
     def _warm_package(self) -> str:
         """Give the package its ONE chance to pay its deferred import cost off the lock.
@@ -1724,11 +1848,11 @@ class Executor:
             for index in begun:
                 varena.request_boundary(index, begin=False)
 
-    def start(self, command: Start) -> dict[str, Any]:
+    def start(self, command: Start) -> Reply:
         with self._device_work():
             return self._start(command)
 
-    def _start(self, command: Start) -> dict[str, Any]:
+    def _start(self, command: Start) -> Reply:
         """Bring EVERY rank up before any construction: seal, group, torch, package, warmup.
 
         Rank 0 spawns its followers first and hands them this command, so every rank's
@@ -1774,7 +1898,7 @@ class Executor:
         cuda_start = (
             self.device_kind == "cuda" and bool(command.devices) and not command.import_only
         )
-        if degree != expected or (degree > 1 and degree != len(_sealed_entries())):
+        if degree != expected or not self._seal_fits(degree):
             self.poisoned = "sequence-parallel degree mismatch"
             return {
                 "ok": False,
@@ -1784,9 +1908,12 @@ class Executor:
                 f"{len(_sealed_entries())} device(s) ({sealed_devices!r})",
             }
         if cuda_start and importlib.util.find_spec("torch") is None:
-            return {"ok": False, "code": "torch_absent",
-                    "detail": "CUDA Runtime startup without Torch has no qualified "
-                              "device adapter; no GPU work was started"}
+            return {
+                "ok": False,
+                "code": "torch_absent",
+                "detail": "CUDA Runtime startup without Torch has no qualified "
+                "device adapter; no GPU work was started",
+            }
         if self.started or (command.import_only and self.imported):
             return self._start_reply([], reused=True)
         _restore_seal()
@@ -1802,7 +1929,10 @@ class Executor:
                 "detail": f"the start names no readable PackageInterface: {exc}"[:900],
             }
         # Run 6132: an environment without torch runs on the devices it was given, untouched.
-        device = bool(command.devices) and importlib.util.find_spec("torch") is not None
+        cpu_group = degree > 1 and self.device_kind != "cuda"
+        device = (bool(command.devices) or cpu_group) and importlib.util.find_spec(
+            "torch"
+        ) is not None
         constructs = device and any(
             not slot.weights for entry in interface.entrypoints for slot in entry.models
         )
@@ -1887,7 +2017,6 @@ class Executor:
                         importlib.import_module(name)
                     stage("runtime_imports")
             if self.discovered is None:
-                self._install_call_proxies(command.call_interfaces)
                 self._discover_provisioned(command.application, str(command.package_interface))
                 stage("package_import")
             # A fork's own Start names them again; its import-only parent installed them.
@@ -1917,7 +2046,10 @@ class Executor:
                             f"{reply.get('detail', '')}"[:800],
                             code="group_unformed",
                         )
-                if not command.import_only:
+                if not command.import_only and cpu_group:
+                    self.pg = self.group.form(self.torch, _SEALED)
+                    stage("group_form")
+                elif not command.import_only:
                     measured = links.measured(
                         links.directory(_SEALED),
                         _sealed_entries()[:degree],
@@ -1952,11 +2084,11 @@ class Executor:
         self.boot = {
             "started_unix_ms": int(time.time() * 1000 - took_ms),
             "ms": round(took_ms, 1),
-            "legs_ms": {**self.boot.get("legs_ms", {}), **dict(stages)},
+            "legs_ms": {**cast("dict[str, float]", self.boot.get("legs_ms", {})), **dict(stages)},
         }
         return self._start_reply(stages, warmup_error=warmup_error, compiles=compiles)
 
-    def fork(self, command: Fork) -> dict[str, Any]:
+    def fork(self, command: Fork) -> Reply:
         """Fork this import-only process into an executor of `command.root` (`fork/1`).
 
         The child's imports are done; its device start initializes CUDA for the first time
@@ -2040,7 +2172,7 @@ class Executor:
         child.discovered = self.discovered
         child.surface_names = dict(self.surface_names)
         legs = {
-            **self.boot.get("legs_ms", {}),
+            **cast("dict[str, float]", self.boot.get("legs_ms", {})),  # the boot's legs
             "fork": round((time.perf_counter() - started) * 1000, 1),
         }
         child.boot = {**self.boot, "legs_ms": legs}
@@ -2053,7 +2185,7 @@ class Executor:
         reused: bool = False,
         warmup_error: str = "",
         compiles: str = "",
-    ) -> dict[str, Any]:
+    ) -> Reply:
         total = free = -1
         if self.torch is not None and accel.present(self.torch, self.device_kind):
             memory = accel.allocation(self.torch, self.device_kind, self.host.memory)
@@ -2086,7 +2218,7 @@ class Executor:
         }
         return " ".join([*sorted(applied), stepcache.verdict()]).strip() or "eager"
 
-    def _model_classes(self) -> list[type[Model[Any]]]:
+    def _model_classes(self) -> list[type[Model[object]]]:
         """The classes the package's constructed Model slots declare, wherever they are
         defined (a library's, not only the entry module's)."""
         surfaces = getattr(self.discovered, "surfaces", ())
@@ -2120,7 +2252,7 @@ class Executor:
     def _execution_plan(
         self,
         model: Model[object],
-        torch: object,
+        torch: ModuleType,
         load: Callable[..., Launch],
         ready: Callable[..., Launch | None],
         reports: dict[str, Mapping[str, object]],
@@ -2158,7 +2290,7 @@ class Executor:
             )
         return identity
 
-    def _close_after(self, reply: dict[str, Any]) -> dict[str, Any]:
+    def _close_after(self, reply: Reply) -> Reply:
         """A refusal after followers were commanded leaves them mid-protocol: the process
         is poisoned and its group ends with it."""
         if self.host.group is not None and self.rank == 0:
@@ -2184,10 +2316,10 @@ class Executor:
         child.surface_names = dict(self.surface_names)
         return child
 
-    def _refusal(self, code: str, detail: str) -> dict[str, Any]:
+    def _refusal(self, code: str, detail: str) -> Reply:
         return {"ok": False, "code": code, "detail": detail}
 
-    def load(self, command: Load, forwarded: Forwarded) -> dict[str, Any]:
+    def load(self, command: Load, forwarded: Forwarded) -> Reply:
         """Construct and fill ONE construction under its key; a loaded key answers again.
 
         TensorD names the key and supplies endpoint options and memory budgets. Runtime
@@ -2228,7 +2360,7 @@ class Executor:
         self._register(key, child, reply)
         return self._load_reply(key, child, reused=False)
 
-    def _bind_parameters(self, command: Load) -> dict[str, Any] | None:
+    def _bind_parameters(self, command: Load) -> Reply | None:
         """A reuse binds aliases to the same path-ordered members."""
         members = self.model_executors or [self]
         rows = sorted(command.models, key=lambda row: row.model_binding_path)
@@ -2255,7 +2387,7 @@ class Executor:
             self.models.setdefault(name, model)
         return None
 
-    def _register(self, key: str, child: Executor, reply: dict[str, Any]) -> None:
+    def _register(self, key: str, child: Executor, reply: Reply) -> None:
         child.load_reply = reply
         self.constructions[key] = child
         self.discovered = child.discovered
@@ -2264,7 +2396,7 @@ class Executor:
         self._device_ready = child._device_ready or self._device_ready
         self.ready = True
 
-    def _load_reply(self, key: str, child: Executor, *, reused: bool) -> dict[str, Any]:
+    def _load_reply(self, key: str, child: Executor, *, reused: bool) -> Reply:
         return {
             **child.load_reply,
             "construction": key,
@@ -2279,7 +2411,7 @@ class Executor:
             for member in child.model_executors or [child]
         ]
 
-    def _follower_load(self, command: Load, forwarded: Forwarded) -> dict[str, Any]:
+    def _follower_load(self, command: Load, forwarded: Forwarded) -> Reply:
         """Rank r's half of rank 0's load: one construction, or one model of a many-model
         construction (`model_key`), filled under rank 0's agreed plan and ceiling."""
         if self.poisoned:
@@ -2322,12 +2454,12 @@ class Executor:
             self._register(key, container, reply)
         return reply
 
-    def _prepare_first(self, command: Load, forwarded: Forwarded) -> dict[str, Any]:
+    def _prepare_first(self, command: Load, forwarded: Forwarded) -> Reply:
         """Construct and fill one construction (or one model of a many-model one)."""
         with self._device_work():
             return self._prepare(command, forwarded)
 
-    def _prepare(self, command: Load, forwarded: Forwarded) -> dict[str, Any]:
+    def _prepare(self, command: Load, forwarded: Forwarded) -> Reply:
         if self.poisoned:
             return {
                 "ok": False,
@@ -2352,7 +2484,7 @@ class Executor:
         # mismatch refuses before any weight moves. Degree 1 (or absent) is a plain
         # executor, whatever the seal's width.
         degree = command.sequence_parallel_degree or 1
-        if degree != max(self.world, 1) or (degree > 1 and degree != len(_sealed_entries())):
+        if degree != max(self.world, 1) or not self._seal_fits(degree):
             self.poisoned = "sequence-parallel degree mismatch"
             return {
                 "ok": False,
@@ -2447,6 +2579,10 @@ class Executor:
             # counter noise's kernel, which a recorded step's draw needs before its capture.
             leaves.prime(torch, torch.cuda.current_device())
             philox.prime(torch.cuda.current_device())
+            if self.world > 1:  # a group's int8 wire (`ulysses`)
+                from cozy_runtime.internal.parallel import turn
+
+                turn.prime(torch.cuda.current_device())
         if self.world > 1 and self.rank == 0:
             # THE FOLLOWERS RESOLVE BESIDE RANK 0, not after it: the load goes to every rank
             # before this one reads a header, and the plans are compared at the residence
@@ -2732,7 +2868,9 @@ class Executor:
                 roots,
                 degree=self.world,
                 bits=type(model).__attention_bits__,
-                row=arch.common(map(arch.row, sms)) if self.world > 1 and all(sms) else None,
+                row=arch.common(map(arch.row, sms))
+                if self.world > 1 and sms and all(sms)
+                else None,
             )
             applied = self._reselect()
             self.device_facts = device_facts
@@ -2912,7 +3050,7 @@ class Executor:
         """Whether this model is built on first use (`on_demand=`)."""
         return self.world == 1 and binding.model_binding_path in self.host.on_demand
 
-    def _prepare_many(self, command: Load, rows: list[Binding]) -> dict[str, Any]:
+    def _prepare_many(self, command: Load, rows: list[Binding]) -> Reply:
         """Prepare one complete bounded multi-model callable in this device process; an
         on-demand model is built when the function first reads it (`_build_on_demand`)."""
         if not 1 <= len(rows) <= 16:
@@ -2937,7 +3075,7 @@ class Executor:
                 "detail": "model paths and parameters must be named and unique",
             }
 
-        children: list[tuple[str, Executor, dict[str, Any]]] = []
+        children: list[tuple[str, Executor, Reply]] = []
         for binding in rows:
             parameter = binding.model_parameter_name
             child = self._construction_child(self.construction)
@@ -3007,8 +3145,11 @@ class Executor:
             ).hexdigest()
         )
 
-        facts_rows = [(parameter, reply["facts"]) for parameter, _, reply in built]
-        last = facts_rows[-1][1] if facts_rows else {}
+        facts_rows = [
+            (parameter, cast("_PrepareFacts", reply["facts"]))  # each child's prepare reply
+            for parameter, _, reply in built
+        ]
+        last: _PrepareFacts = facts_rows[-1][1] if facts_rows else {}
         scopes = {
             f"{parameter}.{method}": [f"{parameter}/{component}" for component in components]
             for parameter, facts in facts_rows
@@ -3034,7 +3175,7 @@ class Executor:
             for name, count in (delivery.get("kernels") or {}).items():
                 kernels[str(name)] = kernels.get(str(name), 0) + int(count)
         materializations = {row.get("materialization", "") for row in deliveries.values()}
-        delivery = {
+        summary = {
             "variant": ", ".join(
                 f"{parameter}={row.get('variant', '')}" for parameter, row in deliveries.items()
             ),
@@ -3093,7 +3234,7 @@ class Executor:
             "torch_version": str(last.get("torch_version", "")),
             "cuda_version": str(last.get("cuda_version", "")),
             "custody": "joint",
-            "delivery": delivery,
+            "delivery": summary,
             "models": {parameter: facts for parameter, facts in facts_rows},
         }
         self.ready = True
@@ -3105,7 +3246,7 @@ class Executor:
             "facts": self.facts,
         }
 
-    def _build_on_demand(self, member: Executor, load: Load) -> Any:
+    def _build_on_demand(self, member: Executor, load: Load) -> Model[object] | _OnDemand:
         """An on-demand model's first read: the load its construction deferred, run in the
         attempt that reads it; a pass that never uses it builds none of it."""
         parameter = load.models[0].model_parameter_name
@@ -3122,7 +3263,8 @@ class Executor:
         self.built_on_demand[parameter] = member.facts
         self.torch = self.torch or member.torch
         if member.residency is not None:
-            self.residency.rows[parameter] = member.residency
+            # An on-demand member's parent serves the many-model composite (`_load_group`).
+            cast("_CompositeResidency", self.residency).rows[parameter] = member.residency
         return member.models[parameter]
 
     def _discover_provisioned(self, application: str, path: str) -> None:
@@ -3147,7 +3289,7 @@ class Executor:
         self.discovered = discovered
         self.surface_names = {surface.name: surface for surface in discovered.surfaces}
 
-    def _prepare_weightless(self, binding: Binding, started: float) -> dict[str, Any]:
+    def _prepare_weightless(self, binding: Binding, started: float) -> Reply:
         """A binding that declares NO MODEL: discover the release, be ready, import nothing.
 
         The whole cold path below is a fill, and there is nothing to fill. Returning here is
@@ -3190,7 +3332,7 @@ class Executor:
 
     def _target(
         self, command: PrepareRequest | Invoke, *, attempt: bool
-    ) -> Executor | dict[str, Any]:
+    ) -> Executor | Reply:
         """The construction a request or attempt runs on: the one it names. An attempt's is the
         active one from then on (`serving`); nothing moves."""
         key = command.construction
@@ -3223,7 +3365,7 @@ class Executor:
             for member in [m for m in child.model_executors or [child] if m.backend is not None]:
                 if member.residency is not None:
                     member.residency.release()
-                for model in member.backend.models.values():
+                for model in cast("Backend", member.backend).models.values():  # filtered above
                     for _, release in graphs.DECODERS:
                         release(model.module)
                     graphs.retire(self.torch, model.module)
@@ -3239,13 +3381,13 @@ class Executor:
                     return True
         return False
 
-    def serve_request(self, command: PrepareRequest) -> dict[str, Any]:
+    def serve_request(self, command: PrepareRequest) -> Reply:
         target = self._target(command, attempt=False)
         if isinstance(target, dict):
             return target
         return target.prepare_request(command)
 
-    def serve_invoke(self, command: Invoke) -> dict[str, Any]:
+    def serve_invoke(self, command: Invoke) -> Reply:
         for construction in (self, *self.constructions.values()):  # its invoke came
             with construction._prepared_lock:
                 construction.awaiting.discard(command.request_id)
@@ -3287,7 +3429,7 @@ class Executor:
                 target.residency.open_attempt()
         return None
 
-    def prepare_request(self, command: PrepareRequest) -> dict[str, Any]:
+    def prepare_request(self, command: PrepareRequest) -> Reply:
         """Resolve ONE request through the kernel's pre-admission half, and retain it.
 
         The worker calls this BEFORE it prices a plan, so the normalized features and
@@ -3325,7 +3467,8 @@ class Executor:
                 "code": "unknown_entrypoint",
                 "detail": f"{command.entrypoint!r} is not an entrypoint of this release",
             }
-        registration = self.discovered.app.get(command.entrypoint)
+        # Started: `start` discovered the release before any invoke.
+        registration = cast("Discovered", self.discovered).app.get(command.entrypoint)
         pin = _attention_pin(command.attention_kernel, command.bits)
         waits = Attribution()
         if pin and self._attention_reaches(pin):
@@ -3354,7 +3497,7 @@ class Executor:
         try:
             prepared = prepare(
                 registration,
-                command.payload,
+                command.payload,  # type: ignore[arg-type]  # an invoke's payload is a JSON object
                 input_metadata={
                     path: InputMetadata(
                         file.input_id, file.media_type, file.digest, file.length, file.order
@@ -3378,12 +3521,15 @@ class Executor:
             if self.host.mux.cancelled(command.request_id):
                 return canceled
             if not self.ready or self.poisoned:
-                return {
+                # mypy keeps the earlier check's narrowing; another thread may have changed it.
+                return {  # type: ignore[unreachable]
                     "ok": False,
                     "code": "poisoned_generation" if self.poisoned else "executor_not_ready",
                     "detail": self.poisoned or "executor stopped during request preparation",
                 }
-            self.prepared[command.request_id] = replace(prepared, stages=waits.stages)
+            self.prepared[command.request_id] = replace(
+                prepared, stages=waits.stages, asked=command if self.world > 1 else None
+            )
             self.awaiting.add(command.request_id)
             # A prepared request never dispatched must not survive for the generation.
             for stale in list(self.prepared)[: -PREPARED_HELD or None]:
@@ -3427,7 +3573,7 @@ class Executor:
             }
         return None
 
-    def invoke(self, command: Invoke, prepared: PreparedRequest, slot: _Slot) -> dict[str, Any]:
+    def invoke(self, command: Invoke, prepared: PreparedRequest, slot: _Slot) -> Reply:
         """ONE attempt through the author kernel, with the §3.4 freeze point held."""
         surface = self.surface_names[command.entrypoint]
         requested = _attention_pin(command.attention_kernel, command.bits)
@@ -3452,12 +3598,10 @@ class Executor:
         spool = Path(command.spool)
         deadline = _deadline(command.deadline_s)
         torch = self.torch
-        self._attempt_spool = self.host._attempt_spool = spool
-        self.host._attempt_request = command.request_id
         if self.group is not None:
             self.group.working_peaks.clear()
             self.group.rank_records.clear()
-            self.group.spread_log.clear()
+            self.group.rank_timing.clear()
 
         # The lossy lane, carrying BOTH kinds of live record. A progress frame is not
         # retained anywhere: its `position` is the monotone unit count the worker's
@@ -3477,11 +3621,11 @@ class Executor:
         served_attention: attention.Applied | None = None
         sol_counts: dict[str, int] = {}
         sol_rank_counts: dict[int, dict[str, int]] = {}
-        sol_kernels: list[dict[str, Any]] = []
+        sol_kernels: list[dict[str, Scalar]] = []
         served_impls = attention_ulysses.Seen()
         # A kernel that finishes compiling mid-run serves from the next step or stage on
         # (`_upgrade_attention`): each selection the run served and from which step.
-        segments: list[dict[str, Any]] = []
+        segments: list[Reply] = []
         later: list[attention.Applied] = []
         #: each kernel that became ready mid-run, and the step from which it served; in a
         #: group, on which GPU
@@ -3499,7 +3643,7 @@ class Executor:
                 gpu = self.group.gpu
                 swapped.extend((kernel, {**point[0], "gpu": gpu(rank)}) for rank, kernel in began)
 
-        def boundary(frame: Any) -> None:
+        def boundary(frame: ProgressFrame | Observation) -> None:
             progress(frame)
             if isinstance(frame, ProgressFrame) and frame.call_request is None and frame.stage:
                 stage[0] = frame.stage
@@ -3509,9 +3653,12 @@ class Executor:
             if frame.position is not None:
                 steps[frame.stage] = frame.position
             at = point[0] = {"stage": frame.stage, "step": steps.get(frame.stage, 0), **here}
-            swapped.extend((name, at) for name in kernel_ready.boundary())
-            if pin or served_attention is None:
-                return  # an override holds its kernel for every step
+            # A group's kernels change only between attempts: its followers took this attempt's
+            # set with its `run` and meet no boundary of GPU 0's, so GPU 0 decides nothing new here.
+            agreed = kernel_ready.agreed() if self.group is not None else None
+            swapped.extend((name, at) for name in kernel_ready.boundary(agreed))
+            if pin or served_attention is None or self.group is not None:
+                return  # an override, or a group's agreed selection, holds for every step
             if not segments:
                 segments.append(_segment("", 0, served_attention, started_us))
             if not self._upgrade_attention(CURRENT.get()):
@@ -3523,7 +3670,7 @@ class Executor:
 
         record: AuthorAttempt | None = None
         # Weights grants are the attempt's own: its sources and outputs end with it.
-        sources: dict[str, RawWeights[Any]] = {
+        sources: dict[str, RawWeights[Model[object]]] = {
             name: RawWeights(manifest) for name, manifest in command.sources.items()
         }
         exchange = self._exchange(command.request_id)
@@ -3550,7 +3697,6 @@ class Executor:
                 WARNINGS.attempt() as warnings,
                 request_path.serving() as blocking,
                 self._request(command.request_id) as own_memory,
-                self._ranks_request(command.request_id) as rank_memory,
                 attention.override(self._attention_snapshot(), self._attention_roots(), swap, pin)
                 if pin
                 else contextlib.nullcontext(
@@ -3559,6 +3705,7 @@ class Executor:
                 self._ranks_attention(pin, served_attention),
                 attention_sol.observing(ranks=sol_rank_counts, kernels=sol_kernels) as sol_counts,
                 attention_ulysses.observing() as served_impls,
+                self._ranks(command, prepared) as group_attempt,
             ):
                 if removed := attention.retired(command.attention_kernel):
                     said = f"attention kernel {removed} is gone: the normal choice runs"
@@ -3571,9 +3718,14 @@ class Executor:
                         spool=spool,
                         deadline=deadline,
                         device=self._device(),
-                        cancel=functools.partial(self.host.mux.cancelled, command.request_id),
-                        models=self.models,
-                        recipes=self.discovered.recipes,
+                        # A group's attempt also stops once another GPU's ended it (`_Ranks`).
+                        cancel=lambda: (
+                            self.host.mux.cancelled(command.request_id)
+                            or (self.group is not None and self.group.interrupted)
+                        ),
+                        # An on-demand proxy stands for its model (`_OnDemand.__getattr__`).
+                        models=cast("Mapping[str, Model[object]]", self.models),
+                        recipes=cast("Discovered", self.discovered).recipes,  # started
                         progress=boundary,
                         # cr-012: the inputs the WORKER already fetched, verified and spooled.
                         # Every value is a path inside this attempt's own spool: this process is
@@ -3606,6 +3758,9 @@ class Executor:
                         calls=self.host._call_broker(command.request_id, self.host.call_interfaces),
                     ),
                 )
+                if group_attempt is not None:
+                    envelope, outcome = group_attempt.settle(envelope, outcome)
+                    rank_memory = group_attempt.memory
                 if (memory := self.host.requests.get(command.request_id)) is not None:
                     # A call that ran out of memory: what its memory learns from.
                     memory.failed = outcome.code in CAPACITY_CODES
@@ -3615,13 +3770,22 @@ class Executor:
             if record is None:
                 record = AuthorAttempt(command.request_id, spool, 0, sink=progress)
         assert record is not None
+        if self.group is not None and self.group.interrupted and not self.group.broken:
+            try:
+                self._group_reform()
+            except Exception as exc:
+                self.poisoned = f"group: could not form again: {type(exc).__name__}: {exc}"[:300]
         self.handled[command.request_id] = (outcome, stage[0], record)
         # A failure the device raised (CUDA's or NCCL's own error, not capacity), or one that
         # left it faulted: this process serves nothing more, so it is poisoned and the machine
         # ends it, freeing everything (12167 and 12293 ran on a faulted one and failed again).
         failed = outcome.terminal == "failed" and torch is not None
-        if failed and (outcome.code == DEVICE_FAULT or not accel.healthy(torch, self.device_kind)):
-            self.poisoned = self.poisoned or f"device fault: {outcome.message}"[:300]
+        if (
+            failed
+            and torch is not None  # `failed` already holds it; this narrows it
+            and (outcome.code == DEVICE_FAULT or not accel.healthy(torch, self.device_kind))
+        ):
+            self._poison(f"device fault: {outcome.message}"[:300])
         if self.rank == 0:
             for member in self.model_executors or [self]:
                 self._emit_gemm(record, member)
@@ -3687,8 +3851,8 @@ class Executor:
                 record.emit(
                     "confession", "attention.sol.kernel", fields.pop("source"), rank=0, **fields
                 )
-            for row in attention.failures(served_attention.totals(), sol_kernels):
-                record.emit("log", "attention kernel failed, a fallback served", "warn", **row)
+            for failure in attention.failures(served_attention.totals(), sol_kernels):
+                record.emit("log", "attention kernel failed, a fallback served", "warn", **failure)
         # Nothing was swapped, so the restore left the sites exactly as the entry walk read them.
         restored = (
             served_attention
@@ -3699,10 +3863,8 @@ class Executor:
         # The last attempt out drains the device, with none running.
         last = self.host.in_flight.last(slot)
         varena = [*own_memory, *rank_memory]
-        memory = {"varena": msgspec.to_builtins(varena)} if varena else None
+        used = {"varena": msgspec.to_builtins(varena)} if varena else None
         handler_ms = (time.perf_counter() - lease_acquired) * 1000
-        self._attempt_spool = self.host._attempt_spool = None
-        self.host._attempt_request = ""
         if self.group is not None and self.group.broken and not self.poisoned:
             # A FOLLOWER DIED OR DIVERGED UNDER THIS ATTEMPT (cr-068): the group is one
             # executor, so this process is poisoned with it and the worker rebuilds all K.
@@ -3798,7 +3960,7 @@ class Executor:
             ],
             "ignored": list(record.ignored),
             "oversize_result_bytes": oversize,
-            "memory": memory,
+            "memory": used,
             "metrics": {
                 "handler_ms": round(handler_ms, 3),
                 "device_lease_ms": round(lease_ms, 3),
@@ -3832,8 +3994,8 @@ class Executor:
         still match through attention._matches."""
         return "+".join(sorted(self.models)) + "/" if self.models else ""
 
-    def _attention_roots(self) -> dict[str, Any]:
-        roots: dict[str, Any] = {}
+    def _attention_roots(self) -> Reply:
+        roots: Reply = {}
         executors = self.model_executors or [self]
         for executor in executors:
             if executor.backend is None:
@@ -3877,7 +4039,7 @@ class Executor:
         lane wanted, and why, also said as a warning line (a machine before TensorD keeps
         `gemm.*` drops the fact)."""
 
-        def fallback(value: str, **fields: Any) -> None:
+        def fallback(value: str, **fields: Scalar) -> None:
             record.emit("confession", "gemm.fallback", value, **fields)
             record.emit("log", "a GEMM served below its lane", "warn", kernel=value, **fields)
 
@@ -3889,7 +4051,7 @@ class Executor:
         native = {"int8": int8_linear.OP, "fp8": fp8_linear.OP, "w4a8": w4a8_linear.OP}
         for (component, leaf), sites in sorted(counted.items()):
             kernel, form = serving(leaf, index), FORMATS[leaf]
-            fields: dict[str, Any] = {"component": prefix + component, "sites": sites}
+            fields: dict[str, Scalar] = {"component": prefix + component, "sites": sites}
             record.emit("confession", "gemm.selected", kernel, format=form, leaf=leaf, **fields)
             wanted = native.get(form, kernel)
             reason = prebuilt.lost(form, sm) or (missing[0].reason if missing else "")
@@ -3931,7 +4093,7 @@ class Executor:
         except attention.AttentionRefusal:
             return True  # a malformed pin refuses where it is planned
 
-    def _attention_device(self, pin: str) -> Any:
+    def _attention_device(self, pin: str) -> DeviceFacts:
         device = next(
             (e.device_facts for e in (self.model_executors or [self]) if e.device_facts), None
         )
@@ -4028,35 +4190,34 @@ class Executor:
         asked = functools.partial(
             Kernels, construction=self.construction, model_key=self._group_model_key
         )
-        with group.hold(range(1, group.degree)):
-            try:
-                replies = group.call(commands.encode(asked(sets=tuple(sorted(launches)))))
-                for follower, reply in zip(group.followers, replies, strict=True):
-                    if not reply.get("ok"):
-                        raise GpuDivergence(follower.gpu, "kernels", str(reply.get("detail")))
-                    missing = set(launches) - set(reply.get("built") or ())
-                    for name in sorted(set(reply.get("failed") or ()) & missing):
-                        self._refuse_install(
-                            name,
-                            "kernels_failed",
-                            f"{follower.gpu} has no build of it; the group serves without it",
-                        )
-                        self._drop((name,))
-                    launches = {n: launch for n, launch in launches.items() if n not in missing}
-                installed = self._install(launches) if launches else []
-                if not installed:
-                    return None
-                command = asked(sets=tuple(installed), install=True)
-                replies = group.call(commands.encode(command))
-                for follower, reply in zip(group.followers, replies, strict=True):
-                    if not reply.get("ok"):
-                        raise GpuDivergence(
-                            follower.gpu,
-                            "kernels",
-                            f"{_gpu(0)} installed {installed}: {reply.get('detail')}"[:800],
-                        )
-            except GroupRefusal as exc:
-                return self._group_refusal(exc)
+        try:
+            replies = group.call(commands.encode(asked(sets=tuple(sorted(launches)))))
+            for follower, reply in zip(group.followers, replies, strict=True):
+                if not reply.get("ok"):
+                    raise GpuDivergence(follower.gpu, "kernels", str(reply.get("detail")))
+                missing = set(launches) - set(reply.get("built") or ())
+                for name in sorted(set(reply.get("failed") or ()) & missing):
+                    self._refuse_install(
+                        name,
+                        "kernels_failed",
+                        f"{follower.gpu} has no build of it; the group serves without it",
+                    )
+                    self._drop((name,))
+                launches = {n: launch for n, launch in launches.items() if n not in missing}
+            installed = self._install(launches) if launches else []
+            if not installed:
+                return None
+            command = asked(sets=tuple(installed), install=True)
+            replies = group.call(commands.encode(command))
+            for follower, reply in zip(group.followers, replies, strict=True):
+                if not reply.get("ok"):
+                    raise GpuDivergence(
+                        follower.gpu,
+                        "kernels",
+                        f"{_gpu(0)} installed {installed}: {reply.get('detail')}"[:800],
+                    )
+        except GroupRefusal as exc:
+            return self._group_refusal(exc)
         return None
 
     def kernels(self, command: Kernels) -> Frame:
@@ -4119,21 +4280,19 @@ class Executor:
             executor.attention = replace(applied, waiting=())
             return False
         executor.attention = fresh
-        if executor.group is not None:
-            with executor.group.hold(range(1, executor.group.degree)):
-                if executor._agree_attention(poison=False):
-                    # Every GPU back on the prepared selection; one that cannot take it back
-                    # leaves a divergent group, refused.
-                    executor.attention_defaults.restore()
-                    executor.attention = applied
-                    executor._agree_attention()
-                    executor.attention = replace(applied, waiting=())
-                    return False
+        if executor.group is not None and executor._agree_attention(poison=False):
+            # Every GPU back on the prepared selection; one that cannot take it back
+            # leaves a divergent group, refused.
+            executor.attention_defaults.restore()
+            executor.attention = applied
+            executor._agree_attention()
+            executor.attention = replace(applied, waiting=())
+            return False
         assert executor.backend is not None
         executor.attention_defaults = attention.snapshot(dict(executor.backend.roots))
         return True
 
-    def _agree_attention(self, *, poison: bool = True) -> dict[str, Any] | None:
+    def _agree_attention(self, *, poison: bool = True) -> Reply | None:
         """THE GROUP SERVES ONE SELECTION, WHOLE, THAT EVERY GPU HAS READY: each site's kernel
         and Sol's dense reference. Every follower installs rank 0's through the
         `attention.install` rank 0 selected with, never waiting for a build, and answers what
@@ -4192,7 +4351,7 @@ class Executor:
                 )
         return None
 
-    def _adopt_attention(self, command: Attention, choice: Choice) -> dict[str, Any]:
+    def _adopt_attention(self, command: Attention, choice: Choice) -> Reply:
         """A follower's half of `_agree_attention`: rank 0's whole selection installed here as
         this construction's prepared one, and what this GPU then serves."""
         target = self._follower_target(command.construction, command.model_key)
@@ -4227,7 +4386,7 @@ class Executor:
         serves = attention.chosen(roots)
         return {"ok": True, "rank": self.rank, "choice": msgspec.to_builtins(serves)}
 
-    def select_attention(self, command: Attention) -> dict[str, Any]:
+    def select_attention(self, command: Attention) -> Reply:
         """A FOLLOWER restores its prepared selection and, given rank 0's `pin` for the next
         attempt (empty is the prepared one), holds it and answers what its sites now hold."""
         if command.adopt is not UNSET:
@@ -4251,122 +4410,21 @@ class Executor:
             )
         except attention.AttentionRefusal as exc:
             return {"ok": False, "code": exc.code, "detail": str(exc)[:900], "rank": self.rank}
-        # One attempt's producer states live across its mirrored calls; the restore or the
+        # One attempt's producer states live across its calls; the restore or the
         # next selection closes them.
         store: dict[str, object] = {}
         self._attention_hold.callback(close_producer_states, store)
         self._producer_hold = (command.construction, store)
         return {"ok": True, "rank": self.rank, "hosts": held.hosts}
 
-    def _followers_attention(self, pin: str | UnsetType = UNSET) -> list[dict[str, Any]]:
+    def _followers_attention(self, pin: str | UnsetType = UNSET) -> list[_AttentionAnswer]:
         assert self.group is not None
         self.group.broadcast(commands.encode(Attention(construction=self.construction, pin=pin)))
         replies = self.group.collect("attention")
         for reply in (reply for reply in replies if not reply.get("ok")):
             detail = f"{_gpu(int(reply.get('rank', -1)))}: {reply.get('detail', '')}"[:900]
             raise InvalidRequest(detail, code=str(reply.get("code")))
-        return replies
-
-    def request_memory(self, command: RequestMemory) -> RankMemory:
-        """A follower's part of rank 0's attempt: its own request, begun, planned and ended
-        with rank 0's (`_ranks_request`), its record in the end's reply."""
-        state, rank, request_id = self.host._rank_request, self.rank, command.request_id
-        refused = functools.partial(RankMemory, ok=False, rank=rank, request_id=request_id)
-        if not request_id or command.construction not in self.constructions:
-            return refused(code="construction_absent")
-        if command.phase == "begin":
-            if state is not None:
-                return refused(code="request_memory_busy")
-            context = self.constructions[command.construction]._request(request_id)
-            rows = context.__enter__()
-            self.host._rank_request = _RankRequest(command.construction, request_id, context, rows)
-        elif state is None or (state.id, state.construction) != (
-            request_id,
-            command.construction,
-        ):
-            return refused(code="request_memory_absent")
-        elif command.phase == "plan":
-            self._plan_request(request_id, command.steps)
-        else:
-            self.host._rank_request = None
-            state.context.__exit__(None, None, None)
-            own = state.rows[0] if state.rows else None
-            waited = IDLE_WAITED.pop("", 0.0)
-            return RankMemory(
-                ok=True, rank=rank, request_id=request_id, memory=own, idle_waited_ms=waited
-            )
-        return RankMemory(ok=True, rank=rank, request_id=request_id)
-
-    def _rank_memory_command(self, command: RequestMemory) -> list[RankMemory]:
-        assert self.group is not None
-        try:
-            replies = [
-                msgspec.convert(reply, RankMemory)
-                for reply in self.group.call(commands.encode(command))
-            ]
-        except msgspec.ValidationError as exc:
-            self.poisoned = "group request memory reply was malformed"
-            raise GroupRefusal(self.poisoned, code="group_broken") from exc
-        if (
-            {reply.rank for reply in replies} != set(range(1, self.world))
-            or len(replies) != self.world - 1
-            or any(not reply.ok or reply.request_id != command.request_id for reply in replies)
-        ):
-            self.poisoned = "group request memory did not settle on every rank"
-            raise GroupRefusal(self.poisoned, code="group_broken")
-        return replies
-
-    @contextlib.contextmanager
-    def _ranks_request(self, request_id: str) -> Iterator[list[GpuMemory]]:
-        """Every follower's request beside this one; their records land in the list."""
-        records: list[GpuMemory] = []
-        if self.group is None:
-            yield records
-            return
-        begun = False
-        try:
-            self._rank_memory_command(
-                RequestMemory(construction=self.construction, request_id=request_id, phase="begin")
-            )
-            begun = True
-            yield records
-        finally:
-            if not self.group.broken:
-                command = RequestMemory(
-                    construction=self.construction, request_id=request_id, phase="end"
-                )
-                if begun:
-                    replies = self._rank_memory_command(command)
-                    if self.host.memory is not None and any(r.memory is None for r in replies):
-                        self.poisoned = "a GPU rank omitted its own request memory record"
-                        raise GroupRefusal(self.poisoned, code="group_broken")
-                    records.extend(reply.memory for reply in replies if reply.memory is not None)
-                    if waited := sum(reply.idle_waited_ms for reply in replies):
-                        IDLE_WAITED[request_id] = IDLE_WAITED.get(request_id, 0.0) + waited
-                else:
-                    # A partial begin still closes the ranks that entered; the original
-                    # refusal, not an absent state on another rank, remains the failure.
-                    self.group.call(commands.encode(command))
-
-    def _plan_request(self, request_id: str, steps: Sequence[str | Collection[str]]) -> None:
-        """`ctx.plan`: the attempt's request takes the steps as its plan, on every GPU."""
-        request = self.host.requests.get(request_id)
-        if request is not None:
-            request.plan(list(steps))
-        if self.residency is not None:  # a step's components keep their holds (`using`)
-            self.residency.plan(steps, request=request)
-        if self.group is not None and self.rank == 0:
-            normalized = tuple(
-                (step,) if isinstance(step, str) else tuple(sorted(step)) for step in steps
-            )
-            self._rank_memory_command(
-                RequestMemory(
-                    construction=self.construction,
-                    request_id=request_id,
-                    phase="plan",
-                    steps=normalized,
-                )
-            )
+        return cast("list[_AttentionAnswer]", replies)  # `select_attention`'s
 
     @contextlib.contextmanager
     def _ranks_attention(self, pin: str, applied: attention.Applied) -> Iterator[None]:
@@ -4416,7 +4474,7 @@ class Executor:
             for row in choices.fallbacks:
                 record.emit("confession", "attention.fallback", row["selected"], **row)
 
-    def _execution_observation(self, choices: attention.Applied | None = None) -> dict[str, Any]:
+    def _execution_observation(self, choices: attention.Applied | None = None) -> Reply:
         # Observed generation facts; image and boot identity are added by the worker.
         # Optional kernel/lane fields stay absent until their execution is observed.
         return {
@@ -4429,43 +4487,7 @@ class Executor:
             "kernel_symbol": ",".join(sorted(choices.totals())) if choices is not None else "",
         }
 
-    def _install_call_proxies(self, rows: Sequence[CallInterface]) -> None:
-        """Expose managed dependency imports before importing a private workflow.
-
-        App registrations keep their original implementations. Only public module
-        exports in this caller process become typed proxies; installed files and
-        the independently executing callee remain ordinary uv installations.
-        """
-        prepared: set[str] = set()
-        for row in rows:
-            document, module = row.interface_document, row.module
-            if not document or module in prepared:
-                continue
-            prepared.add(module)
-            imported = importlib.import_module(module)
-            generated = interface_wheel.generate(package_interface.canonical_bytes(document))
-            source = generated.get(module.replace(".", "/") + "/__init__.py")
-            if source is None:
-                raise CapabilityError(
-                    "installed dependency export is absent", code="child_interface"
-                )
-            companion_name = module + "._cozy_runtime_callers"
-            companion = ModuleType(companion_name)
-            sys.modules[companion_name] = companion
-            exec(compile(source, "<installed package callers>", "exec"), companion.__dict__)
-            bindings = {
-                export: call_types.public_result(imported, binding)
-                for export, binding in companion.__dict__["__cozy_bindings__"].items()
-            }
-            imported.__dict__["__cozy_bindings__"] = bindings
-            for export in bindings:
-                proxy = companion.__dict__[export]
-                # Callable lookup (including prefetch) uses the admitted public
-                # module. Generated wire types stay private to the companion.
-                proxy.__module__ = module
-                imported.__dict__[export] = proxy
-
-    def _call_broker(self, request_id: str, rows: tuple[CallInterface, ...]) -> Any:
+    def _call_broker(self, request_id: str, rows: tuple[CallInterface, ...]) -> _Broker | None:
         """This attempt's broker over `rows`, bound once per executor (a served package's
         attempts share its Start's rows)."""
         if not rows:
@@ -4486,6 +4508,7 @@ class Executor:
                 "call interface inventory exceeds its bound", code="child_interface"
             )
         bindings: dict[tuple[str, str], _CallType] = {}
+        installed: set[tuple[str, str]] = set()
         own = effect_interfaces.bindings()
         for row in rows:
             module, export = row.module, row.export
@@ -4512,34 +4535,12 @@ class Executor:
                     )
                 bindings[(module, export)] = _serving(module, export, own_surface)
             else:
-                imported = importlib.import_module(module)
-                function = getattr(imported, export, None)
-                declared = _export(function) if callable(function) else None
-                if declared is not None:
-                    registration = Registration(
-                        name=export,
-                        fn=declared.implementation,
-                        invocable=True,
-                        memoize=declared.memoize,
-                        model_defaults=declared.defaults,
-                        model_components=declared.components,
-                    )
-                    binding = _serving(module, export, registration.surface)
-                else:
-                    generated_binding = getattr(imported, "__cozy_bindings__", {}).get(export)
-                    if not isinstance(generated_binding, _CallType):
-                        raise CapabilityError(
-                            "installed export is not invocable", code="child_interface"
-                        )
-                    binding = generated_binding
-                prior = bindings.get((module, export))
-                if prior is not None and prior != binding:
-                    raise CapabilityError("ambiguous managed export", code="child_interface")
-                bindings[(module, export)] = binding
+                # Another package's function, installed beside this one: bound at its first call.
+                installed.add((module, export))
         for export in own:
             key = (effect_interfaces.MODULE, export)
             bindings.setdefault(key, effect_interfaces.unserved(export))
-        return bindings
+        return CallBindings(bindings, installed)
 
     def _store(self) -> Path:
         host = self.host
@@ -4612,10 +4613,10 @@ class Executor:
             raise SeamError("seam_answer_malformed", f"{kind}: {exc}") from exc
         return answer, received[0] if received else None
 
-    def _progress_sink(self, request_id: str) -> Any:
+    def _progress_sink(self, request_id: str) -> Callable[[ProgressFrame | Observation], None]:
         """The lossy lane's sink for one attempt — the same one `invoke` installs."""
 
-        def progress(frame: Any) -> None:
+        def progress(frame: ProgressFrame | Observation) -> None:
             with contextlib.suppress(SeamError):
                 if isinstance(frame, ProgressFrame):
                     self.channel.send(
@@ -4625,7 +4626,6 @@ class Executor:
                             "kind": "progress",
                             "stage": frame.stage,
                             "stage_fraction": frame.stage_fraction,
-                            "overall_fraction": frame.overall_fraction,
                             "position": frame.position,
                             "total": frame.total,
                             "advance": frame.advance,
@@ -4650,7 +4650,7 @@ class Executor:
 
         return progress
 
-    def _result_schema_digest(self, surface: Any) -> str:
+    def _result_schema_digest(self, surface: Surface) -> str:
         """The identity of the DECLARED annotated result surface — never of the value.
 
         A digest over the value document would change with every request and would fence
@@ -4670,7 +4670,7 @@ class Executor:
         if self.torch is None:
             return Device()
         placed = self._rank_device(self.torch)
-        return Device(placed.type, placed.index)
+        return Device(cast("DeviceType", placed.type), placed.index)  # torch names cuda/cpu/mps
 
     @contextlib.contextmanager
     def _request(self, request_id: str) -> Iterator[list[GpuMemory]]:
@@ -4703,9 +4703,9 @@ class Executor:
     def _quiescent(self) -> bool:
         """No author computation may still mutate GPU or output state when a terminal is
         recorded. The execution stream includes every explicitly joined consumer."""
-        return accel.streams_idle(self.torch, self.device_kind, stream=self.host.execution_stream)
+        return accel.streams_idle(self.torch, self.device_kind, stream=self.host.execution_stream)  # type: ignore[arg-type]  # torch is imported before a request reaches here
 
-    def map(self, command: Map) -> dict[str, Any]:
+    def map(self, command: Map) -> Reply:
         """TensorD's warming: one loaded construction's models at `command.level`, on every GPU
         of a group."""
         if self.poisoned:
@@ -4724,14 +4724,14 @@ class Executor:
                 if command.level == "ram":
                     # Map is ordered after every preceding invocation. Join its remaining
                     # consumer streams before retiring owners and returning allocator storage.
-                    accel.drain(self.torch, self.device_kind)
+                    accel.drain(self.torch, self.device_kind)  # type: ignore[arg-type]  # torch is imported before a request reaches here
                     # Every slot's decoders, graphs and holds go before any model leaves: a
                     # language model's engine retains its drafter's weights too, and Klein's
                     # drafter slot maps before its upsampler, so an idle Klein refused every
                     # offload and a running call beside it ran out of memory (0.36.0 gate).
                     self._release_programs([child])
                 for member in members:
-                    for model in member.backend.models.values():
+                    for model in cast("Backend", member.backend).models.values():  # filtered
                         self.memory.load(model.module, command.level)
                 if command.level == "ram":
                     self.memory.release_host()
@@ -4746,14 +4746,14 @@ class Executor:
             return self._group_refusal(exc, closing=False)
         return {"ok": True}
 
-    def process_incarnations(self) -> list[dict[str, Any]]:
+    def process_incarnations(self) -> list[Reply]:
         """The actual rank births, including a follower that vanished before this probe."""
         ranks = [(self.rank, os.getpid())]
         if self.group is not None:
             ranks.extend((follower.rank, follower.pid) for follower in self.group.followers)
-        rows: list[dict[str, Any]] = []
+        rows: list[Reply] = []
         for rank, pid in ranks:
-            row: dict[str, Any] = {"rank": rank, "pid": pid, "started_ticks": None}
+            row: Reply = {"rank": rank, "pid": pid, "started_ticks": None}
             with contextlib.suppress(OSError, proctree.ProcessTreeUnsupported):
                 row["started_ticks"] = proctree.process_identity(pid).started_ticks
             rows.append(row)
@@ -4774,7 +4774,7 @@ class Executor:
             "reserved_bytes": memory["reserved_bytes"],
         }
 
-    def unsettled(self, target: Executor, exc: Exception, request_id: str) -> dict[str, Any]:
+    def unsettled(self, target: Executor, exc: Exception, request_id: str) -> Reply:
         """An attempt that raised outside its handler. A CUDA fault is sticky, so the tail's
         first sync raises it again: the process cannot serve another attempt, and the reply
         names the handler's own failure (else this one) and the stage it happened in. Memory
@@ -4814,7 +4814,7 @@ class Executor:
             "frames": [],
         }
 
-    def _settled(self, reply: dict[str, Any]) -> dict[str, Any]:
+    def _settled(self, reply: Reply) -> Reply:
         """An attempt's reply carries the device's after-state, so the worker closes its ledger
         without another round trip; residency and RSS are already in the reply."""
         reply["after"] = {**self._device_figures(), "processes": self.process_incarnations()}
@@ -4826,7 +4826,7 @@ class Executor:
 _TELEMETRY = ("observations", "execution", "attribution")
 
 
-def _send_reply(channel: Channel, reply: dict[str, Any]) -> None:
+def _send_reply(channel: Channel, reply: Reply) -> None:
     """Put ONE reply on the seam. Telemetry never costs a reply its outcome."""
     if isinstance(execution := reply.get("execution"), dict):
         execution["reply_sent_unix_ms"] = round(time.time() * 1000, 1)
@@ -4838,13 +4838,14 @@ def _send_reply(channel: Channel, reply: dict[str, Any]) -> None:
         dropped = {f"dropped_{key}_for_credential": 1 for key in _TELEMETRY if key in reply}
         for key in _TELEMETRY:
             reply.pop(key, None)
-        reply["observation_caps"] = {**(reply.get("observation_caps") or {}), **dropped}
+        caps = cast("dict[str, int]", reply.get("observation_caps") or {})  # dropped-row counts
+        reply["observation_caps"] = {**caps, **dropped}
         channel.send(reply)
 
 
 def _serialize_result(
-    envelope: Any, spool: Path
-) -> tuple[dict[str, Any] | None, list[dict[str, Any]], int]:
+    envelope: InvocationResult | None, spool: Path
+) -> tuple[Reply | None, list[Reply], int]:
     """Serialize the typed result EXACTLY ONCE, before its types are lost.
 
     msgspec encodes the whole annotated result struct — nested structs, lists and all — in
@@ -4889,9 +4890,9 @@ def _serialize_result(
     )
 
 
-def _assets_at(node: Any, path: str) -> list[dict[str, Any]]:
+def _assets_at(node: object, path: str) -> list[Reply]:
     """Every file node in the serialized result, with the field path that names it."""
-    found: list[dict[str, Any]] = []
+    found: list[Reply] = []
     if isinstance(node, dict):
         if "asset_ref" in node:
             return [{"output_id": path, **node}]
@@ -4917,7 +4918,6 @@ _FOLLOWER_COMMANDS = frozenset(
         "run",
         "attention",
         "kernels",
-        "request_memory",
         "shutdown",
     }
 )
@@ -4933,9 +4933,10 @@ def answer(executor: Executor, frame: Frame) -> Frame | None:
             "detail": f"{_gpu(executor.rank)} answers {sorted(_FOLLOWER_COMMANDS)}, not {name!r}",
         }
     if name == "run":
-        # A follower's call serves rank 0's request, with the kernels the group serves from it.
+        # A follower's part of GPU 0's attempt, with the kernels the group serves from it.
         with request_path.serving():
-            began = kernel_ready.boundary(frame.get("kernels") or ())
+            # The frame's kernels are names, as rank 0 sent them.
+            began = kernel_ready.boundary(cast("Iterable[str]", frame.get("kernels") or ()))
             reply = executor.run(frame)
         return {**reply, "kernels": kernel_ready.pending(), "began": began}
     if name not in commands.NAMES:
@@ -5190,16 +5191,12 @@ def _idle(executor: Executor, order: _Order) -> None:
         return executor.host.memory is not None and executor.host.memory.host_pending()
 
     def ready() -> bool:
-        return (
-            (bool(graphs.IDLE.jobs) or pins())
-            and not executor.awaiting_invoke()
-            and executor.host._rank_request is None
-        )
+        return (bool(graphs.IDLE.jobs) or pins()) and not executor.awaiting_invoke()
 
     while not executor.poisoned:  # a faulted device takes no idle work: the machine ends it
         with order.idle(answered, ready) as answered, executor._execution_context():
             if executor.poisoned:
-                return
+                return  # type: ignore[unreachable]  # another thread may poison it in the loop
             try:
                 order.stage("idle graph capture")
                 graphs.capture_idle(order.waiting)
@@ -5210,7 +5207,7 @@ def _idle(executor: Executor, order: _Order) -> None:
                 traceback.print_exc()
                 if fault(exc) in (Fault.STICKY, Fault.DEVICE):
                     _retire(f"device fault at idle: {exc}")
-                row = (
+                row: WarningRow = (
                     "idle work failed: graphs or host pages stay unbuilt",
                     {"reason": type(exc).__name__},
                 )
@@ -5266,7 +5263,7 @@ def serve(executor: Executor, channel: Channel) -> int:
 def _shut(executor: Executor, channel: Channel) -> int:
     with executor._execution_context():
         if executor.host.execution_stream is not None:
-            accel.drain(executor.torch, executor.device_kind)
+            accel.drain(executor.torch, executor.device_kind)  # type: ignore[arg-type]  # torch is imported before a request reaches here
         if executor.group is not None:
             executor.group.close()
     channel.send({"reply": "shutdown", "ok": True})

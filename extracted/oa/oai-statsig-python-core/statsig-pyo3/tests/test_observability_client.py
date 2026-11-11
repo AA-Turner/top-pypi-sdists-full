@@ -1,6 +1,5 @@
 import json
-from time import sleep
-import time
+from threading import Event
 from typing import Optional, Dict, List, Tuple, Any
 
 import pytest
@@ -21,13 +20,16 @@ class MockObservabilityClient(ObservabilityClient):
     error_called = False
     metrics: List[
         Tuple[str, str, Any, Optional[Dict[str, str]]]
-    ] = []  # Stores (type, metric_name, value, tags)
+    ]  # (type, metric_name, value, tags)
 
     VERBOSE = False
 
     def __new__(cls, test_param: str = ""):
         instance = super().__new__(cls)
         instance.test_param = test_param
+        instance.metrics = []
+        instance.error_received = Event()
+        instance.propagation_received = Event()
         return instance
 
     def init(self) -> None:
@@ -53,11 +55,14 @@ class MockObservabilityClient(ObservabilityClient):
         self._log(f"Distribution {metric_name} by {value} with tags {tags}")
         self.dist_called = True
         self.metrics.append(("distribution", metric_name, value, tags))
+        if metric_name == "statsig.sdk.config_propagation_diff":
+            self.propagation_received.set()
 
     def error(self, tag: str, error: str) -> None:
         self._log(f"Error callback for {tag}: {error}")
         self.error_called = True
         self.metrics.append(("error", tag, error, None))
+        self.error_received.set()
 
     def should_enable_high_cardinality_for_this_tag(self, tag):
         return True
@@ -97,7 +102,7 @@ def statsig_setup(httpserver: HTTPServer):
 
     statsig.initialize().wait()
 
-    yield statsig, observability_client, httpserver
+    yield statsig, observability_client, httpserver, str(json_data["time"])
 
     statsig.shutdown().wait()
 
@@ -109,7 +114,7 @@ def test_observability_client_usage_with_test_param():
 
 def test_observability_client_usage(statsig_setup):
     """Test that MockObservabilityClient correctly tracks init(), dist() calls."""
-    statsig, observability_client, httpserver = statsig_setup
+    statsig, observability_client, httpserver, _ = statsig_setup
     user = StatsigUser(user_id="test-user")
 
     statsig.check_gate(user, "test-gate")
@@ -139,49 +144,37 @@ def test_observability_client_usage(statsig_setup):
     assert tags["init_source_api"] == f"http://{httpserver.host}:{httpserver.port}/v2"
 
 
-def test_error_callback_usage():
+def test_error_callback_usage(httpserver: HTTPServer):
     """Test that error_callback() is called."""
     observability_client = MockObservabilityClient()
 
+    httpserver.expect_request("/v2/download_config_specs").respond_with_data(status=401)
+    httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
     options = StatsigOptions(
+        specs_url=httpserver.url_for("/v2/download_config_specs"),
+        log_event_url=httpserver.url_for("/v1/log_event"),
         observability_client=observability_client,
+        fallback_to_statsig_api=False,
     )
     statsig = Statsig("secret-key", options)
-    statsig.initialize().wait()
-    sleep(0.2)
-
-    error_event = next(
-        (m for m in observability_client.metrics if m[0] == "error"), None
-    )
-
-    assert len(observability_client.metrics) >= 3
-    assert error_event is not None, "error_callback() should have been called"
-    assert isinstance(error_event[2], str)
-
-    statsig.shutdown().wait()
+    try:
+        statsig.initialize().wait()
+        assert observability_client.error_received.wait(timeout=5)
+        error_event = next(m for m in observability_client.metrics if m[0] == "error")
+        assert isinstance(error_event[2], str)
+    finally:
+        statsig.shutdown().wait()
 
 
-def test_metric_with_high_card(statsig_setup):
-    """Test that MockObservabilityClient correctly tracks init(), dist() calls."""
-    statsig, observability_client, _ = statsig_setup
-    user = StatsigUser(user_id="test-user")
-
-    statsig.check_gate(user, "test-gate")
-
-    statsig.flush_events().wait()
-
-    assert observability_client.init_called, "init() should have been called"
-    time.sleep(3)
+def test_equal_lcut_repair_reports_both_high_cardinality_tags(statsig_setup):
+    _, observability_client, _, expected_lcut = statsig_setup
+    assert observability_client.propagation_received.wait(timeout=5)
 
     dist_event = next(
-        (
-            m
-            for m in observability_client.metrics
-            if m[0] == "distribution" and m[1] == "statsig.sdk.config_propagation_diff"
-        ),
-        None,
+        m for m in observability_client.metrics
+        if m[:2] == ("distribution", "statsig.sdk.config_propagation_diff")
     )
-    assert dist_event is not None, "distribution() should have been called"
     assert isinstance(dist_event[2], float)
-    assert isinstance(int(dist_event[3].get("lcut")), (int, float))
-    assert isinstance(int(dist_event[3].get("prev_lcut")), (int, float))
+    tags = dist_event[3]
+    assert tags["lcut"] == expected_lcut
+    assert tags["prev_lcut"] == expected_lcut

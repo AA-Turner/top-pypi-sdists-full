@@ -141,6 +141,8 @@ pub mod prompt_resource_tests;
 pub mod proptest_differential;
 pub mod python_integration_tests;
 pub mod python_security_tests;
+pub mod python_tenant_isolation_tests;
+pub mod python_tenant_stress_tests;
 pub mod redirect_error_tests;
 pub mod regex_limit_tests;
 pub mod release_profile_tests;
@@ -181,6 +183,7 @@ pub mod threat_model_doc_tests;
 pub mod threat_model_tests;
 pub mod time_command_tests;
 pub mod time_compat_scan_tests;
+pub mod ts_tenant_stress_tests;
 pub mod tty_tests;
 pub mod typescript_integration_tests;
 pub mod typescript_security_tests;
@@ -189,3 +192,8 @@ pub mod unset_function_tests;
 pub mod urandom_tests;
 pub mod workflow_security_tests;
 pub mod yq_integration_tests;
+
+// Monty python3 and ZapCode ts fail closed without bashkit's metered allocator.
+#[cfg(any(feature = "python", feature = "typescript"))]
+#[global_allocator]
+static ALLOC: bashkit::MeteredAllocator = bashkit::MeteredAllocator;

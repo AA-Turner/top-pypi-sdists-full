@@ -1,4 +1,4 @@
-# One workspace for the `cozy` binary (xs-043). The Go tree stays at the root until the cutover.
+# One Rust workspace for the `cozy` binary and its machine role (xs-043).
 [workspace]
 resolver = "3"
 # Build the pinned bounded-SVD dependency as a dependency, not a workspace test target.
@@ -7,7 +7,7 @@ exclude = ["vendor/faer"]
 members = ["crates/executor-api", "crates/platform", "crates/tensorfs", "crates/tensorfs-py", "crates/varena", "crates/varena-ledger"]
 
 [workspace.package]
-version = "0.23.0"
+version = "0.24.0"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT"
@@ -22,6 +22,8 @@ cli = { path = "crates/cli" }
 executor-api = { path = "crates/executor-api" }
 # Only `signal` unless a member asks for `seams` or `fetch`: varena links nothing else.
 platform = { path = "crates/platform", default-features = false }
+project-vault = { path = "crates/project-vault" }
+project-mount = { path = "crates/project-mount" }
 tensord = { path = "crates/tensord" }
 # Without `net` unless a member asks for it: api needs only the format.
 tensorfs = { path = "crates/tensorfs", default-features = false }
@@ -96,6 +98,10 @@ url = { version = "2.5.8", features = ["serde"] }
 webpki-roots = "1"
 windows-sys = "0.61"
 zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
+
+# Keep the vault's memory-hard key derivation usable in local development builds.
+[profile.dev.package.argon2]
+opt-level = 3
 
 # No LTO, 16 codegen units: half the build time of fat LTO, whose binary measured the same on startup and runs
 # and 3-5% less CPU on a TensorFS download (cl-669).

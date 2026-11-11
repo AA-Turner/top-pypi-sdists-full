@@ -21,7 +21,7 @@ from typing import Any, Callable, Optional
 from sequence_ai._core.capacity import LOAD_MAX, count, held, wait_said
 
 from seq.clock import stamp
-from sequence_ai._core.money import cents, money, per_hour, whole
+from sequence_ai._core.money import cents, money, per_hour, price, whole
 from seq.deployments_cli import _call
 from sequence_ai._core.names import segment
 
@@ -151,8 +151,8 @@ def _yes(v: Any) -> str:
 
 
 def _usd(v: Any, fmt: Callable[[Any], str] = money) -> str:
-    """An amount, a price an hour (per_hour) or a plan's whole dollars (whole) as sequence_ai/_core/money.py writes
-    them; '—' where the platform did not say it."""
+    """An amount, a price (price), a price an hour (per_hour) or a plan's whole dollars (whole) as
+    sequence_ai/_core/money.py writes them; '—' where the platform did not say it."""
     return fmt(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else "—"
 
 
@@ -194,23 +194,29 @@ def show_gpus(prices: dict, echo: Echo) -> None:
     cpu, memory = cpu_rates.get("usd_per_core_hour"), mem_rates.get("usd_per_gib_hour")
 
 
+
+
+
+
+
+
     if cpu_rates.get("serving_usd_per_core_hour") is not None:
-        echo(f"CPU     {_usd(cpu_rates['serving_usd_per_core_hour'])} per core-hour serving a policy; "
-             f"{_usd(cpu)} on checks, evals and benchmarks")
+        echo(f"CPU     {_usd(cpu_rates['serving_usd_per_core_hour'], price)} per core-hour serving a policy; "
+             f"{_usd(cpu, price)} on builds, checks, shells and an eval's benchmark machines")
     else:
-        echo(f"CPU     {_usd(cpu)} per core-hour")
+        echo(f"CPU     {_usd(cpu, price)} per core-hour")
     if mem_rates.get("serving_usd_per_gib_hour") is not None:
-        echo(f"memory  {_usd(mem_rates['serving_usd_per_gib_hour'])} per GiB-hour serving a policy; "
-             f"{_usd(memory)} on checks, evals and benchmarks")
+        echo(f"memory  {_usd(mem_rates['serving_usd_per_gib_hour'], price)} per GiB-hour serving a policy; "
+             f"{_usd(memory, price)} on builds, checks, shells and an eval's benchmark machines")
     else:
-        echo(f"memory  {_usd(memory)} per GiB-hour")
+        echo(f"memory  {_usd(memory, price)} per GiB-hour")
     storage = (prices.get("storage") or {}).get("usd_per_gb_month")
     if storage is not None:
 
 
 
         shared = (prices.get("storage") or {}).get("shared_weights_templates") or []
-        echo(f"storage {_usd(storage)} per GB-month: a deployment's copy of its weights and the image its versions save, and "
+        echo(f"storage {_usd(storage, price)} per GB-month: a deployment's copy of its weights and the image its versions save, and "
              "your volumes - billed every day they are kept, whether or not a worker runs; deleting stops it"
              + (f" (the official weight sets the platform shares - {', '.join(shared)} - are read from the platform's "
                 "copy, not copied or billed, for any template built on one whose code is unchanged)" if shared else ""))
@@ -218,32 +224,62 @@ def show_gpus(prices: dict, echo: Echo) -> None:
 
 
 
-    echo("CPU and memory are billed per second: a policy's worker - serving or in an eval - its card's standard "
-         "machine, or what it declares where more (seq deploy --dry-run prices it), a policy's build check what it "
-         "requests, a benchmark's machines and a build's the greater of what they request and what they used where "
-         "they share a machine, their request on one of their own; a worker that declares no GPU pays those alone, "
-         "no card.")
+
+    echo("CPU and memory are billed per second: a policy's worker - deployed or in an eval - at the serving rates, its "
+         "card's standard machine, or what it declares where more (seq deploy --dry-run prices it); a policy's build "
+         "check what it requests, a benchmark's machines and a build's the greater of what they request and what they "
+         "used where they share a machine, their request on one of their own; a worker that declares no GPU pays "
+         "those alone, no card.")
+    show_standard(prices.get("policy_machines"), echo)
 
 
-    standard = {str(k): v for k, v in (prices.get("policy_machines") or {}).items()
-                if ":" not in str(k) and isinstance(v, dict)}
-    if standard:
-        said = [f"{k} {float(v['cpu']):g} cores and {float(v['memory_gib']):g} GiB"
-                for k, v in sorted(standard.items()) if k.lower() != "cpu"]
-        if "cpu" in {k.lower() for k in standard}:
-            none = next(v for k, v in standard.items() if k.lower() == "cpu")
-            said.append(f"no card {float(none['cpu']):g} cores and {float(none['memory_gib']):g} GiB")
-        echo("standard machines (a policy's worker, one card): " + "; ".join(said))
+
+
 
 
 
     floor = prices.get("min_billable_s")
     if floor:
-        echo(f"Each time a machine starts, its card is billed for at least {float(floor):.0f} s, and an eval's machines "
-             "for at least that much CPU and memory too.")
+        echo(f"Each time it starts, a policy's worker that comes up is billed its card for at least {float(floor):.0f} s, "
+             "and an eval's machine its card, CPU and memory for at least that long; a build check, and a start that "
+             "ends before it comes up, are billed by the second, with no minimum.")
 
-    echo('gpu="TYPE:N" takes N cards of one type. A deployment runs on its one card and waits for it to become '
-         'available, which can take more than 10 min: its robot keeps waiting, nothing billed.')
+
+
+    echo('gpu="TYPE:N" takes N cards of one type. A deployment runs on its one type of card, never another, and '
+         'waits for its cards to become available, which can take more than 10 min: its robot keeps waiting, nothing '
+         'billed.')
+
+
+def show_standard(machines: Any, echo: Echo) -> None:
+    """Each card's standard machine (GET /v1/pricing policy_machines, keyed as a policy names its cards: "L4", "L4:2",
+    "cpu"): what a policy's worker's CPU and memory are billed as wherever it runs, one card's, then those of a machine
+    of several cards of one type (gpu="TYPE:N", N times one card's) as the platform opens them - every count it lists, a
+    card that comes one to a machine said so. Nothing when the list names none.
+"""
+    sizes: dict[str, dict[int, dict]] = {}
+    for key, v in (machines or {}).items() if isinstance(machines, dict) else ():
+        name, _, n = str(key).partition(":")
+        if isinstance(v, dict) and (not n or n.isdigit()):
+            sizes.setdefault(name, {})[int(n or 1)] = v
+
+    def size(v: dict) -> str:
+        return f"{float(v['cpu']):g} cores and {float(v['memory_gib']):g} GiB"
+
+    cards = sorted(k for k in sizes if k.lower() != "cpu")
+    one = [f"{k} {size(sizes[k][1])}" for k in cards if 1 in sizes[k]]
+    none = next((by.get(1) for k, by in sizes.items() if k.lower() == "cpu"), None)
+    if none:
+        one.append(f"no card {size(none)}")
+    if not one:
+        return
+    echo("standard machines (a policy's worker, one card): " + "; ".join(one))
+    for n in sorted({n for k in cards for n in sizes[k] if n > 1}):
+        echo(f"  {n} cards (gpu=\"TYPE:{n}\"): " + "; ".join(f"{k} {size(sizes[k][n])}" for k in cards if n in sizes[k]))
+
+    alone = [k for k in cards if set(sizes[k]) == {1}]
+    if alone and len(alone) < len(cards):
+        echo(f"  {', '.join(alone)}: one card only")
 
 
 
@@ -436,8 +472,11 @@ def show_plan(plan: dict | None, free: dict | None, echo: Echo, overrides: Any =
              + (f", {whole(monthly)} free credit each month" if monthly else "")
              + own("monthly_free_credit_usd", monthly, overrides, plan))
     if isinstance(free, dict) and free:
+
+
+
         echo(f"free      {_usd(free.get('used_usd'))} of {_usd(free.get('monthly_usd'), whole)} used this month · "
-             f"{_usd(free.get('left_usd'))} left · renews {stamp(free.get('resets_at'))}")
+             f"{_usd(free.get('left_usd'))} left · renews {stamp(free.get('resets_at'), day='always', utc=True)}")
 
 
 def show_compute(c: dict | None, echo: Echo, overrides: Any = None) -> None:
@@ -923,6 +962,7 @@ def show_billed_price(p: dict | None, echo: Echo) -> None:
     if not p:
         return
     req, used = p.get("requested") or {}, p.get("used") or {}
+
 
 
     echo("price: one worker, per hour" + (" (CPU and memory at the serving rates)"

@@ -9,6 +9,7 @@ from .shared import (
     SdDirective,
     create_component,
     is_component,
+    is_ignorable_child,
     make_choice,
     margin_option,
     padding_option,
@@ -142,6 +143,8 @@ class GridDirective(SdDirective):
         self.state.nested_parse(self.content, self.content_offset, row)
         # each item in a row should be a column
         for item in row.children:
+            if is_ignorable_child(item):
+                continue
             if not is_component(item, "grid-item"):
                 LOGGER.warning(
                     f"All children of a 'grid-row' "
@@ -220,10 +223,16 @@ class GridItemCardDirective(SdDirective):
         "img-top": directives.uri,
         "img-bottom": directives.uri,
         "img-alt": directives.unchanged,
-        "link": directives.uri,
+        # captured verbatim; ``CardDirective.create_card`` normalises it
+        # per ``link-type`` (whitespace is significant for reference targets)
+        "link": directives.unchanged_required,
         "link-type": make_choice(["url", "any", "ref", "doc"]),
         "link-alt": directives.unchanged,
+        "link-new-tab": directives.flag,
         "shadow": make_choice(["none", "sm", "md", "lg"]),
+        # inline one-liner slots (see CardDirective)
+        "header": directives.unchanged,
+        "footer": directives.unchanged,
         "class-card": directives.class_option,
         "class-body": directives.class_option,
         "class-title": directives.class_option,
@@ -266,7 +275,10 @@ class GridItemCardDirective(SdDirective):
                 "link",
                 "link-type",
                 "link-alt",
+                "link-new-tab",
                 "shadow",
+                "header",
+                "footer",
                 "class-card",
                 "class-body",
                 "class-title",

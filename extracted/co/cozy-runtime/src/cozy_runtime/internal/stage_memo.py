@@ -32,7 +32,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Literal, Protocol, cast
 
 import msgspec
 import numpy as np
@@ -40,11 +40,14 @@ from PIL import Image
 from tensorfs.executor import Answer, MemoSettings, Request, StageMemoLookup, StageMemoStore
 
 from cozy_runtime.author._files import File
+from cozy_runtime.author._handler import Handler
 from cozy_runtime.author._model import WARNINGS, deterministic
+from cozy_runtime.author._observations import Scalar
 from cozy_runtime.author._stage_memo import exactness
 from cozy_runtime.internal import attention, hostfacts, installed, memo_implementation
 from cozy_runtime.internal.hostfacts import HostFacts
 from cozy_runtime.internal.numerical_environment import fingerprint
+from cozy_runtime.internal.parallel import spmd
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
@@ -89,7 +92,7 @@ class Tensor(Protocol):
     def reshape(self, shape: Sequence[int]) -> Tensor: ...
     def view(self, dtype: object) -> Tensor: ...
     def cpu(self) -> Tensor: ...
-    def numpy(self) -> np.ndarray[tuple[int, ...], np.dtype[np.generic]]: ...
+    def numpy(self) -> np.ndarray[tuple[int, ...], np.dtype[np.generic[object]]]: ...
     def to(self, device: object, *, copy: bool) -> Tensor: ...
 
 
@@ -97,7 +100,7 @@ class Unmemoizable(Exception):
     """This call cannot be keyed or stored; it runs as if unmarked. `str()` is the reason."""
 
 
-type Leaf = Tensor | np.ndarray[tuple[int, ...], np.dtype[np.generic]] | Image.Image
+type Leaf = Tensor | np.ndarray[tuple[int, ...], np.dtype[np.generic[object]]] | Image.Image
 
 
 def _raw(leaf: Leaf, torch: ModuleType) -> memoryview:
@@ -240,8 +243,9 @@ class Entry:
         start, end = row.data_offsets
         return memoryview(self.payload)[self.base + start : self.base + end]
 
-    def materialize(self, torch: ModuleType) -> object:
-        """Fresh tensors on their recorded devices: the cache keeps its own bytes."""
+    def materialize(self, torch: ModuleType, device: object = None) -> object:
+        """Fresh tensors on their recorded devices (`device` in place of a recorded GPU: a
+        group's other GPU takes GPU 0's entry): the cache keeps its own bytes."""
         tensors: dict[str, object] = {}
         for name, row in self.rows.items():
             dtype = getattr(torch, next(k for k, v in _DTYPES.items() if v == row.dtype))
@@ -251,7 +255,9 @@ class Entry:
                 if len(data)
                 else torch.empty(0, dtype=dtype)
             )
-            tensors[name] = flat.reshape(tuple(row.shape)).to(self.meta.devices[name], copy=True)
+            at = self.meta.devices[name]
+            to = device if device is not None and at != "cpu" else at
+            tensors[name] = flat.reshape(tuple(row.shape)).to(to, copy=True)
         return _rebuild(self.meta.structure, tensors)
 
 
@@ -307,7 +313,15 @@ def arguments_digest(arguments: object, torch: ModuleType) -> str:
     return "sha256:" + digest.hexdigest()
 
 
-def _type(qualname: str) -> Callable[..., object]:
+class _Sink(Protocol):
+    """Where an attempt's memo observations go (`Observations.emit`)."""
+
+    def __call__(
+        self, kind: Literal["metric"], name: str, value: float, /, **fields: Scalar
+    ) -> object: ...
+
+
+def _type(qualname: str) -> type:
     """A result record's class, from the already-imported module that defined it."""
     module, _, path = qualname.partition(":")
     found: object = sys.modules.get(module)
@@ -433,7 +447,7 @@ class Engine:
         self._attempt: contextvars.ContextVar[_Attempt | None] = contextvars.ContextVar(
             "cozy_memo_attempt", default=None
         )
-        self._stages: dict[Callable[..., object], tuple[str | None, inspect.Signature]] = {}
+        self._stages: dict[Handler, tuple[str | None, inspect.Signature]] = {}
         self._keys: dict[str, tuple[threading.Lock, list[int]]] = {}
         self._lock = threading.RLock()
         self.configure(MemoSettings())
@@ -457,7 +471,7 @@ class Engine:
         live = exchange if self.settings.entry_bytes > 0 else None
         self._attempt.set(_Attempt(live, spool, []))
 
-    def close(self, sink: Callable[..., object]) -> None:
+    def close(self, sink: _Sink) -> None:
         """The attempt ends: its calls and its methods' running totals become observations."""
         attempt = self._attempt.get()
         self._attempt.set(None)
@@ -471,7 +485,7 @@ class Engine:
             row["skips"] = ",".join(f"{k}={v}" for k, v in sorted(self.stats[stage].skips.items()))
             sink("metric", "memo.method", round(row.pop("saved_s") * 1000, 3), stage=stage, **row)
 
-    def stage(self, fn: Callable[..., object]) -> tuple[str | None, inspect.Signature]:
+    def stage(self, fn: Handler) -> tuple[str | None, inspect.Signature]:
         found = self._stages.get(fn)
         if found is None:
             found = self._stages[fn] = (
@@ -621,7 +635,7 @@ class GenerationMemo:
     def call(
         self,
         model: object,
-        fn: Callable[..., object],
+        fn: Handler,
         components: tuple[str, ...],
         args: tuple[object, ...],
         kwargs: dict[str, object],
@@ -630,6 +644,9 @@ class GenerationMemo:
         started = time.perf_counter()
         components = components or tuple(sorted(self.components))  # no hint: all of them
         engine, name = self.engine, f"{type(model).__qualname__}.{fn.__name__}"
+        ranks = spmd.current()
+        if ranks is not None and ranks.rank > 0:
+            return _follow(ranks, name, self.torch, run)
         stats = engine.stats.setdefault(name, MethodStats())
         stage, signature = engine.stage(fn)
         try:
@@ -644,6 +661,7 @@ class GenerationMemo:
             if (stage, numerics) in engine.disputed:
                 raise Unmemoizable("disputed")
         except Unmemoizable as exc:
+            _tell(ranks, name, None, self.torch)
             result = run()
             stats.skips[str(exc)] += 1
             engine.record(Call(name, "skip", str(exc), ms=(time.perf_counter() - started) * 1e3))
@@ -664,6 +682,7 @@ class GenerationMemo:
             if entry is None and (entry := engine.fetch(key, stage, numerics)) is not None:
                 tier = "machine"
                 engine.put(key, entry)
+            _tell(ranks, name, entry, self.torch)
             if entry is None:
                 return self._miss(name, stats, key, stage, numerics, run, started)
             result = entry.materialize(self.torch)
@@ -726,6 +745,27 @@ class GenerationMemo:
         return normalized
 
 
+def _tell(ranks: spmd.Ranks | None, name: str, entry: Entry | None, torch: ModuleType) -> None:
+    """GPU 0 decided: every other GPU of its group runs the stage too, or takes this entry."""
+    if ranks is None:
+        return
+    ranks.told({"hit": entry is not None, "key": entry.meta.key if entry else ""}, f"memo {name}")
+    if entry is not None:
+        ranks.cross(torch.frombuffer(entry.payload, dtype=torch.uint8), 0, f"memo {name} entry")
+
+
+def _follow(ranks: spmd.Ranks, name: str, torch: ModuleType, run: Callable[[], object]) -> object:
+    """A group's other GPU: GPU 0 says hit or miss. A miss runs here as there (only GPU 0
+    stores); a hit takes GPU 0's entry, so the stage's calls run on no GPU."""
+    told = ranks.told(None, f"memo {name}")
+    if not told["hit"]:
+        return run()
+    # `_tell` sends the entry as one uint8 tensor
+    payload = cast(Tensor, ranks.cross(None, 0, f"memo {name} entry"))
+    entry = Entry.parse(payload.numpy().tobytes(), str(told["key"]))
+    return entry.materialize(torch, ranks.device)
+
+
 def _rng(torch: ModuleType) -> tuple[bytes, ...]:
     states: list[Tensor] = [torch.random.get_rng_state()]
     if torch.cuda.is_initialized():
@@ -749,8 +789,8 @@ def install(
 ) -> None:
     """Give one constructed generation its memo, once per load. `headers` maps each component
     to the checkpoint header it fills from; `assets` is the header carrying assets and configs.
-    In a group only GPU 0 runs package code and commands the others' module calls, so a hit
-    there skips the call on every GPU; the group's width is part of the numerics. A
+    In a group GPU 0 decides each hit and hands its entry to the others (`_tell`), so a hit skips
+    the call on every GPU; the group's width is part of the numerics. A
     generation whose identity cannot be read serves unmemoized, never refused."""
     try:
         memo = _generation(

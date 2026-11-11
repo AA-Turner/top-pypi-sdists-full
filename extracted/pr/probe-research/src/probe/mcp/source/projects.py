@@ -56,6 +56,10 @@ class ProjectReadsMixin:
     def project_artifacts(self, project_id: str) -> list[dict]:
         return self.client.list_project_artifacts(project_id)
 
+    def fetch_panes(self, project_id: str) -> list[dict]:
+        """``GET /v1/projects/{P}/panes``: the project's or experiment's panes, first to last, each with its HTML."""
+        return self.client.list_panes(project_id)
+
     def project_papers(
         self, project_id: str, limit: int = 50
     ) -> tuple[list[dict], bool]:

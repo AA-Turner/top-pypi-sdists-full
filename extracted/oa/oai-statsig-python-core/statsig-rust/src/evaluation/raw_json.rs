@@ -12,7 +12,7 @@ use serde::{
 // serde_json upgrade cannot silently change this protocol.
 const RAW_VALUE_TOKEN: &str = "$serde_json::private::RawValue";
 
-pub(super) struct RawJson<'a>(pub(super) Cow<'a, str>);
+pub(crate) struct RawJson<'a>(pub(crate) Cow<'a, str>);
 
 impl<'de> Deserialize<'de> for RawJson<'de> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {

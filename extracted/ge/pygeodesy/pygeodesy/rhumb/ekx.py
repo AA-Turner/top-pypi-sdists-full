@@ -42,7 +42,7 @@ from pygeodesy.utily import atan1, sincos2_
 from math import asinh, atan, cos, cosh, radians, sin, sinh, sqrt, tan  # as _tan
 
 __all__ = _ALL_LAZY.rhumb_ekx
-__version__ = '25.08.31'
+__version__ = '26.10.30'
 
 
 class Rhumb(RhumbBase):
@@ -358,7 +358,7 @@ def _DeatanhE(x, y, E):  # see .albers._Datanhee
     e = _1_0 - E.e2 * x * y
     if e:  # assert not isnear0(e)
         d =  x - y
-        e = (E._es_atanh(d / e) / d) if d else (E.e2 / e)
+        e = (E.es_eatanhe(d / e) / d) if d else (E.e2 / e)
     return e
 
 
@@ -546,7 +546,7 @@ __all__ += _ALL_DOCS(Caps)
 
 # **) MIT License
 #
-# Copyright (C) 2022-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2022-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

@@ -41,8 +41,6 @@ from exp.runtime.openai_protocol.client_field_repairs import (
 )
 from exp.runtime.openai_protocol.custom_tool_wire import (
     ChatCustomToolCall,
-    CustomToolCallItem,
-    CustomToolCallOutputItem,
 )
 from exp.runtime.openai_protocol.custom_tools import (
     chat_custom_call_messages,
@@ -62,6 +60,7 @@ from exp.runtime.openai_protocol.errors import (
 )
 from exp.runtime.openai_protocol.history_documents import trim_history_documents
 from exp.runtime.openai_protocol.history_media import degrade_chat_media, degrade_responses_media
+from exp.runtime.openai_protocol.litellm_carriers import litellm_carrier_disclosures
 from exp.runtime.openai_protocol.manifest import (
     CHAT_MANIFEST,
     EMBEDDINGS_MANIFEST,
@@ -96,12 +95,15 @@ from exp.runtime.openai_protocol.reasoning_replay import (
     replayed_reasoning_disclosures,
 )
 from exp.runtime.openai_protocol.responses_input import (
+    NATIVE_INPUT_ITEMS,
     ReplayedFunctionCall,
     ReplayedFunctionOutput,
     ReplayedInput,
     ReplayedMessage,
     ReplayedNativeItem,
     ReplayedReasoning,
+    dropped_native_breakpoints,
+    native_input_role,
     responses_input_messages,
 )
 from exp.runtime.openai_protocol.responses_probe import (
@@ -126,13 +128,10 @@ from exp.runtime.openai_protocol.web_search import (
     split_online_suffix,
 )
 from exp.runtime.openai_protocol.wire_models import (
-    HOSTED_TOOL_ITEM_TYPES_TOOL,
-    _AdditionalToolsItem,
     _AssistantToolCall,
     _ChatRequest,
     _ChatTool,
     _FunctionCall,
-    _HostedToolItemEcho,
     _Message,
     _ResponseFunctionCall,
     _ResponseMessage,
@@ -235,8 +234,9 @@ _CHAT_MESSAGE_EXTENSION_KEYS = frozenset(
 ``reasoning_content`` is the authenticated Chat extension and ``reasoning`` /
 ``reasoning_details`` are OpenRouter's replayed-reasoning fields (folded by
 ``reasoning_replay``); the other four are LiteLLM's message-dump keys, which
-``_Message`` admits only in their empty (or, for ``provider_specific_fields``,
-dropped-and-disclosed) forms.
+``_Message`` validates and drops (``provider_specific_fields``,
+``thinking_blocks`` and ``reasoning_items``, each disclosed when populated) or
+admits only empty (``images``).
 """
 
 
@@ -270,14 +270,13 @@ def decode_chat(
 ) -> DecodedGatewayRequest:
     """Decode one Chat Completions body without silently dropping fields.
 
-    OpenCode may attach an Anthropic-style ``cache_control`` annotation on
-    Chat messages and on text content parts. Supported ephemeral forms are
-    validated outside official OpenAI validation and retained on canonical
-    cache carriers for adapters that support them. Unknown keys on messages, their
-    tool calls and content parts are dropped with disclosure
-    (:mod:`exp.runtime.openai_protocol.unknown_message_fields`); every other unknown
-    nested field stays rejected. The Vercel AI SDK's camelCase ``promptCacheKey`` is
-    folded onto ``prompt_cache_key`` first, so it decodes as the documented wire field.
+    OpenCode may attach an Anthropic-style ``cache_control`` annotation on Chat messages and on
+    text content parts. Supported ephemeral forms are validated outside official OpenAI
+    validation and retained on canonical cache carriers for adapters that support them. Unknown
+    keys on messages, their tool calls and content parts are dropped with disclosure
+    (:mod:`exp.runtime.openai_protocol.unknown_message_fields`); every other unknown nested
+    field stays rejected. The Vercel AI SDK's camelCase ``promptCacheKey`` is folded onto
+    ``prompt_cache_key`` first, so it decodes as the documented wire field.
 
     Args:
         payload: Parsed JSON request body.
@@ -331,7 +330,7 @@ def decode_chat(
         if isinstance(request.stop, str)
         else request.stop
     )
-    thinking = translate_enable_thinking(request)
+    thinking = translate_enable_thinking(request, alias_disclosures)
     raw_chat_tools = payload.get("tools")
     chat_native_tools = tuple(
         GatewayProviderNativeTool(
@@ -375,6 +374,7 @@ def decode_chat(
                     else ()
                 ),
                 *replayed_reasoning_disclosures(request.messages),
+                *litellm_carrier_disclosures(request.messages, "messages"),
             ),
             zdr_requested=request.provider is not None and request.provider.demands_zdr,
             provider_preferences=_provider_preferences(payload, request.provider),
@@ -398,6 +398,7 @@ def decode_chat(
             logprobs=request.logprobs,
             top_logprobs=request.top_logprobs,
             reasoning_effort=thinking.reasoning_effort,
+            reasoning_effort_parameter=thinking.effort_parameter,
             thinking_default_enable=thinking.thinking_default_enable,
             stream=request.stream,
             include_usage=(
@@ -545,6 +546,11 @@ def decode_responses(
     if request.instructions is not None:
         messages.insert(0, GatewayMessage(role="developer", content=request.instructions))
     trimmed, document_disclosures = trim_history_documents(tuple(messages))
+    response_messages = (
+        ()
+        if isinstance(request.input, str)
+        else tuple(item for item in request.input if isinstance(item, _ResponseMessage))
+    )
     try:
         canonical = GatewayRequest(
             surface=GatewayApiSurface.RESPONSES,
@@ -563,11 +569,8 @@ def decode_responses(
                 *document_disclosures,
                 *breakpoints.disclosures,
                 *cache_disclosures,
-                *replayed_reasoning_disclosures(
-                    ()
-                    if isinstance(request.input, str)
-                    else tuple(item for item in request.input if isinstance(item, _ResponseMessage))
-                ),
+                *replayed_reasoning_disclosures(response_messages),
+                *litellm_carrier_disclosures(response_messages, "input"),
             ),
             zdr_requested=request.provider is not None and request.provider.demands_zdr,
             provider_preferences=_provider_preferences(payload, request.provider),
@@ -835,27 +838,18 @@ def _response_input_messages(
         return responses_input_messages(value)
     replayed: list[ReplayedInput] = []
     for index, item in enumerate(value):
-        if isinstance(
-            item,
-            (
-                _AdditionalToolsItem,
-                CustomToolCallItem,
-                CustomToolCallOutputItem,
-                _HostedToolItemEcho,
-            ),
-        ):
+        if isinstance(item, NATIVE_INPUT_ITEMS):
+            if item.type == "compaction_trigger" and index != len(value) - 1:
+                raise invalid_field(
+                    f"input.{index}.type", "A 'compaction_trigger' must be the final input item."
+                )
             # The raw caller item, not the re-serialized wire model, so the
             # native rung receives the item byte-for-byte.
-            if isinstance(item, _HostedToolItemEcho):
-                native_role = "tool" if item.type in HOSTED_TOOL_ITEM_TYPES_TOOL else "assistant"
-            elif isinstance(item, CustomToolCallItem):
-                native_role = "assistant"
-            elif isinstance(item, CustomToolCallOutputItem):
-                native_role = "tool"
-            else:
-                native_role = "developer"
+            cache_disclosures.extend(
+                dropped_native_breakpoints(index, raw_items[index], marked_items)
+            )
             replayed.append(
-                ReplayedNativeItem(index=index, role=native_role, item=raw_items[index])
+                ReplayedNativeItem(index=index, role=native_input_role(item), item=raw_items[index])
             )
         elif isinstance(item, _ResponseReasoningItem):
             if item.encrypted_content is None:
@@ -949,6 +943,17 @@ def _response_input_messages(
                     ),
                 )
             )
+        elif item.call_id is None:
+            # A named output that answers no call (SDK 3.37 makes call_id
+            # optional; Codex delivers thread messages and notifications
+            # this way) has no canonical tool message, so it is carried
+            # verbatim like the other provider-owned items.
+            if item.name is None:
+                raise invalid_field(
+                    f"input.{index}.call_id",
+                    "A function_call_output needs a call_id, or a name when it answers no call.",
+                )
+            replayed.append(ReplayedNativeItem(index=index, role="user", item=raw_items[index]))
         else:
             if isinstance(item.output, str):
                 output_text, output_parts = item.output, ()

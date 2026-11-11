@@ -171,6 +171,23 @@ class ComparisonTests(unittest.TestCase):
         # a pointer compares not-equal to objects of other types
         self.assertFalse(p1 == "/something/1/b")
 
+    def test_other_types_remain_unequal(self):
+        for other in ["/a/b/c", None, 1, object()]:
+            for left, right in [(self.ptr1, other), (other, self.ptr1)]:
+                with self.subTest(left=left, right=right):
+                    self.assertFalse(left == right)
+                    self.assertTrue(left != right)
+
+    def test_reflected_equality(self):
+        for left, right in [(self.ptr1, mock.ANY), (mock.ANY, self.ptr1)]:
+            with self.subTest(left=left, right=right):
+                self.assertTrue(left == right)
+
+    def test_reflected_inequality(self):
+        for left, right in [(self.ptr1, mock.ANY), (mock.ANY, self.ptr1)]:
+            with self.subTest(left=left, right=right):
+                self.assertFalse(left != right)
+
     def test_contains(self):
         self.assertTrue(self.ptr1.contains(self.ptr2))
         self.assertTrue(self.ptr1.contains(self.ptr1))
@@ -198,6 +215,11 @@ class ComparisonTests(unittest.TestCase):
         self.assertEqual(ptr12e.path, "/a/b/c/a/b")
 
         self.assertRaises(JsonPointerException, self.ptr1.join, 0)
+
+    def test_join_chains_original_error(self):
+        with self.assertRaises(JsonPointerException) as caught:
+            self.ptr1.join(0)
+        self.assertIsInstance(caught.exception.__cause__, TypeError)
 
     def test_join_magic(self):
         ptr12a = self.ptr1 / self.ptr2
@@ -290,6 +312,17 @@ class WrongInputTests(unittest.TestCase):
 
 @unittest.skipUnless(hasattr(sys, 'get_int_max_str_digits'),
                      'Integer string conversion limits are not available')
+class PairwiseTests(unittest.TestCase):
+
+    def test_pairwise_is_deprecated(self):
+        for items, expected in (([], []), ([1], []),
+                                ([1, 2, 3, 4], [(1, 2), (2, 3), (3, 4)])):
+            with self.subTest(items=items):
+                with self.assertWarns(DeprecationWarning):
+                    result = jsonpointer.pairwise(items)
+                self.assertEqual(list(result), expected)
+
+
 class LargeIndexTests(unittest.TestCase):
 
     def setUp(self):
@@ -738,6 +771,15 @@ class CommandLineTests(unittest.TestCase):
                     self.assertTrue(cli['resolve_files']())
                 self.assertFalse(stdin.closed)
 
+    def test_keyboard_interrupt_exit_status(self):
+        cli = runpy.run_path(self.SCRIPT)
+        args = [self.SCRIPT, '/a', os.path.join(self.dir, 'a.json')]
+        with mock.patch.object(sys, 'argv', args), \
+                mock.patch('json.load', side_effect=KeyboardInterrupt):
+            with self.assertRaises(SystemExit) as caught:
+                cli['main']()
+        self.assertEqual(caught.exception.code, 130)
+
     def test_utf8_json_file_without_utf8_mode(self):
         self._write('unicode.json', '{"value": "🚀"}')
         proc = self._run('/value', 'unicode.json', utf8=False)
@@ -953,6 +995,12 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         self.assertEqual(proc.stdout, self.A_OUT)
         self.assertIn('missing.json', proc.stderr)
+
+    def test_missing_pointer_file(self):
+        proc = self._run('-f', 'missing.txt', 'a.json')
+        self.assertEqual(proc.returncode, 2)
+        self.assertEqual(proc.stdout, '')
+        self.assertIn("can't open 'missing.txt'", proc.stderr)
 
     def test_pointer_file_requires_value(self):
         proc = self._run('-f', '-p', '/a', 'a.json')

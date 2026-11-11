@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, ClassVar, cast
+from typing import ClassVar, TypeVar, cast
 
 from anta._advisory.base import _PREVIEW_WARNING, _AntaAdvisoryTest
 from anta._advisory.eos_versions import VersionRule
@@ -14,14 +14,14 @@ from anta._advisory.facts.eos import EosVersionFact
 from anta._advisory.facts.models import (
     AvailableFact,
     ConfigurationState,
-    ConfigurationValue,
     Fact,
-    FactDefinition,
+    FactsBase,
+    FeatureFact,
     FeatureState,
-    FeatureValue,
     MitigationState,
-    MitigationValue,
     UnavailableFact,
+    fact_field,
+    facts_dataclass,
 )
 from anta._advisory.facts.routing import Ospfv2BroadcastAuthenticationFact, Ospfv2ProcessConfiguredFact, Ospfv2SegmentRoutingFact
 from anta._advisory.facts.software import SA171HotfixFact
@@ -93,15 +93,16 @@ ADVISORY = _AdvisoryMetadata(
     description="On affected EOS releases, crafted OSPFv2 packets may disrupt authenticated broadcast adjacencies or restart OSPF segment routing.",
 )
 BROADCAST_ID, SEGMENT_ROUTING_ID = (vulnerability.id for vulnerability in ADVISORY.vulnerabilities)
+FeatureFactT = TypeVar("FeatureFactT", bound=FeatureFact)
 
 
 def _assess_ospfv2_issue(
     vulnerability_id: str,
-    version: Fact[EOSVersion],
-    prerequisite: Fact[FeatureValue],
+    version: Fact[EosVersionFact],
+    prerequisite: Fact[FeatureFactT],
     affected_versions: tuple[VersionRule, ...],
     fixed_releases: tuple[FixedRelease, ...],
-    hotfix: Fact[MitigationValue] | None,
+    hotfix: Fact[SA171HotfixFact] | None,
     hotfix_releases: frozenset[str],
 ) -> VulnerabilityResult:
     """Assess one OSPFv2 issue using its independent version and feature prerequisite."""
@@ -120,13 +121,13 @@ def _assess_ospfv2_issue(
         if hotfix.value.state is MitigationState.EFFECTIVE:
             return MitigatedResult(
                 vulnerability_id=vulnerability_id,
-                mitigated_conditions=(MitigatedCondition(cast("AvailableFact[FeatureValue]", prerequisite), (hotfix,)),),
+                mitigated_conditions=(MitigatedCondition(cast("AvailableFact[FeatureFactT]", prerequisite), (hotfix,)),),
                 context=(eos_release,),
                 remediation=remediation,
             )
     return AffectedResult(
         vulnerability_id=vulnerability_id,
-        conditions=(cast("AvailableFact[FeatureValue]", prerequisite),),
+        conditions=(cast("AvailableFact[FeatureFactT]", prerequisite),),
         context=(eos_release,),
         remediation=remediation,
     )
@@ -134,10 +135,10 @@ def _assess_ospfv2_issue(
 
 
 def _assess_broadcast_issue(
-    version: Fact[EOSVersion],
-    prerequisite: Fact[FeatureValue],
-    configuration: Fact[ConfigurationValue],
-    hotfix: Fact[MitigationValue],
+    version: Fact[EosVersionFact],
+    prerequisite: Fact[Ospfv2BroadcastAuthenticationFact],
+    configuration: Fact[Ospfv2ProcessConfiguredFact],
+    hotfix: Fact[SA171HotfixFact],
 ) -> VulnerabilityResult:
     """Assess reported active broadcast authentication, falling back to configured-process state when inactive."""
     if not isinstance(prerequisite, UnavailableFact) and prerequisite.value.state is FeatureState.ENABLED:
@@ -166,9 +167,9 @@ def _assess_broadcast_issue(
 
 
 def _assess_inactive_broadcast_issue(
-    version: Fact[EOSVersion],
-    configuration: Fact[ConfigurationValue],
-    hotfix: Fact[MitigationValue],
+    version: Fact[EosVersionFact],
+    configuration: Fact[Ospfv2ProcessConfiguredFact],
+    hotfix: Fact[SA171HotfixFact],
 ) -> VulnerabilityResult:
     """Assess configured OSPFv2 when no qualifying broadcast interface is currently active."""
     eos_release = assess_eos_scope(BROADCAST_ID, version, BROADCAST_AFFECTED_VERSIONS)
@@ -206,16 +207,17 @@ class SA171(OptionalCommandsMixin, _AntaAdvisoryTest):
 
     Expected Results
     ----------------
-    * Success: An issue's EOS version is outside scope; or, for CVE-2026-73435, no OSPFv2 process is configured; or, for
+    * Not Affected: An issue's EOS version is outside scope; or, for CVE-2026-73435, no OSPFv2 process is configured; or, for
       CVE-2026-73436, OSPF segment routing is not enabled.
-    * Failure: On an affected EOS release, an active OSPFv2 broadcast interface reports cryptographic authentication
+    * Affected: On an affected EOS release, an active OSPFv2 broadcast interface reports cryptographic authentication
       for CVE-2026-73435, or OSPF segment routing is enabled for CVE-2026-73436.
-    * Mitigated: For CVE-2026-73435, the SWIX is installed and boot-persistent on an explicitly supported release. This
-      is decisive even when no qualifying broadcast interface is currently active.
+    * Mitigated: For CVE-2026-73435, the SWIX is installed and boot-persistent on an explicitly supported release.
     * Inconclusive: For CVE-2026-73435, an affected EOS release has an OSPFv2 process configured, but no active
       broadcast interface reporting cryptographic authentication is currently observable.
     * Error: Required EOS, OSPFv2, or applicable SWIX state cannot be determined.
 
+    Notes
+    -----
     The two vulnerabilities have independent version boundaries and prerequisites. In particular, 4.34.7.1M fixes
     CVE-2026-73435 but remains affected by CVE-2026-73436.
 
@@ -227,7 +229,8 @@ class SA171(OptionalCommandsMixin, _AntaAdvisoryTest):
     * A configured OSPFv2 process without a currently observable qualifying active interface is inconclusive. Interface
       state can change without an OSPF configuration change, and authentication may be inherited from area, process, or
       interface configuration.
-    * An applicable effective SWIX resolves that uncertainty and produces a mitigated result.
+    * An applicable effective SWIX resolves that uncertainty and produces a mitigated result, even when no qualifying broadcast interface is
+      currently active.
 
     The test deliberately does not reconstruct effective OSPF behavior from static network, passive-interface, or
     authentication configuration. Process configuration is used only to distinguish an absent exposure path from an
@@ -241,29 +244,30 @@ class SA171(OptionalCommandsMixin, _AntaAdvisoryTest):
     ```
     """
 
+    @facts_dataclass
+    class Facts(FactsBase):
+        """Collected facts required to assess the advisory."""
+
+        version: Fact[EosVersionFact] = fact_field(EosVersionFact)
+        broadcast_authentication: Fact[Ospfv2BroadcastAuthenticationFact] = fact_field(Ospfv2BroadcastAuthenticationFact)
+        ospfv2_configuration: Fact[Ospfv2ProcessConfiguredFact] = fact_field(Ospfv2ProcessConfiguredFact)
+        segment_routing: Fact[Ospfv2SegmentRoutingFact] = fact_field(Ospfv2SegmentRoutingFact)
+        hotfix: Fact[SA171HotfixFact] = fact_field(SA171HotfixFact)
+
     advisory: ClassVar[_AdvisoryMetadata] = ADVISORY
-    required_facts: ClassVar[tuple[type[FactDefinition[Any]], ...]] = (
-        EosVersionFact,
-        Ospfv2BroadcastAuthenticationFact,
-        Ospfv2ProcessConfiguredFact,
-        Ospfv2SegmentRoutingFact,
-        SA171HotfixFact,
-    )
     description = "Verify whether the device is impacted by Security Advisory 0171."
     _atomic_support = True
 
     @_AntaAdvisoryTest.anta_test
     def test(self) -> None:
         """Derive facts, assess both vulnerabilities, and project them."""
-        version = self.fact(EosVersionFact)
-        hotfix = self.fact(SA171HotfixFact)
-        ospfv2_configuration = self.fact(Ospfv2ProcessConfiguredFact)
+        facts = self.Facts.collect(self)
         findings = (
-            _assess_broadcast_issue(version, self.fact(Ospfv2BroadcastAuthenticationFact), ospfv2_configuration, hotfix),
+            _assess_broadcast_issue(facts.version, facts.broadcast_authentication, facts.ospfv2_configuration, facts.hotfix),
             _assess_ospfv2_issue(
                 SEGMENT_ROUTING_ID,
-                version,
-                self.fact(Ospfv2SegmentRoutingFact),
+                facts.version,
+                facts.segment_routing,
                 SEGMENT_ROUTING_AFFECTED_VERSIONS,
                 SEGMENT_ROUTING_FIXED_RELEASES,
                 None,

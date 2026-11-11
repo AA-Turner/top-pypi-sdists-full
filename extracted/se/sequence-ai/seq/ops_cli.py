@@ -17,7 +17,7 @@ from sequence_base.constants.serving import QUEUE_TIMEOUT_S
 from seq.deployments_cli import _call, page_query
 from seq.registry import MACHINE_CARDS
 from sequence_ai._core.capacity import duration
-from sequence_ai._core.money import money, per_hour as hourly
+from sequence_ai._core.money import money, price, per_hour as hourly
 from sequence_ai._core.names import segment
 
 
@@ -176,23 +176,23 @@ def storage(name: str | None, prices: dict, *, base_url: str | None = None, echo
             echo("  no storage for its weights: it declares none")
         elif origin == "shared":
             echo("  no storage for its weights while its code is the official template's, unchanged: read from the "
-                 f"platform's read-only copy (nothing copied); with its code changed, a copy at {money(rate)}/GB-month")
+                 f"platform's read-only copy (nothing copied); with its code changed, a copy at {price(rate)}/GB-month")
         elif origin == "volume":
             echo(f"  no storage of its own for its weights: it reads your volume {volume} as it is (nothing copied), "
-                 f"billed as that volume at {money(rate)}/GB-month for as long as you keep it")
+                 f"billed as that volume at {price(rate)}/GB-month for as long as you keep it")
         elif origin == "unknown":
             echo(f"  plus storage while it is kept: an official template's weights are read from the platform's copy, "
-                 f"not billed, when it shares them and its code is unchanged; else copied at {money(rate)}/GB-month "
+                 f"not billed, when it shares them and its code is unchanged; else copied at {price(rate)}/GB-month "
                  f"(10 GB: ~{money(10 * rate)}/month)")
         else:
-            echo(f"  plus storage while it is kept: its weights copy at {money(rate)}/GB-month, whether or not a "
+            echo(f"  plus storage while it is kept: its weights copy at {price(rate)}/GB-month, whether or not a "
                  f"worker runs (10 GB: ~{money(10 * rate)}/month); its size is known once it is deployed - deleting it "
                  "stops it")
         return {"usd_per_gb_month": rate, **({"usd_per_month": 0.0} if origin in ("none", "shared", "volume") else {})}
     gb = sizes["weights"]
     month = gb * rate
     if gb > 0:
-        echo(f"  plus storage while it is kept: its weights {_size(gb)} at {money(rate)}/GB-month: ~{money(month)}/month, "
+        echo(f"  plus storage while it is kept: its weights {_size(gb)} at {price(rate)}/GB-month: ~{money(month)}/month, "
              "whether or not a worker runs - deleting it stops it")
     else:
 
@@ -224,9 +224,12 @@ def compute_per_hour(prices: dict, gpu: str, cpu_cores: float | None = None,
     if got is None:
         raise ValueError(f"the platform's price list names no standard machine of {gpu}; try again shortly")
     cores, gib = got
+
+
+    whose = "the standard machine with no card" if str(gpu).lower() == "cpu" else "its card's standard machine"
     return (cores * core_h + gib * gib_h,
-            f"{cores:g} cores x {money(core_h)}/core-h + {gib:g} GiB x {money(gib_h)}/GiB-h, its card's standard "
-            "machine or what it declares where more")
+            f"{cores:g} cores x {price(core_h)}/core-h + {gib:g} GiB x {price(gib_h)}/GiB-h, {whose} or what it "
+            "declares where more")
 
 
 
@@ -324,12 +327,17 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
            **({"start_usd_per_day": round(boot, 2)} if uses and start_s else {}), "usd_per_day": round(day, 2),
            "usd_per_month": round(day * 30, 2), "workers_in_use": in_use, "seats_per_worker": k, "robots": n,
            "robots_waiting": waiting}
+
+
+
+
+    its_card = f"its card {hourly(card_h)}" if int(count) == 1 else f"its {int(count)} cards x {hourly(card_h)}"
     if measured_per_hour is not None:
         said = ", its card and its CPU and memory as the platform prices them now"
     elif how:
-        said = f": {'its card, and ' if name.lower() != 'cpu' else ''}{how}"
+        said = f": {its_card + ', and ' if name.lower() != 'cpu' else ''}{how}"
     else:
-        said = ": its card" if name.lower() != "cpu" else ""
+        said = f": {its_card}" if name.lower() != "cpu" else ""
     echo(f"estimate: {out['card']} at {hourly(per_hour)} a worker{said}")
 
 
@@ -429,7 +437,7 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
         out["first_worker_usd"], out["first_worker_usd_per_minute"] = round(stays, 2), round(minute, 4)
         echo(f"  each deploy, apart from these: its check's machine stays on as its first worker, billed - it saves "
              f"the version's image for its next machines, usually a minute or two, then with no robot connected ends "
-             f"after {duration(idle_s)}: ~{money(stays)} with a usual save, ~{money(minute)} a minute")
+             f"after {duration(idle_s)}: ~{money(stays)} with a usual save, ~{price(minute)} a minute")
 
 
 
@@ -441,7 +449,7 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
         low, high = float(saves["usd_per_gb_min"]), float(saves["usd_per_gb_max"])
         out["image_save_usd_per_gb"] = [low, high]
         echo(f"  each deploy, its version's image is saved for its next machines: only what is not stored yet is sent, "
-             f"often far less than the image, ${low:.2f}-${high:.2f} per GB sent (the cloud's own price where its check "
+             f"often far less than the image, {price(low)}-{price(high)} per GB sent (the cloud's own price where its check "
              "ran), billed")
 
 

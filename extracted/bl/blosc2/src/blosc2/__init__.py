@@ -26,9 +26,6 @@ IS_WASM = platform.machine() == "wasm32"
 Flag for WebAssembly platform.
 """
 
-if not IS_WASM:
-    import numexpr
-
 from .version import __array_api_version__, __version__
 
 _PACKAGE_DIR = str(Path(__file__).resolve().parent)
@@ -491,6 +488,7 @@ from .core import (
     set_blocksize,
     set_compressor,
     set_nthreads,
+    set_prefetch,
     set_releasegil,
     unpack,
     unpack_array,
@@ -503,6 +501,8 @@ from .core import (
 cpu_info = get_cpu_info()
 nthreads = ncores = cpu_info.get("count", 1)
 """Number of threads to be used in compression/decompression.
+
+It starts from the ``BLOSC_NTHREADS`` environment variable if that is set.
 """
 # Protection against too many threads
 nthreads = min(nthreads, 64)
@@ -515,14 +515,12 @@ else:
     # Experiments say that, when using a large number of threads, it is better to not use them all
     if nthreads > 16:
         nthreads -= nthreads // 8
-    # Only call set_num_threads if within NUMEXPR_MAX_THREADS limit to avoid warning
-    numexpr_max_env = os.environ.get("NUMEXPR_MAX_THREADS")
-    numexpr_max: int | None = None
-    if numexpr_max_env is not None:
-        with contextlib.suppress(ValueError):
-            numexpr_max = int(numexpr_max_env)
-    if numexpr_max is None or nthreads <= numexpr_max:
-        numexpr.set_num_threads(nthreads)
+    # C-Blosc2 uses BLOSC_NTHREADS, when set to a valid number, for every compression and
+    # decompression, whatever the nthreads in their parameters; start from it (as C-Blosc2 reads
+    # it), so that nthreads and the CParams/DParams defaults say how many threads are used
+    from .blosc2_ext import context_nthreads
+
+    nthreads = context_nthreads(nthreads)
 
 # This import must be before ndarray and schunk
 from .storage import (  # noqa: I001
@@ -582,11 +580,21 @@ from .objectarray import ObjectArray, objectarray_from_cframe
 from .ref import Ref
 from .b2objects import open_b2object
 from .deserialization import DeserializeMode
-from .exceptions import UnsafeDeserializationError
+from .exceptions import UnsafeDeserializationError, UnsupportedLegacyRecipeError
 
 from .c2array import c2context, C2Array, C2NDSource, ChunkAlreadyWritten, URLPath
 
-from .dsl_kernel import DSLSyntaxError, DSLKernel, dsl_kernel, validate_dsl, validate_dsl_jit
+from .dsl_kernel import (
+    DSLSyntaxError,
+    DSLKernel,
+    dsl_kernel,
+    validate_dsl,
+    validate_dsl_jit,
+    validate_menudet,
+)
+from .menudet_kernel import MenudetError, MenudetKernel
+from .jit_config import get_jit_options, jit_options, set_jit_options
+from .expression_graph import expression_evaluation
 from .lazyexpr import (
     LazyExpr,
     lazyudf,
@@ -600,6 +608,7 @@ from .lazyexpr import (
     result_type,
     can_cast,
 )
+from .prepared_evaluate import PreparedEvaluator, prepare_evaluate, re_evaluate
 from .proxy_source import (
     ProxySource,
     ProxyNDSource,
@@ -626,6 +635,8 @@ from .proxy import (
 from .remote_object import RemoteObject
 from .remote_array import RemoteMetadataMapping, RemoteArray
 from .remote_store import RemoteNode, RemoteStore
+from .remote_file import RemoteFile
+from .remote_repository import RemoteRepository
 from . import linalg
 from .linalg import tensordot, vecdot, permute_dims, matrix_transpose, matmul, transpose, diagonal, outer
 from .utils import linalg_funcs as linalg_funcs_list
@@ -822,6 +833,8 @@ from .schema import (
 ndarray.NDArray = NDArray
 ndarray.NDField = NDField
 
+from .menudet import MenudetFunction, menudet
+
 __all__ = [  # noqa : RUF022
     # Constants
     "EXTENDED_HEADER_LENGTH",
@@ -876,6 +889,10 @@ __all__ = [  # noqa : RUF022
     "to_utf8",
     # Grouped reductions
     "group_reduce",
+    # JIT configuration
+    "get_jit_options",
+    "set_jit_options",
+    "jit_options",
     # Classes
     "C2Array",
     "C2NDSource",
@@ -901,8 +918,15 @@ __all__ = [  # noqa : RUF022
     "Index",
     "LazyArray",
     "DSLKernel",
+    "UnsupportedLegacyRecipeError",
+    "validate_menudet",
+    "MenudetKernel",
+    "MenudetError",
     "DSLSyntaxError",
     "LazyExpr",
+    "PreparedEvaluator",
+    "prepare_evaluate",
+    "re_evaluate",
     "LazyUDF",
     "ListArray",
     "NullPolicy",
@@ -926,6 +950,8 @@ __all__ = [  # noqa : RUF022
     "RemoteCTable",
     "RemoteNode",
     "RemoteStore",
+    "RemoteFile",
+    "RemoteRepository",
     "SChunk",
     "SimpleProxy",
     "SpecialValue",
@@ -1043,6 +1069,8 @@ __all__ = [  # noqa : RUF022
     "jit",
     "lazyexpr",
     "dsl_kernel",
+    "menudet",
+    "MenudetFunction",
     "validate_dsl",
     "validate_dsl_jit",
     "lazyudf",
@@ -1107,6 +1135,7 @@ __all__ = [  # noqa : RUF022
     "set_blocksize",
     "set_compressor",
     "set_nthreads",
+    "set_prefetch",
     "set_releasegil",
     "sign",
     "signbit",

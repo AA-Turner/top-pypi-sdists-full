@@ -714,10 +714,27 @@ class IssueResolution:
     remainder after the value (e.g. "the quadraui issue was only drafted,
     not filed"), empty when the marker carried none or wasn't present at
     all.
+
+    ``explicit`` (#3966) is the presence bit: ``True`` only when
+    :func:`parse_issue_resolution` actually matched a real marker in the
+    source text, ``False`` for the default it returns when none was found
+    (or the text was empty/``None``). Without this bit, a round that
+    states nothing and a round that explicitly writes
+    ``ISSUE_RESOLUTION: resolved`` are the same value and indistinguishable
+    — which is exactly what let a multi-round fold (#3966's
+    `coord.merge_queue._issue_resolution_for_entry`) never clear a prior
+    `partial`/`investigation`, even when a later, independent reviewer
+    deliberately restated `resolved`. Callers that fold multiple rounds
+    together use this bit to tell "silent" (carry the prior value forward)
+    apart from "stated" (let it win the tie); callers combining a single
+    worker/reviewer pair (:func:`effective_issue_resolution`) do not need
+    it — "never the reverse" there is unconditional regardless of how the
+    reviewer's value was produced.
     """
 
     value: str = DEFAULT_ISSUE_RESOLUTION
     reason: str = ""
+    explicit: bool = False
 
 
 # Mirrors `SMOKE_TESTS:`/`REVIEW_VERDICT:`'s tolerance for trailing
@@ -794,6 +811,12 @@ def parse_issue_resolution(text: str | None) -> IssueResolution:
     quotations of the marker text, not claims. A real, unquoted marker
     earlier in the text still wins once every later quoted mention has
     been skipped, rather than falling all the way back to the default.
+
+    The returned :class:`IssueResolution`'s ``explicit`` bit (#3966) is
+    ``True`` only on the "found a real marker" return below — the
+    absent/malformed default always comes back with ``explicit=False``,
+    so a caller folding several of these together can tell a genuine
+    `ISSUE_RESOLUTION: resolved` apart from a line that was never written.
     """
     if not text:
         return IssueResolution()
@@ -808,7 +831,7 @@ def parse_issue_resolution(text: str | None) -> IssueResolution:
         ).strip()
         if is_blank_issue_resolution_reason(reason):
             reason = ""
-        return IssueResolution(value=value, reason=reason)
+        return IssueResolution(value=value, reason=reason, explicit=True)
     return IssueResolution()
 
 
@@ -1117,6 +1140,39 @@ def is_needs_decomposition_reason(text: str | None) -> bool:
     replaces it.
     """
     return bool(text) and NEEDS_DECOMPOSITION_MARKER in text
+
+
+# #3977: the machine-readable tag `coord.upstream_gaps._park_queue_row`
+# embeds in a downstream drive-queue row's `last_reason` when it parks the
+# row directly — no upstream issue, no `after=` edge: a symbol confirmed on
+# the upstream default branch (unreleased, not missing) or a dedup match
+# that closed within the recent-close window. Same SIBLING shape as
+# `POLICY_REFUSAL_MARKER`/`PREMISE_REFUSAL_MARKER`/`NEEDS_DECOMPOSITION_
+# MARKER` above: nothing on the board signals a release landing or a
+# coordinator's confirmation, so there is no external verdict to poll for.
+#
+# Text-marker matching (not a dedicated exit code), same rationale as the
+# three markers above: `coord/drive_queue.py`'s parked pre-pass recognises
+# this straight out of the row's own `last_reason` and leaves the row
+# parked rather than falling through to the CI-park "resume" default, which
+# would otherwise flip it back to `waiting` on the very next tick and
+# relaunch a worker straight into re-emitting the identical marker.
+UPSTREAM_GAP_PARK_MARKER = "[parked-on-upstream-gap #3977]"
+
+
+def is_upstream_gap_park_reason(text: str | None) -> bool:
+    """Whether *text* is a #3977 upstream-gap park reason.
+
+    Like a policy/premise refusal or a needs-decomposition park, this has
+    no external verdict that can arrive and clear it on its own — a
+    release landing, or a coordinator confirming a dedup/unverified gap,
+    leaves no trace on the board that this module (or anything else) polls
+    for — so nothing auto-resumes an entry parked for this reason. An
+    operator clears it by hand once the release lands / the pin is bumped,
+    or once the gap is confirmed, the same way they clear a `blocked` entry
+    (`coord drive-queue remove` + `add` for a fresh row).
+    """
+    return bool(text) and UPSTREAM_GAP_PARK_MARKER in text
 
 
 # #2850: the machine-readable tag `coord.drive.decide` embeds in its
@@ -1724,6 +1780,14 @@ class Proposal:
     # `coord/dispatch_workers.py`, ...) gets this for free without each call
     # site threading it through by hand.
     dispatched_by_assignment_id: str | None = None
+    # #3945: overrides the `type="plan"` dispatch's default system prompt
+    # (`coord.agent.WORKER_PLAN_PROMPT`'s own FILES_READ/FILES_MODIFY/
+    # APPROACH/RISKS/ESTIMATE schema) — set by the board-doctor merged-
+    # partial follow-through's plan leg, whose contract is a different
+    # fixed JSON shape (`coord.board_doctor_followthrough.build_plan_leg_
+    # prompt`). `None` for every other caller, which keeps today's
+    # `WORKER_PLAN_PROMPT` behaviour exactly.
+    system_prompt: str | None = None
 
 
 @dataclass

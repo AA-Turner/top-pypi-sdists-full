@@ -47,7 +47,7 @@ from typing import (
 from warnings import warn
 
 import numpy as np
-from typing_extensions import Self, TypeIs, override
+from typing_extensions import Self, TypeIs, deprecated, override
 
 import pyopencl as cl
 from pyopencl import cltypes, elementwise
@@ -291,7 +291,7 @@ _ARRAY_GET_SIZES_CACHE: \
 _BOOL_DTYPE = np.dtype(np.int8)
 _NOT_PRESENT = object()
 
-ScalarLike: TypeAlias = int | float | complex | np.number[Any]
+ScalarLike: TypeAlias = int | float | complex | np.bool_ | np.number[Any]
 
 
 def _is_scalar(s: object) -> TypeIs[ScalarLike]:
@@ -451,10 +451,6 @@ class Array:
 
     Boolean arrays are stored as :class:`numpy.int8` because ``bool``
     has an unspecified size in the OpenCL spec.
-
-    .. automethod :: __bool__
-
-        Only works for device scalars. (i.e. "arrays" with ``shape == ()``)
 
     .. automethod :: any
     .. automethod :: all
@@ -1591,7 +1587,7 @@ class Array:
         if len(self.shape):
             return self.shape[0]
         else:
-            return TypeError("len() of unsized object")
+            raise TypeError("len() of unsized object")
 
     def __abs__(self) -> Self:
         """Return an ``Array`` of the absolute values of the elements
@@ -1662,14 +1658,27 @@ class Array:
         result.add_event(self._copy(result, self, queue=queue))
         return result
 
-    # {{{ rich comparisons, any, all
+    # {{{ scalar conversions
 
+    # NOTE: These are intentionally not implemented. They generally lead to
+    # unexpected device-to-host transfers that should be made explicit.
+
+    @deprecated("Call .get() explicitly. This will stop working in 2028.x.")
     def __bool__(self) -> bool:
         if self.shape == ():
             return bool(self.get())
         else:
             raise ValueError("The truth value of an array with "
                     "more than one element is ambiguous. Use a.any() or a.all()")
+
+    # def __int__(self) -> int: ...
+    # def __index__(self) -> int: ...
+    # def __float__(self) -> float: ...
+    # def __complex__(self) -> complex: ...
+
+    # }}}
+
+    # {{{ rich comparisons, any, all
 
     def any(self,
                 queue: cl.CommandQueue | None = None,
@@ -2033,6 +2042,17 @@ class Array:
         old_itemsize = self.dtype.itemsize
         itemsize = np.dtype(dtype).itemsize
 
+        if self.ndim == 0:
+            if old_itemsize != itemsize:
+                raise ValueError(
+                    "changing the dtype of a 0d array is only supported if the "
+                    "itemsize is unchanged"
+                )
+
+            return self._new_with_changes(
+                    self.base_data, self.offset,
+                    shape=(), dtype=dtype, strides=())
+
         from pytools import argmin2
         min_stride_axis = argmin2(
                 (axis, abs(stride))
@@ -2206,7 +2226,9 @@ class Array:
             elif index_entry is Ellipsis:
                 index_axis += 1
 
-                remaining_index_count = len(index) - index_axis
+                remaining_index_count = builtins.sum(
+                    1 for entry in index[index_axis:] if entry is not None
+                )
                 new_array_axis = len(self.shape) - remaining_index_count
                 if new_array_axis < array_axis:
                     raise IndexError("invalid use of ellipsis in index")

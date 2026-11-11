@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "RsInstrument"
-version = "1.131.0"
+version = "1.132.0"
 license="MIT"
 description="VISA or Socket Communication Module for Rohde & Schwarz Instruments"
 readme = {file = "README.rst", content-type = "text/x-rst"}
@@ -48,9 +48,12 @@ package-dir = {"RsInstrument" = "RsInstrument"}
 where = ["."]
 include = ["RsInstrument*"]
 
+[tool.setuptools.package-data]
+"RsInstrument.mcp" = ["data/*.json"]
+
 [project.optional-dependencies]
 discovery = ["zeroconf"]
-mcp = ["fastmcp>=2.14.0", "zeroconf", "pydantic>=2.0"]
+mcp = ["fastmcp>=4.1.5", "zeroconf", "pydantic>=2.0"]
 otel = [
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
@@ -78,7 +81,7 @@ dev-mcp-otel = [
     "ruff>=0.9.0",
     "ty>=0.0.1",
     "pyvisa-py>=0.7.0",
-    "fastmcp>=2.14.0",
+    "fastmcp>=4.1.5",
     "zeroconf",
     "pydantic>=2.0",
     "opentelemetry-api>=1.20.0",
@@ -96,7 +99,7 @@ dev = [
 dev-mcp-otel = [
     { include-group = "dev" },
     "pyvisa-py>=0.7.0",
-    "fastmcp>=2.14.0",
+    "fastmcp>=4.1.5",
     "zeroconf",
     "pydantic>=2.0",
     "opentelemetry-api>=1.20.0",

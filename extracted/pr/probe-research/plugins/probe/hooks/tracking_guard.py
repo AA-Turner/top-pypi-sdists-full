@@ -1,0 +1,2729 @@
+#!/usr/bin/env python3
+"""The deterministic side of the tracking toggle: flip on skill activation,
+warn -- never gate -- on a probe write the flip should have prevented.
+
+UserPromptSubmit plus PostToolUse on Skill/SlashCommand and Bash, two jobs
+on one file of state:
+
+FLIP. When the tracking switch (track-work, or its legacy toggle names) is
+invoked with an explicit direction, THIS HOOK writes
+the session's tracking signal -- the same write `probe session untrack`
+makes. Bare invocation flips to the opposite of the current state (that is
+what a toggle is) -- but on track-work, which is ALSO the how-to manual,
+only in a shape that is PROOF OF A PERSON. Typing `/track-work` is someone
+reaching for the switch; the model activating the skill with no argument is
+an agent opening its own manual mid-task, and that must never move the
+switch. So the bare flip is granted to the raw typed line and to Claude
+Code's <command-name> expansion of one, and withheld from the tool call and
+from Codex's <skill> activation block -- both of which the MODEL can send.
+A Codex researcher loses nothing: their typed `$slug` line arrives as the
+raw shape first. The legacy toggle names, whose whole identity was the
+switch and which have no manual to read, flip bare in every shape.
+"Current" for a flip is the explicit signal if one exists and otherwise
+the payload cwd's effective default posture (the shared resolver answers that,
+exactly as the statusline does -- the two surfaces must not disagree about what
+"current" means). An explicit `off`/`on` (or the skill's synonyms) sets that state,
+idempotently. `status`, or an argument that reads as neither, writes
+nothing. The flip fires on BOTH invocation paths: PostToolUse catches the
+model calling the skill as a tool, and UserPromptSubmit catches the
+researcher TYPING the command -- which may produce no tool use at all, so
+without it the most common path would depend on the model running the CLI
+from prose. ONE invocation reaches those paths in up to three shapes,
+though (a raw typed line, the harness's expansion of it, the model's tool
+call), and a relative flip on each sighting cancels itself out -- so a
+sighting whose shape the current invocation has not been seen in yet
+CONVERGES on the target the first sighting resolved, and only a repeat of
+a shape flips again. Both spellings are parsed: Claude Code's "/command"
+plus <command-name>, and Codex's "$command" plus <skill><name>. The skill still has the model read the result back with
+`probe session status` and narrate it, but the flip never DEPENDS on the
+model obeying prose: the model's only job is to report, and a state that
+contradicts what the researcher asked for is a hook failure to surface,
+not to quietly repair. The declaration is the researcher's; recording it
+is not a job to delegate to compliance.
+
+WARN. When `probe session untrack` has marked this session off and a Bash
+command still wrote research content through the probe CLI, this hook hands
+the model one line of additionalContext restating the contract it is
+violating. That is the whole mechanism: the write has already happened, the
+hook never denies anything, and exit is 0 on every path.
+
+DENY, THEN WARN. PreToolUse refuses a probe write the flip should have
+prevented; PostToolUse still warns on anything that got through. This file
+used to warn only, reasoning that "stop recording" spans surfaces no hook
+can reach -- the SDK inside a training script, the hosted MCP, a job on
+another machine -- so a deny would cover one path of several and teach the
+agent the gate is advisory. What that argument missed is which path is the
+common one: every project this has actually leaked was created by a coding
+agent typing `probe ...` into Bash, the one path a hook DOES cover. A gate
+that stops the observed failure is worth more than the consistency of
+refusing to stop any of it, and the remaining surfaces keep the warn.
+
+The deny is escapable and says how in its own reason: `/track-work on`.
+That matters because this heuristic cannot tell a violation from the
+team's day job (debugging Probe itself) -- so the escape is one command, and
+REMOVAL_VERBS are never gated at all, because "record nothing" is not
+"prevent cleanup".
+
+WHY THE PARSE IS A HEURISTIC, AND WHICH WAY IT LEANS. The command string is
+shell, and this is not a shell parser: heredoc bodies are dropped, the rest is
+tokenized once with quotes honoured, segments are split on the operator tokens
+(`&&`/`||`/`;`/`|`/`&`/parentheses/newlines), env-var prefixes are skipped, and
+the first probe invocation whose subcommand records research content is
+reported. False negatives are
+acceptable -- a missed warning costs one unwarned write in a state the
+researcher will notice on the dashboard anyway. False positives are NOT: a
+warning on `probe run show` teaches the model this layer cries wolf, which is
+how warning layers die. Every ambiguity below resolves toward silence.
+
+STDLIB ONLY, PYTHON 3.9, FAIL-SOFT -- same vendoring contract as the sibling
+hooks: this runs under the system python3 with no probe package importable,
+and nothing here may block or break a session.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import math
+import shlex
+import sys
+import time
+
+# Sibling import, resolved because sys.path[0] is this script's directory: when
+# a route runs `python3 <plugin_root>/hooks/tracking_guard.py`, and when
+# dispatch.py (in this same folder) runs it in-process with runpy, which leaves
+# sys.path[0] as the dispatcher's directory -- this one.
+import _session_marker
+
+# WHICH COMMANDS WRITE, AND THE REFUSALS, live in `_session_marker` so the CLI's
+# own write gate (`probe.cli.write_gate`) reads the same list this hook does.
+TOP_LEVEL_WRITES = _session_marker.TOP_LEVEL_WRITES
+WRITE_GROUPS = _session_marker.WRITE_GROUPS
+READ_VERBS = _session_marker.READ_VERBS
+DENY_REASON = _session_marker.DENY_REASON
+DENY_REASON_OFF = _session_marker.DENY_REASON_OFF
+
+MESSAGE = (
+    "Probe is set to `{state}` for this conversation, but `{matched}` just wrote to it. Record "
+    "nothing further; if the researcher asked for that write, say once that `/probe on` would "
+    "record the rest."
+)
+
+#: What the model is told the moment the switch MOVES. Returned as
+#: additionalContext from the hook that made the write, never left to the skill's
+#: prose -- see the FLIP ANNOUNCES ITSELF note in the module docstring.
+FLIP_NOTICE = {
+    "full": (
+        "Probe is now ON for this conversation: reads and writes. Record the "
+        "work as it happens -- files to artifacts, numbers to metrics, decisions "
+        "to notes. Nothing before this moment is backfilled."
+    ),
+    "read-only": (
+        "Probe is now READ for this conversation. Keep searching the team's "
+        "prior work and keep reporting what you find; create and modify nothing. "
+        "Already-recorded work is untouched."
+    ),
+    # The FULL statement of the split, not a one-liner: a session that flips to
+    # `daemon` mid-conversation never sees the session-start injection, so this
+    # is the only place it learns what stays its own. Also what a recovery (the
+    # lease live again after a lapse) says.
+    "daemon": (
+        "Probe is now in the `daemon` state for this conversation. "
+        + _session_marker.DAEMON_CONTEXT
+    ),
+    "off": (
+        "Probe is now OFF for this conversation: no calls at all, reads "
+        "included, and the Probe service stops capturing its transcript. "
+        "Do not raise Probe again, including as a reminder or a "
+        "closing caveat. When prior work would have been relevant, say you could "
+        "not look rather than reporting that nothing exists."
+    ),
+}
+
+#: Where the switch landed in a session the daemon records and reads for (the
+#: lean plugin; Richard 2026-09-29: on (daemon) / read only (daemon) / off). The
+#: agent there has no Probe work of its own, so each says only what the daemon
+#: does now.
+DAEMON_PROFILE_FLIP_NOTICE = {
+    "daemon": (
+        "Probe is now `on (daemon)` for this conversation: the Probe daemon records "
+        "this session and reads the team's work for you."
+    ),
+    "read-only": (
+        "Probe is now `read only (daemon)` for this conversation: the Probe daemon "
+        "keeps reading the team's work for you and records nothing new. "
+        "Already-recorded work is untouched."
+    ),
+    "off": (
+        "Probe is now OFF for this conversation: the Probe daemon neither records "
+        "nor reads, and `probe ask` is refused. Do not raise Probe again, including "
+        "as a reminder or a closing caveat."
+    ),
+}
+
+#: What `_apply_direction` returns for a typed `daemon`: nothing moved, and the
+#: researcher is told where the daemon is chosen instead.
+REFUSED_DAEMON = "refused-daemon"
+
+#: The daemon's handback notice and its reason phrases live in `_session_marker`
+#: (the session-start hook says the same thing when the daemon has no key).
+DAEMON_DEGRADED_NOTICE = _session_marker.DAEMON_DEGRADED_NOTICE
+DAEMON_REASON_WORDS = _session_marker.DAEMON_REASON_WORDS
+
+#: A write reached Probe past the CLI gate while the daemon held the lease (an
+#: older CLI, or a write made outside it).
+MESSAGE_DAEMON = (
+    "The Probe daemon is recording this conversation, but `{matched}` just wrote to Probe "
+    "directly. The daemon sees that write in the transcript and will not repeat it. From here, "
+    "launch and instrument runs in a project (`probe project create <slug>` if none fits) and "
+    "leave the rest to the daemon: it files runs in an experiment and group, renames or moves "
+    "projects and runs, and writes the notes, artifacts, papers, tags and descriptions. A write "
+    "the researcher asks for takes `--directed`."
+)
+
+# The switch, by trailing slug -- in TWO classes, which differ ONLY in whether
+# a bare invocation flips on the TOOL surface. The legacy names were a
+# dedicated toggle and nothing else, so invoking one bare flips wherever it is
+# seen; a resumed transcript from before the consolidation must keep meaning
+# what it meant. `track-work` is ALSO the how-to manual, and an agent loads a
+# manual bare dozens of times a session -- so there the bare flip is granted to
+# the TYPED surface only (see `_bare_flips`). Old slugs stay matched forever:
+# matching a name that no longer resolves costs nothing; missing one that did
+# costs the flip.
+#: `probe` IS IN THE GUIDANCE CLASS, and the reasoning that put it in the bare
+#: class first was wrong in a way worth writing down.
+#:
+#: That reasoning was: the switch is a switch and nothing else -- the CLI manual
+#: stayed behind in `track-work` -- so there is no manual for an agent to open
+#: bare, and a bare sighting can only be a person. The hole is "open bare". A
+#: skill is a TOOL the model can call, and this one has a body worth loading:
+#: an agent asked what state Probe is in, or told to check before writing, will
+#: invoke it. On the bare class that invocation ADVANCES the cycle -- so from
+#: `off`, the model reading the switch's own documentation moves it to `read`,
+#: and the state whose entire purpose is "no Probe" is undone by an agent that
+#: was trying to respect it. (`off` leaving for `read` rather than `on` is a
+#: smaller hole than it was, not a closed one: the researcher's `off` is gone
+#: either way.)
+#:
+#: In the guidance class a bare invocation flips only in a shape a PERSON can
+#: produce (`RESEARCHER_SHAPES`), which is exactly the protection `track-work`
+#: already has and for the same reason. The legacy names keep the bare class:
+#: they were a dedicated toggle with no body to read, and a resumed transcript
+#: from before the consolidation must keep meaning what it meant.
+BARE_FLIP_SLUGS = frozenset({"toggle-research-tracking", "research-tracking"})
+GUIDANCE_SLUGS = frozenset({"track-work", "probe"})
+TOGGLE_SKILL_SLUGS = BARE_FLIP_SLUGS | GUIDANCE_SLUGS
+
+#: Slugs that predate the third state, and what `off` means when TYPED at one.
+#: `/track-work off` has always meant "stop recording, keep searching", which is
+#: `read-only` exactly. Re-pointing it at the new `off` would take reads away
+#: from everybody with that phrase in muscle memory or in a resumed transcript --
+#: the same mistake `session_marker.session_state` refuses to make when it
+#: migrates a stored marker. The hard `off` is reachable only by naming it on the
+#: new switch.
+LEGACY_SLUGS = frozenset({"toggle-research-tracking", "research-tracking", "track-work"})
+
+# Direction words, mirroring the skill's own reading of its argument ("off",
+# "stop", "disable" / "on", "start", "resume"). "toggle"/"flip" is a relative
+# flip and rides the same permission as bare invocation -- it is the same
+# request, spelled out -- so it is granted wherever bare is. `status` and
+# unrecognised prose write nothing: asking a question must never flip the
+# switch.
+OFF_WORDS = frozenset({"off", "stop", "disable", "end"})
+ON_WORDS = frozenset({"on", "start", "resume", "full"})
+#: `read` leads because it is the word the switch now PRINTS; the hyphenated
+#: spellings are what the state is stored as and what earlier versions taught
+#: people to type, and every one of them keeps working. Mirrors
+#: `session_marker.TRACKING_READ_ONLY_VALUES`; the two are checked against each
+#: other in `test_probe_three_states.py`.
+READ_ONLY_WORDS = frozenset({"read", "read-only", "readonly", "read_only", "ro"})
+#: NOT a position: whether the daemon records is the wizard's "Who records"
+#: (Richard 2026-09-29). Still recognised, so a typed `/probe daemon` is answered
+#: with where to go (`DAEMON_SWITCH_REFUSAL`) rather than read as prose.
+DAEMON_WORDS = frozenset({"daemon"})
+TOGGLE_WORDS = frozenset({"toggle", "flip", "cycle", "next"})
+STATUS_WORDS = frozenset({"status"})
+#: `/probe inline` (Richard 2026-10-06): the researcher hands Probe to the agent
+#: and the daemon stops. Honoured only from a shape that proves a person
+#: (`RESEARCHER_SHAPES`): never from a tool call the agent can make.
+INLINE_WORDS = frozenset({_session_marker.INLINE_WORD})
+
+#: The relative request, kept distinct from the three absolute targets. A claim
+#: stores what a cycle RESOLVED TO, never the word -- see `_apply_direction`.
+CYCLE = "cycle"
+#: The direction (and, in the daemon profile, the announcement) of `/probe inline`.
+INLINE = _session_marker.INLINE_WORD
+#: Set by harness_io for a hook whose output the harness drops (Kimi's typed
+#: `/probe`): nothing said there reaches the model, so nothing is marked told.
+QUIET_ENV = "PROBE_HOOK_QUIET"
+#: Set by the Probe service for an extension's event on a lane no person types on
+#: (pi's prompt, after `/skill:` expansion): no switch is parsed from it (D57).
+NO_CONSENT_ENV = "PROBE_HOOK_NO_CONSENT"
+
+_ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
+#: The characters shlex hands back as operator tokens. The newline is one: each
+#: line of a multi-line command is its own command.
+_OPERATOR_CHARS = "();<>|&\n"
+#: An operator token that ENDS a command, as opposed to a redirection (`>`,
+#: `>>`, `<`) whose next word is a file, not a command.
+_SEPARATOR_CHARS = frozenset(";|&()\n")
+#: Redirection operators: never a separator. The ones containing `&` or `|` were
+#: cut as separators before, which hid the command words after them
+#: (`probe project code &>/dev/null attach`). They stay in the segment as words,
+#: so a redirection BETWEEN command words fails closed as an unknown verb; only a
+#: LEADING one is skipped with its file (`>/dev/null probe project create x`), and
+#: a TRAILING run with their files (`probe --version 2>&1`,
+#: `_without_trailing_redirections`). Never dropped mid-segment: shlex has
+#: already removed quotes, so a quoted `'>'` looks the same, and dropping "its
+#: file" would swallow a `;` or a `<(`.
+_REDIRECTIONS = frozenset({">", ">>", "<", "<>", ">|", "&>", "&>>", ">&", "<&", "<<", "<<<"})
+#: What may precede a `#` that starts a shell comment: a `#` inside a word
+#: (`a#b`, `$#`) is text.
+_WORD_BOUNDARY = frozenset(" \t\n;&|()<>")
+#: What follows a heredoc's `<<`: `-` (the terminator line may be indented with
+#: tabs), then the delimiter word, quoted (`'EOF'`, `"EOF"`), escaped (`\EOF`) or
+#: bare. A bare word must start with a letter or `_`, so an arithmetic shift the
+#: scanner did not recognise as one (`1 << 2`) still opens no heredoc.
+_HEREDOC_DELIMITER = re.compile(
+    r"(-?)[ \t]*(?:'([^'\n]+)'|\"([^\"\n]+)\"|\\?([A-Za-z_][A-Za-z0-9_.-]*))"
+)
+#: The scanner's contexts. Shell contexts are where `<<` can open a heredoc: the
+#: top level, a `$(...)` substitution (also inside double quotes, which is how
+#: `git commit -m "$(cat <<'EOF' ...)"` works) and a paren nested in one.
+_SHELL, _SUBST, _PAREN = "sh", "$(", "("
+_SINGLE, _DOUBLE = "'", '"'
+_ARITH, _ARITH_PAREN = "((", "a("
+
+# A typed slash command reaches UserPromptSubmit in one of two shapes,
+# depending on whether the harness expands it before or after the hook: the
+# raw string the researcher typed ("/probe-research:toggle-research-tracking
+# off"), or the expanded command message carrying <command-name> (and the
+# argument in <command-args> or a trailing "ARGUMENTS: ..." line). Parse both;
+# NEVER scan free prose for direction words -- the expanded body is the skill
+# text itself, which says "off" and "on" in every paragraph.
+_COMMAND_NAME_TAG = re.compile(r"<command-name>\s*/?([^<\s]+)\s*</command-name>")
+# Codex runs this same hooks.json and spells both shapes differently: the line
+# the researcher types is "$probe-research:toggle-research-tracking", and the
+# expansion is a <skill><name> block rather than <command-name>. A parser that
+# knew only the slash spelling left Codex with NO flip at all -- the researcher
+# types the command, nothing writes the signal, and `probe session status`
+# truthfully reports the state nobody changed.
+_SKILL_NAME_TAG = re.compile(r"<skill>\s*<name>\s*/?([^<\s]+)\s*</name>", re.DOTALL)
+_COMMAND_PREFIXES = ("/", "$")
+_COMMAND_ARGS_TAG = re.compile(r"<command-args>(.*?)</command-args>", re.DOTALL)
+_ARGUMENTS_LINE = re.compile(r"^ARGUMENTS:[ \t]*(.+)$", re.MULTILINE)
+
+#: The three SHAPES one invocation can be seen in. A harness delivers more than
+#: one of them for a single command -- Claude Code expands the typed command
+#: into a prompt AND has the model call the skill as a tool; Codex sends the
+#: raw "$..." line AND a <skill> block -- and a toggle that flipped on every
+#: sighting landed exactly where it started. That is the bug this names: two
+#: flips per invocation read as a switch that does nothing.
+SHAPE_RAW = "raw"
+SHAPE_EXPANDED = "expanded"
+SHAPE_TOOL = "tool"
+#: Codex's `<skill><name>` block. A FOURTH shape rather than a spelling of
+#: SHAPE_EXPANDED, because the two differ in the one property the bare flip
+#: rests on: WHO can produce them. Claude Code builds a <command-name> block
+#: only by expanding a command the researcher typed, and this plugin ships no
+#: `commands/track-work.md` for the model to invoke into one. Codex emits this
+#: block for a skill ACTIVATION, and the model activates skills too -- so on
+#: its own it is not evidence of a person. A typed Codex invocation also sends
+#: the raw `$slug` line, and that is the sighting the bare flip rides there.
+SHAPE_SKILL_BLOCK = "skill-block"
+
+#: How long one invocation's resolved target stays claimed, so a LATER sighting
+#: of that same invocation converges on it instead of flipping it back. Only a
+#: shape NOT yet seen converges; a repeat of a shape already seen is a second
+#: invocation -- the researcher typing the command again -- and must flip. That
+#: distinction is what lets this bound be generous instead of a race with how
+#: fast someone types: measured, a typed command and the model's tool call for
+#: it land ~2s apart while a person re-invoking takes ~12s, and neither number
+#: has to be trusted here.
+FLIP_CLAIM_TTL_SECONDS = 300.0
+
+#: Which vocabulary a claim's `target` is written in. Absent means the
+#: two-valued one ("on"/"off"); see `_read_claim` for why the value alone
+#: cannot answer that.
+CLAIM_VERSION = 2
+
+
+REMOVAL_VERBS = _session_marker.REMOVAL_VERBS
+
+
+def _skip_heredoc_bodies(command: str, index: int, pending: "list[tuple[str, bool]]",
+                         bodies: "list[str] | None" = None) -> int:
+    """Past every pending heredoc body, starting at the line after the operator
+    (each body's text appended to `bodies`, in order, when given)."""
+    lines: "list[str]" = []
+    while pending and index < len(command):
+        newline = command.find("\n", index)
+        line = command[index:] if newline < 0 else command[index:newline]
+        word, tabs = pending[0]
+        if (line.lstrip("\t") if tabs else line) == word:
+            pending.pop(0)
+            if bodies is not None:
+                bodies.append("\n".join(lines))
+            lines = []
+        else:
+            lines.append(line)
+        index = len(command) if newline < 0 else newline + 1
+    if bodies is not None and pending:  # an unterminated body runs to the end
+        bodies.append("\n".join(lines))
+        bodies.extend("" for _ in pending[1:])
+    pending.clear()  # an unterminated body runs to the end: all of it is dropped
+    return index
+
+
+def _heredocs(command: str) -> "list[tuple[str, str]]":
+    """Each heredoc as (the command text before its `<<`, its body): the body
+    belongs to the simple command that opened it (`_strip_heredocs`' scan)."""
+    openers: "list[str]" = []
+    bodies: "list[str]" = []
+    _strip_heredocs(command, openers, bodies)
+    return list(zip(openers, bodies))
+
+
+def _strip_heredocs(command: str, openers: "list[str] | None" = None,
+                    bodies: "list[str] | None" = None) -> str:
+    """The command with every heredoc BODY removed, the line that opens it kept.
+
+    A body is text handed to a program on stdin (a commit message, a Python
+    script), not commands this shell runs, and it is where the probe commands
+    get MENTIONED: a commit message about the gate, a script that greps for
+    them.
+
+    A `<<` opens a heredoc only where the SHELL reads it. So this walks the
+    command tracking quotes and `$((...))` arithmetic across lines: a `<<` inside
+    `'...'`, inside `"..."` (outside a `$(...)` in it) or in arithmetic is a
+    shift or text, and treating it as a heredoc would drop every line after it,
+    real probe writes included. A body opens at the newline that ends the
+    operator's line and closes at its terminator line.
+    """
+    out: "list[str]" = []
+    pending: "list[tuple[str, bool]]" = []
+    stack = [_SHELL]
+    index, size = 0, len(command)
+    while index < size:
+        top, char = stack[-1], command[index]
+        if top == _SINGLE:
+            if char == "'":
+                stack.pop()
+            out.append(char)
+            index += 1
+            continue
+        if char == "\\":
+            out.append(command[index : index + 2])
+            index += 2
+            continue
+        if top in (_ARITH, _ARITH_PAREN):
+            if char == "(":
+                stack.append(_ARITH_PAREN)
+            elif char == ")" and top == _ARITH_PAREN:
+                stack.pop()
+            elif top == _ARITH and command.startswith("))", index):
+                stack.pop()
+                out.append("))")
+                index += 2
+                continue
+            out.append(char)
+            index += 1
+            continue
+        opener = next(
+            (tok for tok in ("$((", "$(") if command.startswith(tok, index)), None
+        )
+        if opener:
+            stack.append(_ARITH if opener == "$((" else _SUBST)
+            out.append(opener)
+            index += len(opener)
+            continue
+        if top == _DOUBLE:
+            if char == '"':
+                stack.pop()
+            out.append(char)
+            index += 1
+            continue
+        # A shell context: the top level, a `$(...)`, or a paren inside one.
+        if char == "\n" and pending:
+            out.append(char)
+            index = _skip_heredoc_bodies(command, index + 1, pending, bodies)
+            continue
+        if char == "#" and (not out or out[-1][-1:] in _WORD_BOUNDARY):
+            # A comment runs to the end of the line. Left in, an apostrophe in
+            # it (`# don't`) opened a quote and the parse dropped the command.
+            end = command.find("\n", index)
+            index = size if end < 0 else end
+            continue
+        if char in "'\"":
+            stack.append(char)
+        elif command.startswith("((", index):
+            stack.append(_ARITH)  # `(( x = y << z ))`, the arithmetic command
+            out.append("((")
+            index += 2
+            continue
+        elif char == "(" and top != _SHELL:
+            stack.append(_PAREN)
+        elif char == ")" and top != _SHELL:
+            stack.pop()
+        elif command.startswith("<<<", index):
+            out.append("<<<")  # a here-string: its word is an ordinary word
+            index += 3
+            continue
+        elif command.startswith("<<", index):
+            match = _HEREDOC_DELIMITER.match(command, index + 2)
+            if match:
+                word = match.group(2) or match.group(3) or match.group(4)
+                pending.append((word, bool(match.group(1))))
+                if openers is not None:
+                    openers.append("".join(out))
+                out.append(command[index : match.end()])
+                index = match.end()
+                continue
+            out.append("<<")
+            index += 2
+            continue
+        out.append(char)
+        index += 1
+    if bodies is not None and pending:  # a heredoc opened on the last line: an empty body
+        bodies.extend("" for _ in pending)
+    return "".join(out)
+
+
+def _segments(command: str):
+    """Each simple command's words, split on the operators OUTSIDE quotes.
+
+    Splitting the raw string on `|` before tokenizing (the old parse) cut quoted
+    text apart: a regex like `'x|probe run start'` became a segment that began
+    with the probe command, and was refused. Tokenizing first lets quotes
+    protect what they hold. A segment still open when the quotes stop balancing
+    is dropped, not reported: the text after an unclosed quote is inside it.
+
+    Unlike `_split`, a `$(...)`, `<(...)` or `>(...)` among a program's
+    ARGUMENTS does not end its command (`_interrupts`): the command resumes at
+    the `)`, so in `harness --out $(mktemp -d) probe x` the `probe` is an
+    argument of `harness`. A line with a `case` statement (`case` and `esac`:
+    a pattern's `)` closes nothing) or a backtick (where a `` `...` `` starts
+    and ends is not tokenized) keeps `_split`'s reading.
+    """
+    tokens, complete = _tokens(command)
+    if ("case" in tokens and "esac" in tokens) or any("`" in token for token in tokens):
+        yield from _split(command)[0]
+        return
+    segments: "list[list[str]]" = []
+    segment: "list[str]" = []
+    held_at: "int | None" = None  # how much of `segment` the first `(` that interrupted it held back
+    # Each `(` still open: the command it interrupted and its `held_at`, or
+    # None (a subshell, or a substitution in the program's place).
+    opened: "list[tuple[list[str], int] | None]" = []
+    for token in tokens:
+        if not _is_separator(token):
+            segment.append(token)
+            continue
+        after = 0
+        for at, char in enumerate(token):
+            if at < after:
+                continue
+            if char == "(" and _interrupts(segment, token, at):
+                opened.append((segment, len(segment) if held_at is None else held_at))
+                segment, held_at = [], None
+                continue
+            if char == "(":
+                opened.append(None)
+            elif char not in _SEPARATOR_CHARS:
+                # A redirection glued to a separator (`$(>out ...)`, `;>&2`)
+                # stays in its command, unless it opens `<(...)`/`>(...)`.
+                run = re.match(r"[<>]+[&|]?", token[at:]).group()
+                after = at + len(run)
+                if token[after : after + 1] != "(":
+                    segment.append(run)
+                continue
+            if segment:
+                segments.append(segment)
+            segment, held_at = [], None
+            if char == ")" and opened:
+                segment, held_at = opened.pop() or ([], None)
+    held = [entry for entry in opened if entry]
+    if complete:
+        segments += [words for words, _ in held] + [segment]
+    else:
+        # The open command runs into an unclosed quote: keep only what came
+        # before its first `(`, which `_split` reports as its own segment.
+        segments += [words[:count] for words, count in held]
+        if held_at is not None:
+            segments.append(segment[:held_at])
+    yield from (words for words in segments if words)
+
+
+def _tokens(command: str) -> "tuple[list[str], bool]":
+    """The shell words and operators of `command`, and whether the whole
+    command tokenized (False: the quotes stopped balancing, and what followed
+    was not read)."""
+    lexer = shlex.shlex(
+        # A backslash-newline is removed, as bash does: `--a\<newline>dd` is `--add`.
+        _strip_heredocs(command).replace("\\\n", ""),
+        posix=True,
+        punctuation_chars=_OPERATOR_CHARS,
+    )
+    lexer.whitespace_split = True
+    lexer.whitespace = " \t\r"
+    lexer.commenters = ""  # as `shlex.split` does: `#` starts no comment here
+    tokens: "list[str]" = []
+    try:
+        for token in lexer:
+            tokens.append(token)
+    except ValueError:
+        return tokens, False
+    return tokens, True
+
+
+def _is_separator(token: str) -> bool:
+    return (
+        token not in _REDIRECTIONS
+        and set(token) <= set(_OPERATOR_CHARS)
+        and bool(set(token) & _SEPARATOR_CHARS)
+    )
+
+
+def _split(command: str) -> "tuple[list[list[str]], bool]":
+    """Each simple command's words, ending one at EVERY separator, `(` and `)`
+    included, and whether the whole command tokenized. The tripwires read this;
+    `_segments` reads substitutions among a program's arguments as arguments."""
+    tokens, complete = _tokens(command)
+    segments: "list[list[str]]" = []
+    segment: "list[str]" = []
+    for token in tokens:
+        if _is_separator(token):
+            if segment:
+                segments.append(segment)
+            segment = []
+        else:
+            segment.append(token)
+    if complete and segment:  # unbalanced quotes: the open segment is not parseable, lean silent
+        segments.append(segment)
+    return segments, complete
+
+
+def _interrupts(segment: "list[str]", token: str, at: int) -> bool:
+    """Does the `(` at `token[at]` open a substitution among a command's
+    ARGUMENTS: `$(...)` (the word before it ends in `$`) or `<(...)`/`>(...)`,
+    after a program that takes its arguments as words (`_has_program`)? Not a
+    subshell, nor a substitution in the program's place (`$(which probe) run
+    start`, `X=$(...) probe ...`, `nohup $(...) probe ...`): there the words
+    after its `)` are a command."""
+    if at == 0:
+        if not segment or not segment[-1].endswith("$"):
+            return False
+        before = segment[:-1]
+    elif token[at - 1] in "<>":
+        before = segment
+    else:
+        return False
+    return _has_program(before)
+
+
+def _has_program(words: "list[str]") -> bool:
+    """Is a program named among `words` that takes its arguments as words?
+    Read past env assignments, shell keywords (`do`, `if`, `{`), redirections
+    and their targets (`>out`, `2>err`, `>&2`), wrappers (`_WRAPPERS`, each
+    option taken to carry a value, so `env -C dir` is read whole) and `uv run`;
+    a shell or a program in `_RUNS_ITS_ARGUMENTS` does not count. Behind any of
+    those, the words after a `$(...)` may be the program: `eval $(...) probe`
+    runs `probe`. A program the guard does not know runs its arguments is read
+    as `_probe_invocations` reads it without the substitution:
+    `mywrapper $(...) probe ...` passes as `mywrapper probe ...` does."""
+    index = 0
+    while index < len(words):
+        word = words[index]
+        name = os.path.basename(word)
+        if "=" in word or word in _SHELL_KEYWORDS:
+            index += 1  # an assignment (`X=1`, `X+=1`, `a[0]=1`) or a keyword
+        elif word in _REDIRECTIONS:
+            index += 2
+        elif _FD_WORD.fullmatch(word) and words[index + 1 : index + 2] and words[index + 1] in _REDIRECTIONS:
+            index += 1  # `2>err`: the descriptor
+        elif name in _WRAPPERS:
+            index += 1
+            while index < len(words) and words[index].startswith("-"):
+                index += 1 if "=" in words[index] else 2
+            if name == "timeout":
+                index += 1  # its duration
+        elif name == "uv" and words[index + 1 : index + 2] == ["run"]:
+            index += 2
+            while index < len(words) and words[index].startswith("-"):
+                index += 2 if words[index] in _UV_VALUE_OPTS else 1
+        else:
+            return name not in _RUNS_ITS_ARGUMENTS and name not in _SHELLS
+    return False
+
+
+#: Commands that run the command after them: `command probe ...`, `nohup probe
+#: ...`, `timeout 30 probe ...`. Their own options (and `timeout`'s duration,
+#: `nice -n N`) are skipped.
+_WRAPPERS = frozenset({"command", "env", "nohup", "exec", "time", "timeout", "nice", "stdbuf", "setsid"})
+_WRAPPER_VALUE_OPTS = frozenset({"-n", "-s", "-k", "--signal", "--kill-after", "-u", "-i", "-o", "-e"})
+#: A redirection's descriptor written before it: `2>err`, `{fd}>out`.
+_FD_WORD = re.compile(r"(?:[0-9]+|\{[A-Za-z_][A-Za-z0-9_]*\})")
+#: Programs that run their arguments as a command but that `_probe_invocations`
+#: does not look through: a `$(...)` among their arguments may be the
+#: program's place (`eval $(...) probe ...`), so `_segments` ends the command
+#: at its `)`, as `_split` does.
+_RUNS_ITS_ARGUMENTS = frozenset({"eval", "sudo", "doas", "xargs", "builtin", "coproc"})
+_SHELLS = frozenset({"sh", "bash", "zsh", "dash"})
+_PYTHONS = re.compile(r"^python(\d+(\.\d+)?)?$")
+#: The modules `python -m` runs the CLI as: `probe.cli` is the one that runs
+#: (`probe` has no `__main__`); a guard that knew only `probe` let
+#: `python -m probe.cli ...` through (T13 on the released plugin, 2026-09-29).
+_PROBE_MODULES = frozenset({"probe", "probe.cli", "probe.cli.main"})
+
+
+def _quotes_a_redirection(command: str) -> bool:
+    """Does `command` hold a `<` or `>` the shell takes as text (quoted or
+    escaped)? shlex has removed the quotes by the time the words are read, so
+    `probe --spool-dir '>' logout` would look like `--spool-dir` plus a
+    redirection to a file `logout`. Quotes are read as shlex reads them."""
+    quote, index = "", 0
+    while index < len(command):
+        char = command[index]
+        if char == "\\" and quote != "'":
+            if command[index + 1 : index + 2] in ("<", ">"):
+                return True
+            index += 2
+            continue
+        if quote:
+            if char == quote:
+                quote = ""
+            elif char in "<>":
+                return True
+        elif char in "'\"":
+            quote = char
+        index += 1
+    return False
+
+
+def _without_trailing_redirections(args: "list[str]") -> "list[str]":
+    """`args` less the redirections that END the command, each with its file
+    and the descriptor written before it: `probe --version 2>&1` is
+    `--version`, and `... --yes > f 2>&1` keeps `--yes` (issue 3622: `2` read
+    as a command word). Only that trailing run: a redirection between command
+    words stays a word and fails closed (`_REDIRECTIONS`), and one whose file
+    is itself an operator (`> )`) ends nothing. A line with a quoted or escaped
+    `<`/`>` (`_quotes_a_redirection`) drops nothing: its words cannot be told
+    from real redirections."""
+    end = len(args)
+    while (end >= 2 and args[end - 2] in _REDIRECTIONS and args[end - 1]
+           and not set(args[end - 1]) <= set(_OPERATOR_CHARS)):
+        end -= 2
+        # `2>&1`: the descriptor -- unless it is the file of the redirection
+        # before it (`2>&1 >log`: that `1` is `>&`'s).
+        if end and _FD_WORD.fullmatch(args[end - 1]) and not (end >= 2 and args[end - 2] in _REDIRECTIONS):
+            end -= 1
+    return args[:end]
+
+
+def _probe_invocations(command: str, _depth: int = 0):
+    """The args after `probe`, for every `probe` invocation in a shell line --
+    behind env assignments, a shell keyword (`then`, `do`, `{`, `!`), a leading
+    redirection (`>out`, `2>&1`), a wrapper (`command`, `env`, `nohup`,
+    `timeout 30`, ...), as `python -m probe.cli`, or inside `bash -c "..."`;
+    without the redirections that end it (`_without_trailing_redirections`)."""
+    quoted = _quotes_a_redirection(_strip_heredocs(command).replace("\\\n", ""))
+    for tokens in _segments(command):
+        index = 0
+        while index < len(tokens):
+            word = tokens[index]
+            if _ENV_ASSIGNMENT.match(word) or word in _SHELL_KEYWORDS:
+                index += 1
+            elif word in _REDIRECTIONS:
+                index += 2  # a leading redirection and its file
+            elif _FD_WORD.fullmatch(word) and tokens[index + 1 : index + 2] and tokens[index + 1] in _REDIRECTIONS:
+                index += 1  # `2>&1`: the descriptor
+            elif os.path.basename(word) in _WRAPPERS:
+                wrapper = os.path.basename(word)
+                index += 1
+                while index < len(tokens) and tokens[index].startswith("-"):
+                    index += 2 if tokens[index] in _WRAPPER_VALUE_OPTS else 1
+                if wrapper == "timeout" and index < len(tokens):
+                    index += 1  # its duration
+            else:
+                break
+        if index >= len(tokens):
+            continue
+        head = os.path.basename(tokens[index])
+        if head == "probe":
+            args = tokens[index + 1 :]
+            yield args if quoted else _without_trailing_redirections(args)
+        elif (_PYTHONS.match(head) and tokens[index + 1 : index + 2] == ["-m"]
+              and tokens[index + 2 : index + 3] and tokens[index + 2] in _PROBE_MODULES):
+            args = tokens[index + 3 :]
+            yield args if quoted else _without_trailing_redirections(args)
+        elif head in _SHELLS and _depth < 2 and "-c" in tokens[index + 1 :]:
+            at = tokens.index("-c", index + 1)
+            if at + 1 < len(tokens):
+                yield from _probe_invocations(tokens[at + 1], _depth + 1)
+
+
+def probe_write(command: str) -> "str | None":
+    """The probe invocation that records research content, or None.
+
+    Returns the matched `probe <group> [<subgroup>] <verb>` (or `probe <command>`) so the
+    warning can name what it saw rather than gesturing at the whole command
+    line. Classified by `_session_marker.classify_probe_args`, the same function
+    the CLI's own write gate calls, so the two cannot disagree about what a
+    command IS.
+    """
+    for args in _probe_invocations(command):
+        if _asks_help(args) or _lets_through(args):
+            continue
+        kind, matched = _session_marker.classify_probe_args(args)
+        if kind == "write":
+            return matched
+    return None
+
+
+def _lets_through(args: "list[str]") -> bool:
+    """Probe's own upkeep (`upkeep_command`), and a past-work import the person
+    consented to (`directed_in_every_state`): no state refuses either (T2)."""
+    return bool(_session_marker.upkeep_command(args)) or _session_marker.directed_in_every_state(args)
+
+
+def _asks_help(args: "list[str]") -> bool:
+    """`--help` before any `--`, as the CLI's gate reads it: after `--` it is an
+    argument (`probe project contributors -- --help` looks up a project). Right
+    after a redirection it is a file name (`probe project create x &> --help`).
+    A token search: the CLI's write gate asks click (`write_gate._asks_help`), and it holds.
+    `-h` counts only plainly (`_asks_help_plainly`): as an option's value the command runs."""
+    words = args[: args.index("--")] if "--" in args else args
+    return any(
+        word == _session_marker.HELP_FLAG and (i == 0 or words[i - 1] not in _REDIRECTIONS)
+        for i, word in enumerate(words)
+    ) or _asks_help_plainly(args)
+
+
+def _asks_help_plainly(args: "list[str]") -> bool:
+    """`--help` or `-h` (`is_help_flag`), minus one click hands to the option before
+    it as its value (`probe wizard --folder --help` runs the wizard). The daemon
+    profile's refusals have no CLI backstop -- the write gate refuses only writes --
+    so there a `--help` after a bare option is checked like any other run."""
+    words = args[: args.index("--")] if "--" in args else args
+    return any(
+        _session_marker.is_help_flag(word, args)
+        and (i == 0 or (words[i - 1] not in _REDIRECTIONS
+                        and (not words[i - 1].startswith("-") or "=" in words[i - 1])))
+        for i, word in enumerate(words)
+    )
+
+
+READ_GROUPS = _session_marker.READ_GROUPS
+
+
+def probe_read(command: str) -> "str | None":
+    """The probe invocation that READS research content, or None.
+
+    Only `off` uses this. Same parse and same classifier as `probe_write`, and
+    the same pass for `--help` (asking what a command does reads nothing) and
+    for Probe's own upkeep (`example status`).
+    """
+    for args in _probe_invocations(command):
+        if _asks_help(args) or _session_marker.upkeep_command(args):
+            continue
+        kind, matched = _session_marker.classify_probe_args(args)
+        if kind == "read":
+            return matched
+    return None
+
+
+#: A Probe MCP tool call, by NAME, under either install name: the same tool is
+#: `mcp__probe-research__browse` under one install, `mcp__plugin_probe-research_probe-research__browse`
+#: under another and `mcp__plugin_probe_probe__browse` under the new names. Exact prefixes from
+#: `install_names.json` (`_install_names.py` beside this file), never a loose `probe`: another
+#: product's `mcp__probe_x__` is not Probe's. The bare new key (`mcp__probe__`) counts only where
+#: the agent names MCP tools by server key alone (Codex). The old loose match counts too, always:
+#: pi-mcp-adapter names Probe's tools `probe-research-pi__probe_browse` (no `mcp__` at all).
+_PROBE_MCP_RE = re.compile(r"probe[-_]research", re.IGNORECASE)
+
+
+def is_probe_mcp_tool(tool_name: object) -> bool:
+    """Is this tool call a Probe MCP read? Never Bash, Skill or SlashCommand."""
+    if not isinstance(tool_name, str) or not tool_name:
+        return False
+    if tool_name in ("Bash", "Skill", "SlashCommand"):
+        return False
+    if _PROBE_MCP_RE.search(tool_name):
+        return True
+    try:
+        names = _load_install_names().get_install_names()
+    except Exception:  # noqa: BLE001 -- no names file beside this copy: the old names' match alone
+        return False
+    if names.is_probe_mcp_tool(tool_name):
+        return True
+    # Only a bare-key name (`mcp__probe__x`) reads Codex's config.toml, never every tool call.
+    return names.is_probe_mcp_tool(tool_name, is_bare_key=True) and _names_mcp_by_key()
+
+
+def _names_mcp_by_key() -> bool:
+    """Does this hook's agent name MCP tools by their server key alone (Codex: config.toml MCP), with the new
+    key's table Probe's (`_hook_harness.is_mcp_key_ours`)? Else a bare `mcp__probe__` is another product's."""
+    try:
+        harness = _hook_harness()
+        return harness.current().mcp == "config-toml" and harness.is_mcp_key_ours(
+            _load_install_names().get_install_names().new)
+    except Exception:  # noqa: BLE001 -- unknown harness: Claude Code's plugin-namespaced names
+        return False
+
+
+def _load_install_names():
+    """The install names beside this file (`_install_names.py`), loaded by explicit path."""
+    import importlib.util  # noqa: PLC0415
+
+    key = "_probe_hooks._install_names"
+    if key in sys.modules:
+        return sys.modules[key]
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_install_names.py")
+    spec = importlib.util.spec_from_file_location(key, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[key] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(key, None)
+        raise
+    return module
+
+
+#: The shapes only a RESEARCHER can produce. An ALLOWLIST, and deliberately so:
+#: everywhere else in this file ambiguity resolves toward silence, and a
+#: denylist would resolve the next shape somebody adds -- a subagent shape, a
+#: resumed-transcript shape, a typo at a call site -- toward WRITING the
+#: signal. Unknown must mean "not proof of a person".
+RESEARCHER_SHAPES = frozenset({SHAPE_RAW, SHAPE_EXPANDED})
+
+
+def _bare_flips(slug: str, shape: str) -> bool:
+    """May a direction-less invocation of `slug`, seen in `shape`, flip?
+
+    THE ONE RULE THIS FILE TURNS ON. A bare invocation is a toggle -- the
+    researcher reached for the switch and its name says what it does -- with a
+    single carve-out: on `track-work`, which is the how-to manual as well as
+    the switch, a shape the MODEL can produce is not a researcher at all. It is
+    the model loading its own guidance, unprompted, mid-task, dozens of times a
+    session, exactly when the switch must not move; a flip there would silently
+    stop the recording this whole plugin exists to make automatic.
+
+    So the SHAPE decides, not the intent we would have to guess at. Two shapes
+    are proof of a person and flip on every slug (`RESEARCHER_SHAPES`); every
+    other shape -- the tool call, Codex's activation block, anything added
+    later -- flips only on the legacy slugs, which were a dedicated switch with
+    no manual to read. A researcher on Codex still gets the flip: their typed
+    `$slug` line arrives as SHAPE_RAW, which the model has no way to send.
+    """
+    if shape in RESEARCHER_SHAPES:
+        return slug in TOGGLE_SKILL_SLUGS
+    return slug in BARE_FLIP_SLUGS
+
+
+def _direction_from_words(
+    words: "list[str]", *, bare_flips: bool, slug: str = "", typed: bool = False
+) -> "str | None":
+    """Map an argument word list to an ABSOLUTE target, or CYCLE, or None.
+
+    None means do not touch the signal. `bare_flips` is the caller's answer to
+    "may a direction-less invocation flip here?" -- see `_bare_flips`, which is
+    where the slug class and the surface are weighed. `status` and unrecognised
+    prose write nothing: asking a question must never flip a switch.
+
+    THE SLUG DECIDES WHAT `off` MEANS, and this is the one place that asymmetry
+    lives. Typed at a legacy name it is `read-only` (what it has always done);
+    typed at the new switch it is the new `off`. See LEGACY_SLUGS.
+
+    `inline` moves only when `typed` (a shape a person sends): the agent never
+    hands Probe to itself.
+    """
+    if not words:
+        return CYCLE if bare_flips else None
+    if words[0] in INLINE_WORDS:
+        return INLINE if typed else None
+    if words[0] in READ_ONLY_WORDS:
+        return "read-only"
+    if words[0] in DAEMON_WORDS:
+        return "daemon"
+    if words[0] in OFF_WORDS:
+        return "read-only" if slug in LEGACY_SLUGS else "off"
+    if words[0] in ON_WORDS:
+        return "full"
+    if words[0] in TOGGLE_WORDS:
+        # A relative flip is only meaningful where the bare form is one:
+        # `/probe toggle` and `/probe` are the same request, and a surface that
+        # honours one while ignoring the other reads as a switch that works only
+        # if you guess its vocabulary.
+        return CYCLE if bare_flips else None
+    if words[0] in STATUS_WORDS:
+        return None  # a question, and questions never flip switches
+    return None
+
+
+def prompt_direction(prompt: object) -> "tuple[str | None, str, str]":
+    """(direction, shape, slug) for a TYPED toggle command in a
+    UserPromptSubmit prompt; direction is None when the prompt is not an
+    invocation at all.
+
+    A typed command may produce no tool use, so this is the only deterministic
+    surface that path is guaranteed. The SHAPE comes back with the direction
+    because both harnesses send the same invocation more than once, and
+    telling the sightings apart is what keeps the flip to one -- see
+    `_apply_direction`.
+
+    THREE shapes reach this one function, and they do NOT agree about who
+    could have sent them (`_bare_flips`): a raw typed line and Claude Code's
+    <command-name> expansion are proof of a person, while Codex's <skill>
+    block is an ACTIVATION -- which the model does too -- and is reported as
+    SHAPE_SKILL_BLOCK so a bare one cannot flip the guidance slug.
+
+    Lean silent, same as everywhere else: the raw shape must START with the
+    command (a mid-sentence mention like "should I run
+    /toggle-research-tracking?" is a question, not an invocation), and an
+    expanded shape must name the slug in its own tag exactly. Those two
+    guards are what keep the bare flip from being reachable by PASTED
+    expansion-shaped text, now that bare flips here at all.
+    """
+    if not isinstance(prompt, str) or not prompt.strip():
+        return None, SHAPE_EXPANDED, ""
+    text = prompt.strip()
+    # The expanded shape is only credited when the prompt IS an expansion --
+    # harness-built messages open with the command/skill block. Matching a tag
+    # anywhere would let PASTED text (an issue body, documentation of this very
+    # hook) flip tracking with no invocation at all, and an ARGUMENTS line
+    # elsewhere in the paste would defeat the bare-never-flips guarantee.
+    tag = None
+    if text.startswith(("<command-message>", "<command-name>", "<skill>")):
+        command_tag = _COMMAND_NAME_TAG.search(text)
+        skill_tag = _SKILL_NAME_TAG.search(text)
+        candidates = [m for m in (command_tag, skill_tag) if m]
+        # Earliest tag wins: the leading block is the invocation; a later tag is
+        # quoted content inside the expanded body.
+        tag = min(candidates, key=lambda m: m.start(), default=None)
+        # WHICH tag matched is what says who could have sent it -- see
+        # SHAPE_SKILL_BLOCK. Same block, same parse, different provenance.
+        shape = SHAPE_SKILL_BLOCK if tag is skill_tag else SHAPE_EXPANDED
+    if tag:
+        slug = tag.group(1).split(":")[-1]
+        if slug not in TOGGLE_SKILL_SLUGS:
+            return None, shape, slug
+        args = _COMMAND_ARGS_TAG.search(text)
+        if args is None:
+            args = _ARGUMENTS_LINE.search(text)
+        words = args.group(1).strip().lower().split() if args else []
+        return (
+            _direction_from_words(
+                words, bare_flips=_bare_flips(slug, shape), slug=slug, typed=shape in RESEARCHER_SHAPES
+            ),
+            shape,
+            slug,
+        )
+    if not text.startswith(_COMMAND_PREFIXES):
+        return None, SHAPE_RAW, ""
+    parts = text.splitlines()[0].lstrip("/$").split()
+    slug = parts[0].split(":")[-1] if parts else ""
+    if slug not in TOGGLE_SKILL_SLUGS:
+        return None, SHAPE_RAW, slug
+    return (
+        _direction_from_words(
+            [w.lower() for w in parts[1:]],
+            bare_flips=_bare_flips(slug, SHAPE_RAW),
+            slug=slug,
+            typed=True,
+        ),
+        SHAPE_RAW,
+        slug,
+    )
+
+
+def toggle_direction(tool_name: str, tool_input: object) -> "tuple[str | None, str]":
+    """(direction, slug); direction is `"on"`, `"off"`, `"toggle"`, or None
+    (do not touch the signal).
+
+    THE TOOL SHAPE, so `track-work` bare is a manual read and writes nothing
+    (`_bare_flips`); only an explicit direction word flips it here. The legacy
+    slugs keep their bare flip, having never been a manual. `status` and
+    unrecognised prose never touch the signal -- guessing would flip on a
+    sentence like "what is going on?".
+
+    Field names mirror telemetry.match_skill: a Skill call carries the slug in
+    `skill` with the argument in `args`; a SlashCommand carries one `command`
+    string with the argument inline. Namespacing (`probe-research:`) and a
+    leading slash are stripped the same way there too.
+    """
+    if tool_name not in ("Skill", "SlashCommand") or not isinstance(tool_input, dict):
+        return None, ""
+    inline_args = ""
+    matched_slug = None
+    for field in ("skill", "command", "skill_name", "name"):
+        value = tool_input.get(field)
+        if not (isinstance(value, str) and value.strip()):
+            continue
+        parts = value.strip().lstrip("/").split(None, 1)
+        if parts[0].split(":")[-1] in TOGGLE_SKILL_SLUGS:
+            matched_slug = parts[0].split(":")[-1]
+            if len(parts) > 1:
+                inline_args = parts[1]
+            break
+    if matched_slug is None:
+        return None, ""
+    separate = tool_input.get("args")
+    if isinstance(separate, str) and separate.strip():
+        inline_args = (inline_args + " " + separate).strip()
+    return (
+        _direction_from_words(
+            inline_args.lower().split(),
+            bare_flips=_bare_flips(matched_slug, SHAPE_TOOL),
+            slug=matched_slug,
+        ),
+        matched_slug,
+    )
+
+
+def _claim_path(session_id: str):
+    """Beside the signal it explains, named for what it holds."""
+    return _session_marker.sessions_dir() / (session_id + ".flip-claim")
+
+
+def _read_claim(session_id: str) -> "dict | None":
+    """This session's still-fresh claim, or None.
+
+    Unreadable, malformed and stale all read as None. A claim is bookkeeping
+    on top of the signal, never the state itself: losing one costs a flip that
+    lands the same way the researcher asked for anyway, while trusting a
+    broken one would cost the flip they DID ask for.
+    """
+    try:
+        with open(_claim_path(session_id), encoding="utf-8") as handle:
+            claim = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(claim, dict):
+        return None
+    target = claim.get("target")
+    at = claim.get("at")
+    seen = claim.get("seen")
+    # ABSENT is not a mismatch. A claim written by a plugin version that did
+    # not record the slug can only be compared the old way -- converging it is
+    # what that version meant -- and treating absence as "a different slug"
+    # would flip twice across an upgrade that lands mid-window.
+    slug = claim.get("slug")
+    if slug is not None and not isinstance(slug, str):
+        return None
+    # THE VERSION IS LOAD-BEARING, and leaving it out was a real bug rather
+    # than an omission. A claim written before the third state stores "on"/"off",
+    # and "off" then meant "stop recording, keep searching" -- `read-only`. But
+    # "off" is ALSO a valid new state name, so migrating on the VALUE alone
+    # rewrote every fresh `off` claim into `read-only`, and a cycle that landed
+    # on `off` silently walked back one step on its next converging sighting.
+    #
+    # So the SHAPE says which vocabulary the value is in: `v` present means the
+    # writer knew all three states and the value is literal; absent means a
+    # pre-three-state writer, and only then does the value get mapped.
+    if claim.get("v") != CLAIM_VERSION:
+        if target == "on":
+            target = _session_marker.STATE_FULL
+        elif target == "off":
+            target = _session_marker.STATE_READ_ONLY
+    if target not in _session_marker.STATES:
+        return None
+    # `bool` is an `int`, and NaN compares False against every bound -- a claim
+    # carrying either would never expire. A truncated or hand-edited file is
+    # the only way to reach them, and every one of them costs a flip, so each
+    # reads as "no claim" rather than "a claim I cannot evaluate".
+    if isinstance(at, bool) or not isinstance(at, (int, float)) or not math.isfinite(at):
+        return None
+    if not isinstance(seen, list) or not all(isinstance(s, str) for s in seen):
+        return None
+    if not seen:
+        # No shape recorded means every shape reads as unseen, so the next
+        # sighting -- including a repeat, which is a NEW invocation -- would
+        # converge. _write_claim cannot produce this; only a damaged file can.
+        return None
+    if time.time() - at > FLIP_CLAIM_TTL_SECONDS:
+        return None
+    return {"target": target, "seen": seen, "at": at, "slug": slug}
+
+
+def _write_claim(
+    session_id: str, target: str, seen: "list[str]", slug: str, at=None
+) -> None:
+    """Fail-soft, like everything else here: a claim that cannot be written
+    costs a duplicate flip, and a hook that raised would cost the session.
+
+    `at` carries the ORIGINAL claim time through a converging rewrite. Stamping
+    a fresh one there would let a chain of sightings renew the window
+    indefinitely, so the bound would describe the last sighting rather than the
+    invocation it belongs to.
+    """
+    record = {
+        "target": target,
+        "v": CLAIM_VERSION,
+        "at": time.time() if at is None else at,
+        "seen": seen,
+        "slug": slug,
+    }
+    try:
+        path = _claim_path(session_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(record), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _payload_cwd(payload: dict) -> "str | None":
+    cwd = payload.get("cwd")
+    return cwd if isinstance(cwd, str) and cwd else None
+
+
+def _is_tracking(session_id: str, cwd: "str | None" = None) -> bool:
+    """Signal first; resolve folders only for the absent-signal fallback."""
+    signal = _session_marker.tracking_signal(session_id)
+    if signal is not None:
+        return _session_marker.is_tracking(signal)
+    on, _source = _session_marker.resolve_tracking_default(cwd)
+    return on
+
+
+def _state(session_id: str, cwd: "str | None" = None) -> str:
+    """This conversation's three-valued state. ONE file read on the hot path.
+
+    The explicit decision when one exists, else this cwd's effective default --
+    the same ladder `resolve_tracking_default` walks, so the guard and the status
+    line cannot disagree about what "current" means.
+    """
+    explicit = _session_marker.session_state(session_id)
+    if explicit is not None:
+        return explicit
+    state, _source = _session_marker.resolve_state_default(cwd)
+    return state
+
+
+def _capture_switched(session_id: str) -> None:
+    """The switch moved: the Probe service, which records the session, looks
+    at it now (`_service_call.capture_switched`). Probe off means the session
+    is NOT captured: turned off, it is held before its agent writes another
+    line; turned on again, it is recorded from this moment, and what was
+    written while off is never sent. This route runs in the service, so it is
+    there to ask (service-only plan: nothing here starts one). Never raises,
+    prints nothing."""
+    try:
+        import importlib.util  # noqa: PLC0415
+
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_service_call.py")
+        spec = importlib.util.spec_from_file_location("_probe_hooks._service_call", path)
+        _service_call = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_service_call)
+        _service_call.capture_switched(session_id)
+    except Exception:  # noqa: BLE001 - the service's own look comes within a moment while it runs
+        pass
+
+
+def _apply_direction(
+    direction: str,
+    session_id: str,
+    shape: str,
+    slug: str,
+    cwd: "str | None" = None,
+) -> "str | None":
+    """See `_move`; then the Probe service looks at the switch (`_capture_switched`)."""
+    landed = _move(direction, session_id, shape, slug, cwd)
+    if landed is not None and landed != REFUSED_DAEMON:
+        _capture_switched(session_id)
+    return landed
+
+
+def _move(
+    direction: str,
+    session_id: str,
+    shape: str,
+    slug: str,
+    cwd: "str | None" = None,
+) -> "str | None":
+    """Write the state a direction asks for, ONCE PER INVOCATION.
+
+    Returns the state to ANNOUNCE, or None when this sighting resolved nothing
+    (a converging shape of an invocation already resolved, or a refused write).
+
+    The announcement is why this returns at all. A two-state switch needed none:
+    the typed word WAS the answer, so `/track-work off` told the researcher and
+    the model where they landed. A cycle has no such readout -- nobody can know
+    where one press landed without being told -- and leaving it to the skill's
+    prose would make the model's knowledge depend on obeying prose, which is
+    exactly what this file refuses to do for the write itself.
+
+    An explicit `on`/`off` needs none of the claim below -- setting the same
+    state twice IS setting it once. Only the bare toggle is relative, and only
+    a relative write can cancel itself.
+
+    ONE INVOCATION is (slug, shape-not-yet-seen). The SLUG half matters
+    because two different switch names in one window are two invocations
+    however their shapes line up: a typed bare `/track-work` followed by a
+    bare legacy toggle converged on the first one's target and the second
+    silently did nothing -- a switch that does nothing being the exact
+    symptom the claim was added to fix.
+    """
+    if not _session_marker.valid_session_id(session_id):
+        # The same refusal set_tracking makes, one step earlier, because the
+        # claim is a FILENAME too: validating in only one of the two places is
+        # how a guarded write grows an unguarded sibling, and this one escaped
+        # the sessions directory entirely on a traversal id.
+        return
+    if direction == "daemon":
+        # Not the switch's to move: the daemon is the wizard's "Who records".
+        return REFUSED_DAEMON
+    if direction == INLINE:
+        try:
+            _claim_path(session_id).unlink()
+        except OSError:
+            pass
+        if not _session_marker.switch_to_inline(session_id):
+            return None
+        # Where the daemon records, `inline` is its own announcement; elsewhere it is `on`.
+        if _session_marker.session_profile(session_id) == _session_marker.RECORDER_DAEMON:
+            return INLINE
+        return _session_marker.STATE_FULL
+    if direction != CYCLE:
+        # Clear the claim rather than ignoring it. An explicit setter is
+        # absolute and needs no claim of its own, but LEAVING one behind
+        # outlives the invocation that wrote it: the next bare toggle,
+        # arriving in a shape that claim has not seen, converges on a target
+        # nobody asked for and the switch silently does nothing -- the shipped
+        # bug, back through the door this branch just closed.
+        try:
+            _claim_path(session_id).unlink()
+        except OSError:
+            pass
+        # `on` is STORED by who records: `daemon` where the daemon records.
+        target = _session_marker.switch_target(session_id, direction) or direction
+        _session_marker.set_session_state(session_id, target)
+        return _get_landed(session_id, target)
+
+    claim = _read_claim(session_id)
+    same_invocation = claim is not None and claim["slug"] in (slug, None)
+    if same_invocation and shape not in claim["seen"]:
+        # Another shape of the invocation that wrote this claim: converge on
+        # the target it already resolved, and record the shape so a third
+        # sighting cannot flip either. SILENT -- this sighting resolved nothing,
+        # and announcing here would print the same line up to three times for
+        # one keypress.
+        target = claim["target"]
+        _write_claim(session_id, target, claim["seen"] + [shape], slug, at=claim["at"])
+        _session_marker.set_session_state(session_id, target)
+        return None
+    else:
+        # A shape already seen, a DIFFERENT slug, or nothing claimed -- each of
+        # them a new invocation, and a new invocation always advances. Advance
+        # from the CURRENT state: the explicit decision when one exists, else the
+        # payload cwd's effective default posture, so this and the status line
+        # cannot disagree about what "current" means.
+        #
+        # THE CLAIM STORES THE RESOLVED STATE, NOT THE DIRECTION, and it stays
+        # that way even though the cycle is two-state again. A stored direction
+        # is only harmless while every lap has even length: it was wrong the
+        # moment `off` joined the cycle (one keypress seen in three shapes landed
+        # two states away), and storing the state is the shape that does not have
+        # to be revisited the next time the cycle changes.
+        target = _session_marker.next_state(_state(session_id, cwd))
+        target = _session_marker.switch_target(session_id, target) or target
+        _write_claim(session_id, target, [shape], slug)
+    _session_marker.set_session_state(session_id, target)
+    return _get_landed(session_id, target)
+
+
+def _get_landed(session_id: str, target: str) -> str:
+    """Where a typed move to `target` landed, as `_announce` says it: `INLINE` where a spent daemon allowance put
+    the daemon's on or read inline (`is_budget_inline`), so the agent hears that it records, not the daemon."""
+    return INLINE if _session_marker.is_budget_inline(session_id, target) else target
+
+
+_EXEC = "probe exec"
+_RUN_START = "probe run start"
+
+
+def _offending_write(payload: dict, session_id: str) -> "str | None":
+    """The probe write this untracked session should not be making, or None.
+
+    ONE gate for both events, so the deny and the warn can never disagree about
+    what counts -- a refusal at PreToolUse followed by silence at PostToolUse
+    (or the reverse) would read as the layer being unsure.
+
+    Signal first: tracking on is the overwhelmingly common case and must cost
+    one read, not a parse. Resolved through `is_tracking`, so a machine whose
+    DEFAULT is off is covered -- that default is the researcher choosing what a
+    new session starts at, and a layer that fired only when someone re-typed it
+    per session would be silent exactly where the writes are.
+    """
+    if _session_marker.state_allows_writes(_state(session_id, _payload_cwd(payload))):
+        return None
+    if payload.get("tool_name") != "Bash":
+        return None
+    tool_input = payload.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    if not isinstance(command, str):
+        return None
+    matched = probe_write(command)
+    return None if matched == _EXEC else matched
+
+
+#: Every refusal the CLI's own write gate prints carries this phrase (see
+#: `_session_marker.DENY_REASON*`).
+GATE_REFUSED_PHRASE = "was refused before it ran"
+
+
+def _gate_refused(payload: dict, matched: str) -> bool:
+    """Did the `probe` CLI refuse THIS write itself? Then nothing was written,
+    and an after-the-fact "that write got through" would be false.
+
+    Keyed on the refusal naming the matched command, and read from stderr only:
+    a compound line where one write was refused and another landed must still
+    warn about the one that landed. An older CLI names fewer words (`probe
+    project code` for `probe project code attach`), so a refusal naming a
+    shorter prefix of it counts too.
+    """
+    response = payload.get("tool_response")
+    stderr = response.get("stderr") if isinstance(response, dict) else response
+    if not isinstance(stderr, str):
+        return False
+    words = matched.split()
+    return any(
+        f"`{' '.join(words[:n])}` {GATE_REFUSED_PHRASE}" in stderr
+        for n in range(len(words), 1, -1)
+    )
+
+
+def _emit_context(hook_event: str, text: str) -> None:
+    sys.stdout.write(
+        json.dumps(
+            {"hookSpecificOutput": {"hookEventName": hook_event, "additionalContext": text}}
+        )
+    )
+
+
+def _notified_path(session_id: str):
+    return _session_marker.sessions_dir() / (session_id + _session_marker.NOTIFIED_SUFFIX)
+
+
+def _daemon_notice(session_id: str, cwd: "str | None") -> "str | None":
+    """The notice for a CHANGE in who is recording, once per change, or None.
+
+    Runs on every prompt, which is the one moment a person is present and the
+    agent is about to act. Only transitions are announced: session start already
+    told the agent the daemon records, so a steady live daemon says nothing, a
+    live-to-degraded lapse says "recording is back with you", and a recovery says
+    so too. A first prompt may beat the worker's first lease (it is spawned at
+    session start), so `not-started` is announced only from the second prompt on.
+    """
+    path = _notified_path(session_id)
+    try:
+        last = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(last, dict):
+            last = {}
+    except (OSError, ValueError):
+        last = {}
+    state = _state(session_id, cwd)
+    if state != _session_marker.STATE_DAEMON:
+        if last:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        return None
+    kind, reason = _session_marker.daemon_status(session_id, state)
+    prompts = int(last.get("prompts") or 0) + 1
+    previous = last.get("status")
+    notice = None
+    current = previous
+    if kind == _session_marker.DAEMON_LIVE:
+        if previous == _session_marker.DAEMON_DEGRADED:
+            notice = FLIP_NOTICE["daemon"]
+        current = kind
+    elif (
+        reason == _session_marker.DAEMON_NOT_STARTED
+        and previous is None
+        and prompts < 2
+        and _session_marker.companion_key_held()
+    ):
+        # Grace: the worker may not have taken its first lease yet. Only when it
+        # CAN start -- with no key it never will, and saying so now is honest.
+        current = None
+    elif reason == getattr(_session_marker, "DAEMON_HANDOVER", None):
+        # The worker let go for a new daemon process (an update, the Probe
+        # service restarting, a resumed session's worker): recording is NOT
+        # back with the agent. Said once, in its own words, and its return to
+        # live says nothing. One no successor took up within
+        # DAEMON_HANDOVER_STALE_S reads `expired`: the plain handback below.
+        if previous not in (_session_marker.DAEMON_DEGRADED, reason):
+            notice = _session_marker.daemon_degraded_notice(reason)
+        current = previous if previous == _session_marker.DAEMON_DEGRADED else reason
+    else:
+        if previous != _session_marker.DAEMON_DEGRADED:
+            notice = _session_marker.daemon_degraded_notice(reason)
+        current = _session_marker.DAEMON_DEGRADED
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"status": current, "prompts": prompts}), encoding="utf-8")
+    except OSError:
+        pass
+    return notice
+
+
+def _daemon_bypass(payload: dict, session_id: str) -> "str | None":
+    """A write that reached Probe past the gate while the daemon held the lease."""
+    tool_input = payload.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    if not isinstance(command, str) or _session_marker.DIRECTED_FLAG in command:
+        return None
+    matched = probe_write(command)
+    if not matched or _session_marker.daemon_allows_agent(matched):
+        return None
+    if not _session_marker.lease_live(session_id):
+        return None
+    return matched
+
+
+def _inline_notice(session_id: str = "") -> str:
+    """`session_marker.INLINE_NOTICE`, naming this plugin's `inline/` copies of the
+    skills the agent records by (the lean plugin ships them beside `hooks/`), its
+    last sentence by what the local CLI can do (`version_check.inline_notice_for`).
+    Unreadable: the too-old-CLI sentence, never commands the CLI may lack."""
+    skills = [os.path.join(_inline_root(), name) for name in _session_marker.INLINE_SKILL_FILES]
+    marker = _session_marker.inline_marker(session_id) or {}
+    options = {"read_only": marker.get("mode") == _session_marker.STATE_READ_ONLY,
+               "budget": marker.get("reason") == _session_marker.BUDGET_INLINE_REASON}
+    try:
+        return _version_check().inline_notice_for(*skills, **options)
+    except Exception:  # noqa: BLE001 -- the notice still lands
+        return _session_marker.inline_notice(*skills, bridge=False, **options)
+
+
+def _version_check():
+    """`version_check.py` beside this file, loaded by explicit path like
+    `_hook_harness` (this hook is also loaded from outside its folder); its own
+    sibling imports resolve against this folder while it loads."""
+    import importlib.util  # noqa: PLC0415
+
+    key = "_probe_hooks.version_check"
+    if key in sys.modules:
+        return sys.modules[key]
+    here = os.path.dirname(os.path.abspath(__file__))
+    spec = importlib.util.spec_from_file_location(key, os.path.join(here, "version_check.py"))
+    module = importlib.util.module_from_spec(spec)
+    added = here not in sys.path
+    if added:
+        sys.path.insert(0, here)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        if added:
+            sys.path.remove(here)
+    sys.modules[key] = module
+    return module
+
+
+def _inline_reaches_model(hook_event: str) -> bool:
+    """Does context this hook adds reach the model? Not when the harness drops
+    this hook's output (QUIET_ENV). A harness that adds context at the next
+    prompt (`prompt_context`: Claude Code, Codex, Kimi, Cursor) hears it there; one
+    that cannot hears it after its next tool call, where PostToolUse context lands."""
+    if os.environ.get(QUIET_ENV) == "1":
+        return False
+    try:
+        prompt = _hook_harness().current().can("prompt_context")
+    except Exception:  # noqa: BLE001 -- unknown harness: the prompt, as on Claude Code
+        prompt = True
+    return prompt if hook_event == "UserPromptSubmit" else not prompt
+
+
+def _hook_harness():
+    """The harness resolver beside this file, loaded by explicit path (as
+    approvals_hook does): this hook is also loaded from outside its folder."""
+    import importlib.util  # noqa: PLC0415
+
+    key = "_probe_hooks._hook_harness"
+    if key in sys.modules:
+        return sys.modules[key]
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_hook_harness.py")
+    spec = importlib.util.spec_from_file_location(key, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[key] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _announce_inline_once(hook_event: str, session_id: str, lead: "str | None" = None, *,
+                          cwd: "str | None" = None, rules: bool = False) -> None:
+    """Manual or trusted confirmed-quota inline is active and the
+    agent has not been told about this stretch: tell it now, once, where this
+    harness lets it land (`_inline_reaches_model`). Marked told only then.
+    From the notice on, each event whose context reaches the model carries the
+    next part of the skills it records by, whole (`_skills_reach_model`,
+    `session_marker.next_inline_skills_part`, notes parity N1). `lead`: a line
+    said first in the same answer (auto mode's, `_make_auto_line`). `rules`:
+    Probe's rules and the team note this chat is owed go last (`_rules_parts`)."""
+    since = _session_marker.inline_notice_due(session_id)
+    told = since is not None and _inline_reaches_model(hook_event)
+    if since is not None and not told:
+        parts = [lead] if lead else []  # the skills follow the notice, never come before it
+    else:
+        parts = ([lead] if lead else []) + ([_inline_notice(session_id)] if told else [])
+        if _skills_reach_model(hook_event):
+            part = _session_marker.next_inline_skills_part(session_id, _inline_root())
+            if part:
+                parts.append(part)
+    if rules:
+        parts += _rules_parts(hook_event, session_id, parts, cwd)
+    if parts:
+        _emit_context(hook_event, "\n\n".join(parts))
+    if told:
+        _session_marker.mark_inline_shown(session_id, since)
+
+
+def _rules_parts(hook_event: str, session_id: str, said: list, cwd: "str | None" = None) -> list:
+    """Probe's rules and the team note this chat is owed while it is not off, where the agent's hooks add them
+    (`session_marker.take_owed_rules`): the next part that fits beside `said`. In an off chat that had them, the
+    line that sets them aside, once (`RULES_SET_ASIDE`): text already in a chat cannot be taken out."""
+    if not _skills_reach_model(hook_event):
+        return []
+    try:
+        state = _state(session_id, cwd)
+        if state == _session_marker.STATE_OFF:
+            return [_session_marker.RULES_SET_ASIDE] if _session_marker.reset_given_rules(session_id) else []
+        instruction = _hook_harness().instruction_file()
+        if not instruction:
+            return []
+        room = _session_marker.HOOK_CONTEXT_CHARS - sum(len(text) + 2 for text in said)
+        text = _session_marker.take_owed_rules(session_id, state, instruction, room=room)
+    except Exception:  # noqa: BLE001 -- the next event tries again
+        return []
+    return [text] if text else []
+
+
+def _make_auto_line(payload: dict, session_id: str) -> "str | None":
+    """Auto mode: the one line a researcher's prompt in an auto chat gets on where this chat's
+    Probe stands (`session_marker.make_auto_prompt_line`), or None. Callers skip a helper agent's
+    prompt and a typed `/probe`. Nothing where the output reaches no model (QUIET_ENV), so the
+    first prompt's line is not spent there."""
+    if os.environ.get(QUIET_ENV) == "1" or not _session_marker.is_auto_chat(session_id):
+        return None
+    word = _session_marker.get_auto_state_word(session_id, _state(session_id, _payload_cwd(payload)))
+    prompt = payload.get("prompt")
+    # Not beside a budget stretch's own notice still to come: that notice opens with the allowance.
+    marker = _session_marker.inline_marker(session_id) or {}
+    notice_names_it = (marker.get("reason") == _session_marker.BUDGET_INLINE_REASON
+                       and _session_marker.inline_notice_due(session_id) is not None)
+    spent = (_session_marker.get_budget_inline_state(session_id, _session_marker.STATE_DAEMON) is not None
+             and not notice_names_it)
+    return _session_marker.make_auto_prompt_line(
+        word, _session_marker.claim_first_prompt(session_id), prompt if isinstance(prompt, str) else "",
+        is_allowance_spent=spent)
+
+
+def _from_helper_agent(payload: dict) -> bool:
+    """A hook fired inside a helper agent (subagent), as every hook tells it
+    (`_hook_harness.from_helper_agent`)."""
+    return _hook_harness().from_helper_agent(payload)
+
+
+def _inline_root() -> str:
+    """This plugin's `inline/` folder: the main agent's copies of the skills
+    an inline agent records by (the lean plugin ships them beside `hooks/`); the
+    agent plugin, which has none, keeps the same copies in `agent-skills/` (a chat
+    `seed_inline` set on (inline) can meet it after `/reload-plugins`)."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    inline = os.path.join(root, "inline")
+    return inline if os.path.isdir(inline) else os.path.join(root, "agent-skills")
+
+
+def _skills_reach_model(hook_event: str) -> bool:
+    """Does context this hook adds reach the model, for the skills' parts? The
+    notice's own event (`_inline_reaches_model`), and every PostToolUse: each
+    harness that runs these hooks shows its context to the model (Kimi's
+    unshown one is QUIET_ENV)."""
+    return _inline_reaches_model(hook_event) or (hook_event == "PostToolUse" and os.environ.get(QUIET_ENV) != "1")
+
+
+def _announce(hook_event: str, landed: "str | None", *, daemon: bool = False, session_id: str = "") -> None:
+    """Tell the model where the switch landed. Silent when nothing resolved.
+    `daemon`: the lean plugin, whose sessions the daemon records and reads for:
+    a move to on or read carries Probe's rules and the team note the chat is
+    owed, a move to off sets them aside (`_rules_parts`)."""
+    if landed == REFUSED_DAEMON:
+        notice = _session_marker.DAEMON_SWITCH_REFUSAL
+    elif landed == INLINE:
+        # A typed move into the budget stretch already told: one line on why it stays inline, never silence.
+        marker = _session_marker.inline_marker(session_id) or {}
+        stays = (marker.get("reason") == _session_marker.BUDGET_INLINE_REASON
+                 and _session_marker.inline_notice_due(session_id) is None)
+        _announce_inline_once(hook_event, session_id, _session_marker.ALLOWANCE_SPENT_INLINE if stays else None,
+                              rules=daemon)
+        return
+    else:
+        notices = DAEMON_PROFILE_FLIP_NOTICE if daemon else FLIP_NOTICE
+        notice = notices.get(landed) if landed else None
+    parts = [notice] if notice else []
+    if daemon and landed and landed != REFUSED_DAEMON:
+        parts += _rules_parts(hook_event, session_id, parts)
+    if parts:
+        _emit_context(hook_event, "\n\n".join(parts))
+
+
+# ---------------------------------------------------------------------------
+# #3355: THE AGENT'S SHELL NEVER SPEAKS FOR THE HARNESS. Two tripwires, read off
+# this file's shell tokenizer (`_split`: quotes respected, heredoc bodies and
+# backslash-newlines removed): a call to the Probe service's mailbox or its
+# session registry (`session.register`/`session.end`, #3360), and one of
+# Probe's own hook programs run by hand. Each follows the shell a little way:
+# into `bash -c`/`sh -c` and `eval` strings, backtick bodies and shell heredocs
+# (two levels, as `_probe_invocations`), past wrappers (`env`, `sudo`, `xargs`,
+# `exec -a`, `uv run`, ...), and through `cd`/`pushd`/`env -C`/`uv run
+# --directory` and plain variables to the folder a relative path is read in.
+# NOT BOUNDARIES: a command built at run time, or a copy of a program, still
+# gets through. What protects a yes is the service's answer key and the hook
+# host's key (`probe.daemon.approvals`, `zygote.py`), and what protects a
+# session's registration and mailbox is the service binding each to the
+# process that owns it (#3360, #3361); these refuse the plain ways a model
+# talked into it tries first.
+# ---------------------------------------------------------------------------
+
+#: This file's own folder: a Probe plugin's hooks folder, whatever path names it.
+_HOOKS_HERE = os.path.dirname(os.path.abspath(__file__))
+#: How deep into `-c`, `eval`, backtick and heredoc strings the tripwires follow.
+_MAX_NESTING = 2
+
+#: The service methods that answer a held question, take or post a message, run
+#: a hook event (pi's `hooks.run`), or register or end a session (#3360): none
+#: is the agent's shell's to call.
+_MAILBOX_METHOD = re.compile(r"\b(?:mailbox\.(?:answer|claim|post)|hooks\.run|session\.(?:end|register))\b")
+#: A call in the code a runner is handed (`-c`, a heredoc script): also a bare
+#: `call(` (`from probe.service.client import call`), a raw socket's
+#: `'method':` or `method=`, `AF_UNIX`, `jsonrpc`. Counted only beside the
+#: method as a quoted string (`_QUOTED_METHOD`): `hooks.run(method='fit')` or a
+#: comment naming `mailbox.post` in a researcher's own code is not the call.
+_CALL_IN_RUNNER = re.compile(
+    r"\.call\(|\bcall\(|\bservice_call\(|[\"']method[\"']\s*:|\bmethod\s*=|\bAF_UNIX\b|\bjsonrpc\b")
+_QUOTED_METHOD = re.compile(r"[\"']((?:mailbox\.(?:answer|claim|post)|hooks\.run|session\.(?:end|register)))[\"']")
+#: The same two without the session methods: `session.end` is someone else's
+#: too (WebDriver BiDi), so it counts only in a command that names Probe's
+#: service (`_PROBE_SERVICE`).
+_MAILBOX_ONLY = re.compile(r"\b(?:mailbox\.(?:answer|claim|post)|hooks\.run)\b")
+_QUOTED_MAILBOX_ONLY = re.compile(r"[\"']((?:mailbox\.(?:answer|claim|post)|hooks\.run))[\"']")
+#: What names Probe's service in a command: its client (`probe.service`, and
+#: `service_api` in any spelling since agent:16, the tap's `tap.service` / `tap
+#: service`, the hooks' `_service_rpc`, the daemon's `service_call`) or its socket
+#: (`.../probe/service/...`, `service.sock`, `/tmp/probe-<uid>/service-<hash>.sock`).
+#: Plain words only: a pattern that backtracks on long input would time the hook out.
+_PROBE_SERVICE = re.compile(
+    r"\bprobe\.service\b|\bservice_api\b|\btap\.service\b|\btap\s+service\b|\b_service_rpc\b|\bservice_call\b"
+    r"|\bservice(?:-[0-9a-f]+)?\.sock\b|probe/+service\b|/tmp/probe-")
+#: The service client's own command line (`python -m probe.service.client
+#: register|end ...`, the tap's copy as `python -m tap service ...`): its
+#: subcommands that register or end a session, as the method each one calls.
+_CLIENT_MODULES = frozenset({"probe.service.client", "tap.service.client"})
+_CLIENT_SESSION_COMMANDS = {"register": "session.register", "end": "session.end"}
+#: Commands that read, search or record text: what they name is an argument.
+_TEXT_COMMANDS = frozenset({
+    "grep", "egrep", "fgrep", "rg", "ag", "ack", "git", "gh", "sed", "awk", "gawk", "cat", "bat", "less", "more",
+    "head", "tail", "wc", "ls", "find", "fd", "diff", "cp", "mv", "md5sum", "sha256sum", "shasum", "file", "stat",
+    "echo", "printf", "jq", "sort", "uniq", "cut", "tr", "tee", "xxd", "od", "strings",
+})
+#: Socket tools: a command that puts one in a command's place and names a
+#: method anywhere (a line it pipes in, a here-string) is a call.
+_SOCKET_TOOLS = frozenset({"nc", "ncat", "netcat", "socat"})
+#: Programs that run code they are handed (`-c`, `-e`, a script on stdin).
+_INTERPRETERS = re.compile(r"^(?:python|pypy)(\d+(\.\d+)?)?$")
+_CODE_RUNNERS = frozenset({"node", "perl", "ruby", "deno", "bun"})
+#: Wrappers that run the command after their options: {wrapper: (options that
+#: take a value, those of them that name the folder it runs in)}.
+_WRAPPER_FORMS = {
+    "env": (frozenset({"-u", "--unset", "-C", "--chdir", "-S", "--split-string"}), frozenset({"-C", "--chdir"})),
+    "sudo": (frozenset({"-u", "-g", "-C", "-D", "-h", "-p", "-r", "-t", "-U", "-T", "--user", "--group",
+                        "--chdir", "--host", "--prompt", "--role", "--type", "--other-user",
+                        "--command-timeout", "--close-from"}), frozenset({"-D", "--chdir"})),
+    "xargs": (frozenset({"-I", "-i", "-n", "-P", "-L", "-l", "-d", "-a", "-E", "-e", "-s", "--max-args",
+                         "--max-procs", "--delimiter", "--arg-file", "--max-lines", "--max-chars",
+                         "--replace", "--eof"}), frozenset()),
+    "exec": (frozenset({"-a"}), frozenset()),
+    "nice": (frozenset({"-n", "--adjustment"}), frozenset()),
+    "stdbuf": (frozenset({"-i", "-o", "-e", "--input", "--output", "--error"}), frozenset()),
+    "timeout": (frozenset({"-s", "--signal", "-k", "--kill-after"}), frozenset()),
+    "time": (frozenset({"-f", "-o", "--format", "--output"}), frozenset()),
+    "command": (frozenset(), frozenset()),
+    "nohup": (frozenset(), frozenset()),
+    "setsid": (frozenset(), frozenset()),
+    "builtin": (frozenset(), frozenset()),
+}
+#: Shell words a command may stand behind (`{ cmd; }`, `if ...; then cmd; fi`,
+#: `! cmd`): the program is the word after them.
+_SHELL_KEYWORDS = frozenset({"{", "!", "if", "then", "elif", "else", "do", "while", "until"})
+#: `uv run`'s options that take a value, and the one that names its folder.
+_UV_VALUE_OPTS = frozenset({"--with", "--python", "-p", "--project", "--directory", "--extra", "--group",
+                            "--env-file", "--package", "--index", "--index-url", "--with-requirements"})
+#: Python's options that take a value (`-W ignore`, `-X dev`, `-Xdev`).
+_PYTHON_VALUE_FLAGS = frozenset("WX")
+_PYTHON_VALUE_LONG = frozenset({"--check-hash-based-pycs"})
+#: A shell's options that take a value (`-o pipefail`, `+O extglob`).
+_SHELL_VALUE_OPTS = frozenset({"-o", "+o", "-O", "+O"})
+#: Probe's hook programs whose event decides a consent: the answer to a held
+#: question and the permission mode (`approvals_hook.py`), the Probe switch
+#: (`tracking_guard.py`), and what runs any route (`dispatch.py`/`dispatch.sh`,
+#: Kimi Code's `harness_io.py`, the warm host `zygote.py`, the frozen hook shim's
+#: `hook.py`, plan D56).
+_HOOK_PROGRAMS = frozenset({"approvals_hook.py", "tracking_guard.py", "dispatch.py", "dispatch.sh",
+                            "harness_io.py", "zygote.py", "hook.py"})
+#: The shim's local runner, run as `python -m <it>`: any route, from the CLI's own copy (D56).
+_HOOK_RUNNER_MODULE = "probe.service.hooks.proxy.local"
+#: The ones no researcher's own program is plausibly called: refused by name,
+#: under a `hooks/` folder, where a path cannot be followed (a variable the
+#: guard cannot see, a quote its tokenizer cannot read).
+_HOOK_NAMES_ALONE = frozenset({"approvals_hook.py", "tracking_guard.py", "harness_io.py", "zygote.py"})
+_HOOK_BY_NAME = re.compile(
+    r"(?:^|[;&|(\n`]|\$\()\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*"
+    r"(?:(?:\S*/)?(?:python[0-9.]*|pypy[0-9.]*|exec|env|sudo|nohup|time|command|source|\.)\b[^;&|\n`]*?\s)?"
+    r"[\"']?([^\s;&|()<>`'\"]*\bhooks/+(approvals_hook\.py|tracking_guard\.py|harness_io\.py|zygote\.py))\b")
+_BACKTICK = re.compile(r"`([^`]*)`")
+_VARIABLE = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
+#: What the shell says the folder is: `$(pwd)` / `` `pwd` `` is `$PWD`, and
+#: `$(git rev-parse --show-toplevel)` the repository's root above it.
+_PWD_SUBST = re.compile(r"\$\(\s*pwd(?:\s+-[LP])?\s*\)|`\s*pwd(?:\s+-[LP])?\s*`")
+_GIT_ROOT_SUBST = re.compile(r"\$\(\s*git\s+rev-parse\s+--show-toplevel\s*\)|`\s*git\s+rev-parse\s+--show-toplevel\s*`")
+_GIT_ROOT_NAME = "__PROBE_GIT_ROOT__"
+
+
+def _the_folder_spelled(command: str) -> str:
+    """`command` with the shell's own names for the folder made plain variables."""
+    command = _PWD_SUBST.sub("${PWD}", command)
+    return _GIT_ROOT_SUBST.sub("${%s}" % _GIT_ROOT_NAME, command)
+
+
+def _git_root(folder: "str | None") -> "str | None":
+    """The repository root at or above `folder` (a `.git` there), or None."""
+    if not folder:
+        return None
+    here = os.path.abspath(folder)
+    for _ in range(64):
+        if os.path.exists(os.path.join(here, ".git")):
+            return here
+        parent = os.path.dirname(here)
+        if parent == here:
+            return None
+        here = parent
+    return None
+
+
+def _expand(word: str, names: dict, base: "str | None" = None) -> "str | None":
+    """`word` with `~` and `$NAME`/`${NAME}` filled in (the command's own
+    assignments first; `$PWD` and the repository root from `base`; then this
+    hook's environment), or None when a `$` is left that cannot be (unset,
+    `$(...)`, `$1`)."""
+    def fill(match: "re.Match") -> str:
+        name = match.group(1) or match.group(2)
+        if name in names:
+            value = names[name]
+        elif name == "PWD":
+            value = base
+        elif name == _GIT_ROOT_NAME:
+            value = _git_root(base)
+        else:
+            value = os.environ.get(name)
+        return match.group(0) if value is None else value
+
+    word = _VARIABLE.sub(fill, word)
+    if word.startswith("~"):
+        word = os.path.expanduser(word)
+    return None if "$" in word else word
+
+
+def _folder(word: str, base: "str | None", names: dict) -> "str | None":
+    """The folder `word` names, read from `base` (None: not known)."""
+    path = _expand(word, names, base)
+    if path is None:
+        return None
+    if not os.path.isabs(path):
+        if base is None:
+            return None
+        path = os.path.join(base, path)
+    return os.path.normpath(path)
+
+
+def _option_value(tokens: "list[str]", index: int, value_opts: "frozenset[str]") -> "tuple[str | None, int]":
+    """The value of the option at `index` (separate, or `--opt=value`), and the index after it."""
+    word = tokens[index]
+    if "=" in word and word.startswith("--"):
+        return word.split("=", 1)[1], index + 1
+    if word in value_opts:
+        return (tokens[index + 1] if index + 1 < len(tokens) else None), index + 2
+    return None, index + 1
+
+
+def _program_start(tokens: "list[str]", base: "str | None", names: dict) -> "tuple[int, str | None]":
+    """Where a simple command's program is, past env assignments, a leading
+    redirection, wrappers and `uv run`, and the folder it runs in (`env -C`,
+    `sudo -D`, `uv run --directory` move it)."""
+    index = 0
+    while index < len(tokens):
+        word = tokens[index]
+        name = os.path.basename(word)
+        if _ENV_ASSIGNMENT.match(word) or word in _SHELL_KEYWORDS:
+            index += 1
+        elif word in _REDIRECTIONS:
+            index += 2
+        elif name in _WRAPPER_FORMS:
+            value_opts, folder_opts = _WRAPPER_FORMS[name]
+            index += 1
+            while index < len(tokens) and tokens[index].startswith("-") and tokens[index] != "-":
+                option = tokens[index].split("=", 1)[0]
+                value, index = _option_value(tokens, index, value_opts)
+                if option in folder_opts and value is not None:
+                    base = _folder(value, base, names)
+            if name == "timeout" and index < len(tokens):
+                index += 1  # its duration
+        elif name == "uv" and tokens[index + 1 : index + 2] == ["run"]:
+            index += 2
+            while index < len(tokens) and tokens[index].startswith("-"):
+                option = tokens[index].split("=", 1)[0]
+                value, index = _option_value(tokens, index, _UV_VALUE_OPTS)
+                if option == "--directory" and value is not None:
+                    base = _folder(value, base, names)
+        else:
+            break
+    return index, base
+
+
+def _command_start(tokens: "list[str]") -> int:
+    """Where a simple command's program is (`_program_start`, the folder unknown)."""
+    return _program_start(tokens, None, {})[0]
+
+
+def _runs_code(head: str) -> bool:
+    return bool(_INTERPRETERS.match(head)) or head in _SHELLS or head in _CODE_RUNNERS
+
+
+def _runs_module(tokens: "list[str]", start: int, module: str) -> bool:
+    """Does this Python command run `module` (`-m module`, `-Im module`, ...)?"""
+    for index in range(start + 1, len(tokens) - 1):
+        word = tokens[index]
+        if not word.startswith("-") or word.startswith("--"):
+            if not word.startswith("-"):
+                return False
+            continue
+        if word.endswith("m") and tokens[index + 1] == module:
+            return True
+    return False
+
+
+def _python_operand(tokens: "list[str]", start: int) -> "tuple[str, str | None]":
+    """How a Python command runs: ("code", None) for `-c`/`-m`/`--version`,
+    ("file", operand) otherwise (operand None or "-": its stdin)."""
+    index = start + 1
+    while index < len(tokens):
+        word = tokens[index]
+        if word in _REDIRECTIONS:
+            index += 2
+            continue
+        if word == "--":
+            index += 1
+            break
+        if not word.startswith("-") or word == "-":
+            break
+        if word.startswith("--"):
+            if word in ("--version", "--help"):
+                return "code", None
+            index += 2 if word in _PYTHON_VALUE_LONG else 1
+            continue
+        flags, skip = word[1:], 1
+        for at, flag in enumerate(flags):
+            if flag in "cm" or flag in "Vh":
+                return "code", None
+            if flag in _PYTHON_VALUE_FLAGS:
+                if at == len(flags) - 1:
+                    skip = 2  # its value is the next word
+                break  # the rest of this word is its value
+        index += skip
+    return "file", tokens[index] if index < len(tokens) else None
+
+
+def _shell_operand(tokens: "list[str]", start: int) -> "tuple[str, str | None]":
+    """How a shell command runs: ("code", the -c string), ("check", None) for
+    `-n`, ("file", operand) otherwise (None, "-" or `-s`: its stdin)."""
+    index, code = start + 1, False
+    while index < len(tokens):
+        word = tokens[index]
+        if word in _REDIRECTIONS:
+            index += 2
+            continue
+        if word == "--":
+            index += 1
+            break
+        if word in _SHELL_VALUE_OPTS:
+            index += 2
+            continue
+        if not word[:1] in ("-", "+") or word in ("-", "+"):
+            break
+        flags = word[1:] if not word.startswith("--") else ""
+        if "n" in flags and word.startswith("-"):
+            return "check", None
+        if "c" in flags:
+            code = True
+        if "s" in flags:
+            return "file", None
+        index += 1
+    operand = tokens[index] if index < len(tokens) else None
+    return ("code", operand) if code else ("file", operand)
+
+
+def _stdin_runner(tokens: "list[str]") -> bool:
+    """Does this simple command run what comes on its stdin (`python3 -`,
+    `bash`, `bash -s`, `node -`)?"""
+    start = _command_start(tokens)
+    if start >= len(tokens):
+        return False
+    head = os.path.basename(tokens[start])
+    if _INTERPRETERS.match(head):
+        kind, operand = _python_operand(tokens, start)
+        return kind == "file" and operand in (None, "-")
+    if head in _SHELLS:
+        kind, operand = _shell_operand(tokens, start)
+        return kind == "file" and operand in (None, "-")
+    if head in _CODE_RUNNERS:
+        rest = [t for t in tokens[start + 1 :] if t not in _REDIRECTIONS]
+        return not rest or rest[0] == "-"
+    return False
+
+
+def _nested(tokens: "list[str]", start: int) -> "str | None":
+    """The shell code a simple command runs from a string: `bash -c '...'`,
+    `sh -c "..."`, `eval ...`."""
+    head = os.path.basename(tokens[start])
+    if head == "eval":
+        return " ".join(tokens[start + 1 :]) or None
+    if head in _SHELLS:
+        kind, operand = _shell_operand(tokens, start)
+        if kind == "code":
+            return operand
+    return None
+
+
+def calls_mailbox(command: str) -> "str | None":
+    """The mailbox or session method (`mailbox.answer`, `.claim`, `.post`,
+    `hooks.run`, `session.register`, `session.end`) a shell command calls on
+    the Probe service itself, or None. A call is the method named beside a way
+    of calling: the client's command line (`python -m probe.service.client call
+    [--] mailbox.answer ...`, or its own `register`/`end` subcommands), a call
+    in the code a runner is handed (`-c`, a heredoc script on its stdin), or a
+    socket tool in a command's place (`nc`, `socat`, `curl --unix-socket`);
+    followed into `bash -c`, `eval` and backtick strings. A method that a text
+    command (`grep`, `git`, `gh`, `sed`, ...) is handed, or a comment, is never
+    a call, and a session method counts only in a command that names Probe's
+    service (`_PROBE_SERVICE`): WebDriver BiDi has a `session.end` too."""
+    if not isinstance(command, str):
+        return None
+    if "service" in command:
+        found = _client_session_command(command, 0)
+        if found:
+            return found
+    if "mailbox." not in command and "hooks.run" not in command and "session." not in command:
+        return None
+    if _PROBE_SERVICE.search(command):
+        return _mailbox_in(command, 0, _MAILBOX_METHOD, _QUOTED_METHOD)
+    return _mailbox_in(command, 0, _MAILBOX_ONLY, _QUOTED_MAILBOX_ONLY)
+
+
+def _client_module_command(tokens: "list[str]", start: int) -> "str | None":
+    """The session method a Python simple command calls through the service
+    client's own subcommand (`python -I -m probe.service.client end ...`,
+    `python -m tap service register ...`), or None."""
+    index = start + 1
+    while index < len(tokens) and tokens[index].startswith("-") and tokens[index] != "-m":
+        index += 2 if tokens[index] in ("-W", "-X") else 1
+    if tokens[index : index + 1] != ["-m"] or index + 1 >= len(tokens):
+        return None
+    module, rest = tokens[index + 1], tokens[index + 2 :]
+    if module == "tap" and rest[:1] == ["service"]:
+        rest = rest[1:]
+    elif module not in _CLIENT_MODULES:
+        return None
+    words = [w for w in rest if not w.startswith("-")]
+    return _CLIENT_SESSION_COMMANDS.get(words[0]) if words else None
+
+
+def _client_session_command(command: str, depth: int) -> "str | None":
+    """`_client_module_command` in any simple command of `command`, followed
+    into backticks, `bash -c`/`eval` strings and shell heredocs."""
+    if depth < _MAX_NESTING:
+        for body in _BACKTICK.findall(command):
+            found = _client_session_command(body, depth + 1)
+            if found:
+                return found
+    for tokens in _split(command)[0]:
+        start = _command_start(tokens)
+        if start >= len(tokens):
+            continue
+        head = os.path.basename(tokens[start])
+        if head in _TEXT_COMMANDS:
+            continue
+        nested = _nested(tokens, start)
+        if nested and depth < _MAX_NESTING:
+            found = _client_session_command(nested, depth + 1)
+            if found:
+                return found
+        if _INTERPRETERS.match(head):
+            found = _client_module_command(tokens, start)
+            if found:
+                return found
+    if depth < _MAX_NESTING:
+        for opened, body in _heredocs(command):
+            segments = _split(opened)[0]
+            last = segments[-1] if segments else []
+            start = _command_start(last)
+            if start < len(last) and os.path.basename(last[start]) in _SHELLS:
+                found = _client_session_command(body, depth + 1)
+                if found:
+                    return found
+    return None
+
+
+def _mailbox_in(command: str, depth: int, methods=_MAILBOX_METHOD, quoted_methods=_QUOTED_METHOD) -> "str | None":
+    named = methods.search(command)
+    if named is None:
+        return None
+    if depth < _MAX_NESTING:
+        for body in _BACKTICK.findall(command):
+            found = _mailbox_in(body, depth + 1, methods, quoted_methods)
+            if found:
+                return found
+    socket_tool = False
+    for tokens in _split(command)[0]:
+        start = _command_start(tokens)
+        if start >= len(tokens):
+            continue
+        head = os.path.basename(tokens[start])
+        if head in _TEXT_COMMANDS:
+            continue
+        nested = _nested(tokens, start)
+        if nested and depth < _MAX_NESTING:
+            found = _mailbox_in(nested, depth + 1, methods, quoted_methods)
+            if found:
+                return found
+        if head in _SOCKET_TOOLS or (head == "curl" and any(w.startswith("--unix-socket") for w in tokens[start:])):
+            socket_tool = True
+        runner = _runs_code(head)
+        words = tokens[start:]
+        for index, word in enumerate(words):
+            found = methods.search(word)
+            if not found:
+                continue
+            before = [w for w in words[:index] if w != "--"]
+            if before and before[-1] == "call":
+                return found.group(0)  # the client's command line: `... call [--] mailbox.answer`
+            quoted = quoted_methods.search(word) if runner else None
+            if quoted and _CALL_IN_RUNNER.search(word):
+                return quoted.group(1)  # code a runner is handed, calling it
+    if socket_tool:
+        return named.group(0)
+    for opened, body in _heredocs(command):
+        segments = _split(opened)[0]
+        if not segments or not _stdin_runner(segments[-1]):
+            continue  # a commit message, a file a text command reads: never code
+        quoted = quoted_methods.search(body)
+        if quoted and _CALL_IN_RUNNER.search(body):
+            return quoted.group(1)
+        if depth < _MAX_NESTING and os.path.basename(segments[-1][_command_start(segments[-1])]) in _SHELLS:
+            found = _mailbox_in(body, depth + 1, methods, quoted_methods)
+            if found:
+                return found
+    return None
+
+
+def _is_probe_hooks(folder: str) -> bool:
+    """A Probe plugin's hooks folder: this file's own, one holding `routes.json`
+    and `_session_marker.py`, or the frozen hook shim's (`hook.py` beside
+    `codex.json`, under a `.codex-plugin` manifest)."""
+    folder = os.path.realpath(folder)
+    if folder == os.path.realpath(_HOOKS_HERE):
+        return True
+    if os.path.isfile(os.path.join(folder, "hook.py")) and os.path.isfile(os.path.join(folder, "codex.json")) \
+            and os.path.isfile(os.path.join(os.path.dirname(folder), ".codex-plugin", "plugin.json")):
+        return True
+    return os.path.isfile(os.path.join(folder, "routes.json")) and os.path.isfile(
+        os.path.join(folder, "_session_marker.py"))
+
+
+def _probe_hook_path(script: str, base: "str | None", names: dict) -> "bool | None":
+    """Is `script` (read as the shell would, from `base`) a file in a Probe
+    plugin's hooks folder? None when it cannot be followed."""
+    path = _folder(script, base, names)
+    if path is None:
+        return None
+    return _is_probe_hooks(os.path.dirname(os.path.realpath(path)))
+
+
+def _researchers_own(name: str, origin: "str | None") -> bool:
+    """Does the researcher's folder (the session's, or its repository root)
+    hold a `hooks/<name>` of its own, in a folder that is no Probe plugin's?"""
+    for root in {origin, _git_root(origin)}:
+        if not root:
+            continue
+        folder = os.path.join(root, "hooks")
+        if os.path.isfile(os.path.join(folder, name)) and not _is_probe_hooks(folder):
+            return True
+    return False
+
+
+def _by_name(path_text: str, origin: "str | None") -> "str | None":
+    """A program refused by its name alone, where its path cannot be followed:
+    one of `_HOOK_NAMES_ALONE` under a `hooks/` folder, unless the researcher's
+    own folder has a `hooks/` program of that name (theirs, then)."""
+    name = os.path.basename(path_text)
+    if name in _HOOK_NAMES_ALONE and "hooks" in path_text.split("/")[:-1] and not _researchers_own(name, origin):
+        return name
+    return None
+
+
+def runs_probe_hook(command: str, cwd: "str | None" = None) -> "str | None":
+    """The Probe hook program a shell command runs by hand, or None.
+
+    A hook trusts its event because the harness writes it; run by hand, it acts
+    on whatever the caller pipes in: a "yes" to a held question (the hook reads
+    the question's answer key itself), a bypass permission mode, a typed
+    `/probe inline`. Only the program a simple command RUNS is looked at (the
+    command, or the file an interpreter is handed), and only when that file is
+    in a Probe plugin's hooks folder: a researcher's own `scripts/dispatch.py`
+    runs, and reading, listing, copying, diffing, committing or testing Probe's
+    programs is not running them. Where a path cannot be followed, the names no
+    researcher's script plausibly has (`_HOOK_NAMES_ALONE`) under `hooks/` are
+    refused by name."""
+    if not isinstance(command, str) or not any(name in command for name in (*_HOOK_PROGRAMS, _HOOK_RUNNER_MODULE)):
+        return None
+    base = cwd if isinstance(cwd, str) and os.path.isabs(cwd) else os.getcwd()
+    return _hook_in(command, base, {}, 0, base)
+
+
+def _hook_in(command: str, base: "str | None", names: dict, depth: int, origin: "str | None",
+             hint: "str | None" = None) -> "str | None":
+    """`runs_probe_hook` for one command string, read from `base` (`hint`: the
+    text of a `cd` target that could not be followed). `origin` is the
+    session's folder, whose own `hooks/` programs are the researcher's."""
+    command = _the_folder_spelled(command)
+    if depth < _MAX_NESTING:
+        for body in _BACKTICK.findall(command):
+            found = _hook_in(body, base, dict(names), depth + 1, origin, hint)
+            if found:
+                return found
+    segments, whole = _split(command)
+    for tokens in segments:
+        if all(_ENV_ASSIGNMENT.match(word) for word in tokens):
+            for word in tokens:  # `H=/x/hooks;`: the shell's variable from here on
+                key, _, value = word.partition("=")
+                names[key] = _expand(value, names, base) or value
+            continue
+        start, here = _program_start(tokens, base, names)
+        if start >= len(tokens):
+            continue
+        head = os.path.basename(tokens[start])
+        if head in ("cd", "pushd"):
+            operands = [t for t in tokens[start + 1 :] if not t.startswith("-")]
+            target = operands[0] if operands else "~"
+            base = _folder(target, base, names)
+            hint = None if base is not None else (os.path.join(hint, target) if hint else target)
+            continue
+        if head == "export":
+            for word in tokens[start + 1 :]:
+                if _ENV_ASSIGNMENT.match(word):
+                    key, _, value = word.partition("=")
+                    names[key] = _expand(value, names, base) or value
+            continue
+        nested = _nested(tokens, start)
+        if nested is not None:
+            if depth < _MAX_NESTING:
+                found = _hook_in(nested, here, dict(names), depth + 1, origin, hint)
+                if found:
+                    return found
+            continue
+        if head in ("source", "."):
+            script = next((t for t in tokens[start + 1 :] if t not in _REDIRECTIONS), None)
+        elif _INTERPRETERS.match(head):
+            if _runs_module(tokens, start, _HOOK_RUNNER_MODULE):
+                return _HOOK_RUNNER_MODULE
+            kind, script = _python_operand(tokens, start)
+            script = script if kind == "file" and script != "-" else None
+        elif head in _SHELLS:
+            kind, script = _shell_operand(tokens, start)
+            script = script if kind == "file" and script != "-" else None
+        else:
+            script = tokens[start]
+        if not script or os.path.basename(script) not in _HOOK_PROGRAMS:
+            continue
+        verdict = _probe_hook_path(script, here, names)
+        if verdict:
+            return os.path.basename(script)
+        if verdict is None:
+            spelled = script if script.startswith(("/", "~", "$")) or not hint else hint.rstrip("/") + "/" + script
+            found = _by_name(spelled, origin)
+            if found:
+                return found
+    if depth < _MAX_NESTING:
+        for opened, body in _heredocs(command):
+            opener = _split(opened)[0]
+            if opener and _stdin_runner(opener[-1]) and os.path.basename(
+                    opener[-1][_command_start(opener[-1])]) in _SHELLS:
+                found = _hook_in(body, base, dict(names), depth + 1, origin, hint)
+                if found:
+                    return found
+    if not whole:
+        # The tokenizer stopped at a quote it could not read: what follows it
+        # is looked at by its paths, followed from `base` where they can be,
+        # and by the names alone where they cannot.
+        for found in _HOOK_BY_NAME.finditer(command):
+            verdict = _probe_hook_path(found.group(1), base, names)
+            if verdict or (verdict is None and _by_name(found.group(1), origin)):
+                return found.group(2)
+    return None
+
+
+def _shell_command(payload: dict) -> "str | None":
+    tool_input = payload.get("tool_input")
+    command = tool_input.get("command") if payload.get("tool_name") == "Bash" and isinstance(tool_input, dict) else None
+    return command if isinstance(command, str) else None
+
+
+def _refuse_for_the_harness(payload: dict) -> bool:
+    """The #3355 tripwires, in every state and both profiles: the hook hosts'
+    folder, a mailbox or session-registry call (#3360), a hook program run by
+    hand. True when refused."""
+    aimed = _session_marker.touches_hook_host(payload.get("tool_name"), payload.get("tool_input"),
+                                              _payload_cwd(payload))
+    if aimed:
+        _refuse(_session_marker.DENY_REASON_HOOK_HOST.format(tool=payload.get("tool_name"), path=aimed))
+        return True
+    command = _shell_command(payload)
+    if command is None:
+        return False
+    called = calls_mailbox(command)
+    if called:
+        reason = (_session_marker.DENY_REASON_SESSION_CALL if called.startswith("session.")
+                  else _session_marker.DENY_REASON_MAILBOX)
+        _refuse(reason.format(matched=called))
+        return True
+    by_hand = runs_probe_hook(command, _payload_cwd(payload))
+    if by_hand:
+        _refuse(_session_marker.DENY_REASON_HOOK_BY_HAND.format(matched=by_hand))
+        return True
+    return False
+
+
+#: The words the switch's states are typed as, for a refusal's `session state <word>`.
+_STATE_WORDS = {"off": "off", "read-only": "read", CYCLE: "<on|read|off>"}
+
+
+def _skill_switch_refusal(payload: dict, session_id: str) -> "str | None":
+    """T3 for the model's own Skill-tool call of the switch (Claude Code's `Skill`, the older
+    `SlashCommand`). A person's typed `/probe ...` arrives as a prompt (UserPromptSubmit), never as
+    this. See `_model_switch_refusal`; a helper agent's call moves nothing, so it is never refused."""
+    if payload.get("tool_name") not in ("Skill", "SlashCommand") or _from_helper_agent(payload) or _is_no_consent():
+        return None
+    direction, slug = toggle_direction(payload.get("tool_name"), payload.get("tool_input"))
+    tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
+    called = " ".join(str(tool_input[field]) for field in ("skill", "command", "args") if tool_input.get(field))
+    return _model_switch_refusal(direction, slug, session_id, _payload_cwd(payload), called or slug)
+
+
+def _model_switch_refusal(direction: "str | None", slug: str, session_id: str, cwd: "str | None",
+                          called: str) -> "str | None":
+    """A switch move the MODEL can send (a Skill-tool call; Codex's `<skill>` activation block) that
+    would make this chat record less, or flip it: refused (`SKILL_SWITCH_DENY`: ask the person, then
+    `session state <state> --directed`). Raising it, naming where it already is (the person's typed
+    `/probe` moved it first) or another sighting of a typed bare `/probe` (its claim) runs. The legacy
+    switch slugs ship no skill any more, so no model calls them; they keep their old rules."""
+    if slug in GUIDANCE_SLUGS and direction is not None and _session_marker.is_auto_chat(session_id):
+        # Auto: the agent sets the switch, through `session state` only, so the move stays the agent's (a
+        # Skill call would land as an explicit move and end auto). A typed `$probe` moved first and ended it.
+        return _session_marker.AUTO_SKILL_SWITCH.format(matched=called)
+    if direction is None or direction not in _STATE_WORDS or slug not in GUIDANCE_SLUGS:
+        return None  # a question, `on` (raising), `daemon` (the wizard's): this never lowers anything
+    if direction == CYCLE:
+        claim = _read_claim(session_id)
+        if claim is not None and claim["slug"] in (slug, None) and SHAPE_TOOL not in claim["seen"]:
+            return None  # another sighting of the bare `/probe` the person typed: it converges
+    else:
+        current = _state(session_id, cwd)
+        if current == direction or _session_marker.louder(direction, current):
+            return None
+    return _session_marker.SKILL_SWITCH_DENY.format(matched=called, target=_STATE_WORDS[direction])
+
+
+def _agent_refused(payload: dict, deny: str, session_id: "str | None" = None) -> bool:
+    """What every state refuses the agent (T2, T3; `session_marker.agent_refusal`):
+    this chat's switch moved without `--directed`, or flipped, what makes Probe
+    record less without `--directed`, and a server-saving command with
+    `PROBE_BASE_URL=<another server>` before it (`spelled_server_override`). True
+    when refused. The npx spelling is the CLI gate's: this reads only `probe ...`
+    and `python -m probe.cli ...`."""
+    command = _shell_command(payload)
+    if command is None or "probe" not in command:
+        return False
+    for args in _probe_invocations(command):
+        if _asks_help_plainly(args):
+            continue
+        refused = _session_marker.agent_refusal(args, deny, session_id)
+        reason = "directed_required"
+        if not refused:
+            refused, reason = _session_marker.spelled_server_override(command, args), "server_override"
+        if refused:
+            _save_refusal(payload, args, reason)
+            _refuse(refused)
+            return True
+    return False
+
+
+def _save_refusal(payload: dict, args: list, reason: str) -> None:
+    """Keep an upkeep or install refusal for the Probe service to count (`agent_install.refused`, PR C):
+    a file, never the network. Never raises."""
+    try:
+        if not _session_marker.is_upkeep_refusal(args):
+            return
+        try:
+            agent = _hook_harness().current().id
+        except Exception:  # noqa: BLE001 -- counted without its agent
+            agent = None
+        _session_marker.save_refusal(str(payload.get("session_id") or ""), reason,
+                                      _session_marker.get_refusal_step(args), "hook", agent)
+    except Exception:  # noqa: BLE001 -- counting never costs the refusal
+        pass
+
+
+def _deny(payload: dict, session_id: str, *, is_agent_checked: bool = False) -> None:
+    """Refuse a call this state does not permit. THE HOT PATH.
+
+    `full` is the overwhelmingly common state and the widened matcher now runs
+    this file before EVERY Probe MCP call, not only before Bash. So the first
+    thing here is one file read and a return -- no shlex, no regex, no parse --
+    because the cost of the gate is paid by every session that never needed it.
+
+        any state      -> deny a Write/Edit/Bash aimed at the Probe daemon's
+                          approvals folder (a substring check, before the state
+                          read: only the researcher answers the daemon), the
+                          hook hosts' folder, a Bash command calling the
+                          service's mailbox itself, or one running a Probe hook
+                          program by hand (`_refuse_for_the_harness`)
+        any state      -> deny this chat's switch moved without `--directed`,
+                          and what records less without it (`_agent_refused`;
+                          a substring check first: only a line naming `probe`)
+        state == full or daemon -> return, always (`daemon` is enforced by the
+                                   CLI's own write gate, which knows the lease)
+        state == read-only -> deny WRITES typed into Bash
+        state == off    -> deny writes, Probe MCP calls, and Probe content reads
+        (never Probe's own upkeep, nor a `--directed` past-work import)
+    """
+    aimed = _session_marker.touches_approvals(payload.get("tool_name"), payload.get("tool_input"), _payload_cwd(payload))
+    if aimed:
+        _refuse(_session_marker.DENY_REASON_APPROVALS.format(tool=payload.get("tool_name"), path=aimed))
+        return
+    forged = _session_marker.touches_sessions_dir(payload.get("tool_name"), payload.get("tool_input"), _payload_cwd(payload))
+    if forged:
+        _refuse(_session_marker.DENY_REASON_SESSIONS.format(tool=payload.get("tool_name"), path=forged))
+        return
+    if _refuse_for_the_harness(payload):
+        return
+    if not is_agent_checked:
+        refused = _skill_switch_refusal(payload, session_id)
+        if refused:
+            _refuse(refused)
+            return
+        if _agent_refused(payload, _session_marker.INLINE_SWITCH_DENY, session_id):
+            return
+    state = _state(session_id, _payload_cwd(payload))
+    if _session_marker.state_allows_writes(state):
+        return
+
+    tool_name = payload.get("tool_name")
+    off = state == _session_marker.STATE_OFF
+
+    # The off and read-only refusals, in auto mode words in an auto chat.
+    deny = _session_marker.get_deny_reason(state, session_id)
+    if off and is_probe_mcp_tool(tool_name):
+        _refuse(deny.format(matched=tool_name))
+        return
+    if tool_name != "Bash":
+        return
+
+    tool_input = payload.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    if not isinstance(command, str):
+        return
+
+    matched = probe_write(command)
+    if matched == _EXEC:
+        # The CLI itself runs the launched command UNRECORDED under read/off
+        # (`write_gate.exec_child`): refusing here would stop the job, not the
+        # recording.
+        matched = None
+    if matched == _RUN_START and _session_marker.is_auto_chat(session_id):
+        # Auto mode: a run started through Probe turns the chat on (the CLI's `set_on_for_launch`).
+        matched = None
+    if matched:
+        _refuse(deny.format(matched=matched))
+        return
+    if off:
+        # READS ARE DENIED ONLY HERE. Under `read-only` they are the point of
+        # the state; under `off` a CLI read is the same act as an MCP read, and
+        # a gate that locked one door while leaving the other open would teach
+        # the model that the gate is advisory -- the exact failure the deny was
+        # added to stop.
+        matched = probe_read(command)
+        if matched:
+            _refuse(deny.format(matched=matched))
+
+
+#: Set by the lean `probe-research-daemon` plugin's routes.json: this machine's
+#: daemon records and reads (daemon reads), so the guard has one job there.
+PROFILE_ENV = "PROBE_PLUGIN_PROFILE"
+PROFILE_DAEMON = "daemon"
+
+
+def daemon_profile() -> bool:
+    return os.environ.get(PROFILE_ENV) == PROFILE_DAEMON
+
+
+def _deny_daemon_profile(payload: dict, session_id: str) -> None:
+    """The daemon profile's PreToolUse: the daemon records and reads, so every
+    `probe` command but `ask`, `exec`, the runs' own data and the agent's panes, reads of one run
+    or of one scope's panes (`session_marker.DAEMON_PROFILE_RUN_READS`, `DAEMON_PROFILE_PANE_READS`),
+    `session status`, a
+    write the researcher asked for (`--directed`), the agent's own commands
+    (`session_marker.DAEMON_PROFILE_ALLOWED`) and Probe's own upkeep with its
+    own flags (`session_marker.PROBE_UPKEEP`) is refused (`daemon_profile_deny`),
+    and so is a Probe MCP call. In every state the switch moves only as
+    `session state <target> --directed`, and what records less only with
+    `--directed` (`_agent_refused`).
+    A session the researcher turned off keeps the off refusals (`_deny`); one set
+    to read only also loses the runs' own data (a write). A session the
+    researcher set inline (`/probe inline`, `is_inline`), or the daemon handed
+    inline after a confirmed quota response, keeps only those and the approvals
+    folder. Read-only inline also keeps every normal read-only write refusal."""
+    aimed = _session_marker.touches_approvals(payload.get("tool_name"), payload.get("tool_input"), _payload_cwd(payload))
+    if aimed:
+        _refuse(_session_marker.DENY_REASON_APPROVALS.format(tool=payload.get("tool_name"), path=aimed))
+        return
+    forged = _session_marker.touches_sessions_dir(payload.get("tool_name"), payload.get("tool_input"), _payload_cwd(payload))
+    if forged:
+        _refuse(_session_marker.DENY_REASON_SESSIONS.format(tool=payload.get("tool_name"), path=forged))
+        return
+    if _refuse_for_the_harness(payload):
+        return
+    state = _state(session_id, _payload_cwd(payload))
+    inline = _session_marker.is_inline(session_id, state)
+    # Every state: the switch moves only by `session state <target> --directed`, and
+    # what records less only with `--directed` (T2, T3). Off and inline answer the
+    # switch as the switch; otherwise a typed `/probe` may have moved it already.
+    deny = (_session_marker.INLINE_SWITCH_DENY if state == _session_marker.STATE_OFF or inline
+            else _session_marker.RESEARCHER_SWITCH_DENY)
+    refused = _skill_switch_refusal(payload, session_id)
+    if refused:
+        _refuse(refused)
+        return
+    if _agent_refused(payload, deny, session_id):
+        return
+    if state == _session_marker.STATE_OFF:
+        _deny(payload, session_id, is_agent_checked=True)
+        return
+    if inline:
+        # Manual or confirmed-quota inline: the agent reads and writes Probe itself.
+        if state == _session_marker.STATE_READ_ONLY:
+            _deny(payload, session_id, is_agent_checked=True)
+        return
+    tool_name = payload.get("tool_name")
+    if is_probe_mcp_tool(tool_name):
+        _refuse(_session_marker.get_daemon_profile_deny(session_id).format(matched=tool_name))
+        return
+    if tool_name != "Bash":
+        return
+    tool_input = payload.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    if not isinstance(command, str):
+        return
+    for args in _probe_invocations(command):
+        if _asks_help_plainly(args):
+            continue
+        allowed, matched = _session_marker.daemon_profile_allows(args, session_id)
+        if not allowed:
+            _save_refusal(payload, args, "daemon_chat")
+            _refuse(_session_marker.daemon_profile_deny(args, matched, session_id))
+            return
+    if state == _session_marker.STATE_READ_ONLY:
+        # `read only (daemon)`: the runs' own data is a write like any other.
+        # `probe exec` still runs, unrecorded (`write_gate.exec_child`).
+        matched = probe_write(command)
+        if matched and matched != _EXEC:
+            _refuse(_session_marker.get_deny_reason(state, session_id).format(matched=matched))
+
+
+def _refuse(reason: str) -> None:
+    sys.stdout.write(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
+            }
+        )
+    )
+
+
+def _is_no_consent() -> bool:
+    """PROBE_HOOK_NO_CONSENT: the Probe service runs this event for an extension
+    (pi) on a lane no person types on, so nothing in it moves the switch (D57)."""
+    return os.environ.get(NO_CONSENT_ENV) == "1"
+
+
+def _typed_direction(prompt: object) -> "tuple[str | None, str, str]":
+    """`prompt_direction`, or no invocation at all under PROBE_HOOK_NO_CONSENT."""
+    if _is_no_consent():
+        return None, SHAPE_EXPANDED, ""
+    return prompt_direction(prompt)
+
+
+def _tool_direction(tool_name: object, tool_input: object) -> "tuple[str | None, str]":
+    """`toggle_direction`, or none under PROBE_HOOK_NO_CONSENT."""
+    if _is_no_consent():
+        return None, ""
+    return toggle_direction(tool_name, tool_input)
+
+
+def main() -> None:
+    try:
+        payload = json.load(sys.stdin)
+    except Exception:
+        return
+    if not isinstance(payload, dict):
+        return
+    session_id = payload.get("session_id")
+    if not isinstance(session_id, str) or not session_id:
+        return
+    hook_event = payload.get("hook_event_name")
+    if daemon_profile():
+        # The lean plugin: the switch (on / read / off; Richard 2026-09-29) and
+        # the refusal before a call. No daemon notices, no after-the-fact
+        # warnings. Its sessions are the daemon's: a mark SessionStart could not
+        # write is written here, or `on` would store `full` and nothing records.
+        if _session_marker.session_profile(session_id) is None:
+            _session_marker.mark_session_profile(session_id, _session_marker.RECORDER_DAEMON)
+        if hook_event == "PreToolUse":
+            _deny_daemon_profile(payload, session_id)
+        elif hook_event == "UserPromptSubmit" and _from_helper_agent(payload):
+            # A helper agent's prompt is the main agent's words (Codex fires this hook for one,
+            # with the main `session_id`): never a typed switch, and no notice is heard there.
+            pass
+        elif hook_event == "UserPromptSubmit":
+            direction, shape, slug = _typed_direction(payload.get("prompt"))
+            refused = (_model_switch_refusal(direction, slug, session_id, _payload_cwd(payload), "$" + slug)
+                       if shape == SHAPE_SKILL_BLOCK else None)
+            if refused:
+                _emit_context("UserPromptSubmit", refused)  # a skill activation the model can send (T3)
+            elif direction is not None:
+                landed = _apply_direction(direction, session_id, shape, slug, _payload_cwd(payload))
+                _announce("UserPromptSubmit", landed, daemon=True, session_id=session_id)
+            else:
+                _announce_inline_once("UserPromptSubmit", session_id, lead=_make_auto_line(payload, session_id),
+                                      cwd=_payload_cwd(payload), rules=True)
+        elif hook_event == "PostToolUse":
+            landed = None
+            # A helper agent's Skill call is never the switch: its words are the main agent's.
+            if payload.get("tool_name") in ("Skill", "SlashCommand") and not _from_helper_agent(payload):
+                direction, slug = _tool_direction(payload.get("tool_name"), payload.get("tool_input"))
+                refused = _skill_switch_refusal(payload, session_id) if direction is not None else None
+                if refused:
+                    # PreToolUse refuses it; a harness that ran the call anyway moves nothing (T3).
+                    _emit_context("PostToolUse", refused)
+                    return
+                if direction is not None:
+                    landed = _apply_direction(direction, session_id, SHAPE_TOOL, slug, _payload_cwd(payload))
+            if landed:
+                _announce("PostToolUse", landed, daemon=True, session_id=session_id)
+            elif not _from_helper_agent(payload):
+                # A subagent's context is not the agent's: what lands there
+                # (the notice, a part of the skills, the rules) would be marked sent unheard.
+                _announce_inline_once("PostToolUse", session_id, cwd=_payload_cwd(payload), rules=True)
+        return
+    if hook_event == "UserPromptSubmit":
+        if _from_helper_agent(payload):
+            return  # a helper agent's prompt: the main agent's words, never the researcher's
+        direction, shape, slug = _typed_direction(payload.get("prompt"))
+        refused = (_model_switch_refusal(direction, slug, session_id, _payload_cwd(payload), "$" + slug)
+                   if shape == SHAPE_SKILL_BLOCK else None)
+        if refused:
+            _emit_context("UserPromptSubmit", refused)  # a skill activation the model can send (T3)
+            return
+        if direction is None:
+            said = [_make_auto_line(payload, session_id), _daemon_notice(session_id, _payload_cwd(payload))]
+            if any(said):
+                _emit_context("UserPromptSubmit", "\n\n".join(text for text in said if text))
+            return
+        landed = _apply_direction(
+            direction, session_id, shape, slug, _payload_cwd(payload)
+        )
+        _announce("UserPromptSubmit", landed, session_id=session_id)
+        return
+    if hook_event == "PreToolUse":
+        _deny(payload, session_id)
+        return
+    tool_name = payload.get("tool_name")
+    if tool_name in ("Skill", "SlashCommand"):
+        if _from_helper_agent(payload):
+            return  # a helper agent's Skill call: never the switch, as its prompt is not
+        direction, slug = _tool_direction(tool_name, payload.get("tool_input"))
+        if direction is None:
+            return
+        refused = _skill_switch_refusal(payload, session_id)
+        if refused:
+            # PreToolUse refuses it; a harness that ran the call anyway moves nothing (T3).
+            _emit_context("PostToolUse", refused)
+            return
+        landed = _apply_direction(
+            direction, session_id, SHAPE_TOOL, slug, _payload_cwd(payload)
+        )
+        _announce("PostToolUse", landed)
+        return
+    if tool_name != "Bash":
+        return
+    state = _state(session_id, _payload_cwd(payload))
+    if state == _session_marker.STATE_FULL:
+        return  # the common case: one state read, nothing parsed
+    if state == _session_marker.STATE_DAEMON:
+        matched = _daemon_bypass(payload, session_id)
+        if matched and not _gate_refused(payload, matched):
+            _emit_context("PostToolUse", MESSAGE_DAEMON.format(matched=matched))
+        return
+    matched = _offending_write(payload, session_id)
+    if not matched or _gate_refused(payload, matched):
+        return
+    sys.stdout.write(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PostToolUse",
+                    "additionalContext": MESSAGE.format(
+                        matched=matched,
+                        # The WORD, not the stored value: this sentence is read
+                        # by a model that is about to repeat it to a person.
+                        state=_session_marker.state_label(
+                            _state(session_id, _payload_cwd(payload))
+                        ),
+                    ),
+                }
+            }
+        )
+    )
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        pass  # a broken warning layer must never become a broken session
+    sys.exit(0)

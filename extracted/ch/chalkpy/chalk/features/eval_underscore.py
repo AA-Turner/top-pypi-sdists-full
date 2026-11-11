@@ -1780,6 +1780,32 @@ def _apply_filters_to_namespace(
     )
 
 
+def _fold_bucket_on_chain(receiver_expr: Underscore) -> Underscore:
+    """Rewrite `<source>.where(a).materialize_bucket_on(c).where(b)` as the `<source>[..., a, b]` it means.
+
+    `.materialize_bucket_on(...)` is purely syntactic: it names a materialized aggregation's bucket column.
+    Evaluated directly, every filter around it is an ordinary row filter, which is the exact
+    result an offline query computes. The chain is parsed by the importer's own parser, so it
+    accepts exactly the spellings a feature definition does. Receivers without `materialize_bucket_on` are
+    returned unchanged.
+    """
+    # Imported lazily: the importer imports the feature machinery this module belongs to.
+    from chalk.importer import ChalkParseError, _peel_bucket_on_chain  # pyright: ignore[reportPrivateUsage]
+
+    try:
+        chain = _peel_bucket_on_chain(receiver_expr, receiver_expr)
+    except ChalkParseError as e:
+        raise ValueError(e.args[0]) from e
+    if chain is None:
+        return receiver_expr
+    filters = [*chain.row_filters, *chain.window_bounds]
+    if len(filters) == 0:
+        return chain.source
+    if isinstance(chain.source, UnderscoreItem):
+        return UnderscoreItem(chain.source._chalk__parent, (*chain.source._chalk__key, *filters))
+    return UnderscoreCall(UnderscoreAttr(chain.source, "where"), *filters)
+
+
 def _compute_call(
     expr: UnderscoreCall,
     current: _NamespaceRef,
@@ -1792,6 +1818,14 @@ def _compute_call(
         raise ValueError(f"Unsupported call form: expected `<receiver>.<method>(...)`, got `{expr}`")
     fn_name = method_expr._chalk__attr
     receiver_expr = method_expr._chalk__parent
+
+    if fn_name == "materialize_bucket_on":
+        raise ValueError(
+            f"`.materialize_bucket_on(...)` must be followed by `.where(...)` filters and an aggregation (in `{expr}`)"
+        )
+
+    if fn_name in _AGGREGATES:
+        receiver_expr = _fold_bucket_on_chain(receiver_expr)
 
     if fn_name == "where":
         return _compute_where(

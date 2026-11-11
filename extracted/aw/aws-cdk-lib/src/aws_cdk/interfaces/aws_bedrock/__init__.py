@@ -1850,6 +1850,53 @@ class _IResourcePolicyRefProxy(
 typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrock.IRetrievalInstructionRef"
+)
+class IRetrievalInstructionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a RetrievalInstruction.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="retrievalInstructionRef")
+    def retrieval_instruction_ref(self) -> "RetrievalInstructionReference":
+        '''(experimental) A reference to a RetrievalInstruction resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRetrievalInstructionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RetrievalInstruction.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrock.IRetrievalInstructionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="retrievalInstructionRef")
+    def retrieval_instruction_ref(self) -> "RetrievalInstructionReference":
+        '''(experimental) A reference to a RetrievalInstruction resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RetrievalInstructionReference", jsii.get(self, "retrievalInstructionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRetrievalInstructionRef).__jsii_proxy_class__ = lambda : _IRetrievalInstructionRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrock.ISessionRef")
 class ISessionRef(
     _constructs_77d1e7e8.IConstruct,
@@ -2209,6 +2256,55 @@ class ResourcePolicyReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrock.RetrievalInstructionReference",
+    jsii_struct_bases=[],
+    name_mapping={"retrieval_instruction_arn": "retrievalInstructionArn"},
+)
+class RetrievalInstructionReference:
+    def __init__(self, *, retrieval_instruction_arn: builtins.str) -> None:
+        '''A reference to a RetrievalInstruction resource.
+
+        :param retrieval_instruction_arn: The Arn of the RetrievalInstruction resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrock as interfaces_bedrock
+            
+            retrieval_instruction_reference = interfaces_bedrock.RetrievalInstructionReference(
+                retrieval_instruction_arn="retrievalInstructionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__951062e4a217875ffd2d5676c24793835ba7d2971749f63f50fd9ef0d1781550)
+            check_type(argname="argument retrieval_instruction_arn", value=retrieval_instruction_arn, expected_type=type_hints["retrieval_instruction_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "retrieval_instruction_arn": retrieval_instruction_arn,
+        }
+
+    @builtins.property
+    def retrieval_instruction_arn(self) -> builtins.str:
+        '''The Arn of the RetrievalInstruction resource.'''
+        result = self._values.get("retrieval_instruction_arn")
+        assert result is not None, "Required property 'retrieval_instruction_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RetrievalInstructionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrock.SessionReference",
     jsii_struct_bases=[],
     name_mapping={"session_arn": "sessionArn"},
@@ -2294,6 +2390,7 @@ __all__ = [
     "IPromptRef",
     "IPromptVersionRef",
     "IResourcePolicyRef",
+    "IRetrievalInstructionRef",
     "ISessionRef",
     "IntelligentPromptRouterReference",
     "KnowledgeBasePolicyReference",
@@ -2301,6 +2398,7 @@ __all__ = [
     "PromptReference",
     "PromptVersionReference",
     "ResourcePolicyReference",
+    "RetrievalInstructionReference",
     "SessionReference",
 ]
 
@@ -2462,6 +2560,13 @@ def _typecheckingstub__c4f45192684c2f8bfe0b8c4c31aa059da7faa64670a744f854a64688e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__951062e4a217875ffd2d5676c24793835ba7d2971749f63f50fd9ef0d1781550(
+    *,
+    retrieval_instruction_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6a9c22e6dec0c465ad0b4942d2e71470a54cb68b3bfb87b5c14357007dc81c01(
     *,
     session_arn: builtins.str,
@@ -2469,5 +2574,5 @@ def _typecheckingstub__6a9c22e6dec0c465ad0b4942d2e71470a54cb68b3bfb87b5c14357007
     """Type checking stubs"""
     pass
 
-for cls in [IAgentAliasRef, IAgentRef, IApplicationInferenceProfileRef, IAutomatedReasoningPolicyRef, IAutomatedReasoningPolicyVersionRef, IBlueprintRef, IDataAutomationLibraryRef, IDataAutomationProjectRef, IDataSourceRef, IEnforcedGuardrailConfigurationRef, IFlowAliasRef, IFlowRef, IFlowVersionRef, IGuardrailRef, IGuardrailVersionRef, IIntelligentPromptRouterRef, IKnowledgeBasePolicyRef, IKnowledgeBaseRef, IPromptRef, IPromptVersionRef, IResourcePolicyRef, ISessionRef]:
+for cls in [IAgentAliasRef, IAgentRef, IApplicationInferenceProfileRef, IAutomatedReasoningPolicyRef, IAutomatedReasoningPolicyVersionRef, IBlueprintRef, IDataAutomationLibraryRef, IDataAutomationProjectRef, IDataSourceRef, IEnforcedGuardrailConfigurationRef, IFlowAliasRef, IFlowRef, IFlowVersionRef, IGuardrailRef, IGuardrailVersionRef, IIntelligentPromptRouterRef, IKnowledgeBasePolicyRef, IKnowledgeBaseRef, IPromptRef, IPromptVersionRef, IResourcePolicyRef, IRetrievalInstructionRef, ISessionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

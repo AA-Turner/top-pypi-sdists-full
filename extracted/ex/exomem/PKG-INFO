@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: exomem
-Version: 0.170.0
+Version: 0.171.0
 Summary: Local knowledge substrate for owned markdown/Obsidian vaults, exposed through MCP, REST, and CLI with multimodal OCR/ASR/CLIP search
 Project-URL: Homepage, https://substratesystems.io/exomem
 Project-URL: Documentation, https://github.com/Artexis10/exomem/blob/main/QUICKSTART.md

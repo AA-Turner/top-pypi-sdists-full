@@ -21,7 +21,6 @@
 from __future__ import annotations
 
 import enum
-import functools
 import typing
 
 from urwid.canvas import CanvasCombine, CanvasJoin, CompositeCanvas, SolidCanvas
@@ -32,7 +31,13 @@ from urwid.util import is_mouse_press
 
 from .attr_map import _attr_map_dict
 from .constants import MouseButton, Sizing, VAlign, WrapMode
-from .container import WidgetContainerListContentsMixin, WidgetContainerMixin, _UnfocusedFocusAttrMixin
+from .container import (
+    WidgetContainerListContentsMixin,
+    WidgetContainerMixin,
+    _invalidate_on_focus_change,
+    _UnfocusedFocusAttrMixin,
+    _WeakCallback,
+)
 from .monitored_list import MonitoredFocusList
 from .text import Text
 from .widget import AbstractWidget, Widget, WidgetError, _select_enter_child
@@ -44,6 +49,7 @@ if typing.TYPE_CHECKING:
     from urwid.util import _TagMarkup
 
     from .attr_map import _AttrMapLike
+    from .container import _UnfocusedFocusAttrFunc
     from .widget import AbstractFlowWidget
 
 __all__ = ("Tabs", "TabsError", "TabsSymbols")
@@ -60,6 +66,38 @@ class TabsSymbols(enum.StrEnum):
 
     The ``ARROW_`` and ``GUILLEMET_`` members are overflow markers, the ``LINE_`` members underline glyphs.
     Only the ``ASCII`` members are also drawn on terminals without UTF-8, where the others are drawn as ``?``.
+
+    .. note::
+        The default terminal fonts of GNOME, KDE Plasma and Xfce on Ubuntu, Fedora and Arch,
+        and of Windows Terminal, show every member.
+        The default fonts of the Linux virtual console are:
+
+        - Ubuntu: Fixed 8x16.
+        - Fedora and openSUSE: eurlatgr.
+        - Arch: the built-in 8x16 font of the kernel.
+
+        The default fonts of the Linux virtual console and of the classic Windows console
+        show these non-ASCII members:
+
+        ==============================  ======  ======  ======  ====  =======
+        Member                          Symbol  Ubuntu  Fedora  Arch  Windows
+        ==============================  ======  ======  ======  ====  =======
+        ``ARROW_TRIANGLE_LEFT``         ◀       yes     no      yes   no
+        ``ARROW_TRIANGLE_RIGHT``        ▶       yes     no      yes   no
+        ``ARROW_SMALL_TRIANGLE_LEFT``   ◂       yes     no      no    no
+        ``ARROW_SMALL_TRIANGLE_RIGHT``  ▸       yes     no      no    no
+        ``ARROW_WHITE_TRIANGLE_LEFT``   ◁       no      no      no    no
+        ``ARROW_WHITE_TRIANGLE_RIGHT``  ▷       no      no      no    no
+        ``ARROW_LEFT``                  ←       yes     yes     yes   yes
+        ``ARROW_RIGHT``                 →       yes     yes     yes   yes
+        ``GUILLEMET_LEFT``              «       yes     yes     yes   yes
+        ``GUILLEMET_RIGHT``             »       yes     yes     yes   yes
+        ``LINE_LIGHT``                  ─       yes     yes     yes   yes
+        ``LINE_HEAVY``                  ━       yes     yes     no    no
+        ``LINE_DOUBLE``                 ═       yes     yes     yes   yes
+        ==============================  ======  ======  ======  ====  =======
+
+        A member marked ``no`` needs a console font with wider coverage.
     """
 
     ARROW_ASCII_LEFT = "<"
@@ -152,6 +190,7 @@ class Tabs(
         selected_map: _AttrMapLike | None = None,
         focus_map: _AttrMapLike | None = None,
         unfocused_focus_attr: _AttrMapLike | None = None,
+        unfocused_focus_attr_func: _UnfocusedFocusAttrFunc | None = None,
         dividechars: int = 1,
         overflow_markers: tuple[str, str] | None = (TabsSymbols.ARROW_ASCII_LEFT, TabsSymbols.ARROW_ASCII_RIGHT),
         underline: tuple[str, str] | None = None,
@@ -169,6 +208,9 @@ class Tabs(
             instead of the other two.
         :param unfocused_focus_attr: attribute map applied over the selected label while the tabs render without
             focus; see :attr:`unfocused_focus_attr`.
+        :param unfocused_focus_attr_func: function that gives the map applied over the selected label while the tabs
+            render without focus, instead of *unfocused_focus_attr*; it is called with the selected label,
+            see :attr:`unfocused_focus_attr_func`.
         :param dividechars: blank screen columns between two labels.
         :param overflow_markers: text drawn at the left and the right edge of the label row while labels are hidden
             past that edge, such as ``(Tabs.Symbols.ARROW_TRIANGLE_LEFT, Tabs.Symbols.ARROW_TRIANGLE_RIGHT)``;
@@ -196,20 +238,21 @@ class Tabs(
         self._selected_map = None if selected_map is None else _attr_map_dict(selected_map)
         self._focus_map = None if focus_map is None else _attr_map_dict(focus_map)
         self._set_unfocused_focus_attr(unfocused_focus_attr)
+        self._unfocused_focus_attr_func = unfocused_focus_attr_func
         # Whether the label row has the keyboard focus, and the label the bar cursor is on.
         # Only true while _bar_can_focus() holds; _contents_modified and the bar_selectable setter clear it.
         self._bar_focused = False
         self._bar_cursor = 0
 
         self._contents: MonitoredFocusList[tuple[AbstractWidget, AbstractWidget]] = MonitoredFocusList()
-        self._contents.set_modified_callback(self._contents_modified)
-        self._contents.set_focus_changed_callback(lambda _focus: self._invalidate())
+        self._contents.set_modified_callback(_WeakCallback(self, type(self)._contents_modified))
+        self._contents.set_focus_changed_callback(_WeakCallback(self, _invalidate_on_focus_change))
         self._contents.set_validate_contents_modified(self._validate_contents_modified)
         self._contents.extend((body, self.options(label)) for label, body in tabs)
         if self._contents:
             self.focus_position = selected
         # connected last, so that filling the contents during construction sends no signal
-        self._contents.set_focus_moved_callback(functools.partial(self._emit, "focus changed"))
+        self._contents.set_focus_moved_callback(_WeakCallback(self, type(self)._emit, "focus changed"))
 
     @staticmethod
     def _valid_bar_position(bar_position: typing.Literal["top", "bottom"] | VAlign) -> VAlign:
@@ -281,6 +324,7 @@ class Tabs(
             "selected_map": self._selected_map,
             "focus_map": self._focus_map,
             "unfocused_focus_attr": self._unfocused_focus_attr,
+            "unfocused_focus_attr_func": self._unfocused_focus_attr_func,
             "dividechars": self._dividechars,
             "overflow_markers": self._overflow_markers,
             "underline": self._underline,
@@ -635,6 +679,7 @@ class Tabs(
             return SolidCanvas(" ", 0, 1), SolidCanvas(" ", 0, 1) if line else None
         selected = self.focus_position
         cursor = self._bar_cursor if focus and self._bar_focused else None
+        unfocused_map = None if focus else self._unfocused_focus_map_for(self._contents[selected][1])
         canvases: list[Canvas] = []
         for index, (_body, label) in enumerate(self._contents):
             is_selected = index == selected
@@ -649,7 +694,7 @@ class Tabs(
                 canvas.fill_attr_apply(self._selected_map)
             elif self._attr_map is not None:
                 canvas.fill_attr_apply(self._attr_map)
-            canvases.append(self._mark_unfocused_focus(canvas) if is_selected and not focus else canvas)
+            canvases.append(self._mark_unfocused_focus(canvas, unfocused_map) if is_selected else canvas)
 
         widths = [canvas.cols() for canvas in canvases]
         starts = self._bar_starts(widths)
@@ -685,12 +730,21 @@ class Tabs(
         if not line:
             return bar, None
         start = view.left + starts[selected] - view.offset
-        return bar, self._render_line(maxcol, view, start, start + widths[selected], focus=focus)
+        return bar, self._render_line(maxcol, view, start, start + widths[selected], unfocused_map=unfocused_map)
 
-    def _render_line(self, maxcol: int, view: _BarView, start: int, end: int, *, focus: bool) -> Canvas:
+    def _render_line(
+        self,
+        maxcol: int,
+        view: _BarView,
+        start: int,
+        end: int,
+        *,
+        unfocused_map: dict[Hashable, Hashable] | None,
+    ) -> Canvas:
         """Render the :attr:`underline` line *maxcol* columns wide, marked under bar columns *start* to *end*.
 
         Only the part of the mark inside *view* is drawn, so a label scrolled out of view gets none.
+        *unfocused_map* is applied over the mark, as over the selected label.
         """
         rule, mark = typing.cast("tuple[str, str]", self._underline)
         mark_start = max(view.left, start)
@@ -709,7 +763,7 @@ class Tabs(
             piece = CompositeCanvas(SolidCanvas(glyph, cols, 1))
             if attr_map is not None:
                 piece.fill_attr_apply(attr_map)
-            pieces.append((self._mark_unfocused_focus(piece) if is_mark and not focus else piece, None, False, cols))
+            pieces.append((self._mark_unfocused_focus(piece, unfocused_map) if is_mark else piece, None, False, cols))
         return CanvasJoin(pieces)
 
     def _click_target(self, maxcol: int, col: int, focus: bool) -> int | None:

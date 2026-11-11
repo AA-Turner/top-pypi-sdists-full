@@ -1337,6 +1337,226 @@ class EvaluationItemDict(TypedDict, total=False):
 EvaluationItemOrDict = Union[EvaluationItem, EvaluationItemDict]
 
 
+class TraceCompressionConfig(_common.BaseModel):
+    """Compression for long agent traces."""
+
+    thoughts_filtered: Optional[bool] = Field(
+        default=None,
+        description="""If true, removes events whose content parts are all thoughts.
+      Events with tool calls or user-directed content are kept.""",
+    )
+    max_turn_count: Optional[int] = Field(
+        default=None,
+        description="""If set, keeps only the last `max_turn_count` turns. Must be
+      positive.""",
+    )
+
+
+class TraceCompressionConfigDict(TypedDict, total=False):
+    """Compression for long agent traces."""
+
+    thoughts_filtered: Optional[bool]
+    """If true, removes events whose content parts are all thoughts.
+      Events with tool calls or user-directed content are kept."""
+
+    max_turn_count: Optional[int]
+    """If set, keeps only the last `max_turn_count` turns. Must be
+      positive."""
+
+
+TraceCompressionConfigOrDict = Union[TraceCompressionConfig, TraceCompressionConfigDict]
+
+
+class FilterPreprocessorConfig(_common.BaseModel):
+    """Config-driven preprocessing of an agent trace."""
+
+    trace_compression_config: Optional[TraceCompressionConfig] = Field(
+        default=None, description="""Compression to apply to the trace."""
+    )
+
+
+class FilterPreprocessorConfigDict(TypedDict, total=False):
+    """Config-driven preprocessing of an agent trace."""
+
+    trace_compression_config: Optional[TraceCompressionConfigDict]
+    """Compression to apply to the trace."""
+
+
+FilterPreprocessorConfigOrDict = Union[
+    FilterPreprocessorConfig, FilterPreprocessorConfigDict
+]
+
+
+class CodePreprocessorConfig(_common.BaseModel):
+    """Custom Python preprocessing of an agent trace."""
+
+    code: Optional[str] = Field(
+        default=None,
+        description="""Python code that defines a `preprocess` function. The function
+      receives the instance's agent trace and returns the preprocessed trace as
+      a dict with the same structure as `AgentData`, for example
+      `{"agents": {...}, "turns": [...]}`. Expected signature:
+        def preprocess(agent_data: AgentData) -> dict[str, Any]:""",
+    )
+
+
+class CodePreprocessorConfigDict(TypedDict, total=False):
+    """Custom Python preprocessing of an agent trace."""
+
+    code: Optional[str]
+    """Python code that defines a `preprocess` function. The function
+      receives the instance's agent trace and returns the preprocessed trace as
+      a dict with the same structure as `AgentData`, for example
+      `{"agents": {...}, "turns": [...]}`. Expected signature:
+        def preprocess(agent_data: AgentData) -> dict[str, Any]:"""
+
+
+CodePreprocessorConfigOrDict = Union[CodePreprocessorConfig, CodePreprocessorConfigDict]
+
+
+class AgentDataPreprocessor(_common.BaseModel):
+    """Preprocessing applied to an agent trace before any step runs.
+
+    Set exactly one of `filter_config` or `code_config`.
+    """
+
+    filter_config: Optional[FilterPreprocessorConfig] = Field(
+        default=None, description="""Config-driven filtering and compression."""
+    )
+    code_config: Optional[CodePreprocessorConfig] = Field(
+        default=None,
+        description="""Custom Python preprocessing, for logic that `filter_config`
+      cannot express, such as extracting the turns of a specific agent.""",
+    )
+
+
+class AgentDataPreprocessorDict(TypedDict, total=False):
+    """Preprocessing applied to an agent trace before any step runs.
+
+    Set exactly one of `filter_config` or `code_config`.
+    """
+
+    filter_config: Optional[FilterPreprocessorConfigDict]
+    """Config-driven filtering and compression."""
+
+    code_config: Optional[CodePreprocessorConfigDict]
+    """Custom Python preprocessing, for logic that `filter_config`
+      cannot express, such as extracting the turns of a specific agent."""
+
+
+AgentDataPreprocessorOrDict = Union[AgentDataPreprocessor, AgentDataPreprocessorDict]
+
+
+class CustomCodeParserConfig(_common.BaseModel):
+    """Parses judge responses with custom Python code."""
+
+    parsing_function: Optional[str] = Field(
+        default=None,
+        description="""Python code that defines a `parse_results` function. The function
+      receives the list of judge responses (strings) and returns the parsed
+      output, for example:
+        def parse_results(responses: list[str]) -> Any:""",
+    )
+    code_execution_region: Optional[str] = Field(
+        default=None,
+        description="""The region to run the code in. Defaults to the request's
+      region.""",
+    )
+
+
+class CustomCodeParserConfigDict(TypedDict, total=False):
+    """Parses judge responses with custom Python code."""
+
+    parsing_function: Optional[str]
+    """Python code that defines a `parse_results` function. The function
+      receives the list of judge responses (strings) and returns the parsed
+      output, for example:
+        def parse_results(responses: list[str]) -> Any:"""
+
+    code_execution_region: Optional[str]
+    """The region to run the code in. Defaults to the request's
+      region."""
+
+
+CustomCodeParserConfigOrDict = Union[CustomCodeParserConfig, CustomCodeParserConfigDict]
+
+
+class ResponseParserConfig(_common.BaseModel):
+    """Parses the judge responses of a step."""
+
+    custom_code_parser_config: Optional[CustomCodeParserConfig] = Field(
+        default=None, description="""Use custom code to parse the judge responses."""
+    )
+
+
+class ResponseParserConfigDict(TypedDict, total=False):
+    """Parses the judge responses of a step."""
+
+    custom_code_parser_config: Optional[CustomCodeParserConfigDict]
+    """Use custom code to parse the judge responses."""
+
+
+ResponseParserConfigOrDict = Union[ResponseParserConfig, ResponseParserConfigDict]
+
+
+class StepBasedLLMMetricStep(_common.BaseModel):
+    """A single step of a step-based LLM metric."""
+
+    step_id: Optional[str] = Field(
+        default=None,
+        description="""Identifier of this step, unique within the metric. Must start with
+      a lowercase letter and contain only lowercase letters, digits, and
+      underscores. Later steps reference its output as
+      `{step.<step_id>.output}`.""",
+    )
+    prompt_template: Optional[str] = Field(
+        default=None,
+        description="""Prompt template for this step. Variables are written in braces
+      and are filled from the evaluation instance (`{prompt}`, `{response}`,
+      `{reference}`, other dataset columns, and `{agent_eval_data}`, the agent
+      trace after preprocessing) and from earlier steps
+      (`{step.<step_id>.output}`).""",
+    )
+    autorater_config: Optional[genai_types.AutoraterConfig] = Field(
+        default=None,
+        description="""The judge model configuration for this step. Fields left unset
+      fall back to the metric's judge model settings.""",
+    )
+    response_parser_config: Optional[ResponseParserConfig] = Field(
+        default=None,
+        description="""Parses and aggregates the judge responses of this step into the
+      step output. The last step's output is the metric score.""",
+    )
+
+
+class StepBasedLLMMetricStepDict(TypedDict, total=False):
+    """A single step of a step-based LLM metric."""
+
+    step_id: Optional[str]
+    """Identifier of this step, unique within the metric. Must start with
+      a lowercase letter and contain only lowercase letters, digits, and
+      underscores. Later steps reference its output as
+      `{step.<step_id>.output}`."""
+
+    prompt_template: Optional[str]
+    """Prompt template for this step. Variables are written in braces
+      and are filled from the evaluation instance (`{prompt}`, `{response}`,
+      `{reference}`, other dataset columns, and `{agent_eval_data}`, the agent
+      trace after preprocessing) and from earlier steps
+      (`{step.<step_id>.output}`)."""
+
+    autorater_config: Optional[genai_types.AutoraterConfig]
+    """The judge model configuration for this step. Fields left unset
+      fall back to the metric's judge model settings."""
+
+    response_parser_config: Optional[ResponseParserConfigDict]
+    """Parses and aggregates the judge responses of this step into the
+      step output. The last step's output is the metric score."""
+
+
+StepBasedLLMMetricStepOrDict = Union[StepBasedLLMMetricStep, StepBasedLLMMetricStepDict]
+
+
 class Metric(_common.BaseModel):
     """The metric used for evaluation."""
 
@@ -1398,6 +1618,14 @@ class Metric(_common.BaseModel):
         description="""Per-step judge overrides for a predefined metric, keyed by step:
       "intent_extraction", "rubric_generation" or "rubric_validation". Steps
       without an entry keep their default judge.""",
+    )
+    preprocessor: Optional[AgentDataPreprocessor] = Field(
+        default=None,
+        description="""Preprocessing applied to the agent trace before the steps of a step-based LLM metric run.""",
+    )
+    steps: Optional[list[StepBasedLLMMetricStep]] = Field(
+        default=None,
+        description="""The ordered steps of a step-based LLM metric. The last step's output is the metric score.""",
     )
 
     # Allow extra fields to support metric-specific config fields.
@@ -1586,6 +1814,55 @@ class LLMMetric(Metric):
         return cls.model_validate(data)
 
 
+class StepBasedLLMMetric(Metric):
+    """A metric that runs an ordered list of LLM judge steps over an agent trace.
+
+    An optional `preprocessor` filters or rewrites the agent trace first. Each
+    step can reference the outputs of earlier steps as `{step.<step_id>.output}`,
+    and the last step's output is the metric score.
+    """
+
+    @field_validator("steps")
+    @classmethod
+    def validate_steps(
+        cls, value: Optional[list[StepBasedLLMMetricStep]]
+    ) -> Optional[list[StepBasedLLMMetricStep]]:
+        """Validates that steps have unique, well-formed ids and prompts."""
+        step_ids: set[str] = set()
+        for step in value or []:
+            if not step.step_id or not re.fullmatch(r"[a-z][a-z0-9_]*", step.step_id):
+                raise ValueError(
+                    f"Invalid step_id {step.step_id!r}: must start with a lowercase"
+                    " letter and contain only lowercase letters, digits, and"
+                    " underscores."
+                )
+            if step.step_id in step_ids:
+                raise ValueError(f"Duplicate step_id {step.step_id!r}.")
+            step_ids.add(step.step_id)
+            if not step.prompt_template or not step.prompt_template.strip():
+                raise ValueError(f"Step {step.step_id!r} requires a prompt_template.")
+        return value
+
+    @field_validator("preprocessor")
+    @classmethod
+    def validate_preprocessor(
+        cls, value: Optional[AgentDataPreprocessor]
+    ) -> Optional[AgentDataPreprocessor]:
+        """Validates that at most one preprocessing strategy is set."""
+        if value and value.filter_config and value.code_config:
+            raise ValueError(
+                "Set only one of preprocessor.filter_config or"
+                " preprocessor.code_config."
+            )
+        return value
+
+    @model_validator(mode="after")
+    def validate_steps_set(self) -> "StepBasedLLMMetric":
+        if not self.steps:
+            raise ValueError("StepBasedLLMMetric requires at least one step.")
+        return self
+
+
 class MetricDict(TypedDict, total=False):
     """The metric used for evaluation."""
 
@@ -1638,6 +1915,12 @@ class MetricDict(TypedDict, total=False):
     """Per-step judge overrides for a predefined metric, keyed by step:
       "intent_extraction", "rubric_generation" or "rubric_validation". Steps
       without an entry keep their default judge."""
+
+    preprocessor: Optional[AgentDataPreprocessorDict]
+    """Preprocessing applied to the agent trace before the steps of a step-based LLM metric run."""
+
+    steps: Optional[list[StepBasedLLMMetricStepDict]]
+    """The ordered steps of a step-based LLM metric. The last step's output is the metric score."""
 
 
 MetricOrDict = Union[Metric, MetricDict]
@@ -1771,6 +2054,34 @@ CustomCodeExecutionSpecOrDict = Union[
 ]
 
 
+class StepBasedLLMMetricSpec(_common.BaseModel):
+    """Spec for a configurable multi-step LLM metric."""
+
+    preprocessor: Optional[AgentDataPreprocessor] = Field(
+        default=None,
+        description="""Preprocessing applied to the agent trace before any step runs.""",
+    )
+    steps: Optional[list[StepBasedLLMMetricStep]] = Field(
+        default=None,
+        description="""Ordered steps. Each step can reference the outputs of earlier
+      steps, and the last step's output is the metric score.""",
+    )
+
+
+class StepBasedLLMMetricSpecDict(TypedDict, total=False):
+    """Spec for a configurable multi-step LLM metric."""
+
+    preprocessor: Optional[AgentDataPreprocessorDict]
+    """Preprocessing applied to the agent trace before any step runs."""
+
+    steps: Optional[list[StepBasedLLMMetricStepDict]]
+    """Ordered steps. Each step can reference the outputs of earlier
+      steps, and the last step's output is the metric score."""
+
+
+StepBasedLLMMetricSpecOrDict = Union[StepBasedLLMMetricSpec, StepBasedLLMMetricSpecDict]
+
+
 class UnifiedMetric(_common.BaseModel):
     """The unified metric used for evaluation."""
 
@@ -1794,6 +2105,9 @@ class UnifiedMetric(_common.BaseModel):
     )
     computation_based_metric_spec: Optional[genai_types.ComputationBasedMetricSpec] = (
         Field(default=None, description="""The spec for a computation based metric.""")
+    )
+    step_based_llm_metric_spec: Optional[StepBasedLLMMetricSpec] = Field(
+        default=None, description="""The spec for a step-based LLM metric."""
     )
 
 
@@ -1820,6 +2134,9 @@ class UnifiedMetricDict(TypedDict, total=False):
 
     computation_based_metric_spec: Optional[genai_types.ComputationBasedMetricSpec]
     """The spec for a computation based metric."""
+
+    step_based_llm_metric_spec: Optional[StepBasedLLMMetricSpecDict]
+    """The spec for a step-based LLM metric."""
 
 
 UnifiedMetricOrDict = Union[UnifiedMetric, UnifiedMetricDict]
@@ -8744,6 +9061,42 @@ ReasoningEngineSpecSourceCodeSpecPythonSpecOrDict = Union[
 ]
 
 
+class ReasoningEngineSpecSourceCodeSpecGitSource(_common.BaseModel):
+    """Specifies source code to be fetched from a public Git repository."""
+
+    dir: Optional[str] = Field(
+        default=None,
+        description="""Optional. Directory, relative to the source root, in which to run the build.""",
+    )
+    revision: Optional[str] = Field(
+        default=None,
+        description="""Required. The revision to fetch from the Git repository: a branch, a tag, or a full commit SHA. Abbreviated commit SHAs are not supported.""",
+    )
+    url: Optional[str] = Field(
+        default=None,
+        description="""Required. The HTTPS URL of the public Git repository to clone.""",
+    )
+
+
+class ReasoningEngineSpecSourceCodeSpecGitSourceDict(TypedDict, total=False):
+    """Specifies source code to be fetched from a public Git repository."""
+
+    dir: Optional[str]
+    """Optional. Directory, relative to the source root, in which to run the build."""
+
+    revision: Optional[str]
+    """Required. The revision to fetch from the Git repository: a branch, a tag, or a full commit SHA. Abbreviated commit SHAs are not supported."""
+
+    url: Optional[str]
+    """Required. The HTTPS URL of the public Git repository to clone."""
+
+
+ReasoningEngineSpecSourceCodeSpecGitSourceOrDict = Union[
+    ReasoningEngineSpecSourceCodeSpecGitSource,
+    ReasoningEngineSpecSourceCodeSpecGitSourceDict,
+]
+
+
 class ReasoningEngineSpecSourceCodeSpec(_common.BaseModel):
     """Specification for deploying from source code."""
 
@@ -8768,6 +9121,9 @@ class ReasoningEngineSpecSourceCodeSpec(_common.BaseModel):
     python_spec: Optional[ReasoningEngineSpecSourceCodeSpecPythonSpec] = Field(
         default=None, description="""Configuration for a Python application."""
     )
+    git_source: Optional[ReasoningEngineSpecSourceCodeSpecGitSource] = Field(
+        default=None, description="""Source code is in a public Git repository."""
+    )
 
 
 class ReasoningEngineSpecSourceCodeSpecDict(TypedDict, total=False):
@@ -8791,6 +9147,9 @@ class ReasoningEngineSpecSourceCodeSpecDict(TypedDict, total=False):
 
     python_spec: Optional[ReasoningEngineSpecSourceCodeSpecPythonSpecDict]
     """Configuration for a Python application."""
+
+    git_source: Optional[ReasoningEngineSpecSourceCodeSpecGitSourceDict]
+    """Source code is in a public Git repository."""
 
 
 ReasoningEngineSpecSourceCodeSpecOrDict = Union[
@@ -9400,6 +9759,10 @@ class CreateRuntimeConfig(_common.BaseModel):
           subdirectory and the path must be added to `extra_packages`.
       """,
     )
+    git_source: Optional[ReasoningEngineSpecSourceCodeSpecGitSource] = Field(
+        default=None,
+        description="""Specifies the public Git repository to fetch the source code from. This includes the URL, revision, and directory to use.""",
+    )
 
 
 class CreateRuntimeConfigDict(TypedDict, total=False):
@@ -9540,6 +9903,9 @@ class CreateRuntimeConfigDict(TypedDict, total=False):
           The scripts must be located in the `installation_scripts`
           subdirectory and the path must be added to `extra_packages`.
       """
+
+    git_source: Optional[ReasoningEngineSpecSourceCodeSpecGitSourceDict]
+    """Specifies the public Git repository to fetch the source code from. This includes the URL, revision, and directory to use."""
 
 
 CreateRuntimeConfigOrDict = Union[CreateRuntimeConfig, CreateRuntimeConfigDict]
@@ -10061,6 +10427,10 @@ class UpdateRuntimeConfig(_common.BaseModel):
           subdirectory and the path must be added to `extra_packages`.
       """,
     )
+    git_source: Optional[ReasoningEngineSpecSourceCodeSpecGitSource] = Field(
+        default=None,
+        description="""Specifies the public Git repository to fetch the source code from. This includes the URL, revision, and directory to use.""",
+    )
     update_mask: Optional[str] = Field(
         default=None,
         description="""The update mask to apply. For the `FieldMask` definition, see
@@ -10210,6 +10580,9 @@ class UpdateRuntimeConfigDict(TypedDict, total=False):
           The scripts must be located in the `installation_scripts`
           subdirectory and the path must be added to `extra_packages`.
       """
+
+    git_source: Optional[ReasoningEngineSpecSourceCodeSpecGitSourceDict]
+    """Specifies the public Git repository to fetch the source code from. This includes the URL, revision, and directory to use."""
 
     update_mask: Optional[str]
     """The update mask to apply. For the `FieldMask` definition, see
@@ -21181,6 +21554,28 @@ SchemaPromptInstancePromptExecutionOrDict = Union[
 ]
 
 
+class SchemaPromptSpecPromptMessageOutputConfig(_common.BaseModel):
+    """Configuration for persisting output assets to external storage."""
+
+    output_uri_prefix: Optional[str] = Field(
+        default=None,
+        description="""Optional. The Cloud Storage URI prefix or directory where generated media assets should be written (e.g. `gs://my-bucket/prefix/`).""",
+    )
+
+
+class SchemaPromptSpecPromptMessageOutputConfigDict(TypedDict, total=False):
+    """Configuration for persisting output assets to external storage."""
+
+    output_uri_prefix: Optional[str]
+    """Optional. The Cloud Storage URI prefix or directory where generated media assets should be written (e.g. `gs://my-bucket/prefix/`)."""
+
+
+SchemaPromptSpecPromptMessageOutputConfigOrDict = Union[
+    SchemaPromptSpecPromptMessageOutputConfig,
+    SchemaPromptSpecPromptMessageOutputConfigDict,
+]
+
+
 class SchemaPromptSpecPromptMessage(_common.BaseModel):
     """Represents a prompt message."""
 
@@ -21211,6 +21606,10 @@ class SchemaPromptSpecPromptMessage(_common.BaseModel):
         default=None, description=""""""
     )
     model: Optional[str] = Field(default=None, description="""The model name.""")
+    output_config: Optional[SchemaPromptSpecPromptMessageOutputConfig] = Field(
+        default=None,
+        description="""Optional. Configuration for persisting output assets to external storage.""",
+    )
 
 
 class SchemaPromptSpecPromptMessageDict(TypedDict, total=False):
@@ -21239,6 +21638,9 @@ class SchemaPromptSpecPromptMessageDict(TypedDict, total=False):
 
     model: Optional[str]
     """The model name."""
+
+    output_config: Optional[SchemaPromptSpecPromptMessageOutputConfigDict]
+    """Optional. Configuration for persisting output assets to external storage."""
 
 
 SchemaPromptSpecPromptMessageOrDict = Union[
@@ -32902,6 +33304,10 @@ class AgentRuntimeConfig(_common.BaseModel):
       replaces the deployed card; pass `{}` to remove it. The service sets
       the card's `url` to the runtime's A2A endpoint.""",
     )
+    git_source: Optional[ReasoningEngineSpecSourceCodeSpecGitSource] = Field(
+        default=None,
+        description="""Specifies the public Git repository to fetch the source code from. This includes the URL, revision, and directory to use.""",
+    )
 
 
 class AgentRuntimeConfigDict(TypedDict, total=False):
@@ -33100,6 +33506,9 @@ class AgentRuntimeConfigDict(TypedDict, total=False):
       has an `agent_card`, this value is used instead. On `update()`, it
       replaces the deployed card; pass `{}` to remove it. The service sets
       the card's `url` to the runtime's A2A endpoint."""
+
+    git_source: Optional[ReasoningEngineSpecSourceCodeSpecGitSourceDict]
+    """Specifies the public Git repository to fetch the source code from. This includes the URL, revision, and directory to use."""
 
 
 AgentRuntimeConfigOrDict = Union[AgentRuntimeConfig, AgentRuntimeConfigDict]

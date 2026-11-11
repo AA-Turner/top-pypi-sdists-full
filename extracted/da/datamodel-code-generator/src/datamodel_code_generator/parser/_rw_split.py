@@ -37,6 +37,7 @@ from datamodel_code_generator.parser._passes._shared import (
     with_dedupe_request_response_hint,
 )
 from datamodel_code_generator.parser._schema_dispatch import SchemaSite, TypedChild
+from datamodel_code_generator.parser._schema_documents import SchemaResourcesHost, lenient_ref
 from datamodel_code_generator.parser._schema_object import JsonSchemaObject
 from datamodel_code_generator.parser._schema_reading import (
     _RAW_SCHEMA_EXPLICIT_FIELD_EXTRAS_KEY,
@@ -70,7 +71,7 @@ if TYPE_CHECKING:
     from datamodel_code_generator.parser._schema_dispatch import DispatchTable
     from datamodel_code_generator.parser._schema_graph import _TargetNode
     from datamodel_code_generator.parser.generation import GraphBuilder
-    from datamodel_code_generator.reference import ModelResolver, Reference
+    from datamodel_code_generator.reference import Reference
     from datamodel_code_generator.types import DataType
 
 __all__ = [
@@ -102,7 +103,6 @@ __all__ = [
     "merged_ref_model_schemas",
     "merged_ref_sibling_schemas",
     "overlay_inherited_field",
-    "preload_property_refs_for_rw_models",
     "prepare_required_inherited_field",
     "prepare_rw_model_variant",
     "ref_schema_generates_variant",
@@ -185,7 +185,7 @@ def _get_rw_model_variant_source_path(
     return f"{source_prefix}{separator}{source_name}{suffix}"
 
 
-class RwSplitHost(Protocol):
+class RwSplitHost(SchemaResourcesHost, Protocol):
     """The options, caches and hooks of the parser that the request and response model split reads."""
 
     _DEFINITION_TABLE: ClassVar[DispatchTable[Any, JsonSchemaObject, None]]
@@ -260,10 +260,6 @@ class RwSplitHost(Protocol):
     @property
     def keyword_only(self) -> bool:
         """Whether the models take keyword-only arguments."""
-
-    @property
-    def model_resolver(self) -> ModelResolver:
-        """The resolver of references and class names."""
 
     @property
     def read_only_write_only_model_type(self) -> ReadOnlyWriteOnlyModelType | None:
@@ -391,12 +387,6 @@ class RwSplitHost(Protocol):
     ) -> list[DataModelFieldBase]:
         """Recursively materialize one raw schema's effective fields without live reverse edges."""
 
-    def _get_ref_schema_rw_model_field_facts(
-        self,
-        resolved_ref: str,
-    ) -> tuple[bool, bool, bool, bool] | None:
-        """Return the read/write facts of the effective fields of the raw schema at ``resolved_ref``."""
-
     def _get_ref_schema_rw_model_reference_facts(
         self,
         resolved_ref: str,
@@ -429,9 +419,6 @@ class RwSplitHost(Protocol):
 
     def _key_node(self, resolved_ref: str) -> _TargetNode:
         """Return the schema graph node at a reference key, or the key when the graph does not locate its value."""
-
-    def _lenient_ref(self, ref: str) -> str:
-        """Return a reference of the current document mapped as its lenient resolution maps it, if it has one."""
 
     def _linearize_inherited_schema_refs(self, base_classes: list[Reference]) -> tuple[str, ...]:
         """Return raw inherited schemas in the same C3 order as generated models."""
@@ -525,13 +512,6 @@ class RwSplitHost(Protocol):
         fields: Iterable[DataModelFieldBase],
     ) -> None:
         """Keep temporary raw fields out of the live reverse-reference graph."""
-
-    def _update_data_type_ref_for_variant(
-        self,
-        data_type: DataType,
-        suffix: Literal["Request", "Response"],
-    ) -> None:
-        """Recursively update data type references to point to variant models."""
 
     def _update_variant_additional_properties_metadata(
         self,
@@ -892,6 +872,22 @@ def get_separate_model_fields(
     return all_fields
 
 
+def splits_root_model(parser: RwSplitHost, reference: Reference, fields: list[DataModelFieldBase]) -> bool:
+    """Return whether a root model splits into Request and Response variants, only under request-response.
+
+    It splits where its field references a model with variants or where a type it writes beside its field names one;
+    a stand-in never splits.
+    """
+    return (
+        parser.read_only_write_only_model_type == ReadOnlyWriteOnlyModelType.RequestResponse
+        and not parser._is_base_stand_in(reference)  # noqa: SLF001
+        and (
+            fields_reference_rw_model_variant(parser, fields, "Request")
+            or rw_model_writes_variant_beside_fields(parser, reference.path)
+        )
+    )
+
+
 def rw_model_fields_split(parser: RwSplitHost, fields: list[DataModelFieldBase]) -> bool:
     """Return whether fields split their model: one is flagged or, under request-response, references variants."""
     return any(field.read_only or field.write_only for field in fields) or (
@@ -1039,7 +1035,7 @@ def ref_schema_has_rw_model_facts(parser: RwSplitHost, resolved_ref: str) -> boo
     """Return whether inheriting the schema at ``resolved_ref`` can bring read/write facts into a model."""
     if parser.read_only_write_only_model_type == ReadOnlyWriteOnlyModelType.RequestResponse:
         return parser._ref_schema_generates_variant(resolved_ref, "Request")  # noqa: SLF001
-    facts = parser._get_ref_schema_rw_model_field_facts(resolved_ref)  # noqa: SLF001
+    facts = get_ref_schema_rw_model_field_facts(parser, resolved_ref)
     return facts is not None and (facts[0] or facts[1])
 
 
@@ -1056,7 +1052,7 @@ def ref_schema_generates_variant(
         return False
     if parser.read_only_write_only_model_type == ReadOnlyWriteOnlyModelType.RequestResponse:
         return parser._request_response_ref_schema_generates_variant(resolved_ref)  # noqa: SLF001
-    if (facts := parser._get_ref_schema_rw_model_field_facts(resolved_ref)) is None:  # noqa: SLF001
+    if (facts := get_ref_schema_rw_model_field_facts(parser, resolved_ref)) is None:
         return False
     result = _rw_facts_need_variant(facts, suffix)
     parser._rw_model_variant_requirement_cache[cache_key] = result  # noqa: SLF001
@@ -1116,7 +1112,7 @@ def get_rw_model_variant_graph_node(parser: RwSplitHost, resolved_ref: str) -> t
     """
     if "legacy-rw-parsed-facts" not in parser._legacy_rw_variants:  # noqa: SLF001
         return parser._get_ref_schema_rw_model_reference_facts(resolved_ref)  # noqa: SLF001
-    facts = parser._get_ref_schema_rw_model_field_facts(resolved_ref)  # noqa: SLF001
+    facts = get_ref_schema_rw_model_field_facts(parser, resolved_ref)
     fields = parser._raw_inherited_fields_cache.get(resolved_ref)  # noqa: SLF001
     if fields is None:
         fields = parser._request_response_fields.get(resolved_ref, ())  # noqa: SLF001
@@ -1294,7 +1290,7 @@ def merged_ref_sibling_schemas(
         return schema, schema
     with parser._inherited_ref_context(defining_ref):  # noqa: SLF001
         if parser._is_ref_circular(  # noqa: SLF001
-            resolved_ref := parser._ref_path(ref := parser._lenient_ref(cast("str", schema.ref)))  # noqa: SLF001
+            resolved_ref := parser._ref_path(ref := lenient_ref(parser, cast("str", schema.ref)))  # noqa: SLF001
         ):
             return schema, schema
         target = parser._schema_object(parser._ref_target_dump(ref, resolved_ref)[0])  # noqa: SLF001
@@ -1371,15 +1367,6 @@ def schema_has_rw_model_fields(
         )
 
 
-def preload_property_refs_for_rw_models(parser: RwSplitHost, obj: JsonSchemaObject) -> None:
-    """Preload property refs needed for readOnly/writeOnly model splitting."""
-    if parser.read_only_write_only_model_type is None or not obj.properties:
-        return
-    for prop in obj.properties.values():
-        if isinstance(prop, JsonSchemaObject) and prop.ref and parser._resolve_external_ref_mapping(prop.ref) is None:  # noqa: SLF001
-            parser._load_ref_schema_object(prop.ref)  # noqa: SLF001
-
-
 def get_rw_model_variant_reference(
     parser: RwSplitHost,
     base_reference: Reference,
@@ -1451,7 +1438,7 @@ def update_field_refs_for_variant(
     if parser.read_only_write_only_model_type != ReadOnlyWriteOnlyModelType.RequestResponse:
         return model_fields
     for field in model_fields:
-        parser._update_data_type_ref_for_variant(field.data_type, suffix)  # noqa: SLF001
+        update_data_type_ref_for_variant(parser, field.data_type, suffix)
     return model_fields
 
 

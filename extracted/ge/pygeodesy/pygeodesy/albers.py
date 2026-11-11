@@ -38,7 +38,7 @@ from pygeodesy.utily import atan1, atan1d, atan2, degrees360, sincos2, \
 from math import atanh, degrees, fabs, radians, sqrt
 
 __all__ = _ALL_LAZY.albers
-__version__ = '26.02.27'
+__version__ = '26.10.30'
 
 _k1_    = 'k1'
 _MAXIT  =   9  # XXX 4?
@@ -726,7 +726,7 @@ def _atanh1(x):
     return s
 
 
-def _atanheE(x, E):  # see Ellipsoid._es_atanh, .AuxLat._atanhee
+def _atanheE(x, E):  # see _Taus.eatanhe, .AuxLat._atanhee
     '''(INTERNAL) Function M{atanhee(x)}, defined as ...
        atanh(      E.e   * x) /       E.e   if f > 0  # oblate
        atan (sqrt(-E.e2) * x) / sqrt(-E.e2) if f < 0  # prolate
@@ -827,7 +827,7 @@ __all__ += _ALL_DOCS(_AlbersBase)
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

@@ -520,8 +520,9 @@ class Instrument(object):
 				try:
 					self._log_start_segment()
 					opts = self._session.query_str_no_tout_err('*OPT?', 1000)
+					# noinspection unreachable-code
 					if opts is None:
-						opts = 'Cannot read the instrument options - *OPT? query is not supported'
+						opts = ''
 					self._instr_options = Options(opts, mode)
 					self._log_info(log_info, f'*OPT? {opts}', '*OPT?')
 				except RsInstrException as e:
@@ -636,7 +637,7 @@ class Instrument(object):
 				raise
 
 			except VisaIOError as e:
-				e.source = 'query_syst_error'
+				setattr(e, 'source', 'query_syst_error')
 				raise e
 
 			return error
@@ -680,7 +681,7 @@ class Instrument(object):
 				raise
 
 			except VisaIOError as e:
-				e.source = 'query_all_syst_errors'
+				setattr(e, 'source', 'query_syst_error')
 				raise e
 
 			return errors

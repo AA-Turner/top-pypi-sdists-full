@@ -100,12 +100,18 @@ async def textual_analyzer(
     condition: str | None = None,
     code_js: str | None = None,
     variables: dict | None = None,
+    reprobe: bool = False,
 ):
     """Execute a recorded textual_visual extraction, healing on locator drift.
 
     ``variables`` maps the ``{{name}}`` references in the recorded code to this
     run's values. They are filled into ``wrapped_js`` and ``code_js`` (JS-escaped)
     and into ``query``, ``condition`` and ``expected_value`` before anything runs.
+
+    ``reprobe`` skips the recorded locators and regenerates the extraction against
+    the live page, as a stale locator would. A read that checks a variable's value
+    can record a locator that names the authoring run's value (a table cell located
+    by its text); that locator still resolves on a later run, to the wrong element.
 
     Returns the extracted value (string, transforms applied downstream as today).
     """
@@ -116,17 +122,22 @@ async def textual_analyzer(
         query = fill_text(query, variables)
         condition = fill_text(condition, variables)
         expected_value = fill_text(expected_value, variables)
-    stale, handles = await _stale_and_handles(page, locators)
+    if reprobe:
+        _log.info("[textual_analyzer] reprobe -> heal (query=%r)", query[:60])
+        stale, handles = list(locators), []
+    else:
+        stale, handles = await _stale_and_handles(page, locators)
 
     # Happy path — every recorded locator visible.
-    if not stale and len(handles) == len(locators):
+    if not reprobe and not stale and len(handles) == len(locators):
         value = await page.evaluate(wrapped_js, handles)
         return await _settle(page, value, wrapped_js, locators, expected_value, operator,
                              transforms, query)
 
     # Drift — regenerate the whole extraction.
-    _log.info("[textual_analyzer] %d/%d locators not visible -> heal (query=%r)",
-              len(stale), len(locators), query[:60])
+    if not reprobe:
+        _log.info("[textual_analyzer] %d/%d locators not visible -> heal (query=%r)",
+                  len(stale), len(locators), query[:60])
     outcome = await run_heal(
         page, query, expected_value, needs_unit_conversion, condition, code_js,
     )

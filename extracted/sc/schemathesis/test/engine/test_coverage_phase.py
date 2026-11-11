@@ -12,6 +12,7 @@ from schemathesis.core.errors import InvalidRegexPattern, InvalidRegexType, Inva
 from schemathesis.engine import Status, events
 from schemathesis.engine.run import PhaseName
 from schemathesis.specs.openapi.checks import negative_data_rejection
+from test.apps.catalog.openapi import basic
 from test.engine.helpers import (
     raise_invalid_argument,
     raise_keyboard_interrupt,
@@ -78,10 +79,7 @@ def test_coverage_phase_authentication_error_emits_non_fatal_error(ctx):
         def set(self, case, data, context):
             pass
 
-    try:
-        stream = _coverage_only(schema)
-    finally:
-        schemathesis.auths.unregister()
+    stream = _coverage_only(schema)
 
     errors = stream.find_all(events.NonFatalError, phase=PhaseName.COVERAGE)
     assert errors, "expected at least one non-fatal error from auth failure"
@@ -110,13 +108,11 @@ def test_coverage_phase_drains_deduplicated_errors(ctx):
     api = ctx.openapi.apps.success()
     schema = schemathesis.openapi.from_url(api.schema_url)
 
-    with ctx.restore_hooks():
+    @schemathesis.hook
+    def before_call(context, case, **kwargs):
+        raise RuntimeError("kaboom")
 
-        @schemathesis.hook
-        def before_call(context, case, **kwargs):
-            raise RuntimeError("kaboom")
-
-        stream = _coverage_only(schema)
+    stream = _coverage_only(schema)
 
     errors = stream.find_all(events.NonFatalError, phase=PhaseName.COVERAGE)
     assert any("kaboom" in str(event.value) for event in errors), [str(e.value) for e in errors]
@@ -170,7 +166,7 @@ def test_coverage_phase_runs_when_error_feedback_disabled(ctx):
     stream = _coverage_only(schema)
 
     finished = stream.find_all(events.ScenarioFinished, phase=PhaseName.COVERAGE)
-    assert all(event.status == Status.SUCCESS for event in finished), [event.status for event in finished]
+    assert [event.status for event in finished] == [Status.SUCCESS]
 
 
 def test_examples_and_coverage_phases_apply_parameter_and_header_overrides(ctx, app_runner):
@@ -265,10 +261,7 @@ def test_coverage_phase_applies_override_when_container_is_absent(ctx, app_runne
     port = app_runner.run_flask_app(app)
     schema = schemathesis.openapi.from_url(f"http://127.0.0.1:{port}/openapi.json")
 
-    try:
-        EventStream(schema, phases=[PhaseName.COVERAGE], parameters={"tag": "fixed"}).execute()
-    finally:
-        schemathesis.auths.unregister()
+    EventStream(schema, phases=[PhaseName.COVERAGE], parameters={"tag": "fixed"}).execute()
 
     calls = [request for request in app.config["captured_requests"] if request.path == "/items"]
     assert calls
@@ -455,7 +448,7 @@ def test_coverage_phase_negative_multiple_of_with_float_bounds(ctx, app_runner):
 
 
 def test_coverage_phase_negative_empty_array_path_parameter(ctx):
-    api = ctx.openapi.apps.array_path_variable()
+    api = ctx.openapi.serve(basic.array_path_variable())
     schema = schemathesis.openapi.from_url(api.schema_url)
 
     stream = EventStream(

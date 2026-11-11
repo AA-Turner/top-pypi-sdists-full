@@ -2023,6 +2023,9 @@ class CfnTransactionSearchConfig(
         from aws_cdk import aws_xray as xray
         
         cfn_transaction_search_config = xray.CfnTransactionSearchConfig(self, "MyCfnTransactionSearchConfig",
+            cloud_watch_logs_configuration=xray.CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty(
+                spans_log_group_kms_key_id="spansLogGroupKmsKeyId"
+            ),
             indexing_percentage=123
         )
     '''
@@ -2032,12 +2035,14 @@ class CfnTransactionSearchConfig(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        cloud_watch_logs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         indexing_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Create a new ``AWS::XRay::TransactionSearchConfig``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
+        :param cloud_watch_logs_configuration: Configuration for the CloudWatch Logs log group that X-Ray creates when this resource enables Transaction Search. It is used only at that time and is never returned
         :param indexing_percentage: Determines the percentage of traces indexed from CloudWatch Logs to X-Ray.
         '''
         if __debug__:
@@ -2045,7 +2050,8 @@ class CfnTransactionSearchConfig(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTransactionSearchConfigProps(
-            indexing_percentage=indexing_percentage
+            cloud_watch_logs_configuration=cloud_watch_logs_configuration,
+            indexing_percentage=indexing_percentage,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -2121,6 +2127,24 @@ class CfnTransactionSearchConfig(
         return typing.cast("_aws_xray_d0bebb82.TransactionSearchConfigReference", jsii.get(self, "transactionSearchConfigRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="cloudWatchLogsConfiguration")
+    def cloud_watch_logs_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty"]]:
+        '''Configuration for the CloudWatch Logs log group that X-Ray creates when this resource enables Transaction Search.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty"]], jsii.get(self, "cloudWatchLogsConfiguration"))
+
+    @cloud_watch_logs_configuration.setter
+    def cloud_watch_logs_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__feb0ea0986ca8c784076e2dde8fd7d9740fc4a057300e9e61f3e0f7afa925f38)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cloudWatchLogsConfiguration", value)
+
+    @builtins.property
     @jsii.member(jsii_name="indexingPercentage")
     def indexing_percentage(self) -> typing.Optional[jsii.Number]:
         '''Determines the percentage of traces indexed from CloudWatch Logs to X-Ray.'''
@@ -2133,20 +2157,84 @@ class CfnTransactionSearchConfig(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "indexingPercentage", value)
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_xray.CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"spans_log_group_kms_key_id": "spansLogGroupKmsKeyId"},
+    )
+    class CloudWatchLogsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            spans_log_group_kms_key_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for the CloudWatch Logs log group that X-Ray creates when this resource enables Transaction Search.
+
+            It is used only at that time and is never returned
+
+            :param spans_log_group_kms_key_id: The ARN of a symmetric customer managed AWS KMS key in the same account and Region, used to encrypt the aws/spans log group. Key IDs and alias ARNs are not supported, so for an AWS::KMS::Key use Fn::GetAtt Arn, not Ref. X-Ray applies the key only when it creates aws/spans while enabling Transaction Search. If aws/spans already exists, for example from an earlier enablement or an earlier create that failed partway, the create fails and X-Ray does not enable Transaction Search or change the log group. Remove this property to use the existing log group with its current encryption, and use the CloudWatch Logs AssociateKmsKey API to change its key. The caller needs kms:DescribeKey on the key, and the key policy must allow CloudWatch Logs to use it. Adding, changing or removing this property replaces the resource, which fails while Transaction Search is enabled
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-xray-transactionsearchconfig-cloudwatchlogsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_xray as xray
+                
+                cloud_watch_logs_configuration_property = xray.CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty(
+                    spans_log_group_kms_key_id="spansLogGroupKmsKeyId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a7b7c10f609ff1b846e205579d470006eb1671bfc272d4cbf6f9b3d197db9632)
+                check_type(argname="argument spans_log_group_kms_key_id", value=spans_log_group_kms_key_id, expected_type=type_hints["spans_log_group_kms_key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if spans_log_group_kms_key_id is not None:
+                self._values["spans_log_group_kms_key_id"] = spans_log_group_kms_key_id
+
+        @builtins.property
+        def spans_log_group_kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''The ARN of a symmetric customer managed AWS KMS key in the same account and Region, used to encrypt the aws/spans log group.
+
+            Key IDs and alias ARNs are not supported, so for an AWS::KMS::Key use Fn::GetAtt Arn, not Ref. X-Ray applies the key only when it creates aws/spans while enabling Transaction Search. If aws/spans already exists, for example from an earlier enablement or an earlier create that failed partway, the create fails and X-Ray does not enable Transaction Search or change the log group. Remove this property to use the existing log group with its current encryption, and use the CloudWatch Logs AssociateKmsKey API to change its key. The caller needs kms:DescribeKey on the key, and the key policy must allow CloudWatch Logs to use it. Adding, changing or removing this property replaces the resource, which fails while Transaction Search is enabled
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-xray-transactionsearchconfig-cloudwatchlogsconfiguration.html#cfn-xray-transactionsearchconfig-cloudwatchlogsconfiguration-spansloggroupkmskeyid
+            '''
+            result = self._values.get("spans_log_group_kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CloudWatchLogsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_xray.CfnTransactionSearchConfigProps",
     jsii_struct_bases=[],
-    name_mapping={"indexing_percentage": "indexingPercentage"},
+    name_mapping={
+        "cloud_watch_logs_configuration": "cloudWatchLogsConfiguration",
+        "indexing_percentage": "indexingPercentage",
+    },
 )
 class CfnTransactionSearchConfigProps:
     def __init__(
         self,
         *,
+        cloud_watch_logs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         indexing_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties for defining a ``CfnTransactionSearchConfig``.
 
+        :param cloud_watch_logs_configuration: Configuration for the CloudWatch Logs log group that X-Ray creates when this resource enables Transaction Search. It is used only at that time and is never returned
         :param indexing_percentage: Determines the percentage of traces indexed from CloudWatch Logs to X-Ray.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-transactionsearchconfig.html
@@ -2159,15 +2247,34 @@ class CfnTransactionSearchConfigProps:
             from aws_cdk import aws_xray as xray
             
             cfn_transaction_search_config_props = xray.CfnTransactionSearchConfigProps(
+                cloud_watch_logs_configuration=xray.CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty(
+                    spans_log_group_kms_key_id="spansLogGroupKmsKeyId"
+                ),
                 indexing_percentage=123
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b2b1f6ec191fd59be2f27330c4455e3dafefecd89a9d126ea095d2128052987b)
+            check_type(argname="argument cloud_watch_logs_configuration", value=cloud_watch_logs_configuration, expected_type=type_hints["cloud_watch_logs_configuration"])
             check_type(argname="argument indexing_percentage", value=indexing_percentage, expected_type=type_hints["indexing_percentage"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cloud_watch_logs_configuration is not None:
+            self._values["cloud_watch_logs_configuration"] = cloud_watch_logs_configuration
         if indexing_percentage is not None:
             self._values["indexing_percentage"] = indexing_percentage
+
+    @builtins.property
+    def cloud_watch_logs_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty"]]:
+        '''Configuration for the CloudWatch Logs log group that X-Ray creates when this resource enables Transaction Search.
+
+        It is used only at that time and is never returned
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-transactionsearchconfig.html#cfn-xray-transactionsearchconfig-cloudwatchlogsconfiguration
+        '''
+        result = self._values.get("cloud_watch_logs_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty"]], result)
 
     @builtins.property
     def indexing_percentage(self) -> typing.Optional[jsii.Number]:
@@ -2469,6 +2576,7 @@ def _typecheckingstub__f4e1a30e946dc148e1f6ca9dc5dce1a4c01ae226f9b2a99f68a6bfd8c
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    cloud_watch_logs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     indexing_percentage: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2492,14 +2600,28 @@ def _typecheckingstub__60d903fbe1bf5e78e1363dfa2d6b437d90640f9c35b6768d40e132738
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__feb0ea0986ca8c784076e2dde8fd7d9740fc4a057300e9e61f3e0f7afa925f38(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__667a8dfa445e5a7771cc889a458d31a28e3722f0192c79d0a77ca783777108dc(
     value: typing.Optional[jsii.Number],
 ) -> None:
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a7b7c10f609ff1b846e205579d470006eb1671bfc272d4cbf6f9b3d197db9632(
+    *,
+    spans_log_group_kms_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b2b1f6ec191fd59be2f27330c4455e3dafefecd89a9d126ea095d2128052987b(
     *,
+    cloud_watch_logs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransactionSearchConfig.CloudWatchLogsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     indexing_percentage: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""

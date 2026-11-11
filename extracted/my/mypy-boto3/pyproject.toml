@@ -4,7 +4,7 @@
 
 [project]
 name = "mypy-boto3"
-version = "1.43.0"
+version = "1.44.0"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
 description = "Legacy type annotations for boto3, use types-boto3 instead."

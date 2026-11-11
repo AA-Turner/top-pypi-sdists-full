@@ -87,7 +87,9 @@ class CfnAIAgent(
         
         # annotations: Any
         # input_schema: Any
+        # input_schemas: Any
         # output_schema: Any
+        # output_schemas: Any
         
         cfn_ai_agent = wisdom.CfnAIAgent(self, "MyCfnAIAgent",
             assistant_id="assistantId",
@@ -281,12 +283,40 @@ class CfnAIAgent(
                     note_taking_ai_prompt_id="noteTakingAiPromptId"
                 ),
                 orchestration_ai_agent_configuration=wisdom.CfnAIAgent.OrchestrationAIAgentConfigurationProperty(
-                    orchestration_ai_prompt_id="orchestrationAiPromptId",
-        
-                    # the properties below are optional
                     connect_instance_arn="connectInstanceArn",
+                    input_schemas=[input_schemas],
                     locale="locale",
+                    multi_agent_configurations=[wisdom.CfnAIAgent.MultiAgentConfigurationProperty(
+                        delegate_agent_configuration=wisdom.CfnAIAgent.DelegateAgentConfigurationProperty(
+                            agent_target=wisdom.CfnAIAgent.AgentTargetProperty(
+                                ai_agent_id="aiAgentId",
+                                application_id="applicationId"
+                            ),
+        
+                            # the properties below are optional
+                            instruction=wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                                examples=["examples"],
+                                instruction="instruction"
+                            )
+                        ),
+                        handoff_agent_configuration=wisdom.CfnAIAgent.HandoffAgentConfigurationProperty(
+                            agent_target=wisdom.CfnAIAgent.AgentTargetProperty(
+                                ai_agent_id="aiAgentId",
+                                application_id="applicationId"
+                            ),
+        
+                            # the properties below are optional
+                            audio_streaming_enabled=False,
+                            immediate_handoff=False,
+                            instruction=wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                                examples=["examples"],
+                                instruction="instruction"
+                            )
+                        )
+                    )],
                     orchestration_ai_guardrail_id="orchestrationAiGuardrailId",
+                    orchestration_ai_prompt_id="orchestrationAiPromptId",
+                    output_schemas=[output_schemas],
                     tool_configurations=[wisdom.CfnAIAgent.ToolConfigurationProperty(
                         tool_name="toolName",
                         tool_type="toolType",
@@ -670,7 +700,9 @@ class CfnAIAgent(
                 
                 # annotations: Any
                 # input_schema: Any
+                # input_schemas: Any
                 # output_schema: Any
+                # output_schemas: Any
                 
                 a_i_agent_configuration_property = wisdom.CfnAIAgent.AIAgentConfigurationProperty(
                     answer_recommendation_ai_agent_configuration=wisdom.CfnAIAgent.AnswerRecommendationAIAgentConfigurationProperty(
@@ -862,12 +894,40 @@ class CfnAIAgent(
                         note_taking_ai_prompt_id="noteTakingAiPromptId"
                     ),
                     orchestration_ai_agent_configuration=wisdom.CfnAIAgent.OrchestrationAIAgentConfigurationProperty(
-                        orchestration_ai_prompt_id="orchestrationAiPromptId",
-                
-                        # the properties below are optional
                         connect_instance_arn="connectInstanceArn",
+                        input_schemas=[input_schemas],
                         locale="locale",
+                        multi_agent_configurations=[wisdom.CfnAIAgent.MultiAgentConfigurationProperty(
+                            delegate_agent_configuration=wisdom.CfnAIAgent.DelegateAgentConfigurationProperty(
+                                agent_target=wisdom.CfnAIAgent.AgentTargetProperty(
+                                    ai_agent_id="aiAgentId",
+                                    application_id="applicationId"
+                                ),
+                
+                                # the properties below are optional
+                                instruction=wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                                    examples=["examples"],
+                                    instruction="instruction"
+                                )
+                            ),
+                            handoff_agent_configuration=wisdom.CfnAIAgent.HandoffAgentConfigurationProperty(
+                                agent_target=wisdom.CfnAIAgent.AgentTargetProperty(
+                                    ai_agent_id="aiAgentId",
+                                    application_id="applicationId"
+                                ),
+                
+                                # the properties below are optional
+                                audio_streaming_enabled=False,
+                                immediate_handoff=False,
+                                instruction=wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                                    examples=["examples"],
+                                    instruction="instruction"
+                                )
+                            )
+                        )],
                         orchestration_ai_guardrail_id="orchestrationAiGuardrailId",
+                        orchestration_ai_prompt_id="orchestrationAiPromptId",
+                        output_schemas=[output_schemas],
                         tool_configurations=[wisdom.CfnAIAgent.ToolConfigurationProperty(
                             tool_name="toolName",
                             tool_type="toolType",
@@ -1086,6 +1146,73 @@ class CfnAIAgent(
 
         def __repr__(self) -> str:
             return "AIAgentConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgent.AgentTargetProperty",
+        jsii_struct_bases=[],
+        name_mapping={"ai_agent_id": "aiAgentId", "application_id": "applicationId"},
+    )
+    class AgentTargetProperty:
+        def __init__(
+            self,
+            *,
+            ai_agent_id: typing.Optional[builtins.str] = None,
+            application_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param ai_agent_id: 
+            :param application_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-agenttarget.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wisdom as wisdom
+                
+                agent_target_property = wisdom.CfnAIAgent.AgentTargetProperty(
+                    ai_agent_id="aiAgentId",
+                    application_id="applicationId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7ae103b33048ca4e4bf562594075c3bea289eb3a9e27601ba4fd45b9991f3dc3)
+                check_type(argname="argument ai_agent_id", value=ai_agent_id, expected_type=type_hints["ai_agent_id"])
+                check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ai_agent_id is not None:
+                self._values["ai_agent_id"] = ai_agent_id
+            if application_id is not None:
+                self._values["application_id"] = application_id
+
+        @builtins.property
+        def ai_agent_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-agenttarget.html#cfn-wisdom-aiagent-agenttarget-aiagentid
+            '''
+            result = self._values.get("ai_agent_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def application_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-agenttarget.html#cfn-wisdom-aiagent-agenttarget-applicationid
+            '''
+            result = self._values.get("application_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AgentTargetProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1568,6 +1695,86 @@ class CfnAIAgent(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgent.DelegateAgentConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"agent_target": "agentTarget", "instruction": "instruction"},
+    )
+    class DelegateAgentConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            agent_target: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAIAgent.AgentTargetProperty", typing.Dict[builtins.str, typing.Any]]],
+            instruction: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAIAgent.MultiAgentInstructionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param agent_target: 
+            :param instruction: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-delegateagentconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wisdom as wisdom
+                
+                delegate_agent_configuration_property = wisdom.CfnAIAgent.DelegateAgentConfigurationProperty(
+                    agent_target=wisdom.CfnAIAgent.AgentTargetProperty(
+                        ai_agent_id="aiAgentId",
+                        application_id="applicationId"
+                    ),
+                
+                    # the properties below are optional
+                    instruction=wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                        examples=["examples"],
+                        instruction="instruction"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2a3e05d25f7a4d8574fb590a0084b5c4174c805a1afa7dba7fccf2efe3db0426)
+                check_type(argname="argument agent_target", value=agent_target, expected_type=type_hints["agent_target"])
+                check_type(argname="argument instruction", value=instruction, expected_type=type_hints["instruction"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "agent_target": agent_target,
+            }
+            if instruction is not None:
+                self._values["instruction"] = instruction
+
+        @builtins.property
+        def agent_target(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.AgentTargetProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-delegateagentconfiguration.html#cfn-wisdom-aiagent-delegateagentconfiguration-agenttarget
+            '''
+            result = self._values.get("agent_target")
+            assert result is not None, "Required property 'agent_target' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.AgentTargetProperty"], result)
+
+        @builtins.property
+        def instruction(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.MultiAgentInstructionProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-delegateagentconfiguration.html#cfn-wisdom-aiagent-delegateagentconfiguration-instruction
+            '''
+            result = self._values.get("instruction")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.MultiAgentInstructionProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DelegateAgentConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgent.EmailGenerativeAnswerAIAgentConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -1933,6 +2140,123 @@ class CfnAIAgent(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgent.HandoffAgentConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "agent_target": "agentTarget",
+            "audio_streaming_enabled": "audioStreamingEnabled",
+            "immediate_handoff": "immediateHandoff",
+            "instruction": "instruction",
+        },
+    )
+    class HandoffAgentConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            agent_target: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAIAgent.AgentTargetProperty", typing.Dict[builtins.str, typing.Any]]],
+            audio_streaming_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            immediate_handoff: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            instruction: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAIAgent.MultiAgentInstructionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param agent_target: 
+            :param audio_streaming_enabled: 
+            :param immediate_handoff: 
+            :param instruction: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-handoffagentconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wisdom as wisdom
+                
+                handoff_agent_configuration_property = wisdom.CfnAIAgent.HandoffAgentConfigurationProperty(
+                    agent_target=wisdom.CfnAIAgent.AgentTargetProperty(
+                        ai_agent_id="aiAgentId",
+                        application_id="applicationId"
+                    ),
+                
+                    # the properties below are optional
+                    audio_streaming_enabled=False,
+                    immediate_handoff=False,
+                    instruction=wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                        examples=["examples"],
+                        instruction="instruction"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__036d2622189aee285dcaf57b784e33236379cf8ae2e9ed5783499a7466a33fdb)
+                check_type(argname="argument agent_target", value=agent_target, expected_type=type_hints["agent_target"])
+                check_type(argname="argument audio_streaming_enabled", value=audio_streaming_enabled, expected_type=type_hints["audio_streaming_enabled"])
+                check_type(argname="argument immediate_handoff", value=immediate_handoff, expected_type=type_hints["immediate_handoff"])
+                check_type(argname="argument instruction", value=instruction, expected_type=type_hints["instruction"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "agent_target": agent_target,
+            }
+            if audio_streaming_enabled is not None:
+                self._values["audio_streaming_enabled"] = audio_streaming_enabled
+            if immediate_handoff is not None:
+                self._values["immediate_handoff"] = immediate_handoff
+            if instruction is not None:
+                self._values["instruction"] = instruction
+
+        @builtins.property
+        def agent_target(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.AgentTargetProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-handoffagentconfiguration.html#cfn-wisdom-aiagent-handoffagentconfiguration-agenttarget
+            '''
+            result = self._values.get("agent_target")
+            assert result is not None, "Required property 'agent_target' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.AgentTargetProperty"], result)
+
+        @builtins.property
+        def audio_streaming_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-handoffagentconfiguration.html#cfn-wisdom-aiagent-handoffagentconfiguration-audiostreamingenabled
+            '''
+            result = self._values.get("audio_streaming_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def immediate_handoff(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-handoffagentconfiguration.html#cfn-wisdom-aiagent-handoffagentconfiguration-immediatehandoff
+            '''
+            result = self._values.get("immediate_handoff")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def instruction(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.MultiAgentInstructionProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-handoffagentconfiguration.html#cfn-wisdom-aiagent-handoffagentconfiguration-instruction
+            '''
+            result = self._values.get("instruction")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.MultiAgentInstructionProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HandoffAgentConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgent.KnowledgeBaseAssociationConfigurationDataProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2197,6 +2521,171 @@ class CfnAIAgent(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgent.MultiAgentConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "delegate_agent_configuration": "delegateAgentConfiguration",
+            "handoff_agent_configuration": "handoffAgentConfiguration",
+        },
+    )
+    class MultiAgentConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            delegate_agent_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAIAgent.DelegateAgentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            handoff_agent_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAIAgent.HandoffAgentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param delegate_agent_configuration: 
+            :param handoff_agent_configuration: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-multiagentconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wisdom as wisdom
+                
+                multi_agent_configuration_property = wisdom.CfnAIAgent.MultiAgentConfigurationProperty(
+                    delegate_agent_configuration=wisdom.CfnAIAgent.DelegateAgentConfigurationProperty(
+                        agent_target=wisdom.CfnAIAgent.AgentTargetProperty(
+                            ai_agent_id="aiAgentId",
+                            application_id="applicationId"
+                        ),
+                
+                        # the properties below are optional
+                        instruction=wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                            examples=["examples"],
+                            instruction="instruction"
+                        )
+                    ),
+                    handoff_agent_configuration=wisdom.CfnAIAgent.HandoffAgentConfigurationProperty(
+                        agent_target=wisdom.CfnAIAgent.AgentTargetProperty(
+                            ai_agent_id="aiAgentId",
+                            application_id="applicationId"
+                        ),
+                
+                        # the properties below are optional
+                        audio_streaming_enabled=False,
+                        immediate_handoff=False,
+                        instruction=wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                            examples=["examples"],
+                            instruction="instruction"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0c0337dcb95c9550e9775ca747dac3637d391b2c90b0a3c834d539121e20bf0d)
+                check_type(argname="argument delegate_agent_configuration", value=delegate_agent_configuration, expected_type=type_hints["delegate_agent_configuration"])
+                check_type(argname="argument handoff_agent_configuration", value=handoff_agent_configuration, expected_type=type_hints["handoff_agent_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if delegate_agent_configuration is not None:
+                self._values["delegate_agent_configuration"] = delegate_agent_configuration
+            if handoff_agent_configuration is not None:
+                self._values["handoff_agent_configuration"] = handoff_agent_configuration
+
+        @builtins.property
+        def delegate_agent_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.DelegateAgentConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-multiagentconfiguration.html#cfn-wisdom-aiagent-multiagentconfiguration-delegateagentconfiguration
+            '''
+            result = self._values.get("delegate_agent_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.DelegateAgentConfigurationProperty"]], result)
+
+        @builtins.property
+        def handoff_agent_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.HandoffAgentConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-multiagentconfiguration.html#cfn-wisdom-aiagent-multiagentconfiguration-handoffagentconfiguration
+            '''
+            result = self._values.get("handoff_agent_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.HandoffAgentConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MultiAgentConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgent.MultiAgentInstructionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"examples": "examples", "instruction": "instruction"},
+    )
+    class MultiAgentInstructionProperty:
+        def __init__(
+            self,
+            *,
+            examples: typing.Optional[typing.Sequence[builtins.str]] = None,
+            instruction: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param examples: 
+            :param instruction: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-multiagentinstruction.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wisdom as wisdom
+                
+                multi_agent_instruction_property = wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                    examples=["examples"],
+                    instruction="instruction"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0147c2f7d42c31f367590797b9757a6653442773c8a931e84067c98829dbdc20)
+                check_type(argname="argument examples", value=examples, expected_type=type_hints["examples"])
+                check_type(argname="argument instruction", value=instruction, expected_type=type_hints["instruction"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if examples is not None:
+                self._values["examples"] = examples
+            if instruction is not None:
+                self._values["instruction"] = instruction
+
+        @builtins.property
+        def examples(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-multiagentinstruction.html#cfn-wisdom-aiagent-multiagentinstruction-examples
+            '''
+            result = self._values.get("examples")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def instruction(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-multiagentinstruction.html#cfn-wisdom-aiagent-multiagentinstruction-instruction
+            '''
+            result = self._values.get("instruction")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MultiAgentInstructionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgent.NoteTakingAIAgentConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2372,10 +2861,13 @@ class CfnAIAgent(
         jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgent.OrchestrationAIAgentConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "orchestration_ai_prompt_id": "orchestrationAiPromptId",
             "connect_instance_arn": "connectInstanceArn",
+            "input_schemas": "inputSchemas",
             "locale": "locale",
+            "multi_agent_configurations": "multiAgentConfigurations",
             "orchestration_ai_guardrail_id": "orchestrationAiGuardrailId",
+            "orchestration_ai_prompt_id": "orchestrationAiPromptId",
+            "output_schemas": "outputSchemas",
             "tool_configurations": "toolConfigurations",
         },
     )
@@ -2383,17 +2875,23 @@ class CfnAIAgent(
         def __init__(
             self,
             *,
-            orchestration_ai_prompt_id: builtins.str,
             connect_instance_arn: typing.Optional[builtins.str] = None,
+            input_schemas: typing.Optional[typing.Union[typing.Sequence[typing.Any], "_aws_cdk_0cae9daa.IResolvable"]] = None,
             locale: typing.Optional[builtins.str] = None,
+            multi_agent_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAIAgent.MultiAgentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             orchestration_ai_guardrail_id: typing.Optional[builtins.str] = None,
+            orchestration_ai_prompt_id: typing.Optional[builtins.str] = None,
+            output_schemas: typing.Optional[typing.Union[typing.Sequence[typing.Any], "_aws_cdk_0cae9daa.IResolvable"]] = None,
             tool_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAIAgent.ToolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
-            :param orchestration_ai_prompt_id: 
             :param connect_instance_arn: 
+            :param input_schemas: 
             :param locale: 
+            :param multi_agent_configurations: 
             :param orchestration_ai_guardrail_id: 
+            :param orchestration_ai_prompt_id: 
+            :param output_schemas: 
             :param tool_configurations: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-orchestrationaiagentconfiguration.html
@@ -2407,15 +2905,45 @@ class CfnAIAgent(
                 
                 # annotations: Any
                 # input_schema: Any
+                # input_schemas: Any
                 # output_schema: Any
+                # output_schemas: Any
                 
                 orchestration_ai_agent_configuration_property = wisdom.CfnAIAgent.OrchestrationAIAgentConfigurationProperty(
-                    orchestration_ai_prompt_id="orchestrationAiPromptId",
-                
-                    # the properties below are optional
                     connect_instance_arn="connectInstanceArn",
+                    input_schemas=[input_schemas],
                     locale="locale",
+                    multi_agent_configurations=[wisdom.CfnAIAgent.MultiAgentConfigurationProperty(
+                        delegate_agent_configuration=wisdom.CfnAIAgent.DelegateAgentConfigurationProperty(
+                            agent_target=wisdom.CfnAIAgent.AgentTargetProperty(
+                                ai_agent_id="aiAgentId",
+                                application_id="applicationId"
+                            ),
+                
+                            # the properties below are optional
+                            instruction=wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                                examples=["examples"],
+                                instruction="instruction"
+                            )
+                        ),
+                        handoff_agent_configuration=wisdom.CfnAIAgent.HandoffAgentConfigurationProperty(
+                            agent_target=wisdom.CfnAIAgent.AgentTargetProperty(
+                                ai_agent_id="aiAgentId",
+                                application_id="applicationId"
+                            ),
+                
+                            # the properties below are optional
+                            audio_streaming_enabled=False,
+                            immediate_handoff=False,
+                            instruction=wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                                examples=["examples"],
+                                instruction="instruction"
+                            )
+                        )
+                    )],
                     orchestration_ai_guardrail_id="orchestrationAiGuardrailId",
+                    orchestration_ai_prompt_id="orchestrationAiPromptId",
+                    output_schemas=[output_schemas],
                     tool_configurations=[wisdom.CfnAIAgent.ToolConfigurationProperty(
                         tool_name="toolName",
                         tool_type="toolType",
@@ -2457,31 +2985,31 @@ class CfnAIAgent(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__50792ed10fbfae7c3f42cc9d7c29f44107e43ed1ea2ce5a7603a2eb4e7b9be8f)
-                check_type(argname="argument orchestration_ai_prompt_id", value=orchestration_ai_prompt_id, expected_type=type_hints["orchestration_ai_prompt_id"])
                 check_type(argname="argument connect_instance_arn", value=connect_instance_arn, expected_type=type_hints["connect_instance_arn"])
+                check_type(argname="argument input_schemas", value=input_schemas, expected_type=type_hints["input_schemas"])
                 check_type(argname="argument locale", value=locale, expected_type=type_hints["locale"])
+                check_type(argname="argument multi_agent_configurations", value=multi_agent_configurations, expected_type=type_hints["multi_agent_configurations"])
                 check_type(argname="argument orchestration_ai_guardrail_id", value=orchestration_ai_guardrail_id, expected_type=type_hints["orchestration_ai_guardrail_id"])
+                check_type(argname="argument orchestration_ai_prompt_id", value=orchestration_ai_prompt_id, expected_type=type_hints["orchestration_ai_prompt_id"])
+                check_type(argname="argument output_schemas", value=output_schemas, expected_type=type_hints["output_schemas"])
                 check_type(argname="argument tool_configurations", value=tool_configurations, expected_type=type_hints["tool_configurations"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "orchestration_ai_prompt_id": orchestration_ai_prompt_id,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
             if connect_instance_arn is not None:
                 self._values["connect_instance_arn"] = connect_instance_arn
+            if input_schemas is not None:
+                self._values["input_schemas"] = input_schemas
             if locale is not None:
                 self._values["locale"] = locale
+            if multi_agent_configurations is not None:
+                self._values["multi_agent_configurations"] = multi_agent_configurations
             if orchestration_ai_guardrail_id is not None:
                 self._values["orchestration_ai_guardrail_id"] = orchestration_ai_guardrail_id
+            if orchestration_ai_prompt_id is not None:
+                self._values["orchestration_ai_prompt_id"] = orchestration_ai_prompt_id
+            if output_schemas is not None:
+                self._values["output_schemas"] = output_schemas
             if tool_configurations is not None:
                 self._values["tool_configurations"] = tool_configurations
-
-        @builtins.property
-        def orchestration_ai_prompt_id(self) -> builtins.str:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-orchestrationaiagentconfiguration.html#cfn-wisdom-aiagent-orchestrationaiagentconfiguration-orchestrationaipromptid
-            '''
-            result = self._values.get("orchestration_ai_prompt_id")
-            assert result is not None, "Required property 'orchestration_ai_prompt_id' is missing"
-            return typing.cast(builtins.str, result)
 
         @builtins.property
         def connect_instance_arn(self) -> typing.Optional[builtins.str]:
@@ -2492,6 +3020,16 @@ class CfnAIAgent(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def input_schemas(
+            self,
+        ) -> typing.Optional[typing.Union[typing.List[typing.Any], "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-orchestrationaiagentconfiguration.html#cfn-wisdom-aiagent-orchestrationaiagentconfiguration-inputschemas
+            '''
+            result = self._values.get("input_schemas")
+            return typing.cast(typing.Optional[typing.Union[typing.List[typing.Any], "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
         def locale(self) -> typing.Optional[builtins.str]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-orchestrationaiagentconfiguration.html#cfn-wisdom-aiagent-orchestrationaiagentconfiguration-locale
@@ -2500,12 +3038,40 @@ class CfnAIAgent(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def multi_agent_configurations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.MultiAgentConfigurationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-orchestrationaiagentconfiguration.html#cfn-wisdom-aiagent-orchestrationaiagentconfiguration-multiagentconfigurations
+            '''
+            result = self._values.get("multi_agent_configurations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIAgent.MultiAgentConfigurationProperty"]]]], result)
+
+        @builtins.property
         def orchestration_ai_guardrail_id(self) -> typing.Optional[builtins.str]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-orchestrationaiagentconfiguration.html#cfn-wisdom-aiagent-orchestrationaiagentconfiguration-orchestrationaiguardrailid
             '''
             result = self._values.get("orchestration_ai_guardrail_id")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def orchestration_ai_prompt_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-orchestrationaiagentconfiguration.html#cfn-wisdom-aiagent-orchestrationaiagentconfiguration-orchestrationaipromptid
+            '''
+            result = self._values.get("orchestration_ai_prompt_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def output_schemas(
+            self,
+        ) -> typing.Optional[typing.Union[typing.List[typing.Any], "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiagent-orchestrationaiagentconfiguration.html#cfn-wisdom-aiagent-orchestrationaiagentconfiguration-outputschemas
+            '''
+            result = self._values.get("output_schemas")
+            return typing.cast(typing.Optional[typing.Union[typing.List[typing.Any], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def tool_configurations(
@@ -3634,7 +4200,9 @@ class CfnAIAgentProps:
             
             # annotations: Any
             # input_schema: Any
+            # input_schemas: Any
             # output_schema: Any
+            # output_schemas: Any
             
             cfn_ai_agent_props = wisdom.CfnAIAgentProps(
                 assistant_id="assistantId",
@@ -3828,12 +4396,40 @@ class CfnAIAgentProps:
                         note_taking_ai_prompt_id="noteTakingAiPromptId"
                     ),
                     orchestration_ai_agent_configuration=wisdom.CfnAIAgent.OrchestrationAIAgentConfigurationProperty(
-                        orchestration_ai_prompt_id="orchestrationAiPromptId",
-            
-                        # the properties below are optional
                         connect_instance_arn="connectInstanceArn",
+                        input_schemas=[input_schemas],
                         locale="locale",
+                        multi_agent_configurations=[wisdom.CfnAIAgent.MultiAgentConfigurationProperty(
+                            delegate_agent_configuration=wisdom.CfnAIAgent.DelegateAgentConfigurationProperty(
+                                agent_target=wisdom.CfnAIAgent.AgentTargetProperty(
+                                    ai_agent_id="aiAgentId",
+                                    application_id="applicationId"
+                                ),
+            
+                                # the properties below are optional
+                                instruction=wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                                    examples=["examples"],
+                                    instruction="instruction"
+                                )
+                            ),
+                            handoff_agent_configuration=wisdom.CfnAIAgent.HandoffAgentConfigurationProperty(
+                                agent_target=wisdom.CfnAIAgent.AgentTargetProperty(
+                                    ai_agent_id="aiAgentId",
+                                    application_id="applicationId"
+                                ),
+            
+                                # the properties below are optional
+                                audio_streaming_enabled=False,
+                                immediate_handoff=False,
+                                instruction=wisdom.CfnAIAgent.MultiAgentInstructionProperty(
+                                    examples=["examples"],
+                                    instruction="instruction"
+                                )
+                            )
+                        )],
                         orchestration_ai_guardrail_id="orchestrationAiGuardrailId",
+                        orchestration_ai_prompt_id="orchestrationAiPromptId",
+                        output_schemas=[output_schemas],
                         tool_configurations=[wisdom.CfnAIAgent.ToolConfigurationProperty(
                             tool_name="toolName",
                             tool_type="toolType",
@@ -15415,6 +16011,14 @@ def _typecheckingstub__8cb84ad0dc27ffdae65e4e739c98ea6a4e7c36340f15c21ae83a2225f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7ae103b33048ca4e4bf562594075c3bea289eb3a9e27601ba4fd45b9991f3dc3(
+    *,
+    ai_agent_id: typing.Optional[builtins.str] = None,
+    application_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6847cf788b7def362d576a512b579b2a08c25837003298b7c57254d1dfb45112(
     *,
     answer_generation_ai_guardrail_id: typing.Optional[builtins.str] = None,
@@ -15452,6 +16056,14 @@ def _typecheckingstub__f843ffb161c8436256f2389c34b14a1cbcde9d5b7f3b894da03a97430
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2a3e05d25f7a4d8574fb590a0084b5c4174c805a1afa7dba7fccf2efe3db0426(
+    *,
+    agent_target: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIAgent.AgentTargetProperty, typing.Dict[builtins.str, typing.Any]]],
+    instruction: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIAgent.MultiAgentInstructionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4676d998b596b8257caac506a87e35ec9c1ec42c5d525902ee7308851b26836c(
     *,
     association_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIAgent.AssociationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -15480,6 +16092,16 @@ def _typecheckingstub__022565d455be0cdec7bbe7e936a8452f3be66ca7a99ac2f8300c02d37
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__036d2622189aee285dcaf57b784e33236379cf8ae2e9ed5783499a7466a33fdb(
+    *,
+    agent_target: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIAgent.AgentTargetProperty, typing.Dict[builtins.str, typing.Any]]],
+    audio_streaming_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    immediate_handoff: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    instruction: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIAgent.MultiAgentInstructionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__af25ecdf7592033a618b9a411d145fb2bd7b10ae3e9b0a04a4502e0dee139e27(
     *,
     content_tag_filter: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIAgent.TagFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -15495,6 +16117,22 @@ def _typecheckingstub__3346eba3a05ad4b31350bf2c54edbb6063a18cfea8a25ebbab80c4024
     answer_generation_ai_prompt_id: typing.Optional[builtins.str] = None,
     association_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIAgent.AssociationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     locale: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c0337dcb95c9550e9775ca747dac3637d391b2c90b0a3c834d539121e20bf0d(
+    *,
+    delegate_agent_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIAgent.DelegateAgentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    handoff_agent_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIAgent.HandoffAgentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0147c2f7d42c31f367590797b9757a6653442773c8a931e84067c98829dbdc20(
+    *,
+    examples: typing.Optional[typing.Sequence[builtins.str]] = None,
+    instruction: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15518,10 +16156,13 @@ def _typecheckingstub__bf2bbad68aea63c5546563872782e30b131382ddae5fbabf04602b928
 
 def _typecheckingstub__50792ed10fbfae7c3f42cc9d7c29f44107e43ed1ea2ce5a7603a2eb4e7b9be8f(
     *,
-    orchestration_ai_prompt_id: builtins.str,
     connect_instance_arn: typing.Optional[builtins.str] = None,
+    input_schemas: typing.Optional[typing.Union[typing.Sequence[typing.Any], _aws_cdk_0cae9daa.IResolvable]] = None,
     locale: typing.Optional[builtins.str] = None,
+    multi_agent_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIAgent.MultiAgentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     orchestration_ai_guardrail_id: typing.Optional[builtins.str] = None,
+    orchestration_ai_prompt_id: typing.Optional[builtins.str] = None,
+    output_schemas: typing.Optional[typing.Union[typing.Sequence[typing.Any], _aws_cdk_0cae9daa.IResolvable]] = None,
     tool_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIAgent.ToolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""

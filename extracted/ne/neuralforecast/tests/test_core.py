@@ -6,6 +6,7 @@ import tempfile
 import warnings
 from datetime import date
 from pathlib import Path
+from unittest.mock import patch
 
 import git
 import numpy as np
@@ -62,6 +63,7 @@ from neuralforecast.losses.pytorch import (
     MQLoss,
     sCRPS,
 )
+from neuralforecast.models import NLinear
 from neuralforecast.tsdataset import TimeSeriesDataset
 from neuralforecast.utils import (
     AirPassengersPanel,
@@ -659,6 +661,73 @@ def test_cross_validation_use_fitted_restores_state_on_exception():
     assert nf.dataset is fitted_dataset
 
 
+def _fit_nf_with_local_scaler(h):
+    series = generate_series(2, min_length=60, max_length=60, equal_ends=True)
+    nf = NeuralForecast(
+        models=[
+            MLP(
+                input_size=2 * h,
+                h=h,
+                loss=MQLoss(level=[80]),
+                max_steps=2,
+                enable_progress_bar=False,
+            )
+        ],
+        freq="D",
+        local_scaler_type="standard",
+    )
+    nf.fit(series)
+    return nf, series
+
+
+@pytest.mark.parametrize("method", ["predict", "simulate"])
+def test_invalid_futr_df_with_new_df_keeps_training_scalers(method):
+    nf, series = _fit_nf_with_local_scaler(h=5)
+    expected = nf.predict()
+
+    new_df = series.assign(y=series["y"] * 100 + 1_000)
+    bad_futr_df = nf.make_future_dataframe(new_df).iloc[:-1]
+    with pytest.raises(ValueError, match="missing combinations"):
+        getattr(nf, method)(df=new_df, futr_df=bad_futr_df)
+
+    pd.testing.assert_frame_equal(nf.predict(), expected)
+
+
+@pytest.mark.parametrize("method", ["predict", "simulate"])
+def test_failure_after_refitting_scalers_restores_training_scalers(method):
+    nf, series = _fit_nf_with_local_scaler(h=5)
+    expected = nf.predict()
+
+    new_df = series.assign(y=series["y"] * 100 + 1_000)
+    # fails after the scalers were refitted on new_df
+    with patch.object(nf, "_scalers_transform", side_effect=RuntimeError("boom")):
+        with pytest.raises(RuntimeError, match="boom"):
+            getattr(nf, method)(df=new_df)
+
+    pd.testing.assert_frame_equal(nf.predict(), expected)
+
+
+@pytest.mark.parametrize("engine", ["pandas", "polars"])
+def test_make_future_dataframe_with_unsorted_df(engine):
+    series = generate_series(3, min_length=20, max_length=30)
+    if engine == "polars":
+        series = polars.from_pandas(series)
+    nf = NeuralForecast(
+        models=[MLP(input_size=4, h=2, max_steps=1, enable_progress_bar=False)],
+        freq="1d" if engine == "polars" else "D",
+    )
+    nf.fit(series)
+    expected = nf.make_future_dataframe()
+
+    # the last series first, and each series in reverse time order
+    if engine == "polars":
+        result = nf.make_future_dataframe(series.reverse())
+        polars.testing.assert_frame_equal(result, expected)
+    else:
+        result = nf.make_future_dataframe(series.iloc[::-1])
+        pd.testing.assert_frame_equal(result, expected)
+
+
 def test_cross_validation_use_fitted_validation_errors():
     """`use_fitted=True` rejects incompatible argument combinations."""
     h = 5
@@ -996,6 +1065,60 @@ def test_predict_insample_step_size(setup_airplane_data, step_size, test_size):
     # check forecast-points count per series
     cutoffs_by_series = forecasts.groupby(['unique_id', 'cutoff']).size().unstack('unique_id')
     pd.testing.assert_series_equal(cutoffs_by_series['Airline1'], cutoffs_by_series['Airline2'], check_names=False)
+
+
+@pytest.mark.parametrize("engine", ["pandas", "polars"])
+@pytest.mark.parametrize("horizon", [1, 3])
+@pytest.mark.parametrize("step_size", [1, 2, 7, 1000])
+@pytest.mark.parametrize("test_size", [0, 5])
+def test_sparse_insample_forecasts_keep_available_history(
+    engine, horizon, step_size, test_size
+):
+    frames = []
+    for uid, size in [("short", 23), ("long", 34)]:
+        time = np.arange(size)
+        frames.append(
+            pd.DataFrame(
+                {"unique_id": uid, "ds": time, "y": time + np.sin(time / 3) + 10}
+            )
+        )
+    data = pd.concat(frames, ignore_index=True)
+    if engine == "polars":
+        data = pytest.importorskip("polars").from_pandas(data)
+    nf = NeuralForecast(
+        models=[
+            NLinear(
+                h=horizon,
+                input_size=6,
+                max_steps=1,
+                val_check_steps=1,
+                inference_windows_batch_size=1,
+                accelerator="cpu",
+                devices=1,
+                logger=False,
+                enable_checkpointing=False,
+                enable_progress_bar=False,
+                enable_model_summary=False,
+            )
+        ],
+        freq=1,
+    )
+    nf.fit(data)
+    nf.models[0].set_test_size(test_size)
+    dense = nf.predict_insample(step_size=1)
+    sparse = nf.predict_insample(step_size=step_size)
+    if engine == "polars":
+        dense, sparse = dense.to_pandas(), sparse.to_pandas()
+    expected = []
+    for _, group in dense.groupby("unique_id", sort=False):
+        cutoffs = group["cutoff"].drop_duplicates().iloc[::-step_size]
+        expected.append(group[group["cutoff"].isin(cutoffs)])
+    keys = ["unique_id", "cutoff", "ds"]
+    pd.testing.assert_frame_equal(
+        sparse.sort_values(keys).reset_index(drop=True),
+        pd.concat(expected).sort_values(keys).reset_index(drop=True),
+        check_exact=True,
+    )
 
 
 def test_predict_insample_diff_loss(setup_airplane_data):

@@ -76,7 +76,8 @@ dependencies = [
     # agentspecs 0.0.138: permissions.computer.repository (a repository lent to an application), the space backdrop.
     # agentspecs 0.0.139: colours by palette name.
     # agentspecs 0.0.140: the minimal and orb backdrops.
-    "agentspecs>=0.0.160",  # the company role's website flags (web.unscoped, web.disabled)
+    # 1.6.17 with agentspecs 0.0.174: the example agent github-repositories, which an application may name.
+    "agentspecs>=0.0.174",  # the company role's website flags (web.unscoped, web.disabled)
     # The Datalayer orchestration extension`s wire-level constants
     # (`EXECUTION_FIELD`, `ENVELOPE_KEY`, ...), imported by
     # `context/delegation.py` and `guardrails/model_budget.py` rather than
@@ -107,8 +108,9 @@ dependencies = [
     # draws from — arrived in 1.3.0; `code_sandboxes.environments`, the models
     # the environments client is typed with (D-14), in 1.5.0;
     # one subpackage per provider, and the typed Marimo kernel helper, in
-    # 1.10.0 (the 1.9.x flat module paths are deprecated aliases there).
-    "code-sandboxes>=1.11.5",
+    # 1.10.0 (the 1.9.x flat module paths are deprecated aliases there); the
+    # agentcore variant (AgentCore Code Interpreter) in 1.12.0.
+    "code-sandboxes>=1.12.0",
     "croniter",
     # Web Bot Auth's signature bases (PR-20): RFC 9651
     # structured fields; the RFC 9421 library of PyPI ignores `;key=`.

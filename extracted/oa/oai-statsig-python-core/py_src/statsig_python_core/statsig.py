@@ -29,6 +29,7 @@ from .evaluation_cache import (
     _EvaluationCacheKeys,
     _get_evaluation_cache,
 )
+from .statsig_python_core import _evaluate_layer_for_deferred_experiment_exposure
 from .statsig_types import (
     DynamicConfig,
     Experiment,
@@ -534,6 +535,27 @@ class Statsig(StatsigBasePy):
             param_name,
             self._get_layer_exposure_metadata(name),
         )
+
+    def evaluate_layer_for_deferred_experiment_exposure(
+        self, user: StatsigUser, layer_name: str
+    ) -> tuple[Layer, str | None]:
+        """Evaluate once and save the selected experiment for exposure in another service.
+
+        This API is very error-prone. Consult the Statsig team before using it.
+        Prefer sdk.get_layer(user, name) and layer.get(parameter, default) at the
+        point of use. Reserve this API for custom flows where another service
+        executes an assignment that has already been made.
+
+        Reading the returned layer is exposure-free. The payload is available
+        only for a resolved experiment group with an assignment unit and logging
+        enabled. Carry it with that assignment in trusted request state. It
+        includes the original user ID and custom IDs. Treat it as opaque and
+        keep it out of logs.
+        """
+        raw, payload = _evaluate_layer_for_deferred_experiment_exposure(
+            self, user, layer_name
+        )
+        return Layer(None, layer_name, raw), payload
 
     def get_layer(
         self,

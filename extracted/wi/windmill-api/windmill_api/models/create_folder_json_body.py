@@ -19,6 +19,7 @@ class CreateFolderJsonBody:
     """
     Attributes:
         name (str):
+        display_name (Union[Unset, str]): Defaults to the name.
         summary (Union[Unset, str]):
         owners (Union[Unset, List[str]]):
         extra_perms (Union[Unset, Any]):
@@ -30,6 +31,7 @@ class CreateFolderJsonBody:
     """
 
     name: str
+    display_name: Union[Unset, str] = UNSET
     summary: Union[Unset, str] = UNSET
     owners: Union[Unset, List[str]] = UNSET
     extra_perms: Union[Unset, Any] = UNSET
@@ -39,6 +41,7 @@ class CreateFolderJsonBody:
 
     def to_dict(self) -> Dict[str, Any]:
         name = self.name
+        display_name = self.display_name
         summary = self.summary
         owners: Union[Unset, List[str]] = UNSET
         if not isinstance(self.owners, Unset):
@@ -64,6 +67,8 @@ class CreateFolderJsonBody:
                 "name": name,
             }
         )
+        if display_name is not UNSET:
+            field_dict["display_name"] = display_name
         if summary is not UNSET:
             field_dict["summary"] = summary
         if owners is not UNSET:
@@ -86,6 +91,8 @@ class CreateFolderJsonBody:
         d = src_dict.copy()
         name = d.pop("name")
 
+        display_name = d.pop("display_name", UNSET)
+
         summary = d.pop("summary", UNSET)
 
         owners = cast(List[str], d.pop("owners", UNSET))
@@ -105,6 +112,7 @@ class CreateFolderJsonBody:
 
         create_folder_json_body = cls(
             name=name,
+            display_name=display_name,
             summary=summary,
             owners=owners,
             extra_perms=extra_perms,

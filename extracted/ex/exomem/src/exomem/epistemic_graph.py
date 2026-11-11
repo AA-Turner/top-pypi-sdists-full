@@ -19,7 +19,7 @@ import stat
 import threading
 import time
 import weakref
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping
 from contextlib import ExitStack, contextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
@@ -98,6 +98,8 @@ def _sqlite_connect_owned(
 SCHEMA_VERSION = 15
 _DEPENDENCY_FORMAT = 2
 UNIT_SEED_MAX_BATCHES = 4
+#: Page cache for a private whole-vault rebuild connection, in KiB (see `_connect_retained`).
+_REBUILD_CACHE_KIB = 64 * 1024
 UNIT_PARENT_REF_MAX_CANDIDATES = 16
 EDGE_INSPECTION_MULTIPLIER = 4
 REBUILD_STABILIZATION_ATTEMPTS = 2
@@ -493,6 +495,34 @@ class RelationEdgeResult:
 
     status: str
     edges: tuple[tuple[str, str], ...] = ()
+    reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class UnitEdge:
+    """One typed edge with each end at the grain the graph holds it.
+
+    An end is a unit block, named by its graph node key, or a whole page, where the unit is None:
+    a frontmatter field, a page's relations section and a link with no anchor all end on a page.
+    `relation` is the canonical key the authoring page's registry gives the edge, and `parent` the
+    shipped key an extension rolls up to.
+    """
+
+    source_path: str
+    source_unit: str | None
+    target_path: str
+    target_unit: str | None
+    relation: str
+    parent: str | None = None
+
+
+@dataclass(frozen=True)
+class UnitEdgeResult:
+    """Outcome of a unit-grain edge read, with the never-false-empty contract of
+    `RelationFilterResult`: `edges` is authoritative only when `status` is "available"."""
+
+    status: str
+    edges: tuple[UnitEdge, ...] = ()
     reason: str | None = None
 
 
@@ -1647,7 +1677,21 @@ def reset_republish_backoff() -> None:
 # --- Preserved-temporary reaping (contract R3) -----------------------------
 
 PRESERVED_TEMPORARY_LIMIT = 1
-_TEMPORARY_COMPANION_SUFFIXES = ("-journal", "-wal", "-shm")
+_ROLLBACK_JOURNAL_SUFFIX = "-journal"
+_TEMPORARY_COMPANION_SUFFIXES = (_ROLLBACK_JOURNAL_SUFFIX, "-wal", "-shm")
+
+
+def _interrupted_temporary_groups(groups: dict[str, list[Path]]) -> list[str]:
+    """Groups stopped inside their transaction, which preservation never keeps.
+
+    A private rebuild runs in rollback-journal mode, so a group that still has
+    its journal is a build SQLite rolls back on open, not a complete one.
+    """
+    return [
+        base
+        for base, paths in groups.items()
+        if any(path.name.endswith(_ROLLBACK_JOURNAL_SUFFIX) for path in paths)
+    ]
 
 
 def _temporary_base_name(name: str) -> str:
@@ -1753,7 +1797,8 @@ def _reap_preserved_temporaries(
     that file is collected on a later pass rather than failing the rebuild.
     """
     # Cheap pre-check without the claim: nothing to bound, nothing to lock.
-    if len(_unregistered_temporary_groups(live)) <= max(0, keep):
+    groups = _unregistered_temporary_groups(live)
+    if len(groups) <= max(0, keep) and not _interrupted_temporary_groups(groups):
         return []
     probe = live.with_name(f".graph-rebuild-reap-{secrets.token_hex(12)}.sqlite")
     try:
@@ -1773,7 +1818,9 @@ def _reap_unowned_temporaries(live: Path, *, vault_root: Path, keep: int) -> lis
     directory = live.parent
     # Re-scan under the claim: the pre-check ran without it.
     groups = _unregistered_temporary_groups(live)
-    if len(groups) <= max(0, keep):
+    interrupted = _interrupted_temporary_groups(groups)
+    complete = [base for base in groups if base not in interrupted]
+    if not interrupted and len(complete) <= max(0, keep):
         return []
 
     def _recency(base: str) -> float:
@@ -1785,10 +1832,16 @@ def _reap_unowned_temporaries(live: Path, *, vault_root: Path, keep: int) -> lis
                 continue
         return newest
 
-    ordered = sorted(groups, key=_recency, reverse=True)
+    ordered = sorted(complete, key=_recency, reverse=True)
     removed: list[Path] = []
-    for base in ordered[max(0, keep) :]:
-        for path in groups[base]:
+    for base in [*interrupted, *ordered[max(0, keep) :]]:
+        # The journal goes last, and stays if its file does: a file that lost
+        # its journal would look complete and be preserved on the next pass.
+        paths = sorted(groups[base], key=lambda p: p.name.endswith(_ROLLBACK_JOURNAL_SUFFIX))
+        kept_file = False
+        for path in paths:
+            if kept_file and path.name.endswith(_ROLLBACK_JOURNAL_SUFFIX):
+                continue
             try:
                 _remove_graph_rebuild_artifact(
                     vault_root,
@@ -1797,6 +1850,7 @@ def _reap_unowned_temporaries(live: Path, *, vault_root: Path, keep: int) -> lis
                 )
             except OSError:
                 # A reader still holds delete-sharing authority on Windows.
+                kept_file = True
                 continue
             removed.append(path)
     if removed:
@@ -2603,6 +2657,16 @@ class EpistemicGraphIndex:
             # Keeping private rebuilds in rollback-journal mode prevents
             # authoritative rows from remaining in a detached WAL companion.
             conn.execute("PRAGMA journal_mode=DELETE")
+            # A whole-vault pass inserts every row in a few transactions. With
+            # SQLite's defaults its temporary data goes to temp files and dirty
+            # pages spill from a 2 MiB cache: one pass over a synthetic
+            # 3,000-note vault (60 MB graph) passed 2.56 GB to write() by
+            # /proc/self/io wchar; with both settings, 180 MB. The cost is
+            # 64 MiB more peak memory per rebuild, one
+            # rebuild per vault at a time. With in-memory temp data the sorter
+            # never spills, so a whole-table sort added here would sit in RAM.
+            conn.execute(f"PRAGMA cache_size=-{_REBUILD_CACHE_KIB}")
+            conn.execute("PRAGMA temp_store=MEMORY")
         try:
             return self._initialize_graph_schema(conn)
         except BaseException:
@@ -8904,7 +8968,7 @@ class EpistemicGraphIndex:
                 resolved_relation,
             )
 
-        for src_path, dst_path, relation_type, matched_via, matched_key, symmetric in rows:
+        for src_path, dst_path, relation_type, matched_via, matched_key, symmetric, _edge in rows:
             if src_path == dst_path:
                 continue
             if anchor_rel is not None:
@@ -9022,6 +9086,106 @@ class EpistemicGraphIndex:
             seen.add(edge)
             edges.append(edge)
         return RelationEdgeResult(status="available", edges=tuple(edges))
+
+    def unit_edges(
+        self,
+        keys: Iterable[str],
+        *,
+        pages: Collection[str] | None = None,
+        keep: Callable[[str], bool] | None = None,
+        resolver: vault_module.WikilinkResolver | None = None,
+    ) -> UnitEdgeResult:
+        """Every typed edge of `keys`, with each end at the grain the graph holds it, in one read.
+
+        `keys` are canonical keys of the vault's selected registry. As in
+        `relation_participants`, an extension that rolls up to one of them and an edge
+        authored with a deprecated key that one of them replaces match too, and every edge
+        keeps its authoring page's meaning. `pages` limits the read to the edges with an end
+        on one of those pages; without it the read covers the vault.
+
+        An edge between two units of one page stays: a decision that supersedes an earlier
+        decision of the same log is one. An edge from a node to itself, or between a unit and
+        its own page, is the page's structure, not a relation between two things, and drops
+        out.
+
+        `keep` is a reader's view (`None` for the owner): an edge counts only when the reader
+        may see both of its pages, and a page whose links resolve differently for the reader is
+        re-derived in the reader's view, as `relation_participants` does. The status follows
+        the same never-false-empty contract, and the read never scans the corpus.
+        """
+        requested_keys = [str(k) for k in keys if k]
+        if not requested_keys or (pages is not None and not pages):
+            return UnitEdgeResult(status="available")
+        allowed_paths: dict[str, bool] = {}
+
+        def _path_allowed(rel_path: str) -> bool:
+            allowed = allowed_paths.get(rel_path)
+            if allowed is None:
+                allowed = _recall_path_allowed(self.vault_root, rel_path) and (
+                    keep is None or keep(rel_path)
+                )
+                allowed_paths[rel_path] = allowed
+            return allowed
+
+        if not graph_enabled():
+            return UnitEdgeResult(status="temporarily_unavailable", reason="graph_index_disabled")
+        if not self.path.exists():
+            return UnitEdgeResult(status="warming")
+        conn = self._open_read_snapshot()
+        if conn is None:
+            return UnitEdgeResult(status="warming")
+        try:
+            view = GraphView(
+                self.vault_root, conn, keep=keep, admitted=allowed_paths, resolver=resolver,
+                reads_placeholders=False,
+            )
+            meaning = _relation_meaning(view, anchor=None, registry_scope=None)
+            if meaning is None:
+                return UnitEdgeResult(
+                    status="temporarily_unavailable", reason="registry_unavailable"
+                )
+            instance, registry = meaning
+            plan = traversal_profiles.relation_query_plan(
+                registry, requested_keys, instance_id=instance
+            )
+            if not plan.exact_keys:
+                return UnitEdgeResult(status="available")
+            candidates = _relation_candidates(conn, view, plan, registry, pages=pages)
+            rederived = view.changed_sources() if keep is not None else set()
+            if rederived:
+                candidates = [row for row in candidates if row[2][0] not in rederived]
+                for page in sorted(rederived):
+                    for index, authored in enumerate(view.authored_edges(page) or ()):
+                        src_path = view.node_path(str(authored["src_key"]))
+                        dst_path = view.node_path(str(authored["dst_key"]))
+                        if src_path is None or dst_path is None:
+                            continue
+                        if pages is not None and src_path not in pages and dst_path not in pages:
+                            continue
+                        candidates.append((src_path, dst_path, (page, index), authored))
+            rows = _matched_rows(view, candidates, plan)
+        except sqlite3.Error:
+            return UnitEdgeResult(status="warming")
+        finally:
+            conn.close()
+
+        edges: dict[UnitEdge, None] = {}
+        for src_path, dst_path, relation_type, _via, _key, _symmetric, edge in rows:
+            if relation_type is None or not _path_allowed(src_path) or not _path_allowed(dst_path):
+                continue
+            src_key, dst_key = str(edge["src_key"]), str(edge["dst_key"])
+            source_unit = None if src_key == _file_key(src_path) else src_key
+            target_unit = None if dst_key == _file_key(dst_path) else dst_key
+            if src_key == dst_key or (
+                src_path == dst_path and (source_unit is None) != (target_unit is None)
+            ):
+                continue
+            parent = edge.get("parent_relation")
+            edges[UnitEdge(
+                src_path, source_unit, dst_path, target_unit, relation_type,
+                str(parent) if parent else None,
+            )] = None
+        return UnitEdgeResult(status="available", edges=tuple(edges))
 
     def dependency_sources_for_bare_name(self, name: str) -> DependencySourcesResult:
         """Pages whose body links this bare (unfoldered) name, via the raw
@@ -10131,17 +10295,28 @@ def _relation_candidates(
     view: GraphView,
     plan: traversal_profiles.RelationQueryPlan,
     registry: relation_registry.RelationRegistry,
+    *,
+    pages: Collection[str] | None = None,
 ) -> list[_RelationCandidate]:
     """Stored edges that could match `plan` under some authoring page's own meaning.
 
     Core rows match by indexed relation columns; candidate rows by indexed raw
-    label. `_matched_rows` interprets each one before it is ranked.
+    label. `_matched_rows` interprets each one before it is ranked. `pages`, when
+    given, keeps only the edges with an end on one of those pages.
     """
     select = (
         f"SELECT s.path, d.path, e.rowid, {EDGE_COLUMNS} FROM graph_edges e "
         "JOIN graph_nodes s ON s.node_key = e.src_key "
         "JOIN graph_nodes d ON d.node_key = e.dst_key "
     )
+    near = ""
+    near_params: list[str] = []
+    if pages is not None:
+        if not pages:
+            return []
+        page_marks = ",".join("?" for _ in pages)
+        near = f" AND (s.path IN ({page_marks}) OR d.path IN ({page_marks}))"
+        near_params = [*sorted(pages), *sorted(pages)]
     branches: list[str] = []
     params: list[str] = []
     for match_keys, column in (
@@ -10150,8 +10325,10 @@ def _relation_candidates(
         (plan.parent_keys, "parent_relation"),
     ):
         if match_keys:
-            branches.append(f"{select}WHERE e.{column} IN ({','.join('?' for _ in match_keys)})")
-            params.extend(sorted(match_keys))
+            branches.append(
+                f"{select}WHERE e.{column} IN ({','.join('?' for _ in match_keys)}){near}"
+            )
+            params.extend((*sorted(match_keys), *near_params))
     admitted = view.interpretations.admitted_instances()
     labels = sorted(_relation_labels(
         plan, registry,
@@ -10160,9 +10337,9 @@ def _relation_candidates(
     if labels:
         marks = ",".join("?" for _ in labels)
         branches.append(
-            f"{select}WHERE e.registry_status = ? AND e.raw_relation IN ({marks})"
+            f"{select}WHERE e.registry_status = ? AND e.raw_relation IN ({marks}){near}"
         )
-        params.extend((CANDIDATE_STATUS, *labels))
+        params.extend((CANDIDATE_STATUS, *labels, *near_params))
     raw_rows = conn.execute(" UNION ".join(branches), params).fetchall() if branches else []
     return _stored_candidates(raw_rows)
 
@@ -10201,20 +10378,22 @@ def _stored_candidates(raw_rows: list[tuple[Any, ...]]) -> list[_RelationCandida
     return candidates
 
 
+_MatchedRow = tuple[str, str, str | None, str, str | None, bool, dict[str, Any]]
+
+
 def _matched_rows(
     view: GraphView,
     candidates: list[_RelationCandidate],
     plan: traversal_profiles.RelationQueryPlan | None,
-) -> list[tuple[str, str, str | None, str, str | None, bool]]:
+) -> list[_MatchedRow]:
     """Interpret each candidate with its authoring page's meaning, then match and order.
 
     Rows are (source page, target page, relation type, matched via, matched
-    key, symmetric), in match priority, then authoring page, then the edge's
-    place in that page. A candidate no page emits never takes a match slot.
+    key, symmetric, interpreted edge), in match priority, then authoring page,
+    then the edge's place in that page. A candidate no page emits never takes a
+    match slot.
     """
-    matched: list[
-        tuple[int, tuple[str, int], tuple[str, str, str | None, str, str | None, bool]]
-    ] = []
+    matched: list[tuple[int, tuple[str, int], _MatchedRow]] = []
     view.prefetch(
         str(path)
         for src_path, dst_path, (source_path, _place), _edge in candidates
@@ -10233,7 +10412,10 @@ def _matched_rows(
             matched.append((
                 0,
                 position,
-                (src_path, dst_path, relation_type, "relation_type", relation_type, symmetric),
+                (
+                    src_path, dst_path, relation_type, "relation_type", relation_type,
+                    symmetric, edge,
+                ),
             ))
             continue
         instance = str((edge.get("metadata") or {}).get("registry_instance") or "core")
@@ -10247,7 +10429,7 @@ def _matched_rows(
         else:
             priority, via, key = 2, "parent_relation", parent
         matched.append(
-            (priority, position, (src_path, dst_path, relation_type, via, key, symmetric))
+            (priority, position, (src_path, dst_path, relation_type, via, key, symmetric, edge))
         )
     matched.sort(key=lambda item: (item[0], item[1]))
     return [row for _priority, _position, row in matched]
@@ -12182,6 +12364,11 @@ def _candidate_key(rel_path: str, occurrence_key: str, form: str) -> str:
     return f"{'block' if form == 'rich' else 'unit'}:{_hash(rel_path + chr(10) + occurrence_key)}"
 
 
+def unit_node_key(rel_path: str, occurrence_key: str, form: str) -> str:
+    """The graph node key of one unit occurrence: what `UnitEdge` names a unit end by."""
+    return _candidate_key(rel_path, occurrence_key, form)
+
+
 def _unit_candidate_key(rel_path: str, unit: semantic_units.SemanticUnit) -> str:
     key = semantic_units.occurrence_key(unit.form, unit.span, unit.source_hash)
     return _candidate_key(rel_path, key, unit.form)
@@ -13434,7 +13621,7 @@ def _link_candidates(resolver: vault_module.WikilinkResolver, raw_target: str) -
     }
     if "/" not in cleaned:
         found.update(resolver.stems.get(cleaned, ()))
-        found.update(resolver.titles.get(cleaned.lower(), ()))
+        found.update(resolver.titles.get(vault_module.title_key(cleaned), ()))
     return {f"{candidate}.md" for candidate in found}
 
 

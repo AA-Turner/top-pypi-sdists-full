@@ -9,6 +9,7 @@ from airbyte_ops_mcp.regression_tests.ci_output import (
     command_result_succeeded,
     config_error_streams,
     could_not_test,
+    describe_exercised_partial,
     describe_masking,
     evaluate_comparison_outcome,
     generate_action_test_comparison_report,
@@ -22,6 +23,30 @@ from airbyte_ops_mcp.regression_tests.ci_output import (
     undefined_streams,
 )
 from airbyte_ops_mcp.regression_tests.models import StreamError
+
+
+@pytest.mark.parametrize(
+    ("streams", "reason", "expected"),
+    [
+        (
+            ("a", "b"),
+            "cap",
+            "Exercised (partial): 2 new stream(s) emitted records before the read stopped (cap): a, b",
+        ),
+        (
+            ("a",),
+            "timeout",
+            "Exercised (partial): 1 new stream(s) emitted records before the read stopped (timeout): a",
+        ),
+        (
+            None,
+            None,
+            "Exercised (partial): New streams emitted records before the read stopped",
+        ),
+    ],
+)
+def test_describe_exercised_partial(streams, reason, expected):
+    assert describe_exercised_partial(streams, reason) == expected
 
 
 def _expected(

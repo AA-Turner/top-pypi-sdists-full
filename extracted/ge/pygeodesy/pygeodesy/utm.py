@@ -63,7 +63,7 @@ from math import asinh, atanh, cos, cosh, degrees, fabs, radians, \
 # import operator as _operator  # from .fmath
 
 __all__ = _ALL_LAZY.utm
-__version__ = '24.11.26'
+__version__ = '26.10.30'
 
 _Bands = 'CDEFGHJKLMNPQRSTUVWXX'  # UTM latitude bands C..X (no
 # I|O) 8° each, covering 80°S to 84°N and X repeated for 80-84°N
@@ -345,13 +345,13 @@ class Utm(UtmUpsBase):
         T =  sy / H  # τʹ == τ0
         p = _0_0  # previous d
         e = _0_0001 * eps
-        for T, i, d in E._es_tauf3(T, T):  # 4-5 trips
+        for T, i, d in E._es_Taus._tauf3(T, T):  # 4-5 trips
             # d may toggle on +/-1.12e-16 or +/-4.47e-16,
-            # see the references at C{Ellipsoid.es_tauf}
+            # see the references at C{Ellipsoid._es_Taus.tauf}
             if fabs(d) < eps or fabs(d + p) < e:
                 break
             p = d
-        else:
+        else:  # PYCHOK no cover
             t = unstr(self.toLatLon, eps=eps, unfalse=unfalse)
             raise self._Error(Fmt.no_convergence(d, eps), txt=t)
 
@@ -733,7 +733,7 @@ def utmZoneBand5(lat, lon, cmoff=False, **name):
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

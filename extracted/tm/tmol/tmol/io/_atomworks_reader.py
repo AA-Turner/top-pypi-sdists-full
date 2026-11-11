@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
-from biotite.structure.io.pdb.hybrid36 import decode_hybrid36
+from biotite.rust.structure.io.pdb import PDBFile as RawPDBFile, decode_hybrid36
 import numpy as np
 from rdkit import Chem
 
@@ -31,7 +31,7 @@ from atomworks.io.utils.ccd import (
 from atomworks.io.utils.io_utils import get_structure, infer_pdb_file_type, read_any
 from atomworks.io.utils.link_chemistry import infer_link_order
 
-from tmol.io._alternates import one_residue_per_site, pdb_lines_with_one_alternate
+from tmol.io._alternates import _one_residue_per_site, _pdb_lines_with_one_alternate
 
 _AUTHOR_FIELDS = {
     "atom_name": "auth_atom_id",
@@ -42,7 +42,7 @@ _AUTHOR_FIELDS = {
 }
 _FIELDS = [
     *_AUTHOR_FIELDS.values(),
-    "label_entity_id",
+    "entity_id",
     "pdbx_formal_charge",
     "partial_charge",
 ]
@@ -55,7 +55,10 @@ def _pdb_declared_pairs(array, path, model):
     """CONECT/LINK endpoints present in the selected conformer, without inference."""
     serial = {int(value): i for i, value in enumerate(array.atom_id)}
     file = read_any(path)
-    authored = file.get_structure(model=model, altloc="all", extra_fields=["atom_id"])
+    # Read identities without the Python wrapper's unnecessary element inference.
+    authored = RawPDBFile.get_structure(
+        file, model=model, altloc="all", extra_fields=["atom_id"]
+    )
     keys = zip(
         authored.chain_id,
         authored.res_id.astype(str),
@@ -281,8 +284,8 @@ def _with_pdb_author_chains(array, path, model):
 
     The loader moves a chain's HETATM residues to a new chain (5EMA SEP as PDB).
     """
-    authored = read_any(path).get_structure(
-        model=model, altloc="first", extra_fields=["atom_id"]
+    authored = RawPDBFile.get_structure(
+        read_any(path), model=model, altloc="first", extra_fields=["atom_id"]
     )
     chain_of = dict(zip(authored.atom_id.tolist(), authored.chain_id.tolist()))
     array.set_annotation(
@@ -392,7 +395,7 @@ def _one_disulfide_per_sulfur(array):
     return struc.BondList(len(array), np.delete(bonds, rows[dropped], axis=0))
 
 
-def renumbered_decreasing_chains(array):
+def _renumbered_decreasing_chains(array):
     """(res_id, ins_code, chains): chains whose numbering decreases renumbered 1..N.
 
     Their insertion codes are cleared; other chains' are load-bearing (antibody CDRs).
@@ -420,7 +423,7 @@ def _renumber_decreasing_author_ids(array):
 
     AtomWorks refuses such a chain (5XNL numbers its waters backwards).
     """
-    res_id, ins_code, repaired = renumbered_decreasing_chains(array)
+    res_id, ins_code, repaired = _renumbered_decreasing_chains(array)
     if not repaired:
         return array
     warnings.warn(
@@ -523,10 +526,10 @@ def _mark_stated_polymer_ports(array, declared_pairs):
     Missing-backbone fragments need their own chemical definition; an amide cap
     named as an incomplete amino acid must not become an unconnected free amine.
     """
-    from tmol.io._input_termini import EXPLICIT_TERMINI, with_stated_termini
+    from tmol.io._input_termini import EXPLICIT_TERMINI, _with_stated_termini
     from tmol.io._pose_stack_from_biotite import (
         _paramdb_for_biotite,
-        canonical_ordering_for_biotite,
+        _canonical_ordering_for_biotite,
     )
 
     residue = struc.get_all_residue_positions(array)
@@ -539,10 +542,10 @@ def _mark_stated_polymer_ports(array, declared_pairs):
         ],
         dtype=bool,
     )
-    co = canonical_ordering_for_biotite()
+    co = _canonical_ordering_for_biotite()
     candidate = array.copy()
     candidate.bonds = struc.BondList(len(array), bonds[~inferred])
-    marked = with_stated_termini(candidate, _paramdb_for_biotite().chemical, co)
+    marked = _with_stated_termini(candidate, _paramdb_for_biotite().chemical, co)
     if EXPLICIT_TERMINI not in marked.get_annotation_categories():
         return array
     flags = marked.get_annotation(EXPLICIT_TERMINI)
@@ -576,9 +579,9 @@ def _read_pdb(path, model):
     (3SVU A:63 NRQ), or bonded at its ends (caps: 1COI A:0 ACE, A:30 NH2), rejoin it.
     PDB files may list the rest out of order (1HZY A:369 FMT after A:401 ZN).
     """
-    from tmol.ligand._mol2_names import disambiguated_atom_names
+    from tmol.ligand._mol2_names import _disambiguated_atom_names
 
-    lines = pdb_lines_with_one_alternate(read_any(path).lines, model)
+    lines = _pdb_lines_with_one_alternate(read_any(path).lines, model)
     text = "\n".join(lines) + "\n"
     array, _ = load_pdb(io.StringIO(text), model=model)
     if array.coord.ndim == 3:
@@ -618,7 +621,7 @@ def _read_pdb(path, model):
     for begin, end in zip(starts[:-1], starts[1:]):
         names = array.atom_name[begin:end]
         if len(set(names)) < len(names):
-            array.atom_name[begin:end] = disambiguated_atom_names(names.tolist())
+            array.atom_name[begin:end] = _disambiguated_atom_names(names.tolist())
     # PDBbind 1GPK pocket: a blank chain ID is valid in a PDB but names no chain
     blank = array.auth_asym_id == ""
     if blank.any():
@@ -740,9 +743,9 @@ def _own_components(array, names=None):
             if fits:
                 # 3B3S: a free leucine beside the chain's is the CCD's LEU
                 continue
-            from tmol.ligand._preparation import unused_ligand_name
+            from tmol.ligand._preparation import _unused_ligand_name
 
-            name = unused_ligand_name(set(array.res_name.tolist()))
+            name = _unused_ligand_name(set(array.res_name.tolist()))
             array.res_name[mine] = name
             template.res_name[:] = name
         templates[name] = template
@@ -804,7 +807,7 @@ def _parse_repairing_author_numbering(path, config, model, assembly_id):
         return {"asym_unit": atoms, "cif_block": block}, templates
 
 
-def read_structure(path, *, model=1, assembly_id=None):
+def _read_structure(path, *, model=1, assembly_id=None):
     """Read PDB/CIF atoms and available bonds, supplemented from the CCD."""
     if model is None or model < 1:
         raise ValueError("The structure reader requires a positive model number")
@@ -890,7 +893,7 @@ def read_structure(path, *, model=1, assembly_id=None):
     if assembly_id is not None:
         array.set_annotation("chain_id", array.chain_iid.copy())
     # Separate label chains may occupy one author residue site (3BLN MPD/MRD).
-    array = one_residue_per_site(array)
+    array = _one_residue_per_site(array)
     for target, source in _AUTHOR_FIELDS.items():
         # Assembly expansion owns chain_id: it distinguishes symmetry copies
         # that share an author chain. Nothing else does, so a file without
@@ -912,7 +915,7 @@ def read_structure(path, *, model=1, assembly_id=None):
         "atom_name",
         "element",
         "charge",
-        "label_entity_id",
+        "entity_id",
         "pdbx_formal_charge",
         "partial_charge",
         "is_polymer",

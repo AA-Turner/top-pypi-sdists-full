@@ -74,6 +74,8 @@ Model = Union[
         "gemini-3.8-flash",
         # Gemini 4 Argon - Our new frontier model, built to solve the hardest problems with depth and precision across real-world software engineering and knowledge work.
         "gemini-4-argon",
+        # Gemini 4 Carbon - Our most capable reasoning model, built for sustained agentic coding, multimodal knowledge work, scientific discovery, and cybersecurity defense.
+        "gemini-4-carbon",
         # Gemini 3.8 Flash TTS - Flagship TTS model for Voice Design and dual-speaker screenplay control. Prompt custom vocal personas, direct line-by-line delivery, and add vocal bursts.
         "gemini-3.8-flash-tts",
         # Gemini 3.8 Flash Lite TTS - High-speed and cost-efficient, ideal for rapid dubbing, media localization, and high-throughput voice agents. Direct replacement for gemini-3.1-flash-tts-preview.
@@ -90,6 +92,8 @@ Model = Union[
         "gemini-robotics-er-2-preview",
         # Our flagship music generation model, optimized for full-length songs with complex structural coherence.
         "lyria-3.5",
+        # Gemini Omni 1.2 Flash - Our latest multimodal model for fast, conversational video generation, editing, and cinematic control.
+        "gemini-omni-1.2-flash",
         # Our high-performance multimodal model designed for fast, conversational video generation, editing, and cinematic control.
         "gemini-omni-1.1-flash",
         # Preview release of our multimodal model for conversational video generation, editing, and cinematic control.

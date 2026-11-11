@@ -31,6 +31,7 @@ from .ApiImpl import (
     ClimateRequestOptions,
     ScheduleChargingClimateRequestOptions,
     WindowRequestOptions,
+    _fill_schedule_options_from_vehicle,
 )
 from .cci_auth import CciAuthMixin
 
@@ -1988,12 +1989,18 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
                     DOMAIN,
                     lock_raw,
                 )
-        vehicle.ev_battery_is_plugged_in = (
-            True
-            if vehicle.ev_connector_fastening_state
-            is CONNECTOR_FASTENING_STATE.CONNECTED
-            else None
-        )
+        if vehicle.ev_connector_fastening_state is CONNECTOR_FASTENING_STATE.CONNECTED:
+            vehicle.ev_battery_is_plugged_in = True
+        elif (
+            vehicle.ev_connector_fastening_state
+            is CONNECTOR_FASTENING_STATE.DISCONNECTED
+            and vehicle.ev_connector_lock_state is CHARGING_CONNECTOR_LOCK_STATE.IDLE
+        ):
+            # Fastening 0 means the cable is out only when the connector
+            # lock reports idle; locked-idle plugs read 0 too (#2099).
+            vehicle.ev_battery_is_plugged_in = False
+        else:
+            vehicle.ev_battery_is_plugged_in = None
         charging_door_state = get_child_value(state, "Green.ChargingDoor.State")
         if charging_door_state in [0, 2]:
             vehicle.ev_charge_port_door_is_open = False
@@ -2499,7 +2506,14 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
         if total_regen is not None:
             vehicle.total_power_regenerated = float(total_regen)
 
-        if vehicle._ev_estimated_current_charge_duration is not None:
+        # Charging.State 0 or a disconnected connector block a stale
+        # RemainTime (kia_uvo #2094).
+        if get_child_value(state, "Green.ChargingInformation.Charging.State") == 0 or (
+            get_child_value(state, "Green.ChargingInformation.ConnectorFastening.State")
+            == 0
+        ):
+            vehicle.ev_battery_is_charging = False
+        elif vehicle._ev_estimated_current_charge_duration is not None:
             if vehicle._ev_estimated_current_charge_duration == 0:
                 vehicle.ev_battery_is_charging = False
             elif vehicle._ev_estimated_current_charge_duration > 0:
@@ -3221,53 +3235,42 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
         vehicle: Vehicle,
         options: ScheduleChargingClimateRequestOptions,
     ) -> str:
-        body = self._build_reservation_body(options)
+        body = self._build_reservation_body(vehicle, options)
         return self._gspa_control_command(
             token, vehicle, "reservation-charge-hvac", body
         )
 
     def _build_reservation_body(
         self,
+        vehicle: Vehicle,
         options: ScheduleChargingClimateRequestOptions,
     ) -> dict[str, Any]:
-        """Build the reservation-charge-hvac body from options."""
+        """Build the reservation-charge-hvac body from options.
 
-        def set_default_departure_options(
-            departure_options: ScheduleChargingClimateRequestOptions.DepartureOptions,
-        ) -> None:
-            if departure_options.enabled is None:
-                departure_options.enabled = False
-            if departure_options.days is None:
-                departure_options.days = [0]
-            if departure_options.time is None:
-                departure_options.time = dt.time()
-
-        if options.first_departure is None:
-            options.first_departure = (
-                ScheduleChargingClimateRequestOptions.DepartureOptions()
-            )
-        if options.second_departure is None:
-            options.second_departure = (
-                ScheduleChargingClimateRequestOptions.DepartureOptions()
-            )
-
-        set_default_departure_options(options.first_departure)
-        set_default_departure_options(options.second_departure)
-        departures = [options.first_departure, options.second_departure]
-        departure_times = [d.time or dt.time() for d in departures]
-
-        if options.off_peak_start_time is None:
-            options.off_peak_start_time = dt.time()
-        if options.off_peak_end_time is None:
-            options.off_peak_end_time = options.off_peak_start_time
-        if options.off_peak_charge_only_enabled is None:
-            options.off_peak_charge_only_enabled = False
+        The app always writes the complete schedule from its read state, so
+        None option fields are filled from the vehicle (leave-unchanged
+        contract, Hyundai-Kia-Connect/kia_uvo#1764 partial updates).
+        """
+        _fill_schedule_options_from_vehicle(
+            options, vehicle, scopes=("charge", "climate")
+        )
+        first_departure = options.first_departure
+        second_departure = options.second_departure
+        off_peak_start = options.off_peak_start_time
+        off_peak_end = options.off_peak_end_time
+        assert first_departure is not None
+        assert second_departure is not None
+        assert off_peak_start is not None
+        assert off_peak_end is not None
         if options.temperature is None:
             options.temperature = 21.0
         if options.temperature_unit is None:
             options.temperature_unit = 0
         if options.defrost is None:
             options.defrost = False
+
+        departures = [first_departure, second_departure]
+        departure_times = [d.time or dt.time() for d in departures]
 
         temperature: float = options.temperature
         if options.temperature_unit == 0:
@@ -3306,16 +3309,12 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
             "offPeakPowerInfo": {
                 "offPeakPowerTime1": {
                     "endtime": {
-                        "timeSection": (
-                            1 if options.off_peak_end_time >= dt.time(12, 0) else 0
-                        ),
-                        "time": options.off_peak_end_time.strftime("%I%M"),
+                        "timeSection": (1 if off_peak_end >= dt.time(12, 0) else 0),
+                        "time": off_peak_end.strftime("%I%M"),
                     },
                     "starttime": {
-                        "timeSection": (
-                            1 if options.off_peak_start_time >= dt.time(12, 0) else 0
-                        ),
-                        "time": options.off_peak_start_time.strftime("%I%M"),
+                        "timeSection": (1 if off_peak_start >= dt.time(12, 0) else 0),
+                        "time": off_peak_start.strftime("%I%M"),
                     },
                 },
                 "offPeakPowerFlag": 2 if options.off_peak_charge_only_enabled else 1,

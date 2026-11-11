@@ -8,7 +8,6 @@ from typing import Any
 import click
 import yaml
 from linkml_runtime import SchemaView
-from linkml_runtime.dumpers import yaml_dumper
 from more_itertools import chunked
 
 from linkml_map.compiler.markdown_compiler import MarkdownCompiler
@@ -89,8 +88,9 @@ def main(verbose: int, quiet: bool) -> None:
     show_default=True,
     help=(
         "Raise an error when an expression references a name that is not a slot "
-        "on the source class. Recommended for real data transforms; the default "
-        "warns and returns None for backward compatibility."
+        "on the source class, or a value for an enum-ranged target slot matches no "
+        "permissible value, or more than one. Recommended for real data transforms; "
+        "the default warns and carries on for backward compatibility."
     ),
 )
 @click.option(
@@ -330,6 +330,27 @@ def _filter_spec_to_entity(tr: ObjectTransformer, entity: str | None) -> None:
     tr._derived_specification = None
 
 
+def _require_identifiers(tr: ObjectTransformer, continue_on_error: bool) -> int:
+    """Check that every class derivation derives or mints its target identifier.
+
+    Runs before any output is opened.  Normally a problem refuses the run.  Under
+    ``--continue-on-error``, whose purpose is to surface every error even at the cost of
+    bad output, each problem is reported once and the records are emitted without ids.
+
+    :param tr: The transformer, after ``--entity`` filtering.
+    :param continue_on_error: Whether the run reports errors instead of stopping.
+    :return: The number of problems reported, to count toward the exit status.
+    :raises click.ClickException: Listing every problem, unless continuing on error.
+    """
+    problems = tr.missing_identifiers()
+    if problems and not continue_on_error:
+        raise click.ClickException("\n".join(problems))
+    for problem in problems:
+        click.echo(f"  - {problem}", err=True)
+    tr.emit_without_identifiers = bool(problems)
+    return len(problems)
+
+
 def _emit_spec_to_file(tr: ObjectTransformer, emit_spec: str) -> None:
     """Write the resolved specification (after any --entity filtering) to a file."""
     from linkml_runtime.dumpers import yaml_dumper
@@ -362,6 +383,7 @@ def _map_data_single(
 
     _pre_flight_validate(tr, source_schema=schema, target_schema=target_schema)
     _filter_spec_to_entity(tr, entity)
+    identifier_errors = _require_identifiers(tr, continue_on_error)
     if emit_spec:
         _emit_spec_to_file(tr, emit_spec)
 
@@ -386,8 +408,11 @@ def _map_data_single(
         raise SystemExit(1) from err
     if output_format in COLUMNAR_FORMATS:
         _dump_columnar(tr_obj, output_format, output, table_name)
-        return
-    dump_output(tr_obj, output_format, output)
+    else:
+        dump_output(tr_obj, output_format, output)
+    if identifier_errors:
+        click.echo(f"\n{identifier_errors} transformation error(s)", err=True)
+        raise SystemExit(1)
 
 
 #: Formats whose artifact is a binary file built by DuckDB, so they cannot go to stdout
@@ -473,15 +498,16 @@ def _map_data_streaming(
 
     _pre_flight_validate(tr, source_schema=schema, target_schema=target_schema)
     _filter_spec_to_entity(tr, entity)
+    identifier_errors = _require_identifiers(tr, continue_on_error)
     if emit_spec:
         _emit_spec_to_file(tr, emit_spec)
 
     # Initialize data loader (schema enables type-preserving coercion for TSV/CSV)
-    data_loader = DataLoader(input_path, schemaview=tr.source_schemaview)
+    data_loader = DataLoader(input_path, schemaview=tr.source_schemaview, identifier=source_type)
 
     # When continue-on-error is enabled, report each row error as it occurs so
     # nothing is lost if a later write crashes; a count drives the exit code.
-    error_count = 0
+    error_count = identifier_errors
 
     def report_error(err: TransformationError) -> None:
         nonlocal error_count
@@ -881,6 +907,28 @@ def _validate_spec_merged(
             click.echo(f"Wrote resolved spec to {emit_spec}")
 
 
+def _strip_empty(obj: Any) -> Any:
+    """Recursively drop ``None``, empty lists and empty dicts, keeping the outer container.
+
+    Matches what linkml's ``yaml_dumper`` removes from plain data, without its conversion
+    of decimals to floats.  A stopgap until one output policy covers every writer (#354).
+
+    >>> _strip_empty({"a": [], "b": {"c": None}, "d": [{}, 1]})
+    {'d': [1]}
+    """
+    if isinstance(obj, dict):
+        stripped = ((k, _strip_empty(v)) for k, v in obj.items())
+        return {k: v for k, v in stripped if not _is_empty(v)}
+    if isinstance(obj, list):
+        return [v for v in map(_strip_empty, obj) if not _is_empty(v)]
+    return obj
+
+
+def _is_empty(value: Any) -> bool:
+    """Whether *value* is ``None`` or an empty list or dict."""
+    return value is None or (isinstance(value, dict | list) and not value)
+
+
 def dump_output(
     output_data: dict[str, Any] | list[Any] | str,
     output_format: str | None = None,
@@ -896,7 +944,7 @@ def dump_output(
     :param file_path: path to an output file, defaults to None
     :type file_path: Optional[str], optional
     """
-    import json
+    from decimal import Decimal
 
     from flatten_dict import flatten
     from flatten_dict.reducers import make_reducer
@@ -905,18 +953,24 @@ def dump_output(
         msg = "No output to be printed"
         raise ValueError(msg)
 
+    from linkml_map.utils.serialization import dump_yaml, dumps_json, format_decimal
     from linkml_map.writers.output_streams import _strip_nulls
 
     text_dump = output_data
     if output_format == "yaml":
-        text_dump = yaml_dumper.dumps(output_data)
+        if isinstance(output_data, dict | list):
+            text_dump = dump_yaml(_strip_empty(output_data), sort_keys=False)
+        else:
+            from linkml_runtime.dumpers import yaml_dumper
+
+            text_dump = yaml_dumper.dumps(output_data)
     elif output_format == "json":
-        text_dump = json.dumps(_strip_nulls(output_data), indent=2, ensure_ascii=False) + "\n"
+        text_dump = dumps_json(_strip_nulls(output_data), indent=2) + "\n"
     elif output_format == "jsonl":
         if isinstance(output_data, list):
-            text_dump = "\n".join(json.dumps(_strip_nulls(item), ensure_ascii=False) for item in output_data) + "\n"
+            text_dump = "\n".join(dumps_json(_strip_nulls(item)) for item in output_data) + "\n"
         else:
-            text_dump = json.dumps(_strip_nulls(output_data), ensure_ascii=False) + "\n"
+            text_dump = dumps_json(_strip_nulls(output_data)) + "\n"
     elif output_format in ("tsv", "csv"):
         separator = "\t" if output_format == "tsv" else ","
         reducer = make_reducer("__")
@@ -932,7 +986,8 @@ def dump_output(
                         headers.append(k)
             lines = [separator.join(headers)]
             for row in rows:
-                lines.append(separator.join(str(row.get(h, "")) for h in headers))
+                cells = (row.get(h, "") for h in headers)
+                lines.append(separator.join(format_decimal(c) if isinstance(c, Decimal) else str(c) for c in cells))
             text_dump = "\n".join(lines) + "\n"
         else:
             text_dump = ""

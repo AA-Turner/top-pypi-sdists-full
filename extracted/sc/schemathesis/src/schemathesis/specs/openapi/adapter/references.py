@@ -62,13 +62,13 @@ def resolve_example_references(definition: Mapping[str, Any], resolver: Resolver
     for keyword in ("examples", "x-examples"):
         container = definition.get(keyword)
         if isinstance(container, dict):
-            updated[keyword] = {name: _resolve_example(example, resolver) for name, example in container.items()}
+            updated[keyword] = {name: resolve_example(example, resolver) for name, example in container.items()}
         elif isinstance(container, list):
-            updated[keyword] = [_resolve_example(example, resolver) for example in container]
+            updated[keyword] = [resolve_example(example, resolver) for example in container]
     return updated
 
 
-def _resolve_example(example: object, resolver: Resolver) -> object:
+def resolve_example(example: object, resolver: Resolver) -> object:
     seen: set[str] = set()
     while isinstance(example, dict) and isinstance(reference := example.get("$ref"), str):
         try:
@@ -95,6 +95,9 @@ def maybe_resolve_with_resolver(
 ) -> tuple[Resolver, Mapping[str, Any]]:
     reference = item.get("$ref")
     if reference is None:
+        # Only a schema naming itself changes the resolver; most don't, and this runs for every schema.
+        if "$id" in item or "id" in item:
+            return resolver.enter(cast(JsonSchemaObject, item)), item
         return resolver, item
 
     seen: set[str] = set()
@@ -104,6 +107,8 @@ def maybe_resolve_with_resolver(
     while True:
         reference = current_item.get("$ref")
         if reference is None:
+            if "$id" in current_item or "id" in current_item:
+                return current_resolver.enter(cast(JsonSchemaObject, current_item)), current_item
             return current_resolver, current_item
 
         current_resolver = current_resolver.enter(cast(JsonSchemaObject, current_item))

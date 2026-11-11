@@ -5,14 +5,8 @@ import schemathesis
 import schemathesis.openapi
 
 
-@pytest.fixture(autouse=True)
-def unregister_global():
-    yield
-    schemathesis.auths.unregister()
-
-
 @pytest.fixture
-def auth_operation(ctx, cli, app_runner):
+def auth_operation(ctx, app_runner):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/data": {

@@ -210,6 +210,7 @@ def test_reproduction_flags_override_command_failures(success):
         reproduction=reproduction,
     )
     assert model.verdict_flags() == {
+        "exercised_partial": False,
         "success": success,
         "regression_detected": not success,
         "both_failed": False,

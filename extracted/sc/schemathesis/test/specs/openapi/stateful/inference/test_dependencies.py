@@ -3413,6 +3413,722 @@ def test_resource_naming_its_own_document_keeps_fields_and_link(ctx, order):
     ]
 
 
+ORDERS_IN_OWN_DOCUMENT = {
+    "$id": "https://example.com/orders",
+    "$defs": {"Order": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}},
+    "type": "array",
+    "items": {"$ref": "#/$defs/Order"},
+}
+
+
+def orders_page(orders):
+    return {"type": "object", "properties": {"data": orders, "total": {"type": "integer"}}}
+
+
+@pytest.mark.parametrize(
+    ("orders", "pointer"),
+    [
+        (ORDERS_IN_OWN_DOCUMENT, "/*/id"),
+        (component_ref("OrderList"), "/*/id"),
+        ({"allOf": [ORDERS_IN_OWN_DOCUMENT]}, "/*/id"),
+        ({"allOf": [component_ref("OrderList")]}, "/*/id"),
+        ({"oneOf": [ORDERS_IN_OWN_DOCUMENT, {"type": "null"}]}, "/*/id"),
+        ({"oneOf": [{"type": "array", "items": component_ref("Order")}, {"type": "null"}]}, "/*/id"),
+        ({"anyOf": [ORDERS_IN_OWN_DOCUMENT]}, "/*/id"),
+        ({"anyOf": [{"type": "array", "items": component_ref("Order")}]}, "/*/id"),
+        ({"type": "array", "items": component_ref("Order")}, "/*/id"),
+        (orders_page(ORDERS_IN_OWN_DOCUMENT), "/data/*/id"),
+        (orders_page(component_ref("OrderList")), "/data/*/id"),
+        (orders_page({"type": "array", "items": component_ref("Order")}), "/data/*/id"),
+    ],
+    ids=[
+        "inline",
+        "ref",
+        "all-of",
+        "all-of-ref",
+        "one-of",
+        "one-of-components",
+        "any-of",
+        "any-of-components",
+        "components",
+        "paginated-inline",
+        "paginated-ref",
+        "paginated-components",
+    ],
+)
+def test_list_items_defined_in_their_own_document_link_to_read(ctx, orders, pointer):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation("get", "/orders", "200", orders),
+            **operation("get", "/orders/{orderId}", "200", component_ref("Order"), parameters=[path_param("orderId")]),
+        },
+        version="3.1.0",
+        components={
+            "schemas": {
+                "Order": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]},
+                "OrderList": ORDERS_IN_OWN_DOCUMENT,
+            }
+        },
+    )
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1orders/get",
+            "200",
+            {
+                "operationRef": "#/paths/~1orders~1{orderId}/get",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"path.orderId": f"$response.body#{pointer}"},
+            },
+        ]
+    ]
+
+
+ORDER_IN_OTHER_FILE = ref("common.json#/components/schemas/Order")
+
+
+def read_order_link(pointer):
+    return {
+        "operationRef": "#/paths/~1orders~1{orderId}/get",
+        "x-schemathesis": {"is_inferred": True},
+        "parameters": {"path.orderId": f"$response.body#{pointer}"},
+    }
+
+
+@pytest.mark.parametrize(
+    ("method", "status", "response_schema", "pointer"),
+    [
+        ("post", "201", ORDER_IN_OTHER_FILE, "/id"),
+        (
+            "post",
+            "201",
+            {"type": "object", "properties": {"data": ORDER_IN_OTHER_FILE, "meta": {"type": "object"}}},
+            "/data/id",
+        ),
+        ("post", "201", {"type": "object", "properties": {"order": ORDER_IN_OTHER_FILE}}, "/order/id"),
+        ("get", "200", {"type": "array", "items": ORDER_IN_OTHER_FILE}, "/*/id"),
+        (
+            "get",
+            "200",
+            {
+                "type": "object",
+                "properties": {"data": {"type": "array", "items": ORDER_IN_OTHER_FILE}, "total": {"type": "integer"}},
+            },
+            "/data/*/id",
+        ),
+        (
+            "get",
+            "200",
+            {
+                "type": "object",
+                "properties": {"items": ref("common.json#/components/schemas/Orders"), "count": {"type": "integer"}},
+            },
+            "/items/*/id",
+        ),
+        (
+            "get",
+            "200",
+            {
+                "type": "object",
+                "properties": {
+                    "_embedded": {
+                        "type": "object",
+                        "properties": {"orders": {"type": "array", "items": ORDER_IN_OTHER_FILE}},
+                    },
+                    "_links": {"type": "object"},
+                },
+            },
+            "/_embedded/orders/*/id",
+        ),
+    ],
+    ids=["direct", "envelope", "external-tag", "array", "pagination", "pagination-referenced-list", "hal"],
+)
+def test_resource_in_other_file_referring_to_sibling_definition(ctx, method, status, response_schema, pointer):
+    ctx.makefile(
+        {
+            "components": {
+                "schemas": {
+                    "Order": {
+                        "allOf": [
+                            component_ref("OrderBase"),
+                            {"type": "object", "properties": {"total": {"type": "integer"}}},
+                        ]
+                    },
+                    "OrderBase": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]},
+                    "Orders": {"type": "array", "items": component_ref("Order")},
+                }
+            }
+        },
+        filename="common",
+    )
+    root = ctx.openapi.write_schema(
+        {
+            **operation(method, "/orders", status, response_schema),
+            **operation("get", "/orders/{orderId}", "200", ORDER_IN_OTHER_FILE, parameters=[path_param("orderId")]),
+        }
+    )
+    assert inferred_links(analyze(schemathesis.openapi.from_path(str(root)))) == [
+        [f"#/paths/~1orders/{method}", status, read_order_link(pointer)]
+    ]
+
+
+ADDRESS = {"type": "object", "properties": {"street": {"type": "string"}}}
+
+
+@pytest.mark.parametrize(
+    ("address", "common_schemas", "root_schemas"),
+    [
+        (component_ref("Address"), {"Address": ADDRESS}, {}),
+        (
+            ref("schema.json#/components/schemas/Addresses"),
+            {},
+            {"Addresses": {"type": "array", "items": component_ref("Address")}, "Address": ADDRESS},
+        ),
+    ],
+    ids=["object", "array"],
+)
+def test_nested_field_in_other_file_referring_to_sibling_definition(ctx, address, common_schemas, root_schemas):
+    customer = {"type": "object", "properties": {"address": address}}
+    ctx.makefile({"components": {"schemas": {"Customer": customer, **common_schemas}}}, filename="common")
+    order = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "customer": ref("common.json#/components/schemas/Customer")},
+    }
+    root = ctx.openapi.write_schema(
+        {
+            **operation("post", "/orders", "201", component_ref("Order")),
+            **operation("get", "/orders/{orderId}", "200", component_ref("Order"), parameters=[path_param("orderId")]),
+        },
+        components={"schemas": {"Order": order, **root_schemas}},
+    )
+    assert inferred_links(analyze(schemathesis.openapi.from_path(str(root)))) == [
+        ["#/paths/~1orders/post", "201", read_order_link("/id")]
+    ]
+
+
+@pytest.mark.parametrize("common_base", ["Base", "Core"], ids=["same-reference-text", "other-reference-text"])
+def test_inherited_fields_through_other_file_reusing_reference_text(ctx, common_base):
+    ctx.makefile(
+        {
+            "components": {
+                "schemas": {
+                    "Entity": {"allOf": [component_ref(common_base)]},
+                    common_base: {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]},
+                }
+            }
+        },
+        filename="common",
+    )
+    order = {"allOf": [component_ref("Base"), {"type": "object", "properties": {"total": {"type": "integer"}}}]}
+    root = ctx.openapi.write_schema(
+        {
+            "/orders": {
+                "post": response("201", component_ref("Order")),
+                "get": response("200", {"type": "array", "items": component_ref("Order")}),
+            },
+            **operation("get", "/orders/{orderId}", "200", component_ref("Order"), parameters=[path_param("orderId")]),
+        },
+        components={"schemas": {"Order": order, "Base": {"allOf": [ref("common.json#/components/schemas/Entity")]}}},
+    )
+    assert inferred_links(analyze(schemathesis.openapi.from_path(str(root)))) == [
+        ["#/paths/~1orders/post", "201", read_order_link("/id")],
+        ["#/paths/~1orders/get", "200", read_order_link("/*/id")],
+    ]
+
+
+def test_same_reference_text_in_another_file_names_a_different_schema(ctx):
+    base = {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}
+    order_list = {
+        "allOf": [{"type": "object", "properties": {"data": {"type": "array", "items": component_ref("Base")}}}]
+    }
+    ctx.makefile(
+        {
+            "components": {
+                "responses": {"Listed": response("200", component_ref("Order"))["responses"]["200"]},
+                "schemas": {"Order": order_list, "Base": base},
+            }
+        },
+        filename="common",
+    )
+    root = ctx.openapi.write_schema(
+        {
+            "/archive": {"get": {"responses": {"200": ref("common.json#/components/responses/Listed")}}},
+            **operation("post", "/orders", "201", component_ref("Order")),
+            **operation("get", "/orders/{orderId}", "200", component_ref("Order"), parameters=[path_param("orderId")]),
+        },
+        components={"schemas": {"Order": {"allOf": [component_ref("Base"), {"type": "object"}]}, "Base": base}},
+    )
+    assert inferred_links(analyze(schemathesis.openapi.from_path(str(root)))) == [
+        [
+            "#/paths/~1orders/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1orders~1{orderId}/get",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"path.orderId": "$response.body#/id"},
+            },
+        ]
+    ]
+
+
+@pytest.mark.parametrize(
+    "media_type",
+    [{"schema": ORDER_IN_OTHER_FILE}, ref("common.json#/components/mediaTypes/Order")],
+    ids=["schema-in-other-file", "media-type-in-other-file"],
+)
+def test_media_type_in_other_file_referring_to_sibling_definition(ctx, media_type):
+    ctx.makefile(
+        {
+            "components": {
+                "mediaTypes": {"Order": {"schema": component_ref("Order")}},
+                "schemas": {"Order": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}},
+            }
+        },
+        filename="common",
+    )
+    content = {"application/json": media_type}
+    root = ctx.openapi.write_schema(
+        {
+            "/orders": {"post": {"responses": {"201": {"description": "Created", "content": content}}}},
+            "/orders/{orderId}": {
+                "get": {
+                    "parameters": [path_param("orderId")],
+                    "responses": {"200": {"description": "OK", "content": content}},
+                }
+            },
+        },
+        version="3.2.0",
+    )
+    assert inferred_links(analyze(schemathesis.openapi.from_path(str(root)))) == [
+        ["#/paths/~1orders/post", "201", read_order_link("/id")]
+    ]
+
+
+def listed_in_operation(collection, keyword):
+    return ref(
+        f"#/paths/~1{collection}/get/responses/200/content/application~1json/schema/properties/{collection}/{keyword}"
+    )
+
+
+def read_purchase_link(method, pointer):
+    return {
+        "operationRef": f"#/paths/~1orders~1{{purchase_id}}/{method}",
+        "x-schemathesis": {"is_inferred": True},
+        "parameters": {"path.purchase_id": f"$response.body#{pointer}"},
+    }
+
+
+def warehouses_and_orders(listing, listed):
+    paths = {
+        f"/{collection}": {
+            "get": response("200", {"type": "object", "properties": {collection: listing(collection)}}),
+            "post": response("201", {"type": "object", "properties": {item: listed(collection)}}),
+        }
+        for collection, item in (("warehouses", "warehouse"), ("orders", "order"))
+    }
+    paths["/orders/{purchase_id}"] = {
+        "get": {
+            **response("200", {"type": "object", "properties": {"order": listed("orders")}}),
+            "parameters": [path_param("purchase_id", "integer")],
+        }
+    }
+    return paths
+
+
+def collection_item(collection):
+    field = {"warehouses": "city", "orders": "total"}[collection]
+    return {"type": "object", "properties": {"id": {"type": "integer"}, field: {"type": "string"}}}
+
+
+LIST_TO_PURCHASE = ["#/paths/~1orders/get", "200", read_purchase_link("get", "/orders/*/id")]
+CREATE_TO_PURCHASE = ["#/paths/~1orders/post", "201", read_purchase_link("get", "/order/id")]
+
+
+@pytest.mark.parametrize(
+    ("keyword", "listing"),
+    [
+        ("items", lambda item: {"type": "array", "items": item}),
+        ("additionalProperties", lambda item: {"type": "object", "additionalProperties": item}),
+        ("items/allOf/0", lambda item: {"type": "array", "items": {"allOf": [item]}}),
+        ("prefixItems/0", lambda item: {"type": "array", "prefixItems": [item]}),
+    ],
+    ids=["items", "map-values", "all-of-branch", "prefix-items"],
+)
+def test_references_to_items_of_different_collections_name_different_resources(ctx, keyword, listing):
+    paths = warehouses_and_orders(
+        lambda collection: listing(collection_item(collection)),
+        lambda collection: listed_in_operation(collection, keyword),
+    )
+    _, graph = analyze_dependencies(ctx, paths, version="3.1.0")
+    assert inferred_links(graph) == [CREATE_TO_PURCHASE]
+
+
+@pytest.mark.parametrize(
+    "location",
+    ["#/components/schemas/Purchase", "#/paths/~1catalog/get/responses/200/content/application~1json/schema"],
+    ids=["component", "operation"],
+)
+@pytest.mark.parametrize(
+    ("keyword", "shape"),
+    [("oneOf", {}), ("anyOf", {}), ("allOf", {}), ("prefixItems", {"type": "array"})],
+    ids=["one-of", "any-of", "all-of", "prefix-items"],
+)
+def test_references_to_sibling_subschemas_name_different_resources(ctx, location, keyword, shape):
+    positions = {"orders": 0, "warehouses": 1}
+
+    def sibling(collection):
+        return ref(f"{location}/{keyword}/{positions[collection]}")
+
+    paths = warehouses_and_orders(lambda collection: {"type": "array", "items": sibling(collection)}, sibling)
+    purchase = {**shape, keyword: [collection_item("orders"), collection_item("warehouses")]}
+    paths["/catalog"] = {"get": response("200", purchase)}
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Purchase": purchase}}, version="3.1.0")
+    assert inferred_links(graph) == [LIST_TO_PURCHASE, CREATE_TO_PURCHASE]
+
+
+def test_references_to_items_of_different_component_lists_name_different_resources(ctx):
+    paths = warehouses_and_orders(
+        lambda collection: component_ref(collection.capitalize()),
+        lambda collection: ref(f"#/components/schemas/{collection.capitalize()}/items"),
+    )
+    lists = {name.capitalize(): {"type": "array", "items": collection_item(name)} for name in ("warehouses", "orders")}
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": lists})
+    assert inferred_links(graph) == [CREATE_TO_PURCHASE]
+
+
+@pytest.mark.parametrize(
+    ("listing", "reference", "name"),
+    [
+        ("/orders", listed_in_operation("orders", "items"), "Order"),
+        ("/orders", ref("#/components/schemas/Orders/items"), "Order"),
+        ("/orders", ref("common.json#/Orders/items"), "Order"),
+        ("/", ref("#/components/schemas/Orders/items"), "Resource"),
+        ("/orders", component_ref("Purchase"), "Purchase"),
+    ],
+    ids=[
+        "operation-list-item",
+        "component-list-item",
+        "other-file-list-item",
+        "root-path-list-item",
+        "named-component",
+    ],
+)
+def test_link_names_for_unnamed_subschemas_come_from_the_consumer_path(ctx, listing, reference, name):
+    item = collection_item("orders")
+    orders = {"type": "array", "items": item}
+    ctx.makefile({"Orders": orders}, filename="common")
+    read = {**response("200", reference), "parameters": [path_param("purchase_id", "integer")]}
+    purchase = f"{listing.rstrip('/')}/{{purchase_id}}"
+    root = ctx.openapi.write_schema(
+        {
+            listing: {
+                "get": response("200", {"type": "object", "properties": {"orders": orders}}),
+                "post": response("201", reference),
+            },
+            purchase: {"get": read, "delete": read},
+        },
+        components={"schemas": {"Orders": orders, "Purchase": item}},
+    )
+    get, delete = (
+        {
+            "operationRef": f"#/paths/{purchase.replace('/', '~1')}/{method}",
+            "parameters": {"path.purchase_id": "$response.body#/id"},
+        }
+        for method in ("get", "delete")
+    )
+    assert injected_links(schemathesis.openapi.from_path(str(root))) == {
+        f"POST {listing} 201": {f"Get{name}": get, f"Delete{name}": delete},
+        f"GET {purchase} 200": {f"Delete{name}": delete},
+        f"DELETE {purchase} 200": {f"Get{name}": get},
+    }
+
+
+def test_components_named_after_keywords_keep_their_names(ctx):
+    names = {"warehouses": "schema", "orders": "items"}
+    paths = warehouses_and_orders(
+        lambda collection: {"type": "array", "items": component_ref(names[collection])},
+        lambda collection: component_ref(names[collection]),
+    )
+    items = {name: collection_item(collection) for collection, name in names.items()}
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": items})
+    assert [(resource.name, resource.fields) for resource in graph.resources.values()] == [
+        ("schema", ["city", "id"]),
+        ("items", ["id", "total"]),
+    ]
+    assert inferred_links(graph) == [LIST_TO_PURCHASE, CREATE_TO_PURCHASE]
+
+
+def item_schema_ref(path):
+    return ref(f"#/paths/{path.replace('/', '~1')}/get/responses/200/content/application~1json/schema")
+
+
+@pytest.mark.parametrize("created", ["/orders/{purchase_id}", "/orders/%7Bpurchase_id%7D"], ids=["braces", "encoded"])
+def test_references_to_operation_schemas_of_different_collections_name_different_resources(ctx, created):
+    parameters = [path_param("purchase_id", "integer")]
+    paths = {
+        "/warehouses": {"post": response("201", item_schema_ref("/warehouses/{code}"))},
+        "/warehouses/{code}": {
+            "get": {
+                **response(
+                    "200", {"type": "object", "properties": {"id": {"type": "integer"}, "city": {"type": "string"}}}
+                ),
+                "parameters": [path_param("code", "integer")],
+            }
+        },
+        "/orders": {"post": response("201", item_schema_ref(created))},
+        "/orders/{purchase_id}": {
+            "get": {
+                **response(
+                    "200", {"type": "object", "properties": {"id": {"type": "integer"}, "total": {"type": "integer"}}}
+                ),
+                "parameters": parameters,
+            },
+            "put": {**response("200", item_schema_ref("/orders/{purchase_id}")), "parameters": parameters},
+        },
+    }
+    _, graph = analyze_dependencies(ctx, paths)
+    assert inferred_links(graph) == [
+        ["#/paths/~1orders/post", "201", read_purchase_link("get", "/id")],
+        ["#/paths/~1orders/post", "201", read_purchase_link("put", "/id")],
+        ["#/paths/~1orders~1{purchase_id}/put", "200", read_purchase_link("get", "/id")],
+    ]
+
+
+@pytest.mark.parametrize(
+    ("keyword", "container"),
+    [("items", "array"), ("additionalProperties", "object")],
+    ids=["items", "map-values"],
+)
+def test_references_to_a_collection_and_its_members_name_different_resources(ctx, keyword, container):
+    collection = item_schema_ref("/orders")["$ref"]
+    member = ref(f"{collection}/{keyword}")
+    paths = {
+        "/orders": {
+            "get": response("200", {"type": container, keyword: collection_item("orders")}),
+            "post": response("201", member),
+            "put": {"requestBody": {"content": {"application/json": {"schema": ref(collection)}}}, **response("200")},
+        },
+        "/orders/{purchase_id}": {
+            "get": {**response("200", member), "parameters": [path_param("purchase_id", "integer")]},
+        },
+    }
+    _, graph = analyze_dependencies(ctx, paths)
+    assert inferred_links(graph) == [["#/paths/~1orders/post", "201", read_purchase_link("get", "/id")]]
+
+
+def inline_devices(*fields):
+    properties = {field: {"type": "string"} for field in fields}
+    return {"get": response("200", {"type": "array", "items": {"type": "object", "properties": properties}})}
+
+
+def device_item_operation(parameter):
+    return {"get": {**response("200"), "parameters": [path_param(parameter)]}}
+
+
+def list_to_device_link(collection, target, parameter, field):
+    return [
+        f"#/paths/{collection.replace('/', '~1')}/get",
+        "200",
+        {
+            "operationRef": f"#/paths/{target.replace('/', '~1')}/get",
+            "x-schemathesis": {"is_inferred": True},
+            "parameters": {f"path.{parameter}": f"$response.body#/*/{field}"},
+        },
+    ]
+
+
+DEVICES_TO_DEVICE = list_to_device_link("/devices", "/devices/{serial}", "serial", "serial")
+MANAGED_TO_REFRESH = list_to_device_link("/x/managed/devices", "/x/managed/device/{deviceId}/refresh", "deviceId", "id")
+
+
+@pytest.mark.parametrize(
+    ("parameter", "field"),
+    [("deviceId", "id"), ("id", "id"), ("imei", "imei")],
+    ids=["named-id", "bare-id", "own-field"],
+)
+def test_inline_items_of_a_qualified_collection_keyed_differently_are_another_resource(ctx, parameter, field):
+    item = f"/x/managed/devices/{{{parameter}}}/apps"
+    paths = {
+        "/x/managed/devices": inline_devices("id", "imei", "serial"),
+        item: device_item_operation(parameter),
+        "/x/managed/device/{deviceId}/refresh": device_item_operation("deviceId"),
+        "/devices": inline_devices("serial", "name"),
+        "/devices/{serial}": device_item_operation("serial"),
+    }
+    _, graph = analyze_dependencies(ctx, paths)
+    assert inferred_links(graph) == [
+        list_to_device_link("/x/managed/devices", item, parameter, field),
+        MANAGED_TO_REFRESH,
+        DEVICES_TO_DEVICE,
+    ]
+
+
+@pytest.mark.parametrize(
+    ("method", "status", "schema", "pointer"),
+    [("get", "200", {"type": "array", "items": {"type": "string"}}, "/*"), ("post", "201", {"type": "string"}, "/")],
+    ids=["listed", "created"],
+)
+def test_identifiers_of_a_qualified_collection_keyed_differently_are_another_resource(
+    ctx, method, status, schema, pointer
+):
+    paths = {
+        "/x/managed/devices": {method: response(status, schema)},
+        "/x/managed/devices/{deviceId}/apps": device_item_operation("deviceId"),
+        "/devices": inline_devices("serial", "name"),
+        "/devices/{serial}": device_item_operation("serial"),
+    }
+    _, graph = analyze_dependencies(ctx, paths)
+    assert inferred_links(graph) == [
+        [
+            f"#/paths/~1x~1managed~1devices/{method}",
+            status,
+            {
+                "operationRef": "#/paths/~1x~1managed~1devices~1{deviceId}~1apps/get",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"path.deviceId": f"$response.body#{pointer}"},
+            },
+        ],
+        DEVICES_TO_DEVICE,
+    ]
+
+
+@pytest.mark.parametrize(
+    "items",
+    [component_ref("Device"), {"allOf": [component_ref("Device")]}],
+    ids=["ref", "all-of-ref"],
+)
+def test_items_of_a_qualified_collection_declared_as_the_plain_collection_items_are_the_same_resource(ctx, items):
+    def listed():
+        return {"get": response("200", {"type": "array", "items": items})}
+
+    paths = {
+        "/x/managed/devices": listed(),
+        "/x/managed/devices/{deviceId}/apps": device_item_operation("deviceId"),
+        "/devices": listed(),
+        "/devices/{serial}": device_item_operation("serial"),
+    }
+    device = {"type": "object", "properties": {"id": {"type": "string"}, "serial": {"type": "string"}}}
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Device": device}})
+    assert inferred_links(graph) == [
+        list_to_device_link("/x/managed/devices", "/x/managed/devices/{deviceId}/apps", "deviceId", "id"),
+        list_to_device_link("/x/managed/devices", "/devices/{serial}", "serial", "serial"),
+        list_to_device_link("/devices", "/x/managed/devices/{deviceId}/apps", "deviceId", "id"),
+        DEVICES_TO_DEVICE,
+    ]
+
+
+STOCK_TO_DEVICE = list_to_device_link("/x/stock/devices", "/devices/{serial}", "serial", "serial")
+
+
+@pytest.mark.parametrize(
+    ("stock", "expected"),
+    [
+        (
+            {
+                "/x/stock/devices": inline_devices("id", "serial"),
+                "/x/stock/devices/{serial}": device_item_operation("serial"),
+            },
+            [
+                list_to_device_link("/x/stock/devices", "/x/stock/devices/{serial}", "serial", "serial"),
+                STOCK_TO_DEVICE,
+                list_to_device_link("/devices", "/x/stock/devices/{serial}", "serial", "serial"),
+                DEVICES_TO_DEVICE,
+            ],
+        ),
+        (
+            {
+                "/x/stock/devices": inline_devices("id", "serial"),
+                "/x/stock/devices/{owner}/{serial}": {
+                    "get": {**response("200"), "parameters": [path_param("owner"), path_param("serial")]}
+                },
+            },
+            [STOCK_TO_DEVICE, DEVICES_TO_DEVICE],
+        ),
+        (
+            {"/x/stock/devices/{kind}": {**inline_devices("id", "serial"), "parameters": [path_param("kind")]}},
+            [
+                list_to_device_link("/x/stock/devices/{kind}", "/devices/{serial}", "serial", "serial"),
+                DEVICES_TO_DEVICE,
+            ],
+        ),
+    ],
+    ids=["same-key", "composite-key", "list-selector"],
+)
+def test_inline_items_of_a_qualified_collection_without_own_key_are_the_same_resource(ctx, stock, expected):
+    paths = {
+        **stock,
+        "/devices": inline_devices("serial", "name"),
+        "/devices/{serial}": device_item_operation("serial"),
+    }
+    _, graph = analyze_dependencies(ctx, paths)
+    assert inferred_links(graph) == expected
+
+
+def test_inline_items_of_a_qualified_collection_feed_the_same_collection_under_another_parent(ctx):
+    site_devices = inline_devices("id", "serial")
+    site_devices["get"]["parameters"] = [path_param("siteId")]
+    paths = {
+        "/managed/devices": inline_devices("id", "serial"),
+        "/managed/devices/{deviceId}": device_item_operation("deviceId"),
+        "/sites/{siteId}/managed/devices": site_devices,
+        "/sites/{siteId}/managed/devices/{deviceId}": {
+            "get": {**response("200"), "parameters": [path_param("siteId"), path_param("deviceId")]}
+        },
+        "/devices": inline_devices("serial", "name"),
+        "/devices/{serial}": device_item_operation("serial"),
+    }
+    _, graph = analyze_dependencies(ctx, paths)
+    site_to_site = list_to_device_link(
+        "/sites/{siteId}/managed/devices", "/sites/{siteId}/managed/devices/{deviceId}", "deviceId", "id"
+    )
+    site_to_site[2]["parameters"]["path.siteId"] = "$request.path.siteId"
+    assert inferred_links(graph) == [
+        list_to_device_link("/managed/devices", "/managed/devices/{deviceId}", "deviceId", "id"),
+        list_to_device_link("/managed/devices", "/sites/{siteId}/managed/devices/{deviceId}", "deviceId", "id"),
+        list_to_device_link("/sites/{siteId}/managed/devices", "/managed/devices/{deviceId}", "deviceId", "id"),
+        site_to_site,
+        DEVICES_TO_DEVICE,
+    ]
+
+
+def test_key_sent_in_path_to_a_qualified_collection_is_another_resource(ctx):
+    paths = {
+        "/x/managed/devices": inline_devices("id", "serial"),
+        "/x/managed/devices/{deviceId}": {"post": {**response("201"), "parameters": [path_param("deviceId")]}},
+        "/devices": inline_devices("serial", "name"),
+        "/devices/{serial}": device_item_operation("serial"),
+    }
+    _, graph = analyze_dependencies(ctx, paths)
+    create = list_to_device_link("/x/managed/devices", "/x/managed/devices/{deviceId}", "deviceId", "id")
+    create[2]["operationRef"] = "#/paths/~1x~1managed~1devices~1{deviceId}/post"
+    assert inferred_links(graph) == [create, DEVICES_TO_DEVICE]
+
+
+def test_key_sent_in_body_to_a_qualified_collection_feeds_the_plain_one(ctx):
+    paths = {
+        **operation_with_body(
+            "post",
+            "/x/mirrors/videos",
+            "201",
+            {"type": "object", "properties": {"videoId": {"type": "string"}}, "required": ["videoId"]},
+        ),
+        **operation("get", "/x/mirrors/videos/{mirrorId}", "200", parameters=[path_param("mirrorId")]),
+        **operation("get", "/videos/{id}", "200", parameters=[path_param("id")]),
+    }
+    _, graph = analyze_dependencies(ctx, paths)
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1x~1mirrors~1videos/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1videos~1{id}/get",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"path.id": "$request.body#/videoId"},
+            },
+        ]
+    ]
+
+
 @pytest.mark.parametrize(
     "response_schema",
     [
@@ -3657,7 +4373,7 @@ SHIPMENTS_LISTING = {
 }
 
 
-def warehouse_shipment_paths(parameter="warehouseId", parameter_schema=None):
+def warehouse_shipment_paths(parameter="warehouseId", parameter_schema=None, item=None):
     parameters = [{"name": parameter, "in": "path", "required": True, "schema": parameter_schema or {"type": "string"}}]
     return {
         **operation("get", "/shipments", "200", SHIPMENTS_LISTING),
@@ -3666,7 +4382,7 @@ def warehouse_shipment_paths(parameter="warehouseId", parameter_schema=None):
             "get",
             f"/warehouses/{{{parameter}}}/shipments/{{shipmentId}}",
             "200",
-            component_ref("Shipment"),
+            item or component_ref("Shipment"),
             [*parameters, path_param("shipmentId")],
         ),
     }
@@ -3733,9 +4449,8 @@ def test_parent_path_param_without_producer_is_filled_from_item_carrying_it(ctx,
         ("warehouseId", None, {"type": "array", "items": {"type": "string"}}),
         ("warehouse", None, {"type": "object", "properties": {"id": {"type": "string"}}}),
         ("warehouseId", {"type": "string", "format": "uuid"}, {"type": "integer"}),
-        ("warehouseId", None, {"type": "string", "writeOnly": True}),
     ],
-    ids=["array", "object", "integer-into-uuid", "write-only"],
+    ids=["array", "object", "integer-into-uuid"],
 )
 def test_parent_path_param_is_not_filled_from_item_field_of_another_type(ctx, parameter, parameter_schema, field):
     shipment = {"type": "object", "properties": {**SHIPMENT_FIELDS, parameter: field}}
@@ -3744,6 +4459,97 @@ def test_parent_path_param_is_not_filled_from_item_field_of_another_type(ctx, pa
     _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Shipment": shipment}})
 
     assert inferred_links(graph) == warehouse_shipment_links(parameter, None)
+
+
+@pytest.mark.parametrize("write_only", [True, False], ids=["write-only", "readable"])
+@pytest.mark.parametrize(
+    ("keyword", "field", "version"),
+    [
+        ("writeOnly", lambda key: key, "3.0.2"),
+        ("x-writeOnly", lambda key: key, "3.0.2"),
+        ("writeOnly", lambda key: component_ref("Key"), "3.0.2"),
+        ("writeOnly", lambda key: {"allOf": [key]}, "3.0.2"),
+        ("writeOnly", lambda key: {"allOf": [component_ref("Key")]}, "3.0.2"),
+        ("writeOnly", lambda key: {"anyOf": [component_ref("Key"), {"type": "null"}]}, "3.1.0"),
+    ],
+    ids=["inline", "extension", "reference", "all-of", "all-of-reference", "nullable-reference"],
+)
+def test_parent_path_param_is_filled_only_from_readable_item_field(ctx, write_only, keyword, field, version):
+    key = {"type": "string", keyword: write_only}
+    shipment = {"type": "object", "properties": {**SHIPMENT_FIELDS, "warehouseId": field(key)}}
+
+    _, graph = analyze_dependencies(
+        ctx, warehouse_shipment_paths(), version=version, components={"schemas": {"Shipment": shipment, "Key": key}}
+    )
+
+    parent = None if write_only else "$response.body#/shipments/*/warehouseId"
+    assert inferred_links(graph) == warehouse_shipment_links("warehouseId", parent)
+
+
+BROKEN_DETAILS = {"type": "object", "properties": {"note": component_ref("Missing")}}
+
+
+def shipment_detail(key, details):
+    return {"type": "object", "properties": {**SHIPMENT_FIELDS, "warehouseId": key, "details": details}}
+
+
+@pytest.mark.parametrize("write_only", [True, False], ids=["write-only", "readable"])
+@pytest.mark.parametrize(
+    "detail",
+    [
+        lambda key: (shipment_detail(key, BROKEN_DETAILS), {}),
+        lambda key: (component_ref("ShipmentDetail"), {"ShipmentDetail": shipment_detail(key, BROKEN_DETAILS)}),
+        lambda key: (shipment_detail(key, component_ref("Details")), {"Details": BROKEN_DETAILS}),
+        lambda key: (shipment_detail(key, component_ref("Missing")), {}),
+        lambda key: (
+            {"allOf": [component_ref("Shipment"), {"properties": {"details": component_ref("Details")}}]},
+            {"Details": BROKEN_DETAILS},
+        ),
+        lambda key: (
+            shipment_detail(component_ref("Key"), {"type": "object"}),
+            {"Key": {**key, "not": component_ref("Missing")}},
+        ),
+        lambda key: (
+            shipment_detail({"allOf": [component_ref("Key")]}, {"type": "object"}),
+            {"Key": {**key, "not": component_ref("Missing")}},
+        ),
+        lambda key: (
+            shipment_detail({"allOf": [component_ref("Key"), component_ref("Missing")]}, {"type": "object"}),
+            {"Key": key},
+        ),
+    ],
+    ids=[
+        "inline",
+        "reference",
+        "sibling-reference",
+        "dangling-sibling",
+        "inherited",
+        "inside-field",
+        "inside-all-of-branch",
+        "beside-all-of-branch",
+    ],
+)
+def test_parent_path_param_is_filled_only_from_readable_item_field_beside_broken_reference(ctx, write_only, detail):
+    key = {"type": "string", "writeOnly": write_only}
+    item, schemas = detail(key)
+    shipment = {"type": "object", "properties": {**SHIPMENT_FIELDS, "warehouseId": key}}
+
+    _, graph = analyze_dependencies(
+        ctx, warehouse_shipment_paths(item=item), components={"schemas": {"Shipment": shipment, **schemas}}
+    )
+
+    parent = None if write_only else "$response.body#/shipments/*/warehouseId"
+    assert inferred_links(graph) == warehouse_shipment_links("warehouseId", parent)
+
+
+def test_parent_path_param_is_filled_from_item_field_when_item_response_does_not_resolve(ctx):
+    shipment = {"type": "object", "properties": {**SHIPMENT_FIELDS, "warehouseId": {"type": "string"}}}
+
+    _, graph = analyze_dependencies(
+        ctx, warehouse_shipment_paths(item=component_ref("Missing")), components={"schemas": {"Shipment": shipment}}
+    )
+
+    assert inferred_links(graph) == warehouse_shipment_links("warehouseId", "$response.body#/shipments/*/warehouseId")
 
 
 def parent_key_link(target, parameters):
@@ -4466,11 +5272,429 @@ def test_top_level_array_body_links_every_fk_field_of_its_items(ctx):
     ]
 
 
+@pytest.mark.parametrize(
+    ["list_schema", "items_pointer"],
+    [
+        ({"type": "array", "items": component_ref("Warehouse")}, "/*"),
+        (
+            {"type": "object", "properties": {"data": {"type": "array", "items": component_ref("Warehouse")}}},
+            "/data/*",
+        ),
+    ],
+    ids=["bare", "enveloped"],
+)
+def test_top_level_array_body_takes_one_item_of_a_list_response(ctx, list_schema, items_pointer):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation("get", "/warehouses", "200", list_schema),
+            **operation("get", "/warehouses/{id}", "200", component_ref("Warehouse"), [path_param("id", "integer")]),
+            **operation_with_body(
+                "post", "/warehouses/batch", "200", {"type": "array", "items": component_ref("Warehouse")}
+            ),
+        },
+        components={
+            "schemas": {
+                "Warehouse": {"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}}}
+            }
+        },
+    )
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1warehouses/get",
+            "200",
+            {
+                "operationRef": "#/paths/~1warehouses~1{id}/get",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"path.id": f"$response.body#{items_pointer}/id"},
+            },
+        ],
+        [
+            "#/paths/~1warehouses/get",
+            "200",
+            {
+                "operationRef": "#/paths/~1warehouses~1batch/post",
+                "x-schemathesis": {"is_inferred": True, "merge_body": True},
+                "requestBody": [f"$response.body#{items_pointer}"],
+            },
+        ],
+        [
+            "#/paths/~1warehouses~1{id}/get",
+            "200",
+            {
+                "operationRef": "#/paths/~1warehouses~1batch/post",
+                "x-schemathesis": {"is_inferred": True, "merge_body": True},
+                "requestBody": ["$response.body#/"],
+            },
+        ],
+    ]
+
+
+def inline_object(*names):
+    return {"type": "object", "properties": {name: {"type": "string"} for name in names}}
+
+
+WAREHOUSE_SCHEMAS = {
+    "Warehouse": {"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}}}
+}
+
+
+@pytest.mark.parametrize(
+    ["list_items", "items", "schemas", "takes_item"],
+    [
+        (component_ref("Warehouse"), component_ref("Warehouse"), WAREHOUSE_SCHEMAS, True),
+        (
+            component_ref("WarehouseOutput"),
+            component_ref("WarehouseInput"),
+            {"WarehouseOutput": inline_object("id", "name"), "WarehouseInput": inline_object("name", "region")},
+            True,
+        ),
+        (
+            component_ref("WarehouseOutput"),
+            component_ref("WarehouseInput"),
+            {"WarehouseOutput": inline_object("id", "slug"), "WarehouseInput": inline_object("title", "color")},
+            False,
+        ),
+        (
+            component_ref("WarehouseOutput"),
+            {"allOf": [component_ref("WarehouseInput")]},
+            {"WarehouseOutput": inline_object("id", "slug"), "WarehouseInput": inline_object("title", "color")},
+            False,
+        ),
+        (component_ref("Warehouse"), {"allOf": [component_ref("Warehouse")]}, WAREHOUSE_SCHEMAS, True),
+        (inline_object("id", "name"), component_ref("Warehouse"), WAREHOUSE_SCHEMAS, True),
+        (
+            inline_object("id", "name"),
+            component_ref("Warehouse"),
+            {"Warehouse": inline_object("label", "color")},
+            False,
+        ),
+        (inline_object("id", "name"), component_ref("Warehouse"), {"Warehouse": True}, True),
+        (
+            component_ref("Warehouse"),
+            {"type": "object", "properties": {"name": {"type": "string"}, "region": {"type": "string"}}},
+            WAREHOUSE_SCHEMAS,
+            True,
+        ),
+        (component_ref("Warehouse"), {"type": "object"}, WAREHOUSE_SCHEMAS, True),
+        (component_ref("Warehouse"), {"not": {"type": "string"}}, WAREHOUSE_SCHEMAS, True),
+        (
+            component_ref("Warehouse"),
+            {"anyOf": [inline_object("name"), {"type": "string"}]},
+            WAREHOUSE_SCHEMAS,
+            True,
+        ),
+        ({"type": "object"}, {"type": "object", "properties": {"name": {"type": "string"}}}, WAREHOUSE_SCHEMAS, True),
+        ({"type": "integer"}, {"type": "integer"}, WAREHOUSE_SCHEMAS, True),
+        (component_ref("Warehouse"), {"type": "integer"}, WAREHOUSE_SCHEMAS, False),
+        (inline_object("id", "name"), component_ref("Warehouse"), {"Warehouse": {"type": "string"}}, False),
+        (
+            inline_object("id", "name"),
+            {"allOf": [component_ref("Warehouse")]},
+            {"Warehouse": {"type": "string"}},
+            False,
+        ),
+        (
+            component_ref("Warehouse"),
+            {"anyOf": [{"type": "string"}, {"type": "integer"}]},
+            WAREHOUSE_SCHEMAS,
+            False,
+        ),
+        (component_ref("Warehouse"), {"enum": ["north", "south"]}, WAREHOUSE_SCHEMAS, False),
+        (component_ref("Warehouse"), {"not": {"type": "object"}}, WAREHOUSE_SCHEMAS, False),
+        (
+            component_ref("Warehouse"),
+            {"type": "object", "properties": {"op": {"type": "string"}, "path": {"type": "string"}}},
+            WAREHOUSE_SCHEMAS,
+            False,
+        ),
+    ],
+    ids=[
+        "ref",
+        "ref-output-into-ref-input-shared-field",
+        "ref-output-into-ref-input-no-shared-field",
+        "ref-output-into-all-of-ref-input-no-shared-field",
+        "all-of-ref",
+        "inline-list-into-ref",
+        "inline-list-into-ref-no-shared-field",
+        "inline-list-into-ref-to-any-value",
+        "inline-shared-field",
+        "any-object",
+        "anything-but-a-scalar",
+        "any-of-object-or-scalar",
+        "fieldless-list",
+        "scalar-list-into-scalar",
+        "object-into-scalar",
+        "object-into-ref-scalar",
+        "object-into-all-of-ref-scalar",
+        "object-into-any-of-scalars",
+        "object-into-enum-of-scalars",
+        "object-into-anything-but-an-object",
+        "inline-no-shared-field",
+    ],
+)
+def test_top_level_array_body_takes_a_list_item_only_when_its_items_accept_it(
+    ctx, list_items, items, schemas, takes_item
+):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/warehouses": {
+                **operation("get", "/warehouses", "200", {"type": "array", "items": list_items})["/warehouses"],
+                **operation_with_body("post", "/warehouses", "200", {"type": "array", "items": items})["/warehouses"],
+            }
+        },
+        components={"schemas": schemas},
+    )
+    link = [
+        "#/paths/~1warehouses/get",
+        "200",
+        {
+            "operationRef": "#/paths/~1warehouses/post",
+            "x-schemathesis": {"is_inferred": True, "merge_body": True},
+            "requestBody": ["$response.body#/*"],
+        },
+    ]
+    assert inferred_links(graph) == ([link] if takes_item else [])
+
+
+@pytest.mark.parametrize(
+    ["paths", "expected"],
+    [
+        (
+            {
+                **operation(
+                    "get",
+                    "/warehouses/{id}",
+                    "200",
+                    {"type": "object", "properties": {"data": inline_object("id", "name")}},
+                    [path_param("id")],
+                ),
+                **operation_with_body("post", "/warehouses", "200", {"type": "array", "items": inline_object("name")}),
+            },
+            [
+                [
+                    "#/paths/~1warehouses~1{id}/get",
+                    "200",
+                    {
+                        "operationRef": "#/paths/~1warehouses/post",
+                        "x-schemathesis": {"is_inferred": True, "merge_body": True},
+                        "requestBody": ["$response.body#/data"],
+                    },
+                ]
+            ],
+        ),
+        (
+            {
+                **operation(
+                    "get",
+                    "/depots/{depot_id}/warehouses",
+                    "200",
+                    {"type": "array", "items": inline_object("id", "name")},
+                    [path_param("depot_id")],
+                ),
+                **operation_with_body("post", "/warehouses", "200", {"type": "array", "items": inline_object("name")}),
+            },
+            [
+                [
+                    "#/paths/~1depots~1{depot_id}~1warehouses/get",
+                    "200",
+                    {
+                        "operationRef": "#/paths/~1warehouses/post",
+                        "x-schemathesis": {"is_inferred": True, "merge_body": True},
+                        "requestBody": ["$response.body#/*"],
+                    },
+                ]
+            ],
+        ),
+        (
+            {
+                **operation(
+                    "get",
+                    "/depots/{depot_id}/warehouses/{id}",
+                    "200",
+                    {"type": "object", "properties": {"data": inline_object("id", "name")}},
+                    [path_param("depot_id"), path_param("id")],
+                ),
+                **operation_with_body("post", "/warehouses", "200", {"type": "array", "items": inline_object("name")}),
+            },
+            [
+                [
+                    "#/paths/~1depots~1{depot_id}~1warehouses~1{id}/get",
+                    "200",
+                    {
+                        "operationRef": "#/paths/~1warehouses/post",
+                        "x-schemathesis": {"is_inferred": True, "merge_body": True},
+                        "requestBody": ["$response.body#/data"],
+                    },
+                ]
+            ],
+        ),
+        (
+            {
+                **operation(
+                    "get",
+                    "/warehouses/{id}",
+                    "200",
+                    {"type": "object", "properties": {"data": inline_object("id", "name")}},
+                    [path_param("id")],
+                ),
+                **operation_with_body(
+                    "post",
+                    "/depots/{depot_id}/warehouses",
+                    "200",
+                    {"type": "array", "items": inline_object("name")},
+                    parameters=[path_param("depot_id")],
+                ),
+            },
+            [
+                [
+                    "#/paths/~1warehouses~1{id}/get",
+                    "200",
+                    {
+                        "operationRef": "#/paths/~1depots~1{depot_id}~1warehouses/post",
+                        "x-schemathesis": {"is_inferred": True, "merge_body": True},
+                        "requestBody": ["$response.body#/data"],
+                    },
+                ]
+            ],
+        ),
+        (
+            {
+                **operation("post", "/devices/import", "200", {"type": "array", "items": inline_object("mac", "name")}),
+                **operation_with_body(
+                    "post", "/assets/import", "200", {"type": "array", "items": inline_object("mac", "name")}
+                ),
+            },
+            [],
+        ),
+        (
+            {
+                **operation("post", "/devices/import", "200", {"type": "array", "items": inline_object("mac", "name")}),
+                **operation_with_body("post", "/assets/import", "200", {"type": "array", "items": {"type": "object"}}),
+            },
+            [],
+        ),
+        (
+            {
+                **operation(
+                    "get",
+                    "/depots/{depot_id}/warehouses",
+                    "200",
+                    {"type": "array", "items": inline_object("id", "name")},
+                    [path_param("depot_id")],
+                ),
+                **operation_with_body("post", "/warehouses", "200", {"type": "array", "items": {"type": "object"}}),
+            },
+            [
+                [
+                    "#/paths/~1depots~1{depot_id}~1warehouses/get",
+                    "200",
+                    {
+                        "operationRef": "#/paths/~1warehouses/post",
+                        "x-schemathesis": {"is_inferred": True, "merge_body": True},
+                        "requestBody": ["$response.body#/*"],
+                    },
+                ]
+            ],
+        ),
+        (
+            {
+                **operation("get", "/jobs", "200", {"type": "array", "items": inline_object("id", "name")}),
+                **operation_with_body(
+                    "put",
+                    "/jobs/{id}",
+                    "200",
+                    {"type": "array", "items": inline_object("id", "name", "size")},
+                    parameters=[path_param("id")],
+                ),
+            },
+            [
+                [
+                    "#/paths/~1jobs/get",
+                    "200",
+                    {
+                        "operationRef": "#/paths/~1jobs~1{id}/put",
+                        "x-schemathesis": {"is_inferred": True},
+                        "parameters": {"path.id": "$response.body#/*/id"},
+                    },
+                ]
+            ],
+        ),
+    ],
+    ids=[
+        "item-of-the-collection",
+        "collection-under-a-parent",
+        "item-of-the-collection-under-a-parent",
+        "item-into-the-collection-under-a-parent",
+        "same-action-on-another-collection",
+        "any-object-into-the-same-action-on-another-collection",
+        "any-object-from-the-collection-under-a-parent",
+        "parent-collection",
+    ],
+)
+def test_inline_array_items_take_a_whole_resource_only_from_their_own_collection(ctx, paths, expected):
+    _, graph = analyze_dependencies(ctx, paths)
+    assert inferred_links(graph) == expected
+
+
+@pytest.mark.parametrize(
+    ("producer", "producer_parameters", "consumer", "consumer_parameters", "is_linked"),
+    [
+        ("/warehouses/{id}/", ["id"], "/warehouses/", [], True),
+        ("/depots/{depot_id}/warehouses/{id}/", ["depot_id", "id"], "/warehouses/", [], True),
+        ("/warehouses/{id}/", ["id"], "/depots/{depot_id}/warehouses/", ["depot_id"], True),
+        ("/devices/{id}/", ["id"], "/warehouses/", [], False),
+    ],
+    ids=[
+        "item-of-the-collection",
+        "item-of-the-collection-under-a-parent",
+        "item-into-the-collection-under-a-parent",
+        "item-of-another-collection",
+    ],
+)
+def test_inline_array_items_take_a_whole_resource_from_their_own_collection_behind_trailing_slashes(
+    ctx, producer, producer_parameters, consumer, consumer_parameters, is_linked
+):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation(
+                "get",
+                producer,
+                "200",
+                {"type": "object", "properties": {"data": inline_object("id", "name")}},
+                [path_param(name) for name in producer_parameters],
+            ),
+            **operation_with_body(
+                "post",
+                consumer,
+                "200",
+                {"type": "array", "items": inline_object("name")},
+                parameters=[path_param(name) for name in consumer_parameters],
+            ),
+        },
+    )
+    expected = [
+        [
+            f"#/paths/{producer.replace('/', '~1')}/get",
+            "200",
+            {
+                "operationRef": f"#/paths/{consumer.replace('/', '~1')}/post",
+                "x-schemathesis": {"is_inferred": True, "merge_body": True},
+                "requestBody": ["$response.body#/data"],
+            },
+        ]
+    ]
+    assert inferred_links(graph) == (expected if is_linked else [])
+
+
 def nested_object(name, schema):
     return {"type": "object", "properties": {name: schema}}
 
 
 LINES_COMPONENTS = {"schemas": {"Lines": {"type": "array", "items": nested_object("warehouse_id", {"type": "string"})}}}
+ALIASED_LINES_COMPONENTS = {"schemas": {**LINES_COMPONENTS["schemas"], "LinesAlias": component_ref("Lines")}}
 RECURSIVE_LINES_COMPONENTS = {
     "schemas": {
         "Lines": {
@@ -4506,6 +5730,11 @@ RECURSIVE_LINES_COMPONENTS = {
             {"lines": [{"warehouse_id": "$response.body#/id"}]},
         ),
         (
+            nested_object("lines", component_ref("LinesAlias")),
+            ALIASED_LINES_COMPONENTS,
+            {"lines": [{"warehouse_id": "$response.body#/id"}]},
+        ),
+        (
             nested_object("shipping", nested_object("lines", component_ref("Lines"))),
             LINES_COMPONENTS,
             {"shipping": {"lines": [{"warehouse_id": "$response.body#/id"}]}},
@@ -4516,7 +5745,14 @@ RECURSIVE_LINES_COMPONENTS = {
             {"lines": [{"warehouse_id": "$response.body#/id", "children": [{"warehouse_id": "$response.body#/id"}]}]},
         ),
     ],
-    ids=["object-in-object", "array-in-object", "array-ref", "array-ref-in-object", "recursive-array-ref"],
+    ids=[
+        "object-in-object",
+        "array-in-object",
+        "array-ref",
+        "array-alias-ref",
+        "array-ref-in-object",
+        "recursive-array-ref",
+    ],
 )
 def test_nested_body_fk_links_from_producer(ctx, body, components, expected):
     paths = {
@@ -4531,6 +5767,100 @@ def test_nested_body_fk_links_from_producer(ctx, body, components, expected):
             {
                 "operationRef": "#/paths/~1orders/post",
                 "requestBody": expected,
+                "x-schemathesis": {"is_inferred": True, "merge_body": True},
+            },
+        ]
+    ]
+
+
+WAREHOUSE_LINE = nested_object("warehouse_id", {"type": "string"})
+LINES_OR_NULL = {"anyOf": [{"type": "array", "items": WAREHOUSE_LINE}, {"type": "null"}]}
+LINES_OR_NULL_COMPONENTS = {
+    "schemas": {
+        "Lines": {"type": ["array", "null"], "items": WAREHOUSE_LINE},
+        "NullableLines": LINES_OR_NULL,
+        "Described": {"description": "Order lines"},
+    }
+}
+LINKED_LINES = [{"warehouse_id": "$response.body#/id"}]
+
+
+@pytest.mark.parametrize(
+    ["version", "lines", "components", "expected"],
+    [
+        ("3.0.2", {"type": "array", "nullable": True, "items": WAREHOUSE_LINE}, {}, LINKED_LINES),
+        ("3.1.0", {"type": ["array", "null"], "items": WAREHOUSE_LINE}, {}, LINKED_LINES),
+        ("3.1.0", component_ref("Lines"), LINES_OR_NULL_COMPONENTS, LINKED_LINES),
+        (
+            "3.1.0",
+            {**component_ref("Described"), "type": "array", "items": WAREHOUSE_LINE},
+            LINES_OR_NULL_COMPONENTS,
+            LINKED_LINES,
+        ),
+        (
+            "3.1.0",
+            {**component_ref("Described"), "type": ["array", "null"], "items": WAREHOUSE_LINE},
+            LINES_OR_NULL_COMPONENTS,
+            LINKED_LINES,
+        ),
+        ("3.1.0", LINES_OR_NULL, {}, LINKED_LINES),
+        ("3.1.0", component_ref("NullableLines"), LINES_OR_NULL_COMPONENTS, LINKED_LINES),
+        ("3.1.0", {"allOf": [LINES_OR_NULL]}, {}, LINKED_LINES),
+        ("3.1.0", {"allOf": [component_ref("NullableLines")]}, LINES_OR_NULL_COMPONENTS, LINKED_LINES),
+        ("3.1.0", {"oneOf": [component_ref("Lines"), {"type": "null"}]}, LINES_COMPONENTS, LINKED_LINES),
+        (
+            "3.1.0",
+            {"type": ["array", "null"], "items": nested_object("warehouse_ids", {"type": "array"})},
+            {},
+            [{"warehouse_ids": ["$response.body#/id"]}],
+        ),
+        (
+            "3.1.0",
+            {
+                "anyOf": [
+                    {
+                        "type": "array",
+                        "items": nested_object("warehouse_ids", {"anyOf": [{"type": "array"}, {"type": "null"}]}),
+                    },
+                    {"type": "null"},
+                ]
+            },
+            {},
+            [{"warehouse_ids": ["$response.body#/id"]}],
+        ),
+        ("3.1.0", {"anyOf": [WAREHOUSE_LINE, {"type": "null"}]}, {}, {"warehouse_id": "$response.body#/id"}),
+        ("3.1.0", {"properties": {"warehouse_id": {"type": "string"}}}, {}, {"warehouse_id": "$response.body#/id"}),
+    ],
+    ids=[
+        "nullable",
+        "array-or-null",
+        "array-or-null-ref",
+        "array-next-to-ref",
+        "array-or-null-next-to-ref",
+        "any-of-array-or-null",
+        "any-of-array-or-null-ref",
+        "any-of-array-or-null-all-of",
+        "any-of-array-or-null-all-of-ref",
+        "one-of-ref-or-null",
+        "plural-ids-in-array-or-null",
+        "plural-ids-any-of-array-or-null",
+        "any-of-object-or-null",
+        "untyped-object",
+    ],
+)
+def test_nested_body_fk_links_through_nullable_array(ctx, version, lines, components, expected):
+    paths = {
+        **operation("post", "/warehouses", "201", SCHEMA_WITH_ID, operation_id="createWarehouse"),
+        **operation_with_body("post", "/orders", "201", nested_object("lines", lines), operation_id="createOrder"),
+    }
+    _, graph = analyze_dependencies(ctx, paths, version=version, components=components)
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1warehouses/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1orders/post",
+                "requestBody": {"lines": expected},
                 "x-schemathesis": {"is_inferred": True, "merge_body": True},
             },
         ]
@@ -4556,6 +5886,569 @@ def test_nested_body_fk_links_from_producer_next_to_boolean_schema_reference(ctx
                 "x-schemathesis": {"is_inferred": True, "merge_body": True},
             },
         ]
+    ]
+
+
+CUSTOMER_IDS = {"type": "array", "items": {"type": "integer"}}
+CUSTOMER_IDS_OR_NULL = {"anyOf": [CUSTOMER_IDS, {"type": "null"}]}
+CUSTOMER_COMPONENTS = {
+    "schemas": {
+        "Customer": {"type": "object", "properties": {"id": {"type": "integer"}}},
+        "CustomerIds": CUSTOMER_IDS,
+        "RecursiveId": {"type": "integer", "allOf": [component_ref("RecursiveId")]},
+        "CustomerIdsOrNull": {"anyOf": [component_ref("CustomerIds"), {"type": "null"}]},
+        "RecursiveIdsOrNull": {"anyOf": [component_ref("RecursiveIdsOrNull"), {"type": "null"}]},
+    }
+}
+CREATE_CUSTOMER = operation("post", "/customers", "201", component_ref("Customer"))
+CREATED_CUSTOMER_TO_READ = [
+    "#/paths/~1customers/post",
+    "201",
+    {
+        "operationRef": "#/paths/~1customers~1{id}/get",
+        "parameters": {"path.id": "$response.body#/id"},
+        "x-schemathesis": {"is_inferred": True},
+    },
+]
+
+
+def order_to_customer(pointer):
+    return [
+        "#/paths/~1orders~1{order_id}/get",
+        "200",
+        {
+            "operationRef": "#/paths/~1customers~1{id}/get",
+            "parameters": {"path.id": f"$response.body#{pointer}"},
+            "x-schemathesis": {"is_inferred": True},
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    ["order", "expected"],
+    [
+        ({"customer_id": CUSTOMER_IDS}, [CREATED_CUSTOMER_TO_READ]),
+        ({"customer_id": component_ref("CustomerIds")}, [CREATED_CUSTOMER_TO_READ]),
+        ({"customer_id": {"type": ["array", "null"], "items": {"type": "integer"}}}, [CREATED_CUSTOMER_TO_READ]),
+        ({"shipping": nested_object("customer_id", CUSTOMER_IDS)}, [CREATED_CUSTOMER_TO_READ]),
+        ({"shipping": nested_object("customer_id", component_ref("CustomerIds"))}, [CREATED_CUSTOMER_TO_READ]),
+        ({"customer_id": {"allOf": [CUSTOMER_IDS]}}, [CREATED_CUSTOMER_TO_READ]),
+        ({"customer_id": {"allOf": [component_ref("CustomerIds")]}}, [CREATED_CUSTOMER_TO_READ]),
+        ({"shipping": nested_object("customer_id", {"allOf": [CUSTOMER_IDS]})}, [CREATED_CUSTOMER_TO_READ]),
+        (
+            {"shipping": nested_object("customer_id", {"allOf": [component_ref("CustomerIds")]})},
+            [CREATED_CUSTOMER_TO_READ],
+        ),
+        ({"customer_ids": CUSTOMER_IDS}, [CREATED_CUSTOMER_TO_READ, order_to_customer("/customer_ids/*")]),
+        (
+            {"shipping": nested_object("customer_ids", CUSTOMER_IDS)},
+            [CREATED_CUSTOMER_TO_READ, order_to_customer("/shipping/customer_ids/*")],
+        ),
+        ({"customer_id": {"type": "integer"}}, [CREATED_CUSTOMER_TO_READ, order_to_customer("/customer_id")]),
+        (
+            {"shipping": nested_object("customer_id", {"type": "integer"})},
+            [CREATED_CUSTOMER_TO_READ, order_to_customer("/shipping/customer_id")],
+        ),
+        (
+            {"shipping": nested_object("customer_id", component_ref("Missing"))},
+            [CREATED_CUSTOMER_TO_READ, order_to_customer("/shipping/customer_id")],
+        ),
+        ({"customer_id": component_ref("RecursiveId")}, [CREATED_CUSTOMER_TO_READ, order_to_customer("/customer_id")]),
+    ],
+    ids=[
+        "array",
+        "array-ref",
+        "nullable-array",
+        "nested-array",
+        "nested-array-ref",
+        "array-all-of",
+        "array-all-of-ref",
+        "nested-array-all-of",
+        "nested-array-all-of-ref",
+        "plural-array",
+        "nested-plural-array",
+        "integer",
+        "nested-integer",
+        "nested-unresolvable-ref",
+        "recursive-ref",
+    ],
+)
+def test_singular_fk_response_field_holding_an_array_does_not_fill_scalar_parameters(ctx, order, expected):
+    paths = {
+        **CREATE_CUSTOMER,
+        **operation("get", "/customers/{id}", "200", component_ref("Customer"), [path_param("id", "integer")]),
+        **operation(
+            "get",
+            "/orders/{order_id}",
+            "200",
+            {"type": "object", "properties": order},
+            [path_param("order_id", "integer")],
+        ),
+    }
+    _, graph = analyze_dependencies(ctx, paths, version="3.1.0", components=CUSTOMER_COMPONENTS)
+    assert inferred_links(graph) == expected
+
+
+LISTED_CUSTOMER_TO_READ = [
+    "#/paths/~1customers/get",
+    "200",
+    {
+        "operationRef": "#/paths/~1customers~1{id}/get",
+        "parameters": {"path.id": "$response.body#/*/id"},
+        "x-schemathesis": {"is_inferred": True},
+    },
+]
+
+READ_CUSTOMER_TO_LIST = [
+    "#/paths/~1customers~1{id}/get",
+    "200",
+    {
+        "operationRef": "#/paths/~1customers/get",
+        "parameters": {"query.ids": "$response.body#/id"},
+        "x-schemathesis": {"is_inferred": True},
+    },
+]
+
+
+def order_to_listed_customers(pointer):
+    return [
+        "#/paths/~1orders~1{order_id}/get",
+        "200",
+        {
+            "operationRef": "#/paths/~1customers/get",
+            "parameters": {"query.ids": f"$response.body#{pointer}"},
+            "x-schemathesis": {"is_inferred": True},
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    ["order", "ids", "expected"],
+    [
+        ({"customer_id": CUSTOMER_IDS}, CUSTOMER_IDS, [order_to_listed_customers("/customer_id")]),
+        ({"customer_id": CUSTOMER_IDS}, component_ref("CustomerIds"), [order_to_listed_customers("/customer_id")]),
+        ({"customer_id": CUSTOMER_IDS}, {"allOf": [CUSTOMER_IDS]}, [order_to_listed_customers("/customer_id")]),
+        (
+            {"customer_id": CUSTOMER_IDS},
+            {"allOf": [component_ref("CustomerIds")]},
+            [order_to_listed_customers("/customer_id")],
+        ),
+        (
+            {"customer_id": CUSTOMER_IDS},
+            {"type": ["array", "string"], "items": {"type": "integer"}},
+            [order_to_listed_customers("/customer_id")],
+        ),
+        (
+            {"shipping": nested_object("customer_id", CUSTOMER_IDS)},
+            CUSTOMER_IDS,
+            [order_to_listed_customers("/shipping/customer_id")],
+        ),
+        (
+            {"customer_id": CUSTOMER_IDS},
+            {"anyOf": [CUSTOMER_IDS, {"type": "null"}]},
+            [order_to_listed_customers("/customer_id")],
+        ),
+        (
+            {"customer_id": CUSTOMER_IDS},
+            {"oneOf": [CUSTOMER_IDS, {"type": "integer"}]},
+            [order_to_listed_customers("/customer_id")],
+        ),
+        (
+            {"customer_id": CUSTOMER_IDS},
+            {"anyOf": [component_ref("CustomerIds"), {"type": "string"}]},
+            [order_to_listed_customers("/customer_id")],
+        ),
+        (
+            {"customer_id": CUSTOMER_IDS},
+            component_ref("CustomerIdsOrNull"),
+            [order_to_listed_customers("/customer_id")],
+        ),
+        ({"customer_id": CUSTOMER_IDS}, {"type": "integer"}, []),
+        ({"customer_id": CUSTOMER_IDS}, {"anyOf": [{"type": "integer"}, {"type": "null"}]}, []),
+        ({"customer_id": CUSTOMER_IDS}, {"type": "integer", "oneOf": [CUSTOMER_IDS, {"type": "integer"}]}, []),
+        ({"customer_id": CUSTOMER_IDS}, component_ref("RecursiveIdsOrNull"), []),
+        ({"customer_id": CUSTOMER_IDS}, {}, []),
+        ({"customer_id": CUSTOMER_IDS}, True, []),
+        ({"shipping": nested_object("customer_id", CUSTOMER_IDS)}, {"type": "integer"}, []),
+        (
+            {"customer_ids": CUSTOMER_IDS},
+            CUSTOMER_IDS,
+            [order_to_listed_customers("/customer_ids/*"), order_to_customer("/customer_ids/*")],
+        ),
+    ],
+    ids=[
+        "array",
+        "array-ref",
+        "array-all-of",
+        "array-all-of-ref",
+        "array-or-string",
+        "nested-array",
+        "any-of-array-or-null",
+        "one-of-array-or-integer",
+        "any-of-array-ref-or-string",
+        "any-of-ref",
+        "scalar",
+        "any-of-without-array",
+        "integer-with-array-one-of",
+        "recursive-any-of",
+        "untyped",
+        "boolean",
+        "nested-scalar",
+        "plural-array",
+    ],
+)
+def test_singular_fk_response_field_holding_an_array_fills_array_parameters(ctx, order, ids, expected):
+    paths = {
+        **operation(
+            "get",
+            "/customers",
+            "200",
+            {"type": "array", "items": component_ref("Customer")},
+            [{"name": "ids", "in": "query", "schema": ids}],
+        ),
+        **operation("get", "/customers/{id}", "200", component_ref("Customer"), [path_param("id", "integer")]),
+        **operation(
+            "get",
+            "/orders/{order_id}",
+            "200",
+            {"type": "object", "properties": order},
+            [path_param("order_id", "integer")],
+        ),
+    }
+    _, graph = analyze_dependencies(ctx, paths, version="3.1.0", components=CUSTOMER_COMPONENTS)
+    assert inferred_links(graph) == [LISTED_CUSTOMER_TO_READ, READ_CUSTOMER_TO_LIST, *expected]
+
+
+def customer_to_order(body):
+    return [
+        "#/paths/~1customers/post",
+        "201",
+        {
+            "operationRef": "#/paths/~1orders/post",
+            "requestBody": body,
+            "x-schemathesis": {"is_inferred": True, "merge_body": True},
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    ["body", "expected"],
+    [
+        (nested_object("customer_id", CUSTOMER_IDS), []),
+        (nested_object("customer_id", component_ref("CustomerIds")), []),
+        (nested_object("customer_id", {"allOf": [CUSTOMER_IDS]}), []),
+        (nested_object("customer_id", {"allOf": [component_ref("CustomerIds")]}), []),
+        (nested_object("customer_id", CUSTOMER_IDS_OR_NULL), []),
+        (nested_object("customer_id", component_ref("CustomerIdsOrNull")), []),
+        (nested_object("customer_id", {"allOf": [CUSTOMER_IDS_OR_NULL]}), []),
+        (nested_object("customer_id", {"allOf": [component_ref("CustomerIdsOrNull")]}), []),
+        (
+            nested_object("customer_id", {"anyOf": [CUSTOMER_IDS, {"type": "integer"}]}),
+            [customer_to_order({"customer_id": "$response.body#/id"})],
+        ),
+        (
+            nested_object("customer_id", {"type": "integer"}),
+            [customer_to_order({"customer_id": "$response.body#/id"})],
+        ),
+        (
+            nested_object("customer_id", component_ref("RecursiveId")),
+            [customer_to_order({"customer_id": "$response.body#/id"})],
+        ),
+        (nested_object("shipping", nested_object("customer_id", CUSTOMER_IDS)), []),
+        (nested_object("shipping", nested_object("customer_id", component_ref("CustomerIds"))), []),
+        (nested_object("shipping", nested_object("customer_id", {"allOf": [CUSTOMER_IDS]})), []),
+        (nested_object("shipping", nested_object("customer_id", {"allOf": [component_ref("CustomerIds")]})), []),
+        (nested_object("shipping", nested_object("customer_id", CUSTOMER_IDS_OR_NULL)), []),
+        (nested_object("shipping", nested_object("customer_id", component_ref("CustomerIdsOrNull"))), []),
+        (
+            nested_object(
+                "lines",
+                {
+                    "anyOf": [
+                        {"type": "array", "items": nested_object("customer_id", CUSTOMER_IDS_OR_NULL)},
+                        {"type": "null"},
+                    ]
+                },
+            ),
+            [],
+        ),
+        (
+            nested_object("shipping", nested_object("customer_id", {"anyOf": [CUSTOMER_IDS, {"type": "integer"}]})),
+            [customer_to_order({"shipping": {"customer_id": "$response.body#/id"}})],
+        ),
+        (
+            nested_object("shipping", nested_object("customer_id", {"type": "integer"})),
+            [customer_to_order({"shipping": {"customer_id": "$response.body#/id"}})],
+        ),
+    ],
+    ids=[
+        "array",
+        "array-ref",
+        "array-all-of",
+        "array-all-of-ref",
+        "any-of-array-or-null",
+        "any-of-array-or-null-ref",
+        "any-of-array-or-null-all-of",
+        "any-of-array-or-null-all-of-ref",
+        "any-of-array-or-integer",
+        "integer",
+        "recursive-ref",
+        "nested-array",
+        "nested-array-ref",
+        "nested-array-all-of",
+        "nested-array-all-of-ref",
+        "nested-any-of-array-or-null",
+        "nested-any-of-array-or-null-ref",
+        "any-of-array-or-null-in-nullable-array",
+        "nested-any-of-array-or-integer",
+        "nested-integer",
+    ],
+)
+def test_singular_fk_body_field_holding_an_array_gets_no_link(ctx, body, expected):
+    paths = {**CREATE_CUSTOMER, **operation_with_body("post", "/orders", "201", body)}
+    _, graph = analyze_dependencies(ctx, paths, version="3.1.0", components=CUSTOMER_COMPONENTS)
+    assert inferred_links(graph) == expected
+
+
+@pytest.mark.parametrize(
+    ["body", "expected"],
+    [
+        (nested_object("customer_ids", CUSTOMER_IDS), {"customer_ids": ["$response.body#/id"]}),
+        (nested_object("customer_ids", component_ref("CustomerIds")), {"customer_ids": ["$response.body#/id"]}),
+        (nested_object("customer_ids", {"allOf": [CUSTOMER_IDS]}), {"customer_ids": ["$response.body#/id"]}),
+        (
+            nested_object("customer_ids", {"allOf": [component_ref("CustomerIds")]}),
+            {"customer_ids": ["$response.body#/id"]},
+        ),
+        (
+            nested_object("customer_ids", {"type": ["array", "null"], "items": {"type": "integer"}}),
+            {"customer_ids": ["$response.body#/id"]},
+        ),
+        (nested_object("customer_ids", CUSTOMER_IDS_OR_NULL), {"customer_ids": ["$response.body#/id"]}),
+        (nested_object("customer_ids", component_ref("CustomerIdsOrNull")), {"customer_ids": ["$response.body#/id"]}),
+        (
+            nested_object("customer_ids", {"oneOf": [CUSTOMER_IDS, {"type": "null"}]}),
+            {"customer_ids": ["$response.body#/id"]},
+        ),
+        (nested_object("customerIds", CUSTOMER_IDS), {"customerIds": ["$response.body#/id"]}),
+        (
+            nested_object("shipping", nested_object("customer_ids", CUSTOMER_IDS)),
+            {"shipping": {"customer_ids": ["$response.body#/id"]}},
+        ),
+        (
+            nested_object("shipping", nested_object("customer_ids", component_ref("CustomerIds"))),
+            {"shipping": {"customer_ids": ["$response.body#/id"]}},
+        ),
+        (
+            nested_object("shipping", nested_object("customer_ids", {"allOf": [CUSTOMER_IDS]})),
+            {"shipping": {"customer_ids": ["$response.body#/id"]}},
+        ),
+        (
+            nested_object("shipping", nested_object("customer_ids", {"allOf": [component_ref("CustomerIds")]})),
+            {"shipping": {"customer_ids": ["$response.body#/id"]}},
+        ),
+        (
+            nested_object("shipping", nested_object("customer_ids", CUSTOMER_IDS_OR_NULL)),
+            {"shipping": {"customer_ids": ["$response.body#/id"]}},
+        ),
+        (
+            nested_object("shipping", nested_object("customer_ids", {"allOf": [component_ref("CustomerIdsOrNull")]})),
+            {"shipping": {"customer_ids": ["$response.body#/id"]}},
+        ),
+        (
+            nested_object("lines", {"type": "array", "items": nested_object("customer_ids", CUSTOMER_IDS)}),
+            {"lines": [{"customer_ids": ["$response.body#/id"]}]},
+        ),
+        (nested_object("customer_ids", {"type": "integer"}), {"customer_ids": "$response.body#/id"}),
+        (
+            nested_object("customer_ids", {"anyOf": [CUSTOMER_IDS, {"type": "integer"}]}),
+            {"customer_ids": "$response.body#/id"},
+        ),
+        (
+            nested_object("shipping", nested_object("customer_ids", {"type": "integer"})),
+            {"shipping": {"customer_ids": "$response.body#/id"}},
+        ),
+    ],
+    ids=[
+        "array",
+        "array-ref",
+        "array-all-of",
+        "array-all-of-ref",
+        "nullable-array",
+        "any-of-array-or-null",
+        "any-of-array-or-null-ref",
+        "one-of-array-or-null",
+        "camel-case-array",
+        "nested-array",
+        "nested-array-ref",
+        "nested-array-all-of",
+        "nested-array-all-of-ref",
+        "nested-any-of-array-or-null",
+        "nested-any-of-array-or-null-all-of-ref",
+        "array-item-array",
+        "integer",
+        "array-or-integer",
+        "nested-integer",
+    ],
+)
+def test_plural_fk_body_field_holding_an_array_takes_one_identifier_as_its_item(ctx, body, expected):
+    paths = {**CREATE_CUSTOMER, **operation_with_body("post", "/orders", "201", body)}
+    _, graph = analyze_dependencies(ctx, paths, version="3.1.0", components=CUSTOMER_COMPONENTS)
+    assert inferred_links(graph) == [customer_to_order(expected)]
+
+
+def test_plural_fk_body_field_holding_an_array_under_several_media_types_takes_one_identifier_as_its_item(ctx):
+    body = {
+        "type": "object",
+        "properties": {
+            "customer_ids": CUSTOMER_IDS,
+            "lines": {"type": "array", "items": nested_object("customer_ids", CUSTOMER_IDS)},
+        },
+    }
+    orders = operation("post", "/orders", "201")
+    orders["/orders"]["post"]["requestBody"] = {
+        "content": {media_type: {"schema": body} for media_type in ("application/json", "text/json")}
+    }
+    _, graph = analyze_dependencies(ctx, {**CREATE_CUSTOMER, **orders}, version="3.1.0", components=CUSTOMER_COMPONENTS)
+    assert inferred_links(graph) == [
+        customer_to_order({"customer_ids": ["$response.body#/id"], "lines": [{"customer_ids": ["$response.body#/id"]}]})
+    ]
+
+
+CUSTOMER_KEYS = {"type": "array", "items": {"type": "string"}}
+CREATED = {
+    "responses": {
+        "Created": {"description": "Created", "content": {"application/json": {"schema": {"type": "object"}}}}
+    }
+}
+
+
+@pytest.mark.parametrize(
+    ["producer", "body", "expected"],
+    [
+        (
+            operation_with_body("post", "/customers", "201", nested_object("customer_id", {"type": "string"})),
+            nested_object("customer_ids", CUSTOMER_KEYS),
+            [customer_to_order({"customer_ids": ["$request.body#/customer_id"]})],
+        ),
+        (
+            operation_with_body("post", "/customers", "201", nested_object("customer_ids", CUSTOMER_KEYS)),
+            nested_object("customer_ids", CUSTOMER_KEYS),
+            [customer_to_order({"customer_ids": "$request.body#/customer_ids"})],
+        ),
+        (
+            operation_with_body("post", "/customers", "201", nested_object("customer_id", CUSTOMER_KEYS)),
+            nested_object("customer_ids", CUSTOMER_KEYS),
+            [customer_to_order({"customer_ids": "$request.body#/customer_id"})],
+        ),
+        (
+            operation_with_body("post", "/customers", "201", nested_object("customer_id", {"type": "string"})),
+            nested_object("customer_id", {"type": "string"}),
+            [customer_to_order({"customer_id": "$request.body#/customer_id"})],
+        ),
+        (
+            operation("put", "/customers/{customer_id}", "201", parameters=[path_param("customer_id")]),
+            nested_object("customer_ids", CUSTOMER_KEYS),
+            [
+                [
+                    "#/paths/~1customers~1{customer_id}/put",
+                    "201",
+                    {
+                        "operationRef": "#/paths/~1orders/post",
+                        "requestBody": {"customer_ids": ["$request.path.customer_id"]},
+                        "x-schemathesis": {"is_inferred": True, "merge_body": True},
+                    },
+                ]
+            ],
+        ),
+        (
+            operation("post", "/customers", "201", {"type": "string"}),
+            nested_object("customer_ids", CUSTOMER_KEYS),
+            [customer_to_order({"customer_ids": ["$response.body#/"]})],
+        ),
+        (
+            operation("post", "/customers", "201", {"type": "string"}),
+            nested_object("customer_id", {"type": "string"}),
+            [customer_to_order({"customer_id": "$response.body#/"})],
+        ),
+        (
+            operation("get", "/customers", "200", CUSTOMER_KEYS),
+            nested_object("customer_ids", CUSTOMER_KEYS),
+            [
+                [
+                    "#/paths/~1customers/get",
+                    "200",
+                    {
+                        "operationRef": "#/paths/~1orders/post",
+                        "requestBody": {"customer_ids": ["$response.body#/*"]},
+                        "x-schemathesis": {"is_inferred": True, "merge_body": True},
+                    },
+                ]
+            ],
+        ),
+        (
+            {"/customers": {"post": {"responses": {"201": {"$ref": "#/components/responses/Created"}}}}},
+            nested_object("customer_ids", CUSTOMER_KEYS),
+            [customer_to_order({"customer_ids": "$response.body#/customer_ids"})],
+        ),
+    ],
+    ids=[
+        "client-key",
+        "client-keys",
+        "client-key-array",
+        "client-key-scalar",
+        "path-key",
+        "bare-key",
+        "bare-key-scalar",
+        "listed-keys",
+        "same-field",
+    ],
+)
+def test_plural_fk_body_field_holding_an_array_takes_a_forwarded_identifier_as_its_item(ctx, producer, body, expected):
+    paths = {**operation_with_body("post", "/orders", "201", body), **producer}
+    _, graph = analyze_dependencies(ctx, paths, version="3.1.0", components=CREATED)
+    assert inferred_links(graph) == expected
+
+
+@pytest.mark.parametrize("name", ["customer_id", "customer_ids"])
+@pytest.mark.parametrize(
+    "customer_id",
+    [
+        CUSTOMER_IDS,
+        component_ref("CustomerIds"),
+        {"allOf": [CUSTOMER_IDS]},
+        {"allOf": [component_ref("CustomerIds")]},
+        CUSTOMER_IDS_OR_NULL,
+        component_ref("CustomerIdsOrNull"),
+    ],
+    ids=["array", "array-ref", "array-all-of", "array-all-of-ref", "any-of-array-or-null", "any-of-array-or-null-ref"],
+)
+def test_fk_body_field_holding_an_array_takes_the_same_array_field(ctx, customer_id, name):
+    order = {"type": "object", "properties": {"id": {"type": "integer"}, name: customer_id}}
+    paths = {
+        **operation_with_body("post", "/orders", "201", nested_object(name, customer_id), order),
+        **operation("get", "/orders/{order_id}", "200", order, [path_param("order_id", "integer")]),
+    }
+    _, graph = analyze_dependencies(ctx, paths, version="3.1.0", components=CUSTOMER_COMPONENTS)
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1orders/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1orders~1{order_id}/get",
+                "parameters": {"path.order_id": "$response.body#/id"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ],
+        [
+            "#/paths/~1orders~1{order_id}/get",
+            "200",
+            {
+                "operationRef": "#/paths/~1orders/post",
+                "requestBody": {name: f"$response.body#/{name}"},
+                "x-schemathesis": {"is_inferred": True, "merge_body": True},
+            },
+        ],
     ]
 
 
@@ -4646,6 +6539,90 @@ def test_infer_fk_target_avoids_false_positives(field):
 )
 def test_infer_fk_target_snake_case_unchanged(field, expected):
     assert infer_fk_target(field) == expected
+
+
+@pytest.mark.parametrize("holds_array", [False, True], ids=["scalar", "array"])
+@pytest.mark.parametrize("nested", [False, True], ids=["top-level", "nested"])
+@pytest.mark.parametrize(
+    ("collection", "resource", "key", "foreign_key"),
+    [
+        ("parts", "Part", "id", "part_id"),
+        ("parts", "Part", "pk", "part_pk"),
+        ("customers", "Customer", "id", "customer-id"),
+    ],
+    ids=["snake-id", "snake-pk", "kebab-id"],
+)
+def test_foreign_key_spellings_link_both_ways_unless_holding_an_array(
+    ctx, collection, resource, key, foreign_key, nested, holds_array
+):
+    fields = {foreign_key: {"type": "array", "items": {"type": "integer"}} if holds_array else {"type": "integer"}}
+    if nested:
+        fields = {"shipping": {"type": "object", "properties": fields}}
+    components = {
+        "schemas": {
+            resource: {"type": "object", "properties": {key: {"type": "integer"}, "name": {"type": "string"}}},
+            "Order": {"type": "object", "properties": {"id": {"type": "integer"}, **fields}},
+        }
+    }
+    item = f"/{collection}/{{{key}}}"
+    paths = {
+        **operation("post", f"/{collection}", "201", component_ref(resource)),
+        **operation("get", item, "200", component_ref(resource), parameters=[path_param(key, "integer")]),
+        **operation_with_body(
+            "post", "/orders", "201", {"type": "object", "properties": fields}, component_ref("Order")
+        ),
+        **operation(
+            "get", "/orders/{order_id}", "200", component_ref("Order"), parameters=[path_param("order_id", "integer")]
+        ),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components=components)
+
+    body = {foreign_key: f"$response.body#/{key}"}
+    pointer = f"/{foreign_key}"
+    if nested:
+        body = {"shipping": body}
+        pointer = f"/shipping{pointer}"
+    item_ref = f"#/paths/{item.replace('/', '~1')}/get"
+    into_orders = {
+        "operationRef": "#/paths/~1orders/post",
+        "requestBody": body,
+        "x-schemathesis": {"is_inferred": True, "merge_body": True},
+    }
+    into_item = {
+        "operationRef": item_ref,
+        "parameters": {f"path.{key}": f"$response.body#{pointer}"},
+        "x-schemathesis": {"is_inferred": True},
+    }
+    created_to_item = [
+        f"#/paths/~1{collection}/post",
+        "201",
+        {
+            "operationRef": item_ref,
+            "parameters": {f"path.{key}": f"$response.body#/{key}"},
+            "x-schemathesis": {"is_inferred": True},
+        },
+    ]
+    created_order_to_read = [
+        "#/paths/~1orders/post",
+        "201",
+        {
+            "operationRef": "#/paths/~1orders~1{order_id}/get",
+            "parameters": {"path.order_id": "$response.body#/id"},
+            "x-schemathesis": {"is_inferred": True},
+        },
+    ]
+    if holds_array:
+        assert inferred_links(graph) == [created_to_item, created_order_to_read]
+    else:
+        assert inferred_links(graph) == [
+            created_to_item,
+            [f"#/paths/~1{collection}/post", "201", into_orders],
+            [item_ref, "200", into_orders],
+            created_order_to_read,
+            ["#/paths/~1orders/post", "201", into_item],
+            ["#/paths/~1orders~1{order_id}/get", "200", into_item],
+        ]
 
 
 def test_camelcase_nested_fk_produces_input_slot(ctx):
@@ -4754,17 +6731,27 @@ def test_name_parameter_does_not_take_identifier(ctx, consumer, parameter, expec
 
 
 @pytest.mark.parametrize(
-    ("item_fields", "parameters"),
+    ("location", "parameter", "item_fields", "returns_item", "source"),
     [
-        (["id", "name"], {"path.fileId": "$response.body#/id"}),
-        (
-            ["id", "track_name"],
-            {"path.fileId": "$response.body#/id", "query.track_name": "$response.body#/track_name"},
-        ),
+        ("query", "track_name", ["id", "name"], False, None),
+        ("query", "track_name", ["id", "track_name"], False, "track_name"),
+        ("query", "track_name", ["id", "name"], True, None),
+        ("header", "track_name", ["id", "name"], False, None),
+        ("header", "track_name", ["id", "track_name"], False, "track_name"),
+        ("header", "X-File-Name", ["id", "name"], False, "name"),
+        ("header", "X-Registry-Name", ["id", "name"], True, "name"),
     ],
-    ids=["other-name-field", "own-name-field"],
+    ids=[
+        "query-other-name-field",
+        "query-own-name-field",
+        "query-other-name-field-of-returned-item",
+        "header-other-name-field",
+        "header-own-name-field",
+        "header-prefixed-resource-name",
+        "header-name-of-returned-item",
+    ],
 )
-def test_name_query_parameter_takes_only_field_of_same_name(ctx, item_fields, parameters):
+def test_name_parameter_takes_only_field_of_same_name(ctx, location, parameter, item_fields, returns_item, source):
     item = {"type": "object", "properties": {field: {"type": "string"} for field in item_fields}}
     _, graph = analyze_dependencies(
         ctx,
@@ -4774,14 +6761,18 @@ def test_name_query_parameter_takes_only_field_of_same_name(ctx, item_fields, pa
                 "patch",
                 "/files/{fileId}",
                 "200",
+                item if returns_item else None,
                 parameters=[
                     path_param("fileId"),
-                    {"name": "track_name", "in": "query", "required": False, "schema": {"type": "string"}},
+                    {"name": parameter, "in": location, "required": False, "schema": {"type": "string"}},
                 ],
             ),
         },
     )
 
+    parameters = {"path.fileId": "$response.body#/id"}
+    if source is not None:
+        parameters[f"{location}.{parameter}"] = f"$response.body#/{source}"
     assert inferred_links(graph) == [
         [
             "#/paths/~1files/post",
@@ -7452,6 +9443,40 @@ CREATE_TO_READ = [
         ),
         (
             {
+                "version": {"type": "string", "enum": ["queued"]},
+                "read": versioned_item_reading(
+                    {"type": "string", "enum": ["queued", None], "allOf": [{"type": "string", "nullable": True}]}
+                ),
+            },
+            [READ_TO_UPDATE, READ_TO_UPDATE_ECHOING_VERSION, CREATE_TO_UPDATE, CREATE_TO_READ],
+        ),
+        (
+            {
+                "version": {"type": "string", "enum": ["queued"]},
+                "read": versioned_item_reading(
+                    {"type": "string", "nullable": True, "enum": ["queued", None], "allOf": [{"type": "string"}]}
+                ),
+            },
+            [READ_TO_UPDATE, CREATE_TO_UPDATE, CREATE_TO_READ],
+        ),
+        (
+            {
+                "version": {"type": "string", "enum": ["queued"]},
+                "read": versioned_item_reading(
+                    {"type": "string", "nullable": True, **component_ref("ReadStateWithNull")}
+                ),
+            },
+            [READ_TO_UPDATE, CREATE_TO_UPDATE, CREATE_TO_READ],
+        ),
+        (
+            {
+                "version": {"type": "string", "enum": ["queued"]},
+                "read": versioned_item_reading({"type": "string", **component_ref("ReadStateWithNull")}),
+            },
+            [READ_TO_UPDATE, READ_TO_UPDATE_ECHOING_VERSION, CREATE_TO_UPDATE, CREATE_TO_READ],
+        ),
+        (
+            {
                 "version": {"type": "number", "enum": [1.0, 2.0]},
                 "read": versioned_item_reading({"type": "number", "enum": [1, 2]}),
             },
@@ -7614,6 +9639,10 @@ CREATE_TO_READ = [
         "read-const-rejected-by-update",
         "nullable-read-enum-rejected-by-update",
         "read-null-accepted-by-nullable-update",
+        "read-null-outside-type-under-nullable-branch-ignored",
+        "read-null-through-nullable-parent-rejected-by-update",
+        "read-null-through-nullable-next-to-reference-rejected-by-update",
+        "read-null-outside-referenced-type-ignored",
         "integer-read-enum-accepted-by-float-update-enum",
         "read-enum-value-outside-type-ignored",
         "read-boolean-outside-integer-type-ignored",
@@ -7645,11 +9674,103 @@ def test_update_echoes_values_only_item_read_returns(ctx, kwargs, expected):
             "schemas": {
                 "Tag": {"type": "object", "properties": {"id": {"type": "integer"}, "label": {"type": "string"}}},
                 "RunState": {"type": "string", "enum": ["queued", "running", "success", "failed"]},
+                "ReadStateWithNull": {"type": "string", "enum": ["queued", None]},
                 "NestedState": {
                     "type": "string",
                     "enum": ["queued", "running"],
                     "allOf": [component_ref("NestedState")],
                 },
+            }
+        },
+    )
+    assert inferred_links(graph) == expected
+
+
+@pytest.mark.parametrize(
+    ("version", "update_version"),
+    [
+        ("3.0.2", {"type": "string", "allOf": [component_ref("UpdateState")]}),
+        ("3.1.0", {"type": "string", **component_ref("UpdateState")}),
+    ],
+    ids=["all-of", "sibling"],
+)
+@pytest.mark.parametrize(
+    ("read_version", "expected"),
+    [
+        ({"type": "string", "enum": ["queued", "running"]}, [READ_TO_UPDATE, CREATE_TO_UPDATE, CREATE_TO_READ]),
+        (
+            {"type": "string", "enum": ["queued", "success", "failed"]},
+            [READ_TO_UPDATE, READ_TO_UPDATE_ECHOING_VERSION, CREATE_TO_UPDATE, CREATE_TO_READ],
+        ),
+    ],
+    ids=["read-enum-rejected-by-update", "equal-enums-echoed"],
+)
+def test_update_echo_checks_update_enum_behind_reference(ctx, version, update_version, read_version, expected):
+    _, graph = analyze_dependencies(
+        ctx,
+        versioned_item_paths(version=update_version, read=versioned_item_reading(read_version)),
+        version=version,
+        components={"schemas": {"UpdateState": {"type": "string", "enum": ["queued", "success", "failed"]}}},
+    )
+    assert inferred_links(graph) == expected
+
+
+@pytest.mark.parametrize(
+    ("update_version", "expected"),
+    [
+        (
+            {"type": "string", "enum": ["queued", "success", None], "allOf": [{"type": "string", "nullable": True}]},
+            [READ_TO_UPDATE, CREATE_TO_UPDATE, CREATE_TO_READ],
+        ),
+        (
+            {"type": "string", "enum": ["queued", "success", None], "allOf": [component_ref("NullableString")]},
+            [READ_TO_UPDATE, CREATE_TO_UPDATE, CREATE_TO_READ],
+        ),
+        (
+            {"type": "string", "enum": ["queued", "success", None], "allOf": [component_ref("NullableValue")]},
+            [READ_TO_UPDATE, CREATE_TO_UPDATE, CREATE_TO_READ],
+        ),
+        (
+            {
+                "type": "string",
+                "nullable": True,
+                "enum": ["queued", "success", None],
+                "allOf": [component_ref("NullableString")],
+            },
+            [READ_TO_UPDATE, READ_TO_UPDATE_ECHOING_VERSION, CREATE_TO_UPDATE, CREATE_TO_READ],
+        ),
+        (
+            {"type": "string", "nullable": True, "enum": ["queued", "success", None], "allOf": [{"type": "string"}]},
+            [READ_TO_UPDATE, READ_TO_UPDATE_ECHOING_VERSION, CREATE_TO_UPDATE, CREATE_TO_READ],
+        ),
+        ({"type": "string", **component_ref("StateWithNull")}, [READ_TO_UPDATE, CREATE_TO_UPDATE, CREATE_TO_READ]),
+        (
+            {"type": "string", "nullable": True, **component_ref("StateWithNull")},
+            [READ_TO_UPDATE, READ_TO_UPDATE_ECHOING_VERSION, CREATE_TO_UPDATE, CREATE_TO_READ],
+        ),
+    ],
+    ids=[
+        "nullable-branch-under-non-null-update",
+        "referenced-nullable-branch-under-non-null-update",
+        "referenced-untyped-nullable-branch-under-non-null-update",
+        "nullable-update-with-nullable-branch-echoed",
+        "nullable-update-with-non-null-branch-echoed",
+        "update-reference-enum-null-outside-type",
+        "nullable-next-to-update-reference-echoed",
+    ],
+)
+def test_update_echo_accepts_null_only_where_every_all_of_branch_does(ctx, update_version, expected):
+    _, graph = analyze_dependencies(
+        ctx,
+        versioned_item_paths(
+            version=update_version,
+            read=versioned_item_reading({"type": "string", "enum": ["queued", None], "nullable": True}),
+        ),
+        components={
+            "schemas": {
+                "NullableString": {"type": "string", "nullable": True},
+                "NullableValue": {"nullable": True},
+                "StateWithNull": {"type": "string", "enum": ["queued", "success", None]},
             }
         },
     )
@@ -8820,6 +10941,84 @@ def test_envelope_around_object_without_properties_kept_whole(ctx, data):
     ]
 
 
+TAGS_MAP = {"type": "object", "additionalProperties": {"type": "string"}}
+TAG_SCHEMA = {
+    "type": "object",
+    "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+    "required": ["id"],
+}
+
+
+@pytest.mark.parametrize(
+    "tags",
+    [TAGS_MAP, component_ref("Tags"), {"allOf": [component_ref("Tags")]}],
+    ids=["inline", "ref", "all-of"],
+)
+def test_map_named_after_path_segment_is_not_an_envelope(ctx, tags):
+    order = {"type": "object", "properties": {"id": {"type": "string"}, "tags": tags}, "required": ["id"]}
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation("patch", "/orders/{order_id}/tags", "200", component_ref("Order"), [path_param("order_id")]),
+            **operation("get", "/orders/{order_id}", "200", component_ref("Order"), [path_param("order_id")]),
+        },
+        components={"schemas": {"Order": order, "Tags": TAGS_MAP}},
+    )
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1orders~1{order_id}~1tags/patch",
+            "200",
+            {
+                "operationRef": "#/paths/~1orders~1{order_id}/get",
+                "parameters": {"path.order_id": "$response.body#/id"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ],
+        [
+            "#/paths/~1orders~1{order_id}/get",
+            "200",
+            {
+                "operationRef": "#/paths/~1orders~1{order_id}~1tags/patch",
+                "parameters": {"path.order_id": "$response.body#/id"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ],
+    ]
+
+
+@pytest.mark.parametrize(
+    "tag",
+    [
+        TAG_SCHEMA,
+        {**TAG_SCHEMA, "additionalProperties": False},
+        component_ref("Tag"),
+        {"allOf": [component_ref("Tag")]},
+    ],
+    ids=["inline", "closed", "ref", "all-of"],
+)
+def test_resource_named_after_path_segment_is_an_envelope(ctx, tag):
+    tagged = {"type": "object", "properties": {"tag": tag}}
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation("post", "/tags", "201", tagged),
+            **operation("get", "/tags/{tag_id}", "200", tagged, [path_param("tag_id")]),
+        },
+        components={"schemas": {"Tag": TAG_SCHEMA}},
+    )
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1tags/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1tags~1{tag_id}/get",
+                "parameters": {"path.tag_id": "$response.body#/tag/id"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ]
+    ]
+
+
 def test_fk_link_requires_field_in_producer_response(ctx):
     # The full order has `customer_id`, but the create response only returns `id`:
     # a link reading `customer_id` from it would always resolve to nothing.
@@ -8932,6 +11131,77 @@ def test_put_with_post_creator_stays_an_updater(ctx):
     assert [(producer, consumer["operationRef"]) for producer, _, consumer in inferred_links(graph)] == [
         ("#/paths/~1users/post", "#/paths/~1users~1{user_id}/put"),
         ("#/paths/~1users/post", "#/paths/~1users~1{user_id}~1orders/get"),
+    ]
+
+
+ORDER_TOTAL = {"type": "object", "properties": {"total": {"type": "integer"}}}
+ORDER_WITH_TOTAL = {"type": "object", "properties": {"id": {"type": "string"}, "total": {"type": "integer"}}}
+ORDERS_COLLECTION = operation_with_body("post", "/orders", "201", ORDER_TOTAL, ORDER_WITH_TOTAL)["/orders"]
+ORDERS_LIST = operation("get", "/orders", "200", {"type": "array", "items": ORDER_WITH_TOTAL})["/orders"]
+ORDER_ITEM = {
+    **operation_with_body("put", "/orders/{orderId}", "204", ORDER_TOTAL, parameters=[path_param("orderId")])[
+        "/orders/{orderId}"
+    ],
+    **operation("get", "/orders/{orderId}", "200", ORDER_WITH_TOTAL, [path_param("orderId")])["/orders/{orderId}"],
+}
+
+
+def update_order_link(pointer):
+    return {
+        "operationRef": "#/paths/~1orders~1{orderId}/put",
+        "parameters": {"path.orderId": f"$response.body#{pointer}"},
+        "x-schemathesis": {"is_inferred": True},
+    }
+
+
+@pytest.mark.parametrize(
+    ("path", "collection", "components"),
+    [
+        ("/orders", ORDERS_COLLECTION, {}),
+        ("/orders/", ORDERS_COLLECTION, {}),
+        ("/orders", ref("#/components/pathItems/Orders"), {"pathItems": {"Orders": ORDERS_COLLECTION}}),
+        ("/orders", ref("paths.json#/orders"), {}),
+    ],
+    ids=["inline", "trailing-slash", "components-path-item", "external-path-item"],
+)
+def test_put_with_referenced_post_creator_stays_an_updater(ctx, path, collection, components):
+    ctx.makefile({"orders": ORDERS_COLLECTION}, filename="paths")
+    root = ctx.openapi.write_schema(
+        {path: collection, "/orders/{orderId}": ORDER_ITEM}, version="3.1.0", components=components
+    )
+    create_order = f"#/paths/{path.replace('/', '~1')}/post"
+    assert inferred_links(analyze(schemathesis.openapi.from_path(str(root)))) == [
+        [create_order, "201", update_order_link("/id")],
+        [create_order, "201", read_order_link("/id")],
+        ["#/paths/~1orders~1{orderId}/get", "200", update_order_link("/id")],
+    ]
+
+
+@pytest.mark.parametrize(
+    ("collection", "components"),
+    [
+        (ORDERS_LIST, {}),
+        (ref("#/components/pathItems/Orders"), {"pathItems": {"Orders": ORDERS_LIST}}),
+    ],
+    ids=["inline", "components-path-item"],
+)
+def test_put_creates_resource_when_referenced_collection_has_no_post(ctx, collection, components):
+    _, graph = analyze_dependencies(
+        ctx, {"/orders": collection, "/orders/{orderId}": ORDER_ITEM}, version="3.1.0", components=components
+    )
+    assert inferred_links(graph) == [
+        ["#/paths/~1orders/get", "200", update_order_link("/*/id")],
+        ["#/paths/~1orders/get", "200", read_order_link("/*/id")],
+        [
+            "#/paths/~1orders~1{orderId}/put",
+            "204",
+            {
+                "operationRef": "#/paths/~1orders~1{orderId}/get",
+                "parameters": {"path.orderId": "$request.path.orderId"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ],
+        ["#/paths/~1orders~1{orderId}/get", "200", update_order_link("/id")],
     ]
 
 
@@ -9319,6 +11589,431 @@ def test_scalar_body_field_named_after_object_collection(ctx, item, language, ex
     assert inferred_links(graph) == expected
 
 
+def keyed(**fields):
+    return {"type": "object", "properties": {"pk": {"type": "integer", "readOnly": True}, **fields}}
+
+
+INTEGER = {"type": "integer"}
+
+
+NAMED = keyed(name={"type": "string"})
+PART_DETAIL = {"allOf": [component_ref("PartBrief")], "readOnly": True}
+
+
+@pytest.mark.parametrize(
+    ["collections", "consumer", "body", "created", "expected"],
+    [
+        pytest.param(
+            {"Part": NAMED, "SupplierPart": NAMED},
+            "/stock",
+            {"part": INTEGER, "quantity": INTEGER},
+            keyed(part=INTEGER, part_detail=PART_DETAIL),
+            [("parts", "part")],
+            id="detail-object-picks-collection",
+        ),
+        pytest.param(
+            {"LabelTemplate": NAMED, "ParameterTemplate": NAMED},
+            "/parameters",
+            {"template": INTEGER},
+            keyed(),
+            [("parametertemplates", "template")],
+            id="path-picks-collection",
+        ),
+        pytest.param(
+            {"LabelTemplate": NAMED, "ParameterTemplate": NAMED},
+            "/labels/parameters",
+            {"template": INTEGER},
+            keyed(),
+            [],
+            id="path-names-several",
+        ),
+        pytest.param({"LabelTemplate": NAMED}, "/stock", {"template": INTEGER}, keyed(), [], id="path-names-none"),
+        pytest.param(
+            {"LabelTemplate": NAMED, "ReportTemplate": NAMED},
+            "/labels/print",
+            {"template": INTEGER},
+            keyed(template=INTEGER),
+            [("labeltemplates", "template")],
+            id="path-picks-a-field-it-echoes",
+        ),
+        pytest.param(
+            {"EventType": NAMED, "OperationType": NAMED},
+            "/eventlog",
+            {"type": INTEGER},
+            keyed(),
+            [],
+            id="path-word-not-substring",
+        ),
+        pytest.param(
+            {"Role": NAMED, "DeviceRole": NAMED},
+            "/virtual-machines",
+            {"role": INTEGER},
+            keyed(role=component_ref("NestedDeviceRole")),
+            [("deviceroles", "role")],
+            id="response-picks-collection",
+        ),
+        pytest.param(
+            {"Role": NAMED, "DeviceRole": NAMED},
+            "/virtual-machines",
+            {"role": INTEGER},
+            keyed(role=component_ref("DeviceRole")),
+            [("deviceroles", "role")],
+            id="response-returns-the-collection",
+        ),
+        pytest.param(
+            {"Part": NAMED, "SupplierPart": NAMED},
+            "/order-lines",
+            {"part": {"type": "integer", "title": "Supplier Part"}},
+            keyed(),
+            [("supplierparts", "part")],
+            id="title-picks-collection",
+        ),
+        pytest.param(
+            {"Part": NAMED, "SupplierPart": NAMED},
+            "/price-breaks",
+            {"part": INTEGER},
+            keyed(part=INTEGER),
+            [],
+            id="nothing-picks-among-several",
+        ),
+        pytest.param(
+            {"Part": NAMED, "SupplierPart": NAMED},
+            "/price-breaks",
+            {"part": {"type": "integer", "title": "Part"}},
+            keyed(),
+            [],
+            id="title-repeats-the-name",
+        ),
+        pytest.param(
+            {"Part": NAMED, "SupplierPart": NAMED},
+            "/price-breaks",
+            {"part": {"type": "integer", "title": "Base Part"}},
+            keyed(),
+            [],
+            id="title-names-no-collection",
+        ),
+        pytest.param(
+            {"Version": NAMED}, "/documents", {"version": INTEGER}, keyed(version=INTEGER), [], id="bare-name"
+        ),
+        pytest.param(
+            {"Part": NAMED, "ManufacturerPart": NAMED},
+            "/manufacturer-parts",
+            {"part": INTEGER},
+            component_ref("ManufacturerPart"),
+            [],
+            id="not-its-own-collection",
+        ),
+        pytest.param(
+            {"Part": NAMED},
+            "/stock",
+            {"part": {"type": "string"}},
+            keyed(part_detail=PART_DETAIL),
+            [],
+            id="string-field",
+        ),
+        pytest.param(
+            {"Part": NAMED},
+            "/stock",
+            {"part": {"type": "integer", "enum": [1, 2]}},
+            keyed(part_detail=PART_DETAIL),
+            [],
+            id="enum-field",
+        ),
+        pytest.param(
+            {"Part": {"type": "object", "properties": {"id": {"type": "string"}}}},
+            "/stock",
+            {"part": INTEGER},
+            keyed(part_detail=PART_DETAIL),
+            [],
+            id="string-key",
+        ),
+        pytest.param({"Template": NAMED}, "/stock", {"part": INTEGER}, keyed(), [], id="unlisted-name"),
+    ],
+)
+def test_integer_body_field_named_after_collection_takes_its_key(ctx, collections, consumer, body, created, expected):
+    # Django REST Framework writes a reference as the bare `pk` of the object, under the name of its model.
+    paths = {}
+    for name in collections:
+        paths.update(operation("get", f"/{name.lower()}s", "200", {"type": "array", "items": component_ref(name)}))
+    paths.update(operation_with_body("post", consumer, "201", {"type": "object", "properties": body}, created))
+    schemas = {**collections, "NestedDeviceRole": keyed(), "PartBrief": NAMED, "ManufacturerPart": keyed(part=INTEGER)}
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": schemas})
+
+    assert [
+        (link[0], link[2]["requestBody"]) for link in inferred_links(graph) if link[2]["operationRef"].endswith("/post")
+    ] == [(f"#/paths/~1{listing}/get", {field: "$response.body#/*/pk"}) for listing, field in expected]
+
+
+def issue_and_pull_paths(field):
+    # Issues and pull requests share `{index}` by name, but an issue's index is not a pull request's.
+    repository = [path_param("owner"), path_param("repo")]
+    item = [*repository, path_param("index", "integer")]
+    return {
+        **operation(
+            "get",
+            "/repos/{owner}/{repo}/milestones",
+            "200",
+            {"type": "array", "items": component_ref("Milestone")},
+            repository,
+        ),
+        **operation("get", "/repos/{owner}/{repo}/issues/{index}", "200", component_ref("Issue"), item),
+        **operation_with_body(
+            "patch",
+            "/repos/{owner}/{repo}/pulls/{index}",
+            "200",
+            {"type": "object", "properties": {field: INTEGER}},
+            component_ref("PullRequest"),
+            parameters=item,
+        ),
+    }
+
+
+ISSUE_AND_PULL_SCHEMAS = {
+    "Milestone": {"type": "object", "properties": {"id": INTEGER, "title": {"type": "string"}}},
+    "Issue": {"type": "object", "properties": {"number": INTEGER, "milestone": component_ref("Milestone")}},
+    "PullRequest": {"type": "object", "properties": {"number": INTEGER, "milestone": component_ref("Milestone")}},
+}
+
+
+def test_field_named_after_collection_forwards_only_keys_under_the_same_parents(ctx):
+    _, graph = analyze_dependencies(
+        ctx, issue_and_pull_paths("milestone"), components={"schemas": ISSUE_AND_PULL_SCHEMAS}
+    )
+
+    repository = {"path.owner": "$request.path.owner", "path.repo": "$request.path.repo"}
+    assert [(link[0], link[2]["parameters"], link[2]["requestBody"]) for link in inferred_links(graph)] == [
+        ("#/paths/~1repos~1{owner}~1{repo}~1milestones/get", repository, {"milestone": "$response.body#/*/id"}),
+        (
+            "#/paths/~1repos~1{owner}~1{repo}~1issues~1{index}/get",
+            repository,
+            {"milestone": "$response.body#/milestone/id"},
+        ),
+    ]
+
+
+def test_suffixed_foreign_key_keeps_forwarding_path_parameters(ctx):
+    _, graph = analyze_dependencies(
+        ctx, issue_and_pull_paths("milestone_id"), components={"schemas": ISSUE_AND_PULL_SCHEMAS}
+    )
+
+    repository = {"path.owner": "$request.path.owner", "path.repo": "$request.path.repo"}
+    assert [(link[0], link[2]["parameters"], link[2]["requestBody"]) for link in inferred_links(graph)] == [
+        ("#/paths/~1repos~1{owner}~1{repo}~1milestones/get", repository, {"milestone_id": "$response.body#/*/id"}),
+        (
+            "#/paths/~1repos~1{owner}~1{repo}~1issues~1{index}/get",
+            {**repository, "path.index": "$request.path.index"},
+            {"milestone_id": "$response.body#/milestone/id"},
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    ["version", "part"],
+    [("3.0.2", {"type": "integer", "nullable": True}), ("3.1.0", {"type": ["integer", "null"]})],
+    ids=["nullable", "type-list"],
+)
+def test_nullable_integer_body_field_named_after_collection_takes_its_key(ctx, version, part):
+    paths = {
+        **operation("get", "/parts", "200", {"type": "array", "items": component_ref("Part")}),
+        **operation_with_body(
+            "post", "/stock", "201", {"type": "object", "properties": {"part": part}}, keyed(part_detail=PART_DETAIL)
+        ),
+    }
+
+    _, graph = analyze_dependencies(
+        ctx, paths, version=version, components={"schemas": {"Part": NAMED, "PartBrief": NAMED}}
+    )
+
+    assert [(link[0], link[2]["requestBody"]) for link in inferred_links(graph)] == [
+        ("#/paths/~1parts/get", {"part": "$response.body#/*/pk"})
+    ]
+
+
+@pytest.mark.parametrize(
+    ["location", "parameter", "items", "expected"],
+    [
+        ("query", INTEGER, keyed(part=INTEGER), [("#/paths/~1parts/get", {"query.part": "$response.body#/*/pk"})]),
+        ("query", {"type": "string"}, keyed(part=INTEGER), []),
+        ("query", INTEGER, keyed(text={"type": "string"}), []),
+        ("header", INTEGER, keyed(part=INTEGER), []),
+    ],
+    ids=["query", "string-query", "filters-no-field-of-the-items", "header"],
+)
+def test_integer_query_parameter_named_after_collection_takes_its_key(ctx, location, parameter, items, expected):
+    paths = {
+        **operation("get", "/parts", "200", {"type": "array", "items": component_ref("Part")}),
+        **operation(
+            "get",
+            "/builds",
+            "200",
+            {"type": "array", "items": items},
+            parameters=[{"name": "part", "in": location, "schema": parameter}],
+        ),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Part": NAMED}})
+
+    assert [(link[0], link[2]["parameters"]) for link in inferred_links(graph)] == expected
+
+
+PAGINATION_NAMES = [
+    "page",
+    "page_size",
+    "per_page",
+    "size",
+    "limit",
+    "offset",
+    "cursor",
+    "start",
+    "skip",
+    "top",
+    "after",
+    "before",
+    "since",
+    "count",
+    "first",
+    "last",
+    "page_number",
+    "pageIndex",
+    "page_no",
+    "pagenum",
+]
+
+
+@pytest.mark.parametrize("name", PAGINATION_NAMES)
+def test_pagination_parameter_is_not_bound_to_a_same_named_collection(ctx, name):
+    # The listed items may carry a field of that name too (`Comment.page`); the parameter still pages.
+    item = keyed(text={"type": "string"}, **{name: INTEGER})
+    paths = {
+        **operation("get", f"/{name}s", "200", {"type": "array", "items": component_ref(naming.to_pascal_case(name))}),
+        **operation(
+            "get",
+            "/comments",
+            "200",
+            {"type": "object", "properties": {"count": INTEGER, "results": {"type": "array", "items": item}}},
+            parameters=[{"name": name, "in": "query", "schema": INTEGER}],
+        ),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {naming.to_pascal_case(name): NAMED}})
+
+    assert inferred_links(graph) == []
+
+
+VERSIONED_DOCUMENT = {"type": "object", "properties": {"id": INTEGER, "title": {"type": "string"}, "version": INTEGER}}
+DOCUMENT_ECHOES = ["#/paths/~1documents/post", "#/paths/~1documents~1{id}/get"]
+
+
+@pytest.mark.parametrize(
+    ["parameter", "method", "status", "returned", "expected"],
+    [
+        ("id", "put", "200", "Document", DOCUMENT_ECHOES),
+        ("document_id", "put", "200", "Document", DOCUMENT_ECHOES),
+        ("document_id", "put", "204", None, DOCUMENT_ECHOES),
+        ("document_id", "patch", "200", "DocumentSummary", DOCUMENT_ECHOES),
+    ],
+    ids=["same-parameter", "named-parameter", "no-content", "summary"],
+)
+def test_lock_counter_keeps_its_echo_instead_of_a_versions_collection(
+    ctx, parameter, method, status, returned, expected
+):
+    # `version` guards concurrent updates; the `DocumentVersion` items under the document are not what it takes.
+    paths = {
+        **operation_with_body(
+            "post",
+            "/documents",
+            "201",
+            {"type": "object", "properties": {"title": {"type": "string"}}},
+            component_ref("Document"),
+        ),
+        "/documents/{id}": {
+            **operation("get", "/documents/{id}", "200", component_ref("Document"), [path_param("id", "integer")])[
+                "/documents/{id}"
+            ],
+            **operation_with_body(
+                method,
+                "/documents/{id}",
+                status,
+                {"type": "object", "properties": {"title": {"type": "string"}, "version": INTEGER}},
+                component_ref(returned) if returned else None,
+                parameters=[path_param("id", "integer")],
+            )["/documents/{id}"],
+        },
+        **operation(
+            "get",
+            f"/documents/{{{parameter}}}/versions",
+            "200",
+            {"type": "array", "items": component_ref("DocumentVersion")},
+            [path_param(parameter, "integer")],
+        ),
+    }
+    schemas = {
+        "Document": VERSIONED_DOCUMENT,
+        "DocumentSummary": {"type": "object", "properties": {"id": INTEGER, "title": {"type": "string"}}},
+        "DocumentVersion": NAMED,
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": schemas})
+
+    assert (
+        sorted(
+            link[0]
+            for link in inferred_links(graph)
+            if link[2]["operationRef"] == f"#/paths/~1documents~1{{id}}/{method}"
+            and link[2].get("requestBody", {}).get("version") == "$response.body#/version"
+        )
+        == expected
+    )
+    assert [
+        link[0] for link in inferred_links(graph) if link[0] == f"#/paths/~1documents~1{{{parameter}}}~1versions/get"
+    ] == []
+
+
+@pytest.mark.parametrize(
+    ["location", "path"],
+    [("body", "/documents"), ("query", "/documents")],
+    ids=["create", "filter"],
+)
+def test_counter_named_after_the_items_own_subcollection_is_not_bound(ctx, location, path):
+    # `DocumentVersion` items live under `/documents/{id}`, so a `version` on documents themselves is a counter.
+    paths = {
+        **operation(
+            "get",
+            "/documents/{document_id}/versions",
+            "200",
+            {"type": "array", "items": component_ref("DocumentVersion")},
+            [path_param("document_id", "integer")],
+        ),
+    }
+    if location == "body":
+        paths.update(
+            operation_with_body(
+                "post",
+                path,
+                "201",
+                {"type": "object", "properties": {"title": {"type": "string"}, "version": INTEGER}},
+                {"type": "object", "properties": {"id": INTEGER}},
+            )
+        )
+    else:
+        paths.update(
+            operation(
+                "get",
+                path,
+                "200",
+                {"type": "array", "items": component_ref("Document")},
+                parameters=[{"name": "version", "in": "query", "schema": INTEGER}],
+            )
+        )
+
+    _, graph = analyze_dependencies(
+        ctx, paths, components={"schemas": {"Document": VERSIONED_DOCUMENT, "DocumentVersion": NAMED}}
+    )
+
+    assert [link for link in inferred_links(graph) if link[0].endswith("~1versions/get")] == []
+
+
 def test_second_consumer_of_a_foreign_key_gets_its_own_link(ctx):
     # Two reads of the same resource are distinct destinations, not one.
     order = {
@@ -9465,6 +12160,775 @@ def test_bare_pk_or_identifier_parameter_links_to_id_field(ctx, name, fields, ex
         ]
     ]
     assert inferred_links(graph) == (links if expected else [])
+
+
+PRIMARY_KEYED_PART = {
+    "type": "object",
+    "properties": {"pk": {"type": "integer", "readOnly": True}, "name": {"type": "string"}},
+    "required": ["pk", "name"],
+}
+
+
+def test_identifier_parameters_take_primary_key_field(ctx):
+    # Django REST Framework serializers name the key `pk` while paths and foreign keys say `id`.
+    paths = {
+        **operation("post", "/parts", "201", component_ref("Part")),
+        **operation("post", "/parts/{id}/copy", "200", parameters=[path_param("id", "integer")]),
+        **operation_with_body(
+            "post", "/stock", "201", {"type": "object", "properties": {"part_id": {"type": "integer"}}}
+        ),
+        **operation(
+            "get",
+            "/builds",
+            "200",
+            parameters=[{"name": "part_id", "in": "query", "schema": {"type": "integer"}}],
+        ),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Part": PRIMARY_KEYED_PART}})
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1parts/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1parts~1{id}~1copy/post",
+                "parameters": {"path.id": "$response.body#/pk"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ],
+        [
+            "#/paths/~1parts/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1stock/post",
+                "requestBody": {"part_id": "$response.body#/pk"},
+                "x-schemathesis": {"is_inferred": True, "merge_body": True},
+            },
+        ],
+        [
+            "#/paths/~1parts/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1builds/get",
+                "parameters": {"query.part_id": "$response.body#/pk"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ],
+    ]
+
+
+UUID = {"type": "string", "format": "uuid"}
+
+
+@pytest.mark.parametrize(
+    ("component", "consumer_first"),
+    [("Group", False), ("Group", True), ("UserGroup", False)],
+    ids=["producer-first", "consumer-first", "suffix-named-producer"],
+)
+@pytest.mark.parametrize(
+    ("location", "name", "path", "schema", "properties", "field"),
+    [
+        ("path", "id", "/groups/{id}", INTEGER, {"pk": INTEGER}, "pk"),
+        ("path", "id", "/groups/{id}", UUID, {"pk": INTEGER}, None),
+        ("path", "id", "/groups/{id}", UUID, {"id": INTEGER}, None),
+        ("path", "id", "/groups/{id}", UUID, {"id": UUID}, "id"),
+        ("path", "id", "/groups/{id}", UUID, {"id": INTEGER, "uuid": UUID}, "uuid"),
+        ("path", "id", "/groups/{id}", UUID, {"pk": INTEGER, "uuid": UUID}, "uuid"),
+        ("path", "groupId", "/members/{groupId}", INTEGER, {"pk": INTEGER}, "pk"),
+        ("path", "groupId", "/members/{groupId}", UUID, {"pk": INTEGER}, None),
+        ("path", "group_id", "/members/{group_id}", INTEGER, {"pk": INTEGER}, "pk"),
+        ("path", "group_id", "/members/{group_id}", UUID, {"pk": INTEGER}, None),
+        ("query", "groupId", "/members", INTEGER, {"pk": INTEGER}, "pk"),
+        ("query", "groupId", "/members", UUID, {"pk": INTEGER}, None),
+        ("header", "group_id", "/members", INTEGER, {"pk": INTEGER}, "pk"),
+        ("header", "group_id", "/members", UUID, {"pk": INTEGER}, None),
+        ("path", "uuid", "/groups/{uuid}", UUID, {"id": UUID}, "id"),
+        ("path", "uuid", "/groups/{uuid}", UUID, {"id": INTEGER}, None),
+        ("path", "uuid", "/groups/{uuid}", UUID, {"pk": INTEGER}, None),
+        ("path", "uuid", "/groups/{uuid}", {**UUID, "pattern": "^[0-9a-f-]+$"}, {"id": INTEGER}, None),
+        ("path", "uid", "/groups/{uid}", UUID, {"pk": INTEGER}, None),
+        ("path", "groupUuid", "/groups/{groupUuid}", UUID, {"pk": INTEGER}, None),
+        ("path", "groupGuid", "/groups/{groupGuid}", UUID, {"pk": INTEGER}, None),
+    ],
+    ids=[
+        "id-integer-pk",
+        "id-uuid-integer-pk",
+        "id-uuid-integer-id",
+        "id-uuid-uuid-id",
+        "id-uuid-integer-id-beside-uuid",
+        "id-uuid-integer-pk-beside-uuid",
+        "prefixed-id-integer-pk",
+        "prefixed-id-uuid-integer-pk",
+        "snake-id-integer-pk",
+        "snake-id-uuid-integer-pk",
+        "query-integer-pk",
+        "query-uuid-integer-pk",
+        "header-integer-pk",
+        "header-uuid-integer-pk",
+        "uuid-uuid-id",
+        "uuid-integer-id",
+        "uuid-integer-pk",
+        "uuid-with-pattern-integer-id",
+        "uid-integer-pk",
+        "prefixed-uuid-integer-pk",
+        "prefixed-guid-integer-pk",
+    ],
+)
+def test_identifier_parameters_take_fields_their_format_accepts(
+    ctx, location, name, path, schema, properties, field, component, consumer_first
+):
+    producer = operation("post", "/groups", "201", component_ref(component))
+    consumer = operation(
+        "get", path, "200", parameters=[{"name": name, "in": location, "required": True, "schema": schema}]
+    )
+    paths = {**consumer, **producer} if consumer_first else {**producer, **consumer}
+
+    _, graph = analyze_dependencies(
+        ctx, paths, components={"schemas": {component: {"type": "object", "properties": properties}}}
+    )
+
+    links = [
+        [
+            "#/paths/~1groups/post",
+            "201",
+            {
+                "operationRef": f"#/paths/{path.replace('/', '~1')}/get",
+                "parameters": {f"{location}.{name}": f"$response.body#/{field}"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ]
+    ]
+    assert inferred_links(graph) == (links if field is not None else [])
+
+
+@pytest.mark.parametrize("consumer_first", [False, True], ids=["producer-first", "consumer-first"])
+@pytest.mark.parametrize(("code", "expected"), [(UUID, True), (INTEGER, False)], ids=["uuid-code", "integer-code"])
+def test_uuid_parameter_named_after_a_field_takes_only_that_field(ctx, code, expected, consumer_first):
+    # A `code` holds a different value than the group's uuid `id`, so an integer `code` leaves `{code}` unbound.
+    producer = operation("post", "/groups", "201", component_ref("Group"))
+    consumer = operation(
+        "get", "/groups/{code}", "200", parameters=[{"name": "code", "in": "path", "required": True, "schema": UUID}]
+    )
+    paths = {**consumer, **producer} if consumer_first else {**producer, **consumer}
+
+    _, graph = analyze_dependencies(
+        ctx, paths, components={"schemas": {"Group": {"type": "object", "properties": {"id": UUID, "code": code}}}}
+    )
+
+    links = [
+        [
+            "#/paths/~1groups/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1groups~1{code}/get",
+                "parameters": {"path.code": "$response.body#/code"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ]
+    ]
+    assert inferred_links(graph) == (links if expected else [])
+
+
+def test_primary_key_does_not_join_resources_that_share_a_word(ctx):
+    # `/build/item/{id}` names a `BuildItem`; the `BomItem` registered first also ends in `Item` and declares `pk`.
+    item = {
+        "type": "object",
+        "properties": {"pk": {"type": "integer", "readOnly": True}, "quantity": {"type": "number"}},
+        "required": ["pk", "quantity"],
+    }
+    write = {"type": "object", "properties": {"quantity": {"type": "number"}}, "required": ["quantity"]}
+    paths = {
+        **operation_with_body("post", "/bom", "201", write, component_ref("BomItem")),
+        **operation_with_body(
+            "put", "/bom/{id}", "200", write, component_ref("BomItem"), parameters=[path_param("id", "integer")]
+        ),
+        **operation_with_body("post", "/build/item", "201", write, component_ref("BuildItem")),
+        **operation_with_body(
+            "put",
+            "/build/item/{id}",
+            "200",
+            write,
+            component_ref("BuildItem"),
+            parameters=[path_param("id", "integer")],
+        ),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"BomItem": item, "BuildItem": item}})
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1bom/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1bom~1{id}/put",
+                "parameters": {"path.id": "$response.body#/pk"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ],
+        [
+            "#/paths/~1build~1item/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1build~1item~1{id}/put",
+                "parameters": {"path.id": "$response.body#/pk"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ],
+    ]
+
+
+def test_string_partition_key_is_not_an_identifier(ctx):
+    # A string `pk` next to a sort key `sk` partitions a table; it is not what `{id}` takes.
+    order = {
+        "type": "object",
+        "properties": {"pk": {"type": "string"}, "sk": {"type": "string"}, "total": {"type": "number"}},
+    }
+    paths = {
+        **operation("post", "/orders", "201", component_ref("Order")),
+        **operation("get", "/orders/{id}", "200", component_ref("Order"), parameters=[path_param("id")]),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Order": order}})
+
+    assert inferred_links(graph) == []
+
+
+def test_named_primary_key_parameter_takes_the_key_of_a_prefixed_schema(ctx):
+    # Nested routers name the parent key `{part_pk}` while the serializer is `PartDetail`.
+    paths = {
+        **operation("post", "/parts", "201", component_ref("PartDetail")),
+        **operation("get", "/parts/{part_pk}/stock", "200", parameters=[path_param("part_pk", "integer")]),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"PartDetail": PRIMARY_KEYED_PART}})
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1parts/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1parts~1{part_pk}~1stock/get",
+                "parameters": {"path.part_pk": "$response.body#/pk"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ]
+    ]
+
+
+def test_named_primary_key_parameter_takes_a_string_key(ctx):
+    # `{part_pk}` names the key itself, so a UUID `pk` is the one it takes.
+    part = {"type": "object", "properties": {"pk": {"type": "string", "format": "uuid", "readOnly": True}}}
+    paths = {
+        **operation("post", "/parts", "201", component_ref("PartDetail")),
+        **operation("get", "/parts/{part_pk}/stock", "200", parameters=[path_param("part_pk")]),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"PartDetail": part}})
+
+    assert [link[2]["parameters"] for link in inferred_links(graph)] == [{"path.part_pk": "$response.body#/pk"}]
+
+
+def option_list(key):
+    return {
+        "type": "object",
+        "properties": {
+            key: {"type": "integer"},
+            "name": {"type": "string"},
+            "choices": {"type": "array", "items": component_ref("OptionEntry")},
+        },
+        "required": [key, "name"],
+    }
+
+
+OPTIONS = "#/paths/~1options/post"
+OPTION = "#/paths/~1options~1{id}/get"
+OPTION_ENTRIES = "#/paths/~1options~1{id}~1entry/post"
+OPTION_ENTRY = "#/paths/~1options~1{id}~1entry~1{entrypk}/get"
+PARENT_PK = {"path.id": "$response.body#/pk"}
+PARENT_ID = {"path.id": "$response.body#/id"}
+LISTED_ENTRY = {"path.entrypk": "$response.body#/choices/*/id", "path.id": "$request.path.id"}
+CREATED_ENTRY = {"path.entrypk": "$response.body#/id", "path.id": "$request.path.id"}
+
+
+def option_links(parent):
+    return [
+        [OPTIONS, "201", parent_key_link(OPTION, parent)],
+        [OPTIONS, "201", parent_key_link(OPTION_ENTRIES, parent)],
+        [OPTIONS, "201", parent_key_link(OPTION_ENTRY, parent)],
+        [OPTIONS, "201", parent_key_link(OPTION_ENTRY, {"path.entrypk": "$response.body#/choices/*/id"})],
+        [OPTION, "200", parent_key_link(OPTION_ENTRIES, parent)],
+        [OPTION, "200", parent_key_link(OPTION_ENTRY, parent)],
+        [OPTION, "200", parent_key_link(OPTION_ENTRY, LISTED_ENTRY)],
+        [OPTION_ENTRIES, "201", parent_key_link(OPTION_ENTRY, CREATED_ENTRY)],
+    ]
+
+
+@pytest.mark.parametrize(
+    ["option", "key", "expected"],
+    [
+        (option_list("pk"), "pk", option_links(PARENT_PK)),
+        (component_ref("OptionList"), "pk", option_links(PARENT_PK)),
+        (
+            {"allOf": [component_ref("OptionList")]},
+            "pk",
+            [
+                [OPTIONS, "201", parent_key_link(OPTION, PARENT_PK)],
+                [OPTIONS, "201", parent_key_link(OPTION_ENTRIES, PARENT_PK)],
+                [OPTIONS, "201", parent_key_link(OPTION_ENTRY, PARENT_PK)],
+                [OPTION, "200", parent_key_link(OPTION_ENTRIES, PARENT_PK)],
+                [OPTION, "200", parent_key_link(OPTION_ENTRY, PARENT_PK)],
+                [OPTION_ENTRIES, "201", parent_key_link(OPTION_ENTRY, CREATED_ENTRY)],
+            ],
+        ),
+        (component_ref("OptionList"), "id", option_links(PARENT_ID)),
+    ],
+    ids=["inline", "reference", "all-of", "reference-keyed-by-id"],
+)
+def test_parent_key_and_nested_item_key_take_their_own_resources(ctx, option, key, expected):
+    # `OptionEntry` starts with `Option` too, but it is the item under `{id}`, not what `{id}` names.
+    paths = {
+        **operation("post", "/options", "201", option),
+        **operation("get", "/options/{id}", "200", option, [path_param("id", "integer")]),
+        **operation("post", "/options/{id}/entry", "201", component_ref("OptionEntry"), [path_param("id", "integer")]),
+        **operation(
+            "get",
+            "/options/{id}/entry/{entrypk}",
+            "200",
+            component_ref("OptionEntry"),
+            [path_param("id", "integer"), path_param("entrypk", "integer")],
+        ),
+    }
+    entry = {"type": "object", "properties": {"id": {"type": "integer"}, "value": {"type": "string"}}}
+
+    _, graph = analyze_dependencies(
+        ctx, paths, components={"schemas": {"OptionList": option_list(key), "OptionEntry": entry}}
+    )
+
+    assert inferred_links(graph) == expected
+
+
+def order_item_paths(parent, parameters, order, item):
+    order_parameters = [*parameters, path_param("orderpk", "integer")]
+    items = f"{parent}/orders/{{orderpk}}/items"
+    return {
+        **operation("post", f"{parent}/orders", "201", component_ref(order), parameters),
+        **operation("get", f"{parent}/orders/{{orderpk}}", "200", component_ref(order), order_parameters),
+        **operation("post", items, "201", component_ref(item), order_parameters),
+        **operation(
+            "get",
+            f"{items}/{{itempk}}",
+            "200",
+            component_ref(item),
+            [*order_parameters, path_param("itempk", "integer")],
+        ),
+    }
+
+
+def store_order_paths(item):
+    return {
+        **operation("post", "/stores", "201", component_ref("Store")),
+        **operation("get", "/stores/{id}", "200", component_ref("Store"), [path_param("id", "integer")]),
+        **order_item_paths("/stores/{id}", [path_param("id", "integer")], "StoreOrder", item),
+    }
+
+
+STORES = "#/paths/~1stores/post"
+STORE = "#/paths/~1stores~1{id}/get"
+STORE_ORDERS = "#/paths/~1stores~1{id}~1orders/post"
+STORE_ORDER = "#/paths/~1stores~1{id}~1orders~1{orderpk}/get"
+STORE_ORDER_ITEMS = "#/paths/~1stores~1{id}~1orders~1{orderpk}~1items/post"
+STORE_ORDER_ITEM = "#/paths/~1stores~1{id}~1orders~1{orderpk}~1items~1{itempk}/get"
+STORE_ORDER_LINKS = [
+    [STORES, "201", parent_key_link(STORE, PARENT_ID)],
+    [STORES, "201", parent_key_link(STORE_ORDERS, PARENT_ID)],
+    [STORES, "201", parent_key_link(STORE_ORDER, PARENT_ID)],
+    [STORES, "201", parent_key_link(STORE_ORDER_ITEMS, PARENT_ID)],
+    [STORES, "201", parent_key_link(STORE_ORDER_ITEM, PARENT_ID)],
+    [STORE, "200", parent_key_link(STORE_ORDERS, PARENT_ID)],
+    [STORE, "200", parent_key_link(STORE_ORDER, PARENT_ID)],
+    [STORE, "200", parent_key_link(STORE_ORDER_ITEMS, PARENT_ID)],
+    [STORE, "200", parent_key_link(STORE_ORDER_ITEM, PARENT_ID)],
+    [
+        STORE_ORDERS,
+        "201",
+        parent_key_link(STORE_ORDER, {"path.orderpk": "$response.body#/id", "path.id": "$request.path.id"}),
+    ],
+    [
+        STORE_ORDER_ITEMS,
+        "201",
+        parent_key_link(
+            STORE_ORDER_ITEM,
+            {
+                "path.itempk": "$response.body#/id",
+                "path.orderpk": "$request.path.orderpk",
+                "path.id": "$request.path.id",
+            },
+        ),
+    ],
+]
+PK_ORDERS = "#/paths/~1orders/post"
+PK_ORDER = "#/paths/~1orders~1{orderpk}/get"
+PK_ORDER_ITEMS = "#/paths/~1orders~1{orderpk}~1items/post"
+PK_ORDER_ITEM = "#/paths/~1orders~1{orderpk}~1items~1{itempk}/get"
+PK_ORDER_KEY = {"path.orderpk": "$response.body#/id"}
+PK_ORDER_ITEM_KEY = {"path.itempk": "$response.body#/id", "path.orderpk": "$request.path.orderpk"}
+
+
+@pytest.mark.parametrize(
+    ["paths", "schemas", "expected"],
+    [
+        (store_order_paths("StoreOrderItem"), ["Store", "StoreOrder", "StoreOrderItem"], STORE_ORDER_LINKS),
+        (store_order_paths("StoreOrderItemDetail"), ["Store", "StoreOrder", "StoreOrderItemDetail"], STORE_ORDER_LINKS),
+        (
+            {
+                path: item
+                for path, item in order_item_paths("", [], "Order", "OrderItemDetail").items()
+                if "/items" in path
+            },
+            ["OrderItemDetail"],
+            [[PK_ORDER_ITEMS, "201", parent_key_link(PK_ORDER_ITEM, PK_ORDER_ITEM_KEY)]],
+        ),
+        (
+            order_item_paths("", [], "Order", "OrderItem"),
+            ["Order", "OrderItem"],
+            [
+                [PK_ORDERS, "201", parent_key_link(PK_ORDER, PK_ORDER_KEY)],
+                [PK_ORDERS, "201", parent_key_link(PK_ORDER_ITEMS, PK_ORDER_KEY)],
+                [PK_ORDERS, "201", parent_key_link(PK_ORDER_ITEM, PK_ORDER_KEY)],
+                [PK_ORDER, "200", parent_key_link(PK_ORDER_ITEMS, PK_ORDER_KEY)],
+                [PK_ORDER, "200", parent_key_link(PK_ORDER_ITEM, PK_ORDER_KEY)],
+                [PK_ORDER_ITEMS, "201", parent_key_link(PK_ORDER_ITEM, PK_ORDER_ITEM_KEY)],
+            ],
+        ),
+    ],
+    ids=["under-a-parent", "item-schema-with-suffix", "without-parent-producer", "parent-named-after-its-segment"],
+)
+def test_concatenated_parent_key_does_not_take_nested_item_identifier(ctx, paths, schemas, expected):
+    item = {"type": "object", "properties": {"id": {"type": "integer"}}}
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": dict.fromkeys(schemas, item)})
+
+    assert inferred_links(graph) == expected
+
+
+LOGS = operation("post", "/logs", "201", component_ref("LogEntry"))
+ITEM_KEYED_BY_ID = {"type": "object", "properties": {"id": {"type": "integer"}}}
+JOURNAL_ENTRIES = "#/paths/~1entries/get"
+JOURNAL_ENTRY = "#/paths/~1entries~1{entrypk}/get"
+ORDER_KEY = [path_param("orderpk", "integer")]
+ORDER_ITEMS = operation("post", "/orders/{orderpk}/items", "201", component_ref("OrderItem"), ORDER_KEY)
+
+
+@pytest.mark.parametrize(
+    ["paths", "schemas", "expected"],
+    [
+        (
+            {
+                **LOGS,
+                **operation("post", "/options", "201", component_ref("OptionList")),
+                **operation("get", "/options/{id}", "200", component_ref("OptionList"), [path_param("id", "integer")]),
+                **operation(
+                    "get",
+                    "/options/{id}/entry/{entrypk}",
+                    "200",
+                    component_ref("OptionEntry"),
+                    [path_param("id", "integer"), path_param("entrypk", "integer")],
+                ),
+            },
+            {"LogEntry": ITEM_KEYED_BY_ID, "OptionList": option_list("pk"), "OptionEntry": ITEM_KEYED_BY_ID},
+            [
+                [OPTIONS, "201", parent_key_link(OPTION, PARENT_PK)],
+                [OPTIONS, "201", parent_key_link(OPTION_ENTRY, PARENT_PK)],
+                [OPTIONS, "201", parent_key_link(OPTION_ENTRY, {"path.entrypk": "$response.body#/choices/*/id"})],
+                [OPTION, "200", parent_key_link(OPTION_ENTRY, PARENT_PK)],
+                [OPTION, "200", parent_key_link(OPTION_ENTRY, LISTED_ENTRY)],
+            ],
+        ),
+        (
+            {
+                **LOGS,
+                **operation("get", "/entries", "200", {"type": "array", "items": component_ref("JournalEntry")}),
+                **operation(
+                    "get",
+                    "/entries/{entrypk}",
+                    "200",
+                    component_ref("JournalEntry"),
+                    [path_param("entrypk", "integer")],
+                ),
+            },
+            {"LogEntry": ITEM_KEYED_BY_ID, "JournalEntry": ITEM_KEYED_BY_ID},
+            [[JOURNAL_ENTRIES, "200", parent_key_link(JOURNAL_ENTRY, {"path.entrypk": "$response.body#/*/id"})]],
+        ),
+        (
+            {**ORDER_ITEMS, **operation("get", "/orders/{orderpk}", "200", component_ref("OrderDetail"), ORDER_KEY)},
+            {"OrderItem": ITEM_KEYED_BY_ID, "OrderDetail": ITEM_KEYED_BY_ID},
+            [],
+        ),
+        (
+            {**ORDER_ITEMS, **operation("delete", "/orders/{orderpk}", "204", parameters=ORDER_KEY)},
+            {"OrderItem": ITEM_KEYED_BY_ID},
+            [],
+        ),
+        (
+            {
+                **ORDER_ITEMS,
+                **operation(
+                    "get",
+                    "/orders/{orderpk}",
+                    "200",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "integer"},
+                            "items": {"type": "array", "items": component_ref("OrderItem")},
+                        },
+                    },
+                    ORDER_KEY,
+                ),
+            },
+            {"OrderItem": ITEM_KEYED_BY_ID},
+            [],
+        ),
+        (
+            {**ORDER_ITEMS, **operation("get", "/orders/{orderpk}", "200", component_ref("OrderView"), ORDER_KEY)},
+            {
+                "OrderItem": ITEM_KEYED_BY_ID,
+                "OrderView": {
+                    "type": "object",
+                    "properties": {"latest": component_ref("OrderItem"), "total": {"type": "integer"}},
+                },
+            },
+            [],
+        ),
+        (
+            {**ORDER_ITEMS, **operation("get", "/orders/{orderpk}", "200", component_ref("Order"), ORDER_KEY)},
+            {"OrderItem": ITEM_KEYED_BY_ID, "Order": ITEM_KEYED_BY_ID},
+            [[PK_ORDER, "200", parent_key_link(PK_ORDER_ITEMS, PK_ORDER_KEY)]],
+        ),
+    ],
+    ids=[
+        "nested-entry",
+        "listed-entry",
+        "order-detail-after-items",
+        "order-delete-after-items",
+        "order-embedding-items",
+        "order-embedding-an-item",
+        "order-after-items",
+    ],
+)
+def test_concatenated_item_key_takes_what_its_operation_returns(ctx, paths, schemas, expected):
+    # `LogEntry` and `OrderItem` match `{entrypk}` and `{orderpk}` by name, yet these operations return other resources.
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": schemas})
+
+    assert inferred_links(graph) == expected
+
+
+def test_parent_key_without_parent_item_does_not_take_nested_item_identifier(ctx):
+    paths = {
+        **operation("post", "/options", "201", component_ref("OptionList")),
+        **operation("post", "/options/{id}/entry", "201", component_ref("OptionEntry"), [path_param("id", "integer")]),
+        **operation(
+            "get",
+            "/options/{id}/entry/{entrypk}",
+            "200",
+            component_ref("OptionEntry"),
+            [path_param("id", "integer"), path_param("entrypk", "integer")],
+        ),
+    }
+    entry = {"type": "object", "properties": {"id": {"type": "integer"}, "value": {"type": "string"}}}
+
+    _, graph = analyze_dependencies(
+        ctx, paths, components={"schemas": {"OptionList": option_list("pk"), "OptionEntry": entry}}
+    )
+
+    assert inferred_links(graph) == [
+        [OPTIONS, "201", parent_key_link(OPTION_ENTRY, {"path.entrypk": "$response.body#/choices/*/id"})],
+        [OPTION_ENTRIES, "201", parent_key_link(OPTION_ENTRY, CREATED_ENTRY)],
+    ]
+
+
+@pytest.mark.parametrize(
+    ["collection", "segment", "schema_name"],
+    [("users", "profile", "UserProfile"), ("orders", "detail", "OrderDetail"), ("jobs", "run", "JobRun")],
+    ids=["profile", "detail", "run"],
+)
+def test_parent_key_takes_the_created_schema_named_after_a_segment_without_items(ctx, collection, segment, schema_name):
+    created = f"#/paths/~1{collection}/post"
+    read = f"#/paths/~1{collection}~1{{id}}~1{segment}/get"
+    delete = f"#/paths/~1{collection}~1{{id}}~1{segment}/delete"
+    paths = {
+        **operation("post", f"/{collection}", "201", component_ref(schema_name)),
+        f"/{collection}/{{id}}/{segment}": {
+            "get": {**response("200", component_ref(schema_name)), "parameters": [path_param("id", "integer")]},
+            "delete": {**response("204"), "parameters": [path_param("id", "integer")]},
+        },
+    }
+    created_schema = {"type": "object", "properties": {"id": {"type": "integer"}, "email": {"type": "string"}}}
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {schema_name: created_schema}})
+
+    assert inferred_links(graph) == [
+        [created, "201", parent_key_link(read, PARENT_ID)],
+        [created, "201", parent_key_link(delete, PARENT_ID)],
+        [read, "200", parent_key_link(delete, PARENT_ID)],
+    ]
+
+
+PLANNER = {"type": "object", "properties": {"pk": {"type": "integer"}, "name": {"type": "string"}}, "required": ["pk"]}
+PLANNERS = "#/paths/~1planners/post"
+PLANNER_ITEM = "#/paths/~1planners~1{id}/get"
+POPULATE = "#/paths/~1planners~1{id}~1populate/put"
+TEAM_ITEM = "#/paths/~1teams~1{id}/get"
+
+
+@pytest.mark.parametrize(
+    ["extra_paths", "schemas", "expected"],
+    [
+        (
+            {},
+            {"PlannerDetail": PLANNER},
+            [
+                [PLANNERS, "201", parent_key_link(PLANNER_ITEM, PARENT_PK)],
+                [PLANNERS, "201", parent_key_link(POPULATE, PARENT_PK)],
+                [PLANNER_ITEM, "200", parent_key_link(POPULATE, PARENT_PK)],
+            ],
+        ),
+        (
+            operation("get", "/goals/{id}", "200", component_ref("Goal"), [path_param("id", "integer")]),
+            {
+                "PlannerDetail": PLANNER,
+                "Goal": {"type": "object", "properties": {"id": {"type": "integer"}, "plannerId": {"type": "integer"}}},
+            },
+            [
+                [PLANNERS, "201", parent_key_link(PLANNER_ITEM, PARENT_PK)],
+                [
+                    "#/paths/~1goals~1{id}/get",
+                    "200",
+                    parent_key_link(POPULATE, {"path.id": "$response.body#/plannerId"}),
+                ],
+            ],
+        ),
+        (
+            {
+                **operation("post", "/teams", "201", component_ref("PlannerDetail")),
+                **operation("get", "/teams/{id}", "200", component_ref("PlannerDetail"), [path_param("id", "integer")]),
+            },
+            {"PlannerDetail": PLANNER},
+            [
+                [PLANNERS, "201", parent_key_link(PLANNER_ITEM, PARENT_PK)],
+                [PLANNERS, "201", parent_key_link(TEAM_ITEM, PARENT_PK)],
+                [PLANNER_ITEM, "200", parent_key_link(TEAM_ITEM, PARENT_PK)],
+                ["#/paths/~1teams/post", "201", parent_key_link(PLANNER_ITEM, PARENT_PK)],
+                ["#/paths/~1teams/post", "201", parent_key_link(TEAM_ITEM, PARENT_PK)],
+                [TEAM_ITEM, "200", parent_key_link(PLANNER_ITEM, PARENT_PK)],
+            ],
+        ),
+    ],
+    ids=["parent-item", "parent-key-field", "shape-of-several-collections"],
+)
+def test_parent_key_takes_what_its_parent_item_takes(ctx, extra_paths, schemas, expected):
+    paths = {
+        **operation("post", "/planners", "201", component_ref("PlannerDetail")),
+        **operation("get", "/planners/{id}", "200", component_ref("PlannerDetail"), [path_param("id", "integer")]),
+        **operation("put", "/planners/{id}/populate", "204", parameters=[path_param("id", "integer")]),
+        **extra_paths,
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": schemas})
+
+    assert inferred_links(graph) == expected
+
+
+def test_parent_key_keeps_the_key_its_own_creator_takes(ctx):
+    created = {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}
+    paths = {
+        **operation("post", "/workflows", "201", component_ref("CreateWorkflowResponse")),
+        **operation("post", "/workflows/{id}", "204", parameters=[path_param("id")]),
+        **operation("post", "/workflows/{id}/start", "204", parameters=[path_param("id")]),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"CreateWorkflowResponse": created}})
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1workflows/post",
+            "201",
+            parent_key_link("#/paths/~1workflows~1{id}/post", {"path.id": "$response.body#/id"}),
+        ],
+        [
+            "#/paths/~1workflows~1{id}/post",
+            "204",
+            parent_key_link("#/paths/~1workflows~1{id}~1start/post", {"path.id": "$request.path.id"}),
+        ],
+    ]
+
+
+def test_parent_key_of_a_self_nested_collection_takes_its_items(ctx):
+    paths = {
+        **operation("post", "/folders", "201", component_ref("SubFolder")),
+        **operation(
+            "get",
+            "/folders/{id}/folders",
+            "200",
+            {"type": "array", "items": component_ref("SubFolder")},
+            [path_param("id", "integer")],
+        ),
+    }
+    folder = {"type": "object", "properties": {"id": {"type": "integer"}}}
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"SubFolder": folder}})
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1folders/post",
+            "201",
+            parent_key_link("#/paths/~1folders~1{id}~1folders/get", {"path.id": "$response.body#/id"}),
+        ]
+    ]
+
+
+def test_body_field_ending_in_pk_is_not_a_primary_key(ctx):
+    # `serverpk` holds a public key, not the key of a server.
+    server = {"type": "object", "properties": {"serverid": {"type": "string"}, "serverpk": {"type": "string"}}}
+    paths = {
+        **operation_with_body(
+            "post",
+            "/servers",
+            "201",
+            {"type": "object", "properties": {"serverpk": {"type": "string"}}, "required": ["serverpk"]},
+            component_ref("Server"),
+        ),
+        **operation("get", "/servers/{serverid}", "200", component_ref("Server"), [path_param("serverid")]),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Server": server}})
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1servers/post",
+            "201",
+            parent_key_link("#/paths/~1servers~1{serverid}/get", {"path.serverid": "$response.body#/serverid"}),
+        ]
+    ]
+
+
+def test_identifier_inside_a_path_segment_takes_a_prefixed_schema(ctx):
+    paths = {
+        **operation("post", "/reports", "201", component_ref("ReportDetail")),
+        **operation("get", "/reports/{id}.csv", "200", parameters=[path_param("id", "integer")]),
+    }
+    report = {"type": "object", "properties": {"id": {"type": "integer"}}}
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"ReportDetail": report}})
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1reports/post",
+            "201",
+            parent_key_link("#/paths/~1reports~1{id}.csv/get", {"path.id": "$response.body#/id"}),
+        ]
+    ]
 
 
 PRODUCT_NAME_BODY = {"type": "object", "properties": {"productName": {"type": "string"}}, "required": ["productName"]}
@@ -9640,6 +13104,77 @@ def test_name_is_copied_only_into_an_update_of_its_resource(ctx):
             },
         ],
     ]
+
+
+DOMAIN_TYPES = ["master", "slave"]
+
+
+@pytest.mark.parametrize(
+    ("record_types", "copied"),
+    [
+        (["A", "AAAA", "CNAME"], False),
+        (["master", "CNAME"], False),
+        (DOMAIN_TYPES, True),
+        (["master", "slave", "CNAME"], True),
+    ],
+    ids=["disjoint", "partial-overlap", "equal", "accepts-every-value"],
+)
+@pytest.mark.parametrize(
+    "declare",
+    [
+        lambda schema, name: schema,
+        lambda schema, name: component_ref(name),
+        lambda schema, name: {"allOf": [schema]},
+        lambda schema, name: {"allOf": [component_ref(name)]},
+    ],
+    ids=["inline", "reference", "all-of", "all-of-reference"],
+)
+@pytest.mark.parametrize(
+    ("producer", "producer_ref", "item"),
+    [
+        (
+            lambda domain: operation(
+                "get", "/domains/{domain_name}", "200", domain, parameters=[path_param("domain_name")]
+            ),
+            "#/paths/~1domains~1{domain_name}/get",
+            "",
+        ),
+        (
+            lambda domain: operation("get", "/domains", "200", {"type": "array", "items": domain}),
+            "#/paths/~1domains/get",
+            "/*",
+        ),
+    ],
+    ids=["item", "list"],
+)
+def test_field_copied_from_addressed_resource_only_with_values_the_body_accepts(
+    ctx, record_types, copied, declare, producer, producer_ref, item
+):
+    # `POST /domains/{domain_name}/records {type}` must not send a domain `type` the record type enum rejects.
+    domain_type = {"type": "string", "enum": DOMAIN_TYPES}
+    record_type = {"type": "string", "enum": record_types}
+    domain = {"type": "object", "properties": {"name": {"type": "string"}, "type": declare(domain_type, "DomainType")}}
+    record = {"type": "object", "properties": {"type": declare(record_type, "RecordType")}, "required": ["type"]}
+    paths = {
+        **producer(domain),
+        **operation_with_body(
+            "post", "/domains/{domain_name}/records", "201", record, parameters=[path_param("domain_name")]
+        ),
+    }
+
+    _, graph = analyze_dependencies(
+        ctx, paths, components={"schemas": {"DomainType": domain_type, "RecordType": record_type}}
+    )
+
+    link = {
+        "operationRef": "#/paths/~1domains~1{domain_name}~1records/post",
+        "parameters": {"path.domain_name": f"$response.body#{item}/name"},
+        "x-schemathesis": {"is_inferred": True},
+    }
+    if copied:
+        link["requestBody"] = {"type": f"$response.body#{item}/type"}
+        link["x-schemathesis"]["merge_body"] = True
+    assert inferred_links(graph) == [[producer_ref, "200", link]]
 
 
 def injected_links(schema):
@@ -10412,6 +13947,61 @@ def test_item_path_parameter_keeps_placeholder_fed_by_id_fields(ctx):
         assert input_bindings(graph, label)["id"] == "StreamTarget", label
 
 
+CALL_ID_FROM_CREATED_CALL = [
+    [
+        "#/paths/~1calls/post",
+        "201",
+        {
+            "operationRef": "#/paths/~1calls~1{call_id}~1accept/post",
+            "x-schemathesis": {"is_inferred": True},
+            "parameters": {"path.call_id": "$response.body#/"},
+        },
+    ]
+]
+
+
+# A string body in a media type such as SDP or HTML is a document, not the created id.
+@pytest.mark.parametrize(
+    ("media_type", "expected"),
+    [
+        ("application/json", CALL_ID_FROM_CREATED_CALL),
+        ("application/vnd.api+json; charset=utf-8", CALL_ID_FROM_CREATED_CALL),
+        ("text/plain", CALL_ID_FROM_CREATED_CALL),
+        ("*/*", CALL_ID_FROM_CREATED_CALL),
+        ("application/sdp", []),
+        ("text/html", []),
+        ("json", []),
+    ],
+    ids=["json", "json-suffix", "plain-text", "any", "sdp", "html", "malformed"],
+)
+def test_created_id_from_primitive_body_needs_identifier_media_type(ctx, media_type, expected):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/calls": {"post": response("201", {"type": "string"}, media_type)},
+            "/calls/{call_id}/accept": {"post": {"parameters": [path_param("call_id")], **response("200")}},
+        },
+    )
+    assert inferred_links(graph) == expected
+
+
+def test_created_id_from_primitive_body_in_swagger_2(ctx):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/calls": {"post": {"responses": {"201": {"description": "Created", "schema": {"type": "string"}}}}},
+            "/calls/{call_id}/accept": {
+                "post": {
+                    "parameters": [{"name": "call_id", "in": "path", "required": True, "type": "string"}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        },
+        version="2.0",
+    )
+    assert inferred_links(graph) == CALL_ID_FROM_CREATED_CALL
+
+
 # Spring-style envelopes wrap a created id next to status fields: `{time, httpStatus, isSuccess, response: "<id>"}`.
 def test_created_id_inside_status_envelope_links_to_item_operations(ctx):
     envelope = {
@@ -11087,6 +14677,77 @@ def test_path_param_named_after_resource_and_an_undeclared_field_is_not_linked(c
     assert inferred_links(graph) == []
 
 
+ONE_OF_CHECK = {"oneOf": [component_ref("HttpCheck"), component_ref("TcpCheck")]}
+OPEN_ONE_OF_CHECK = {"oneOf": [component_ref("HttpCheck"), {"type": "object"}]}
+
+
+# Only a response listing fields of its own, or with no branch that may hold any field, rules a field out.
+@pytest.mark.parametrize(
+    ("items", "unverifiable"),
+    [
+        (ONE_OF_CHECK, False),
+        (component_ref("Check"), False),
+        ({"allOf": [component_ref("Check")]}, False),
+        ({"allOf": [component_ref("CheckBase"), component_ref("Check")]}, False),
+        ({"oneOf": [component_ref("Check"), component_ref("TcpCheck")]}, False),
+        ({"oneOf": [{"allOf": [component_ref("Check")]}, component_ref("TcpCheck")]}, False),
+        ({**OPEN_ONE_OF_CHECK, "type": "object", "properties": {"name": {"type": "string"}}}, False),
+        ({"oneOf": [component_ref("HttpCheck"), False]}, False),
+        (OPEN_ONE_OF_CHECK, True),
+        (
+            {"oneOf": [{**OPEN_ONE_OF_CHECK, "properties": {"name": {"type": "string"}}}, component_ref("TcpCheck")]},
+            True,
+        ),
+        ({"oneOf": [component_ref("HttpCheck"), True]}, True),
+        ({"oneOf": [component_ref("HttpCheck"), component_ref("Missing")]}, True),
+    ],
+    ids=[
+        "oneOf",
+        "ref-oneOf",
+        "allOf-oneOf",
+        "allOf-base-oneOf",
+        "nested-oneOf",
+        "branch-allOf-oneOf",
+        "properties-open-branch",
+        "false-branch",
+        "open-branch",
+        "nested-open-branch",
+        "true-branch",
+        "dangling-branch",
+    ],
+)
+@pytest.mark.parametrize("key", ["id", "checkID"], ids=["undeclared", "declared"])
+def test_path_param_named_after_one_of_resource_links_only_a_declared_field(ctx, items, unverifiable, key):
+    components = {
+        "schemas": {
+            "Check": ONE_OF_CHECK,
+            "CheckBase": {"type": "object", "properties": {"name": {"type": "string"}}},
+            "HttpCheck": {"type": "object", "properties": {key: {"type": "string"}, "url": {"type": "string"}}},
+            "TcpCheck": {"type": "object", "properties": {"id": {"type": "string"}, "port": {"type": "integer"}}},
+        }
+    }
+    listing = {"type": "object", "properties": {"checks": {"type": "array", "items": items}}}
+    paths = {
+        **operation("get", "/checks", "200", listing),
+        **operation("delete", "/checks/{checkID}", "204", parameters=[path_param("checkID")]),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, version="3.1.0", components=components)
+
+    expected = [
+        [
+            "#/paths/~1checks/get",
+            "200",
+            {
+                "operationRef": "#/paths/~1checks~1{checkID}/delete",
+                "parameters": {"path.checkID": "$response.body#/checks/*/checkID"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ]
+    ]
+    assert inferred_links(graph) == (expected if key == "checkID" or unverifiable else [])
+
+
 PROJECT_MEMBER = {"type": "object", "properties": {"key": {"type": "string"}, "role": {"type": "string"}}}
 
 
@@ -11354,6 +15015,166 @@ def test_listed_identifier_does_not_forward_a_parent_key_as_a_child_key(ctx):
     assert [link[2]["parameters"] for link in inferred_links(graph) if link[2]["operationRef"] == bins] == [
         {"path.warehouse": "$response.body#/items/*/name"},
         {"path.warehouse": "$response.body#/name"},
+    ]
+
+
+def test_generic_key_is_not_forwarded_to_another_collection(ctx):
+    # A customer's `{id}` is not the `{id}` of an order, though both paths call it that.
+    customer = {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}}}
+    paths = {
+        **operation("get", "/customers/{id}", "200", component_ref("Customer"), [path_param("id")]),
+        **operation_with_body(
+            "patch",
+            "/orders/{id}",
+            "200",
+            {"type": "object", "properties": {"customer_id": {"type": "string"}}},
+            parameters=[path_param("id")],
+        ),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Customer": customer}})
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1customers~1{id}/get",
+            "200",
+            {
+                "operationRef": "#/paths/~1orders~1{id}/patch",
+                "requestBody": {"customer_id": "$response.body#/id"},
+                "x-schemathesis": {"is_inferred": True, "merge_body": True},
+            },
+        ]
+    ]
+
+
+def test_id_is_not_forwarded_where_it_names_another_namespace(ctx):
+    # `/suppliers/parts/{id}` takes a supplier's part, which the `{id}` of `/parts/{id}` is not.
+    part = {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}}}
+    paths = {
+        **operation("get", "/parts/{id}", "200", component_ref("Part"), [path_param("id")]),
+        **operation_with_body(
+            "patch",
+            "/suppliers/parts/{id}",
+            "200",
+            {"type": "object", "properties": {"part_id": {"type": "string"}}},
+            parameters=[path_param("id")],
+        ),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Part": part}})
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1parts~1{id}/get",
+            "200",
+            {
+                "operationRef": "#/paths/~1suppliers~1parts~1{id}/patch",
+                "requestBody": {"part_id": "$response.body#/id"},
+                "x-schemathesis": {"is_inferred": True, "merge_body": True},
+            },
+        ]
+    ]
+
+
+@pytest.mark.parametrize(
+    ["summary", "forwarded"],
+    [("Patient", {"path.id": "$request.path.id"}), ("PatientSummary", {})],
+    ids=["same-items", "different-items"],
+)
+def test_generic_key_is_forwarded_between_views_of_the_same_items(ctx, summary, forwarded):
+    # `/patients_summary/{id}` takes the `{id}` of `/patients/{id}` only when it returns the same items.
+    patient = {"type": "object", "properties": {"id": {"type": "integer"}, "first_name": {"type": "string"}}}
+    first_name = {"name": "first_name", "in": "query", "schema": {"type": "string"}}
+    paths = {
+        **operation("get", "/patients/{id}", "200", component_ref("Patient"), [path_param("id", "integer")]),
+        **operation("post", "/patients_summary", "201", component_ref("Patient")),
+        **operation(
+            "get",
+            "/patients_summary/{id}",
+            "200",
+            component_ref(summary),
+            [path_param("id", "integer"), first_name],
+        ),
+        **operation("get", "/reports", "200", {"type": "object", "properties": {"data": component_ref("Patient")}}),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Patient": patient, "PatientSummary": patient}})
+
+    assert [link[2]["parameters"] for link in inferred_links(graph) if link[0] == "#/paths/~1patients~1{id}/get"] == [
+        {"query.first_name": "$response.body#/first_name", **forwarded}
+    ]
+
+
+@pytest.mark.parametrize(
+    ["producer", "consumer", "forwarded"],
+    [
+        (
+            ["teams", "{team}", "invoices", "{id}"],
+            ["{owner}", "invoices", "{id}"],
+            {"path.id": "$request.path.id"},
+        ),
+        (
+            ["sites", "{site}", "slots", "{slot}", "invoices", "{id}"],
+            ["sites", "{site}", "instances", "{instance}", "invoices", "{id}"],
+            {"path.site": "$request.path.site"},
+        ),
+        (["invoices", "{id}"], ["teams", "{team}", "invoices", "{id}"], {}),
+    ],
+    ids=["unlabeled-parent", "differently-labeled-parent", "extra-parent"],
+)
+def test_item_key_is_forwarded_under_a_parent_that_may_be_the_same(ctx, producer, consumer, forwarded):
+    # A bare `{owner}` may name the team `/teams/{team}` names; `slots/{slot}` and `instances/{instance}` differ.
+    invoice = {"type": "object", "properties": {"id": {"type": "string"}, "amount": INTEGER}}
+    producer_path = "/" + "/".join(producer)
+    consumer_path = "/" + "/".join(consumer)
+    paths = {
+        **operation(
+            "get",
+            producer_path,
+            "200",
+            component_ref("Invoice"),
+            [path_param(segment[1:-1]) for segment in producer if segment.startswith("{")],
+        ),
+        **operation_with_body(
+            "put",
+            consumer_path,
+            "200",
+            {"type": "object", "properties": {"amount": INTEGER}, "required": ["amount"]},
+            component_ref("Invoice"),
+            parameters=[path_param(segment[1:-1]) for segment in consumer if segment.startswith("{")],
+        ),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Invoice": invoice}})
+
+    assert [
+        (link[2].get("parameters", {}), link[2]["requestBody"])
+        for link in inferred_links(graph)
+        if link[2]["operationRef"].endswith("/put")
+    ] == [(forwarded, {"amount": "$response.body#/amount"})]
+
+
+def test_generic_key_is_forwarded_within_its_collection(ctx):
+    order = {"type": "object", "properties": {"id": {"type": "string"}, "total": {"type": "number"}}}
+    paths = {
+        **operation("post", "/stores/{name}/orders", "201", component_ref("Order"), [path_param("name")]),
+        **operation(
+            "get", "/stores/{name}/orders/{order_id}", "200", parameters=[path_param("name"), path_param("order_id")]
+        ),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Order": order}})
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1stores~1{name}~1orders/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1stores~1{name}~1orders~1{order_id}/get",
+                "parameters": {"path.order_id": "$response.body#/id", "path.name": "$request.path.name"},
+                "x-schemathesis": {"is_inferred": True},
+            },
+        ]
     ]
 
 

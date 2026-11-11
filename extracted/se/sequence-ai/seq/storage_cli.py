@@ -210,6 +210,7 @@ def _cmd_storage(args: argparse.Namespace) -> int:
     account has one.
 """
     from seq import deps_cost
+    from sequence_ai._core.money import price
     from seq.volume_upload import storage
 
     s = storage(base_url=args.base_url)
@@ -229,7 +230,7 @@ def _cmd_storage(args: argparse.Namespace) -> int:
     total = f"total {deps_cost.size(s['bytes'])}"
     if s.get("monthly_usd") is not None:
         total += (f" · about {deps_cost.money(s['monthly_usd'])}/month "
-                  f"at {deps_cost.money(s['usd_per_gb_month'])}/GB-month")
+                  f"at {price(s['usd_per_gb_month'])}/GB-month")
     print(total)
     lim = s.get("limit_bytes")
     if lim is not None:

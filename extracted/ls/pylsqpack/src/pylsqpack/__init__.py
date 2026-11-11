@@ -6,7 +6,8 @@ from ._binding import (
     DecompressionFailed,
     Encoder,
     EncoderStreamError,
+    FieldSectionTooLarge,
     StreamBlocked,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"

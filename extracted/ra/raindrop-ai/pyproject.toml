@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "raindrop-ai"
-version = "0.0.75"
+version = "0.0.76"
 description = "Raindrop AI (Python SDK)"
 authors = ["Raindrop AI <sdk@raindrop.ai>"]
 license = "MIT"
@@ -40,8 +40,16 @@ pytest-cov = "^6.2.1"
 openai = "^1.100.1"
 quickjs = "^1.19.4"
 # Only reached through ``green`` (``setuptools = "*"``). Floor fixes
-# GHSA-h35f-9h28-mq5c; cap keeps the lock on the first patched major.
-setuptools = ">=83.0.0,<84"
+# GHSA-h35f-9h28-mq5c and GHSA-xmj3-9gf7-h52w; cap keeps the lock on the first patched major.
+setuptools = ">=84.1.0,<85"
+# Only reached through ``traceloop-sdk`` -> ``tokenizers`` -> ``huggingface-hub``
+# (``filelock = "*"``). 4.2.1 fixes GHSA-9vhv-jxww-xfm5 and GHSA-567q-5qvw-pf92 but
+# needs Python >=3.11; no 3.10-compatible release has the fix, so 3.10 keeps its locked
+# version. Cap keeps the lock on the first patched release.
+filelock = [
+    {version = ">=4.2.1,<4.2.2", python = ">=3.11"},
+    {version = "*", python = "<3.11"},
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

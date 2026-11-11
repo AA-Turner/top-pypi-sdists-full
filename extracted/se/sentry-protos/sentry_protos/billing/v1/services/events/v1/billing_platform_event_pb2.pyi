@@ -12,6 +12,7 @@ import sentry_protos.billing.v1.services.events.v1.contract_rolled_over_pb2
 import sentry_protos.billing.v1.services.events.v1.organization_over_usage_pb2
 import sentry_protos.billing.v1.services.events.v1.organization_package_changed_pb2
 import sentry_protos.billing.v1.services.events.v1.organization_payg_changed_pb2
+import sentry_protos.billing.v1.services.events.v1.organization_trial_ended_pb2
 import sentry_protos.billing.v1.services.events.v1.organization_trial_started_pb2
 import sentry_protos.billing.v1.services.events.v1.organization_unit_grant_added_pb2
 import typing
@@ -49,6 +50,7 @@ class EventPayload(google.protobuf.message.Message):
     CONTRACT_ROLLED_OVER_FIELD_NUMBER: builtins.int
     ORGANIZATION_PACKAGE_CHANGED_FIELD_NUMBER: builtins.int
     BILLING_ALERT_EVALUATION_REQUESTED_FIELD_NUMBER: builtins.int
+    ORGANIZATION_TRIAL_ENDED_FIELD_NUMBER: builtins.int
     @property
     def organization_over_usage(self) -> sentry_protos.billing.v1.services.events.v1.organization_over_usage_pb2.OrganizationOverUsage: ...
     @property
@@ -63,6 +65,8 @@ class EventPayload(google.protobuf.message.Message):
     def organization_package_changed(self) -> sentry_protos.billing.v1.services.events.v1.organization_package_changed_pb2.OrganizationPackageChanged: ...
     @property
     def billing_alert_evaluation_requested(self) -> sentry_protos.billing.v1.services.events.v1.billing_alert_evaluation_requested_pb2.BillingAlertEvaluationRequested: ...
+    @property
+    def organization_trial_ended(self) -> sentry_protos.billing.v1.services.events.v1.organization_trial_ended_pb2.OrganizationTrialEnded: ...
     def __init__(
         self,
         *,
@@ -73,10 +77,11 @@ class EventPayload(google.protobuf.message.Message):
         contract_rolled_over: sentry_protos.billing.v1.services.events.v1.contract_rolled_over_pb2.ContractRolledOver | None = ...,
         organization_package_changed: sentry_protos.billing.v1.services.events.v1.organization_package_changed_pb2.OrganizationPackageChanged | None = ...,
         billing_alert_evaluation_requested: sentry_protos.billing.v1.services.events.v1.billing_alert_evaluation_requested_pb2.BillingAlertEvaluationRequested | None = ...,
+        organization_trial_ended: sentry_protos.billing.v1.services.events.v1.organization_trial_ended_pb2.OrganizationTrialEnded | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["billing_alert_evaluation_requested", b"billing_alert_evaluation_requested", "contract_rolled_over", b"contract_rolled_over", "organization_over_usage", b"organization_over_usage", "organization_package_changed", b"organization_package_changed", "organization_payg_changed", b"organization_payg_changed", "organization_trial_started", b"organization_trial_started", "organization_unit_grant_added", b"organization_unit_grant_added", "payload", b"payload"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["billing_alert_evaluation_requested", b"billing_alert_evaluation_requested", "contract_rolled_over", b"contract_rolled_over", "organization_over_usage", b"organization_over_usage", "organization_package_changed", b"organization_package_changed", "organization_payg_changed", b"organization_payg_changed", "organization_trial_started", b"organization_trial_started", "organization_unit_grant_added", b"organization_unit_grant_added", "payload", b"payload"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["payload", b"payload"]) -> typing.Literal["organization_over_usage", "organization_payg_changed", "organization_unit_grant_added", "organization_trial_started", "contract_rolled_over", "organization_package_changed", "billing_alert_evaluation_requested"] | None: ...
+    def HasField(self, field_name: typing.Literal["billing_alert_evaluation_requested", b"billing_alert_evaluation_requested", "contract_rolled_over", b"contract_rolled_over", "organization_over_usage", b"organization_over_usage", "organization_package_changed", b"organization_package_changed", "organization_payg_changed", b"organization_payg_changed", "organization_trial_ended", b"organization_trial_ended", "organization_trial_started", b"organization_trial_started", "organization_unit_grant_added", b"organization_unit_grant_added", "payload", b"payload"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["billing_alert_evaluation_requested", b"billing_alert_evaluation_requested", "contract_rolled_over", b"contract_rolled_over", "organization_over_usage", b"organization_over_usage", "organization_package_changed", b"organization_package_changed", "organization_payg_changed", b"organization_payg_changed", "organization_trial_ended", b"organization_trial_ended", "organization_trial_started", b"organization_trial_started", "organization_unit_grant_added", b"organization_unit_grant_added", "payload", b"payload"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["payload", b"payload"]) -> typing.Literal["organization_over_usage", "organization_payg_changed", "organization_unit_grant_added", "organization_trial_started", "contract_rolled_over", "organization_package_changed", "billing_alert_evaluation_requested", "organization_trial_ended"] | None: ...
 
 global___EventPayload = EventPayload
 

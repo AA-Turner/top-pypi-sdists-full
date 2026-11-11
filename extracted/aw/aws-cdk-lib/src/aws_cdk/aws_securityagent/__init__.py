@@ -2843,6 +2843,11 @@ class CfnPentest(
                     mfa_forwarding_address="mfaForwardingAddress",
                     uris=["uris"]
                 )],
+                client_certificates=[securityagent.CfnPentest.ClientCertificateProperty(
+                    name="name",
+                    origins=["origins"],
+                    secret_arn="secretArn"
+                )],
                 documents=[securityagent.CfnPentest.DocumentInfoProperty(
                     artifact_id="artifactId",
                     s3_location="s3Location"
@@ -2871,6 +2876,9 @@ class CfnPentest(
             service_role="serviceRole",
         
             # the properties below are optional
+            ci_cd_configuration=securityagent.CfnPentest.CiCdConfigurationProperty(
+                enabled=False
+            ),
             clean_up_strategy="cleanUpStrategy",
             code_remediation_strategy="codeRemediationStrategy",
             disable_managed_skills=["disableManagedSkills"],
@@ -2879,6 +2887,7 @@ class CfnPentest(
                 log_group="logGroup",
                 log_stream="logStream"
             ),
+            max_task_hours=123,
             network_traffic_config=securityagent.CfnPentest.NetworkTrafficConfigProperty(
                 custom_headers=[securityagent.CfnPentest.CustomHeaderProperty(
                     name="name",
@@ -2889,6 +2898,27 @@ class CfnPentest(
                     network_traffic_rule_type="networkTrafficRuleType",
                     pattern="pattern"
                 )]
+            ),
+            report_destination=securityagent.CfnPentest.ReportDestinationProperty(
+                container_id="containerId",
+                integration_id="integrationId",
+        
+                # the properties below are optional
+                document_id="documentId",
+                parent_id="parentId"
+            ),
+            report_filters=securityagent.CfnPentest.ReportFiltersProperty(
+                annotation_notes=False,
+                compliance_report=False,
+                confidence_levels=["confidenceLevels"],
+                finding_types=["findingTypes"],
+                risk_levels=["riskLevels"],
+                risk_types=["riskTypes"],
+                statuses=["statuses"],
+                task_statuses=["taskStatuses"]
+            ),
+            test_scope=securityagent.CfnPentest.TestScopeProperty(
+                type="type"
             ),
             title="title",
             vpc_config=securityagent.CfnPentest.VpcConfigProperty(
@@ -2907,12 +2937,17 @@ class CfnPentest(
         agent_space_id: builtins.str,
         assets: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.AssetsProperty", typing.Dict[builtins.str, typing.Any]]],
         service_role: builtins.str,
+        ci_cd_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.CiCdConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         clean_up_strategy: typing.Optional[builtins.str] = None,
         code_remediation_strategy: typing.Optional[builtins.str] = None,
         disable_managed_skills: typing.Optional[typing.Sequence[builtins.str]] = None,
         exclude_risk_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         log_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.CloudWatchLogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        max_task_hours: typing.Optional[jsii.Number] = None,
         network_traffic_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.NetworkTrafficConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        report_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.ReportDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        report_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.ReportFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_scope: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.TestScopeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         title: typing.Optional[builtins.str] = None,
         vpc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2923,12 +2958,17 @@ class CfnPentest(
         :param agent_space_id: Identifier of agent space where the pentest should be created.
         :param assets: Collection of assets to be tested during the pentest.
         :param service_role: Service role for accessing resources.
+        :param ci_cd_configuration: Configuration for running pentests automatically from a CI/CD pipeline.
         :param clean_up_strategy: Strategy for cleaning up resources after pentest job completion.
         :param code_remediation_strategy: Strategy for remediating code vulnerabilities discovered during the pentest.
         :param disable_managed_skills: A list of managed skills to disable for this pentest.
         :param exclude_risk_types: A list of risk types excluded from the pentest execution.
         :param log_config: CloudWatch Logs configuration for pentest output.
+        :param max_task_hours: The maximum number of billable task hours allowed for jobs started from this pentest. If not set, jobs run to completion with no budget cap.
         :param network_traffic_config: Network traffic configuration for the pentest.
+        :param report_destination: Destination for publishing a scan report to Confluence.
+        :param report_filters: Filters applied when a scan report is published to Confluence.
+        :param test_scope: Scope of the target under test, determining which classes of risk are assessed.
         :param title: Title of the penetration test.
         :param vpc_config: VPC configuration that the pentest agent accesses.
         '''
@@ -2940,12 +2980,17 @@ class CfnPentest(
             agent_space_id=agent_space_id,
             assets=assets,
             service_role=service_role,
+            ci_cd_configuration=ci_cd_configuration,
             clean_up_strategy=clean_up_strategy,
             code_remediation_strategy=code_remediation_strategy,
             disable_managed_skills=disable_managed_skills,
             exclude_risk_types=exclude_risk_types,
             log_config=log_config,
+            max_task_hours=max_task_hours,
             network_traffic_config=network_traffic_config,
+            report_destination=report_destination,
+            report_filters=report_filters,
+            test_scope=test_scope,
             title=title,
             vpc_config=vpc_config,
         )
@@ -3083,6 +3128,24 @@ class CfnPentest(
         jsii.set(self, "serviceRole", value)
 
     @builtins.property
+    @jsii.member(jsii_name="ciCdConfiguration")
+    def ci_cd_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.CiCdConfigurationProperty"]]:
+        '''Configuration for running pentests automatically from a CI/CD pipeline.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.CiCdConfigurationProperty"]], jsii.get(self, "ciCdConfiguration"))
+
+    @ci_cd_configuration.setter
+    def ci_cd_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.CiCdConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4f15b504cd79101b2fdafab08b33b210477d69ed8e1ded0783f0ff2231daf34a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ciCdConfiguration", value)
+
+    @builtins.property
     @jsii.member(jsii_name="cleanUpStrategy")
     def clean_up_strategy(self) -> typing.Optional[builtins.str]:
         '''Strategy for cleaning up resources after pentest job completion.'''
@@ -3159,6 +3222,19 @@ class CfnPentest(
         jsii.set(self, "logConfig", value)
 
     @builtins.property
+    @jsii.member(jsii_name="maxTaskHours")
+    def max_task_hours(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of billable task hours allowed for jobs started from this pentest.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxTaskHours"))
+
+    @max_task_hours.setter
+    def max_task_hours(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b80c4fe042cec831b94aa155c740bf6c92d8877403f7411f61912489b2c36402)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxTaskHours", value)
+
+    @builtins.property
     @jsii.member(jsii_name="networkTrafficConfig")
     def network_traffic_config(
         self,
@@ -3175,6 +3251,60 @@ class CfnPentest(
             type_hints = cached_type_hints(_typecheckingstub__2d4fb3fd1f4f28dd91245a6e6a1cbd6d3f9175fdb58d771301ab68da826171b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkTrafficConfig", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="reportDestination")
+    def report_destination(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ReportDestinationProperty"]]:
+        '''Destination for publishing a scan report to Confluence.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ReportDestinationProperty"]], jsii.get(self, "reportDestination"))
+
+    @report_destination.setter
+    def report_destination(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ReportDestinationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2424004d2390f5047d56c2cbec739d2eb87ad31cdfa1637ad48a6cf6be90a208)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "reportDestination", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="reportFilters")
+    def report_filters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ReportFiltersProperty"]]:
+        '''Filters applied when a scan report is published to Confluence.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ReportFiltersProperty"]], jsii.get(self, "reportFilters"))
+
+    @report_filters.setter
+    def report_filters(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ReportFiltersProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c4a33b749223b2d54968a0b60e9a4fa28dc698395f4fa3b413724ca24cbc9981)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "reportFilters", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="testScope")
+    def test_scope(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.TestScopeProperty"]]:
+        '''Scope of the target under test, determining which classes of risk are assessed.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.TestScopeProperty"]], jsii.get(self, "testScope"))
+
+    @test_scope.setter
+    def test_scope(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.TestScopeProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4a848ceaced2a646193f65b779efb663d5b83c224f96d18e8fcbb6df7653bc0b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "testScope", value)
 
     @builtins.property
     @jsii.member(jsii_name="title")
@@ -3356,6 +3486,7 @@ class CfnPentest(
         jsii_struct_bases=[],
         name_mapping={
             "actors": "actors",
+            "client_certificates": "clientCertificates",
             "documents": "documents",
             "endpoints": "endpoints",
             "integrated_repositories": "integratedRepositories",
@@ -3368,6 +3499,7 @@ class CfnPentest(
             self,
             *,
             actors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.ActorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            client_certificates: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.ClientCertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             documents: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.DocumentInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             endpoints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             integrated_repositories: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.IntegratedRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -3377,6 +3509,7 @@ class CfnPentest(
             '''Collection of assets to be tested during the pentest.
 
             :param actors: List of actors used during testing.
+            :param client_certificates: Client certificates that AWS Security Agent presents to target hosts that require mutual TLS (mTLS).
             :param documents: List of documents providing additional context for the pentest.
             :param endpoints: List of endpoints to test.
             :param integrated_repositories: List of repositories connected via provider integrations.
@@ -3403,6 +3536,11 @@ class CfnPentest(
                         identifier="identifier",
                         mfa_forwarding_address="mfaForwardingAddress",
                         uris=["uris"]
+                    )],
+                    client_certificates=[securityagent.CfnPentest.ClientCertificateProperty(
+                        name="name",
+                        origins=["origins"],
+                        secret_arn="secretArn"
                     )],
                     documents=[securityagent.CfnPentest.DocumentInfoProperty(
                         artifact_id="artifactId",
@@ -3433,6 +3571,7 @@ class CfnPentest(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__90ac541f4598ca1ed36733bf9d5a278158f6b2a40ecc4723d2aa1ebff5ec5fa5)
                 check_type(argname="argument actors", value=actors, expected_type=type_hints["actors"])
+                check_type(argname="argument client_certificates", value=client_certificates, expected_type=type_hints["client_certificates"])
                 check_type(argname="argument documents", value=documents, expected_type=type_hints["documents"])
                 check_type(argname="argument endpoints", value=endpoints, expected_type=type_hints["endpoints"])
                 check_type(argname="argument integrated_repositories", value=integrated_repositories, expected_type=type_hints["integrated_repositories"])
@@ -3441,6 +3580,8 @@ class CfnPentest(
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if actors is not None:
                 self._values["actors"] = actors
+            if client_certificates is not None:
+                self._values["client_certificates"] = client_certificates
             if documents is not None:
                 self._values["documents"] = documents
             if endpoints is not None:
@@ -3462,6 +3603,17 @@ class CfnPentest(
             '''
             result = self._values.get("actors")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ActorProperty"]]]], result)
+
+        @builtins.property
+        def client_certificates(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ClientCertificateProperty"]]]]:
+            '''Client certificates that AWS Security Agent presents to target hosts that require mutual TLS (mTLS).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-assets.html#cfn-securityagent-pentest-assets-clientcertificates
+            '''
+            result = self._values.get("client_certificates")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ClientCertificateProperty"]]]], result)
 
         @builtins.property
         def documents(
@@ -3687,6 +3839,152 @@ class CfnPentest(
 
         def __repr__(self) -> str:
             return "CaCertificateSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnPentest.CiCdConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class CiCdConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        ) -> None:
+            '''Configuration for running pentests automatically from a CI/CD pipeline.
+
+            :param enabled: Whether CI/CD pentesting is enabled. When enabled, the pentest must have at least one entry in Assets.IntegratedRepositories
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-cicdconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                ci_cd_configuration_property = securityagent.CfnPentest.CiCdConfigurationProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b0880e248fba3b9a3f68a6cad06bc892d335d7ab75ef8850558ef6baa2c4b334)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether CI/CD pentesting is enabled.
+
+            When enabled, the pentest must have at least one entry in Assets.IntegratedRepositories
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-cicdconfiguration.html#cfn-securityagent-pentest-cicdconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CiCdConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnPentest.ClientCertificateProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "origins": "origins", "secret_arn": "secretArn"},
+    )
+    class ClientCertificateProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            origins: typing.Sequence[builtins.str],
+            secret_arn: builtins.str,
+        ) -> None:
+            '''Client certificate presented during the TLS handshake to the hosts it applies to.
+
+            :param name: Name of the client certificate, unique within the pentest.
+            :param origins: Target hosts the certificate applies to, as https://host[:port] origins.
+            :param secret_arn: ARN of the Secrets Manager secret that holds the certificate and private key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-clientcertificate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                client_certificate_property = securityagent.CfnPentest.ClientCertificateProperty(
+                    name="name",
+                    origins=["origins"],
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__aa7a0624209880721f7d198b6c36ebfc9b0ec969458601fb5738dac1ef593f5b)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument origins", value=origins, expected_type=type_hints["origins"])
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "origins": origins,
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''Name of the client certificate, unique within the pentest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-clientcertificate.html#cfn-securityagent-pentest-clientcertificate-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def origins(self) -> typing.List[builtins.str]:
+            '''Target hosts the certificate applies to, as https://host[:port] origins.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-clientcertificate.html#cfn-securityagent-pentest-clientcertificate-origins
+            '''
+            result = self._values.get("origins")
+            assert result is not None, "Required property 'origins' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''ARN of the Secrets Manager secret that holds the certificate and private key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-clientcertificate.html#cfn-securityagent-pentest-clientcertificate-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClientCertificateProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4214,6 +4512,287 @@ class CfnPentest(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnPentest.ReportDestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "container_id": "containerId",
+            "integration_id": "integrationId",
+            "document_id": "documentId",
+            "parent_id": "parentId",
+        },
+    )
+    class ReportDestinationProperty:
+        def __init__(
+            self,
+            *,
+            container_id: builtins.str,
+            integration_id: builtins.str,
+            document_id: typing.Optional[builtins.str] = None,
+            parent_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Destination for publishing a scan report to Confluence.
+
+            :param container_id: Identifier of the container, such as a space, within the integration to publish the report to.
+            :param integration_id: Unique identifier of the provider integration to publish the report to.
+            :param document_id: Identifier of an existing document to update with the report.
+            :param parent_id: Identifier of the parent under which the report document is created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportdestination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                report_destination_property = securityagent.CfnPentest.ReportDestinationProperty(
+                    container_id="containerId",
+                    integration_id="integrationId",
+                
+                    # the properties below are optional
+                    document_id="documentId",
+                    parent_id="parentId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__31c40d1b5be7419c49423d27485d9d73e3f3f26e7908d5075b19f5ad5e77a708)
+                check_type(argname="argument container_id", value=container_id, expected_type=type_hints["container_id"])
+                check_type(argname="argument integration_id", value=integration_id, expected_type=type_hints["integration_id"])
+                check_type(argname="argument document_id", value=document_id, expected_type=type_hints["document_id"])
+                check_type(argname="argument parent_id", value=parent_id, expected_type=type_hints["parent_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "container_id": container_id,
+                "integration_id": integration_id,
+            }
+            if document_id is not None:
+                self._values["document_id"] = document_id
+            if parent_id is not None:
+                self._values["parent_id"] = parent_id
+
+        @builtins.property
+        def container_id(self) -> builtins.str:
+            '''Identifier of the container, such as a space, within the integration to publish the report to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportdestination.html#cfn-securityagent-pentest-reportdestination-containerid
+            '''
+            result = self._values.get("container_id")
+            assert result is not None, "Required property 'container_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def integration_id(self) -> builtins.str:
+            '''Unique identifier of the provider integration to publish the report to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportdestination.html#cfn-securityagent-pentest-reportdestination-integrationid
+            '''
+            result = self._values.get("integration_id")
+            assert result is not None, "Required property 'integration_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def document_id(self) -> typing.Optional[builtins.str]:
+            '''Identifier of an existing document to update with the report.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportdestination.html#cfn-securityagent-pentest-reportdestination-documentid
+            '''
+            result = self._values.get("document_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def parent_id(self) -> typing.Optional[builtins.str]:
+            '''Identifier of the parent under which the report document is created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportdestination.html#cfn-securityagent-pentest-reportdestination-parentid
+            '''
+            result = self._values.get("parent_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReportDestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnPentest.ReportFiltersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "annotation_notes": "annotationNotes",
+            "compliance_report": "complianceReport",
+            "confidence_levels": "confidenceLevels",
+            "finding_types": "findingTypes",
+            "risk_levels": "riskLevels",
+            "risk_types": "riskTypes",
+            "statuses": "statuses",
+            "task_statuses": "taskStatuses",
+        },
+    )
+    class ReportFiltersProperty:
+        def __init__(
+            self,
+            *,
+            annotation_notes: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            compliance_report: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            confidence_levels: typing.Optional[typing.Sequence[builtins.str]] = None,
+            finding_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+            risk_levels: typing.Optional[typing.Sequence[builtins.str]] = None,
+            risk_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+            statuses: typing.Optional[typing.Sequence[builtins.str]] = None,
+            task_statuses: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Filters applied when a scan report is published to Confluence.
+
+            :param annotation_notes: Whether to include reviewer annotation notes under each finding.
+            :param compliance_report: Whether to include the compliance-ready report additions.
+            :param confidence_levels: Confidence levels to include in the report.
+            :param finding_types: Finding types to include in the report.
+            :param risk_levels: Severity levels to include in the report.
+            :param risk_types: Risk types to include in the report.
+            :param statuses: Finding statuses to include in the report.
+            :param task_statuses: Task execution statuses to include in the report's task table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportfilters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                report_filters_property = securityagent.CfnPentest.ReportFiltersProperty(
+                    annotation_notes=False,
+                    compliance_report=False,
+                    confidence_levels=["confidenceLevels"],
+                    finding_types=["findingTypes"],
+                    risk_levels=["riskLevels"],
+                    risk_types=["riskTypes"],
+                    statuses=["statuses"],
+                    task_statuses=["taskStatuses"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__92302ba5aa5b534c3e32e3a4bf30bcd2fa42f411c3ac7daebd8f55a75f288d54)
+                check_type(argname="argument annotation_notes", value=annotation_notes, expected_type=type_hints["annotation_notes"])
+                check_type(argname="argument compliance_report", value=compliance_report, expected_type=type_hints["compliance_report"])
+                check_type(argname="argument confidence_levels", value=confidence_levels, expected_type=type_hints["confidence_levels"])
+                check_type(argname="argument finding_types", value=finding_types, expected_type=type_hints["finding_types"])
+                check_type(argname="argument risk_levels", value=risk_levels, expected_type=type_hints["risk_levels"])
+                check_type(argname="argument risk_types", value=risk_types, expected_type=type_hints["risk_types"])
+                check_type(argname="argument statuses", value=statuses, expected_type=type_hints["statuses"])
+                check_type(argname="argument task_statuses", value=task_statuses, expected_type=type_hints["task_statuses"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if annotation_notes is not None:
+                self._values["annotation_notes"] = annotation_notes
+            if compliance_report is not None:
+                self._values["compliance_report"] = compliance_report
+            if confidence_levels is not None:
+                self._values["confidence_levels"] = confidence_levels
+            if finding_types is not None:
+                self._values["finding_types"] = finding_types
+            if risk_levels is not None:
+                self._values["risk_levels"] = risk_levels
+            if risk_types is not None:
+                self._values["risk_types"] = risk_types
+            if statuses is not None:
+                self._values["statuses"] = statuses
+            if task_statuses is not None:
+                self._values["task_statuses"] = task_statuses
+
+        @builtins.property
+        def annotation_notes(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Whether to include reviewer annotation notes under each finding.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportfilters.html#cfn-securityagent-pentest-reportfilters-annotationnotes
+            '''
+            result = self._values.get("annotation_notes")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def compliance_report(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Whether to include the compliance-ready report additions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportfilters.html#cfn-securityagent-pentest-reportfilters-compliancereport
+            '''
+            result = self._values.get("compliance_report")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def confidence_levels(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Confidence levels to include in the report.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportfilters.html#cfn-securityagent-pentest-reportfilters-confidencelevels
+            '''
+            result = self._values.get("confidence_levels")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def finding_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Finding types to include in the report.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportfilters.html#cfn-securityagent-pentest-reportfilters-findingtypes
+            '''
+            result = self._values.get("finding_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def risk_levels(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Severity levels to include in the report.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportfilters.html#cfn-securityagent-pentest-reportfilters-risklevels
+            '''
+            result = self._values.get("risk_levels")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def risk_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Risk types to include in the report.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportfilters.html#cfn-securityagent-pentest-reportfilters-risktypes
+            '''
+            result = self._values.get("risk_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def statuses(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Finding statuses to include in the report.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportfilters.html#cfn-securityagent-pentest-reportfilters-statuses
+            '''
+            result = self._values.get("statuses")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def task_statuses(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Task execution statuses to include in the report's task table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-reportfilters.html#cfn-securityagent-pentest-reportfilters-taskstatuses
+            '''
+            result = self._values.get("task_statuses")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReportFiltersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_securityagent.CfnPentest.SourceCodeRepositoryProperty",
         jsii_struct_bases=[],
         name_mapping={"s3_location": "s3Location"},
@@ -4265,6 +4844,58 @@ class CfnPentest(
 
         def __repr__(self) -> str:
             return "SourceCodeRepositoryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnPentest.TestScopeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"type": "type"},
+    )
+    class TestScopeProperty:
+        def __init__(self, *, type: builtins.str) -> None:
+            '''Scope of the target under test, determining which classes of risk are assessed.
+
+            :param type: The kind of application a pentest target is tested as.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-testscope.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                test_scope_property = securityagent.CfnPentest.TestScopeProperty(
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__60b063ec5fcf0d0aa7c65711a906ee0d7140320913240b90f5383140b31f3ddf)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The kind of application a pentest target is tested as.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-testscope.html#cfn-securityagent-pentest-testscope-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TestScopeProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4428,12 +5059,17 @@ class CfnPentest(
         "agent_space_id": "agentSpaceId",
         "assets": "assets",
         "service_role": "serviceRole",
+        "ci_cd_configuration": "ciCdConfiguration",
         "clean_up_strategy": "cleanUpStrategy",
         "code_remediation_strategy": "codeRemediationStrategy",
         "disable_managed_skills": "disableManagedSkills",
         "exclude_risk_types": "excludeRiskTypes",
         "log_config": "logConfig",
+        "max_task_hours": "maxTaskHours",
         "network_traffic_config": "networkTrafficConfig",
+        "report_destination": "reportDestination",
+        "report_filters": "reportFilters",
+        "test_scope": "testScope",
         "title": "title",
         "vpc_config": "vpcConfig",
     },
@@ -4445,12 +5081,17 @@ class CfnPentestProps:
         agent_space_id: builtins.str,
         assets: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.AssetsProperty", typing.Dict[builtins.str, typing.Any]]],
         service_role: builtins.str,
+        ci_cd_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.CiCdConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         clean_up_strategy: typing.Optional[builtins.str] = None,
         code_remediation_strategy: typing.Optional[builtins.str] = None,
         disable_managed_skills: typing.Optional[typing.Sequence[builtins.str]] = None,
         exclude_risk_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         log_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.CloudWatchLogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        max_task_hours: typing.Optional[jsii.Number] = None,
         network_traffic_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.NetworkTrafficConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        report_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.ReportDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        report_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.ReportFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_scope: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.TestScopeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         title: typing.Optional[builtins.str] = None,
         vpc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPentest.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -4459,12 +5100,17 @@ class CfnPentestProps:
         :param agent_space_id: Identifier of agent space where the pentest should be created.
         :param assets: Collection of assets to be tested during the pentest.
         :param service_role: Service role for accessing resources.
+        :param ci_cd_configuration: Configuration for running pentests automatically from a CI/CD pipeline.
         :param clean_up_strategy: Strategy for cleaning up resources after pentest job completion.
         :param code_remediation_strategy: Strategy for remediating code vulnerabilities discovered during the pentest.
         :param disable_managed_skills: A list of managed skills to disable for this pentest.
         :param exclude_risk_types: A list of risk types excluded from the pentest execution.
         :param log_config: CloudWatch Logs configuration for pentest output.
+        :param max_task_hours: The maximum number of billable task hours allowed for jobs started from this pentest. If not set, jobs run to completion with no budget cap.
         :param network_traffic_config: Network traffic configuration for the pentest.
+        :param report_destination: Destination for publishing a scan report to Confluence.
+        :param report_filters: Filters applied when a scan report is published to Confluence.
+        :param test_scope: Scope of the target under test, determining which classes of risk are assessed.
         :param title: Title of the penetration test.
         :param vpc_config: VPC configuration that the pentest agent accesses.
 
@@ -4490,6 +5136,11 @@ class CfnPentestProps:
                         identifier="identifier",
                         mfa_forwarding_address="mfaForwardingAddress",
                         uris=["uris"]
+                    )],
+                    client_certificates=[securityagent.CfnPentest.ClientCertificateProperty(
+                        name="name",
+                        origins=["origins"],
+                        secret_arn="secretArn"
                     )],
                     documents=[securityagent.CfnPentest.DocumentInfoProperty(
                         artifact_id="artifactId",
@@ -4519,6 +5170,9 @@ class CfnPentestProps:
                 service_role="serviceRole",
             
                 # the properties below are optional
+                ci_cd_configuration=securityagent.CfnPentest.CiCdConfigurationProperty(
+                    enabled=False
+                ),
                 clean_up_strategy="cleanUpStrategy",
                 code_remediation_strategy="codeRemediationStrategy",
                 disable_managed_skills=["disableManagedSkills"],
@@ -4527,6 +5181,7 @@ class CfnPentestProps:
                     log_group="logGroup",
                     log_stream="logStream"
                 ),
+                max_task_hours=123,
                 network_traffic_config=securityagent.CfnPentest.NetworkTrafficConfigProperty(
                     custom_headers=[securityagent.CfnPentest.CustomHeaderProperty(
                         name="name",
@@ -4537,6 +5192,27 @@ class CfnPentestProps:
                         network_traffic_rule_type="networkTrafficRuleType",
                         pattern="pattern"
                     )]
+                ),
+                report_destination=securityagent.CfnPentest.ReportDestinationProperty(
+                    container_id="containerId",
+                    integration_id="integrationId",
+            
+                    # the properties below are optional
+                    document_id="documentId",
+                    parent_id="parentId"
+                ),
+                report_filters=securityagent.CfnPentest.ReportFiltersProperty(
+                    annotation_notes=False,
+                    compliance_report=False,
+                    confidence_levels=["confidenceLevels"],
+                    finding_types=["findingTypes"],
+                    risk_levels=["riskLevels"],
+                    risk_types=["riskTypes"],
+                    statuses=["statuses"],
+                    task_statuses=["taskStatuses"]
+                ),
+                test_scope=securityagent.CfnPentest.TestScopeProperty(
+                    type="type"
                 ),
                 title="title",
                 vpc_config=securityagent.CfnPentest.VpcConfigProperty(
@@ -4551,12 +5227,17 @@ class CfnPentestProps:
             check_type(argname="argument agent_space_id", value=agent_space_id, expected_type=type_hints["agent_space_id"])
             check_type(argname="argument assets", value=assets, expected_type=type_hints["assets"])
             check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+            check_type(argname="argument ci_cd_configuration", value=ci_cd_configuration, expected_type=type_hints["ci_cd_configuration"])
             check_type(argname="argument clean_up_strategy", value=clean_up_strategy, expected_type=type_hints["clean_up_strategy"])
             check_type(argname="argument code_remediation_strategy", value=code_remediation_strategy, expected_type=type_hints["code_remediation_strategy"])
             check_type(argname="argument disable_managed_skills", value=disable_managed_skills, expected_type=type_hints["disable_managed_skills"])
             check_type(argname="argument exclude_risk_types", value=exclude_risk_types, expected_type=type_hints["exclude_risk_types"])
             check_type(argname="argument log_config", value=log_config, expected_type=type_hints["log_config"])
+            check_type(argname="argument max_task_hours", value=max_task_hours, expected_type=type_hints["max_task_hours"])
             check_type(argname="argument network_traffic_config", value=network_traffic_config, expected_type=type_hints["network_traffic_config"])
+            check_type(argname="argument report_destination", value=report_destination, expected_type=type_hints["report_destination"])
+            check_type(argname="argument report_filters", value=report_filters, expected_type=type_hints["report_filters"])
+            check_type(argname="argument test_scope", value=test_scope, expected_type=type_hints["test_scope"])
             check_type(argname="argument title", value=title, expected_type=type_hints["title"])
             check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4564,6 +5245,8 @@ class CfnPentestProps:
             "assets": assets,
             "service_role": service_role,
         }
+        if ci_cd_configuration is not None:
+            self._values["ci_cd_configuration"] = ci_cd_configuration
         if clean_up_strategy is not None:
             self._values["clean_up_strategy"] = clean_up_strategy
         if code_remediation_strategy is not None:
@@ -4574,8 +5257,16 @@ class CfnPentestProps:
             self._values["exclude_risk_types"] = exclude_risk_types
         if log_config is not None:
             self._values["log_config"] = log_config
+        if max_task_hours is not None:
+            self._values["max_task_hours"] = max_task_hours
         if network_traffic_config is not None:
             self._values["network_traffic_config"] = network_traffic_config
+        if report_destination is not None:
+            self._values["report_destination"] = report_destination
+        if report_filters is not None:
+            self._values["report_filters"] = report_filters
+        if test_scope is not None:
+            self._values["test_scope"] = test_scope
         if title is not None:
             self._values["title"] = title
         if vpc_config is not None:
@@ -4612,6 +5303,17 @@ class CfnPentestProps:
         result = self._values.get("service_role")
         assert result is not None, "Required property 'service_role' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ci_cd_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.CiCdConfigurationProperty"]]:
+        '''Configuration for running pentests automatically from a CI/CD pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-cicdconfiguration
+        '''
+        result = self._values.get("ci_cd_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.CiCdConfigurationProperty"]], result)
 
     @builtins.property
     def clean_up_strategy(self) -> typing.Optional[builtins.str]:
@@ -4661,6 +5363,17 @@ class CfnPentestProps:
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.CloudWatchLogProperty"]], result)
 
     @builtins.property
+    def max_task_hours(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of billable task hours allowed for jobs started from this pentest.
+
+        If not set, jobs run to completion with no budget cap.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-maxtaskhours
+        '''
+        result = self._values.get("max_task_hours")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def network_traffic_config(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.NetworkTrafficConfigProperty"]]:
@@ -4670,6 +5383,39 @@ class CfnPentestProps:
         '''
         result = self._values.get("network_traffic_config")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.NetworkTrafficConfigProperty"]], result)
+
+    @builtins.property
+    def report_destination(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ReportDestinationProperty"]]:
+        '''Destination for publishing a scan report to Confluence.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-reportdestination
+        '''
+        result = self._values.get("report_destination")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ReportDestinationProperty"]], result)
+
+    @builtins.property
+    def report_filters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ReportFiltersProperty"]]:
+        '''Filters applied when a scan report is published to Confluence.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-reportfilters
+        '''
+        result = self._values.get("report_filters")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.ReportFiltersProperty"]], result)
+
+    @builtins.property
+    def test_scope(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.TestScopeProperty"]]:
+        '''Scope of the target under test, determining which classes of risk are assessed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-testscope
+        '''
+        result = self._values.get("test_scope")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPentest.TestScopeProperty"]], result)
 
     @builtins.property
     def title(self) -> typing.Optional[builtins.str]:
@@ -4699,6 +5445,760 @@ class CfnPentestProps:
 
     def __repr__(self) -> str:
         return "CfnPentestProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_securityagent_9b0edcbe.IPrivateConnectionRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnPrivateConnection(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_securityagent.CfnPrivateConnection",
+):
+    '''Resource Type definition for AWS::SecurityAgent::PrivateConnection.
+
+    A private connection allows Security Agent to reach a target resource privately via a VPC Lattice resource gateway.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-privateconnection.html
+    :cloudformationResource: AWS::SecurityAgent::PrivateConnection
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_securityagent as securityagent
+        
+        cfn_private_connection = securityagent.CfnPrivateConnection(self, "MyCfnPrivateConnection",
+            private_connection_name="privateConnectionName",
+        
+            # the properties below are optional
+            certificate="certificate",
+            mode=securityagent.CfnPrivateConnection.ModeProperty(
+                self_managed=securityagent.CfnPrivateConnection.SelfManagedProperty(
+                    resource_configuration_id="resourceConfigurationId"
+                ),
+                service_managed=securityagent.CfnPrivateConnection.ServiceManagedProperty(
+                    host_address="hostAddress",
+                    subnet_ids=["subnetIds"],
+                    vpc_id="vpcId",
+        
+                    # the properties below are optional
+                    dns_resolution="dnsResolution",
+                    ip_address_type="ipAddressType",
+                    ipv4_addresses_per_eni=123,
+                    port_ranges=["portRanges"],
+                    security_group_ids=["securityGroupIds"]
+                )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        private_connection_name: builtins.str,
+        certificate: typing.Optional[builtins.str] = None,
+        mode: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrivateConnection.ModeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SecurityAgent::PrivateConnection``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param private_connection_name: A unique name for the private connection within your account.
+        :param certificate: The PEM-encoded certificate chain for the private connection.
+        :param mode: The configuration for the private connection. Specify either a service-managed or a self-managed mode.
+        :param tags: The tags attached to the private connection.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__af73243763cf4280849bf23ff2103d5e90e500ed8764988ef59b9edf1b8546a1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPrivateConnectionProps(
+            private_connection_name=private_connection_name,
+            certificate=certificate,
+            mode=mode,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPrivateConnection")
+    @builtins.classmethod
+    def arn_for_private_connection(
+        cls,
+        resource: "_aws_securityagent_9b0edcbe.IPrivateConnectionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cc9b750b96c9ea62609ed52994168c11ea318096c45eb8d097c4d0d6912cc5a9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPrivateConnection", [resource]))
+
+    @jsii.member(jsii_name="isCfnPrivateConnection")
+    @builtins.classmethod
+    def is_cfn_private_connection(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPrivateConnection.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__939c2fbec6362288af8ebd797f4aa01bc155d9194ef378f28e039e6e9ef3ec3a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPrivateConnection", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__669249af847c85285c65248f37a57e6b857e684754a844a41635c929658842e6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6f88b792212cd5f2dfe6dcf415240ec5fe1cb9d6a4911f0fe9a8e71811377746)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the private connection.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCertificateExpiryTime")
+    def attr_certificate_expiry_time(self) -> builtins.str:
+        '''The date and time the connection's certificate expires, in UTC format.
+
+        :cloudformationAttribute: CertificateExpiryTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCertificateExpiryTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDnsResolution")
+    def attr_dns_resolution(self) -> builtins.str:
+        '''The DNS resolution mode for the resource gateway.
+
+        :cloudformationAttribute: DnsResolution
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDnsResolution"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrHostAddress")
+    def attr_host_address(self) -> builtins.str:
+        '''The IP address or DNS name of the target resource.
+
+        :cloudformationAttribute: HostAddress
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrHostAddress"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceConfigurationId")
+    def attr_resource_configuration_id(self) -> builtins.str:
+        '''The identifier or ARN of the VPC Lattice resource configuration.
+
+        :cloudformationAttribute: ResourceConfigurationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceConfigurationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceGatewayId")
+    def attr_resource_gateway_id(self) -> builtins.str:
+        '''The identifier or ARN of the VPC Lattice resource gateway.
+
+        :cloudformationAttribute: ResourceGatewayId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceGatewayId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the private connection.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrType")
+    def attr_type(self) -> builtins.str:
+        '''The type of the private connection, indicating whether it is service-managed or self-managed.
+
+        :cloudformationAttribute: Type
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcId")
+    def attr_vpc_id(self) -> builtins.str:
+        '''The identifier of the VPC the resource gateway is created in.
+
+        :cloudformationAttribute: VpcId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVpcId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="privateConnectionRef")
+    def private_connection_ref(
+        self,
+    ) -> "_aws_securityagent_9b0edcbe.PrivateConnectionReference":
+        '''A reference to a PrivateConnection resource.'''
+        return typing.cast("_aws_securityagent_9b0edcbe.PrivateConnectionReference", jsii.get(self, "privateConnectionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="privateConnectionName")
+    def private_connection_name(self) -> builtins.str:
+        '''A unique name for the private connection within your account.'''
+        return typing.cast(builtins.str, jsii.get(self, "privateConnectionName"))
+
+    @private_connection_name.setter
+    def private_connection_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d39cd4edd30260947bbd72f6ecf1f04e08c24380574260ad2dc6dee094000342)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "privateConnectionName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="certificate")
+    def certificate(self) -> typing.Optional[builtins.str]:
+        '''The PEM-encoded certificate chain for the private connection.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificate"))
+
+    @certificate.setter
+    def certificate(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__36da653d9678688f14aa9df9d877e58dda1270d77ae062a81730cd5eca53fc39)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificate", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="mode")
+    def mode(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateConnection.ModeProperty"]]:
+        '''The configuration for the private connection.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateConnection.ModeProperty"]], jsii.get(self, "mode"))
+
+    @mode.setter
+    def mode(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateConnection.ModeProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__377856b3527fba86c77ccf86bdba553c51c34eb8fb957aa04a82a9c76e61cb16)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "mode", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags attached to the private connection.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__63a51ef773b33f67c080cb2176f5ee36766be90edcd706c224bea3e4c89df2ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnPrivateConnection.ModeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "self_managed": "selfManaged",
+            "service_managed": "serviceManaged",
+        },
+    )
+    class ModeProperty:
+        def __init__(
+            self,
+            *,
+            self_managed: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrivateConnection.SelfManagedProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            service_managed: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrivateConnection.ServiceManagedProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration for the private connection.
+
+            Specify either a service-managed or a self-managed mode.
+
+            :param self_managed: The configuration for a self-managed private connection, where you manage your own resource configuration.
+            :param service_managed: The configuration for a service-managed private connection, where the service manages the resource gateway lifecycle.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-mode.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                mode_property = securityagent.CfnPrivateConnection.ModeProperty(
+                    self_managed=securityagent.CfnPrivateConnection.SelfManagedProperty(
+                        resource_configuration_id="resourceConfigurationId"
+                    ),
+                    service_managed=securityagent.CfnPrivateConnection.ServiceManagedProperty(
+                        host_address="hostAddress",
+                        subnet_ids=["subnetIds"],
+                        vpc_id="vpcId",
+                
+                        # the properties below are optional
+                        dns_resolution="dnsResolution",
+                        ip_address_type="ipAddressType",
+                        ipv4_addresses_per_eni=123,
+                        port_ranges=["portRanges"],
+                        security_group_ids=["securityGroupIds"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__67d9f36c440983434c34b5c6f2e424de7251ae95f2563541744a31e5709fae5d)
+                check_type(argname="argument self_managed", value=self_managed, expected_type=type_hints["self_managed"])
+                check_type(argname="argument service_managed", value=service_managed, expected_type=type_hints["service_managed"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if self_managed is not None:
+                self._values["self_managed"] = self_managed
+            if service_managed is not None:
+                self._values["service_managed"] = service_managed
+
+        @builtins.property
+        def self_managed(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateConnection.SelfManagedProperty"]]:
+            '''The configuration for a self-managed private connection, where you manage your own resource configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-mode.html#cfn-securityagent-privateconnection-mode-selfmanaged
+            '''
+            result = self._values.get("self_managed")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateConnection.SelfManagedProperty"]], result)
+
+        @builtins.property
+        def service_managed(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateConnection.ServiceManagedProperty"]]:
+            '''The configuration for a service-managed private connection, where the service manages the resource gateway lifecycle.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-mode.html#cfn-securityagent-privateconnection-mode-servicemanaged
+            '''
+            result = self._values.get("service_managed")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateConnection.ServiceManagedProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ModeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnPrivateConnection.SelfManagedProperty",
+        jsii_struct_bases=[],
+        name_mapping={"resource_configuration_id": "resourceConfigurationId"},
+    )
+    class SelfManagedProperty:
+        def __init__(self, *, resource_configuration_id: builtins.str) -> None:
+            '''The configuration for a self-managed private connection, where you manage your own resource configuration.
+
+            :param resource_configuration_id: The identifier or ARN of the resource configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-selfmanaged.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                self_managed_property = securityagent.CfnPrivateConnection.SelfManagedProperty(
+                    resource_configuration_id="resourceConfigurationId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1e46469e9b7163abed0cf7f9ef45136d45ccb25fa136c08297eb2d89db02b266)
+                check_type(argname="argument resource_configuration_id", value=resource_configuration_id, expected_type=type_hints["resource_configuration_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "resource_configuration_id": resource_configuration_id,
+            }
+
+        @builtins.property
+        def resource_configuration_id(self) -> builtins.str:
+            '''The identifier or ARN of the resource configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-selfmanaged.html#cfn-securityagent-privateconnection-selfmanaged-resourceconfigurationid
+            '''
+            result = self._values.get("resource_configuration_id")
+            assert result is not None, "Required property 'resource_configuration_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SelfManagedProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnPrivateConnection.ServiceManagedProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "host_address": "hostAddress",
+            "subnet_ids": "subnetIds",
+            "vpc_id": "vpcId",
+            "dns_resolution": "dnsResolution",
+            "ip_address_type": "ipAddressType",
+            "ipv4_addresses_per_eni": "ipv4AddressesPerEni",
+            "port_ranges": "portRanges",
+            "security_group_ids": "securityGroupIds",
+        },
+    )
+    class ServiceManagedProperty:
+        def __init__(
+            self,
+            *,
+            host_address: builtins.str,
+            subnet_ids: typing.Sequence[builtins.str],
+            vpc_id: builtins.str,
+            dns_resolution: typing.Optional[builtins.str] = None,
+            ip_address_type: typing.Optional[builtins.str] = None,
+            ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
+            port_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
+            security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The configuration for a service-managed private connection, where the service manages the resource gateway lifecycle.
+
+            :param host_address: The IP address or DNS name of the target resource.
+            :param subnet_ids: The subnets that the service-managed resource gateway spans.
+            :param vpc_id: The VPC to create the service-managed resource gateway in.
+            :param dns_resolution: The DNS resolution mode for the resource gateway.
+            :param ip_address_type: The IP address type of the service-managed resource gateway.
+            :param ipv4_addresses_per_eni: The number of IPv4 addresses in each elastic network interface for the service-managed resource gateway.
+            :param port_ranges: The TCP port ranges that a consumer can use to access the resource.
+            :param security_group_ids: The security groups to attach to the service-managed resource gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-servicemanaged.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                service_managed_property = securityagent.CfnPrivateConnection.ServiceManagedProperty(
+                    host_address="hostAddress",
+                    subnet_ids=["subnetIds"],
+                    vpc_id="vpcId",
+                
+                    # the properties below are optional
+                    dns_resolution="dnsResolution",
+                    ip_address_type="ipAddressType",
+                    ipv4_addresses_per_eni=123,
+                    port_ranges=["portRanges"],
+                    security_group_ids=["securityGroupIds"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9f70d3ee903f4183b87c506bbef1a89809670e7b3454f2d67762b6fa5dbf9cb2)
+                check_type(argname="argument host_address", value=host_address, expected_type=type_hints["host_address"])
+                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+                check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+                check_type(argname="argument dns_resolution", value=dns_resolution, expected_type=type_hints["dns_resolution"])
+                check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+                check_type(argname="argument ipv4_addresses_per_eni", value=ipv4_addresses_per_eni, expected_type=type_hints["ipv4_addresses_per_eni"])
+                check_type(argname="argument port_ranges", value=port_ranges, expected_type=type_hints["port_ranges"])
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "host_address": host_address,
+                "subnet_ids": subnet_ids,
+                "vpc_id": vpc_id,
+            }
+            if dns_resolution is not None:
+                self._values["dns_resolution"] = dns_resolution
+            if ip_address_type is not None:
+                self._values["ip_address_type"] = ip_address_type
+            if ipv4_addresses_per_eni is not None:
+                self._values["ipv4_addresses_per_eni"] = ipv4_addresses_per_eni
+            if port_ranges is not None:
+                self._values["port_ranges"] = port_ranges
+            if security_group_ids is not None:
+                self._values["security_group_ids"] = security_group_ids
+
+        @builtins.property
+        def host_address(self) -> builtins.str:
+            '''The IP address or DNS name of the target resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-servicemanaged.html#cfn-securityagent-privateconnection-servicemanaged-hostaddress
+            '''
+            result = self._values.get("host_address")
+            assert result is not None, "Required property 'host_address' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def subnet_ids(self) -> typing.List[builtins.str]:
+            '''The subnets that the service-managed resource gateway spans.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-servicemanaged.html#cfn-securityagent-privateconnection-servicemanaged-subnetids
+            '''
+            result = self._values.get("subnet_ids")
+            assert result is not None, "Required property 'subnet_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def vpc_id(self) -> builtins.str:
+            '''The VPC to create the service-managed resource gateway in.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-servicemanaged.html#cfn-securityagent-privateconnection-servicemanaged-vpcid
+            '''
+            result = self._values.get("vpc_id")
+            assert result is not None, "Required property 'vpc_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def dns_resolution(self) -> typing.Optional[builtins.str]:
+            '''The DNS resolution mode for the resource gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-servicemanaged.html#cfn-securityagent-privateconnection-servicemanaged-dnsresolution
+            '''
+            result = self._values.get("dns_resolution")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ip_address_type(self) -> typing.Optional[builtins.str]:
+            '''The IP address type of the service-managed resource gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-servicemanaged.html#cfn-securityagent-privateconnection-servicemanaged-ipaddresstype
+            '''
+            result = self._values.get("ip_address_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ipv4_addresses_per_eni(self) -> typing.Optional[jsii.Number]:
+            '''The number of IPv4 addresses in each elastic network interface for the service-managed resource gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-servicemanaged.html#cfn-securityagent-privateconnection-servicemanaged-ipv4addressespereni
+            '''
+            result = self._values.get("ipv4_addresses_per_eni")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def port_ranges(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The TCP port ranges that a consumer can use to access the resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-servicemanaged.html#cfn-securityagent-privateconnection-servicemanaged-portranges
+            '''
+            result = self._values.get("port_ranges")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The security groups to attach to the service-managed resource gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-privateconnection-servicemanaged.html#cfn-securityagent-privateconnection-servicemanaged-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceManagedProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityagent.CfnPrivateConnectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "private_connection_name": "privateConnectionName",
+        "certificate": "certificate",
+        "mode": "mode",
+        "tags": "tags",
+    },
+)
+class CfnPrivateConnectionProps:
+    def __init__(
+        self,
+        *,
+        private_connection_name: builtins.str,
+        certificate: typing.Optional[builtins.str] = None,
+        mode: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrivateConnection.ModeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPrivateConnection``.
+
+        :param private_connection_name: A unique name for the private connection within your account.
+        :param certificate: The PEM-encoded certificate chain for the private connection.
+        :param mode: The configuration for the private connection. Specify either a service-managed or a self-managed mode.
+        :param tags: The tags attached to the private connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-privateconnection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityagent as securityagent
+            
+            cfn_private_connection_props = securityagent.CfnPrivateConnectionProps(
+                private_connection_name="privateConnectionName",
+            
+                # the properties below are optional
+                certificate="certificate",
+                mode=securityagent.CfnPrivateConnection.ModeProperty(
+                    self_managed=securityagent.CfnPrivateConnection.SelfManagedProperty(
+                        resource_configuration_id="resourceConfigurationId"
+                    ),
+                    service_managed=securityagent.CfnPrivateConnection.ServiceManagedProperty(
+                        host_address="hostAddress",
+                        subnet_ids=["subnetIds"],
+                        vpc_id="vpcId",
+            
+                        # the properties below are optional
+                        dns_resolution="dnsResolution",
+                        ip_address_type="ipAddressType",
+                        ipv4_addresses_per_eni=123,
+                        port_ranges=["portRanges"],
+                        security_group_ids=["securityGroupIds"]
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__71810954d09b740ff3953a7d09511cdf57281424ee80179f34942ce7e41b6bcf)
+            check_type(argname="argument private_connection_name", value=private_connection_name, expected_type=type_hints["private_connection_name"])
+            check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
+            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "private_connection_name": private_connection_name,
+        }
+        if certificate is not None:
+            self._values["certificate"] = certificate
+        if mode is not None:
+            self._values["mode"] = mode
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def private_connection_name(self) -> builtins.str:
+        '''A unique name for the private connection within your account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-privateconnection.html#cfn-securityagent-privateconnection-privateconnectionname
+        '''
+        result = self._values.get("private_connection_name")
+        assert result is not None, "Required property 'private_connection_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def certificate(self) -> typing.Optional[builtins.str]:
+        '''The PEM-encoded certificate chain for the private connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-privateconnection.html#cfn-securityagent-privateconnection-certificate
+        '''
+        result = self._values.get("certificate")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def mode(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateConnection.ModeProperty"]]:
+        '''The configuration for the private connection.
+
+        Specify either a service-managed or a self-managed mode.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-privateconnection.html#cfn-securityagent-privateconnection-mode
+        '''
+        result = self._values.get("mode")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrivateConnection.ModeProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags attached to the private connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-privateconnection.html#cfn-securityagent-privateconnection-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPrivateConnectionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -5848,6 +7348,8 @@ __all__ = [
     "CfnIntegrationProps",
     "CfnPentest",
     "CfnPentestProps",
+    "CfnPrivateConnection",
+    "CfnPrivateConnectionProps",
     "CfnSecurityRequirementPack",
     "CfnSecurityRequirementPackProps",
     "CfnTargetDomain",
@@ -6288,12 +7790,17 @@ def _typecheckingstub__3d83c0f79102402315ab2667cd779997a2fd84704dc25119af31f0018
     agent_space_id: builtins.str,
     assets: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.AssetsProperty, typing.Dict[builtins.str, typing.Any]]],
     service_role: builtins.str,
+    ci_cd_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.CiCdConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     clean_up_strategy: typing.Optional[builtins.str] = None,
     code_remediation_strategy: typing.Optional[builtins.str] = None,
     disable_managed_skills: typing.Optional[typing.Sequence[builtins.str]] = None,
     exclude_risk_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     log_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.CloudWatchLogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    max_task_hours: typing.Optional[jsii.Number] = None,
     network_traffic_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.NetworkTrafficConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    report_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.ReportDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    report_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.ReportFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    test_scope: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.TestScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     title: typing.Optional[builtins.str] = None,
     vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -6336,6 +7843,12 @@ def _typecheckingstub__ae21e38e0529ed7148f6ea4283dba1ed6d7f4d6eab2c535834d2aebb4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4f15b504cd79101b2fdafab08b33b210477d69ed8e1ded0783f0ff2231daf34a(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPentest.CiCdConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f3c48f61697b9868c9d6f553ca3644dfeaf42e68e6c7b3d25af0a818dafddf89(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -6366,8 +7879,32 @@ def _typecheckingstub__ba3c320e1d6daf33457b394bd52277ab4d04be687b9915b95f0d348f2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b80c4fe042cec831b94aa155c740bf6c92d8877403f7411f61912489b2c36402(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2d4fb3fd1f4f28dd91245a6e6a1cbd6d3f9175fdb58d771301ab68da826171b6(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPentest.NetworkTrafficConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2424004d2390f5047d56c2cbec739d2eb87ad31cdfa1637ad48a6cf6be90a208(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPentest.ReportDestinationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4a33b749223b2d54968a0b60e9a4fa28dc698395f4fa3b413724ca24cbc9981(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPentest.ReportFiltersProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a848ceaced2a646193f65b779efb663d5b83c224f96d18e8fcbb6df7653bc0b(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPentest.TestScopeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6399,6 +7936,7 @@ def _typecheckingstub__789552d2a299b54f21a25572baa25b7b652499c9578bcdf16e84796ef
 def _typecheckingstub__90ac541f4598ca1ed36733bf9d5a278158f6b2a40ecc4723d2aa1ebff5ec5fa5(
     *,
     actors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.ActorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    client_certificates: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.ClientCertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     documents: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.DocumentInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     endpoints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     integrated_repositories: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.IntegratedRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -6421,6 +7959,22 @@ def _typecheckingstub__741d0c1b37ba42224dc8748fd99cde2fc44dd027a962d753ef89c24da
     artifact_id: typing.Optional[builtins.str] = None,
     inline_pem: typing.Optional[builtins.str] = None,
     s3_location: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0880e248fba3b9a3f68a6cad06bc892d335d7ab75ef8850558ef6baa2c4b334(
+    *,
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa7a0624209880721f7d198b6c36ebfc9b0ec969458601fb5738dac1ef593f5b(
+    *,
+    name: builtins.str,
+    origins: typing.Sequence[builtins.str],
+    secret_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6482,9 +8036,40 @@ def _typecheckingstub__346479bc3d7bb9e27fe6c61adba2e4e5fca86ff3607b3c398cef04141
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__31c40d1b5be7419c49423d27485d9d73e3f3f26e7908d5075b19f5ad5e77a708(
+    *,
+    container_id: builtins.str,
+    integration_id: builtins.str,
+    document_id: typing.Optional[builtins.str] = None,
+    parent_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92302ba5aa5b534c3e32e3a4bf30bcd2fa42f411c3ac7daebd8f55a75f288d54(
+    *,
+    annotation_notes: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    compliance_report: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    confidence_levels: typing.Optional[typing.Sequence[builtins.str]] = None,
+    finding_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    risk_levels: typing.Optional[typing.Sequence[builtins.str]] = None,
+    risk_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    statuses: typing.Optional[typing.Sequence[builtins.str]] = None,
+    task_statuses: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ac9ae05bfdd52d767951d638cfa69e9ccda258b973752d2d20a628d9a31eaa37(
     *,
     s3_location: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60b063ec5fcf0d0aa7c65711a906ee0d7140320913240b90f5383140b31f3ddf(
+    *,
+    type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6510,14 +8095,118 @@ def _typecheckingstub__c559e5db197574d4ae1f025e3b803c57f3be51b8ece875af311e31ee5
     agent_space_id: builtins.str,
     assets: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.AssetsProperty, typing.Dict[builtins.str, typing.Any]]],
     service_role: builtins.str,
+    ci_cd_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.CiCdConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     clean_up_strategy: typing.Optional[builtins.str] = None,
     code_remediation_strategy: typing.Optional[builtins.str] = None,
     disable_managed_skills: typing.Optional[typing.Sequence[builtins.str]] = None,
     exclude_risk_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     log_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.CloudWatchLogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    max_task_hours: typing.Optional[jsii.Number] = None,
     network_traffic_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.NetworkTrafficConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    report_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.ReportDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    report_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.ReportFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    test_scope: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.TestScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     title: typing.Optional[builtins.str] = None,
     vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPentest.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af73243763cf4280849bf23ff2103d5e90e500ed8764988ef59b9edf1b8546a1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    private_connection_name: builtins.str,
+    certificate: typing.Optional[builtins.str] = None,
+    mode: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrivateConnection.ModeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc9b750b96c9ea62609ed52994168c11ea318096c45eb8d097c4d0d6912cc5a9(
+    resource: _aws_securityagent_9b0edcbe.IPrivateConnectionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__939c2fbec6362288af8ebd797f4aa01bc155d9194ef378f28e039e6e9ef3ec3a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__669249af847c85285c65248f37a57e6b857e684754a844a41635c929658842e6(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f88b792212cd5f2dfe6dcf415240ec5fe1cb9d6a4911f0fe9a8e71811377746(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d39cd4edd30260947bbd72f6ecf1f04e08c24380574260ad2dc6dee094000342(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36da653d9678688f14aa9df9d877e58dda1270d77ae062a81730cd5eca53fc39(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__377856b3527fba86c77ccf86bdba553c51c34eb8fb957aa04a82a9c76e61cb16(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPrivateConnection.ModeProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63a51ef773b33f67c080cb2176f5ee36766be90edcd706c224bea3e4c89df2ad(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67d9f36c440983434c34b5c6f2e424de7251ae95f2563541744a31e5709fae5d(
+    *,
+    self_managed: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrivateConnection.SelfManagedProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_managed: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrivateConnection.ServiceManagedProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e46469e9b7163abed0cf7f9ef45136d45ccb25fa136c08297eb2d89db02b266(
+    *,
+    resource_configuration_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f70d3ee903f4183b87c506bbef1a89809670e7b3454f2d67762b6fa5dbf9cb2(
+    *,
+    host_address: builtins.str,
+    subnet_ids: typing.Sequence[builtins.str],
+    vpc_id: builtins.str,
+    dns_resolution: typing.Optional[builtins.str] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
+    ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
+    port_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__71810954d09b740ff3953a7d09511cdf57281424ee80179f34942ce7e41b6bcf(
+    *,
+    private_connection_name: builtins.str,
+    certificate: typing.Optional[builtins.str] = None,
+    mode: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrivateConnection.ModeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

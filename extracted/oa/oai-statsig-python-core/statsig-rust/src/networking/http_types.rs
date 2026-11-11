@@ -183,6 +183,12 @@ pub trait NetworkProvider: Sync + Send {
         }
     }
 
+    /// Whether redirect-free requests preserve the wire body and response headers,
+    /// including content encoding and repeated header values.
+    fn supports_wire_responses_without_redirects(&self) -> bool {
+        false
+    }
+
     async fn send_with_response_limit(
         &self,
         _method: &HttpMethod,
@@ -209,6 +215,7 @@ impl<T: std::io::Read + std::io::Seek + std::fmt::Debug + Send + Sync> ResponseD
 pub struct ResponseData {
     stream: Box<dyn ResponseDataStream>,
     headers: Option<HashMap<String, String>>,
+    repeated_headers: Vec<(String, String)>,
     shared_bytes: Option<Arc<[u8]>>,
     prepared_protobuf_stream: Option<Arc<Vec<u8>>>,
     // The parser keeps the original stream for normal response semantics but
@@ -230,6 +237,7 @@ impl ResponseData {
         Self {
             stream: Box::new(Cursor::new(bytes)),
             headers,
+            repeated_headers: Vec::new(),
             shared_bytes: None,
             prepared_protobuf_stream: None,
             data_store_protobuf_bytes: None,
@@ -243,6 +251,7 @@ impl ResponseData {
         Self {
             stream: Box::new(Cursor::new(Arc::clone(&bytes))),
             headers,
+            repeated_headers: Vec::new(),
             shared_bytes: Some(bytes),
             prepared_protobuf_stream: None,
             data_store_protobuf_bytes: None,
@@ -260,6 +269,7 @@ impl ResponseData {
         Self {
             stream,
             headers,
+            repeated_headers: Vec::new(),
             shared_bytes: None,
             prepared_protobuf_stream: None,
             data_store_protobuf_bytes: None,
@@ -276,6 +286,33 @@ impl ResponseData {
 
     pub(crate) fn shared_bytes(&self) -> Option<&[u8]> {
         self.shared_bytes.as_deref()
+    }
+
+    /// Append a response header, preserving repeated values for protocol validation.
+    pub fn append_header(&mut self, name: String, value: String) {
+        use std::collections::hash_map::Entry;
+        match self.headers.get_or_insert_with(HashMap::new).entry(name) {
+            Entry::Vacant(entry) => {
+                entry.insert(value);
+            }
+            Entry::Occupied(mut entry) => {
+                let previous = entry.insert(value);
+                self.repeated_headers.push((entry.key().clone(), previous));
+            }
+        }
+    }
+
+    pub(crate) fn header_values<'a>(&'a self, key: &'a str) -> impl Iterator<Item = &'a str> {
+        self.headers
+            .iter()
+            .flatten()
+            .chain(
+                self.repeated_headers
+                    .iter()
+                    .map(|(name, value)| (name, value)),
+            )
+            .filter(move |(name, _)| name.eq_ignore_ascii_case(key))
+            .map(|(_, value)| value.as_str())
     }
 
     pub fn get_header_ref(&self, key: &str) -> Option<&String> {

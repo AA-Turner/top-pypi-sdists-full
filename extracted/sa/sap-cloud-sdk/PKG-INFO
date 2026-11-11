@@ -1,11 +1,12 @@
 Metadata-Version: 2.5
 Name: sap-cloud-sdk
-Version: 0.65.4
+Version: 0.66.0
 Summary: SAP Cloud SDK for Python
 Author-email: SAP SE <ospo@sap.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: >=3.11
+Requires-Dist: cachetools~=5.5.2
 Requires-Dist: cloudevents<3,>=2.2.0
 Requires-Dist: cryptography<51,>=48.0.1
 Requires-Dist: grpcio<2,>=1.60.0

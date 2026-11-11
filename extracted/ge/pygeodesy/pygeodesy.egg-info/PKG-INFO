@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pygeodesy
-Version: 26.10.26
+Version: 26.11.11
 Summary: Pure Python geodesy tools
 Home-page: https://GitHub.com/mrJean1/PyGeodesy
 Author: Jean M. Brouwers
@@ -81,7 +81,7 @@ In addition to the ``pygeodesy`` package, the pygeodesy_ `distribution file`_ co
 Tests
 =====
 
-The tests ran with Python 3.15.1 (with geographiclib_ 2.1, numpy_ 2.5.4, scipy_ 1.18.1), Python 3.14.7 (with geographiclib 2.1), Python 3.13.13 (with geographiclib_ 2.1, numpy_ 2.5.0, scipy_ 1.18.0, GeoConvert_ 2.7, GeodSolve_ 2.7, Geod3Solve_ 2.7, IntersectTool_ 2.7 and RhumbSolve_ 2.7), Python 3.12.10 (with geographiclib_ 2.0, numpy_ 2.1.0 and scipy_ 1.14.1) and with Python 2.7.18 (with geographiclib_ 1.50, numpy_ 1.16.6, scipy_ 1.2.2, GeoConvert_ 2.7, GeodSolve_ 2.7, Geod3Solve_ 2.7, IntersectTool_ 2.7 and RhumbSolve_ 2.7), all on macOS 27.0.1 Golden Gate in 64-bit.
+The tests ran with Python 3.15.2 (with geographiclib_ 2.1, numpy_ 2.5.4, scipy_ 1.18.1), Python 3.14.7 (with geographiclib 2.1), Python 3.13.13 (with geographiclib_ 2.1, numpy_ 2.5.0, scipy_ 1.18.0, GeoConvert_ 2.7, GeodSolve_ 2.7, Geod3Solve_ 2.7, IntersectTool_ 2.7 and RhumbSolve_ 2.7), Python 3.12.10 (with geographiclib_ 2.0, numpy_ 2.1.0 and scipy_ 1.14.1) and with Python 2.7.18 (with geographiclib_ 1.50, numpy_ 1.16.6, scipy_ 1.2.2, GeoConvert_ 2.7, GeodSolve_ 2.7, Geod3Solve_ 2.7, IntersectTool_ 2.7 and RhumbSolve_ 2.7), all on macOS 27.2.1 Golden Gate in 64-bit.
 
 All tests ran with and without ``lazy import`` for Python 3 and with command line option ``-W default`` and env variable ``PYGEODESY_WARNINGS=on`` for all Python versions.  The results of those tests are included in the distribution file.
 
@@ -98,16 +98,16 @@ Previously, the tests were run with Python 3.14.0-6, 3.13.0-9, 3.12.0-7, 3.11.2-
 Notes
 =====
 
-All Python source code has been statically checked_ with Ruff_, PyLint_, PyFlakes_, PyCodeStyle_ (formerly Pep8) and McCabe_ using Python 3.13.13 on macOS 27.0.1 Golden Gate only.
+All Python source code has been statically checked_ with Ruff_, PyLint_, PyFlakes_, PyCodeStyle_ (formerly Pep8) and McCabe_ using Python 3.15.2 and 3.13.13 on macOS 27.2.1 Golden Gate only.
 
 For a summary of all *Karney*-based functionality in ``pygeodesy``, see module karney_.
 
-*Last updated: Oct 26, 2026.*
+*Last updated: Nov 11, 2026.*
 
 License
 =======
 
-**Copyright (C) 2016-2026 -\- mrJean1 at Gmail -\- All Rights Reserved.**
+**Copyright (C) 2016-2027 -\- mrJean1 at Gmail -\- All Rights Reserved.**
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -121,7 +121,7 @@ THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMP
   :target: https://PyPI.org/project/pygeodesy
 .. image:: https://Img.Shields.io/appveyor/ci/mrJean1/PyGeodesy.svg?branch=master&label=AppVeyor
   :target: https://CI.AppVeyor.com/project/mrJean1/PyGeodesy/branch/master
-.. image:: https://Img.Shields.io/badge/coverage-95%25-brightgreen
+.. image:: https://Img.Shields.io/badge/coverage-94%25-brightgreen
   :target: https://GitHub.com/mrJean1/PyGeodesy/blob/master/testcoverage.pdf
 .. image:: https://Img.Shields.io/pypi/wheel/pygeodesy.svg
   :target: https://PyPI.org/project/pygeodesy/#files

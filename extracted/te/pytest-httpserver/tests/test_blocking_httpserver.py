@@ -7,6 +7,7 @@ import pytest
 import requests
 
 from pytest_httpserver import BlockingHTTPServer
+from pytest_httpserver import CaseInsensitiveHeaderValueMatcher
 
 
 @contextmanager
@@ -66,6 +67,35 @@ def test_behave_workflow(httpserver: BlockingHTTPServer):
         when_the_server_responds_to(client_connection, response)
 
         then_the_response_is_got_from(server_connection, response)
+
+
+def test_form_request(httpserver: BlockingHTTPServer):
+    request = dict(method="POST", url=httpserver.url_for("/form"), data={"foo": "bar"})
+
+    with when_a_request_is_being_sent_to_the_server(request) as server_connection:
+        handler = httpserver.assert_request("/form", method="POST", data_form={"foo": "bar"})
+        handler.respond_with_data("ok")
+
+        response = server_connection.get(timeout=9)
+        assert response.status_code == 200
+        assert response.text == "ok"
+        httpserver.check()
+
+
+def test_case_insensitive_header_matcher(httpserver: BlockingHTTPServer):
+    request = dict(
+        method="GET",
+        url=httpserver.url_for("/"),
+        headers={"Authorization": 'Digest a="1", b="2"'},
+    )
+    with when_a_request_is_being_sent_to_the_server(request) as server_connection:
+        client_connection = httpserver.assert_request(
+            uri="/",
+            headers={"authorization": 'Digest b="2", a="1"'},
+            header_value_matcher=CaseInsensitiveHeaderValueMatcher(),
+        )
+        client_connection.respond_with_data("OK")
+        assert server_connection.get(timeout=9).text == "OK"
 
 
 def test_raises_assertion_error_when_request_does_not_match(httpserver: BlockingHTTPServer):

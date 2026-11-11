@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -11,8 +12,10 @@ from syrupy.utils import (
     is_snapshot_write_sidecar,
     replace_atomic,
     set_snapshot_file_lock,
+    should_use_snapshot_file_lock,
     snapshot_write_sidecar_paths,
     walk_snapshot_dir,
+    warn_incomplete_worker_reports,
     warn_selected_collected_mismatch,
 )
 
@@ -198,12 +201,123 @@ def test_exclusive_file_lock_uses_rplus_not_append(tmp_path: Path) -> None:
     assert lock_path.read_bytes() == b"\0"
 
 
+def _windows_lock_violation() -> PermissionError:
+    """Simulate ERROR_LOCK_VIOLATION from a mandatory-lock write conflict."""
+    err = PermissionError(13, "Permission denied")
+    err.winerror = 33
+    return err
+
+
+def test_exclusive_file_lock_initializes_empty_lock_file(tmp_path: Path) -> None:
+    path = tmp_path / "snap.ambr"
+    path.write_text("data", encoding="utf-8")
+    lock_path, _ = snapshot_write_sidecar_paths(path)
+    lock_path.write_bytes(b"")
+
+    with exclusive_file_lock(path, timeout=5.0):
+        pass
+
+    assert lock_path.read_bytes() == b"\0"
+
+
+def test_exclusive_file_lock_repairs_non_sentinel_lock_file(tmp_path: Path) -> None:
+    path = tmp_path / "snap.ambr"
+    path.write_text("data", encoding="utf-8")
+    lock_path, _ = snapshot_write_sidecar_paths(path)
+    lock_path.write_bytes(b"x")
+
+    with exclusive_file_lock(path, timeout=5.0):
+        pass
+
+    assert lock_path.read_bytes() == b"\0"
+
+
+def test_exclusive_file_lock_retries_sentinel_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "snap.ambr"
+    path.write_text("data", encoding="utf-8")
+    lock_path, _ = snapshot_write_sidecar_paths(path)
+    real_write = os.write
+    writes = {"n": 0}
+
+    def flaky_write(fd: int, data: bytes) -> int:
+        writes["n"] += 1
+        if writes["n"] == 1 and data == b"\0":
+            raise _windows_lock_violation()
+        return real_write(fd, data)
+
+    monkeypatch.setattr("syrupy.utils.os.write", flaky_write)
+    monkeypatch.setattr("syrupy.utils.time.sleep", lambda _seconds: None)
+
+    with exclusive_file_lock(path, timeout=5.0):
+        pass
+
+    assert writes["n"] >= 2
+    assert lock_path.read_bytes() == b"\0"
+
+
+def test_exclusive_file_lock_times_out_when_sentinel_write_is_denied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "snap.ambr"
+    path.write_text("data", encoding="utf-8")
+    lock_path, _ = snapshot_write_sidecar_paths(path)
+    lock_path.write_bytes(b"")
+
+    def deny_write(_fd: int, _data: bytes) -> int:
+        raise _windows_lock_violation()
+
+    monkeypatch.setattr("syrupy.utils.os.write", deny_write)
+    monkeypatch.setattr("syrupy.utils.time.sleep", lambda _seconds: None)
+    monotonic_values = iter([0.0, 0.0, 100.0])
+    monkeypatch.setattr(
+        "syrupy.utils.time.monotonic", lambda: next(monotonic_values, 100.0)
+    )
+
+    with (
+        pytest.raises(TimeoutError, match="Timed out after 1s"),
+        exclusive_file_lock(path, timeout=1.0),
+    ):
+        pass
+
+    assert lock_path.read_bytes() == b""
+
+
+def test_exclusive_file_lock_raises_non_lock_permission_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "snap.ambr"
+    path.write_text("data", encoding="utf-8")
+    lock_path, _ = snapshot_write_sidecar_paths(path)
+    lock_path.write_bytes(b"")
+
+    def deny_write(_fd: int, _data: bytes) -> int:
+        # Access denied (winerror 5), not a lock conflict — must not retry to timeout.
+        err = PermissionError(13, "Permission denied")
+        err.winerror = 5
+        raise err
+
+    monkeypatch.setattr("syrupy.utils.os.write", deny_write)
+
+    with (
+        pytest.raises(PermissionError),
+        exclusive_file_lock(path, timeout=5.0),
+    ):
+        pass
+
+
 def test_warn_selected_collected_mismatch() -> None:
     with pytest.warns(UserWarning, match="missing from collected items"):
         warn_selected_collected_mismatch(
             ["a::test", "b::test"],
             {"a::test"},
         )
+
+
+def test_warn_incomplete_worker_reports() -> None:
+    with pytest.warns(UserWarning, match="received 1 of 2 xdist worker"):
+        warn_incomplete_worker_reports(received=1, expected=2)
 
 
 def test_set_snapshot_file_lock_timeout_context() -> None:
@@ -214,6 +328,23 @@ def test_set_snapshot_file_lock_timeout_context() -> None:
         assert snapshot_file_lock_timeout() == 12.5
     finally:
         set_snapshot_file_lock(False, timeout=60.0)
+
+
+def test_should_use_snapshot_file_lock_under_xdist() -> None:
+    from types import SimpleNamespace
+
+    def _config(*, xdist: bool, numprocesses) -> SimpleNamespace:
+        plugins = {"xdist", "xdist.plugin"} if xdist else set()
+        return SimpleNamespace(
+            option=SimpleNamespace(numprocesses=numprocesses),
+            pluginmanager=SimpleNamespace(hasplugin=lambda name: name in plugins),
+        )
+
+    assert not should_use_snapshot_file_lock(_config(xdist=False, numprocesses=None))
+    assert not should_use_snapshot_file_lock(_config(xdist=True, numprocesses=0))
+    assert not should_use_snapshot_file_lock(_config(xdist=True, numprocesses=None))
+    assert should_use_snapshot_file_lock(_config(xdist=True, numprocesses=2))
+    assert should_use_snapshot_file_lock(_config(xdist=True, numprocesses="auto"))
 
 
 def test_compress_json_roundtrip() -> None:

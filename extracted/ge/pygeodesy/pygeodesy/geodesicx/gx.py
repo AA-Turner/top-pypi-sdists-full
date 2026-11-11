@@ -65,7 +65,7 @@ from pygeodesy.utily import atan2, atan2d as _atan2d_reverse, _unrollon, \
 from math import copysign, cos, degrees, fabs, radians, sqrt
 
 __all__ = ()
-__version__ = '26.07.20'
+__version__ = '26.11.08'
 
 _MAXIT1 = 20
 _MAXIT2 = 10 + _MAXIT1 + MANT_DIG  # MANT_DIG == C++ digits
@@ -260,8 +260,8 @@ class GeodesicExact(_GeodesicBase):
         def _c4(nC4, C4x):
             i, x, e = 0, _1_0, eps
             _p = _polynomial
-            for r in range(nC4, 0, -1):
-                j  = i + r
+            for j in range(nC4, 0, -1):  # _reverange(nC4, 0)
+                j += i
                 yield _p(e, C4x, i, j) * x
                 x *= e
                 i  = j
@@ -315,11 +315,11 @@ class GeodesicExact(_GeodesicBase):
         def _C4(nC4):
             i, n, cs = 0, self.n, _C4coeffs(nC4)
             _p = _polynomial
-            for r in range(nC4 + 1, 1, -1):  # _reverange
+            for r in range(nC4 + 1, 1, -1):  # _reverange(nC4 + 1, 1)
                 for j in range(1, r):
-                    j = j + i  # (j - i - 1) order of polynomial
+                    j += i  # (j - i - 1) order of polynomial
                     yield _p(n, cs, i, j) / cs[j]
-                    i = j + 1
+                    i  = j + 1
             # assert i == (nC4 * (nC4 + 1) * (nC4 + 5)) // 6
 
         return tuple(_C4(self._nC4))  # 3rd flattening
@@ -1352,7 +1352,7 @@ __all__ += _ALL_DOCS(GeodesicExact, GeodesicLineExact)
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

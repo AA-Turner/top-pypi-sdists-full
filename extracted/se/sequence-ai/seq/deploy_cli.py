@@ -778,7 +778,7 @@ def registration_price_lines(verdict: dict | None) -> list[str]:
     How long they run is the registration's own (first start says the last version's). Nothing from a platform that
     priced none.
 """
-    from sequence_ai._core.money import money
+    from sequence_ai._core.money import per_hour
 
     price = (verdict or {}).get("price") or {}
     check, build = price.get("check") or {}, price.get("build") or {}
@@ -786,7 +786,7 @@ def registration_price_lines(verdict: dict | None) -> list[str]:
         return []
 
     def rate(m: dict) -> str:
-        return "not priced now" if m.get("usd_per_hour") is None else f"{money(m['usd_per_hour'])}/h"
+        return "not priced now" if m.get("usd_per_hour") is None else per_hour(m["usd_per_hour"])
 
     def size(m: dict) -> str:
         cores, gib = float(m.get("cpu") or 0), float(m.get("memory_gib") or 0)

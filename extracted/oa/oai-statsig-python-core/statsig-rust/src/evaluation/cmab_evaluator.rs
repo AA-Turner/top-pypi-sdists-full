@@ -321,10 +321,10 @@ fn get_cmab_score_for_group(
             .user
             .get_user_value(&Some(DynamicString::from(key.clone())));
         let user_value_string = match user_value {
-            Some(v) => v.serialized_value().into_owned(),
+            Some(v) => v.serialized_value(),
             None => continue,
         };
-        let weight = match value.get(&user_value_string) {
+        let weight = match value.get(user_value_string.as_ref()) {
             Some(w) => w,
             None => continue,
         };

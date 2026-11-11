@@ -11,18 +11,22 @@ class DataType(Enum):
 	RawString = auto()
 	Integer = auto()
 	IntegerExt = auto()
+	IntegerMinMaxDflt = auto()
 	Boolean = auto()
 	Float = auto()
 	FloatExt = auto()
+	FloatMinMaxDflt = auto()
 	Enum = auto()
 	EnumExt = auto()
 	StringList = auto()
 	RawStringList = auto()
 	IntegerList = auto()
 	IntegerExtList = auto()
+	IntegerMinMaxDfltList = auto()
 	BooleanList = auto()
 	FloatList = auto()
 	FloatExtList = auto()
+	FloatMinMaxDfltList = auto()
 	EnumList = auto()
 	EnumExtList = auto()
 
@@ -35,9 +39,11 @@ class DataType(Enum):
 				DataType.RawStringList,
 				DataType.IntegerList,
 				DataType.IntegerExtList,
+				DataType.IntegerMinMaxDfltList,
 				DataType.BooleanList,
 				DataType.FloatList,
 				DataType.FloatExtList,
+				DataType.FloatMinMaxDfltList,
 				DataType.EnumList,
 				DataType.EnumExtList
 			})
@@ -87,18 +93,20 @@ class DataType(Enum):
 			return DataType.String
 		elif self == DataType.RawStringList:
 			return DataType.RawString
-		elif self == DataType.RawStringList:
-			return DataType.RawString
 		elif self == DataType.BooleanList:
 			return DataType.Boolean
 		elif self == DataType.IntegerList:
 			return DataType.Integer
 		elif self == DataType.IntegerExtList:
 			return DataType.IntegerExt
+		elif self == DataType.IntegerMinMaxDfltList:
+			return DataType.IntegerMinMaxDflt
 		elif self == DataType.FloatList:
 			return DataType.Float
 		elif self == DataType.FloatExtList:
 			return DataType.FloatExt
+		elif self == DataType.FloatMinMaxDfltList:
+			return DataType.FloatMinMaxDflt
 		elif self == DataType.EnumList:
 			return DataType.Enum
 		elif self == DataType.EnumExtList:
@@ -121,9 +129,13 @@ class DataType(Enum):
 			return 0
 		elif self == DataType.IntegerExt:
 			return 0
+		elif self == DataType.IntegerMinMaxDflt:
+			return 0
 		elif self == DataType.Float:
 			return 0.0
 		elif self == DataType.FloatExt:
+			return 0.0
+		elif self == DataType.FloatMinMaxDflt:
 			return 0.0
 		elif self == DataType.Enum:
 			return enm(0)  # ty: ignore[call-non-callable]

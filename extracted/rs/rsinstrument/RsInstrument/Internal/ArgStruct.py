@@ -35,6 +35,11 @@ class ArgStruct(object):
 		return cls(name, DataType.IntegerExt, None, False, False, 1, intern_link)
 
 	@classmethod
+	def scalar_int_minmaxdflt(cls, name: str, intern_link: str | None = None):
+		"""Describes mandatory scalar integer with the option of CornerValues enum."""
+		return cls(name, DataType.IntegerMinMaxDflt, None, False, False, 1, intern_link)
+
+	@classmethod
 	def scalar_str(cls, name: str, intern_link: str | None = None):
 		"""Describes mandatory scalar string argument."""
 		return cls(name, DataType.String, None, False, False, 1, intern_link)
@@ -58,6 +63,11 @@ class ArgStruct(object):
 	def scalar_float_ext(cls, name: str, intern_link: str | None = None):
 		"""Describes mandatory scalar extended float argument."""
 		return cls(name, DataType.FloatExt, None, False, False, 1, intern_link)
+
+	@classmethod
+	def scalar_float_minmaxdflt(cls, name: str, intern_link: str | None = None):
+		"""Describes mandatory scalar float with the option of CornerValues enum."""
+		return cls(name, DataType.FloatMinMaxDflt, None, False, False, 1, intern_link)
 
 	@classmethod
 	def scalar_enum(cls, name: str, enum_type, intern_link: str | None = None):
@@ -90,6 +100,11 @@ class ArgStruct(object):
 		return cls(name, DataType.IntegerExt, None, True, False, 1, intern_link)
 
 	@classmethod
+	def scalar_int_minmaxdflt_optional(cls, name: str, intern_link: str | None = None):
+		"""Describes optional scalar integer with the option of CornerValues enum."""
+		return cls(name, DataType.IntegerMinMaxDflt, None, True, False, 1, intern_link)
+
+	@classmethod
 	def scalar_float_optional(cls, name: str, intern_link: str | None = None):
 		"""Describes optional scalar float argument."""
 		return cls(name, DataType.Float, None, True, False, 1, intern_link)
@@ -98,6 +113,11 @@ class ArgStruct(object):
 	def scalar_float_ext_optional(cls, name: str, intern_link: str | None = None):
 		"""Describes optional scalar extended float argument."""
 		return cls(name, DataType.FloatExt, None, True, False, 1, intern_link)
+
+	@classmethod
+	def scalar_float_minmaxdflt_optional(cls, name: str, intern_link: str | None = None):
+		"""Describes optional scalar extended float argument."""
+		return cls(name, DataType.FloatMinMaxDflt, None, True, False, 1, intern_link)
 
 	@classmethod
 	def scalar_enum_optional(cls, name: str, enum_type, intern_link: str | None = None):

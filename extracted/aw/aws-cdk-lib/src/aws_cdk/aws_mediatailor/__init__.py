@@ -1416,6 +1416,13 @@ class CfnFunction(
         
                 # the properties below are optional
                 body="body",
+                cache=mediatailor.CfnFunction.HttpRequestCacheConfigurationProperty(
+                    ttl_maximum_seconds=123,
+                    ttl_minimum_seconds=123,
+        
+                    # the properties below are optional
+                    key="key"
+                ),
                 headers={
                     "headers_key": "headers"
                 },
@@ -1453,6 +1460,13 @@ class CfnFunction(
         
                 # the properties below are optional
                 body="body",
+                cache=mediatailor.CfnFunction.HttpRequestCacheConfigurationProperty(
+                    ttl_maximum_seconds=123,
+                    ttl_minimum_seconds=123,
+        
+                    # the properties below are optional
+                    key="key"
+                ),
                 headers={
                     "headers_key": "headers"
                 },
@@ -1486,6 +1500,13 @@ class CfnFunction(
         
                 # the properties below are optional
                 body="body",
+                cache=mediatailor.CfnFunction.HttpRequestCacheConfigurationProperty(
+                    ttl_maximum_seconds=123,
+                    ttl_minimum_seconds=123,
+        
+                    # the properties below are optional
+                    key="key"
+                ),
                 headers={
                     "headers_key": "headers"
                 },
@@ -1807,6 +1828,7 @@ class CfnFunction(
             "target_service": "targetService",
             "url": "url",
             "body": "body",
+            "cache": "cache",
             "headers": "headers",
             "output": "output",
         },
@@ -1822,6 +1844,7 @@ class CfnFunction(
             target_service: builtins.str,
             url: builtins.str,
             body: typing.Optional[builtins.str] = None,
+            cache: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.HttpRequestCacheConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             headers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
@@ -1836,6 +1859,7 @@ class CfnFunction(
             :param target_service: The AWS service to call. Valid value: elemental-inference (AWS Elemental Inference).
             :param url: An expression that evaluates to the endpoint URL for the target AWS service API operation. Use {%...%} delimiters for dynamic expressions. The URL must correspond to a valid endpoint for the service specified in TargetService. The maximum length after evaluation is 2,048 characters.
             :param body: An expression that evaluates to the request body for the AWS service API call. The body must conform to the input format that the target service operation expects. Applies only when the target operation accepts a request body. The maximum size after evaluation is 64 KB.
+            :param cache: The optional response-caching configuration shared by the HTTP-based function types (HTTP_REQUEST, AWS_SERVICE_REQUEST, and VAST_REQUEST). When you provide this configuration, MediaTailor caches function responses with HTTP status codes 200, 203, 204, 404, 405, 410, 414, or 501. For a cacheable response, MediaTailor uses the Cache-Control max-age directive limited to the range between TtlMinimumSeconds and TtlMaximumSeconds. If no max-age directive is present, MediaTailor uses TtlMinimumSeconds. Cached HTTP responses are scoped per playback configuration, not per function.
             :param headers: A map of HTTP header names to expression values. MediaTailor evaluates each header value expression at runtime and includes the result in the outbound request to the AWS service. Use this to pass any headers required by the target service operation. You can include a maximum of 50 headers.
             :param output: A map of output bindings. Each key is a namespaced output path, such as player_params.device_type. Each value is an expression that MediaTailor evaluates at runtime and can reference the response object from the target service. For more information, see JSONata expression reference (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-jsonata.html) in the MediaTailor User Guide.
 
@@ -1858,6 +1882,13 @@ class CfnFunction(
                 
                     # the properties below are optional
                     body="body",
+                    cache=mediatailor.CfnFunction.HttpRequestCacheConfigurationProperty(
+                        ttl_maximum_seconds=123,
+                        ttl_minimum_seconds=123,
+                
+                        # the properties below are optional
+                        key="key"
+                    ),
                     headers={
                         "headers_key": "headers"
                     },
@@ -1875,6 +1906,7 @@ class CfnFunction(
                 check_type(argname="argument target_service", value=target_service, expected_type=type_hints["target_service"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
                 check_type(argname="argument body", value=body, expected_type=type_hints["body"])
+                check_type(argname="argument cache", value=cache, expected_type=type_hints["cache"])
                 check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
                 check_type(argname="argument output", value=output, expected_type=type_hints["output"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1887,6 +1919,8 @@ class CfnFunction(
             }
             if body is not None:
                 self._values["body"] = body
+            if cache is not None:
+                self._values["cache"] = cache
             if headers is not None:
                 self._values["headers"] = headers
             if output is not None:
@@ -1971,6 +2005,19 @@ class CfnFunction(
             '''
             result = self._values.get("body")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def cache(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.HttpRequestCacheConfigurationProperty"]]:
+            '''The optional response-caching configuration shared by the HTTP-based function types (HTTP_REQUEST, AWS_SERVICE_REQUEST, and VAST_REQUEST).
+
+            When you provide this configuration, MediaTailor caches function responses with HTTP status codes 200, 203, 204, 404, 405, 410, 414, or 501. For a cacheable response, MediaTailor uses the Cache-Control max-age directive limited to the range between TtlMinimumSeconds and TtlMaximumSeconds. If no max-age directive is present, MediaTailor uses TtlMinimumSeconds. Cached HTTP responses are scoped per playback configuration, not per function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-awsservicerequestconfiguration.html#cfn-mediatailor-function-awsservicerequestconfiguration-cache
+            '''
+            result = self._values.get("cache")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.HttpRequestCacheConfigurationProperty"]], result)
 
         @builtins.property
         def headers(
@@ -2325,6 +2372,106 @@ class CfnFunction(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction.HttpRequestCacheConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "ttl_maximum_seconds": "ttlMaximumSeconds",
+            "ttl_minimum_seconds": "ttlMinimumSeconds",
+            "key": "key",
+        },
+    )
+    class HttpRequestCacheConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            ttl_maximum_seconds: jsii.Number,
+            ttl_minimum_seconds: jsii.Number,
+            key: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The optional response-caching configuration shared by the HTTP-based function types (HTTP_REQUEST, AWS_SERVICE_REQUEST, and VAST_REQUEST).
+
+            When you provide this configuration, MediaTailor caches function responses with HTTP status codes 200, 203, 204, 404, 405, 410, 414, or 501. For a cacheable response, MediaTailor uses the Cache-Control max-age directive limited to the range between TtlMinimumSeconds and TtlMaximumSeconds. If no max-age directive is present, MediaTailor uses TtlMinimumSeconds. Cached HTTP responses are scoped per playback configuration, not per function.
+
+            :param ttl_maximum_seconds: The upper bound, in seconds, on how long MediaTailor caches a response. This value must be greater than or equal to TtlMinimumSeconds.
+            :param ttl_minimum_seconds: The lower bound, in seconds, on how long MediaTailor caches a response. MediaTailor also uses this value as the cache duration when a response has no Cache-Control max-age directive.
+            :param key: A JSONata expression that MediaTailor evaluates to a custom cache key. By default, the cache key is a hash of the HTTP URL, request body, and HTTP method; request headers are not included. The evaluated key must be smaller than 1 KB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestcacheconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                http_request_cache_configuration_property = mediatailor.CfnFunction.HttpRequestCacheConfigurationProperty(
+                    ttl_maximum_seconds=123,
+                    ttl_minimum_seconds=123,
+                
+                    # the properties below are optional
+                    key="key"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__076ccc169091f6e613e3f8f9c8cc2562f1f20f34c442b5d4d1093121e446c4b7)
+                check_type(argname="argument ttl_maximum_seconds", value=ttl_maximum_seconds, expected_type=type_hints["ttl_maximum_seconds"])
+                check_type(argname="argument ttl_minimum_seconds", value=ttl_minimum_seconds, expected_type=type_hints["ttl_minimum_seconds"])
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "ttl_maximum_seconds": ttl_maximum_seconds,
+                "ttl_minimum_seconds": ttl_minimum_seconds,
+            }
+            if key is not None:
+                self._values["key"] = key
+
+        @builtins.property
+        def ttl_maximum_seconds(self) -> jsii.Number:
+            '''The upper bound, in seconds, on how long MediaTailor caches a response.
+
+            This value must be greater than or equal to TtlMinimumSeconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestcacheconfiguration.html#cfn-mediatailor-function-httprequestcacheconfiguration-ttlmaximumseconds
+            '''
+            result = self._values.get("ttl_maximum_seconds")
+            assert result is not None, "Required property 'ttl_maximum_seconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def ttl_minimum_seconds(self) -> jsii.Number:
+            '''The lower bound, in seconds, on how long MediaTailor caches a response.
+
+            MediaTailor also uses this value as the cache duration when a response has no Cache-Control max-age directive.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestcacheconfiguration.html#cfn-mediatailor-function-httprequestcacheconfiguration-ttlminimumseconds
+            '''
+            result = self._values.get("ttl_minimum_seconds")
+            assert result is not None, "Required property 'ttl_minimum_seconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def key(self) -> typing.Optional[builtins.str]:
+            '''A JSONata expression that MediaTailor evaluates to a custom cache key.
+
+            By default, the cache key is a hash of the HTTP URL, request body, and HTTP method; request headers are not included. The evaluated key must be smaller than 1 KB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestcacheconfiguration.html#cfn-mediatailor-function-httprequestcacheconfiguration-key
+            '''
+            result = self._values.get("key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HttpRequestCacheConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction.HttpRequestConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2333,6 +2480,7 @@ class CfnFunction(
             "runtime": "runtime",
             "url": "url",
             "body": "body",
+            "cache": "cache",
             "headers": "headers",
             "output": "output",
         },
@@ -2346,6 +2494,7 @@ class CfnFunction(
             runtime: builtins.str,
             url: builtins.str,
             body: typing.Optional[builtins.str] = None,
+            cache: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.HttpRequestCacheConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             headers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
@@ -2356,6 +2505,7 @@ class CfnFunction(
             :param runtime: The expression language used to evaluate expressions in the function configuration. Set this to JSONATA.
             :param url: The URL endpoint for the HTTP request.
             :param body: The body of the HTTP request.
+            :param cache: The optional response-caching configuration shared by the HTTP-based function types (HTTP_REQUEST, AWS_SERVICE_REQUEST, and VAST_REQUEST). When you provide this configuration, MediaTailor caches function responses with HTTP status codes 200, 203, 204, 404, 405, 410, 414, or 501. For a cacheable response, MediaTailor uses the Cache-Control max-age directive limited to the range between TtlMinimumSeconds and TtlMaximumSeconds. If no max-age directive is present, MediaTailor uses TtlMinimumSeconds. Cached HTTP responses are scoped per playback configuration, not per function.
             :param headers: 
             :param output: 
 
@@ -2376,6 +2526,13 @@ class CfnFunction(
                 
                     # the properties below are optional
                     body="body",
+                    cache=mediatailor.CfnFunction.HttpRequestCacheConfigurationProperty(
+                        ttl_maximum_seconds=123,
+                        ttl_minimum_seconds=123,
+                
+                        # the properties below are optional
+                        key="key"
+                    ),
                     headers={
                         "headers_key": "headers"
                     },
@@ -2391,6 +2548,7 @@ class CfnFunction(
                 check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
                 check_type(argname="argument body", value=body, expected_type=type_hints["body"])
+                check_type(argname="argument cache", value=cache, expected_type=type_hints["cache"])
                 check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
                 check_type(argname="argument output", value=output, expected_type=type_hints["output"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2401,6 +2559,8 @@ class CfnFunction(
             }
             if body is not None:
                 self._values["body"] = body
+            if cache is not None:
+                self._values["cache"] = cache
             if headers is not None:
                 self._values["headers"] = headers
             if output is not None:
@@ -2457,6 +2617,19 @@ class CfnFunction(
             '''
             result = self._values.get("body")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def cache(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.HttpRequestCacheConfigurationProperty"]]:
+            '''The optional response-caching configuration shared by the HTTP-based function types (HTTP_REQUEST, AWS_SERVICE_REQUEST, and VAST_REQUEST).
+
+            When you provide this configuration, MediaTailor caches function responses with HTTP status codes 200, 203, 204, 404, 405, 410, 414, or 501. For a cacheable response, MediaTailor uses the Cache-Control max-age directive limited to the range between TtlMinimumSeconds and TtlMaximumSeconds. If no max-age directive is present, MediaTailor uses TtlMinimumSeconds. Cached HTTP responses are scoped per playback configuration, not per function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestconfiguration.html#cfn-mediatailor-function-httprequestconfiguration-cache
+            '''
+            result = self._values.get("cache")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.HttpRequestCacheConfigurationProperty"]], result)
 
         @builtins.property
         def headers(
@@ -2626,6 +2799,7 @@ class CfnFunction(
             "runtime": "runtime",
             "url": "url",
             "body": "body",
+            "cache": "cache",
             "headers": "headers",
             "output": "output",
         },
@@ -2639,6 +2813,7 @@ class CfnFunction(
             runtime: builtins.str,
             url: builtins.str,
             body: typing.Optional[builtins.str] = None,
+            cache: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.HttpRequestCacheConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             headers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
@@ -2651,6 +2826,7 @@ class CfnFunction(
             :param runtime: The expression language used to evaluate expressions in the function configuration. Set this to JSONATA.
             :param url: An expression that evaluates to the VAST endpoint URL. Use {%...%} delimiters for dynamic expressions. A literal value must be an https:// URL. The expression can be up to 25,000 characters, and the URL after evaluation can be up to 2,048 characters.
             :param body: An expression that evaluates to the request body, for example to send an OpenRTB bid request. The expression can be up to 100,000 characters, and the body after evaluation can be up to 64 KB.
+            :param cache: The optional response-caching configuration shared by the HTTP-based function types (HTTP_REQUEST, AWS_SERVICE_REQUEST, and VAST_REQUEST). When you provide this configuration, MediaTailor caches function responses with HTTP status codes 200, 203, 204, 404, 405, 410, 414, or 501. For a cacheable response, MediaTailor uses the Cache-Control max-age directive limited to the range between TtlMinimumSeconds and TtlMaximumSeconds. If no max-age directive is present, MediaTailor uses TtlMinimumSeconds. Cached HTTP responses are scoped per playback configuration, not per function.
             :param headers: A map of HTTP header names to expression values. MediaTailor evaluates each header value expression at runtime and includes the result in the outbound request. Headers beginning with X-Amz- are reserved by the service, and method override headers are not allowed.
             :param output: A map of output bindings. Each key is a namespaced output path (such as temp.wrappedAds), and each value is an expression that MediaTailor evaluates at runtime. Output expressions in a VAST_REQUEST function can reference the response object, which exposes response.parsedAds, the ads parsed from the VAST response after schema validation and wrapper resolution, and response.statusCode. For more information about expression syntax, see JSONata expression reference (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-jsonata.html) in the MediaTailor User Guide.
 
@@ -2671,6 +2847,13 @@ class CfnFunction(
                 
                     # the properties below are optional
                     body="body",
+                    cache=mediatailor.CfnFunction.HttpRequestCacheConfigurationProperty(
+                        ttl_maximum_seconds=123,
+                        ttl_minimum_seconds=123,
+                
+                        # the properties below are optional
+                        key="key"
+                    ),
                     headers={
                         "headers_key": "headers"
                     },
@@ -2686,6 +2869,7 @@ class CfnFunction(
                 check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
                 check_type(argname="argument body", value=body, expected_type=type_hints["body"])
+                check_type(argname="argument cache", value=cache, expected_type=type_hints["cache"])
                 check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
                 check_type(argname="argument output", value=output, expected_type=type_hints["output"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2696,6 +2880,8 @@ class CfnFunction(
             }
             if body is not None:
                 self._values["body"] = body
+            if cache is not None:
+                self._values["cache"] = cache
             if headers is not None:
                 self._values["headers"] = headers
             if output is not None:
@@ -2756,6 +2942,19 @@ class CfnFunction(
             '''
             result = self._values.get("body")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def cache(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.HttpRequestCacheConfigurationProperty"]]:
+            '''The optional response-caching configuration shared by the HTTP-based function types (HTTP_REQUEST, AWS_SERVICE_REQUEST, and VAST_REQUEST).
+
+            When you provide this configuration, MediaTailor caches function responses with HTTP status codes 200, 203, 204, 404, 405, 410, 414, or 501. For a cacheable response, MediaTailor uses the Cache-Control max-age directive limited to the range between TtlMinimumSeconds and TtlMaximumSeconds. If no max-age directive is present, MediaTailor uses TtlMinimumSeconds. Cached HTTP responses are scoped per playback configuration, not per function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-vastrequestconfiguration.html#cfn-mediatailor-function-vastrequestconfiguration-cache
+            '''
+            result = self._values.get("cache")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.HttpRequestCacheConfigurationProperty"]], result)
 
         @builtins.property
         def headers(
@@ -2864,6 +3063,13 @@ class CfnFunctionProps:
             
                     # the properties below are optional
                     body="body",
+                    cache=mediatailor.CfnFunction.HttpRequestCacheConfigurationProperty(
+                        ttl_maximum_seconds=123,
+                        ttl_minimum_seconds=123,
+            
+                        # the properties below are optional
+                        key="key"
+                    ),
                     headers={
                         "headers_key": "headers"
                     },
@@ -2901,6 +3107,13 @@ class CfnFunctionProps:
             
                     # the properties below are optional
                     body="body",
+                    cache=mediatailor.CfnFunction.HttpRequestCacheConfigurationProperty(
+                        ttl_maximum_seconds=123,
+                        ttl_minimum_seconds=123,
+            
+                        # the properties below are optional
+                        key="key"
+                    ),
                     headers={
                         "headers_key": "headers"
                     },
@@ -2934,6 +3147,13 @@ class CfnFunctionProps:
             
                     # the properties below are optional
                     body="body",
+                    cache=mediatailor.CfnFunction.HttpRequestCacheConfigurationProperty(
+                        ttl_maximum_seconds=123,
+                        ttl_minimum_seconds=123,
+            
+                        # the properties below are optional
+                        key="key"
+                    ),
                     headers={
                         "headers_key": "headers"
                     },
@@ -11331,6 +11551,7 @@ def _typecheckingstub__308f0f7f2b3d45667b3f754ebabb6ea82f837fb5c35ba874395eac6ea
     target_service: builtins.str,
     url: builtins.str,
     body: typing.Optional[builtins.str] = None,
+    cache: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.HttpRequestCacheConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     headers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
@@ -11365,6 +11586,15 @@ def _typecheckingstub__5737ad8fdf57086197584ef5d9e43c62428f917f712bc50c430237164
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__076ccc169091f6e613e3f8f9c8cc2562f1f20f34c442b5d4d1093121e446c4b7(
+    *,
+    ttl_maximum_seconds: jsii.Number,
+    ttl_minimum_seconds: jsii.Number,
+    key: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0f6999ed1a463a1d66432cdff27ee1e9591dc5d3ae4707cd971a7668661f38f8(
     *,
     method_type: builtins.str,
@@ -11372,6 +11602,7 @@ def _typecheckingstub__0f6999ed1a463a1d66432cdff27ee1e9591dc5d3ae4707cd971a76686
     runtime: builtins.str,
     url: builtins.str,
     body: typing.Optional[builtins.str] = None,
+    cache: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.HttpRequestCacheConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     headers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
@@ -11395,6 +11626,7 @@ def _typecheckingstub__fa73f6a75f967e00b274310de96f033ffea06f87fca8e78c12718beb7
     runtime: builtins.str,
     url: builtins.str,
     body: typing.Optional[builtins.str] = None,
+    cache: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.HttpRequestCacheConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     headers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:

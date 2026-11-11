@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: Apache-2.0
+
+# Runs the E2E suite against the published gateway of a core version, started
+# from core's deploy/docker files (scripts/e2e/start-gateway.sh). Sandboxes
+# run the image from tests/e2e/Dockerfile.workload, which has the same Python
+# as the client, so exec_python can unpickle what the client pickled.
+name: e2e
+
+on:
+  workflow_call:
+    inputs:
+      core-version:
+        description: Core version (default the pin, OPENSHELL_CORE_REF in mise.toml)
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      core-version:
+        description: Core version, for example v0.1.7 (default the pin, OPENSHELL_CORE_REF in mise.toml)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+
+      - name: Build the sandbox image
+        run: mise run e2e:image
+
+      - name: Start the gateway
+        env:
+          CORE_VERSION: ${{ inputs.core-version }}
+        run: |
+          set -euo pipefail
+          version=${CORE_VERSION:-$(mise run -q core:version)}
+          echo "Core version: $version" >>"$GITHUB_STEP_SUMMARY"
+          scripts/e2e/start-gateway.sh "$version" --default-image openshell/e2e-python:dev
+
+      - name: Run the E2E suite
+        env:
+          OPENSHELL_GATEWAY: e2e
+        run: mise run e2e
+
+      - name: Stop the gateway
+        if: always()
+        run: scripts/e2e/stop-gateway.sh
+
+      - name: Upload the gateway log
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gateway-log
+          path: ${{ runner.temp }}/openshell-e2e/gateway.log
+          if-no-files-found: ignore

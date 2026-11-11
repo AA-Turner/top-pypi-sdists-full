@@ -18,6 +18,7 @@ import pytest
 from .constants import EXIT_STATUS_FAIL_UNUSED
 from .data import SnapshotCollections
 from .exceptions import FailedToLoadModuleMember
+from .extensions.base import SnapshotCollectionStorage
 from .location import PyTestLocation
 from .report import SnapshotReport
 from .types import (
@@ -29,10 +30,12 @@ from .utils import (
     compress_json,
     decompress_json,
     import_module_member,
-    is_xdist_gw0,
     is_xdist_worker,
     set_snapshot_file_lock,
+    should_use_snapshot_file_lock,
+    warn_incomplete_worker_reports,
     warn_selected_collected_mismatch,
+    xdist_numprocesses,
 )
 
 # Snapshot collections on the report that are merged across pytest-xdist workers.
@@ -51,8 +54,8 @@ class _ReconstructedItem:
     """
     Stand-in for a ``pytest.Item`` rebuilt from a worker's serialized payload.
 
-    Normally the xdist controller already has real collected items; worker
-    ``collected`` data is applied only when the controller's set is empty.
+    The xdist controller does not collect tests; workers each send compressed
+    ``collected`` data and the controller keeps the first non-empty set.
     Reconstruction supplies enough of the pytest item for
     ``PyTestLocation`` to resolve snapshot names and locations.
     """
@@ -93,6 +96,8 @@ class SnapshotSession:
     _collected_items: dict[str, "pytest.Item"] = field(default_factory=dict)
     # All the selected test items. Will be set to False until the test item is run.
     _selected_items: dict[str, ItemStatus] = field(default_factory=dict)
+    # True when --lf dropped tests during collection, before they could be recorded.
+    _lf_filtered: bool = False
     _assertions: list["SnapshotAssertion"] = field(default_factory=list)
     _extensions: dict[str, "AbstractSyrupyExtension"] = field(default_factory=dict)
     # Reports published by pytest-xdist workers, collected on the controller.
@@ -214,9 +219,8 @@ class SnapshotSession:
 
     @property
     def snapshot_file_lock(self) -> bool:
-        return bool(
-            getattr(self.pytest_session.config.option, "snapshot_file_lock", False)
-        )
+        """True under pytest-xdist so concurrent amber writes do not clobber."""
+        return should_use_snapshot_file_lock(self.pytest_session.config)
 
     @property
     def snapshot_file_lock_timeout(self) -> float:
@@ -251,6 +255,7 @@ class SnapshotSession:
         self.report = None
         self._collected_items = {}
         self._selected_items = {}
+        self._lf_filtered = False
         self._assertions = []
         self._extensions = {}
         self._locations_discovered = defaultdict(set)
@@ -310,13 +315,12 @@ class SnapshotSession:
                 for location, extension in self._extensions.items()
             },
         }
-        # Every worker collects the identical full set; only gw0 sends it.
-        # Always compress (independent of --snapshot-file-lock) to shrink the
-        # xdist workeroutput IPC payload on large suites.
-        if is_xdist_gw0():
-            payload["collected"] = compress_json(
-                [self._serialize_item(item) for item in self._collected_items.values()]
-            )
+        # Every worker sends the identical collected set (compressed). The
+        # controller keeps the first non-empty copy so unused detection still
+        # works if any one worker's report is dropped (e.g. Windows IPC flake).
+        payload["collected"] = compress_json(
+            [self._serialize_item(item) for item in self._collected_items.values()]
+        )
         output["syrupy_report"] = payload
 
     def add_worker_report(self, report: dict[str, Any]) -> None:
@@ -381,6 +385,8 @@ class SnapshotSession:
                 selected_items=self._selected_items,
                 assertions=self._assertions,
                 options=self.pytest_session.config.option,
+                lf_filtered=self._lf_filtered,
+                _extensions=self._extensions,
             )
 
             if is_xdist_worker():
@@ -400,6 +406,20 @@ class SnapshotSession:
                 self._merge_worker_reports()
 
             if self.disable_unused_snapshots:
+                return exitstatus
+
+            # If fewer worker reports arrived than expected, unused accounting is
+            # incomplete — skip delete/fail so we do not remove live snapshots.
+            expected_workers = xdist_numprocesses(self.pytest_session.config)
+            if (
+                expected_workers is not None
+                and expected_workers > 1
+                and len(self._worker_reports) < expected_workers
+            ):
+                warn_incomplete_worker_reports(
+                    received=len(self._worker_reports),
+                    expected=expected_workers,
+                )
                 return exitstatus
 
             if self.report.num_unused:
@@ -424,10 +444,12 @@ class SnapshotSession:
         if self.disable_unused_snapshots:
             return
 
-        test_location = assertion.test_location.filepath
         extension_class = assertion.extension.__class__
-        if extension_class not in self._locations_discovered[test_location]:
-            self._locations_discovered[test_location].add(extension_class)
+        discovery_dir = assertion.extension.discovery_dirname(
+            test_location=assertion.test_location
+        )
+        if extension_class not in self._locations_discovered[discovery_dir]:
+            self._locations_discovered[discovery_dir].add(extension_class)
             discovered_extensions = {
                 discovered.location: assertion.extension
                 for discovered in assertion.extension.discover_snapshots(
@@ -463,6 +485,24 @@ class SnapshotSession:
                 )
             elif snapshot_location not in used_snapshot_collections:
                 Path(snapshot_location).unlink()
+
+            # The owner can be unknown or use another layout with the same suffix.
+            # Prune empty per-test-file directories after either deletion path.
+            if self.snapshot_file_lock:
+                cleanup_snapshot_write_sidecars(snapshot_location)
+            filepath = Path(snapshot_location)
+            collection_dirname = Path(
+                str(
+                    extension.snapshot_dirname
+                    if extension
+                    else SnapshotCollectionStorage.snapshot_dirname
+                )
+            ).name
+            if filepath.parent.parent.name == collection_dirname:
+                try:
+                    filepath.parent.rmdir()
+                except OSError:
+                    pass
 
     @staticmethod
     def filter_valid_items(items: list["pytest.Item"]) -> Iterable["pytest.Item"]:

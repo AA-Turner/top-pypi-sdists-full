@@ -37,7 +37,7 @@ def cargo(opts, cargo_plugin, provider_args):  # pylint: disable=unused-argument
     Provides credentials for all Cloudsmith Cargo registries: ``*.cloudsmith.io``,
     ``*.cloudsmith.com``, and any custom domains configured for the Workspace
     (requires a Workspace - ``--workspace``, CLOUDSMITH_WORKSPACE, or
-    ``workspace`` in ``config.ini``; legacy aliases are also accepted - and a
+    ``workspace`` in ``config.ini``; deprecated aliases still work - and a
     valid API key/token).
 
     A registry that is not a Cloudsmith one is answered with
@@ -69,13 +69,14 @@ def cargo(opts, cargo_plugin, provider_args):  # pylint: disable=unused-argument
         $ echo '{"v":1,"kind":"get","operation":"read","registry":{"index-url":"sparse+https://cargo.cloudsmith.io/org/repo/"}}' \\
             | cloudsmith credential-helper cargo
 
+    \b
         # Called by Cargo via the launcher
         $ cargo-credential-cloudsmith --cargo-plugin
 
     \b
     Environment variables:
         CLOUDSMITH_API_KEY: API key for authentication (optional)
-        CLOUDSMITH_WORKSPACE: Workspace slug (CLOUDSMITH_ORG is also accepted)
+        CLOUDSMITH_WORKSPACE: Workspace slug (the deprecated CLOUDSMITH_ORG still works)
     """
     # `provider_args` collects the extra arguments Cargo appends from the
     # credential-provider config entry.  This provider takes no configuration

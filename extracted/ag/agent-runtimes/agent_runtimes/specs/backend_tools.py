@@ -59,7 +59,7 @@ DECIDE_BACKEND_TOOL_SPEC_0_0_1 = BackendToolSpec(
     id="decide",
     version="0.0.1",
     name="Decide",
-    description="Ask Jev typed questions about a text — noul (does a statement hold, with its probability), choice (one of named options) or score (a step on a rubric) — and get the typed answers back, through datalayer-ai-inference.",
+    description="Ask the agent's decision model typed questions about a text — noul (does a statement hold, with its probability), choice (one of named options) or score (a step on a rubric) — and get the typed answers back, through datalayer-ai-inference. An agent has it when its spec names decisions.",
     tags=["runtime", "decisions", "jev"],
     enabled=True,
     approval="auto",
@@ -302,6 +302,25 @@ GET_WEATHER_BACKEND_TOOL_SPEC_0_0_1 = BackendToolSpec(
     emoji="🌤️",
 )
 
+GITHUB_REPOSITORIES_BACKEND_TOOL_SPEC_0_0_1 = BackendToolSpec(
+    id="github-repositories",
+    version="0.0.1",
+    name="GitHub Repositories",
+    description="List the GitHub repositories of the person the agent works for, with the person's own GitHub grant; the first time, the person is asked to connect GitHub in the chat.",
+    tags=["github", "identity"],
+    enabled=True,
+    approval="auto",
+    timeout=None,
+    requires_approval=False,
+    runtime=BackendToolRuntimeSpec(
+        language="python",
+        package="agent_runtimes.tools.github",
+        method="github_repositories",
+    ),
+    icon="@primer/octicons-react:mark-github",
+    emoji="🐙",
+)
+
 RUNTIME_ECHO_BACKEND_TOOL_SPEC_0_0_1 = BackendToolSpec(
     id="runtime-echo",
     version="0.0.1",
@@ -398,6 +417,7 @@ BACKEND_TOOL_CATALOG: Dict[str, BackendToolSpec] = {
     "generate-haiku": GENERATE_HAIKU_BACKEND_TOOL_SPEC_0_0_1,
     "generate-task-steps": GENERATE_TASK_STEPS_BACKEND_TOOL_SPEC_0_0_1,
     "get-weather": GET_WEATHER_BACKEND_TOOL_SPEC_0_0_1,
+    "github-repositories": GITHUB_REPOSITORIES_BACKEND_TOOL_SPEC_0_0_1,
     "runtime-echo": RUNTIME_ECHO_BACKEND_TOOL_SPEC_0_0_1,
     "runtime-send-mail": RUNTIME_SEND_MAIL_BACKEND_TOOL_SPEC_0_0_1,
     "runtime-sensitive-echo": RUNTIME_SENSITIVE_ECHO_BACKEND_TOOL_SPEC_0_0_1,

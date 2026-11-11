@@ -24,12 +24,14 @@ from .responses import RawResponse
 
 if TYPE_CHECKING:
     from ._runtime.protocols.options import HelperOptions
-    from .protocols._helpers import MirroredWebsocket
-    from .protocols._helpers import OrdersWebsocket
-    from .protocols._helpers import PartnersWebsocket
-    from .protocols._helpers import ProtocolHelpers
-    from .protocols._helpers import QuotesWebsocket
-    from .protocols._helpers import SessionsWebsocket
+    from .protocols._helpers import (
+        MirroredWebsocket,
+        OrdersWebsocket,
+        PartnersWebsocket,
+        ProtocolHelpers,
+        QuotesWebsocket,
+        SessionsWebsocket,
+    )
 
 _DEFAULTS = ClientDefaults(
     security_schemes=security.ROOT_SCHEMES,
@@ -175,13 +177,15 @@ class Client(ClientView):
             clock=clock,
             http_client=http_client,
             protocols=HelperSettings(defaults=helper_defaults),
-            credentials=SchemeCredentials({
-                "token": token,
-                "bearer": bearer,
-                "session": session,
-                "key": key,
-                "oauth": oauth,
-            }),
+            credentials=SchemeCredentials(
+                {
+                    "token": token,
+                    "bearer": bearer,
+                    "session": session,
+                    "key": key,
+                    "oauth": oauth,
+                }
+            ),
         )
 
     def close(self) -> None:

@@ -132,6 +132,57 @@ class TestSteel:
         assert isinstance(response, httpx.Response)
         assert response.json() == {"foo": "bar"}
 
+    @mock.patch("steel._base_client.BaseClient._calculate_retry_timeout", _low_retry_timeout)
+    @pytest.mark.respx(base_url=base_url)
+    def test_idempotency_key(self, respx_mock: MockRouter, client: Steel) -> None:
+        keys: list[Optional[str]] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            keys.append(request.headers.get("Idempotency-Key"))
+            return httpx.Response(503 if len(keys) == 1 else 200)
+
+        respx_mock.post("/foo").mock(side_effect=handler)
+
+        client.post("/foo", cast_to=httpx.Response)
+        client.post("/foo", cast_to=httpx.Response)
+
+        assert len(keys) == 3
+        assert keys[0] is not None and keys[0].startswith("steel-python-retry-")
+        assert keys[1] == keys[0]
+        assert keys[2] is not None and keys[2] != keys[0]
+
+    @pytest.mark.respx(base_url=base_url)
+    def test_idempotency_key_skips_get(self, respx_mock: MockRouter, client: Steel) -> None:
+        respx_mock.get("/foo").mock(return_value=httpx.Response(200))
+
+        response = client.get("/foo", cast_to=httpx.Response)
+
+        assert "Idempotency-Key" not in response.request.headers
+
+    @pytest.mark.respx(base_url=base_url)
+    def test_idempotency_key_from_headers(self, respx_mock: MockRouter, client: Steel) -> None:
+        respx_mock.post("/foo").mock(return_value=httpx.Response(200))
+
+        response = client.post(
+            "/foo",
+            cast_to=httpx.Response,
+            options=make_request_options(extra_headers={"idempotency-key": "mine"}),
+        )
+
+        assert response.request.headers.get_list("Idempotency-Key") == ["mine"]
+
+    @pytest.mark.respx(base_url=base_url)
+    def test_omit_idempotency_key(self, respx_mock: MockRouter, client: Steel) -> None:
+        respx_mock.post("/foo").mock(return_value=httpx.Response(200))
+
+        response = client.post(
+            "/foo",
+            cast_to=httpx.Response,
+            options=make_request_options(extra_headers={"Idempotency-Key": Omit()}),
+        )
+
+        assert "Idempotency-Key" not in response.request.headers
+
     def test_copy(self, client: Steel) -> None:
         copied = client.copy()
         assert id(copied) != id(client)
@@ -1082,6 +1133,57 @@ class TestAsyncSteel:
         assert response.status_code == 200
         assert isinstance(response, httpx.Response)
         assert response.json() == {"foo": "bar"}
+
+    @mock.patch("steel._base_client.BaseClient._calculate_retry_timeout", _low_retry_timeout)
+    @pytest.mark.respx(base_url=base_url)
+    async def test_idempotency_key(self, respx_mock: MockRouter, async_client: AsyncSteel) -> None:
+        keys: list[Optional[str]] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            keys.append(request.headers.get("Idempotency-Key"))
+            return httpx.Response(503 if len(keys) == 1 else 200)
+
+        respx_mock.post("/foo").mock(side_effect=handler)
+
+        await async_client.post("/foo", cast_to=httpx.Response)
+        await async_client.post("/foo", cast_to=httpx.Response)
+
+        assert len(keys) == 3
+        assert keys[0] is not None and keys[0].startswith("steel-python-retry-")
+        assert keys[1] == keys[0]
+        assert keys[2] is not None and keys[2] != keys[0]
+
+    @pytest.mark.respx(base_url=base_url)
+    async def test_idempotency_key_skips_get(self, respx_mock: MockRouter, async_client: AsyncSteel) -> None:
+        respx_mock.get("/foo").mock(return_value=httpx.Response(200))
+
+        response = await async_client.get("/foo", cast_to=httpx.Response)
+
+        assert "Idempotency-Key" not in response.request.headers
+
+    @pytest.mark.respx(base_url=base_url)
+    async def test_idempotency_key_from_headers(self, respx_mock: MockRouter, async_client: AsyncSteel) -> None:
+        respx_mock.post("/foo").mock(return_value=httpx.Response(200))
+
+        response = await async_client.post(
+            "/foo",
+            cast_to=httpx.Response,
+            options=make_request_options(extra_headers={"idempotency-key": "mine"}),
+        )
+
+        assert response.request.headers.get_list("Idempotency-Key") == ["mine"]
+
+    @pytest.mark.respx(base_url=base_url)
+    async def test_omit_idempotency_key(self, respx_mock: MockRouter, async_client: AsyncSteel) -> None:
+        respx_mock.post("/foo").mock(return_value=httpx.Response(200))
+
+        response = await async_client.post(
+            "/foo",
+            cast_to=httpx.Response,
+            options=make_request_options(extra_headers={"Idempotency-Key": Omit()}),
+        )
+
+        assert "Idempotency-Key" not in response.request.headers
 
     def test_copy(self, async_client: AsyncSteel) -> None:
         copied = async_client.copy()

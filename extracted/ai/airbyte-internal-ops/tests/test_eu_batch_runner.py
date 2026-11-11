@@ -207,13 +207,14 @@ def _run_spec() -> dict:
 
 def _valid_finalize_verdict(*, success: bool = True, incomplete: bool = False) -> dict:
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "output_mode": "masked",
         "commands": [],
         "success": success,
         "regression_detected": False,
         "both_failed": False,
         "incomplete": incomplete,
+        "exercised_partial": False,
         "not_exercised": False,
         "setup_error": False,
         "could_not_test": False,
@@ -396,6 +397,7 @@ def test_finalize_invalid_verdict_emits_internal_failure_and_prefix_urls(
         ("internal_failure", "true"),
         ("both_failed", "false"),
         ("incomplete", "false"),
+        ("exercised_partial", "false"),
         ("not_exercised", "false"),
         ("setup_error", "false"),
         ("could_not_test", "false"),
@@ -418,9 +420,11 @@ def test_finalize_invalid_verdict_emits_internal_failure_and_prefix_urls(
     "scenario",
     [
         "pass",
+        "legacy-pass",
         "failed",
         "regression-the-summary-passed",
         "incomplete",
+        "exercised-partial",
         "not-exercised",
         "internal-failure",
         "cancelled",
@@ -441,9 +445,15 @@ def test_finalize_deletes_run_prefix_only_after_a_clean_pass(
     batch_state = "SUCCEEDED"
     gcloud_exit_code = "0"
     expected_exit_code = 0
-    should_delete = scenario in {"pass", "delete-failure"}
+    should_delete = scenario in {"pass", "legacy-pass", "delete-failure"}
 
-    if scenario == "failed":
+    if scenario == "legacy-pass":
+        verdict["schema_version"] = 3
+        verdict.pop("exercised_partial")
+    elif scenario == "exercised-partial":
+        verdict.update(success=False, incomplete=True, exercised_partial=True)
+        expected_exit_code = 1
+    elif scenario == "failed":
         verdict["success"] = False
         expected_exit_code = 1
     elif scenario == "regression-the-summary-passed":
@@ -535,13 +545,17 @@ def test_finalize_deletes_run_prefix_only_after_a_clean_pass(
     calls = (
         gcloud_args_path.read_text().splitlines() if gcloud_args_path.exists() else []
     )
+    assert (
+        f"exercised_partial={str(verdict.get('exercised_partial', False)).lower()}"
+        in output_path.read_text()
+    )
     if should_delete:
         assert calls == [f"storage rm --recursive {run_prefix}/"]
     else:
         assert calls == []
 
     summary = summary_path.read_text() if summary_path.exists() else ""
-    if scenario == "pass":
+    if scenario in {"pass", "legacy-pass"}:
         assert "EU outputs deleted on pass" in summary
         assert run_prefix in summary
         assert "report and summary links above no longer resolve" in summary
@@ -569,6 +583,8 @@ def test_finalize_deletes_run_prefix_only_after_a_clean_pass(
         "clean-pass",
         "single-version-pass",
         "single-version-fail",
+        "single-version-not-exercised",
+        "partial",
         "diagnostic-new-stream",
         "diagnostic-catalog",
         "strict-new-stream-failure",
@@ -593,7 +609,15 @@ def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
     target_result: dict[str, Any] = {"exit_code": 0, "success": True}
     control_result: dict[str, Any] = {"exit_code": 0, "success": True}
 
-    if scenario == "single-version-fail":
+    if scenario == "partial":
+        success = False
+        flags = {"incomplete": True, "exercised_partial": True}
+        target_only_streams = ("private_new_stream",)
+        target_result.update(
+            record_counts_per_stream={"private_new_stream": 2},
+            stopped_early={"reason": "cap", "records_seen": 2, "elapsed_s": 1},
+        )
+    elif scenario == "single-version-fail":
         success = False
         target_result.update(success=False, exit_code=1)
     elif scenario == "diagnostic-new-stream":
@@ -626,7 +650,7 @@ def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
         success = False
         flags = {"could_not_test": True}
         target_result["could_not_test"] = True
-    elif scenario == "not-exercised":
+    elif scenario in {"not-exercised", "single-version-not-exercised"}:
         success = False
         flags = {"not_exercised": True}
         target_only_streams = ("new_stream",)
@@ -668,6 +692,7 @@ def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
             command="read",
             result=target_result,
             extra_checks=extra_checks,
+            target_only_streams=target_only_streams,
         )
     else:
         model = build_comparison_report_model(
@@ -734,6 +759,16 @@ def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
         for line in eu_summary.splitlines()
         if line.startswith("- **Result:** ")
     )
+    if scenario == "single-version-not-exercised":
+        assert eu_label == model.verdict_label == "NOT EXERCISED"
+        assert model.passed is False
+        assert model.not_exercised is True
+        assert model.regression_detected is False
+    if scenario == "partial":
+        assert model.exercised_partial
+        assert verdict["exercised_partial"] is True
+        assert "private_new_stream" not in json.dumps(verdict)
+        assert eu_label.startswith("INCOMPLETE — Exercised (partial): New streams")
 
     finalize = next(step for step in _eu_job()["steps"] if step.get("id") == "finalize")
     eu_run = _run_batch_step(
@@ -771,6 +806,7 @@ def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
             "regression_detected",
             "setup_error",
             "could_not_test",
+            "exercised_partial",
         ):
             value = report.get(flag, False) if command == "read" else False
             if flag == "success" and command != "read":
@@ -794,6 +830,7 @@ def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
         "not_exercised",
         "setup_error",
         "could_not_test",
+        "exercised_partial",
     ):
         assert eu_outputs[flag] == us_run.outputs[flag], scenario
     if scenario in {
@@ -1059,6 +1096,7 @@ def test_vm_summary_folds_verdict_flags_from_command_outputs(tmp_path: Path) -> 
     (work_dir / "read.exit-code").write_text("0")
     (work_dir / "read.github-output").write_text(
         "success=false\nnot_exercised=true\nsetup_error=true\ncould_not_test=true\n"
+        "incomplete=true\nexercised_partial=true\n"
         "error=Setup error: DISCOVER did not finish within the read budget\n"
     )
 
@@ -1075,6 +1113,8 @@ def test_vm_summary_folds_verdict_flags_from_command_outputs(tmp_path: Path) -> 
     assert summary["not_exercised"] is True
     assert summary["setup_error"] is True
     assert summary["could_not_test"] is True
+    assert summary["exercised_partial"] is True
+    assert summary["incomplete"] is True
     assert summary["commands"] == [{"command": "read", "exit_code": 0, "passed": False}]
     verdict = build_verdict(output_dir)
     assert verdict["success"] is False
@@ -1088,6 +1128,7 @@ def test_vm_summary_folds_verdict_flags_from_command_outputs(tmp_path: Path) -> 
         "setup_error",
         "could_not_test",
         "commands",
+        "exercised_partial",
     }
 
 

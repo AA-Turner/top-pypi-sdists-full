@@ -18,14 +18,14 @@ fn normalize_response(
     size: u64,
     bytes: impl Into<Vec<u8>>,
     pending: PartialIdListRecord,
-) -> Result<IdListDownload, StatsigErr> {
+) -> Result<RawIdListChunk, StatsigErr> {
     let headers = range.map(|value| HashMap::from([("content-range".into(), value.into())]));
     let response = Response {
         status_code: Some(status),
         data: Some(ResponseData::from_bytes_with_headers(bytes.into(), headers)),
         error: None,
     };
-    normalize_id_list_download(response, "/file", start, size, pending)
+    normalize_id_list_download(response, "/file", start, size, false, pending)
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn id_list_range_handles_empty_files_and_sizes_different_from_manifest() {
     ] {
         assert_eq!(
             normalize_response(status, header, start, size, body, Default::default()).unwrap(),
-            IdListDownload::Complete(expected.into(), start..end)
+            RawIdListChunk::Complete(expected.into(), start..end)
         );
     }
 }
@@ -490,7 +490,7 @@ fn id_list_range_handles_representation_changes_during_a_record() {
     // A server ignoring Range supplies the prefix again, including the in-flight bytes.
     assert_eq!(
         normalize_response(200, None, 3, 16, "+x\n+n", pending()).unwrap(),
-        IdListDownload::Complete("+n".into(), 3..5)
+        RawIdListChunk::Complete("+n".into(), 3..5)
     );
 }
 
@@ -613,7 +613,7 @@ async fn id_list_range_limits_continuations_without_publishing() {
 
 #[test]
 fn id_list_range_limits_unfinished_record_bytes() {
-    let IdListDownload::Incomplete(record) = normalize_response(
+    let RawIdListChunk::Incomplete(record) = normalize_response(
         206,
         Some("bytes 0-65535/70000"),
         0,

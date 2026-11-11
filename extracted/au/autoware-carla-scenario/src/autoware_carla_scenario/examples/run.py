@@ -135,13 +135,13 @@ from autoware_carla_scenario.traffic import (
 )
 from autoware_carla_scenario.registry import (
     BuildScenarioFn,
+    _register_builtin_scenario,
     get_conf_dirs,
     get_scenario_builder,
     get_scenario_classes,
     get_scenario_registry,
     load_scenario_plugins,
     register_conf_dir,
-    register_scenario,
 )
 from autoware_carla_scenario.scenario_glob import resolve_scenario_glob, scenario_dirs
 from autoware_carla_scenario.scenario_runner import _run_file_stem
@@ -175,6 +175,7 @@ from .cut_in import CutInScenario
 from .traffic_light_compliance import TrafficLightComplianceScenario
 
 if TYPE_CHECKING:
+    from autoware_carla_scenario import AutowareBridgeConfig
     from autoware_carla_scenario.driver import ControlConfig
 
 logger = logging.getLogger(__name__)
@@ -195,22 +196,25 @@ _CONF_DIR = Path(__file__).resolve().parent / "conf"
 register_conf_dir(_CONF_DIR)
 
 
-# Register built-in scenarios.
-register_scenario(
+# Register built-in scenarios.  As built-ins: a scenario plugin that replaced
+# one before this module was imported (the viewer and ``scenario-expand`` load
+# the plugins first) keeps it, and the plugin walk does not take a built-in an
+# import of this module registers for the importing plugin's own (#2034).
+_register_builtin_scenario(
     "intersection_passing", IntersectionPassingScenario, IntersectionPassingConfig
 )
-register_scenario(
+_register_builtin_scenario(
     "traffic_light_compliance",
     TrafficLightComplianceScenario,
     TrafficLightComplianceConfig,
 )
-register_scenario("lane_change", LaneChangeScenario, LaneChangeConfig)
-register_scenario("temporary_stop", TemporaryStopScenario, TemporaryStopConfig)
-register_scenario(
+_register_builtin_scenario("lane_change", LaneChangeScenario, LaneChangeConfig)
+_register_builtin_scenario("temporary_stop", TemporaryStopScenario, TemporaryStopConfig)
+_register_builtin_scenario(
     "pedestrian_dart_out", PedestrianDartOutScenario, PedestrianDartOutConfig
 )
-register_scenario("cut_in", CutInScenario, CutInConfig)
-register_scenario("adversity", AdversityScenario, AdversityConfig)
+_register_builtin_scenario("cut_in", CutInScenario, CutInConfig)
+_register_builtin_scenario("adversity", AdversityScenario, AdversityConfig)
 
 
 # ---------------------------------------------------------------------------
@@ -800,6 +804,93 @@ def _launcher_ros_domain_ids(settings: dict[str, Any]) -> tuple[int, ...]:
     return tuple(value)
 
 
+def _native_autoware_interface(cfg: DictConfig) -> bool:
+    """``ego.native_autoware_interface``, refused unless ``true`` or ``false``,
+    and refused ``true`` unless ``ego.entity`` is ``autoware``.
+
+    Only :class:`~autoware_carla_scenario.AutowareEgoEntity` spawns its ego
+    for CARLA's native Autoware interface (``ros2_autoware_control=true``,
+    role name ``ego``).  ``true`` with another entity is refused rather than
+    ignored with a warning: the run it would start is not the one asked for --
+    the ego would not be served by the server -- and a refusal before CARLA
+    starts costs one edit of the config, where a warning is easily lost in a
+    batch's logs.
+
+    Raises:
+        ValueError: naming ``ego.native_autoware_interface``.
+    """
+    ego_cfg = cfg.get("ego") or {}
+    native = ego_cfg.get("native_autoware_interface", False)
+    if not isinstance(native, bool):
+        raise ValueError(
+            f"ego.native_autoware_interface must be true or false, got {native!r}"
+        )
+    entity = str(ego_cfg.get("entity", "autopilot"))
+    if native and entity != "autoware":
+        raise ValueError(
+            "ego.native_autoware_interface=true needs ego.entity=autoware "
+            f"(got ego.entity={entity}): only the Autoware ego is spawned for "
+            "CARLA's native Autoware interface"
+        )
+    return native
+
+
+def _autoware_bridge_config(cfg: DictConfig) -> "AutowareBridgeConfig":
+    """The ``autoware`` group's bridge settings (all of it but ``launcher``).
+
+    Raises:
+        ValueError: naming the key, for one the group does not define
+            (``autoware.boot_timout_s``, a typo that would leave the default
+            in place) or a value :class:`AutowareBridgeConfig` refuses.
+    """
+    from autoware_carla_scenario import AutowareBridgeConfig  # noqa: PLC0415
+    from autoware_carla_scenario.utils.config import (  # noqa: PLC0415
+        checked_options,
+    )
+
+    autoware_cfg = cfg.get("autoware")
+    try:
+        bridge_options = checked_options(
+            AutowareBridgeConfig,
+            _to_dict(autoware_cfg) if autoware_cfg is not None else {},
+            ignore={"launcher"},
+        )
+    except ValueError as exc:
+        raise ValueError(f"autoware: {exc}") from None
+    try:
+        return AutowareBridgeConfig(**bridge_options)
+    except ValueError as exc:
+        raise ValueError(f"autoware.{exc}") from None
+
+
+def _check_autoware_liveness(
+    bridge_cfg: "AutowareBridgeConfig", launcher: AutowareLauncher | None
+) -> None:
+    """Refuse an ``autoware.liveness_timeout_s`` the launcher's node would trip.
+
+    The ``scenario_bridge`` node the launcher starts polls every
+    ``route_watch_period_s`` of its ``autoware.launcher.bridge_parameters``
+    (:func:`~autoware_carla_scenario.autoware_stack.bridge_node.liveness_timeout_problem`).
+    The entity refuses it too; this says so naming the group's keys, and
+    before anything starts.
+
+    Raises:
+        ValueError: headed ``autoware.``.
+    """
+    if launcher is None:
+        return
+    from autoware_carla_scenario.autoware_stack.bridge_node import (  # noqa: PLC0415
+        launcher_bridge_parameters,
+        liveness_timeout_problem,
+    )
+
+    problem = liveness_timeout_problem(
+        bridge_cfg.liveness_timeout_s, launcher_bridge_parameters(launcher)
+    )
+    if problem is not None:
+        raise ValueError(f"autoware.{problem}")
+
+
 def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
     """Build the ego entity selected by ``cfg.ego.entity``.
 
@@ -811,10 +902,13 @@ def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
     Raises:
         ValueError: If ``cfg.ego.entity`` names an unknown entity, or a setting
             of the entity's group is out of range (a NaN timeout, say) or not
-            one the group defines (``autoware.timout_s``), naming the key.
+            one the group defines (``autoware.boot_timout_s``), naming the key, or
+            ``ego.native_autoware_interface`` is refused
+            (:func:`_native_autoware_interface`).
     """
     ego_cfg = cfg.get("ego") or {}
     entity = str(ego_cfg.get("entity", "autopilot"))
+    native = _native_autoware_interface(cfg)
 
     if entity == "autopilot":
         return None
@@ -831,45 +925,21 @@ def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
         # from the scenario itself; an ego that ends ``setup()`` with neither is
         # refused there.
         from autoware_carla_scenario import (  # noqa: PLC0415
-            AutowareBridgeConfig,
             AutowareEgoEntity,
             GrpcAutowareBridgeServer,
         )
 
-        from autoware_carla_scenario.utils.config import (  # noqa: PLC0415
-            checked_options,
-        )
-
-        autoware_cfg = cfg.get("autoware")
-        # The group is the bridge's settings plus ``launcher``, which
-        # build_autoware_launcher reads; any other key is a typo
-        # (``+autoware.timout_s=30``) that would leave the default in place.
-        try:
-            bridge_options = checked_options(
-                AutowareBridgeConfig,
-                _to_dict(autoware_cfg) if autoware_cfg is not None else {},
-                ignore={"launcher"},
-            )
-        except ValueError as exc:
-            raise ValueError(f"autoware: {exc}") from None
-        try:
-            bridge_cfg = AutowareBridgeConfig(**bridge_options)
-        except ValueError as exc:
-            raise ValueError(f"autoware.{exc}") from None
+        bridge_cfg = _autoware_bridge_config(cfg)
+        launcher = build_autoware_launcher(cfg)
+        _check_autoware_liveness(bridge_cfg, launcher)
         # autostart=False: in a batch every scenario is built before the first
         # one runs, and two bridges cannot hold the same address at once.  The
         # entity starts this one when its own scenario starts.
         scenario_cfg = cfg.get("scenario") or {}
-        native = ego_cfg.get("native_autoware_interface", False)
-        if not isinstance(native, bool):
-            raise ValueError(
-                "ego.native_autoware_interface must be true or false, "
-                f"got {native!r}"
-            )
         return AutowareEgoEntity(
             bridge_cfg,
             bridge=GrpcAutowareBridgeServer(bridge_cfg, autostart=False),
-            launcher=build_autoware_launcher(cfg),
+            launcher=launcher,
             episode_name=str(scenario_cfg.get("name", "")),
             native_autoware_interface=native,
         )
@@ -2135,7 +2205,9 @@ def _check_batch_queue_settings(cfg: DictConfig) -> None:
     # server.fog_density_scale, checked whether or not a LiDAR reads it.
     server_extra_args(cfg)
     build_traffic_backend(cfg)
-    build_autoware_launcher(cfg)
+    launcher = build_autoware_launcher(cfg)
+    if launcher is not None:
+        _check_autoware_liveness(_autoware_bridge_config(cfg), launcher)
 
 
 def _check_batch_writer_settings(configs: list[DictConfig]) -> None:
@@ -2319,7 +2391,8 @@ def check_batch_configs(
     class refuses (:func:`_check_scenario_config`), the ego's and entities'
     numbers (``ego.initial_speed_kmh``, the spawn and goal poses,
     ``entity.spawn_retry_*_step`` and ``entity.spawn_retry_max_count``:
-    :func:`_check_ego_numbers`), ``odd_case``
+    :func:`_check_ego_numbers`), ``ego.native_autoware_interface``
+    (:func:`_native_autoware_interface`), ``odd_case``
     and ``metrics.heavy`` (:func:`metrics_heavy`); and the server, traffic and Autoware launcher settings its
     queue is built from (:func:`_batch_queue`, :func:`run_scenario`), once for
     each distinct set of them.  A batch is refused for these before any
@@ -2364,6 +2437,7 @@ def check_batch_configs(
             _odd_case(cfg)
             build_ground_projection(cfg)
             _check_ego_numbers(cfg)
+            _native_autoware_interface(cfg)
             # Every case's, though apply_metrics reads only the first set.
             metrics_heavy(cfg)
             # Once a distinct setting: a sweep's cases mostly share them.  The

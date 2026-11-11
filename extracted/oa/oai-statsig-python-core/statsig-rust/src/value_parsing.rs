@@ -1,15 +1,23 @@
 use chrono::{DateTime, NaiveDate, NaiveDateTime};
 
-pub(crate) fn try_parse_timestamp(value: &str, parsed_i64: Option<i64>) -> Option<i64> {
-    let first = *value.as_bytes().first()?;
-    if !(first.is_ascii_digit() || matches!(first, b'+' | b'-')) {
-        return None;
+#[inline]
+pub(crate) fn parse_string_values(value: &str) -> (Option<i64>, Option<f64>, Option<i64>) {
+    match value.as_bytes().first() {
+        Some(b'0'..=b'9' | b'+' | b'-') => parse_number_or_date(value),
+        Some(b'.' | b'i' | b'I' | b'n' | b'N') => (None, value.parse().ok(), None),
+        _ => (None, None, None),
     }
+}
 
-    if let Some(value) = parsed_i64 {
-        return Some(value);
-    }
+// Keep numeric and date parser setup off the common text path.
+#[inline(never)]
+fn parse_number_or_date(value: &str) -> (Option<i64>, Option<f64>, Option<i64>) {
+    let int_value = value.parse().ok();
+    let timestamp_value = int_value.or_else(|| parse_date(value));
+    (int_value, value.parse().ok(), timestamp_value)
+}
 
+fn parse_date(value: &str) -> Option<i64> {
     if value.len() < 8
         || value.len() > 20
         || (!value.contains('-') && !value.contains('T') && !value.contains(':'))
@@ -32,23 +40,4 @@ pub(crate) fn try_parse_timestamp(value: &str, parsed_i64: Option<i64>) -> Optio
     }
 
     None
-}
-
-pub(crate) fn maybe_parse_i64(value: &str) -> Option<i64> {
-    let first = *value.as_bytes().first()?;
-    if !(first.is_ascii_digit() || matches!(first, b'+' | b'-')) {
-        return None;
-    }
-
-    value.parse().ok()
-}
-
-pub(crate) fn maybe_parse_f64(value: &str) -> Option<f64> {
-    let first = *value.as_bytes().first()?;
-    if !(first.is_ascii_digit() || matches!(first, b'+' | b'-' | b'.' | b'i' | b'I' | b'n' | b'N'))
-    {
-        return None;
-    }
-
-    value.parse().ok()
 }

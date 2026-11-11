@@ -24,13 +24,13 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5sentry_protos/billing/v1/common/v1/billing_type.proto\x12\"sentry_protos.billing.v1.common.v1*i\n\x0b\x42illingType\x12\x1c\n\x18\x42ILLING_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x42ILLING_TYPE_INVOICE_CYCLE\x10\x01\x12\x1c\n\x18\x42ILLING_TYPE_CREDIT_ONLY\x10\x02\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5sentry_protos/billing/v1/common/v1/billing_type.proto\x12\"sentry_protos.billing.v1.common.v1*\x89\x01\n\x0b\x42illingType\x12\x1c\n\x18\x42ILLING_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x42ILLING_TYPE_INVOICE_CYCLE\x10\x01\x12\x1c\n\x18\x42ILLING_TYPE_CREDIT_ONLY\x10\x02\x12\x1e\n\x1a\x42ILLING_TYPE_RESERVED_ONLY\x10\x03\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.common.v1.billing_type_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_BILLINGTYPE']._serialized_start=93
-  _globals['_BILLINGTYPE']._serialized_end=198
+  _globals['_BILLINGTYPE']._serialized_start=94
+  _globals['_BILLINGTYPE']._serialized_end=231
 # @@protoc_insertion_point(module_scope)

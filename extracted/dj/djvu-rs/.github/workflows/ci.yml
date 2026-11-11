@@ -7,6 +7,10 @@ on:
   # Manual runs — e.g. collecting Coverage for a PR branch (main-only otherwise).
   workflow_dispatch:
 
+# Read-only token by default; jobs that need more widen it themselves (#961).
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -23,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -73,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -117,7 +121,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -143,7 +147,7 @@ jobs:
     if: github.event_name != 'pull_request'
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust beta
         uses: dtolnay/rust-toolchain@beta
@@ -168,7 +172,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable (MSVC)
         uses: dtolnay/rust-toolchain@stable
@@ -190,7 +194,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -217,7 +221,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust 1.88
         uses: dtolnay/rust-toolchain@master
@@ -238,7 +242,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable + wasm32 target
         uses: dtolnay/rust-toolchain@stable
@@ -295,11 +299,17 @@ jobs:
   # ── Tesseract OCR integration ────────────────────────────────────────────────
   ocr-tesseract:
     name: OCR (tesseract)
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: ubuntu-latest moved to 26.04, whose
+    # libleptonica-dev headers use C11 `atomic_int`. leptonica-sys 0.4.9
+    # (the newest release) runs bindgen 0.64 over them and fails with
+    # "unknown type name 'atomic_int'", so the build broke on every push
+    # to main from 2026-11-03. Unpin once leptonica-sys handles the newer
+    # headers.
+    runs-on: ubuntu-24.04
     if: github.event_name != 'pull_request'
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -329,7 +339,7 @@ jobs:
     if: github.event_name != 'pull_request'
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -340,7 +350,7 @@ jobs:
           key: ocr-onnx-models
 
       - name: Cache model weights
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: models/ocr
           key: ocr-models-${{ hashFiles('docs/ocr-model-manifest.toml') }}
@@ -364,7 +374,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -375,7 +385,7 @@ jobs:
           key: djvu-py
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -396,7 +406,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Licenses & advisories (cargo deny)
         uses: EmbarkStudios/cargo-deny-action@v2
@@ -420,7 +430,7 @@ jobs:
     if: github.event_name != 'pull_request'
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -457,7 +467,7 @@ jobs:
             --ignore-filename-regex '(benches|examples|fuzz)/'
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-lcov
           path: lcov.info

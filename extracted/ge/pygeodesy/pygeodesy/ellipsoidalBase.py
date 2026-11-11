@@ -46,7 +46,7 @@ from pygeodesy.units import Epoch, _isDegrees, Radius_, _1mm as _TOL_M
 # from math import fabs  # from .latlonBase
 
 __all__ = _ALL_LAZY.ellipsoidalBase
-__version__ = '25.07.21'
+__version__ = '26.10.28'
 
 
 class CartesianEllipsoidalBase(CartesianBase):
@@ -984,9 +984,11 @@ class LatLonEllipsoidalBase(LatLonBase):
             utmups = _MODS.utmups
             u = self._toX8(utmups.toUtmUps8, pole=pole, **toUtmUps8_kwds)
             if isinstance(u, utmups.Utm):
-                self._update(False, _utm=u)  # PYCHOK kwds
+                if x:
+                    self._update(False, _utm=u)  # PYCHOK kwds
             elif isinstance(u, utmups.Ups):
-                self._update(False, _ups=u)  # PYCHOK kwds
+                if x:
+                    self._update(False, _ups=u)  # PYCHOK kwds
             else:
                 _xinstanceof(utmups.Utm, utmups.Ups, toUtmUps8=u)
         return _lowerleft(u, center)
@@ -1153,7 +1155,7 @@ __all__ += _ALL_DOCS(CartesianEllipsoidalBase, LatLonEllipsoidalBase)
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

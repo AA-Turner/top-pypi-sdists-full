@@ -28,7 +28,6 @@ from .terminal import (
 from .utils import (
     import_module_member,
     is_xdist_worker,
-    xdist_numprocesses,
 )
 
 # Global to have access to the session in `pytest_runtest_logfinish` hook
@@ -152,26 +151,14 @@ def pytest_addoption(parser: "pytest.Parser") -> None:
         ),
     )
     group.addoption(
-        "--snapshot-file-lock",
-        action="store_true",
-        default=False,
-        dest="snapshot_file_lock",
-        help=(
-            "(Experimental) Use a file lock and atomic replace when writing "
-            "amber snapshot files so concurrent pytest-xdist workers do not "
-            "clobber each other during --snapshot-update. Same-machine workers "
-            "only; not reliable across remote workers / NFS. Expected to become "
-            "the default in a future minor release."
-        ),
-    )
-    group.addoption(
         "--snapshot-file-lock-timeout",
         type=float,
         default=60.0,
         dest="snapshot_file_lock_timeout",
         help=(
-            "Seconds to wait for an exclusive amber snapshot file lock when "
-            "using --snapshot-file-lock (default: 60)"
+            "Seconds to wait for an exclusive amber snapshot file lock under "
+            "pytest-xdist (default: 60). Locking is enabled automatically when "
+            "xdist is distributing work."
         ),
     )
 
@@ -251,11 +238,37 @@ def pytest_collection_modifyitems(
     config._syrupy.collect_items(items)
 
 
+def _last_failed_filtered_collection(config: Any) -> bool:
+    """True when ``--lf`` dropped tests before syrupy could record them.
+
+    pytest removes files with no failures, and passing tests inside files that
+    did fail, during collection. An empty last-failed cache does not filter
+    (``--lfnf=all`` reruns the suite). The flags read here are pytest-private
+    and have been stable since pytest 8; if they disappear, this returns False
+    and unused-snapshot cleanup follows collected == selected again.
+    """
+    if not getattr(config.option, "lf", False):
+        return False
+    manager = config.pluginmanager
+    lfplugin = manager.get_plugin("lfplugin")
+    # _skipped_files is an int counter. Truthiness covers a missing attribute too.
+    if lfplugin is not None and getattr(lfplugin, "_skipped_files", False):
+        return True
+    wrapper = manager.get_plugin("lfplugin-collwrapper")
+    return bool(
+        wrapper is not None
+        and getattr(wrapper, "_collected_at_least_one_failure", False)
+    )
+
+
 def pytest_collection_finish(session: Any) -> None:
     """
     After collection has been performed and modified.
     https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_collection_finish
     """
+    session.config._syrupy._lf_filtered = _last_failed_filtered_collection(
+        session.config
+    )
     session.config._syrupy.select_items(session.items)
 
 
@@ -288,29 +301,6 @@ def pytest_configure(config: pytest.Config) -> None:
         "xdist.plugin"
     ):
         config.pluginmanager.register(DeferXDist())
-
-    # Warn once on the controller when --snapshot-update runs under xdist
-    # without the experimental file lock (silent clobber risk; see #1237).
-    if (
-        not is_xdist_worker()
-        and bool(getattr(config.option, "update_snapshots", False))
-        and not bool(getattr(config.option, "snapshot_file_lock", False))
-    ):
-        numprocesses = xdist_numprocesses(config)
-        if numprocesses is not None and numprocesses > 1:
-            config.issue_config_time_warning(
-                pytest.PytestWarning(
-                    gettext(
-                        "syrupy: --snapshot-update under pytest-xdist without "
-                        "--snapshot-file-lock can silently corrupt shared amber "
-                        "snapshot files when workers write concurrently (#1237). "
-                        "Pass --snapshot-file-lock (experimental; same-machine "
-                        "workers only). This option is expected to become the "
-                        "default in a future minor release."
-                    )
-                ),
-                stacklevel=1,
-            )
 
 
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:

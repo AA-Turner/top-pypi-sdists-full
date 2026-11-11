@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+use tvm_ffi::optional::OptionalCompatible;
 use tvm_ffi::*;
 
 /// The 16-byte `TVMFFIAny` cell backing an `Optional<T>` (type_index@0,
@@ -56,7 +57,7 @@ fn object_option_uses_nullable_pointer_layout() {
     );
     let none: Option<Array<i64>> = None;
     assert!(none.is_none());
-    let some = Some(Array::new(vec![1i64, 2, 3]));
+    let some = Some(Array::from_vec(vec![1i64, 2, 3]));
     assert_eq!(some.as_ref().expect("engaged").len(), 3);
 }
 
@@ -91,7 +92,7 @@ fn pod_roundtrip_all_supported_types() {
     fn check<T: OptionalCompatible + PartialEq + Copy + std::fmt::Debug>(val: T) {
         let ty = std::any::type_name::<T>();
         let some = Optional::<T>::some(val);
-        assert!(some.has_value(), "engaged has_value for {ty}");
+        assert!(some.is_some(), "engaged is_some for {ty}");
         assert_eq!(some.get(), Some(val), "engaged roundtrip for {ty}");
 
         let none = Optional::<T>::none();
@@ -115,7 +116,7 @@ fn pod_roundtrip_all_supported_types() {
 fn roundtrip_get_set() {
     let mut o = Optional::<i32>::some(42);
     assert_eq!(o.get(), Some(42));
-    assert!(o.has_value());
+    assert!(o.is_some());
 
     o.set(None);
     assert_eq!(o.get(), None);
@@ -182,7 +183,7 @@ fn string_byte_image_matches_ffi_any() {
 fn string_roundtrip_and_as_str() {
     // small (inline) string
     let s = Optional::<String>::some(String::from("hi"));
-    assert!(s.has_value());
+    assert!(s.is_some());
     assert_eq!(s.as_str(), Some("hi"));
     assert_eq!(s.get().as_deref(), Some("hi"));
 

@@ -16,6 +16,7 @@ Usage::
         ListAnalysisReportsPaginator,
         ListContainerAssociationsPaginator,
         ListFirewallPoliciesPaginator,
+        ListFirewallPoliciesV2Paginator,
         ListFirewallsPaginator,
         ListFlowOperationResultsPaginator,
         ListFlowOperationsPaginator,
@@ -35,6 +36,7 @@ Usage::
     list_analysis_reports_paginator: ListAnalysisReportsPaginator = client.get_paginator("list_analysis_reports")
     list_container_associations_paginator: ListContainerAssociationsPaginator = client.get_paginator("list_container_associations")
     list_firewall_policies_paginator: ListFirewallPoliciesPaginator = client.get_paginator("list_firewall_policies")
+    list_firewall_policies_v2_paginator: ListFirewallPoliciesV2Paginator = client.get_paginator("list_firewall_policies_v2")
     list_firewalls_paginator: ListFirewallsPaginator = client.get_paginator("list_firewalls")
     list_flow_operation_results_paginator: ListFlowOperationResultsPaginator = client.get_paginator("list_flow_operation_results")
     list_flow_operations_paginator: ListFlowOperationsPaginator = client.get_paginator("list_flow_operations")
@@ -64,6 +66,8 @@ from .type_defs import (
     ListContainerAssociationsResponseTypeDef,
     ListFirewallPoliciesRequestPaginateTypeDef,
     ListFirewallPoliciesResponseTypeDef,
+    ListFirewallPoliciesV2RequestPaginateTypeDef,
+    ListFirewallPoliciesV2ResponseTypeDef,
     ListFirewallsRequestPaginateTypeDef,
     ListFirewallsResponseTypeDef,
     ListFlowOperationResultsRequestPaginateTypeDef,
@@ -97,6 +101,7 @@ __all__ = (
     "ListAnalysisReportsPaginator",
     "ListContainerAssociationsPaginator",
     "ListFirewallPoliciesPaginator",
+    "ListFirewallPoliciesV2Paginator",
     "ListFirewallsPaginator",
     "ListFlowOperationResultsPaginator",
     "ListFlowOperationsPaginator",
@@ -191,6 +196,27 @@ class ListFirewallPoliciesPaginator(_ListFirewallPoliciesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/paginator/ListFirewallPolicies.html#NetworkFirewall.Paginator.ListFirewallPolicies.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/paginators/#listfirewallpoliciespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListFirewallPoliciesV2PaginatorBase = Paginator[ListFirewallPoliciesV2ResponseTypeDef]
+else:
+    _ListFirewallPoliciesV2PaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListFirewallPoliciesV2Paginator(_ListFirewallPoliciesV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/paginator/ListFirewallPoliciesV2.html#NetworkFirewall.Paginator.ListFirewallPoliciesV2)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/paginators/#listfirewallpoliciesv2paginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListFirewallPoliciesV2RequestPaginateTypeDef]
+    ) -> PageIterator[ListFirewallPoliciesV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/paginator/ListFirewallPoliciesV2.html#NetworkFirewall.Paginator.ListFirewallPoliciesV2.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/paginators/#listfirewallpoliciesv2paginator)
         """
 
 

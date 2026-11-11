@@ -24,6 +24,7 @@ class ListFoldersResponse200Item:
         name (str):
         owners (List[str]):
         extra_perms (ListFoldersResponse200ItemExtraPerms):
+        display_name (Union[Unset, str]):
         summary (Union[Unset, str]):
         created_by (Union[Unset, str]):
         edited_at (Union[Unset, datetime.datetime]):
@@ -38,6 +39,7 @@ class ListFoldersResponse200Item:
     name: str
     owners: List[str]
     extra_perms: "ListFoldersResponse200ItemExtraPerms"
+    display_name: Union[Unset, str] = UNSET
     summary: Union[Unset, str] = UNSET
     created_by: Union[Unset, str] = UNSET
     edited_at: Union[Unset, datetime.datetime] = UNSET
@@ -51,6 +53,7 @@ class ListFoldersResponse200Item:
 
         extra_perms = self.extra_perms.to_dict()
 
+        display_name = self.display_name
         summary = self.summary
         created_by = self.created_by
         edited_at: Union[Unset, str] = UNSET
@@ -78,6 +81,8 @@ class ListFoldersResponse200Item:
                 "extra_perms": extra_perms,
             }
         )
+        if display_name is not UNSET:
+            field_dict["display_name"] = display_name
         if summary is not UNSET:
             field_dict["summary"] = summary
         if created_by is not UNSET:
@@ -105,6 +110,8 @@ class ListFoldersResponse200Item:
 
         extra_perms = ListFoldersResponse200ItemExtraPerms.from_dict(d.pop("extra_perms"))
 
+        display_name = d.pop("display_name", UNSET)
+
         summary = d.pop("summary", UNSET)
 
         created_by = d.pop("created_by", UNSET)
@@ -131,6 +138,7 @@ class ListFoldersResponse200Item:
             name=name,
             owners=owners,
             extra_perms=extra_perms,
+            display_name=display_name,
             summary=summary,
             created_by=created_by,
             edited_at=edited_at,

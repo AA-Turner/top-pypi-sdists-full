@@ -6,6 +6,7 @@ mod output_logger_provider_base_py;
 mod pyo_utils;
 mod raw_evaluation_compat_py;
 mod safe_gil;
+mod saved_experiment_exposure_py;
 mod statsig_base_py;
 mod statsig_metadata_py;
 mod statsig_options_py;
@@ -52,6 +53,10 @@ fn statsig_python_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<interned_store_py::MmapReaderMemorySnapshotPy>()?;
     m.add_class::<interned_store_py::MmapPreloadReportPy>()?;
     m.add_class::<interned_store_py::InternedStorePy>()?;
+    m.add_function(wrap_pyfunction!(
+        saved_experiment_exposure_py::_evaluate_layer_for_deferred_experiment_exposure,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(notify_python_shutdown, m)?)?;
     m.add_function(wrap_pyfunction!(notify_python_fork, m)?)?;
 

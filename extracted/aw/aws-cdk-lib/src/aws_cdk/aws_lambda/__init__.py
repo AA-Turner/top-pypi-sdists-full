@@ -2030,7 +2030,7 @@ lambda_.Function(self, "Function",
     code=lambda_.Code.from_asset(path.join(__dirname, "my-python-handler"),
         bundling=BundlingOptions(
             image=lambda_.Runtime.PYTHON_3_9.bundling_image,
-            command=["bash", "-c", "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output"
+            command=["bash", "-c", "pip install -r requirements.txt -t /asset-output && cp -au * /asset-output"
             ]
         )
     ),
@@ -2151,6 +2151,591 @@ lambda_.Function(self, "Function",
     handler="index.handler"
 )
 ```
+
+## WebFunction
+
+`WebFunction` is a serverless compute resource that lets you build and deploy low-latency web applications on AWS infrastructure. Each WebFunction gets its own HTTPS endpoint, in one Region by default or across several.
+
+### Basic Usage
+
+```python
+import aws_cdk.aws_s3 as s3
+
+
+code_bucket = s3.Bucket.from_bucket_name(self, "CodeBucket", "my-code-bucket")
+
+web_function = lambda_.WebFunction(self, "MyWebFunction",
+    code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+    runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+    default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH
+)
+```
+
+### Code Bucket Requirements
+
+WebFunction reads its code from S3 at runtime, as the Lambda service principal
+(`lambda.amazonaws.com`). That puts three requirements on the code bucket:
+
+1. **Versioning enabled** — each revision pins one version of the code object.
+2. **A bucket policy** granting `lambda.amazonaws.com` `s3:GetObject` and
+   `s3:GetObjectVersion` on the code object.
+3. **If the bucket is encrypted with a KMS key, a key policy** granting
+   `lambda.amazonaws.com` `kms:Decrypt`.
+
+`WebFunctionCode.fromBucket()` meets these on a best-effort basis:
+
+* **Bucket policy**: the statement is added automatically, scoped to the code
+  object, the deploying account, and the revisions of this WebFunction.
+* **Key policy**: for a customer managed key, `kms:Decrypt` is granted
+  automatically. An AWS-managed key (`BucketEncryption.KMS_MANAGED` or
+  `BucketEncryption.DSSE_MANAGED`) cannot work, since its policy cannot be
+  modified; a bucket defined in the same app with one fails at synthesis.
+* **Versioning**: `fromBucket()` does not change the bucket's versioning
+  setting, so it is asserted instead: a bucket defined in the same app without
+  `versioned: true` fails at synthesis.
+* **Imported buckets** (like `Bucket.fromBucketName` above): none of this can be
+  applied or checked from this app. Make sure yourself that versioning is
+  enabled, that the key policy grants `kms:Decrypt` if a customer managed key is
+  used, and that the bucket carries a policy statement like:
+
+```json
+{
+  "Effect": "Allow",
+  "Principal": { "Service": "lambda.amazonaws.com" },
+  "Action": ["s3:GetObject", "s3:GetObjectVersion"],
+  "Resource": "arn:aws:s3:::my-code-bucket/app.zip",
+  "Condition": {
+    "StringEquals": { "aws:SourceAccount": "123456789012" },
+    "ArnLike": {
+      "aws:SourceArn": "arn:aws:lambda:us-east-1:123456789012:web-function/my-function/revision/*"
+    }
+  }
+}
+```
+
+### Staging Local Code
+
+`fromBucket()` expects the code to already sit in a bucket that meets the
+requirements above. To deploy code from your local filesystem, use one of the asset
+factories instead. They stage the code the usual way and then copy it into a
+destination bucket that satisfies those requirements — the CDK bootstrap bucket
+cannot be used directly, since it has no versioning and its policy does not grant
+the Lambda service principal read access.
+
+Staging does not work in an environment bootstrapped with a customer managed KMS key.
+The copy function reads the staged asset from the bootstrap bucket and is not granted
+`kms:Decrypt` on that key, so the deployment fails with `AccessDenied` on `CopyObject`.
+In that case, upload the code to a bucket yourself and use `fromBucket()`.
+
+#### Into a bucket CDK creates
+
+```python
+lambda_.WebFunction(self, "MyWebFunction",
+    code=lambda_.WebFunctionCode.from_asset_to_managed_bucket(path.join(__dirname, "my-app")),
+    runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+    default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH
+)
+```
+
+One bucket is created per stack and shared by every WebFunction in it that uses this
+factory, configured with everything WebFunction requires: versioning, AES256 (SSE-S3)
+encryption, and a policy granting `lambda.amazonaws.com` read access. It is removed and
+emptied together with the stack that owns it, unless a revision whose code it holds is
+retained (see *Retaining revisions* below).
+
+The read grant covers every object in the bucket and matches any WebFunction revision in
+the account, rather than one statement per function, so that the policy does not grow with
+the number of functions. It does not isolate the functions sharing the bucket from each
+other. That isolation comes from the service: when a revision is created, it reads the code
+object with the caller's own credentials and rejects the request if the caller cannot, so
+creating a revision requires read access to its code.
+
+#### Into a bucket you own
+
+```python
+import aws_cdk.aws_s3 as s3
+
+
+code_bucket = s3.Bucket(self, "CodeBucket", versioned=True)
+
+lambda_.WebFunction(self, "MyWebFunction",
+    code=lambda_.WebFunctionCode.from_asset_to_provided_bucket(code_bucket, path.join(__dirname, "my-app"),
+        key_prefix="apps/"
+    ),
+    runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+    default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH
+)
+```
+
+The code is written to `<keyPrefix>web-function/<unique id>/<hash>.zip` —
+`apps/web-function/…` above. CDK only ever writes and deletes objects under that
+`web-function/` segment, never elsewhere in your bucket.
+
+The bucket must meet the same requirements as for `fromBucket()` (see *Code Bucket
+Requirements* above). Since the bucket is yours, CDK makes only the changes it has to and
+leaves the rest to you:
+
+* **Bucket policy** — handled by CDK. Each WebFunction adds its own statement granting
+  `lambda.amazonaws.com` read access to its own objects, on behalf of its own revisions
+  only.
+* **Key policy** — handled by CDK for a customer managed key: `kms:Decrypt` is granted in a
+  single statement shared by all functions. An AWS-managed key
+  (`BucketEncryption.KMS_MANAGED` or `BucketEncryption.DSSE_MANAGED`) cannot work, since its
+  policy cannot be modified; for a bucket defined in the same app this fails at synthesis.
+  SSE-S3 needs nothing.
+* **Versioning** — yours to enable. It is validated at synthesis for a bucket defined in the
+  same app.
+
+For an imported bucket or key, CDK can neither change nor inspect any of this. The policy
+grants become no-ops and a warning is emitted, a bucket without versioning is rejected at
+deployment, and an AWS-managed key surfaces as a read failure at runtime.
+
+The bucket can be in another Region than the stack.
+
+Because the bucket-policy statements accumulate, the 20 KB policy limit fits roughly 40–45
+WebFunctions per bucket, fewer if the policy already carries statements of your own. To
+serve more, you can:
+
+* spread them across several buckets;
+* use `fromAssetToManagedBucket()`, whose bucket policy does not grow with the number of
+  functions; or
+* import the bucket (for example with `s3.Bucket.fromBucketName`) and grant
+  `lambda.amazonaws.com` read access yourself with a single statement covering all your
+  functions. Note that a single statement no longer confines each function to its own code
+  object.
+
+#### Configuring the copy step
+
+Both asset factories move the staged code into the destination bucket with a
+CloudFormation custom resource: a small Lambda function that CloudFormation invokes
+during deployment to copy the object. It returns the S3 version ID of the object it
+wrote, and the WebFunction revision refers to exactly that version.
+
+Each revision has a code object of its own. A revision is replaced whenever any of its
+properties changes, so a new object is written whenever the code or any other revision
+setting changes, at a key derived from both, and the copy that wrote the previous one is
+replaced. The previous revision keeps serving from its own object while the deployment is in
+progress, and if the deployment rolls back, the new object is removed and traffic returns to
+it. Once the deployment succeeds, the previous object is deleted with the previous revision.
+The same happens when the destination or `copyOptions` change, and when a WebFunction is
+removed from the stack its object is deleted as well.
+
+#### Retaining revisions
+
+A revision can be retained with `resourceRevision.applyRemovalPolicy(RemovalPolicy.RETAIN)`, a
+`RemovalPolicies` aspect or an override of its `DeletionPolicy`. Its code object is retained
+with it: the copy that wrote it takes the revision's `UpdateReplacePolicy`, and as its
+`DeletionPolicy` the stronger of the revision's two policies, so `RetainExceptOnCreate` stays
+`RetainExceptOnCreate`. With `fromAssetToManagedBucket()`, the bucket, its policy and its
+auto-delete resource are retained as strongly as the most strongly retained revision using
+them, and a warning says so: the bucket and the code of every retained revision are then
+yours to clean up. To manage them yourself, use `fromAssetToProvidedBucket()` with a bucket
+you own. With a provided bucket defined in your app, its bucket policy, which holds the
+service's read grant, is retained the same way; the bucket keeps its own removal policy. For
+an imported bucket, keep the read grant in place yourself.
+
+Change retention in a deployment that does not also change `copyOptions` or the destination
+bucket. Such a change replaces the copy function, and the old copy is removed under its
+previous policy.
+
+One copy function is created for each destination bucket and set of `copyOptions`, and shared
+by every WebFunction in the stack that uses them. Pass
+`copyOptions` if your organization requires it to run inside a VPC, or to give it an
+execution role, security groups or log group of your own:
+
+```python
+import aws_cdk.aws_ec2 as ec2
+
+# vpc: ec2.IVpc
+
+
+lambda_.WebFunctionCode.from_asset_to_managed_bucket(path.join(__dirname, "my-app"),
+    copy_options=lambda.WebFunctionCodeCopyOptions(
+        vpc=vpc,
+        vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
+    )
+)
+```
+
+WebFunctions that pass different `copyOptions` get separate copy functions, since one
+Lambda function cannot carry two configurations.
+
+Without `logGroup`, CDK creates a log group for the copy function in the stack, with the
+default retention. Pass a log group of your own to control its retention or encryption.
+
+### Authentication
+
+`defaultEndpointAuth`, the auth type of the endpoint a WebFunction creates, is required with
+no default — you must choose explicitly:
+
+* `WebFunctionAuthType.IAM_AUTH` — Lambda authorizes requests using SigV4/IAM.
+* `WebFunctionAuthType.APPLICATION_MANAGED` — The endpoint is public; your handler code must validate every request.
+
+With `IAM_AUTH`, sign requests with SigV4 and include the `X-Amz-Content-SHA256` header, the
+SHA-256 hash of the request body, also for a request without a body. Without the header the
+endpoint returns `403 Forbidden`, even when the signature is valid. A `MULTI_REGION` endpoint
+has one global domain, so its requests are signed with SigV4a for the Region set `*`.
+
+### Endpoints
+
+A WebFunction creates one endpoint. Its auth type is `defaultEndpointAuth`, and its other
+settings (`endpointLocation`, `endpointName`, `rateLimit`, ...) go in `defaultEndpoint`. It is
+available as `endpoint`, with the domain clients send requests to and grants for invoking it:
+
+```python
+# fn: lambda.WebFunction
+# caller: iam.IGrantable
+
+
+CfnOutput(self, "Url", value=f"https://{fn.endpoint.domainName}")
+fn.endpoint.grants.invoke(caller)
+```
+
+Add more endpoints with `addEndpoint()`, for example to serve the same function under a
+different auth type or endpoint type. Each endpoint has its own settings, auth type included,
+and its own domain and grants, and serves the function's revision:
+
+```python
+# fn: lambda.WebFunction
+
+
+internal = fn.add_endpoint("Internal",
+    auth_type=lambda_.WebFunctionAuthType.IAM_AUTH
+)
+```
+
+To reference an endpoint defined elsewhere, import it with its ARN, domain name, type and auth
+type. The domain name is assigned by the service, so it cannot be derived from the ARN:
+
+```python
+endpoint = lambda_.WebFunctionEndpoint.from_web_function_endpoint_attributes(self, "Endpoint",
+    endpoint_arn="arn:aws:lambda:us-west-2:123456789012:web-function/my-function/endpoint/prod",
+    domain_name="abcd1234.lambda-web.us-west-2.on.aws",
+    endpoint_type=lambda_.WebFunctionEndpointType.HOME_REGION,
+    auth_type=lambda_.WebFunctionAuthType.IAM_AUTH
+)
+```
+
+### Granting Access to Other Accounts and Services
+
+`grants.invoke()` gives a role or user in the same account the permission in its own policy.
+Any other grantee, such as another account or a service principal, gets a statement in the
+WebFunction's resource-based policy instead. For example, to let a CloudFront distribution
+with origin access control call an endpoint:
+
+```python
+# fn: lambda.WebFunction
+# distribution_arn: str
+
+
+fn.endpoint.grants.invoke(iam.ServicePrincipal("cloudfront.amazonaws.com",
+    conditions={"ArnLike": {"aws:SourceArn": distribution_arn}}
+))
+```
+
+A web function has a single resource-based policy, so every statement for it, from any of its
+endpoints or from `addToResourcePolicy()`, goes into one `AWS::Lambda::ResourcePolicy`. Do not
+define another policy for the same function: a second `AWS::Lambda::ResourcePolicy` fails with
+"already exists", and so does this one when the function already has a policy set outside
+CloudFormation. To move from such a policy, or from a `CfnResourcePolicy` of your own, to
+`grants.invoke()`, deploy twice: first remove the old policy, then add the grants. For the same
+reason the policy of an imported WebFunction cannot be added to; CDK warns instead.
+
+The policy is in the WebFunction's stack. If the distribution is in another stack, the
+condition on its ARN makes the function's stack depend on the distribution's, while the
+distribution reads the endpoint's domain name from the function's stack, so the two
+reference each other. Define the distribution in the function's stack, or in another stack
+condition the statement on `aws:SourceAccount` and an `ArnLike` on
+`arn:<partition>:cloudfront::<account>:distribution/*` instead, which names no single
+distribution.
+
+An endpoint created with `new WebFunctionEndpoint()` in another stack from its function can
+be granted on as well: the statement names it by the function's ARN and the endpoint name, so
+that the function's stack does not depend on the endpoint's. Its `endpointName` must then be
+a literal.
+
+### Multi-Region Deployment
+
+Deploy globally with latency-based routing:
+
+```python
+import aws_cdk.aws_s3 as s3
+
+# code_bucket: s3.IBucket
+
+
+lambda_.WebFunction(self, "GlobalApi",
+    code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+    runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+    default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+    default_endpoint=lambda.WebFunctionDefaultEndpointOptions(
+        endpoint_location=lambda_.WebFunctionEndpointLocation.multi_region(["us-east-1", "eu-west-1", "ap-northeast-1"])
+    )
+)
+```
+
+The stack's own region always serves traffic, so listing it has no effect, and at least one
+other region is required. The list is treated as a set, so order and duplicates do not
+matter. Adding or removing a region replaces the endpoint, which gives it a new `domainName`.
+
+For a separate regional endpoint per region (instead of managed latency-based
+routing), use `WebFunctionEndpointLocation.perRegion()`, which takes replica regions the
+same way:
+
+```python
+import aws_cdk.aws_s3 as s3
+
+# code_bucket: s3.IBucket
+
+
+lambda_.WebFunction(self, "PerRegionApi",
+    code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+    runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+    default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+    default_endpoint=lambda.WebFunctionDefaultEndpointOptions(
+        endpoint_location=lambda_.WebFunctionEndpointLocation.per_region(["us-east-1", "us-west-2"])
+    )
+)
+```
+
+### Changing an endpoint
+
+An endpoint's `endpointName` and `endpointLocation`, its type and replica regions, are
+create-only on the underlying endpoint resource. Changing either replaces the endpoint, and the
+replacement gets a new `domainName`, so every client that uses the old hostname
+breaks. Adding a replica region later therefore means a new URL; decide the
+region set up front where you can. Changing `webFunctionName` replaces the whole
+WebFunction, with the same effect.
+
+CloudFormation cannot replace a resource that keeps the same name. When you leave
+`endpointName` unset, the name is derived from `endpointLocation` (`prod` for a
+home-Region endpoint), so changing it renames the endpoint too and the replacement goes
+through. If you set `endpointName`, change it together with the location, or the
+deployment fails. The same applies to a list of replica regions that is only known at
+deployment, such as a `CfnParameter`, since its value cannot feed the name.
+
+Renaming the construct id has the same effect as changing `webFunctionName`: the
+generated name derives from the construct's path, so CloudFormation creates a new
+WebFunction with a new URL and deletes the old one. With a fixed `webFunctionName` the
+rename fails instead, because the old function still holds that name. Keep the construct
+id stable once an endpoint is in use.
+
+Changes to the revision (code, runtime, environment variables, `kmsKey`,
+`timeout`, `role`, logging) create a new revision and repoint the existing
+endpoint to it in place, and the auth type is updated in place. `domainName` does
+not change in either case.
+
+The new revision receives all traffic as soon as the endpoint is repointed, and the
+previous revision is deleted when the deployment completes. Creating a revision does
+not check that its code starts, so code that fails at startup still deploys
+successfully and only fails once requests arrive.
+
+### Rolling back
+
+The construct keeps one revision. Once a deployment completes, the previous revision
+is deleted, and so is the code object it read, so there is no earlier revision left to
+point the endpoint back at. How to go back depends on when:
+
+* **During the deployment.** If any resource in the stack fails, CloudFormation rolls
+  back: the endpoint returns to the previous revision, which is untouched, as is its code.
+* **Shortly after it.** Deploy with CloudFormation
+  [rollback triggers](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-rollback-triggers.html):
+  a CloudWatch alarm and a monitoring period. CloudFormation keeps the previous revision
+  until the monitoring period ends, so an alarm in that window rolls the stack back and
+  returns traffic to it.
+* **Later.** Deploy the previous code again, for example by reverting the change and
+  running `cdk deploy`. This creates a new revision from that code rather than restoring
+  the old one.
+
+Repointing the endpoint outside CloudFormation, for example in the console, is not a
+supported way back: the previous revision no longer exists, and the next deployment would
+overwrite the change.
+
+The construct does not model more than one live revision or weighted traffic between
+revisions. `resourceRevision` and `endpoint.resource` are for overriding properties of the
+resources the construct creates; they do not add revisions. To keep several revisions
+addressable or split traffic between them, use the L1 constructs directly (see
+[Escape Hatches](#escape-hatches)).
+
+### Environment Variables and Logging
+
+```python
+import aws_cdk.aws_s3 as s3
+
+# code_bucket: s3.IBucket
+
+
+lambda_.WebFunction(self, "MyWebFunction",
+    code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+    runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+    default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+    environment={
+        "TABLE_NAME": "my-table"
+    },
+    application_log_level=lambda_.ApplicationLogLevel.INFO,
+    system_log_level=lambda_.SystemLogLevel.WARN
+)
+```
+
+Logs go to the log group passed in `logGroup`. Without one, the construct creates a log
+group, named by CloudFormation and retained when the stack is deleted. The `logGroup`
+attribute returns whichever is used, for example to output its name:
+
+```python
+# fn: lambda.WebFunction
+
+
+CfnOutput(self, "LogGroupName", value=fn.log_group.log_group_ref.log_group_name)
+```
+
+By default the runtime executes `index.js` at the root of the deployment
+package. Use `entryPoint` to point it at a different file (surfaced to the
+runtime via the reserved `AWS_LAMBDA_NODEJS_ENTRYPOINT` environment variable):
+
+```python
+import aws_cdk.aws_s3 as s3
+
+# code_bucket: s3.IBucket
+
+
+lambda_.WebFunction(self, "MyWebFunction",
+    code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+    runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+    default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+    entry_point="src/server.js"
+)
+```
+
+### VPC Access with a Network Connector
+
+A WebFunction reaches resources in a VPC through a `NetworkConnector`: a Lambda resource
+that holds the network configuration and owns the network interfaces in your VPC. The
+interfaces are provisioned when the connector is created, so creating or updating the
+function does not wait on them.
+
+```python
+import aws_cdk.aws_ec2 as ec2
+
+# vpc: ec2.Vpc
+# code: lambda.WebFunctionCode
+
+
+security_group = ec2.SecurityGroup(self, "EgressSecurityGroup", vpc=vpc)
+
+connector = lambda_.NetworkConnector(self, "Egress",
+    configuration=lambda_.NetworkConnectorConfiguration.vpc_egress(
+        compute_type=lambda_.NetworkConnectorComputeType.WEB_FUNCTION,
+        vpc=vpc,
+        vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+        security_groups=[security_group]
+    )
+)
+
+lambda_.WebFunction(self, "MyWebFunction",
+    code=code,
+    runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+    default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+    egress_network_connector=connector
+)
+```
+
+A connector serves one compute type, so a WebFunction needs one created for
+`NetworkConnectorComputeType.WEB_FUNCTION`. The connector only initiates connections; the
+security groups' outbound rules decide what the function can reach.
+
+A function with a connector can only be served by home-Region endpoints: its default
+endpoint, any endpoint added with `addEndpoint()` and any `WebFunctionEndpoint` for it must
+use `WebFunctionEndpointLocation.homeRegion()`, and synthesis fails otherwise.
+
+The Lambda service manages the network interfaces through the connector's `operatorRole`.
+By default a role with the AWS managed policy `AWSLambdaNetworkConnectorOperatorPolicy` is
+created. If you pass your own role, that policy is attached to it when the role is defined in
+the same app; a role imported by ARN or name cannot be modified, so a warning is emitted and
+it must already carry the policy or equivalent permissions.
+
+Use a role dedicated to the connector. The service assumes it without presenting a source
+account or ARN, so its trust policy cannot be conditioned, and whatever else uses the role
+gains the permissions to manage network interfaces in the VPC. A function's execution role,
+for example, already trusts `lambda.amazonaws.com`, so passing it as the operator role would
+give that function's code those permissions.
+
+#### Connector versions and how the function follows them
+
+Every update to a connector produces a new, immutable version, and a WebFunction revision
+pins to exactly one version. There are two ways to reference a connector, and they differ
+in who decides when the function moves to a new version.
+
+**A connector in the same stack** — as above — pins the revision to the connector's latest
+version at deployment time. When you later update the connector, the same deployment
+replaces the revision and shifts traffic to it, so the function moves to the new version
+as part of that change, with CloudFormation's usual rollback if it fails. Nothing changes
+outside of a deployment.
+
+**A fixed version, imported by its ARN** — pins the function until you change the ARN in
+your code. Updates to the connector do not touch the function.
+
+```python
+# code: lambda.WebFunctionCode
+
+
+connector = lambda_.NetworkConnector.from_network_connector_version_arn(self, "Egress", "arn:aws:lambda:us-west-2:123456789012:network-connector:nc-0123abcd:3")
+
+lambda_.WebFunction(self, "MyWebFunction",
+    code=code,
+    runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+    default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+    egress_network_connector=connector
+)
+```
+
+This is also the only way to use a connector that lives in another stack. A connector's
+latest version ARN changes on every update, and CloudFormation does not let a stack change
+an exported value while another stack imports it, so referencing a connector *defined* in
+another stack is rejected at synthesis.
+
+`NetworkConnector.fromNetworkConnectorArn()` imports a connector by its unqualified ARN,
+which names the connector as a whole rather than a version. Use it for IAM policies; a
+WebFunction cannot pin to it and refuses it.
+
+#### Removing a subnet or security group
+
+Earlier connector versions keep their network interfaces, and an update does not delete
+them. A subnet or security group you remove from the connector is therefore still in use by
+the previous version, and cannot be deleted in the same deployment.
+
+### Importing an Existing WebFunction
+
+```python
+imported = lambda_.WebFunction.from_web_function_arn(self, "Imported", "arn:aws:lambda:us-west-2:123456789012:web-function/my-function")
+```
+
+### Escape Hatches
+
+The construct exposes its underlying L1 resources for advanced configuration:
+
+```python
+import aws_cdk.aws_s3 as s3
+
+# code_bucket: s3.IBucket
+
+
+wf = lambda_.WebFunction(self, "MyWebFunction",
+    code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+    runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+    default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH
+)
+
+wf.resource.add_override("Properties.SomeField", "value")
+wf.resource_revision.add_override("Properties.SomeField", "value")
+wf.endpoint.resource.add_override("Properties.SomeField", "value")
+```
+
+For configurations the construct does not model, such as splitting traffic across multiple
+revisions, use the L1 constructs (`CfnWebFunction`, `CfnWebFunctionRevision` and
+`CfnWebFunctionEndpoint`) directly.
+
+Metrics are not modeled yet. The endpoint publishes them in the `AWS/Lambda/Web` namespace with
+the `FunctionName` and `EndpointName` dimensions; use `cloudwatch.Metric` to reference them.
 '''
 from __future__ import annotations
 
@@ -2201,6 +2786,7 @@ if typing.TYPE_CHECKING:
     import aws_cdk.aws_sns as _aws_sns_07ffc8ab
     import aws_cdk.aws_sqs as _aws_sqs_24ab9de4
     import aws_cdk.interfaces.aws_cognito as _aws_cognito_aa210b15
+    import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
     import aws_cdk.interfaces.aws_events as _aws_events_49a540ff
     import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
     import aws_cdk.interfaces.aws_iot as _aws_iot_df2fec1f
@@ -2223,6 +2809,7 @@ else:
     _aws_codeguruprofiler_1936f743 = _LazyImport("aws_cdk.aws_codeguruprofiler")
     _aws_cognito_aa210b15 = _LazyImport("aws_cdk.interfaces.aws_cognito")
     _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
     _aws_ecr_7549cade = _LazyImport("aws_cdk.aws_ecr")
     _aws_ecr_assets_c4622a7f = _LazyImport("aws_cdk.aws_ecr_assets")
     _aws_efs_22eb75e8 = _LazyImport("aws_cdk.aws_efs")
@@ -13775,6 +14362,7 @@ class CfnMicrovmImage(
             )],
         
             # the properties below are optional
+            kms_key_identifier="kmsKeyIdentifier",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -13800,6 +14388,7 @@ class CfnMicrovmImage(
         logging: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMicrovmImage.LoggingProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         resources: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMicrovmImage.ResourcesProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        kms_key_identifier: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Lambda::MicrovmImage``.
@@ -13819,6 +14408,7 @@ class CfnMicrovmImage(
         :param logging: 
         :param name: Unique name for the MicroVM image within the account.
         :param resources: 
+        :param kms_key_identifier: The customer managed KMS key used to encrypt the MicroVM image configuration at rest. When omitted, a service owned key is used.
         :param tags: Key-value pairs to associate with the MicroVM image for organization and management.
         '''
         if __debug__:
@@ -13839,6 +14429,7 @@ class CfnMicrovmImage(
             logging=logging,
             name=name,
             resources=resources,
+            kms_key_identifier=kms_key_identifier,
             tags=tags,
         )
 
@@ -14153,6 +14744,19 @@ class CfnMicrovmImage(
             type_hints = cached_type_hints(_typecheckingstub__7550de8f03211fb14a321e507c5cc7671daef2e6b47f49cd5c4d64ac352cdb14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resources", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyIdentifier")
+    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The customer managed KMS key used to encrypt the MicroVM image configuration at rest.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyIdentifier"))
+
+    @kms_key_identifier.setter
+    def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c70616e41b81fd5f7e4343bb876209994a6c89b7dd17394ab5f9eee5e58be6cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -14907,6 +15511,7 @@ class CfnMicrovmImage(
         "logging": "logging",
         "name": "name",
         "resources": "resources",
+        "kms_key_identifier": "kmsKeyIdentifier",
         "tags": "tags",
     },
 )
@@ -14927,6 +15532,7 @@ class CfnMicrovmImageProps:
         logging: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMicrovmImage.LoggingProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         resources: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMicrovmImage.ResourcesProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        kms_key_identifier: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMicrovmImage``.
@@ -14944,6 +15550,7 @@ class CfnMicrovmImageProps:
         :param logging: 
         :param name: Unique name for the MicroVM image within the account.
         :param resources: 
+        :param kms_key_identifier: The customer managed KMS key used to encrypt the MicroVM image configuration at rest. When omitted, a service owned key is used.
         :param tags: Key-value pairs to associate with the MicroVM image for organization and management.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html
@@ -15005,6 +15612,7 @@ class CfnMicrovmImageProps:
                 )],
             
                 # the properties below are optional
+                kms_key_identifier="kmsKeyIdentifier",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -15026,6 +15634,7 @@ class CfnMicrovmImageProps:
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
+            check_type(argname="argument kms_key_identifier", value=kms_key_identifier, expected_type=type_hints["kms_key_identifier"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "additional_os_capabilities": additional_os_capabilities,
@@ -15042,6 +15651,8 @@ class CfnMicrovmImageProps:
             "name": name,
             "resources": resources,
         }
+        if kms_key_identifier is not None:
+            self._values["kms_key_identifier"] = kms_key_identifier
         if tags is not None:
             self._values["tags"] = tags
 
@@ -15181,6 +15792,17 @@ class CfnMicrovmImageProps:
         return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMicrovmImage.ResourcesProperty"]]], result)
 
     @builtins.property
+    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The customer managed KMS key used to encrypt the MicroVM image configuration at rest.
+
+        When omitted, a service owned key is used.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-kmskeyidentifier
+        '''
+        result = self._values.get("kms_key_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs to associate with the MicroVM image for organization and management.
 
@@ -15220,13 +15842,18 @@ class CfnNetworkConnector(
         # The values are placeholders you should change.
         from aws_cdk import aws_lambda as lambda_
         
+        # elastic_ip_configuration: Any
+        
         cfn_network_connector = lambda_.CfnNetworkConnector(self, "MyCfnNetworkConnector",
             configuration=lambda.CfnNetworkConnector.ConfigProperty(
                 vpc_egress_configuration=lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
                     associated_compute_resource_types=["associatedComputeResourceTypes"],
                     network_protocol="networkProtocol",
                     security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
+                    subnet_ids=["subnetIds"],
+        
+                    # the properties below are optional
+                    elastic_ip_configuration=elastic_ip_configuration
                 )
             ),
         
@@ -15477,12 +16104,17 @@ class CfnNetworkConnector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lambda as lambda_
                 
+                # elastic_ip_configuration: Any
+                
                 config_property = lambda.CfnNetworkConnector.ConfigProperty(
                     vpc_egress_configuration=lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
                         associated_compute_resource_types=["associatedComputeResourceTypes"],
                         network_protocol="networkProtocol",
                         security_group_ids=["securityGroupIds"],
-                        subnet_ids=["subnetIds"]
+                        subnet_ids=["subnetIds"],
+                
+                        # the properties below are optional
+                        elastic_ip_configuration=elastic_ip_configuration
                     )
                 )
             '''
@@ -15526,6 +16158,7 @@ class CfnNetworkConnector(
             "network_protocol": "networkProtocol",
             "security_group_ids": "securityGroupIds",
             "subnet_ids": "subnetIds",
+            "elastic_ip_configuration": "elasticIpConfiguration",
         },
     )
     class VpcEgressConfigurationProperty:
@@ -15536,6 +16169,7 @@ class CfnNetworkConnector(
             network_protocol: builtins.str,
             security_group_ids: typing.Sequence[builtins.str],
             subnet_ids: typing.Sequence[builtins.str],
+            elastic_ip_configuration: typing.Any = None,
         ) -> None:
             '''The VPC egress configuration for the network connector.
 
@@ -15545,6 +16179,7 @@ class CfnNetworkConnector(
             :param network_protocol: The network protocol for the connector. Specify IPv4 for IPv4-only networking, or DualStack for both IPv4 and IPv6.
             :param security_group_ids: The IDs of the VPC security groups to attach to the ENIs. All security groups must be in the same VPC as the subnets.
             :param subnet_ids: The IDs of the VPC subnets where Lambda provisions elastic network interfaces (ENIs). Specify 1 to 16 subnets. All subnets must be in the same VPC.
+            :param elastic_ip_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -15555,11 +16190,16 @@ class CfnNetworkConnector(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_lambda as lambda_
                 
+                # elastic_ip_configuration: Any
+                
                 vpc_egress_configuration_property = lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
                     associated_compute_resource_types=["associatedComputeResourceTypes"],
                     network_protocol="networkProtocol",
                     security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
+                    subnet_ids=["subnetIds"],
+                
+                    # the properties below are optional
+                    elastic_ip_configuration=elastic_ip_configuration
                 )
             '''
             if __debug__:
@@ -15568,12 +16208,15 @@ class CfnNetworkConnector(
                 check_type(argname="argument network_protocol", value=network_protocol, expected_type=type_hints["network_protocol"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+                check_type(argname="argument elastic_ip_configuration", value=elastic_ip_configuration, expected_type=type_hints["elastic_ip_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "associated_compute_resource_types": associated_compute_resource_types,
                 "network_protocol": network_protocol,
                 "security_group_ids": security_group_ids,
                 "subnet_ids": subnet_ids,
             }
+            if elastic_ip_configuration is not None:
+                self._values["elastic_ip_configuration"] = elastic_ip_configuration
 
         @builtins.property
         def associated_compute_resource_types(self) -> typing.List[builtins.str]:
@@ -15623,6 +16266,14 @@ class CfnNetworkConnector(
             assert result is not None, "Required property 'subnet_ids' is missing"
             return typing.cast(typing.List[builtins.str], result)
 
+        @builtins.property
+        def elastic_ip_configuration(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html#cfn-lambda-networkconnector-vpcegressconfiguration-elasticipconfiguration
+            '''
+            result = self._values.get("elastic_ip_configuration")
+            return typing.cast(typing.Any, result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -15671,13 +16322,18 @@ class CfnNetworkConnectorProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_lambda as lambda_
             
+            # elastic_ip_configuration: Any
+            
             cfn_network_connector_props = lambda.CfnNetworkConnectorProps(
                 configuration=lambda.CfnNetworkConnector.ConfigProperty(
                     vpc_egress_configuration=lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
                         associated_compute_resource_types=["associatedComputeResourceTypes"],
                         network_protocol="networkProtocol",
                         security_group_ids=["securityGroupIds"],
-                        subnet_ids=["subnetIds"]
+                        subnet_ids=["subnetIds"],
+            
+                        # the properties below are optional
+                        elastic_ip_configuration=elastic_ip_configuration
                     )
                 ),
             
@@ -28704,6 +29360,77 @@ class _ILayerVersionProxy(
 typing.cast(typing.Any, ILayerVersion).__jsii_proxy_class__ = lambda : _ILayerVersionProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_lambda.INetworkConnector")
+class INetworkConnector(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_lambda_aaab8031.INetworkConnectorRef,
+    typing_extensions.Protocol,
+):
+    '''A Lambda Network Connector.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="latestVersionArn")
+    def latest_version_arn(self) -> builtins.str:
+        '''The qualified ARN of the connector's latest version.
+
+        WebFunction pins a revision to this. For a connector defined in this app the value changes
+        on every update to the connector, which replaces the revision that references it.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="networkConnectorArn")
+    def network_connector_arn(self) -> builtins.str:
+        '''The unqualified ARN of the network connector.
+
+        Identifies the connector as a whole, across its versions: use it in IAM policies and for
+        consumers that resolve the current version at run time. It does not name a version, so
+        WebFunction — which pins a revision to one version — does not accept it.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _INetworkConnectorProxy(
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_lambda_aaab8031.INetworkConnectorRef), # type: ignore[misc]
+):
+    '''A Lambda Network Connector.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lambda.INetworkConnector"
+
+    @builtins.property
+    @jsii.member(jsii_name="latestVersionArn")
+    def latest_version_arn(self) -> builtins.str:
+        '''The qualified ARN of the connector's latest version.
+
+        WebFunction pins a revision to this. For a connector defined in this app the value changes
+        on every update to the connector, which replaces the revision that references it.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "latestVersionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="networkConnectorArn")
+    def network_connector_arn(self) -> builtins.str:
+        '''The unqualified ARN of the network connector.
+
+        Identifies the connector as a whole, across its versions: use it in IAM policies and for
+        consumers that resolve the current version at run time. It does not name a version, so
+        WebFunction — which pins a revision to one version — does not accept it.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "networkConnectorArn"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, INetworkConnector).__jsii_proxy_class__ = lambda : _INetworkConnectorProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_lambda.IScalableFunctionAttribute")
 class IScalableFunctionAttribute(
     _constructs_77d1e7e8.IConstruct,
@@ -29009,6 +29736,229 @@ class _IVersionProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IVersion).__jsii_proxy_class__ = lambda : _IVersionProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_lambda.IWebFunction")
+class IWebFunction(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_lambda_aaab8031.IWebFunctionRef,
+    _aws_iam_1f54b5e8.IGrantable,
+    _aws_iam_1f54b5e8.IResourceWithPolicyV2,
+    typing_extensions.Protocol,
+):
+    '''Represents a WebFunction resource, either created in this stack or imported.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionArn")
+    def web_function_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionName")
+    def web_function_name(self) -> builtins.str:
+        '''The name of the WebFunction.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> typing.Optional["_aws_iam_632e20f6.IRoleRef"]:
+        '''The execution role of the WebFunction.
+
+        Undefined for an imported WebFunction.
+        '''
+        ...
+
+    @jsii.member(jsii_name="addToRolePolicy")
+    def add_to_role_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> None:
+        '''Adds a statement to the WebFunction's execution role.
+
+        For an imported WebFunction the role is unknown, so this adds a warning asking for the
+        permission to be granted manually instead.
+
+        :param statement: -
+        '''
+        ...
+
+
+class _IWebFunctionProxy(
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_lambda_aaab8031.IWebFunctionRef), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_1f54b5e8.IGrantable), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_1f54b5e8.IResourceWithPolicyV2), # type: ignore[misc]
+):
+    '''Represents a WebFunction resource, either created in this stack or imported.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lambda.IWebFunction"
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionArn")
+    def web_function_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "webFunctionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionName")
+    def web_function_name(self) -> builtins.str:
+        '''The name of the WebFunction.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "webFunctionName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> typing.Optional["_aws_iam_632e20f6.IRoleRef"]:
+        '''The execution role of the WebFunction.
+
+        Undefined for an imported WebFunction.
+        '''
+        return typing.cast(typing.Optional["_aws_iam_632e20f6.IRoleRef"], jsii.get(self, "role"))
+
+    @jsii.member(jsii_name="addToRolePolicy")
+    def add_to_role_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> None:
+        '''Adds a statement to the WebFunction's execution role.
+
+        For an imported WebFunction the role is unknown, so this adds a warning asking for the
+        permission to be granted manually instead.
+
+        :param statement: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__908af63f072feec73fb0af50ce2646119efb6609111b736dd3add3df05baee34)
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+        return typing.cast(None, jsii.invoke(self, "addToRolePolicy", [statement]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWebFunction).__jsii_proxy_class__ = lambda : _IWebFunctionProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_lambda.IWebFunctionEndpoint")
+class IWebFunctionEndpoint(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_lambda_aaab8031.IWebFunctionEndpointRef,
+    _aws_iam_1f54b5e8.IResourceWithPolicyV2,
+    typing_extensions.Protocol,
+):
+    '''Represents a WebFunction endpoint, either created in this stack or imported.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="authType")
+    def auth_type(self) -> "WebFunctionAuthType":
+        '''How the endpoint authenticates requests.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        '''The domain name of the endpoint: the host clients send requests to.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointArn")
+    def endpoint_arn(self) -> builtins.str:
+        '''The ARN of the endpoint.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointType")
+    def endpoint_type(self) -> "WebFunctionEndpointType":
+        '''The endpoint type.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "WebFunctionEndpointGrants":
+        '''Grant methods for the endpoint.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionArn")
+    def web_function_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction the endpoint serves.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _IWebFunctionEndpointProxy(
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_lambda_aaab8031.IWebFunctionEndpointRef), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_1f54b5e8.IResourceWithPolicyV2), # type: ignore[misc]
+):
+    '''Represents a WebFunction endpoint, either created in this stack or imported.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lambda.IWebFunctionEndpoint"
+
+    @builtins.property
+    @jsii.member(jsii_name="authType")
+    def auth_type(self) -> "WebFunctionAuthType":
+        '''How the endpoint authenticates requests.'''
+        return typing.cast("WebFunctionAuthType", jsii.get(self, "authType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        '''The domain name of the endpoint: the host clients send requests to.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "domainName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointArn")
+    def endpoint_arn(self) -> builtins.str:
+        '''The ARN of the endpoint.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "endpointArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointType")
+    def endpoint_type(self) -> "WebFunctionEndpointType":
+        '''The endpoint type.'''
+        return typing.cast("WebFunctionEndpointType", jsii.get(self, "endpointType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "WebFunctionEndpointGrants":
+        '''Grant methods for the endpoint.'''
+        return typing.cast("WebFunctionEndpointGrants", jsii.get(self, "grants"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionArn")
+    def web_function_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction the endpoint serves.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "webFunctionArn"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWebFunctionEndpoint).__jsii_proxy_class__ = lambda : _IWebFunctionEndpointProxy
 
 
 class InlineCode(
@@ -30810,6 +31760,563 @@ class MetricsConfig:
         )
 
 
+@jsii.implements(INetworkConnector)
+class NetworkConnector(
+    _aws_cdk_0cae9daa.Resource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.NetworkConnector",
+):
+    '''A Lambda Network Connector: network configuration that Lambda compute attaches to.
+
+    The connector owns the network interfaces in the VPC. Compute references a connector rather
+    than carrying subnets and security groups itself, so the interfaces are provisioned when the
+    connector is created, not when each function is.
+
+    Every update to the connector produces a new immutable version. A WebFunction pins its
+    revision to one version (``latestVersionArn``), so when the connector in the same stack is
+    updated, the revision is replaced and moves to the new version as part of that deployment.
+    To hold a WebFunction on a fixed version instead — or to reference a connector from another
+    stack — import the version with ``fromNetworkConnectorVersionArn``.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_ec2 as ec2
+        
+        # vpc: ec2.Vpc
+        # code: lambda.WebFunctionCode
+        
+        
+        security_group = ec2.SecurityGroup(self, "EgressSecurityGroup", vpc=vpc)
+        
+        connector = lambda_.NetworkConnector(self, "Egress",
+            configuration=lambda_.NetworkConnectorConfiguration.vpc_egress(
+                compute_type=lambda_.NetworkConnectorComputeType.WEB_FUNCTION,
+                vpc=vpc,
+                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+                security_groups=[security_group]
+            )
+        )
+        
+        lambda_.WebFunction(self, "MyWebFunction",
+            code=code,
+            runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+            default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+            egress_network_connector=connector
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        configuration: "NetworkConnectorConfiguration",
+        network_connector_name: typing.Optional[builtins.str] = None,
+        operator_role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param configuration: The network configuration.
+        :param network_connector_name: A name for the connector, unique within the account and region. Changing it replaces the connector. Default: - a name is generated by CloudFormation
+        :param operator_role: The role the Lambda service assumes to manage the connector's network interfaces in the VPC. The ``AWSLambdaNetworkConnectorOperatorPolicy`` managed policy is attached to a provided role defined in this app, as it is to the default one. A role imported by ARN or name cannot be modified from this app, so a warning is emitted instead: make sure it already carries that policy, or equivalent permissions to manage the connector's network interfaces. Use a role dedicated to this connector. The service assumes it without presenting a source account or ARN, so its trust policy cannot be conditioned, and whatever else uses the role gains the permissions to manage network interfaces in the VPC. A function's execution role, for example, already trusts ``lambda.amazonaws.com``, so passing it here would give that function's code those permissions. Default: - a role is created with the ``AWSLambdaNetworkConnectorOperatorPolicy`` managed policy
+        :param tags: Tags to apply to the connector. Default: - No tags.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6638690b14269985f80d2490c546d5728d6e4dd9b0570ebbe2659ff842f77678)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = NetworkConnectorProps(
+            configuration=configuration,
+            network_connector_name=network_connector_name,
+            operator_role=operator_role,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromNetworkConnectorArn")
+    @builtins.classmethod
+    def from_network_connector_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        network_connector_arn: builtins.str,
+    ) -> "INetworkConnector":
+        '''Import a connector by its unqualified ARN.
+
+        The result names the connector as a whole, not a version, so it can be used in IAM
+        policies but not as a WebFunction's ``egressNetworkConnector``; reading ``latestVersionArn``
+        on it throws. Use ``fromNetworkConnectorVersionArn`` for that.
+
+        :param scope: -
+        :param id: -
+        :param network_connector_arn: An unqualified ARN, ``arn:...:network-connector:nc-<id>``.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9bfe8ed556df62a757a3c926b8a9e1b60cb2e38ea12b2e3e2e2374f004a36d16)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument network_connector_arn", value=network_connector_arn, expected_type=type_hints["network_connector_arn"])
+        return typing.cast("INetworkConnector", jsii.sinvoke(cls, "fromNetworkConnectorArn", [scope, id, network_connector_arn]))
+
+    @jsii.member(jsii_name="fromNetworkConnectorAttributes")
+    @builtins.classmethod
+    def from_network_connector_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        network_connector_arn: builtins.str,
+        latest_version_arn: typing.Optional[builtins.str] = None,
+    ) -> "INetworkConnector":
+        '''Import a connector from its attributes.
+
+        :param scope: -
+        :param id: -
+        :param network_connector_arn: The unqualified ARN of the connector.
+        :param latest_version_arn: The qualified ARN of the version a WebFunction should pin to. Default: - not known; reading ``latestVersionArn`` on the imported connector throws
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c9d6ec5f7b7a4c47a0e38bfa7314afeed09c3b365c64247a32818bc43f389560)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = NetworkConnectorAttributes(
+            network_connector_arn=network_connector_arn,
+            latest_version_arn=latest_version_arn,
+        )
+
+        return typing.cast("INetworkConnector", jsii.sinvoke(cls, "fromNetworkConnectorAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="fromNetworkConnectorVersionArn")
+    @builtins.classmethod
+    def from_network_connector_version_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        network_connector_version_arn: builtins.str,
+    ) -> "INetworkConnector":
+        '''Import a specific version of a connector by its qualified ARN.
+
+        This is the form a WebFunction can reference. The revision stays on this version until the
+        ARN in your code changes, regardless of updates to the connector.
+
+        A literal ARN is checked for a version suffix at synthesis. A deploy-time value — an SSM
+        parameter, an imported value — cannot be inspected until deployment, where an unqualified
+        ARN is rejected by the service when the revision is created.
+
+        Do not pass the ``latestVersionArn`` of a connector in another stack. It changes on every
+        update to the connector, and CloudFormation does not allow an exported value that another
+        stack imports to change; a WebFunction rejects such an import at synthesis.
+
+        :param scope: -
+        :param id: -
+        :param network_connector_version_arn: A qualified ARN, ``arn:...:network-connector:nc-<id>:<version>``.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aa91930c184c3994c0db54bb50a83906e199adf296fc54a8fb3ebaea4ff27712)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument network_connector_version_arn", value=network_connector_version_arn, expected_type=type_hints["network_connector_version_arn"])
+        return typing.cast("INetworkConnector", jsii.sinvoke(cls, "fromNetworkConnectorVersionArn", [scope, id, network_connector_version_arn]))
+
+    @jsii.member(jsii_name="isNetworkConnector")
+    @builtins.classmethod
+    def is_network_connector(cls, x: typing.Any) -> builtins.bool:
+        '''Return whether the given object is a NetworkConnector.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6e231a168ff0b8ef5fa17fe148188376496893b06cda1278dac28c7259195d80)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isNetworkConnector", [x]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="latestVersionArn")
+    def latest_version_arn(self) -> builtins.str:
+        '''The qualified ARN of the connector's latest version.
+
+        WebFunction pins a revision to this. For a connector defined in this app the value changes
+        on every update to the connector, which replaces the revision that references it.
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "latestVersionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="networkConnectorArn")
+    def network_connector_arn(self) -> builtins.str:
+        '''The unqualified ARN of the network connector.
+
+        Identifies the connector as a whole, across its versions: use it in IAM policies and for
+        consumers that resolve the current version at run time. It does not name a version, so
+        WebFunction — which pins a revision to one version — does not accept it.
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "networkConnectorArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="networkConnectorRef")
+    def network_connector_ref(self) -> "_aws_lambda_aaab8031.NetworkConnectorReference":
+        '''A reference to a NetworkConnector resource.'''
+        return typing.cast("_aws_lambda_aaab8031.NetworkConnectorReference", jsii.get(self, "networkConnectorRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="operatorRole")
+    def operator_role(self) -> "_aws_iam_632e20f6.IRoleRef":
+        '''The role the Lambda service assumes to manage the connector's network interfaces.'''
+        return typing.cast("_aws_iam_632e20f6.IRoleRef", jsii.get(self, "operatorRole"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resource")
+    def resource(self) -> "CfnNetworkConnector":
+        '''The underlying L1 CfnNetworkConnector resource.
+
+        Use for escape hatches.
+        '''
+        return typing.cast("CfnNetworkConnector", jsii.get(self, "resource"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.NetworkConnectorAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "network_connector_arn": "networkConnectorArn",
+        "latest_version_arn": "latestVersionArn",
+    },
+)
+class NetworkConnectorAttributes:
+    def __init__(
+        self,
+        *,
+        network_connector_arn: builtins.str,
+        latest_version_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Attributes of an existing network connector, for importing it.
+
+        :param network_connector_arn: The unqualified ARN of the connector.
+        :param latest_version_arn: The qualified ARN of the version a WebFunction should pin to. Default: - not known; reading ``latestVersionArn`` on the imported connector throws
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            network_connector_attributes = lambda.NetworkConnectorAttributes(
+                network_connector_arn="networkConnectorArn",
+            
+                # the properties below are optional
+                latest_version_arn="latestVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__18ea72ba616d8a7b5884ea0537833ff1a2c42834afca4c2043882abf45ba61ed)
+            check_type(argname="argument network_connector_arn", value=network_connector_arn, expected_type=type_hints["network_connector_arn"])
+            check_type(argname="argument latest_version_arn", value=latest_version_arn, expected_type=type_hints["latest_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "network_connector_arn": network_connector_arn,
+        }
+        if latest_version_arn is not None:
+            self._values["latest_version_arn"] = latest_version_arn
+
+    @builtins.property
+    def network_connector_arn(self) -> builtins.str:
+        '''The unqualified ARN of the connector.'''
+        result = self._values.get("network_connector_arn")
+        assert result is not None, "Required property 'network_connector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def latest_version_arn(self) -> typing.Optional[builtins.str]:
+        '''The qualified ARN of the version a WebFunction should pin to.
+
+        :default: - not known; reading ``latestVersionArn`` on the imported connector throws
+        '''
+        result = self._values.get("latest_version_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NetworkConnectorAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_lambda.NetworkConnectorComputeType")
+class NetworkConnectorComputeType(enum.Enum):
+    '''The compute resource type a network connector is provisioned for.
+
+    A connector serves exactly one type; a WebFunction can only use a connector created for
+    ``WEB_FUNCTION``.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_ec2 as ec2
+        
+        # vpc: ec2.Vpc
+        # code: lambda.WebFunctionCode
+        
+        
+        security_group = ec2.SecurityGroup(self, "EgressSecurityGroup", vpc=vpc)
+        
+        connector = lambda_.NetworkConnector(self, "Egress",
+            configuration=lambda_.NetworkConnectorConfiguration.vpc_egress(
+                compute_type=lambda_.NetworkConnectorComputeType.WEB_FUNCTION,
+                vpc=vpc,
+                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+                security_groups=[security_group]
+            )
+        )
+        
+        lambda_.WebFunction(self, "MyWebFunction",
+            code=code,
+            runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+            default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+            egress_network_connector=connector
+        )
+    '''
+
+    WEB_FUNCTION = "WEB_FUNCTION"
+    '''Lambda WebFunction.'''
+    MICRO_VM = "MICRO_VM"
+    '''Lambda MicroVM.'''
+
+
+class NetworkConnectorConfiguration(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_lambda.NetworkConnectorConfiguration",
+):
+    '''The network configuration of a connector.
+
+    Exactly one kind of configuration applies to a connector; pick it with one of the static
+    factories.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_ec2 as ec2
+        
+        # vpc: ec2.Vpc
+        # code: lambda.WebFunctionCode
+        
+        
+        security_group = ec2.SecurityGroup(self, "EgressSecurityGroup", vpc=vpc)
+        
+        connector = lambda_.NetworkConnector(self, "Egress",
+            configuration=lambda_.NetworkConnectorConfiguration.vpc_egress(
+                compute_type=lambda_.NetworkConnectorComputeType.WEB_FUNCTION,
+                vpc=vpc,
+                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+                security_groups=[security_group]
+            )
+        )
+        
+        lambda_.WebFunction(self, "MyWebFunction",
+            code=code,
+            runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+            default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+            egress_network_connector=connector
+        )
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="vpcEgress")
+    @builtins.classmethod
+    def vpc_egress(
+        cls,
+        *,
+        compute_type: "NetworkConnectorComputeType",
+        security_groups: typing.Sequence["_aws_ec2_18162e09.ISecurityGroupRef"],
+        vpc: "_aws_ec2_09840e12.IVpc",
+        network_protocol: typing.Optional["NetworkConnectorProtocol"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> "NetworkConnectorConfiguration":
+        '''Egress from the compute into a VPC, through network interfaces the connector manages.
+
+        :param compute_type: The Lambda compute resource type this connector serves. The compute type cannot be changed after the connector is created.
+        :param security_groups: The security groups to attach to the network interfaces. Between 1 and 5 security groups, in the same VPC as the subnets. At least one is required, so the interfaces never fall back to the VPC's default security group. The connector only initiates connections, so inbound rules are irrelevant; the outbound rules decide what the compute can reach.
+        :param vpc: The VPC to create network interfaces in.
+        :param network_protocol: The IP protocol the network interfaces use. The protocol cannot be changed after the connector is created. Default: NetworkConnectorProtocol.IPV4
+        :param vpc_subnets: Which subnets of the VPC to create network interfaces in. The selection must yield between 1 and 16 subnets. Default: - the VPC's default selection: its private subnets, if it has any
+        '''
+        config = VpcEgressConfiguration(
+            compute_type=compute_type,
+            security_groups=security_groups,
+            vpc=vpc,
+            network_protocol=network_protocol,
+            vpc_subnets=vpc_subnets,
+        )
+
+        return typing.cast("NetworkConnectorConfiguration", jsii.sinvoke(cls, "vpcEgress", [config]))
+
+
+class _NetworkConnectorConfigurationProxy(NetworkConnectorConfiguration):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, NetworkConnectorConfiguration).__jsii_proxy_class__ = lambda : _NetworkConnectorConfigurationProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.NetworkConnectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration": "configuration",
+        "network_connector_name": "networkConnectorName",
+        "operator_role": "operatorRole",
+        "tags": "tags",
+    },
+)
+class NetworkConnectorProps:
+    def __init__(
+        self,
+        *,
+        configuration: "NetworkConnectorConfiguration",
+        network_connector_name: typing.Optional[builtins.str] = None,
+        operator_role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for a network connector.
+
+        :param configuration: The network configuration.
+        :param network_connector_name: A name for the connector, unique within the account and region. Changing it replaces the connector. Default: - a name is generated by CloudFormation
+        :param operator_role: The role the Lambda service assumes to manage the connector's network interfaces in the VPC. The ``AWSLambdaNetworkConnectorOperatorPolicy`` managed policy is attached to a provided role defined in this app, as it is to the default one. A role imported by ARN or name cannot be modified from this app, so a warning is emitted instead: make sure it already carries that policy, or equivalent permissions to manage the connector's network interfaces. Use a role dedicated to this connector. The service assumes it without presenting a source account or ARN, so its trust policy cannot be conditioned, and whatever else uses the role gains the permissions to manage network interfaces in the VPC. A function's execution role, for example, already trusts ``lambda.amazonaws.com``, so passing it here would give that function's code those permissions. Default: - a role is created with the ``AWSLambdaNetworkConnectorOperatorPolicy`` managed policy
+        :param tags: Tags to apply to the connector. Default: - No tags.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_ec2 as ec2
+            
+            # vpc: ec2.Vpc
+            # code: lambda.WebFunctionCode
+            
+            
+            security_group = ec2.SecurityGroup(self, "EgressSecurityGroup", vpc=vpc)
+            
+            connector = lambda_.NetworkConnector(self, "Egress",
+                configuration=lambda_.NetworkConnectorConfiguration.vpc_egress(
+                    compute_type=lambda_.NetworkConnectorComputeType.WEB_FUNCTION,
+                    vpc=vpc,
+                    vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+                    security_groups=[security_group]
+                )
+            )
+            
+            lambda_.WebFunction(self, "MyWebFunction",
+                code=code,
+                runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+                default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+                egress_network_connector=connector
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9e1bfe0c808b5a9577d0c92bc9840d844523618be378f63b285917d51913a38f)
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument network_connector_name", value=network_connector_name, expected_type=type_hints["network_connector_name"])
+            check_type(argname="argument operator_role", value=operator_role, expected_type=type_hints["operator_role"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration": configuration,
+        }
+        if network_connector_name is not None:
+            self._values["network_connector_name"] = network_connector_name
+        if operator_role is not None:
+            self._values["operator_role"] = operator_role
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def configuration(self) -> "NetworkConnectorConfiguration":
+        '''The network configuration.'''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast("NetworkConnectorConfiguration", result)
+
+    @builtins.property
+    def network_connector_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the connector, unique within the account and region.
+
+        Changing it replaces the connector.
+
+        :default: - a name is generated by CloudFormation
+        '''
+        result = self._values.get("network_connector_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def operator_role(self) -> typing.Optional["_aws_iam_632e20f6.IRoleRef"]:
+        '''The role the Lambda service assumes to manage the connector's network interfaces in the VPC.
+
+        The ``AWSLambdaNetworkConnectorOperatorPolicy`` managed policy is attached to a provided role
+        defined in this app, as it is to the default one. A role imported by ARN or name cannot be
+        modified from this app, so a warning is emitted instead: make sure it already carries that
+        policy, or equivalent permissions to manage the connector's network interfaces.
+
+        Use a role dedicated to this connector. The service assumes it without presenting a source
+        account or ARN, so its trust policy cannot be conditioned, and whatever else uses the role
+        gains the permissions to manage network interfaces in the VPC. A function's execution role,
+        for example, already trusts ``lambda.amazonaws.com``, so passing it here would give that
+        function's code those permissions.
+
+        :default: - a role is created with the ``AWSLambdaNetworkConnectorOperatorPolicy`` managed policy
+        '''
+        result = self._values.get("operator_role")
+        return typing.cast(typing.Optional["_aws_iam_632e20f6.IRoleRef"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Tags to apply to the connector.
+
+        :default: - No tags.
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NetworkConnectorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_lambda.NetworkConnectorProtocol")
+class NetworkConnectorProtocol(enum.Enum):
+    '''The IP protocol the connector's network interfaces use.'''
+
+    IPV4 = "IPV4"
+    '''IPv4 only.'''
+    DUAL_STACK = "DUAL_STACK"
+    '''IPv4 and IPv6.'''
+
+
 class ParamsAndSecretsLayerVersion(
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_lambda.ParamsAndSecretsLayerVersion",
@@ -32208,6 +33715,13 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_lambda.Runtime
     def PYTHON_3_14(cls) -> "Runtime":
         '''The Python 3.14 runtime (python3.14).'''
         return typing.cast("Runtime", jsii.sget(cls, "PYTHON_3_14"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PYTHON_3_15")
+    @builtins.classmethod
+    def PYTHON_3_15(cls) -> "Runtime":
+        '''The Python 3.15 runtime (python3.15).'''
+        return typing.cast("Runtime", jsii.sget(cls, "PYTHON_3_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PYTHON_3_6")
@@ -35165,6 +36679,3352 @@ class VersionWeight:
         return "VersionWeight(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.VpcEgressConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "compute_type": "computeType",
+        "security_groups": "securityGroups",
+        "vpc": "vpc",
+        "network_protocol": "networkProtocol",
+        "vpc_subnets": "vpcSubnets",
+    },
+)
+class VpcEgressConfiguration:
+    def __init__(
+        self,
+        *,
+        compute_type: "NetworkConnectorComputeType",
+        security_groups: typing.Sequence["_aws_ec2_18162e09.ISecurityGroupRef"],
+        vpc: "_aws_ec2_09840e12.IVpc",
+        network_protocol: typing.Optional["NetworkConnectorProtocol"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Configuration for a connector that gives the compute egress into a VPC.
+
+        :param compute_type: The Lambda compute resource type this connector serves. The compute type cannot be changed after the connector is created.
+        :param security_groups: The security groups to attach to the network interfaces. Between 1 and 5 security groups, in the same VPC as the subnets. At least one is required, so the interfaces never fall back to the VPC's default security group. The connector only initiates connections, so inbound rules are irrelevant; the outbound rules decide what the compute can reach.
+        :param vpc: The VPC to create network interfaces in.
+        :param network_protocol: The IP protocol the network interfaces use. The protocol cannot be changed after the connector is created. Default: NetworkConnectorProtocol.IPV4
+        :param vpc_subnets: Which subnets of the VPC to create network interfaces in. The selection must yield between 1 and 16 subnets. Default: - the VPC's default selection: its private subnets, if it has any
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_ec2 as ec2
+            
+            # vpc: ec2.Vpc
+            # code: lambda.WebFunctionCode
+            
+            
+            security_group = ec2.SecurityGroup(self, "EgressSecurityGroup", vpc=vpc)
+            
+            connector = lambda_.NetworkConnector(self, "Egress",
+                configuration=lambda_.NetworkConnectorConfiguration.vpc_egress(
+                    compute_type=lambda_.NetworkConnectorComputeType.WEB_FUNCTION,
+                    vpc=vpc,
+                    vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+                    security_groups=[security_group]
+                )
+            )
+            
+            lambda_.WebFunction(self, "MyWebFunction",
+                code=code,
+                runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+                default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+                egress_network_connector=connector
+            )
+        '''
+        if isinstance(vpc_subnets, dict):
+            vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__124c628a3e85294b969c06f3d56396c20b3e251acf32c6a985dff96a397339b6)
+            check_type(argname="argument compute_type", value=compute_type, expected_type=type_hints["compute_type"])
+            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+            check_type(argname="argument network_protocol", value=network_protocol, expected_type=type_hints["network_protocol"])
+            check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "compute_type": compute_type,
+            "security_groups": security_groups,
+            "vpc": vpc,
+        }
+        if network_protocol is not None:
+            self._values["network_protocol"] = network_protocol
+        if vpc_subnets is not None:
+            self._values["vpc_subnets"] = vpc_subnets
+
+    @builtins.property
+    def compute_type(self) -> "NetworkConnectorComputeType":
+        '''The Lambda compute resource type this connector serves.
+
+        The compute type cannot be changed after the connector is created.
+        '''
+        result = self._values.get("compute_type")
+        assert result is not None, "Required property 'compute_type' is missing"
+        return typing.cast("NetworkConnectorComputeType", result)
+
+    @builtins.property
+    def security_groups(self) -> typing.List["_aws_ec2_18162e09.ISecurityGroupRef"]:
+        '''The security groups to attach to the network interfaces.
+
+        Between 1 and 5 security groups, in the same VPC as the subnets. At least one is required,
+        so the interfaces never fall back to the VPC's default security group. The connector only
+        initiates connections, so inbound rules are irrelevant; the outbound rules decide what the
+        compute can reach.
+        '''
+        result = self._values.get("security_groups")
+        assert result is not None, "Required property 'security_groups' is missing"
+        return typing.cast(typing.List["_aws_ec2_18162e09.ISecurityGroupRef"], result)
+
+    @builtins.property
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
+        '''The VPC to create network interfaces in.'''
+        result = self._values.get("vpc")
+        assert result is not None, "Required property 'vpc' is missing"
+        return typing.cast("_aws_ec2_09840e12.IVpc", result)
+
+    @builtins.property
+    def network_protocol(self) -> typing.Optional["NetworkConnectorProtocol"]:
+        '''The IP protocol the network interfaces use.
+
+        The protocol cannot be changed after the connector is created.
+
+        :default: NetworkConnectorProtocol.IPV4
+        '''
+        result = self._values.get("network_protocol")
+        return typing.cast(typing.Optional["NetworkConnectorProtocol"], result)
+
+    @builtins.property
+    def vpc_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
+        '''Which subnets of the VPC to create network interfaces in.
+
+        The selection must yield between 1 and 16 subnets.
+
+        :default: - the VPC's default selection: its private subnets, if it has any
+        '''
+        result = self._values.get("vpc_subnets")
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VpcEgressConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionAssetOptions",
+    jsii_struct_bases=[_aws_s3_assets_2dba96fa.AssetOptions],
+    name_mapping={
+        "asset_hash": "assetHash",
+        "asset_hash_type": "assetHashType",
+        "bundling": "bundling",
+        "exclude": "exclude",
+        "follow_symlinks": "followSymlinks",
+        "ignore_mode": "ignoreMode",
+        "deploy_time": "deployTime",
+        "display_name": "displayName",
+        "readers": "readers",
+        "source_kms_key": "sourceKMSKey",
+        "copy_options": "copyOptions",
+    },
+)
+class WebFunctionAssetOptions(_aws_s3_assets_2dba96fa.AssetOptions):
+    def __init__(
+        self,
+        *,
+        asset_hash: typing.Optional[builtins.str] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_0cae9daa.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
+        deploy_time: typing.Optional[builtins.bool] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        readers: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        copy_options: typing.Optional[typing.Union["WebFunctionCodeCopyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Options common to the asset-based factories.
+
+        The asset is a staging copy in the CDK asset bucket; the function serves the object the copy
+        writes to the destination bucket. So ``readers`` and ``deployTime`` apply to that staged object
+        only — read access to the code the function runs is granted on the destination bucket.
+
+        :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
+        :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
+        :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
+        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
+        :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
+        :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
+        :param source_kms_key: The ARN of the KMS key used to encrypt the handler code. Default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
+        :param copy_options: Configuration for the custom resource that copies the staged asset into the destination bucket. Use this if your organization requires the copy to run in a VPC, or to supply your own execution role. Default: - the copy runs outside a VPC with a role created for it
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            from aws_cdk import aws_ec2 as ec2
+            from aws_cdk import aws_iam as iam
+            from aws_cdk import aws_lambda as lambda_
+            from aws_cdk.interfaces import aws_kms as interfaces_kms
+            from aws_cdk.interfaces import aws_logs as interfaces_logs
+            
+            # docker_image: cdk.DockerImage
+            # grantable: iam.IGrantable
+            # key_ref: interfaces_kms.IKeyRef
+            # local_bundling: cdk.ILocalBundling
+            # log_group_ref: interfaces_logs.ILogGroupRef
+            # role: iam.Role
+            # security_group: ec2.SecurityGroup
+            # subnet: ec2.Subnet
+            # subnet_filter: ec2.SubnetFilter
+            # vpc: ec2.Vpc
+            
+            web_function_asset_options = lambda.WebFunctionAssetOptions(
+                asset_hash="assetHash",
+                asset_hash_type=cdk.AssetHashType.SOURCE,
+                bundling=cdk.BundlingOptions(
+                    image=docker_image,
+            
+                    # the properties below are optional
+                    bundling_file_access=cdk.BundlingFileAccess.VOLUME_COPY,
+                    command=["command"],
+                    entrypoint=["entrypoint"],
+                    environment={
+                        "environment_key": "environment"
+                    },
+                    local=local_bundling,
+                    network="network",
+                    output_type=cdk.BundlingOutput.ARCHIVED,
+                    platform="platform",
+                    security_opt="securityOpt",
+                    user="user",
+                    volumes=[cdk.DockerVolume(
+                        container_path="containerPath",
+                        host_path="hostPath",
+            
+                        # the properties below are optional
+                        consistency=cdk.DockerVolumeConsistency.CONSISTENT
+                    )],
+                    volumes_from=["volumesFrom"],
+                    working_directory="workingDirectory"
+                ),
+                copy_options=lambda.WebFunctionCodeCopyOptions(
+                    log_group=log_group_ref,
+                    role=role,
+                    security_groups=[security_group],
+                    vpc=vpc,
+                    vpc_subnets=ec2.SubnetSelection(
+                        availability_zones=["availabilityZones"],
+                        one_per_az=False,
+                        subnet_filters=[subnet_filter],
+                        subnet_group_name="subnetGroupName",
+                        subnets=[subnet],
+                        subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
+                    )
+                ),
+                deploy_time=False,
+                display_name="displayName",
+                exclude=["exclude"],
+                follow_symlinks=cdk.SymlinkFollowMode.NEVER,
+                ignore_mode=cdk.IgnoreMode.GLOB,
+                readers=[grantable],
+                source_kms_key=key_ref
+            )
+        '''
+        if isinstance(bundling, dict):
+            bundling = _aws_cdk_0cae9daa.BundlingOptions(**bundling)
+        if isinstance(copy_options, dict):
+            copy_options = WebFunctionCodeCopyOptions(**copy_options)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__06af9cd50df7f94a6c4476ae5e88916af3c59d802c97986dfa084ce8960a29ab)
+            check_type(argname="argument asset_hash", value=asset_hash, expected_type=type_hints["asset_hash"])
+            check_type(argname="argument asset_hash_type", value=asset_hash_type, expected_type=type_hints["asset_hash_type"])
+            check_type(argname="argument bundling", value=bundling, expected_type=type_hints["bundling"])
+            check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
+            check_type(argname="argument follow_symlinks", value=follow_symlinks, expected_type=type_hints["follow_symlinks"])
+            check_type(argname="argument ignore_mode", value=ignore_mode, expected_type=type_hints["ignore_mode"])
+            check_type(argname="argument deploy_time", value=deploy_time, expected_type=type_hints["deploy_time"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument readers", value=readers, expected_type=type_hints["readers"])
+            check_type(argname="argument source_kms_key", value=source_kms_key, expected_type=type_hints["source_kms_key"])
+            check_type(argname="argument copy_options", value=copy_options, expected_type=type_hints["copy_options"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if asset_hash is not None:
+            self._values["asset_hash"] = asset_hash
+        if asset_hash_type is not None:
+            self._values["asset_hash_type"] = asset_hash_type
+        if bundling is not None:
+            self._values["bundling"] = bundling
+        if exclude is not None:
+            self._values["exclude"] = exclude
+        if follow_symlinks is not None:
+            self._values["follow_symlinks"] = follow_symlinks
+        if ignore_mode is not None:
+            self._values["ignore_mode"] = ignore_mode
+        if deploy_time is not None:
+            self._values["deploy_time"] = deploy_time
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if readers is not None:
+            self._values["readers"] = readers
+        if source_kms_key is not None:
+            self._values["source_kms_key"] = source_kms_key
+        if copy_options is not None:
+            self._values["copy_options"] = copy_options
+
+    @builtins.property
+    def asset_hash(self) -> typing.Optional[builtins.str]:
+        '''Specify a custom hash for this asset.
+
+        If ``assetHashType`` is set it must
+        be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will
+        be SHA256 hashed and encoded as hex. The resulting hash will be the asset
+        hash.
+
+        NOTE: the hash is used in order to identify a specific revision of the asset, and
+        used for optimizing and caching deployment activities related to this asset such as
+        packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will
+        need to make sure it is updated every time the asset changes, or otherwise it is
+        possible that some deployments will not be invalidated.
+
+        :default: - based on ``assetHashType``
+        '''
+        result = self._values.get("asset_hash")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def asset_hash_type(self) -> typing.Optional["_aws_cdk_0cae9daa.AssetHashType"]:
+        '''Specifies the type of hash to calculate for this asset.
+
+        If ``assetHash`` is configured, this option must be ``undefined`` or
+        ``AssetHashType.CUSTOM``.
+
+        :default:
+
+        - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is
+        explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
+        '''
+        result = self._values.get("asset_hash_type")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.AssetHashType"], result)
+
+    @builtins.property
+    def bundling(self) -> typing.Optional["_aws_cdk_0cae9daa.BundlingOptions"]:
+        '''Bundle the asset by executing a command in a Docker container or a custom bundling provider.
+
+        The asset path will be mounted at ``/asset-input``. The Docker
+        container is responsible for putting content at ``/asset-output``.
+        The content at ``/asset-output`` will be zipped and used as the
+        final asset.
+
+        :default:
+
+        - uploaded as-is to S3 if the asset is a regular file or a .zip file,
+        archived into a .zip file and uploaded to S3 otherwise
+        '''
+        result = self._values.get("bundling")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.BundlingOptions"], result)
+
+    @builtins.property
+    def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''File paths matching the patterns will be excluded.
+
+        See ``ignoreMode`` to set the matching behavior.
+        Has no effect on Assets bundled using the ``bundling`` property.
+
+        :default: - nothing is excluded
+        '''
+        result = self._values.get("exclude")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def follow_symlinks(self) -> typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"]:
+        '''A strategy for how to handle symlinks.
+
+        :default: SymlinkFollowMode.NEVER
+        '''
+        result = self._values.get("follow_symlinks")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"], result)
+
+    @builtins.property
+    def ignore_mode(self) -> typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"]:
+        '''The ignore behavior to use for ``exclude`` patterns.
+
+        :default: IgnoreMode.GLOB
+        '''
+        result = self._values.get("ignore_mode")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"], result)
+
+    @builtins.property
+    def deploy_time(self) -> typing.Optional[builtins.bool]:
+        '''Whether or not the asset needs to exist beyond deployment time;
+
+        i.e.
+        are copied over to a different location and not needed afterwards.
+        Setting this property to true has an impact on the lifecycle of the asset,
+        because we will assume that it is safe to delete after the CloudFormation
+        deployment succeeds.
+
+        For example, Lambda Function assets are copied over to Lambda during
+        deployment. Therefore, it is not necessary to store the asset in S3, so
+        we consider those deployTime assets.
+
+        :default: false
+        '''
+        result = self._values.get("deploy_time")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''A display name for this asset.
+
+        If supplied, the display name will be used in locations where the asset
+        identifier is printed, like in the CLI progress information. If the same
+        asset is added multiple times, the display name of the first occurrence is
+        used.
+
+        The default is the construct path of the Asset construct, with respect to
+        the enclosing stack. If the asset is produced by a construct helper
+        function (such as ``lambda.Code.fromAsset()``), this will look like
+        ``MyFunction/Code``.
+
+        We use the stack-relative construct path so that in the common case where
+        you have multiple stacks with the same asset, we won't show something like
+        ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to
+        production.
+
+        :default: - Stack-relative construct path
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def readers(self) -> typing.Optional[typing.List["_aws_iam_1f54b5e8.IGrantable"]]:
+        '''A list of principals that should be able to read this asset from S3.
+
+        You can use ``asset.grantRead(principal)`` to grant read permissions later.
+
+        :default: - No principals that can read file asset.
+        '''
+        result = self._values.get("readers")
+        return typing.cast(typing.Optional[typing.List["_aws_iam_1f54b5e8.IGrantable"]], result)
+
+    @builtins.property
+    def source_kms_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
+        '''The ARN of the KMS key used to encrypt the handler code.
+
+        :default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
+        '''
+        result = self._values.get("source_kms_key")
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
+
+    @builtins.property
+    def copy_options(self) -> typing.Optional["WebFunctionCodeCopyOptions"]:
+        '''Configuration for the custom resource that copies the staged asset into the destination bucket.
+
+        Use this if your organization requires the copy to run in a VPC, or to supply
+        your own execution role.
+
+        :default: - the copy runs outside a VPC with a role created for it
+        '''
+        result = self._values.get("copy_options")
+        return typing.cast(typing.Optional["WebFunctionCodeCopyOptions"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionAssetOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionAttributes",
+    jsii_struct_bases=[],
+    name_mapping={"web_function_arn": "webFunctionArn"},
+)
+class WebFunctionAttributes:
+    def __init__(self, *, web_function_arn: builtins.str) -> None:
+        '''Attributes for importing an existing WebFunction.
+
+        :param web_function_arn: The ARN of the WebFunction.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            web_function_attributes = lambda.WebFunctionAttributes(
+                web_function_arn="webFunctionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ce5ad7157d45f5ba74dc5c4c2d122086a44763d0b19bdce6dd6c4b685a23334a)
+            check_type(argname="argument web_function_arn", value=web_function_arn, expected_type=type_hints["web_function_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "web_function_arn": web_function_arn,
+        }
+
+    @builtins.property
+    def web_function_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction.'''
+        result = self._values.get("web_function_arn")
+        assert result is not None, "Required property 'web_function_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_lambda.WebFunctionAuthType")
+class WebFunctionAuthType(enum.Enum):
+    '''Authentication type for WebFunction domain configuration.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_s3 as s3
+        
+        # code_bucket: s3.IBucket
+        
+        
+        lambda_.WebFunction(self, "PerRegionApi",
+            code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+            runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+            default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+            default_endpoint=lambda.WebFunctionDefaultEndpointOptions(
+                endpoint_location=lambda_.WebFunctionEndpointLocation.per_region(["us-east-1", "us-west-2"])
+            )
+        )
+    '''
+
+    APPLICATION_MANAGED = "APPLICATION_MANAGED"
+    '''Authentication is managed by the application itself.
+
+    The Lambda service will not enforce authentication; ensure your handler code validates every request.
+    '''
+    IAM_AUTH = "IAM_AUTH"
+    '''Authentication using AWS IAM.
+
+    Requests must be signed with SigV4 and carry the ``X-Amz-Content-SHA256`` header, also for a
+    request without a body. A ``MULTI_REGION`` endpoint is signed with SigV4a, for the Region set ``*``.
+    '''
+
+
+@jsii.implements(IWebFunction)
+class WebFunctionBase(
+    _aws_cdk_0cae9daa.Resource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionBase",
+):
+    '''Base class for WebFunction, shared between real and imported instances.'''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        environment_from_arn: typing.Optional[builtins.str] = None,
+        physical_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param account: The AWS account ID this resource belongs to. Default: - the resource is in the same account as the stack it belongs to
+        :param environment_from_arn: ARN to deduce region and account from. The ARN is parsed and the account and region are taken from the ARN. This should be used for imported resources. Cannot be supplied together with either ``account`` or ``region``. Default: - take environment from ``account``, ``region`` parameters, or use Stack environment.
+        :param physical_name: The value passed in by users to the physical name prop of the resource. - ``undefined`` implies that a physical name will be allocated by CloudFormation during deployment. - a concrete value implies a specific physical name - ``PhysicalName.GENERATE_IF_NEEDED`` is a marker that indicates that a physical will only be generated by the CDK if it is needed for cross-environment references. Otherwise, it will be allocated by CloudFormation. Default: - The physical name will be allocated by CloudFormation at deployment time
+        :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0bce1e23c31a36b8ce1cefec61599d1e78ffae835ea85af0ea83314982226741)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = _aws_cdk_0cae9daa.ResourceProps(
+            account=account,
+            environment_from_arn=environment_from_arn,
+            physical_name=physical_name,
+            region=region,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="addToResourcePolicy")
+    def add_to_resource_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
+        '''Adds a statement to the WebFunction's resource-based policy.
+
+        A web function has a single resource-based policy, so all statements are rendered into one
+        ``AWS::Lambda::ResourcePolicy``. Use it to allow another account, or a service such as
+        CloudFront, to invoke the function's endpoints.
+
+        For an imported WebFunction the policy cannot be changed without replacing it, so this adds
+        a warning instead and returns ``statementAdded: false``.
+
+        :param statement: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b6b0639740027e2956ef75accf08890b127e6abfe952bfa6d87cfc3f09746d3e)
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
+
+    @jsii.member(jsii_name="addToRolePolicy")
+    def add_to_role_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> None:
+        '''Adds a statement to the WebFunction's execution role.
+
+        For an imported WebFunction the role is unknown, so this adds a warning asking for the
+        permission to be granted manually instead.
+
+        :param statement: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9d3157f79de94cce4c5e39b0dd7fe499ebe6ab2d708722d8efc92eb341bcf0e6)
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+        return typing.cast(None, jsii.invoke(self, "addToRolePolicy", [statement]))
+
+    @builtins.property
+    @jsii.member(jsii_name="canCreateResourcePolicy")
+    @abc.abstractmethod
+    def _can_create_resource_policy(self) -> builtins.bool:
+        '''Whether this construct owns the WebFunction's resource-based policy.
+
+        A web function has one policy, and ``AWS::Lambda::ResourcePolicy`` replaces all of it, so only
+        the construct that defines the function can add to it.
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    @abc.abstractmethod
+    def grant_principal(self) -> "_aws_iam_1f54b5e8.IPrincipal":
+        '''The principal to grant permissions to.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionArn")
+    @abc.abstractmethod
+    def web_function_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionName")
+    @abc.abstractmethod
+    def web_function_name(self) -> builtins.str:
+        '''The name of the WebFunction.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionRef")
+    def web_function_ref(self) -> "_aws_lambda_aaab8031.WebFunctionReference":
+        '''A reference to a WebFunction resource.'''
+        return typing.cast("_aws_lambda_aaab8031.WebFunctionReference", jsii.get(self, "webFunctionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    @abc.abstractmethod
+    def role(self) -> typing.Optional["_aws_iam_632e20f6.IRoleRef"]:
+        '''The execution role of the WebFunction.
+
+        Undefined for an imported WebFunction.
+        '''
+        ...
+
+
+class _WebFunctionBaseProxy(
+    WebFunctionBase,
+    jsii.proxy_for(_aws_cdk_0cae9daa.Resource), # type: ignore[misc]
+):
+    @builtins.property
+    @jsii.member(jsii_name="canCreateResourcePolicy")
+    def _can_create_resource_policy(self) -> builtins.bool:
+        '''Whether this construct owns the WebFunction's resource-based policy.
+
+        A web function has one policy, and ``AWS::Lambda::ResourcePolicy`` replaces all of it, so only
+        the construct that defines the function can add to it.
+        '''
+        return typing.cast(builtins.bool, jsii.get(self, "canCreateResourcePolicy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_iam_1f54b5e8.IPrincipal":
+        '''The principal to grant permissions to.'''
+        return typing.cast("_aws_iam_1f54b5e8.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionArn")
+    def web_function_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction.'''
+        return typing.cast(builtins.str, jsii.get(self, "webFunctionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionName")
+    def web_function_name(self) -> builtins.str:
+        '''The name of the WebFunction.'''
+        return typing.cast(builtins.str, jsii.get(self, "webFunctionName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> typing.Optional["_aws_iam_632e20f6.IRoleRef"]:
+        '''The execution role of the WebFunction.
+
+        Undefined for an imported WebFunction.
+        '''
+        return typing.cast(typing.Optional["_aws_iam_632e20f6.IRoleRef"], jsii.get(self, "role"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, WebFunctionBase).__jsii_proxy_class__ = lambda : _WebFunctionBaseProxy
+
+
+class WebFunctionCode(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionCode",
+):
+    '''Code for a ``WebFunction``.
+
+    WebFunction always reads its code from S3 at runtime, on every sandbox start, using the
+    Lambda service principal. The bucket holding the code must therefore have S3 versioning
+    enabled — enforced at synth time for buckets defined in the same app — and grant
+    ``lambda.amazonaws.com`` read access to the code object. The construct adds that grant
+    automatically on owned buckets (best-effort — imported buckets emit a warning instead).
+
+    Bucket encryption compatibility:
+
+    - ``BucketEncryption.S3_MANAGED`` (SSE-S3, AES256) — works, no key policy needed
+    - ``BucketEncryption.KMS`` or ``BucketEncryption.DSSE`` with a customer managed key —
+      works; ``kms:Decrypt`` is granted to the Lambda service principal automatically
+      (best-effort for imported keys)
+    - ``BucketEncryption.KMS_MANAGED`` (SSE-KMS with ``aws/s3``) and
+      ``BucketEncryption.DSSE_MANAGED`` — do not work: an AWS-managed key policy cannot
+      be modified to authorize the Lambda service principal. For a bucket defined in
+      this app this fails at synthesis; an imported bucket exposes no encryption
+      settings, so there it surfaces as a read failure at runtime
+
+    Use one of the static factory methods to create an instance.
+
+    Unlike ``lambda.Code``, there is deliberately no plain ``fromAsset()``: each asset factory
+    names the bucket the code is staged to, so the choice is explicit at the call site.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_s3 as s3
+        
+        # code_bucket: s3.IBucket
+        
+        
+        lambda_.WebFunction(self, "PerRegionApi",
+            code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+            runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+            default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+            default_endpoint=lambda.WebFunctionDefaultEndpointOptions(
+                endpoint_location=lambda_.WebFunctionEndpointLocation.per_region(["us-east-1", "us-west-2"])
+            )
+        )
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="fromAssetToManagedBucket")
+    @builtins.classmethod
+    def from_asset_to_managed_bucket(
+        cls,
+        path: builtins.str,
+        *,
+        copy_options: typing.Optional[typing.Union["WebFunctionCodeCopyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        deploy_time: typing.Optional[builtins.bool] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        readers: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        asset_hash: typing.Optional[builtins.str] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_0cae9daa.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
+    ) -> "WebFunctionCode":
+        '''Create WebFunction code from a local file or directory, staged into a bucket that CDK creates and configures for you.
+
+        One bucket is created per stack and shared by every WebFunction in it that uses this
+        factory. It is configured with everything WebFunction requires: versioning, AES256
+        (SSE-S3) encryption, and a bucket policy granting ``lambda.amazonaws.com`` read access.
+
+        The bucket is removed and emptied along with the stack that owns it. If a revision whose
+        code it holds is retained, the bucket is retained as well, with a warning.
+
+        Not supported in an environment bootstrapped with a customer managed KMS key; see the README.
+
+        :param path: -
+        :param copy_options: Configuration for the custom resource that copies the staged asset into the destination bucket. Use this if your organization requires the copy to run in a VPC, or to supply your own execution role. Default: - the copy runs outside a VPC with a role created for it
+        :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
+        :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
+        :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
+        :param source_kms_key: The ARN of the KMS key used to encrypt the handler code. Default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
+        :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
+        :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
+        :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
+        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__adc0f4cb61cc3aac7aec0791c6a2b536a21c29e940650db0379b52e4b0712274)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+        options = WebFunctionManagedBucketAssetOptions(
+            copy_options=copy_options,
+            deploy_time=deploy_time,
+            display_name=display_name,
+            readers=readers,
+            source_kms_key=source_kms_key,
+            asset_hash=asset_hash,
+            asset_hash_type=asset_hash_type,
+            bundling=bundling,
+            exclude=exclude,
+            follow_symlinks=follow_symlinks,
+            ignore_mode=ignore_mode,
+        )
+
+        return typing.cast("WebFunctionCode", jsii.sinvoke(cls, "fromAssetToManagedBucket", [path, options]))
+
+    @jsii.member(jsii_name="fromAssetToProvidedBucket")
+    @builtins.classmethod
+    def from_asset_to_provided_bucket(
+        cls,
+        bucket: "_aws_s3_01158f40.IBucket",
+        path: builtins.str,
+        *,
+        key_prefix: typing.Optional[builtins.str] = None,
+        copy_options: typing.Optional[typing.Union["WebFunctionCodeCopyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        deploy_time: typing.Optional[builtins.bool] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        readers: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        asset_hash: typing.Optional[builtins.str] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_0cae9daa.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
+    ) -> "WebFunctionCode":
+        '''Create WebFunction code from a local file or directory, staged into a bucket you own.
+
+        You own the bucket, so CDK only makes the narrowest change it needs: it adds a resource
+        policy statement granting ``lambda.amazonaws.com`` read access to this function's code, and
+        ``kms:Decrypt`` on the bucket's key if it is encrypted with a customer managed key. Both
+        are best-effort — on an imported bucket or key they are no-ops and a warning is emitted
+        instead, since the policy cannot be modified from this app.
+
+        You are responsible for the bucket settings CDK cannot change:
+
+        - S3 versioning must be enabled. This is validated at synth time for a bucket defined in
+          the same app; an imported bucket is only caught at deployment time, where WebFunction
+          rejects a bucket that reports no object version.
+        - Encryption must not be ``BucketEncryption.KMS_MANAGED`` (SSE-KMS with ``aws/s3``) or
+          ``BucketEncryption.DSSE_MANAGED``, whose key policy cannot be modified to authorize the
+          Lambda service principal. SSE-S3 and a customer managed key both work.
+
+        Not supported in an environment bootstrapped with a customer managed KMS key; see the README.
+
+        :param bucket: -
+        :param path: -
+        :param key_prefix: Prefix for the object key written into your bucket. The object is written at ``<keyPrefix>web-function/<unique id>/<hash>.zip``. The prefix is used as given, so include a trailing ``/`` to place the object under a folder-like prefix. The prefix also scopes the copy function's write and delete permissions on your bucket, so it must not start with ``/`` or contain ``*``, ``?`` or ``${``, which IAM would read as a wildcard or a policy variable. For the same reason it must be a literal string: a deploy-time value cannot be checked, and is rejected. Default: - objects are written under ``web-function/`` at the root of the bucket
+        :param copy_options: Configuration for the custom resource that copies the staged asset into the destination bucket. Use this if your organization requires the copy to run in a VPC, or to supply your own execution role. Default: - the copy runs outside a VPC with a role created for it
+        :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
+        :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
+        :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
+        :param source_kms_key: The ARN of the KMS key used to encrypt the handler code. Default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
+        :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
+        :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
+        :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
+        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a113058d45115c2aa73a6c7f8dd8f2bc893857534300553cf000b3106b6fc340)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+        options = WebFunctionProvidedBucketAssetOptions(
+            key_prefix=key_prefix,
+            copy_options=copy_options,
+            deploy_time=deploy_time,
+            display_name=display_name,
+            readers=readers,
+            source_kms_key=source_kms_key,
+            asset_hash=asset_hash,
+            asset_hash_type=asset_hash_type,
+            bundling=bundling,
+            exclude=exclude,
+            follow_symlinks=follow_symlinks,
+            ignore_mode=ignore_mode,
+        )
+
+        return typing.cast("WebFunctionCode", jsii.sinvoke(cls, "fromAssetToProvidedBucket", [bucket, path, options]))
+
+    @jsii.member(jsii_name="fromBucket")
+    @builtins.classmethod
+    def from_bucket(
+        cls,
+        bucket: "_aws_s3_01158f40.IBucket",
+        key: builtins.str,
+        object_version: typing.Optional[builtins.str] = None,
+    ) -> "WebFunctionCode":
+        '''Create WebFunction code from an S3 bucket.
+
+        This method configures the bucket on a best-effort basis so it satisfies
+        WebFunction's runtime requirements:
+
+        - It adds a resource policy statement granting ``lambda.amazonaws.com``
+          ``s3:GetObject`` and ``s3:GetObjectVersion``, scoped to the given object key,
+          to the deploying account and to the revisions of the bound WebFunction.
+          For buckets imported by attributes (e.g.
+          ``Bucket.fromBucketName``) the policy cannot be modified from this app;
+          ensure the bucket already carries an equivalent statement.
+        - This method does not change the bucket's versioning setting, so it is
+          validated instead: a bucket defined in this app without
+          ``versioned: true`` fails at synthesis. Imported buckets cannot be
+          inspected, so for those the requirement is only enforced at deployment
+          time, where WebFunction rejects a bucket that reports no object version.
+        - Encryption with an AWS-managed KMS key is asserted against for the same
+          reason: a bucket defined in this app using ``BucketEncryption.KMS_MANAGED``
+          or ``BucketEncryption.DSSE_MANAGED`` fails at synthesis, since that key's
+          policy cannot be modified to authorize the service principal. Imported
+          buckets cannot be inspected and are assumed to be compatible.
+
+        :param bucket: -
+        :param key: -
+        :param object_version: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aa03ba7eabee37c07c16aee6d9c4939bedf9da21362001cebe4c17bf05da1f3d)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
+        return typing.cast("WebFunctionCode", jsii.sinvoke(cls, "fromBucket", [bucket, key, object_version]))
+
+    @jsii.member(jsii_name="bind")
+    @abc.abstractmethod
+    def bind(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        *,
+        web_function_arn: builtins.str,
+    ) -> "WebFunctionCodeConfig":
+        '''Binds the code to a construct and returns the S3 location.
+
+        :param scope: - The construct scope to bind to.
+        :param web_function_arn: The ARN of the WebFunction the code is bound to. Used to scope the code-read policy to this function's revisions.
+
+        :return: The S3 location configuration for the code
+        '''
+        ...
+
+    @jsii.member(jsii_name="bindToResource")
+    def bind_to_resource(self, _resource: "_aws_cdk_0cae9daa.CfnResource") -> None:
+        '''Called after the CloudFormation resource has been created, to let the code object bind to it.
+
+        A no-op for every current code source.
+
+        ``lambda.Code`` has the same hook, and its ``AssetCode`` uses it to attach asset metadata
+        (``aws:asset:path`` etc.) for tooling. That is deliberately not done here: of the consumers
+        of that metadata, SAM CLI local invoke does not support WebFunction, and
+        ``cdk deploy --hotswap`` would be semantically wrong — it performs an in-place code
+        update, whereas WebFunction's model is "create a new revision, then shift traffic".
+        An override can be added once a consumer is verified to handle WebFunction correctly.
+
+        :param _resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ced4c6fd5cc0b2604236fd5222536774430b3c2a713f0d087341ced6b0cd299c)
+            check_type(argname="argument _resource", value=_resource, expected_type=type_hints["_resource"])
+        return typing.cast(None, jsii.invoke(self, "bindToResource", [_resource]))
+
+
+class _WebFunctionCodeProxy(WebFunctionCode):
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        *,
+        web_function_arn: builtins.str,
+    ) -> "WebFunctionCodeConfig":
+        '''Binds the code to a construct and returns the S3 location.
+
+        :param scope: - The construct scope to bind to.
+        :param web_function_arn: The ARN of the WebFunction the code is bound to. Used to scope the code-read policy to this function's revisions.
+
+        :return: The S3 location configuration for the code
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__31cdc99a9f393c0da3a319fa916602bd49677aed5f57b485ca8f1b8fbc04e5d8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        options = WebFunctionCodeBindOptions(web_function_arn=web_function_arn)
+
+        return typing.cast("WebFunctionCodeConfig", jsii.invoke(self, "bind", [scope, options]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, WebFunctionCode).__jsii_proxy_class__ = lambda : _WebFunctionCodeProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionCodeBindOptions",
+    jsii_struct_bases=[],
+    name_mapping={"web_function_arn": "webFunctionArn"},
+)
+class WebFunctionCodeBindOptions:
+    def __init__(self, *, web_function_arn: builtins.str) -> None:
+        '''Options passed by ``WebFunction`` when binding code.
+
+        :param web_function_arn: The ARN of the WebFunction the code is bound to. Used to scope the code-read policy to this function's revisions.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            web_function_code_bind_options = lambda.WebFunctionCodeBindOptions(
+                web_function_arn="webFunctionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__21ead5f29a51059e786539acd708922f503de9cd855a68a7cbfd9296f75993ab)
+            check_type(argname="argument web_function_arn", value=web_function_arn, expected_type=type_hints["web_function_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "web_function_arn": web_function_arn,
+        }
+
+    @builtins.property
+    def web_function_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction the code is bound to.
+
+        Used to scope the code-read policy to this function's revisions.
+        '''
+        result = self._values.get("web_function_arn")
+        assert result is not None, "Required property 'web_function_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionCodeBindOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionCodeConfig",
+    jsii_struct_bases=[],
+    name_mapping={"s3_location": "s3Location"},
+)
+class WebFunctionCodeConfig:
+    def __init__(
+        self,
+        *,
+        s3_location: typing.Union["WebFunctionS3Location", typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''WebFunction code configuration result.
+
+        :param s3_location: The S3 location of the code.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            web_function_code_config = lambda.WebFunctionCodeConfig(
+                s3_location=lambda.WebFunctionS3Location(
+                    bucket_name="bucketName",
+                    object_key="objectKey",
+            
+                    # the properties below are optional
+                    object_version="objectVersion"
+                )
+            )
+        '''
+        if isinstance(s3_location, dict):
+            s3_location = WebFunctionS3Location(**s3_location)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__df4f1aa3ae0ac04caa9e3a64c5cab0a7098ec2f6b06be1abafdce797d03bb251)
+            check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "s3_location": s3_location,
+        }
+
+    @builtins.property
+    def s3_location(self) -> "WebFunctionS3Location":
+        '''The S3 location of the code.'''
+        result = self._values.get("s3_location")
+        assert result is not None, "Required property 's3_location' is missing"
+        return typing.cast("WebFunctionS3Location", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionCodeConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionCodeCopyOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "log_group": "logGroup",
+        "role": "role",
+        "security_groups": "securityGroups",
+        "vpc": "vpc",
+        "vpc_subnets": "vpcSubnets",
+    },
+)
+class WebFunctionCodeCopyOptions:
+    def __init__(
+        self,
+        *,
+        log_group: typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Configuration for the Lambda function that copies staged code into its destination bucket.
+
+        The function is a stack-level singleton: every copy whose options resolve to the same
+        configuration shares one function. Supplying different options produces a separate
+        function, since a single Lambda cannot hold two conflicting configurations.
+
+        :param log_group: The log group the Lambda function sends logs to. Default: - a log group is created in the stack, shared by every copy that uses the same function
+        :param role: Execution role for the Lambda function that performs the copy. Default: - a role is created with permissions to read the source object and write the destination object
+        :param security_groups: Security groups for the Lambda function. Only used if ``vpc`` is supplied. Default: - a dedicated security group is created
+        :param vpc: The VPC to run the Lambda function in. Only needed if your organization requires all functions to run inside a VPC. The function calls S3, so the VPC needs either a NAT gateway or an S3 VPC endpoint. Default: - the function is not placed in a VPC
+        :param vpc_subnets: Which subnets to place the Lambda function in. Only used if ``vpc`` is supplied. Default: - the VPC's private subnets
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_ec2 as ec2
+            
+            # vpc: ec2.IVpc
+            
+            
+            lambda_.WebFunctionCode.from_asset_to_managed_bucket(path.join(__dirname, "my-app"),
+                copy_options=lambda.WebFunctionCodeCopyOptions(
+                    vpc=vpc,
+                    vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
+                )
+            )
+        '''
+        if isinstance(vpc_subnets, dict):
+            vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f5e24b6b7512ea8ec4d068d320179df8c42380e1a9d54ffb8a16bf7cd9d30613)
+            check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+            check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if log_group is not None:
+            self._values["log_group"] = log_group
+        if role is not None:
+            self._values["role"] = role
+        if security_groups is not None:
+            self._values["security_groups"] = security_groups
+        if vpc is not None:
+            self._values["vpc"] = vpc
+        if vpc_subnets is not None:
+            self._values["vpc_subnets"] = vpc_subnets
+
+    @builtins.property
+    def log_group(self) -> typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"]:
+        '''The log group the Lambda function sends logs to.
+
+        :default: - a log group is created in the stack, shared by every copy that uses the same function
+        '''
+        result = self._values.get("log_group")
+        return typing.cast(typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
+        '''Execution role for the Lambda function that performs the copy.
+
+        :default:
+
+        - a role is created with permissions to read the source object and write the
+        destination object
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
+
+    @builtins.property
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
+        '''Security groups for the Lambda function.
+
+        Only used if ``vpc`` is supplied.
+
+        :default: - a dedicated security group is created
+        '''
+        result = self._values.get("security_groups")
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
+
+    @builtins.property
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
+        '''The VPC to run the Lambda function in.
+
+        Only needed if your organization requires all functions to run inside a VPC. The function
+        calls S3, so the VPC needs either a NAT gateway or an S3 VPC endpoint.
+
+        :default: - the function is not placed in a VPC
+        '''
+        result = self._values.get("vpc")
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
+
+    @builtins.property
+    def vpc_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
+        '''Which subnets to place the Lambda function in.
+
+        Only used if ``vpc`` is supplied.
+
+        :default: - the VPC's private subnets
+        '''
+        result = self._values.get("vpc_subnets")
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionCodeCopyOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionDefaultEndpointOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "endpoint_description": "endpointDescription",
+        "endpoint_location": "endpointLocation",
+        "endpoint_name": "endpointName",
+        "max_environments": "maxEnvironments",
+        "rate_limit": "rateLimit",
+    },
+)
+class WebFunctionDefaultEndpointOptions:
+    def __init__(
+        self,
+        *,
+        endpoint_description: typing.Optional[builtins.str] = None,
+        endpoint_location: typing.Optional["WebFunctionEndpointLocation"] = None,
+        endpoint_name: typing.Optional[builtins.str] = None,
+        max_environments: typing.Optional[jsii.Number] = None,
+        rate_limit: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Settings of a WebFunction endpoint other than its auth type.
+
+        Used for the endpoint a WebFunction creates for itself, whose auth type is set by
+        ``WebFunctionProps.defaultEndpointAuth``.
+
+        :param endpoint_description: A description of the endpoint. Up to 256 characters. Default: - No description.
+        :param endpoint_location: Where the endpoint serves traffic: the home Region only, or a set of replica Regions. Changing it replaces the endpoint, which yields a new ``domainName``. If you set ``endpointName``, change it at the same time. Default: WebFunctionEndpointLocation.homeRegion()
+        :param endpoint_name: The name of the WebFunction endpoint. Must be 2 to 64 characters of letters, numbers, hyphens or underscores, starting and ending with a letter or number. Changing this property replaces the endpoint, which yields a new ``domainName``. ``endpointLocation`` also replaces the endpoint when it changes, and CloudFormation cannot replace a resource that keeps its name. Without this property the name is derived from the location, so that works. With it, change the name together with the location, or the deployment fails. Default: - for the endpoint a WebFunction creates, ``prod`` in the home Region and, for a regional endpoint, ``prod-`` followed by a hash of its location; for any other endpoint, a name derived from its construct path and location
+        :param max_environments: The maximum number of concurrent execution environments for the endpoint. This is an optional cap on top of your account's vCPU quota, not a reservation: it further constrains how far the endpoint scales. Must be 2 or greater. Default: - Scaling is limited only by your account's vCPU quota.
+        :param rate_limit: The maximum request rate per second for the endpoint, up to 10000. This is an optional cap on top of your account's rate limit quota. Specify 0 to reject all new requests. The service accepts only certain values: 0, 100 through 1000 in increments of 100, and 2000 through 10000 in increments of 1000. Which of those are available varies by Region, and an unsupported value is rejected at deploy time with the values that Region does accept. Only the lower bound is checked at synth, since the schema declares nothing more. Default: - The request rate is limited only by your account's rate limit quota.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_s3 as s3
+            
+            # code_bucket: s3.IBucket
+            
+            
+            lambda_.WebFunction(self, "GlobalApi",
+                code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+                runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+                default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+                default_endpoint=lambda.WebFunctionDefaultEndpointOptions(
+                    endpoint_location=lambda_.WebFunctionEndpointLocation.multi_region(["us-east-1", "eu-west-1", "ap-northeast-1"])
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ef0876a785b3688e0133ccd47f20a81c8e70295f4eadc88b9d31c089208606e3)
+            check_type(argname="argument endpoint_description", value=endpoint_description, expected_type=type_hints["endpoint_description"])
+            check_type(argname="argument endpoint_location", value=endpoint_location, expected_type=type_hints["endpoint_location"])
+            check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
+            check_type(argname="argument max_environments", value=max_environments, expected_type=type_hints["max_environments"])
+            check_type(argname="argument rate_limit", value=rate_limit, expected_type=type_hints["rate_limit"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if endpoint_description is not None:
+            self._values["endpoint_description"] = endpoint_description
+        if endpoint_location is not None:
+            self._values["endpoint_location"] = endpoint_location
+        if endpoint_name is not None:
+            self._values["endpoint_name"] = endpoint_name
+        if max_environments is not None:
+            self._values["max_environments"] = max_environments
+        if rate_limit is not None:
+            self._values["rate_limit"] = rate_limit
+
+    @builtins.property
+    def endpoint_description(self) -> typing.Optional[builtins.str]:
+        '''A description of the endpoint.
+
+        Up to 256 characters.
+
+        :default: - No description.
+        '''
+        result = self._values.get("endpoint_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def endpoint_location(self) -> typing.Optional["WebFunctionEndpointLocation"]:
+        '''Where the endpoint serves traffic: the home Region only, or a set of replica Regions.
+
+        Changing it replaces the endpoint, which yields a new ``domainName``. If you set
+        ``endpointName``, change it at the same time.
+
+        :default: WebFunctionEndpointLocation.homeRegion()
+        '''
+        result = self._values.get("endpoint_location")
+        return typing.cast(typing.Optional["WebFunctionEndpointLocation"], result)
+
+    @builtins.property
+    def endpoint_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the WebFunction endpoint.
+
+        Must be 2 to 64 characters of letters, numbers, hyphens or underscores, starting and
+        ending with a letter or number.
+
+        Changing this property replaces the endpoint, which yields a new ``domainName``.
+
+        ``endpointLocation`` also replaces the endpoint when it changes, and CloudFormation cannot
+        replace a resource that keeps its name. Without this property the name is derived from the
+        location, so that works. With it, change the name together with the location, or the
+        deployment fails.
+
+        :default:
+
+        - for the endpoint a WebFunction creates, ``prod`` in the home Region and, for a
+        regional endpoint, ``prod-`` followed by a hash of its location; for any other endpoint, a
+        name derived from its construct path and location
+        '''
+        result = self._values.get("endpoint_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_environments(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of concurrent execution environments for the endpoint.
+
+        This is an optional cap on top of your account's vCPU quota, not a reservation:
+        it further constrains how far the endpoint scales. Must be 2 or greater.
+
+        :default: - Scaling is limited only by your account's vCPU quota.
+        '''
+        result = self._values.get("max_environments")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def rate_limit(self) -> typing.Optional[jsii.Number]:
+        '''The maximum request rate per second for the endpoint, up to 10000.
+
+        This is an optional cap on top of your account's rate limit quota. Specify 0 to
+        reject all new requests.
+
+        The service accepts only certain values: 0, 100 through 1000 in increments of 100,
+        and 2000 through 10000 in increments of 1000. Which of those are available varies by
+        Region, and an unsupported value is rejected at deploy time with the values that
+        Region does accept. Only the lower bound is checked at synth, since the schema
+        declares nothing more.
+
+        :default: - The request rate is limited only by your account's rate limit quota.
+        '''
+        result = self._values.get("rate_limit")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionDefaultEndpointOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionEndpointAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "auth_type": "authType",
+        "domain_name": "domainName",
+        "endpoint_arn": "endpointArn",
+        "endpoint_type": "endpointType",
+    },
+)
+class WebFunctionEndpointAttributes:
+    def __init__(
+        self,
+        *,
+        auth_type: "WebFunctionAuthType",
+        domain_name: builtins.str,
+        endpoint_arn: builtins.str,
+        endpoint_type: "WebFunctionEndpointType",
+    ) -> None:
+        '''Attributes for importing an existing WebFunction endpoint.
+
+        :param auth_type: How the endpoint authenticates requests. For an imported endpoint this is taken as given: it is not verified against the deployed endpoint and must match it, because downstream constructs rely on it for a synth-time security decision. Like ``domainName``, it cannot be derived from the ARN.
+        :param domain_name: The domain name of the endpoint. The service assigns it, so it cannot be derived from the ARN.
+        :param endpoint_arn: The ARN of the endpoint, ``arn:<partition>:lambda:<region>:<account>:web-function/<function>/endpoint/<endpoint>``.
+        :param endpoint_type: The endpoint type.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            endpoint = lambda_.WebFunctionEndpoint.from_web_function_endpoint_attributes(self, "Endpoint",
+                endpoint_arn="arn:aws:lambda:us-west-2:123456789012:web-function/my-function/endpoint/prod",
+                domain_name="abcd1234.lambda-web.us-west-2.on.aws",
+                endpoint_type=lambda_.WebFunctionEndpointType.HOME_REGION,
+                auth_type=lambda_.WebFunctionAuthType.IAM_AUTH
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0d1e50fe37d01128b2c010b5fa2a159fb977d3eee036ed1498923e7f218f1107)
+            check_type(argname="argument auth_type", value=auth_type, expected_type=type_hints["auth_type"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument endpoint_arn", value=endpoint_arn, expected_type=type_hints["endpoint_arn"])
+            check_type(argname="argument endpoint_type", value=endpoint_type, expected_type=type_hints["endpoint_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "auth_type": auth_type,
+            "domain_name": domain_name,
+            "endpoint_arn": endpoint_arn,
+            "endpoint_type": endpoint_type,
+        }
+
+    @builtins.property
+    def auth_type(self) -> "WebFunctionAuthType":
+        '''How the endpoint authenticates requests.
+
+        For an imported endpoint this is taken as given: it is not verified against the
+        deployed endpoint and must match it, because downstream constructs rely on it for
+        a synth-time security decision. Like ``domainName``, it cannot be derived from the ARN.
+        '''
+        result = self._values.get("auth_type")
+        assert result is not None, "Required property 'auth_type' is missing"
+        return typing.cast("WebFunctionAuthType", result)
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The domain name of the endpoint.
+
+        The service assigns it, so it cannot be derived from the ARN.
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def endpoint_arn(self) -> builtins.str:
+        '''The ARN of the endpoint, ``arn:<partition>:lambda:<region>:<account>:web-function/<function>/endpoint/<endpoint>``.'''
+        result = self._values.get("endpoint_arn")
+        assert result is not None, "Required property 'endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def endpoint_type(self) -> "WebFunctionEndpointType":
+        '''The endpoint type.'''
+        result = self._values.get("endpoint_type")
+        assert result is not None, "Required property 'endpoint_type' is missing"
+        return typing.cast("WebFunctionEndpointType", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionEndpointAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IWebFunctionEndpoint)
+class WebFunctionEndpointBase(
+    _aws_cdk_0cae9daa.Resource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionEndpointBase",
+):
+    '''Base class for WebFunctionEndpoint, shared between real and imported instances.'''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        environment_from_arn: typing.Optional[builtins.str] = None,
+        physical_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param account: The AWS account ID this resource belongs to. Default: - the resource is in the same account as the stack it belongs to
+        :param environment_from_arn: ARN to deduce region and account from. The ARN is parsed and the account and region are taken from the ARN. This should be used for imported resources. Cannot be supplied together with either ``account`` or ``region``. Default: - take environment from ``account``, ``region`` parameters, or use Stack environment.
+        :param physical_name: The value passed in by users to the physical name prop of the resource. - ``undefined`` implies that a physical name will be allocated by CloudFormation during deployment. - a concrete value implies a specific physical name - ``PhysicalName.GENERATE_IF_NEEDED`` is a marker that indicates that a physical will only be generated by the CDK if it is needed for cross-environment references. Otherwise, it will be allocated by CloudFormation. Default: - The physical name will be allocated by CloudFormation at deployment time
+        :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c16b81198ce176f9ee97b0bb6124b1fab2d80469bdc2f976b1fc85869efb0b4f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = _aws_cdk_0cae9daa.ResourceProps(
+            account=account,
+            environment_from_arn=environment_from_arn,
+            physical_name=physical_name,
+            region=region,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="addToResourcePolicy")
+    def add_to_resource_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
+        '''Adds a statement to the resource-based policy of the WebFunction the endpoint serves.
+
+        Only an endpoint created for a ``WebFunction`` defined in this app can do so, since a web
+        function has a single policy; otherwise this adds a warning and returns
+        ``statementAdded: false``.
+
+        :param statement: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b01497d4e9b078a6a5968317d5d2e6fcec33e6ba2f427ce1d7f2346f837239dd)
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
+
+    @builtins.property
+    @jsii.member(jsii_name="authType")
+    @abc.abstractmethod
+    def auth_type(self) -> "WebFunctionAuthType":
+        '''How the endpoint authenticates requests.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    @abc.abstractmethod
+    def domain_name(self) -> builtins.str:
+        '''The domain name of the endpoint: the host clients send requests to.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointArn")
+    @abc.abstractmethod
+    def endpoint_arn(self) -> builtins.str:
+        '''The ARN of the endpoint.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointType")
+    @abc.abstractmethod
+    def endpoint_type(self) -> "WebFunctionEndpointType":
+        '''The endpoint type.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "WebFunctionEndpointGrants":
+        '''Grant methods for the endpoint.'''
+        return typing.cast("WebFunctionEndpointGrants", jsii.get(self, "grants"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionArn")
+    @abc.abstractmethod
+    def web_function_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction the endpoint serves.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionEndpointRef")
+    def web_function_endpoint_ref(
+        self,
+    ) -> "_aws_lambda_aaab8031.WebFunctionEndpointReference":
+        '''A reference to a WebFunctionEndpoint resource.'''
+        return typing.cast("_aws_lambda_aaab8031.WebFunctionEndpointReference", jsii.get(self, "webFunctionEndpointRef"))
+
+
+class _WebFunctionEndpointBaseProxy(
+    WebFunctionEndpointBase,
+    jsii.proxy_for(_aws_cdk_0cae9daa.Resource), # type: ignore[misc]
+):
+    @builtins.property
+    @jsii.member(jsii_name="authType")
+    def auth_type(self) -> "WebFunctionAuthType":
+        '''How the endpoint authenticates requests.'''
+        return typing.cast("WebFunctionAuthType", jsii.get(self, "authType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        '''The domain name of the endpoint: the host clients send requests to.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointArn")
+    def endpoint_arn(self) -> builtins.str:
+        '''The ARN of the endpoint.'''
+        return typing.cast(builtins.str, jsii.get(self, "endpointArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointType")
+    def endpoint_type(self) -> "WebFunctionEndpointType":
+        '''The endpoint type.'''
+        return typing.cast("WebFunctionEndpointType", jsii.get(self, "endpointType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionArn")
+    def web_function_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction the endpoint serves.'''
+        return typing.cast(builtins.str, jsii.get(self, "webFunctionArn"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, WebFunctionEndpointBase).__jsii_proxy_class__ = lambda : _WebFunctionEndpointBaseProxy
+
+
+class WebFunctionEndpointGrants(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionEndpointGrants",
+):
+    '''Collection of grant methods for a WebFunction endpoint.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lambda as lambda_
+        from aws_cdk.interfaces import aws_lambda as interfaces_lambda
+        
+        # web_function_endpoint_ref: interfaces_lambda.IWebFunctionEndpointRef
+        
+        web_function_endpoint_grants = lambda_.WebFunctionEndpointGrants.from_web_function_endpoint(web_function_endpoint_ref)
+    '''
+
+    @jsii.member(jsii_name="fromWebFunctionEndpoint")
+    @builtins.classmethod
+    def from_web_function_endpoint(
+        cls,
+        endpoint: "_aws_lambda_aaab8031.IWebFunctionEndpointRef",
+    ) -> "WebFunctionEndpointGrants":
+        '''Creates grants for a WebFunction endpoint.
+
+        :param endpoint: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7bbfc12f5135b6aed0bbdaeb7cadba7bf7d59f3a2750eebfda5c99e467c1a959)
+            check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+        return typing.cast("WebFunctionEndpointGrants", jsii.sinvoke(cls, "fromWebFunctionEndpoint", [endpoint]))
+
+    @jsii.member(jsii_name="invoke")
+    def invoke(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
+        '''Grants permission to invoke the endpoint over HTTP.
+
+        Only meaningful for an endpoint with ``WebFunctionAuthType.IAM_AUTH``; requests to it must be
+        signed by the grantee.
+
+        A role or user in this account gets the permission in its own policy. Any other grantee, such
+        as a service principal or another account, gets a statement in the resource-based policy of
+        the WebFunction the endpoint serves, which requires that function to be defined in this app.
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e352a290de361afcf1d08b347a963c7a5fa0475ff53a4d57d4433885f846a4e9)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "invoke", [grantee]))
+
+
+class WebFunctionEndpointLocation(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionEndpointLocation",
+):
+    '''Where a WebFunction endpoint serves traffic.
+
+    A regional location carries its replica Regions, and a home-Region one has none, so a
+    combination the service rejects cannot be expressed.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_s3 as s3
+        
+        # code_bucket: s3.IBucket
+        
+        
+        lambda_.WebFunction(self, "GlobalApi",
+            code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+            runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+            default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+            default_endpoint=lambda.WebFunctionDefaultEndpointOptions(
+                endpoint_location=lambda_.WebFunctionEndpointLocation.multi_region(["us-east-1", "eu-west-1", "ap-northeast-1"])
+            )
+        )
+    '''
+
+    @jsii.member(jsii_name="homeRegion")
+    @builtins.classmethod
+    def home_region(cls) -> "WebFunctionEndpointLocation":
+        '''Serve from the stack's Region only, under one regional domain name.'''
+        return typing.cast("WebFunctionEndpointLocation", jsii.sinvoke(cls, "homeRegion", []))
+
+    @jsii.member(jsii_name="multiRegion")
+    @builtins.classmethod
+    def multi_region(
+        cls,
+        replica_regions: typing.Sequence[builtins.str],
+    ) -> "WebFunctionEndpointLocation":
+        '''Serve from the stack's Region and the replica Regions under one global domain name, with requests routed to the nearest Region.
+
+        The stack's own Region always serves traffic, so listing it has no effect, and
+        ``replicaRegions`` must hold at least one other Region. The list is treated as a set: order
+        and duplicates do not matter. Adding or removing a Region replaces the endpoint; a
+        deploy-time list (for example from a ``CfnParameter``) cannot feed the default endpoint
+        name, so changing its value at deployment also needs a new ``endpointName``.
+
+        :param replica_regions: the Regions to replicate to, for example ``['us-east-1', 'eu-west-1']``.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3c8718ff15b14bc7ffa3ff6ec3177b512507b058141d4fe1e367da478861e18d)
+            check_type(argname="argument replica_regions", value=replica_regions, expected_type=type_hints["replica_regions"])
+        return typing.cast("WebFunctionEndpointLocation", jsii.sinvoke(cls, "multiRegion", [replica_regions]))
+
+    @jsii.member(jsii_name="perRegion")
+    @builtins.classmethod
+    def per_region(
+        cls,
+        replica_regions: typing.Sequence[builtins.str],
+    ) -> "WebFunctionEndpointLocation":
+        '''Serve from the stack's Region and the replica Regions, with a separate domain name in each Region and no managed routing between them.
+
+        The same rules for ``replicaRegions`` apply as for ``multiRegion()``.
+
+        :param replica_regions: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c03cb870d8dad68f899b40d0285e86d8274e4d45c6dafad21c468110833e9b36)
+            check_type(argname="argument replica_regions", value=replica_regions, expected_type=type_hints["replica_regions"])
+        return typing.cast("WebFunctionEndpointLocation", jsii.sinvoke(cls, "perRegion", [replica_regions]))
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointType")
+    def endpoint_type(self) -> "WebFunctionEndpointType":
+        '''The endpoint type this location maps to.'''
+        return typing.cast("WebFunctionEndpointType", jsii.get(self, "endpointType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="replicaRegions")
+    def replica_regions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The replica Regions, for a regional location, as given.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "replicaRegions"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionEndpointOptions",
+    jsii_struct_bases=[WebFunctionDefaultEndpointOptions],
+    name_mapping={
+        "endpoint_description": "endpointDescription",
+        "endpoint_location": "endpointLocation",
+        "endpoint_name": "endpointName",
+        "max_environments": "maxEnvironments",
+        "rate_limit": "rateLimit",
+        "auth_type": "authType",
+    },
+)
+class WebFunctionEndpointOptions(WebFunctionDefaultEndpointOptions):
+    def __init__(
+        self,
+        *,
+        endpoint_description: typing.Optional[builtins.str] = None,
+        endpoint_location: typing.Optional["WebFunctionEndpointLocation"] = None,
+        endpoint_name: typing.Optional[builtins.str] = None,
+        max_environments: typing.Optional[jsii.Number] = None,
+        rate_limit: typing.Optional[jsii.Number] = None,
+        auth_type: "WebFunctionAuthType",
+    ) -> None:
+        '''Settings of a WebFunction endpoint.
+
+        :param endpoint_description: A description of the endpoint. Up to 256 characters. Default: - No description.
+        :param endpoint_location: Where the endpoint serves traffic: the home Region only, or a set of replica Regions. Changing it replaces the endpoint, which yields a new ``domainName``. If you set ``endpointName``, change it at the same time. Default: WebFunctionEndpointLocation.homeRegion()
+        :param endpoint_name: The name of the WebFunction endpoint. Must be 2 to 64 characters of letters, numbers, hyphens or underscores, starting and ending with a letter or number. Changing this property replaces the endpoint, which yields a new ``domainName``. ``endpointLocation`` also replaces the endpoint when it changes, and CloudFormation cannot replace a resource that keeps its name. Without this property the name is derived from the location, so that works. With it, change the name together with the location, or the deployment fails. Default: - for the endpoint a WebFunction creates, ``prod`` in the home Region and, for a regional endpoint, ``prod-`` followed by a hash of its location; for any other endpoint, a name derived from its construct path and location
+        :param max_environments: The maximum number of concurrent execution environments for the endpoint. This is an optional cap on top of your account's vCPU quota, not a reservation: it further constrains how far the endpoint scales. Must be 2 or greater. Default: - Scaling is limited only by your account's vCPU quota.
+        :param rate_limit: The maximum request rate per second for the endpoint, up to 10000. This is an optional cap on top of your account's rate limit quota. Specify 0 to reject all new requests. The service accepts only certain values: 0, 100 through 1000 in increments of 100, and 2000 through 10000 in increments of 1000. Which of those are available varies by Region, and an unsupported value is rejected at deploy time with the values that Region does accept. Only the lower bound is checked at synth, since the schema declares nothing more. Default: - The request rate is limited only by your account's rate limit quota.
+        :param auth_type: The authentication type for the WebFunction endpoint. There is no default: you must choose explicitly so an endpoint is never accidentally public or accidentally locked down. Specify ``WebFunctionAuthType.IAM_AUTH`` (Lambda authorizes requests with SigV4/IAM) or ``WebFunctionAuthType.APPLICATION_MANAGED`` (the endpoint is public and your function handles authorization). With ``IAM_AUTH``, requests must be signed with SigV4 and carry the ``X-Amz-Content-SHA256`` header, also for a request without a body; without it the endpoint returns 403 even for a valid signature. A ``MULTI_REGION`` endpoint is signed with SigV4a, for the Region set ``*``.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # fn: lambda.WebFunction
+            
+            
+            internal = fn.add_endpoint("Internal",
+                auth_type=lambda_.WebFunctionAuthType.IAM_AUTH
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__31df4dda815d527860bb479cd273c156dd316eea28c6f1bb28d8c31c8bed5d75)
+            check_type(argname="argument endpoint_description", value=endpoint_description, expected_type=type_hints["endpoint_description"])
+            check_type(argname="argument endpoint_location", value=endpoint_location, expected_type=type_hints["endpoint_location"])
+            check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
+            check_type(argname="argument max_environments", value=max_environments, expected_type=type_hints["max_environments"])
+            check_type(argname="argument rate_limit", value=rate_limit, expected_type=type_hints["rate_limit"])
+            check_type(argname="argument auth_type", value=auth_type, expected_type=type_hints["auth_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "auth_type": auth_type,
+        }
+        if endpoint_description is not None:
+            self._values["endpoint_description"] = endpoint_description
+        if endpoint_location is not None:
+            self._values["endpoint_location"] = endpoint_location
+        if endpoint_name is not None:
+            self._values["endpoint_name"] = endpoint_name
+        if max_environments is not None:
+            self._values["max_environments"] = max_environments
+        if rate_limit is not None:
+            self._values["rate_limit"] = rate_limit
+
+    @builtins.property
+    def endpoint_description(self) -> typing.Optional[builtins.str]:
+        '''A description of the endpoint.
+
+        Up to 256 characters.
+
+        :default: - No description.
+        '''
+        result = self._values.get("endpoint_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def endpoint_location(self) -> typing.Optional["WebFunctionEndpointLocation"]:
+        '''Where the endpoint serves traffic: the home Region only, or a set of replica Regions.
+
+        Changing it replaces the endpoint, which yields a new ``domainName``. If you set
+        ``endpointName``, change it at the same time.
+
+        :default: WebFunctionEndpointLocation.homeRegion()
+        '''
+        result = self._values.get("endpoint_location")
+        return typing.cast(typing.Optional["WebFunctionEndpointLocation"], result)
+
+    @builtins.property
+    def endpoint_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the WebFunction endpoint.
+
+        Must be 2 to 64 characters of letters, numbers, hyphens or underscores, starting and
+        ending with a letter or number.
+
+        Changing this property replaces the endpoint, which yields a new ``domainName``.
+
+        ``endpointLocation`` also replaces the endpoint when it changes, and CloudFormation cannot
+        replace a resource that keeps its name. Without this property the name is derived from the
+        location, so that works. With it, change the name together with the location, or the
+        deployment fails.
+
+        :default:
+
+        - for the endpoint a WebFunction creates, ``prod`` in the home Region and, for a
+        regional endpoint, ``prod-`` followed by a hash of its location; for any other endpoint, a
+        name derived from its construct path and location
+        '''
+        result = self._values.get("endpoint_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_environments(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of concurrent execution environments for the endpoint.
+
+        This is an optional cap on top of your account's vCPU quota, not a reservation:
+        it further constrains how far the endpoint scales. Must be 2 or greater.
+
+        :default: - Scaling is limited only by your account's vCPU quota.
+        '''
+        result = self._values.get("max_environments")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def rate_limit(self) -> typing.Optional[jsii.Number]:
+        '''The maximum request rate per second for the endpoint, up to 10000.
+
+        This is an optional cap on top of your account's rate limit quota. Specify 0 to
+        reject all new requests.
+
+        The service accepts only certain values: 0, 100 through 1000 in increments of 100,
+        and 2000 through 10000 in increments of 1000. Which of those are available varies by
+        Region, and an unsupported value is rejected at deploy time with the values that
+        Region does accept. Only the lower bound is checked at synth, since the schema
+        declares nothing more.
+
+        :default: - The request rate is limited only by your account's rate limit quota.
+        '''
+        result = self._values.get("rate_limit")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def auth_type(self) -> "WebFunctionAuthType":
+        '''The authentication type for the WebFunction endpoint.
+
+        There is no default: you must choose explicitly so an endpoint is never accidentally public or
+        accidentally locked down. Specify ``WebFunctionAuthType.IAM_AUTH`` (Lambda authorizes requests with SigV4/IAM)
+        or ``WebFunctionAuthType.APPLICATION_MANAGED`` (the endpoint is public and your function handles authorization).
+
+        With ``IAM_AUTH``, requests must be signed with SigV4 and carry the ``X-Amz-Content-SHA256``
+        header, also for a request without a body; without it the endpoint returns 403 even for a
+        valid signature. A ``MULTI_REGION`` endpoint is signed with SigV4a, for the Region set ``*``.
+        '''
+        result = self._values.get("auth_type")
+        assert result is not None, "Required property 'auth_type' is missing"
+        return typing.cast("WebFunctionAuthType", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionEndpointOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionEndpointProps",
+    jsii_struct_bases=[WebFunctionEndpointOptions],
+    name_mapping={
+        "endpoint_description": "endpointDescription",
+        "endpoint_location": "endpointLocation",
+        "endpoint_name": "endpointName",
+        "max_environments": "maxEnvironments",
+        "rate_limit": "rateLimit",
+        "auth_type": "authType",
+        "traffic": "traffic",
+        "web_function": "webFunction",
+    },
+)
+class WebFunctionEndpointProps(WebFunctionEndpointOptions):
+    def __init__(
+        self,
+        *,
+        endpoint_description: typing.Optional[builtins.str] = None,
+        endpoint_location: typing.Optional["WebFunctionEndpointLocation"] = None,
+        endpoint_name: typing.Optional[builtins.str] = None,
+        max_environments: typing.Optional[jsii.Number] = None,
+        rate_limit: typing.Optional[jsii.Number] = None,
+        auth_type: "WebFunctionAuthType",
+        traffic: "WebFunctionTraffic",
+        web_function: "_aws_lambda_aaab8031.IWebFunctionRef",
+    ) -> None:
+        '''Properties for defining a ``WebFunctionEndpoint``.
+
+        :param endpoint_description: A description of the endpoint. Up to 256 characters. Default: - No description.
+        :param endpoint_location: Where the endpoint serves traffic: the home Region only, or a set of replica Regions. Changing it replaces the endpoint, which yields a new ``domainName``. If you set ``endpointName``, change it at the same time. Default: WebFunctionEndpointLocation.homeRegion()
+        :param endpoint_name: The name of the WebFunction endpoint. Must be 2 to 64 characters of letters, numbers, hyphens or underscores, starting and ending with a letter or number. Changing this property replaces the endpoint, which yields a new ``domainName``. ``endpointLocation`` also replaces the endpoint when it changes, and CloudFormation cannot replace a resource that keeps its name. Without this property the name is derived from the location, so that works. With it, change the name together with the location, or the deployment fails. Default: - for the endpoint a WebFunction creates, ``prod`` in the home Region and, for a regional endpoint, ``prod-`` followed by a hash of its location; for any other endpoint, a name derived from its construct path and location
+        :param max_environments: The maximum number of concurrent execution environments for the endpoint. This is an optional cap on top of your account's vCPU quota, not a reservation: it further constrains how far the endpoint scales. Must be 2 or greater. Default: - Scaling is limited only by your account's vCPU quota.
+        :param rate_limit: The maximum request rate per second for the endpoint, up to 10000. This is an optional cap on top of your account's rate limit quota. Specify 0 to reject all new requests. The service accepts only certain values: 0, 100 through 1000 in increments of 100, and 2000 through 10000 in increments of 1000. Which of those are available varies by Region, and an unsupported value is rejected at deploy time with the values that Region does accept. Only the lower bound is checked at synth, since the schema declares nothing more. Default: - The request rate is limited only by your account's rate limit quota.
+        :param auth_type: The authentication type for the WebFunction endpoint. There is no default: you must choose explicitly so an endpoint is never accidentally public or accidentally locked down. Specify ``WebFunctionAuthType.IAM_AUTH`` (Lambda authorizes requests with SigV4/IAM) or ``WebFunctionAuthType.APPLICATION_MANAGED`` (the endpoint is public and your function handles authorization). With ``IAM_AUTH``, requests must be signed with SigV4 and carry the ``X-Amz-Content-SHA256`` header, also for a request without a body; without it the endpoint returns 403 even for a valid signature. A ``MULTI_REGION`` endpoint is signed with SigV4a, for the Region set ``*``.
+        :param traffic: The revisions that receive the endpoint's traffic. For a ``WebFunction`` defined in this app, ``WebFunction.addEndpoint()`` sets this to the function's revision.
+        :param web_function: The WebFunction the endpoint serves.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            from aws_cdk.interfaces import aws_lambda as interfaces_lambda
+            
+            # web_function_endpoint_location: lambda.WebFunctionEndpointLocation
+            # web_function_ref: interfaces_lambda.IWebFunctionRef
+            # web_function_traffic: lambda.WebFunctionTraffic
+            
+            web_function_endpoint_props = lambda.WebFunctionEndpointProps(
+                auth_type=lambda_.WebFunctionAuthType.APPLICATION_MANAGED,
+                traffic=web_function_traffic,
+                web_function=web_function_ref,
+            
+                # the properties below are optional
+                endpoint_description="endpointDescription",
+                endpoint_location=web_function_endpoint_location,
+                endpoint_name="endpointName",
+                max_environments=123,
+                rate_limit=123
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__84379b1662ceb3928809f1d669b826a17b1a7d75f8ff22c0c6fc0db73c2c3176)
+            check_type(argname="argument endpoint_description", value=endpoint_description, expected_type=type_hints["endpoint_description"])
+            check_type(argname="argument endpoint_location", value=endpoint_location, expected_type=type_hints["endpoint_location"])
+            check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
+            check_type(argname="argument max_environments", value=max_environments, expected_type=type_hints["max_environments"])
+            check_type(argname="argument rate_limit", value=rate_limit, expected_type=type_hints["rate_limit"])
+            check_type(argname="argument auth_type", value=auth_type, expected_type=type_hints["auth_type"])
+            check_type(argname="argument traffic", value=traffic, expected_type=type_hints["traffic"])
+            check_type(argname="argument web_function", value=web_function, expected_type=type_hints["web_function"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "auth_type": auth_type,
+            "traffic": traffic,
+            "web_function": web_function,
+        }
+        if endpoint_description is not None:
+            self._values["endpoint_description"] = endpoint_description
+        if endpoint_location is not None:
+            self._values["endpoint_location"] = endpoint_location
+        if endpoint_name is not None:
+            self._values["endpoint_name"] = endpoint_name
+        if max_environments is not None:
+            self._values["max_environments"] = max_environments
+        if rate_limit is not None:
+            self._values["rate_limit"] = rate_limit
+
+    @builtins.property
+    def endpoint_description(self) -> typing.Optional[builtins.str]:
+        '''A description of the endpoint.
+
+        Up to 256 characters.
+
+        :default: - No description.
+        '''
+        result = self._values.get("endpoint_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def endpoint_location(self) -> typing.Optional["WebFunctionEndpointLocation"]:
+        '''Where the endpoint serves traffic: the home Region only, or a set of replica Regions.
+
+        Changing it replaces the endpoint, which yields a new ``domainName``. If you set
+        ``endpointName``, change it at the same time.
+
+        :default: WebFunctionEndpointLocation.homeRegion()
+        '''
+        result = self._values.get("endpoint_location")
+        return typing.cast(typing.Optional["WebFunctionEndpointLocation"], result)
+
+    @builtins.property
+    def endpoint_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the WebFunction endpoint.
+
+        Must be 2 to 64 characters of letters, numbers, hyphens or underscores, starting and
+        ending with a letter or number.
+
+        Changing this property replaces the endpoint, which yields a new ``domainName``.
+
+        ``endpointLocation`` also replaces the endpoint when it changes, and CloudFormation cannot
+        replace a resource that keeps its name. Without this property the name is derived from the
+        location, so that works. With it, change the name together with the location, or the
+        deployment fails.
+
+        :default:
+
+        - for the endpoint a WebFunction creates, ``prod`` in the home Region and, for a
+        regional endpoint, ``prod-`` followed by a hash of its location; for any other endpoint, a
+        name derived from its construct path and location
+        '''
+        result = self._values.get("endpoint_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_environments(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of concurrent execution environments for the endpoint.
+
+        This is an optional cap on top of your account's vCPU quota, not a reservation:
+        it further constrains how far the endpoint scales. Must be 2 or greater.
+
+        :default: - Scaling is limited only by your account's vCPU quota.
+        '''
+        result = self._values.get("max_environments")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def rate_limit(self) -> typing.Optional[jsii.Number]:
+        '''The maximum request rate per second for the endpoint, up to 10000.
+
+        This is an optional cap on top of your account's rate limit quota. Specify 0 to
+        reject all new requests.
+
+        The service accepts only certain values: 0, 100 through 1000 in increments of 100,
+        and 2000 through 10000 in increments of 1000. Which of those are available varies by
+        Region, and an unsupported value is rejected at deploy time with the values that
+        Region does accept. Only the lower bound is checked at synth, since the schema
+        declares nothing more.
+
+        :default: - The request rate is limited only by your account's rate limit quota.
+        '''
+        result = self._values.get("rate_limit")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def auth_type(self) -> "WebFunctionAuthType":
+        '''The authentication type for the WebFunction endpoint.
+
+        There is no default: you must choose explicitly so an endpoint is never accidentally public or
+        accidentally locked down. Specify ``WebFunctionAuthType.IAM_AUTH`` (Lambda authorizes requests with SigV4/IAM)
+        or ``WebFunctionAuthType.APPLICATION_MANAGED`` (the endpoint is public and your function handles authorization).
+
+        With ``IAM_AUTH``, requests must be signed with SigV4 and carry the ``X-Amz-Content-SHA256``
+        header, also for a request without a body; without it the endpoint returns 403 even for a
+        valid signature. A ``MULTI_REGION`` endpoint is signed with SigV4a, for the Region set ``*``.
+        '''
+        result = self._values.get("auth_type")
+        assert result is not None, "Required property 'auth_type' is missing"
+        return typing.cast("WebFunctionAuthType", result)
+
+    @builtins.property
+    def traffic(self) -> "WebFunctionTraffic":
+        '''The revisions that receive the endpoint's traffic.
+
+        For a ``WebFunction`` defined in this app, ``WebFunction.addEndpoint()`` sets this to the
+        function's revision.
+        '''
+        result = self._values.get("traffic")
+        assert result is not None, "Required property 'traffic' is missing"
+        return typing.cast("WebFunctionTraffic", result)
+
+    @builtins.property
+    def web_function(self) -> "_aws_lambda_aaab8031.IWebFunctionRef":
+        '''The WebFunction the endpoint serves.'''
+        result = self._values.get("web_function")
+        assert result is not None, "Required property 'web_function' is missing"
+        return typing.cast("_aws_lambda_aaab8031.IWebFunctionRef", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_lambda.WebFunctionEndpointType")
+class WebFunctionEndpointType(enum.Enum):
+    '''The endpoint type for a WebFunction endpoint.
+
+    Choose it with ``WebFunctionEndpointLocation`` when defining an endpoint.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        endpoint = lambda_.WebFunctionEndpoint.from_web_function_endpoint_attributes(self, "Endpoint",
+            endpoint_arn="arn:aws:lambda:us-west-2:123456789012:web-function/my-function/endpoint/prod",
+            domain_name="abcd1234.lambda-web.us-west-2.on.aws",
+            endpoint_type=lambda_.WebFunctionEndpointType.HOME_REGION,
+            auth_type=lambda_.WebFunctionAuthType.IAM_AUTH
+        )
+    '''
+
+    HOME_REGION = "HOME_REGION"
+    '''Single-region endpoint deployed in the stack's region only.
+
+    The function is accessible from a URL in this region.
+    '''
+    MULTI_REGION = "MULTI_REGION"
+    '''Multi-region endpoint with managed latency-based routing.
+
+    The function is replicated to the specified replica regions
+    and users are routed to the nearest region.
+    '''
+    PER_REGION = "PER_REGION"
+    '''Per-region endpoint: a separate regional endpoint is exposed for each replica region (no managed cross-region routing).'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionManagedBucketAssetOptions",
+    jsii_struct_bases=[WebFunctionAssetOptions],
+    name_mapping={
+        "asset_hash": "assetHash",
+        "asset_hash_type": "assetHashType",
+        "bundling": "bundling",
+        "exclude": "exclude",
+        "follow_symlinks": "followSymlinks",
+        "ignore_mode": "ignoreMode",
+        "deploy_time": "deployTime",
+        "display_name": "displayName",
+        "readers": "readers",
+        "source_kms_key": "sourceKMSKey",
+        "copy_options": "copyOptions",
+    },
+)
+class WebFunctionManagedBucketAssetOptions(WebFunctionAssetOptions):
+    def __init__(
+        self,
+        *,
+        asset_hash: typing.Optional[builtins.str] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_0cae9daa.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
+        deploy_time: typing.Optional[builtins.bool] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        readers: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        copy_options: typing.Optional[typing.Union["WebFunctionCodeCopyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Options for ``WebFunctionCode.fromAssetToManagedBucket()``.
+
+        :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
+        :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
+        :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
+        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
+        :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
+        :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
+        :param source_kms_key: The ARN of the KMS key used to encrypt the handler code. Default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
+        :param copy_options: Configuration for the custom resource that copies the staged asset into the destination bucket. Use this if your organization requires the copy to run in a VPC, or to supply your own execution role. Default: - the copy runs outside a VPC with a role created for it
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_ec2 as ec2
+            
+            # vpc: ec2.IVpc
+            
+            
+            lambda_.WebFunctionCode.from_asset_to_managed_bucket(path.join(__dirname, "my-app"),
+                copy_options=lambda.WebFunctionCodeCopyOptions(
+                    vpc=vpc,
+                    vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
+                )
+            )
+        '''
+        if isinstance(bundling, dict):
+            bundling = _aws_cdk_0cae9daa.BundlingOptions(**bundling)
+        if isinstance(copy_options, dict):
+            copy_options = WebFunctionCodeCopyOptions(**copy_options)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4afef188792c9f98f2a29b6fa32b7d31855aafb641d05ada792111197a2e13d6)
+            check_type(argname="argument asset_hash", value=asset_hash, expected_type=type_hints["asset_hash"])
+            check_type(argname="argument asset_hash_type", value=asset_hash_type, expected_type=type_hints["asset_hash_type"])
+            check_type(argname="argument bundling", value=bundling, expected_type=type_hints["bundling"])
+            check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
+            check_type(argname="argument follow_symlinks", value=follow_symlinks, expected_type=type_hints["follow_symlinks"])
+            check_type(argname="argument ignore_mode", value=ignore_mode, expected_type=type_hints["ignore_mode"])
+            check_type(argname="argument deploy_time", value=deploy_time, expected_type=type_hints["deploy_time"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument readers", value=readers, expected_type=type_hints["readers"])
+            check_type(argname="argument source_kms_key", value=source_kms_key, expected_type=type_hints["source_kms_key"])
+            check_type(argname="argument copy_options", value=copy_options, expected_type=type_hints["copy_options"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if asset_hash is not None:
+            self._values["asset_hash"] = asset_hash
+        if asset_hash_type is not None:
+            self._values["asset_hash_type"] = asset_hash_type
+        if bundling is not None:
+            self._values["bundling"] = bundling
+        if exclude is not None:
+            self._values["exclude"] = exclude
+        if follow_symlinks is not None:
+            self._values["follow_symlinks"] = follow_symlinks
+        if ignore_mode is not None:
+            self._values["ignore_mode"] = ignore_mode
+        if deploy_time is not None:
+            self._values["deploy_time"] = deploy_time
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if readers is not None:
+            self._values["readers"] = readers
+        if source_kms_key is not None:
+            self._values["source_kms_key"] = source_kms_key
+        if copy_options is not None:
+            self._values["copy_options"] = copy_options
+
+    @builtins.property
+    def asset_hash(self) -> typing.Optional[builtins.str]:
+        '''Specify a custom hash for this asset.
+
+        If ``assetHashType`` is set it must
+        be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will
+        be SHA256 hashed and encoded as hex. The resulting hash will be the asset
+        hash.
+
+        NOTE: the hash is used in order to identify a specific revision of the asset, and
+        used for optimizing and caching deployment activities related to this asset such as
+        packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will
+        need to make sure it is updated every time the asset changes, or otherwise it is
+        possible that some deployments will not be invalidated.
+
+        :default: - based on ``assetHashType``
+        '''
+        result = self._values.get("asset_hash")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def asset_hash_type(self) -> typing.Optional["_aws_cdk_0cae9daa.AssetHashType"]:
+        '''Specifies the type of hash to calculate for this asset.
+
+        If ``assetHash`` is configured, this option must be ``undefined`` or
+        ``AssetHashType.CUSTOM``.
+
+        :default:
+
+        - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is
+        explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
+        '''
+        result = self._values.get("asset_hash_type")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.AssetHashType"], result)
+
+    @builtins.property
+    def bundling(self) -> typing.Optional["_aws_cdk_0cae9daa.BundlingOptions"]:
+        '''Bundle the asset by executing a command in a Docker container or a custom bundling provider.
+
+        The asset path will be mounted at ``/asset-input``. The Docker
+        container is responsible for putting content at ``/asset-output``.
+        The content at ``/asset-output`` will be zipped and used as the
+        final asset.
+
+        :default:
+
+        - uploaded as-is to S3 if the asset is a regular file or a .zip file,
+        archived into a .zip file and uploaded to S3 otherwise
+        '''
+        result = self._values.get("bundling")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.BundlingOptions"], result)
+
+    @builtins.property
+    def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''File paths matching the patterns will be excluded.
+
+        See ``ignoreMode`` to set the matching behavior.
+        Has no effect on Assets bundled using the ``bundling`` property.
+
+        :default: - nothing is excluded
+        '''
+        result = self._values.get("exclude")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def follow_symlinks(self) -> typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"]:
+        '''A strategy for how to handle symlinks.
+
+        :default: SymlinkFollowMode.NEVER
+        '''
+        result = self._values.get("follow_symlinks")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"], result)
+
+    @builtins.property
+    def ignore_mode(self) -> typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"]:
+        '''The ignore behavior to use for ``exclude`` patterns.
+
+        :default: IgnoreMode.GLOB
+        '''
+        result = self._values.get("ignore_mode")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"], result)
+
+    @builtins.property
+    def deploy_time(self) -> typing.Optional[builtins.bool]:
+        '''Whether or not the asset needs to exist beyond deployment time;
+
+        i.e.
+        are copied over to a different location and not needed afterwards.
+        Setting this property to true has an impact on the lifecycle of the asset,
+        because we will assume that it is safe to delete after the CloudFormation
+        deployment succeeds.
+
+        For example, Lambda Function assets are copied over to Lambda during
+        deployment. Therefore, it is not necessary to store the asset in S3, so
+        we consider those deployTime assets.
+
+        :default: false
+        '''
+        result = self._values.get("deploy_time")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''A display name for this asset.
+
+        If supplied, the display name will be used in locations where the asset
+        identifier is printed, like in the CLI progress information. If the same
+        asset is added multiple times, the display name of the first occurrence is
+        used.
+
+        The default is the construct path of the Asset construct, with respect to
+        the enclosing stack. If the asset is produced by a construct helper
+        function (such as ``lambda.Code.fromAsset()``), this will look like
+        ``MyFunction/Code``.
+
+        We use the stack-relative construct path so that in the common case where
+        you have multiple stacks with the same asset, we won't show something like
+        ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to
+        production.
+
+        :default: - Stack-relative construct path
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def readers(self) -> typing.Optional[typing.List["_aws_iam_1f54b5e8.IGrantable"]]:
+        '''A list of principals that should be able to read this asset from S3.
+
+        You can use ``asset.grantRead(principal)`` to grant read permissions later.
+
+        :default: - No principals that can read file asset.
+        '''
+        result = self._values.get("readers")
+        return typing.cast(typing.Optional[typing.List["_aws_iam_1f54b5e8.IGrantable"]], result)
+
+    @builtins.property
+    def source_kms_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
+        '''The ARN of the KMS key used to encrypt the handler code.
+
+        :default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
+        '''
+        result = self._values.get("source_kms_key")
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
+
+    @builtins.property
+    def copy_options(self) -> typing.Optional["WebFunctionCodeCopyOptions"]:
+        '''Configuration for the custom resource that copies the staged asset into the destination bucket.
+
+        Use this if your organization requires the copy to run in a VPC, or to supply
+        your own execution role.
+
+        :default: - the copy runs outside a VPC with a role created for it
+        '''
+        result = self._values.get("copy_options")
+        return typing.cast(typing.Optional["WebFunctionCodeCopyOptions"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionManagedBucketAssetOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "code": "code",
+        "default_endpoint_auth": "defaultEndpointAuth",
+        "runtime": "runtime",
+        "application_log_level": "applicationLogLevel",
+        "default_endpoint": "defaultEndpoint",
+        "egress_network_connector": "egressNetworkConnector",
+        "entry_point": "entryPoint",
+        "environment": "environment",
+        "kms_key": "kmsKey",
+        "log_group": "logGroup",
+        "max_concurrency_per_environment": "maxConcurrencyPerEnvironment",
+        "revision_description": "revisionDescription",
+        "role": "role",
+        "system_log_level": "systemLogLevel",
+        "tags": "tags",
+        "timeout": "timeout",
+        "web_function_name": "webFunctionName",
+    },
+)
+class WebFunctionProps:
+    def __init__(
+        self,
+        *,
+        code: "WebFunctionCode",
+        default_endpoint_auth: "WebFunctionAuthType",
+        runtime: "WebFunctionRuntime",
+        application_log_level: typing.Optional["ApplicationLogLevel"] = None,
+        default_endpoint: typing.Optional[typing.Union["WebFunctionDefaultEndpointOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        egress_network_connector: typing.Optional["INetworkConnector"] = None,
+        entry_point: typing.Optional[builtins.str] = None,
+        environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        log_group: typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"] = None,
+        max_concurrency_per_environment: typing.Optional[jsii.Number] = None,
+        revision_description: typing.Optional[builtins.str] = None,
+        role: typing.Optional['_IRoleRef_IGrantable'] = None,
+        system_log_level: typing.Optional["SystemLogLevel"] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        web_function_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``WebFunction``.
+
+        :param code: The deployment package for the WebFunction.
+        :param default_endpoint_auth: The authentication type of the endpoint the WebFunction creates, ``endpoint``. There is no default: you must choose explicitly so an endpoint is never accidentally public or accidentally locked down. Specify ``WebFunctionAuthType.IAM_AUTH`` (Lambda authorizes requests with SigV4/IAM) or ``WebFunctionAuthType.APPLICATION_MANAGED`` (the endpoint is public and your function handles authorization). With ``IAM_AUTH``, requests must be signed with SigV4 and carry the ``X-Amz-Content-SHA256`` header, also for a request without a body; without it the endpoint returns 403 even for a valid signature. A ``MULTI_REGION`` endpoint is signed with SigV4a, for the Region set ``*``.
+        :param runtime: The runtime environment for the WebFunction.
+        :param application_log_level: The minimum log level for application logs (logs emitted by your code, e.g. ``console.log()``, ``console.warn()``). Only logs at this level or above will be captured in CloudWatch. For example, setting this to ``INFO`` will capture ``console.info()`` and ``console.warn()`` but filter out ``console.debug()``. Default: - No application log level filtering.
+        :param default_endpoint: The other settings of the endpoint the WebFunction creates, ``endpoint``. Endpoints added with ``addEndpoint()`` take their own settings, auth type included. Default: - a home-Region endpoint named ``prod``, with no description and no scaling or rate limit beyond your account's quotas
+        :param egress_network_connector: The network connector that gives the function egress into a VPC. The revision pins to the connector's latest version at the time it is created. For a connector defined in the same stack, every update to the connector therefore replaces the revision as part of that deployment, and traffic moves to the new version with it. To hold the function on a fixed version instead — or to use a connector from another stack, whose changing version cannot be exported — import the version with ``NetworkConnector.fromNetworkConnectorVersionArn()``. The connector must have been created for ``NetworkConnectorComputeType.WEB_FUNCTION``, and the endpoint must be ``WebFunctionEndpointType.HOME_REGION``. The full ``INetworkConnector`` is required (rather than a ref) because the revision pins to ``latestVersionArn``, which ``INetworkConnectorRef`` does not carry. [disable-awslint:prefer-ref-interface] Default: - no VPC egress
+        :param entry_point: The entry file the runtime executes, relative to the root of the deployment package. Only supported for Node.js runtimes. When set, it is passed to the runtime via the reserved ``AWS_LAMBDA_NODEJS_ENTRYPOINT`` environment variable. Do not set that variable through ``environment`` as well. Default: - the runtime's default entry point, ``index.js``
+        :param environment: Key-value pairs of environment variables to pass to the WebFunction. Default: - No environment variables.
+        :param kms_key: The KMS key used to encrypt environment variables. The Lambda service principal is granted the key usage it needs to encrypt and decrypt the revision's environment variables. Default: - AWS managed key.
+        :param log_group: The CloudWatch log group to send logs to. Default: - A log group is created, named by CloudFormation and retained when the stack is deleted. Read its name from the ``logGroup`` attribute.
+        :param max_concurrency_per_environment: The maximum number of concurrent requests handled by a single execution environment. Must be an integer between 1 and 128. When omitted, nothing is sent and the service applies its default. Default: - the service default of 64 is applied
+        :param revision_description: A description of the WebFunction revision. Must be 256 characters or fewer. Default: - No description.
+        :param role: The IAM execution role for the WebFunction. Default: - A new role with ``AWSLambdaBasicExecutionRole`` is created.
+        :param system_log_level: The minimum log level for system logs (logs emitted by the Lambda runtime, e.g. start/end/report lines and runtime errors). Only logs at this level or above will be captured in CloudWatch. Default: - No system log level filtering.
+        :param tags: Tags to apply to the WebFunction. Only the WebFunction resource carries tags. Its revision and endpoint are not taggable, so nothing is applied to them. Default: - No tags.
+        :param timeout: The function execution time (in seconds) after which the WebFunction is terminated. Must be an integer between 3 and 900 seconds. Default: Duration.seconds(30)
+        :param web_function_name: The name of the WebFunction. Must be 2 to 64 characters of letters, numbers, hyphens or underscores, starting and ending with a letter or number. Default: - A unique name is generated by CDK.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_s3 as s3
+            
+            # code_bucket: s3.IBucket
+            
+            
+            lambda_.WebFunction(self, "PerRegionApi",
+                code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+                runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+                default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+                default_endpoint=lambda.WebFunctionDefaultEndpointOptions(
+                    endpoint_location=lambda_.WebFunctionEndpointLocation.per_region(["us-east-1", "us-west-2"])
+                )
+            )
+        '''
+        if isinstance(default_endpoint, dict):
+            default_endpoint = WebFunctionDefaultEndpointOptions(**default_endpoint)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b7e30ec72017468553446b76c9aa2c5ef0146dde7c195c90f1f0662dc69a2844)
+            check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+            check_type(argname="argument default_endpoint_auth", value=default_endpoint_auth, expected_type=type_hints["default_endpoint_auth"])
+            check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+            check_type(argname="argument application_log_level", value=application_log_level, expected_type=type_hints["application_log_level"])
+            check_type(argname="argument default_endpoint", value=default_endpoint, expected_type=type_hints["default_endpoint"])
+            check_type(argname="argument egress_network_connector", value=egress_network_connector, expected_type=type_hints["egress_network_connector"])
+            check_type(argname="argument entry_point", value=entry_point, expected_type=type_hints["entry_point"])
+            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
+            check_type(argname="argument max_concurrency_per_environment", value=max_concurrency_per_environment, expected_type=type_hints["max_concurrency_per_environment"])
+            check_type(argname="argument revision_description", value=revision_description, expected_type=type_hints["revision_description"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument system_log_level", value=system_log_level, expected_type=type_hints["system_log_level"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
+            check_type(argname="argument web_function_name", value=web_function_name, expected_type=type_hints["web_function_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "code": code,
+            "default_endpoint_auth": default_endpoint_auth,
+            "runtime": runtime,
+        }
+        if application_log_level is not None:
+            self._values["application_log_level"] = application_log_level
+        if default_endpoint is not None:
+            self._values["default_endpoint"] = default_endpoint
+        if egress_network_connector is not None:
+            self._values["egress_network_connector"] = egress_network_connector
+        if entry_point is not None:
+            self._values["entry_point"] = entry_point
+        if environment is not None:
+            self._values["environment"] = environment
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+        if log_group is not None:
+            self._values["log_group"] = log_group
+        if max_concurrency_per_environment is not None:
+            self._values["max_concurrency_per_environment"] = max_concurrency_per_environment
+        if revision_description is not None:
+            self._values["revision_description"] = revision_description
+        if role is not None:
+            self._values["role"] = role
+        if system_log_level is not None:
+            self._values["system_log_level"] = system_log_level
+        if tags is not None:
+            self._values["tags"] = tags
+        if timeout is not None:
+            self._values["timeout"] = timeout
+        if web_function_name is not None:
+            self._values["web_function_name"] = web_function_name
+
+    @builtins.property
+    def code(self) -> "WebFunctionCode":
+        '''The deployment package for the WebFunction.'''
+        result = self._values.get("code")
+        assert result is not None, "Required property 'code' is missing"
+        return typing.cast("WebFunctionCode", result)
+
+    @builtins.property
+    def default_endpoint_auth(self) -> "WebFunctionAuthType":
+        '''The authentication type of the endpoint the WebFunction creates, ``endpoint``.
+
+        There is no default: you must choose explicitly so an endpoint is never accidentally public or
+        accidentally locked down. Specify ``WebFunctionAuthType.IAM_AUTH`` (Lambda authorizes requests with SigV4/IAM)
+        or ``WebFunctionAuthType.APPLICATION_MANAGED`` (the endpoint is public and your function handles authorization).
+
+        With ``IAM_AUTH``, requests must be signed with SigV4 and carry the ``X-Amz-Content-SHA256``
+        header, also for a request without a body; without it the endpoint returns 403 even for a
+        valid signature. A ``MULTI_REGION`` endpoint is signed with SigV4a, for the Region set ``*``.
+        '''
+        result = self._values.get("default_endpoint_auth")
+        assert result is not None, "Required property 'default_endpoint_auth' is missing"
+        return typing.cast("WebFunctionAuthType", result)
+
+    @builtins.property
+    def runtime(self) -> "WebFunctionRuntime":
+        '''The runtime environment for the WebFunction.'''
+        result = self._values.get("runtime")
+        assert result is not None, "Required property 'runtime' is missing"
+        return typing.cast("WebFunctionRuntime", result)
+
+    @builtins.property
+    def application_log_level(self) -> typing.Optional["ApplicationLogLevel"]:
+        '''The minimum log level for application logs (logs emitted by your code, e.g. ``console.log()``, ``console.warn()``). Only logs at this level or above will be captured in CloudWatch.
+
+        For example, setting this to ``INFO`` will capture ``console.info()`` and
+        ``console.warn()`` but filter out ``console.debug()``.
+
+        :default: - No application log level filtering.
+        '''
+        result = self._values.get("application_log_level")
+        return typing.cast(typing.Optional["ApplicationLogLevel"], result)
+
+    @builtins.property
+    def default_endpoint(self) -> typing.Optional["WebFunctionDefaultEndpointOptions"]:
+        '''The other settings of the endpoint the WebFunction creates, ``endpoint``.
+
+        Endpoints added with ``addEndpoint()`` take their own settings, auth type included.
+
+        :default:
+
+        - a home-Region endpoint named ``prod``, with no description and no scaling or rate
+        limit beyond your account's quotas
+        '''
+        result = self._values.get("default_endpoint")
+        return typing.cast(typing.Optional["WebFunctionDefaultEndpointOptions"], result)
+
+    @builtins.property
+    def egress_network_connector(self) -> typing.Optional["INetworkConnector"]:
+        '''The network connector that gives the function egress into a VPC.
+
+        The revision pins to the connector's latest version at the time it is created. For a
+        connector defined in the same stack, every update to the connector therefore replaces the
+        revision as part of that deployment, and traffic moves to the new version with it. To hold
+        the function on a fixed version instead — or to use a connector from another stack, whose
+        changing version cannot be exported — import the version with
+        ``NetworkConnector.fromNetworkConnectorVersionArn()``.
+
+        The connector must have been created for ``NetworkConnectorComputeType.WEB_FUNCTION``, and
+        the endpoint must be ``WebFunctionEndpointType.HOME_REGION``.
+
+        The full ``INetworkConnector`` is required (rather than a ref) because the revision pins to
+        ``latestVersionArn``, which ``INetworkConnectorRef`` does not carry.
+
+        [disable-awslint:prefer-ref-interface]
+
+        :default: - no VPC egress
+        '''
+        result = self._values.get("egress_network_connector")
+        return typing.cast(typing.Optional["INetworkConnector"], result)
+
+    @builtins.property
+    def entry_point(self) -> typing.Optional[builtins.str]:
+        '''The entry file the runtime executes, relative to the root of the deployment package.
+
+        Only supported for Node.js runtimes. When set, it is passed to the runtime via the reserved
+        ``AWS_LAMBDA_NODEJS_ENTRYPOINT`` environment variable. Do not set that
+        variable through ``environment`` as well.
+
+        :default: - the runtime's default entry point, ``index.js``
+        '''
+        result = self._values.get("entry_point")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def environment(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Key-value pairs of environment variables to pass to the WebFunction.
+
+        :default: - No environment variables.
+        '''
+        result = self._values.get("environment")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
+        '''The KMS key used to encrypt environment variables.
+
+        The Lambda service principal is granted the key usage it needs to encrypt
+        and decrypt the revision's environment variables.
+
+        :default: - AWS managed key.
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
+
+    @builtins.property
+    def log_group(self) -> typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"]:
+        '''The CloudWatch log group to send logs to.
+
+        :default:
+
+        - A log group is created, named by CloudFormation and retained when the stack is
+        deleted. Read its name from the ``logGroup`` attribute.
+        '''
+        result = self._values.get("log_group")
+        return typing.cast(typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"], result)
+
+    @builtins.property
+    def max_concurrency_per_environment(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of concurrent requests handled by a single execution environment.
+
+        Must be an integer between 1 and 128. When omitted, nothing is sent and the service
+        applies its default.
+
+        :default: - the service default of 64 is applied
+        '''
+        result = self._values.get("max_concurrency_per_environment")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def revision_description(self) -> typing.Optional[builtins.str]:
+        '''A description of the WebFunction revision.
+
+        Must be 256 characters or fewer.
+
+        :default: - No description.
+        '''
+        result = self._values.get("revision_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional['_IRoleRef_IGrantable']:
+        '''The IAM execution role for the WebFunction.
+
+        :default: - A new role with ``AWSLambdaBasicExecutionRole`` is created.
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional['_IRoleRef_IGrantable'], result)
+
+    @builtins.property
+    def system_log_level(self) -> typing.Optional["SystemLogLevel"]:
+        '''The minimum log level for system logs (logs emitted by the Lambda runtime, e.g. start/end/report lines and runtime errors). Only logs at this level or above will be captured in CloudWatch.
+
+        :default: - No system log level filtering.
+        '''
+        result = self._values.get("system_log_level")
+        return typing.cast(typing.Optional["SystemLogLevel"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Tags to apply to the WebFunction.
+
+        Only the WebFunction resource carries tags. Its revision and endpoint are not
+        taggable, so nothing is applied to them.
+
+        :default: - No tags.
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
+        '''The function execution time (in seconds) after which the WebFunction is terminated.
+
+        Must be an integer between 3 and 900 seconds.
+
+        :default: Duration.seconds(30)
+        '''
+        result = self._values.get("timeout")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
+
+    @builtins.property
+    def web_function_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the WebFunction.
+
+        Must be 2 to 64 characters of letters, numbers, hyphens or underscores, starting and
+        ending with a letter or number.
+
+        :default: - A unique name is generated by CDK.
+        '''
+        result = self._values.get("web_function_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionProvidedBucketAssetOptions",
+    jsii_struct_bases=[WebFunctionAssetOptions],
+    name_mapping={
+        "asset_hash": "assetHash",
+        "asset_hash_type": "assetHashType",
+        "bundling": "bundling",
+        "exclude": "exclude",
+        "follow_symlinks": "followSymlinks",
+        "ignore_mode": "ignoreMode",
+        "deploy_time": "deployTime",
+        "display_name": "displayName",
+        "readers": "readers",
+        "source_kms_key": "sourceKMSKey",
+        "copy_options": "copyOptions",
+        "key_prefix": "keyPrefix",
+    },
+)
+class WebFunctionProvidedBucketAssetOptions(WebFunctionAssetOptions):
+    def __init__(
+        self,
+        *,
+        asset_hash: typing.Optional[builtins.str] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_0cae9daa.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"] = None,
+        deploy_time: typing.Optional[builtins.bool] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        readers: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        copy_options: typing.Optional[typing.Union["WebFunctionCodeCopyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        key_prefix: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Options for ``WebFunctionCode.fromAssetToProvidedBucket()``.
+
+        :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
+        :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
+        :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
+        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
+        :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
+        :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
+        :param source_kms_key: The ARN of the KMS key used to encrypt the handler code. Default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
+        :param copy_options: Configuration for the custom resource that copies the staged asset into the destination bucket. Use this if your organization requires the copy to run in a VPC, or to supply your own execution role. Default: - the copy runs outside a VPC with a role created for it
+        :param key_prefix: Prefix for the object key written into your bucket. The object is written at ``<keyPrefix>web-function/<unique id>/<hash>.zip``. The prefix is used as given, so include a trailing ``/`` to place the object under a folder-like prefix. The prefix also scopes the copy function's write and delete permissions on your bucket, so it must not start with ``/`` or contain ``*``, ``?`` or ``${``, which IAM would read as a wildcard or a policy variable. For the same reason it must be a literal string: a deploy-time value cannot be checked, and is rejected. Default: - objects are written under ``web-function/`` at the root of the bucket
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_s3 as s3
+            
+            
+            code_bucket = s3.Bucket(self, "CodeBucket", versioned=True)
+            
+            lambda_.WebFunction(self, "MyWebFunction",
+                code=lambda_.WebFunctionCode.from_asset_to_provided_bucket(code_bucket, path.join(__dirname, "my-app"),
+                    key_prefix="apps/"
+                ),
+                runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+                default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH
+            )
+        '''
+        if isinstance(bundling, dict):
+            bundling = _aws_cdk_0cae9daa.BundlingOptions(**bundling)
+        if isinstance(copy_options, dict):
+            copy_options = WebFunctionCodeCopyOptions(**copy_options)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ef2883415464fa787392f1410668e75764b7a99417836022ed695b3a7a7a2a0)
+            check_type(argname="argument asset_hash", value=asset_hash, expected_type=type_hints["asset_hash"])
+            check_type(argname="argument asset_hash_type", value=asset_hash_type, expected_type=type_hints["asset_hash_type"])
+            check_type(argname="argument bundling", value=bundling, expected_type=type_hints["bundling"])
+            check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
+            check_type(argname="argument follow_symlinks", value=follow_symlinks, expected_type=type_hints["follow_symlinks"])
+            check_type(argname="argument ignore_mode", value=ignore_mode, expected_type=type_hints["ignore_mode"])
+            check_type(argname="argument deploy_time", value=deploy_time, expected_type=type_hints["deploy_time"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument readers", value=readers, expected_type=type_hints["readers"])
+            check_type(argname="argument source_kms_key", value=source_kms_key, expected_type=type_hints["source_kms_key"])
+            check_type(argname="argument copy_options", value=copy_options, expected_type=type_hints["copy_options"])
+            check_type(argname="argument key_prefix", value=key_prefix, expected_type=type_hints["key_prefix"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if asset_hash is not None:
+            self._values["asset_hash"] = asset_hash
+        if asset_hash_type is not None:
+            self._values["asset_hash_type"] = asset_hash_type
+        if bundling is not None:
+            self._values["bundling"] = bundling
+        if exclude is not None:
+            self._values["exclude"] = exclude
+        if follow_symlinks is not None:
+            self._values["follow_symlinks"] = follow_symlinks
+        if ignore_mode is not None:
+            self._values["ignore_mode"] = ignore_mode
+        if deploy_time is not None:
+            self._values["deploy_time"] = deploy_time
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if readers is not None:
+            self._values["readers"] = readers
+        if source_kms_key is not None:
+            self._values["source_kms_key"] = source_kms_key
+        if copy_options is not None:
+            self._values["copy_options"] = copy_options
+        if key_prefix is not None:
+            self._values["key_prefix"] = key_prefix
+
+    @builtins.property
+    def asset_hash(self) -> typing.Optional[builtins.str]:
+        '''Specify a custom hash for this asset.
+
+        If ``assetHashType`` is set it must
+        be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will
+        be SHA256 hashed and encoded as hex. The resulting hash will be the asset
+        hash.
+
+        NOTE: the hash is used in order to identify a specific revision of the asset, and
+        used for optimizing and caching deployment activities related to this asset such as
+        packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will
+        need to make sure it is updated every time the asset changes, or otherwise it is
+        possible that some deployments will not be invalidated.
+
+        :default: - based on ``assetHashType``
+        '''
+        result = self._values.get("asset_hash")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def asset_hash_type(self) -> typing.Optional["_aws_cdk_0cae9daa.AssetHashType"]:
+        '''Specifies the type of hash to calculate for this asset.
+
+        If ``assetHash`` is configured, this option must be ``undefined`` or
+        ``AssetHashType.CUSTOM``.
+
+        :default:
+
+        - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is
+        explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
+        '''
+        result = self._values.get("asset_hash_type")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.AssetHashType"], result)
+
+    @builtins.property
+    def bundling(self) -> typing.Optional["_aws_cdk_0cae9daa.BundlingOptions"]:
+        '''Bundle the asset by executing a command in a Docker container or a custom bundling provider.
+
+        The asset path will be mounted at ``/asset-input``. The Docker
+        container is responsible for putting content at ``/asset-output``.
+        The content at ``/asset-output`` will be zipped and used as the
+        final asset.
+
+        :default:
+
+        - uploaded as-is to S3 if the asset is a regular file or a .zip file,
+        archived into a .zip file and uploaded to S3 otherwise
+        '''
+        result = self._values.get("bundling")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.BundlingOptions"], result)
+
+    @builtins.property
+    def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''File paths matching the patterns will be excluded.
+
+        See ``ignoreMode`` to set the matching behavior.
+        Has no effect on Assets bundled using the ``bundling`` property.
+
+        :default: - nothing is excluded
+        '''
+        result = self._values.get("exclude")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def follow_symlinks(self) -> typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"]:
+        '''A strategy for how to handle symlinks.
+
+        :default: SymlinkFollowMode.NEVER
+        '''
+        result = self._values.get("follow_symlinks")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"], result)
+
+    @builtins.property
+    def ignore_mode(self) -> typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"]:
+        '''The ignore behavior to use for ``exclude`` patterns.
+
+        :default: IgnoreMode.GLOB
+        '''
+        result = self._values.get("ignore_mode")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"], result)
+
+    @builtins.property
+    def deploy_time(self) -> typing.Optional[builtins.bool]:
+        '''Whether or not the asset needs to exist beyond deployment time;
+
+        i.e.
+        are copied over to a different location and not needed afterwards.
+        Setting this property to true has an impact on the lifecycle of the asset,
+        because we will assume that it is safe to delete after the CloudFormation
+        deployment succeeds.
+
+        For example, Lambda Function assets are copied over to Lambda during
+        deployment. Therefore, it is not necessary to store the asset in S3, so
+        we consider those deployTime assets.
+
+        :default: false
+        '''
+        result = self._values.get("deploy_time")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''A display name for this asset.
+
+        If supplied, the display name will be used in locations where the asset
+        identifier is printed, like in the CLI progress information. If the same
+        asset is added multiple times, the display name of the first occurrence is
+        used.
+
+        The default is the construct path of the Asset construct, with respect to
+        the enclosing stack. If the asset is produced by a construct helper
+        function (such as ``lambda.Code.fromAsset()``), this will look like
+        ``MyFunction/Code``.
+
+        We use the stack-relative construct path so that in the common case where
+        you have multiple stacks with the same asset, we won't show something like
+        ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to
+        production.
+
+        :default: - Stack-relative construct path
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def readers(self) -> typing.Optional[typing.List["_aws_iam_1f54b5e8.IGrantable"]]:
+        '''A list of principals that should be able to read this asset from S3.
+
+        You can use ``asset.grantRead(principal)`` to grant read permissions later.
+
+        :default: - No principals that can read file asset.
+        '''
+        result = self._values.get("readers")
+        return typing.cast(typing.Optional[typing.List["_aws_iam_1f54b5e8.IGrantable"]], result)
+
+    @builtins.property
+    def source_kms_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
+        '''The ARN of the KMS key used to encrypt the handler code.
+
+        :default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
+        '''
+        result = self._values.get("source_kms_key")
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
+
+    @builtins.property
+    def copy_options(self) -> typing.Optional["WebFunctionCodeCopyOptions"]:
+        '''Configuration for the custom resource that copies the staged asset into the destination bucket.
+
+        Use this if your organization requires the copy to run in a VPC, or to supply
+        your own execution role.
+
+        :default: - the copy runs outside a VPC with a role created for it
+        '''
+        result = self._values.get("copy_options")
+        return typing.cast(typing.Optional["WebFunctionCodeCopyOptions"], result)
+
+    @builtins.property
+    def key_prefix(self) -> typing.Optional[builtins.str]:
+        '''Prefix for the object key written into your bucket.
+
+        The object is written at ``<keyPrefix>web-function/<unique id>/<hash>.zip``. The prefix is
+        used as given, so include a trailing ``/`` to place the object under a folder-like prefix.
+
+        The prefix also scopes the copy function's write and delete permissions on your bucket, so
+        it must not start with ``/`` or contain ``*``, ``?`` or ``${``, which IAM would read as a wildcard
+        or a policy variable. For the same reason it must be a literal string: a deploy-time value
+        cannot be checked, and is rejected.
+
+        :default: - objects are written under ``web-function/`` at the root of the bucket
+        '''
+        result = self._values.get("key_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionProvidedBucketAssetOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class WebFunctionRuntime(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionRuntime",
+):
+    '''Runtime environment for WebFunction.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_s3 as s3
+        
+        # code_bucket: s3.IBucket
+        
+        
+        lambda_.WebFunction(self, "PerRegionApi",
+            code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+            runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+            default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+            default_endpoint=lambda.WebFunctionDefaultEndpointOptions(
+                endpoint_location=lambda_.WebFunctionEndpointLocation.per_region(["us-east-1", "us-west-2"])
+            )
+        )
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, name: builtins.str) -> "WebFunctionRuntime":
+        '''Use a custom runtime string not yet supported by the CDK.
+
+        This allows customers to use a newly released runtime without waiting
+        for a CDK library update.
+
+        :param name: The runtime identifier (e.g. 'nodejs26.x').
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fc70ea69cdd95fc88d8241413b16b67118d55bbdacaad1b5c5cb3965c607b9fd)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        return typing.cast("WebFunctionRuntime", jsii.sinvoke(cls, "of", [name]))
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        '''Returns the runtime name.'''
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="NODEJS_24_X")
+    @builtins.classmethod
+    def NODEJS_24_X(cls) -> "WebFunctionRuntime":
+        '''Node.js 24.x runtime.'''
+        return typing.cast("WebFunctionRuntime", jsii.sget(cls, "NODEJS_24_X"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="NODEJS_LATEST")
+    @builtins.classmethod
+    def NODEJS_LATEST(cls) -> "WebFunctionRuntime":
+        '''The latest NodeJS version currently available in ALL regions (not necessarily the latest NodeJS version available in YOUR region).
+
+        This value changes as new Node.js runtimes become available; it currently resolves to
+        Node.js 24.x. The runtime is part of a revision's build configuration, so when an
+        upgrade of the CDK library moves this to a newer runtime, the next deployment creates a
+        new revision on it and shifts the endpoint's traffic there — without any change to your
+        code. Use a specific version such as ``NODEJS_24_X`` to control when that happens.
+        '''
+        return typing.cast("WebFunctionRuntime", jsii.sget(cls, "NODEJS_LATEST"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of this runtime, as expected by the WebFunction resource.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionS3Location",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket_name": "bucketName",
+        "object_key": "objectKey",
+        "object_version": "objectVersion",
+    },
+)
+class WebFunctionS3Location:
+    def __init__(
+        self,
+        *,
+        bucket_name: builtins.str,
+        object_key: builtins.str,
+        object_version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''S3 location for WebFunction code.
+
+        :param bucket_name: The S3 bucket name.
+        :param object_key: The S3 object key.
+        :param object_version: The S3 object version (optional). Default: - the version that is latest when the revision is created
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            web_function_s3_location = lambda.WebFunctionS3Location(
+                bucket_name="bucketName",
+                object_key="objectKey",
+            
+                # the properties below are optional
+                object_version="objectVersion"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e307bfd1d44beef29d8f1c63ced6f153aa16a88f9416e145c65e646a6107f41f)
+            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+            check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
+            check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket_name": bucket_name,
+            "object_key": object_key,
+        }
+        if object_version is not None:
+            self._values["object_version"] = object_version
+
+    @builtins.property
+    def bucket_name(self) -> builtins.str:
+        '''The S3 bucket name.'''
+        result = self._values.get("bucket_name")
+        assert result is not None, "Required property 'bucket_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def object_key(self) -> builtins.str:
+        '''The S3 object key.'''
+        result = self._values.get("object_key")
+        assert result is not None, "Required property 'object_key' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def object_version(self) -> typing.Optional[builtins.str]:
+        '''The S3 object version (optional).
+
+        :default: - the version that is latest when the revision is created
+        '''
+        result = self._values.get("object_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionS3Location(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class WebFunctionTraffic(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionTraffic",
+):
+    '''How a WebFunction endpoint splits its traffic between revisions.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lambda as lambda_
+        
+        web_function_traffic = lambda_.WebFunctionTraffic.single("revisionId")
+    '''
+
+    @jsii.member(jsii_name="single")
+    @builtins.classmethod
+    def single(cls, revision_id: builtins.str) -> "WebFunctionTraffic":
+        '''Send all of the endpoint's traffic to one revision.
+
+        :param revision_id: the ID of the revision. For a ``WebFunction`` defined in this app, use its ``revisionId``.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0924a9fb5297bbc455c95e20211eaa73b6983d8d0068220ed0bc83b05bbb8f43)
+            check_type(argname="argument revision_id", value=revision_id, expected_type=type_hints["revision_id"])
+        return typing.cast("WebFunctionTraffic", jsii.sinvoke(cls, "single", [revision_id]))
 
 
 @jsii.data_type(
@@ -39571,6 +44431,499 @@ class Version(
         return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], jsii.get(self, "role"))
 
 
+class WebFunction(
+    WebFunctionBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunction",
+):
+    '''A Lambda WebFunction L2 construct.
+
+    Creates a WebFunction with a revision and endpoint for serving HTTP traffic.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_s3 as s3
+        
+        # code_bucket: s3.IBucket
+        
+        
+        lambda_.WebFunction(self, "PerRegionApi",
+            code=lambda_.WebFunctionCode.from_bucket(code_bucket, "app.zip", "version-id"),
+            runtime=lambda_.WebFunctionRuntime.NODEJS_24_X,
+            default_endpoint_auth=lambda_.WebFunctionAuthType.IAM_AUTH,
+            default_endpoint=lambda.WebFunctionDefaultEndpointOptions(
+                endpoint_location=lambda_.WebFunctionEndpointLocation.per_region(["us-east-1", "us-west-2"])
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        code: "WebFunctionCode",
+        default_endpoint_auth: "WebFunctionAuthType",
+        runtime: "WebFunctionRuntime",
+        application_log_level: typing.Optional["ApplicationLogLevel"] = None,
+        default_endpoint: typing.Optional[typing.Union["WebFunctionDefaultEndpointOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        egress_network_connector: typing.Optional["INetworkConnector"] = None,
+        entry_point: typing.Optional[builtins.str] = None,
+        environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        log_group: typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"] = None,
+        max_concurrency_per_environment: typing.Optional[jsii.Number] = None,
+        revision_description: typing.Optional[builtins.str] = None,
+        role: typing.Optional['_IRoleRef_IGrantable'] = None,
+        system_log_level: typing.Optional["SystemLogLevel"] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        web_function_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param code: The deployment package for the WebFunction.
+        :param default_endpoint_auth: The authentication type of the endpoint the WebFunction creates, ``endpoint``. There is no default: you must choose explicitly so an endpoint is never accidentally public or accidentally locked down. Specify ``WebFunctionAuthType.IAM_AUTH`` (Lambda authorizes requests with SigV4/IAM) or ``WebFunctionAuthType.APPLICATION_MANAGED`` (the endpoint is public and your function handles authorization). With ``IAM_AUTH``, requests must be signed with SigV4 and carry the ``X-Amz-Content-SHA256`` header, also for a request without a body; without it the endpoint returns 403 even for a valid signature. A ``MULTI_REGION`` endpoint is signed with SigV4a, for the Region set ``*``.
+        :param runtime: The runtime environment for the WebFunction.
+        :param application_log_level: The minimum log level for application logs (logs emitted by your code, e.g. ``console.log()``, ``console.warn()``). Only logs at this level or above will be captured in CloudWatch. For example, setting this to ``INFO`` will capture ``console.info()`` and ``console.warn()`` but filter out ``console.debug()``. Default: - No application log level filtering.
+        :param default_endpoint: The other settings of the endpoint the WebFunction creates, ``endpoint``. Endpoints added with ``addEndpoint()`` take their own settings, auth type included. Default: - a home-Region endpoint named ``prod``, with no description and no scaling or rate limit beyond your account's quotas
+        :param egress_network_connector: The network connector that gives the function egress into a VPC. The revision pins to the connector's latest version at the time it is created. For a connector defined in the same stack, every update to the connector therefore replaces the revision as part of that deployment, and traffic moves to the new version with it. To hold the function on a fixed version instead — or to use a connector from another stack, whose changing version cannot be exported — import the version with ``NetworkConnector.fromNetworkConnectorVersionArn()``. The connector must have been created for ``NetworkConnectorComputeType.WEB_FUNCTION``, and the endpoint must be ``WebFunctionEndpointType.HOME_REGION``. The full ``INetworkConnector`` is required (rather than a ref) because the revision pins to ``latestVersionArn``, which ``INetworkConnectorRef`` does not carry. [disable-awslint:prefer-ref-interface] Default: - no VPC egress
+        :param entry_point: The entry file the runtime executes, relative to the root of the deployment package. Only supported for Node.js runtimes. When set, it is passed to the runtime via the reserved ``AWS_LAMBDA_NODEJS_ENTRYPOINT`` environment variable. Do not set that variable through ``environment`` as well. Default: - the runtime's default entry point, ``index.js``
+        :param environment: Key-value pairs of environment variables to pass to the WebFunction. Default: - No environment variables.
+        :param kms_key: The KMS key used to encrypt environment variables. The Lambda service principal is granted the key usage it needs to encrypt and decrypt the revision's environment variables. Default: - AWS managed key.
+        :param log_group: The CloudWatch log group to send logs to. Default: - A log group is created, named by CloudFormation and retained when the stack is deleted. Read its name from the ``logGroup`` attribute.
+        :param max_concurrency_per_environment: The maximum number of concurrent requests handled by a single execution environment. Must be an integer between 1 and 128. When omitted, nothing is sent and the service applies its default. Default: - the service default of 64 is applied
+        :param revision_description: A description of the WebFunction revision. Must be 256 characters or fewer. Default: - No description.
+        :param role: The IAM execution role for the WebFunction. Default: - A new role with ``AWSLambdaBasicExecutionRole`` is created.
+        :param system_log_level: The minimum log level for system logs (logs emitted by the Lambda runtime, e.g. start/end/report lines and runtime errors). Only logs at this level or above will be captured in CloudWatch. Default: - No system log level filtering.
+        :param tags: Tags to apply to the WebFunction. Only the WebFunction resource carries tags. Its revision and endpoint are not taggable, so nothing is applied to them. Default: - No tags.
+        :param timeout: The function execution time (in seconds) after which the WebFunction is terminated. Must be an integer between 3 and 900 seconds. Default: Duration.seconds(30)
+        :param web_function_name: The name of the WebFunction. Must be 2 to 64 characters of letters, numbers, hyphens or underscores, starting and ending with a letter or number. Default: - A unique name is generated by CDK.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1bfec28ec1bc19821cff96dd0c9060558fef54e48c0bee1e7412e428c8e01ab1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = WebFunctionProps(
+            code=code,
+            default_endpoint_auth=default_endpoint_auth,
+            runtime=runtime,
+            application_log_level=application_log_level,
+            default_endpoint=default_endpoint,
+            egress_network_connector=egress_network_connector,
+            entry_point=entry_point,
+            environment=environment,
+            kms_key=kms_key,
+            log_group=log_group,
+            max_concurrency_per_environment=max_concurrency_per_environment,
+            revision_description=revision_description,
+            role=role,
+            system_log_level=system_log_level,
+            tags=tags,
+            timeout=timeout,
+            web_function_name=web_function_name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromWebFunctionArn")
+    @builtins.classmethod
+    def from_web_function_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        web_function_arn: builtins.str,
+    ) -> "IWebFunction":
+        '''Import an existing WebFunction by its ARN.
+
+        :param scope: -
+        :param id: -
+        :param web_function_arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f9e4a65d2c38db1ab70fb806f82b40b1b591bb67951289313edd7b60120077f9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument web_function_arn", value=web_function_arn, expected_type=type_hints["web_function_arn"])
+        return typing.cast("IWebFunction", jsii.sinvoke(cls, "fromWebFunctionArn", [scope, id, web_function_arn]))
+
+    @jsii.member(jsii_name="fromWebFunctionAttributes")
+    @builtins.classmethod
+    def from_web_function_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        web_function_arn: builtins.str,
+    ) -> "IWebFunction":
+        '''Import an existing WebFunction by its attributes.
+
+        :param scope: -
+        :param id: -
+        :param web_function_arn: The ARN of the WebFunction.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a9f935afbca0a558ae433237d79d86e5a2a4796f0e079241c65b2b93385e5950)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = WebFunctionAttributes(web_function_arn=web_function_arn)
+
+        return typing.cast("IWebFunction", jsii.sinvoke(cls, "fromWebFunctionAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="isWebFunction")
+    @builtins.classmethod
+    def is_web_function(cls, x: typing.Any) -> builtins.bool:
+        '''Return whether the given object is a WebFunction.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5ccf9b1b54fe34f657161f21baef8a6e4097c390e076f9954cce76688e513f35)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isWebFunction", [x]))
+
+    @jsii.member(jsii_name="addEndpoint")
+    def add_endpoint(
+        self,
+        id: builtins.str,
+        *,
+        auth_type: "WebFunctionAuthType",
+        endpoint_description: typing.Optional[builtins.str] = None,
+        endpoint_location: typing.Optional["WebFunctionEndpointLocation"] = None,
+        endpoint_name: typing.Optional[builtins.str] = None,
+        max_environments: typing.Optional[jsii.Number] = None,
+        rate_limit: typing.Optional[jsii.Number] = None,
+    ) -> "WebFunctionEndpoint":
+        '''Adds an endpoint that serves this function's revision.
+
+        Use it to serve the function under a different auth type or endpoint type than ``endpoint``,
+        for example a second, ``IAM_AUTH`` endpoint for a CloudFront origin.
+
+        :param id: -
+        :param auth_type: The authentication type for the WebFunction endpoint. There is no default: you must choose explicitly so an endpoint is never accidentally public or accidentally locked down. Specify ``WebFunctionAuthType.IAM_AUTH`` (Lambda authorizes requests with SigV4/IAM) or ``WebFunctionAuthType.APPLICATION_MANAGED`` (the endpoint is public and your function handles authorization). With ``IAM_AUTH``, requests must be signed with SigV4 and carry the ``X-Amz-Content-SHA256`` header, also for a request without a body; without it the endpoint returns 403 even for a valid signature. A ``MULTI_REGION`` endpoint is signed with SigV4a, for the Region set ``*``.
+        :param endpoint_description: A description of the endpoint. Up to 256 characters. Default: - No description.
+        :param endpoint_location: Where the endpoint serves traffic: the home Region only, or a set of replica Regions. Changing it replaces the endpoint, which yields a new ``domainName``. If you set ``endpointName``, change it at the same time. Default: WebFunctionEndpointLocation.homeRegion()
+        :param endpoint_name: The name of the WebFunction endpoint. Must be 2 to 64 characters of letters, numbers, hyphens or underscores, starting and ending with a letter or number. Changing this property replaces the endpoint, which yields a new ``domainName``. ``endpointLocation`` also replaces the endpoint when it changes, and CloudFormation cannot replace a resource that keeps its name. Without this property the name is derived from the location, so that works. With it, change the name together with the location, or the deployment fails. Default: - for the endpoint a WebFunction creates, ``prod`` in the home Region and, for a regional endpoint, ``prod-`` followed by a hash of its location; for any other endpoint, a name derived from its construct path and location
+        :param max_environments: The maximum number of concurrent execution environments for the endpoint. This is an optional cap on top of your account's vCPU quota, not a reservation: it further constrains how far the endpoint scales. Must be 2 or greater. Default: - Scaling is limited only by your account's vCPU quota.
+        :param rate_limit: The maximum request rate per second for the endpoint, up to 10000. This is an optional cap on top of your account's rate limit quota. Specify 0 to reject all new requests. The service accepts only certain values: 0, 100 through 1000 in increments of 100, and 2000 through 10000 in increments of 1000. Which of those are available varies by Region, and an unsupported value is rejected at deploy time with the values that Region does accept. Only the lower bound is checked at synth, since the schema declares nothing more. Default: - The request rate is limited only by your account's rate limit quota.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0ddc66cb53f8ca3d3fb398db31bff3d42d228482c6c4eb868f50fc51f430a1b9)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        options = WebFunctionEndpointOptions(
+            auth_type=auth_type,
+            endpoint_description=endpoint_description,
+            endpoint_location=endpoint_location,
+            endpoint_name=endpoint_name,
+            max_environments=max_environments,
+            rate_limit=rate_limit,
+        )
+
+        return typing.cast("WebFunctionEndpoint", jsii.invoke(self, "addEndpoint", [id, options]))
+
+    @jsii.member(jsii_name="generatePhysicalName")
+    def _generate_physical_name(self) -> builtins.str:
+        '''Override to use Names.uniqueResourceName which doesn't require resolved region/account — necessary because FunctionName is CFN-required and must be generated even for env-agnostic stacks.'''
+        return typing.cast(builtins.str, jsii.invoke(self, "generatePhysicalName", []))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="canCreateResourcePolicy")
+    def _can_create_resource_policy(self) -> builtins.bool:
+        '''Whether this construct owns the WebFunction's resource-based policy.
+
+        A web function has one policy, and ``AWS::Lambda::ResourcePolicy`` replaces all of it, so only
+        the construct that defines the function can add to it.
+        '''
+        return typing.cast(builtins.bool, jsii.get(self, "canCreateResourcePolicy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="endpoint")
+    def endpoint(self) -> "WebFunctionEndpoint":
+        '''The endpoint the WebFunction creates for itself, configured by the endpoint properties in ``WebFunctionProps``.
+
+        Use its ``domainName`` to send requests, and its ``grants`` to allow invoking it. Add more
+        endpoints with ``addEndpoint()``.
+        '''
+        return typing.cast("WebFunctionEndpoint", jsii.get(self, "endpoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_iam_1f54b5e8.IPrincipal":
+        '''The principal to grant permissions to: the execution role.'''
+        return typing.cast("_aws_iam_1f54b5e8.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="logGroup")
+    def log_group(self) -> "_aws_logs_8e99d4be.ILogGroupRef":
+        '''The log group the WebFunction sends its logs to: the one passed in ``logGroup``, or the one created for it.'''
+        return typing.cast("_aws_logs_8e99d4be.ILogGroupRef", jsii.get(self, "logGroup"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resource")
+    def resource(self) -> "CfnWebFunction":
+        '''The underlying L1 CfnWebFunction resource.
+
+        Use for escape hatches.
+        '''
+        return typing.cast("CfnWebFunction", jsii.get(self, "resource"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceRevision")
+    def resource_revision(self) -> "CfnWebFunctionRevision":
+        '''The underlying L1 CfnWebFunctionRevision resource.
+
+        Use for escape hatches.
+        '''
+        return typing.cast("CfnWebFunctionRevision", jsii.get(self, "resourceRevision"))
+
+    @builtins.property
+    @jsii.member(jsii_name="revisionArn")
+    def revision_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction revision created by this construct.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "revisionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="revisionId")
+    def revision_id(self) -> builtins.str:
+        '''The ID of the WebFunction revision created by this construct.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "revisionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionArn")
+    def web_function_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "webFunctionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionName")
+    def web_function_name(self) -> builtins.str:
+        '''The name of the WebFunction.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "webFunctionName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionRef")
+    def web_function_ref(self) -> "_aws_lambda_aaab8031.WebFunctionReference":
+        '''The function's reference.
+
+        ``Ref`` on ``AWS::Lambda::WebFunction`` returns the ARN, so the name is ``webFunctionName`` rather
+        than the L1's ``ref``. Resources that should depend on the function take ``functionArn``, a
+        ``GetAtt`` on it.
+        '''
+        return typing.cast("_aws_lambda_aaab8031.WebFunctionReference", jsii.get(self, "webFunctionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> typing.Optional["_aws_iam_632e20f6.IRoleRef"]:
+        '''The execution role of the WebFunction: the one passed in ``role``, or the one created for it.'''
+        return typing.cast(typing.Optional["_aws_iam_632e20f6.IRoleRef"], jsii.get(self, "role"))
+
+
+class WebFunctionEndpoint(
+    WebFunctionEndpointBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.WebFunctionEndpoint",
+):
+    '''An endpoint of a Lambda WebFunction: a domain that serves HTTP traffic for one of the function's revisions.
+
+    A ``WebFunction`` creates one, ``fn.endpoint``. Create more with ``fn.addEndpoint()``, for example
+    to serve the same function with a different auth type or endpoint type.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # fn: lambda.WebFunction
+        
+        
+        internal = fn.add_endpoint("Internal",
+            auth_type=lambda_.WebFunctionAuthType.IAM_AUTH
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        traffic: "WebFunctionTraffic",
+        web_function: "_aws_lambda_aaab8031.IWebFunctionRef",
+        auth_type: "WebFunctionAuthType",
+        endpoint_description: typing.Optional[builtins.str] = None,
+        endpoint_location: typing.Optional["WebFunctionEndpointLocation"] = None,
+        endpoint_name: typing.Optional[builtins.str] = None,
+        max_environments: typing.Optional[jsii.Number] = None,
+        rate_limit: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param traffic: The revisions that receive the endpoint's traffic. For a ``WebFunction`` defined in this app, ``WebFunction.addEndpoint()`` sets this to the function's revision.
+        :param web_function: The WebFunction the endpoint serves.
+        :param auth_type: The authentication type for the WebFunction endpoint. There is no default: you must choose explicitly so an endpoint is never accidentally public or accidentally locked down. Specify ``WebFunctionAuthType.IAM_AUTH`` (Lambda authorizes requests with SigV4/IAM) or ``WebFunctionAuthType.APPLICATION_MANAGED`` (the endpoint is public and your function handles authorization). With ``IAM_AUTH``, requests must be signed with SigV4 and carry the ``X-Amz-Content-SHA256`` header, also for a request without a body; without it the endpoint returns 403 even for a valid signature. A ``MULTI_REGION`` endpoint is signed with SigV4a, for the Region set ``*``.
+        :param endpoint_description: A description of the endpoint. Up to 256 characters. Default: - No description.
+        :param endpoint_location: Where the endpoint serves traffic: the home Region only, or a set of replica Regions. Changing it replaces the endpoint, which yields a new ``domainName``. If you set ``endpointName``, change it at the same time. Default: WebFunctionEndpointLocation.homeRegion()
+        :param endpoint_name: The name of the WebFunction endpoint. Must be 2 to 64 characters of letters, numbers, hyphens or underscores, starting and ending with a letter or number. Changing this property replaces the endpoint, which yields a new ``domainName``. ``endpointLocation`` also replaces the endpoint when it changes, and CloudFormation cannot replace a resource that keeps its name. Without this property the name is derived from the location, so that works. With it, change the name together with the location, or the deployment fails. Default: - for the endpoint a WebFunction creates, ``prod`` in the home Region and, for a regional endpoint, ``prod-`` followed by a hash of its location; for any other endpoint, a name derived from its construct path and location
+        :param max_environments: The maximum number of concurrent execution environments for the endpoint. This is an optional cap on top of your account's vCPU quota, not a reservation: it further constrains how far the endpoint scales. Must be 2 or greater. Default: - Scaling is limited only by your account's vCPU quota.
+        :param rate_limit: The maximum request rate per second for the endpoint, up to 10000. This is an optional cap on top of your account's rate limit quota. Specify 0 to reject all new requests. The service accepts only certain values: 0, 100 through 1000 in increments of 100, and 2000 through 10000 in increments of 1000. Which of those are available varies by Region, and an unsupported value is rejected at deploy time with the values that Region does accept. Only the lower bound is checked at synth, since the schema declares nothing more. Default: - The request rate is limited only by your account's rate limit quota.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f6d73c9ff60cb8b75da89e878c4e1a88ade0da6404174884153d22268e5af1f4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = WebFunctionEndpointProps(
+            traffic=traffic,
+            web_function=web_function,
+            auth_type=auth_type,
+            endpoint_description=endpoint_description,
+            endpoint_location=endpoint_location,
+            endpoint_name=endpoint_name,
+            max_environments=max_environments,
+            rate_limit=rate_limit,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromWebFunctionEndpointAttributes")
+    @builtins.classmethod
+    def from_web_function_endpoint_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        auth_type: "WebFunctionAuthType",
+        domain_name: builtins.str,
+        endpoint_arn: builtins.str,
+        endpoint_type: "WebFunctionEndpointType",
+    ) -> "IWebFunctionEndpoint":
+        '''Import an existing WebFunction endpoint by its attributes.
+
+        :param scope: -
+        :param id: -
+        :param auth_type: How the endpoint authenticates requests. For an imported endpoint this is taken as given: it is not verified against the deployed endpoint and must match it, because downstream constructs rely on it for a synth-time security decision. Like ``domainName``, it cannot be derived from the ARN.
+        :param domain_name: The domain name of the endpoint. The service assigns it, so it cannot be derived from the ARN.
+        :param endpoint_arn: The ARN of the endpoint, ``arn:<partition>:lambda:<region>:<account>:web-function/<function>/endpoint/<endpoint>``.
+        :param endpoint_type: The endpoint type.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__31b9a84fb4665d1b4b3ed6a64bb4322449a6b3b77bed35b1bb5389313416b39e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = WebFunctionEndpointAttributes(
+            auth_type=auth_type,
+            domain_name=domain_name,
+            endpoint_arn=endpoint_arn,
+            endpoint_type=endpoint_type,
+        )
+
+        return typing.cast("IWebFunctionEndpoint", jsii.sinvoke(cls, "fromWebFunctionEndpointAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="isWebFunctionEndpoint")
+    @builtins.classmethod
+    def is_web_function_endpoint(cls, x: typing.Any) -> builtins.bool:
+        '''Return whether the given object is a WebFunctionEndpoint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a484857b2b466ea224a7cf027dc7a874c8787f2af144b829cd69b596e9cb0e92)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isWebFunctionEndpoint", [x]))
+
+    @jsii.member(jsii_name="addToResourcePolicy")
+    def add_to_resource_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
+        '''Adds a statement to the resource-based policy of the WebFunction the endpoint serves.
+
+        For an endpoint in another stack than its function, the statement names the endpoint by the
+        function's ARN and the endpoint name, so the name must be a literal.
+
+        :param statement: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a6205e32edfd9fd0658a017710199a1fa1248d706d8c134bb59fe4bb839d65a3)
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="authType")
+    def auth_type(self) -> "WebFunctionAuthType":
+        '''How the endpoint authenticates requests.'''
+        return typing.cast("WebFunctionAuthType", jsii.get(self, "authType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        '''The domain name of the endpoint: the host clients send requests to.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "domainName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointArn")
+    def endpoint_arn(self) -> builtins.str:
+        '''The ARN of the endpoint.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "endpointArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointType")
+    def endpoint_type(self) -> "WebFunctionEndpointType":
+        '''The endpoint type.'''
+        return typing.cast("WebFunctionEndpointType", jsii.get(self, "endpointType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resource")
+    def resource(self) -> "CfnWebFunctionEndpoint":
+        '''The underlying L1 CfnWebFunctionEndpoint resource.
+
+        Use for escape hatches.
+        '''
+        return typing.cast("CfnWebFunctionEndpoint", jsii.get(self, "resource"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionArn")
+    def web_function_arn(self) -> builtins.str:
+        '''The ARN of the WebFunction the endpoint serves.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "webFunctionArn"))
+
+
 @jsii.implements(IAlias)
 class Alias(
     QualifiedFunctionBase,
@@ -41085,9 +46438,12 @@ __all__ = [
     "IFunction",
     "IFunctionUrl",
     "ILayerVersion",
+    "INetworkConnector",
     "IScalableFunctionAttribute",
     "ISchemaRegistry",
     "IVersion",
+    "IWebFunction",
+    "IWebFunctionEndpoint",
     "InlineCode",
     "InstanceTypeFilter",
     "InvokeMode",
@@ -41109,6 +46465,12 @@ __all__ = [
     "LoggingFormat",
     "MetricType",
     "MetricsConfig",
+    "NetworkConnector",
+    "NetworkConnectorAttributes",
+    "NetworkConnectorComputeType",
+    "NetworkConnectorConfiguration",
+    "NetworkConnectorProps",
+    "NetworkConnectorProtocol",
     "ParamsAndSecretsLayerVersion",
     "ParamsAndSecretsLogLevel",
     "ParamsAndSecretsOptions",
@@ -41145,6 +46507,31 @@ __all__ = [
     "VersionOptions",
     "VersionProps",
     "VersionWeight",
+    "VpcEgressConfiguration",
+    "WebFunction",
+    "WebFunctionAssetOptions",
+    "WebFunctionAttributes",
+    "WebFunctionAuthType",
+    "WebFunctionBase",
+    "WebFunctionCode",
+    "WebFunctionCodeBindOptions",
+    "WebFunctionCodeConfig",
+    "WebFunctionCodeCopyOptions",
+    "WebFunctionDefaultEndpointOptions",
+    "WebFunctionEndpoint",
+    "WebFunctionEndpointAttributes",
+    "WebFunctionEndpointBase",
+    "WebFunctionEndpointGrants",
+    "WebFunctionEndpointLocation",
+    "WebFunctionEndpointOptions",
+    "WebFunctionEndpointProps",
+    "WebFunctionEndpointType",
+    "WebFunctionManagedBucketAssetOptions",
+    "WebFunctionProps",
+    "WebFunctionProvidedBucketAssetOptions",
+    "WebFunctionRuntime",
+    "WebFunctionS3Location",
+    "WebFunctionTraffic",
 ]
 
 publication.publish()
@@ -42813,6 +48200,7 @@ def _typecheckingstub__899e308eb263a9bdf1c5dc94a93b5bf4807c8fcd81419dbddfbd00807
     logging: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMicrovmImage.LoggingProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     resources: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMicrovmImage.ResourcesProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    kms_key_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -42910,6 +48298,12 @@ def _typecheckingstub__98ef73c7424c19873d82ed271dad0108d58482ee44fec6b52475ff9e7
 
 def _typecheckingstub__7550de8f03211fb14a321e507c5cc7671daef2e6b47f49cd5c4d64ac352cdb14(
     value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMicrovmImage.ResourcesProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c70616e41b81fd5f7e4343bb876209994a6c89b7dd17394ab5f9eee5e58be6cd(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -43013,6 +48407,7 @@ def _typecheckingstub__4f9f4de1d348fa0e4c466ea2b1c8dfaee65b51d7905ab79a520d0320e
     logging: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMicrovmImage.LoggingProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     resources: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMicrovmImage.ResourcesProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    kms_key_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -43091,6 +48486,7 @@ def _typecheckingstub__3fc56694727efe6f010831a4021c9e2946b305d97a58cfe4a799743dc
     network_protocol: builtins.str,
     security_group_ids: typing.Sequence[builtins.str],
     subnet_ids: typing.Sequence[builtins.str],
+    elastic_ip_configuration: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44623,6 +50019,12 @@ def _typecheckingstub__d163f09d3cc5fe40599d7400b73c5f0814fcf5b50dccd44d5740a368a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__908af63f072feec73fb0af50ce2646119efb6609111b736dd3add3df05baee34(
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f10011decd156dc2381735c3153037cdca1af6b5a8e0c63d0023a96ed961bc59(
     code: builtins.str,
 ) -> None:
@@ -44801,6 +50203,68 @@ def _typecheckingstub__c953ce0626c1ce7629d3aeac34bf029d558527f662cc4956b1c209359
 def _typecheckingstub__4218efa5c54e4e516b67c0effbba7d0c5c38520f9aaff7c4d76078a6e0fbd4ca(
     *,
     metrics: typing.Sequence[MetricType],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6638690b14269985f80d2490c546d5728d6e4dd9b0570ebbe2659ff842f77678(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    configuration: NetworkConnectorConfiguration,
+    network_connector_name: typing.Optional[builtins.str] = None,
+    operator_role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bfe8ed556df62a757a3c926b8a9e1b60cb2e38ea12b2e3e2e2374f004a36d16(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    network_connector_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9d6ec5f7b7a4c47a0e38bfa7314afeed09c3b365c64247a32818bc43f389560(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    network_connector_arn: builtins.str,
+    latest_version_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa91930c184c3994c0db54bb50a83906e199adf296fc54a8fb3ebaea4ff27712(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    network_connector_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e231a168ff0b8ef5fa17fe148188376496893b06cda1278dac28c7259195d80(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18ea72ba616d8a7b5884ea0537833ff1a2c42834afca4c2043882abf45ba61ed(
+    *,
+    network_connector_arn: builtins.str,
+    latest_version_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e1bfe0c808b5a9577d0c92bc9840d844523618be378f63b285917d51913a38f(
+    *,
+    configuration: NetworkConnectorConfiguration,
+    network_connector_name: typing.Optional[builtins.str] = None,
+    operator_role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -45132,6 +50596,318 @@ def _typecheckingstub__c31598ac30b0062ffef30b9725a77bf99669b15e1bcad97c0c0ee4a7b
     *,
     version: IVersion,
     weight: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__124c628a3e85294b969c06f3d56396c20b3e251acf32c6a985dff96a397339b6(
+    *,
+    compute_type: NetworkConnectorComputeType,
+    security_groups: typing.Sequence[_aws_ec2_18162e09.ISecurityGroupRef],
+    vpc: _aws_ec2_09840e12.IVpc,
+    network_protocol: typing.Optional[NetworkConnectorProtocol] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06af9cd50df7f94a6c4476ae5e88916af3c59d802c97986dfa084ce8960a29ab(
+    *,
+    asset_hash: typing.Optional[builtins.str] = None,
+    asset_hash_type: typing.Optional[_aws_cdk_0cae9daa.AssetHashType] = None,
+    bundling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
+    deploy_time: typing.Optional[builtins.bool] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    readers: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IGrantable]] = None,
+    source_kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    copy_options: typing.Optional[typing.Union[WebFunctionCodeCopyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce5ad7157d45f5ba74dc5c4c2d122086a44763d0b19bdce6dd6c4b685a23334a(
+    *,
+    web_function_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bce1e23c31a36b8ce1cefec61599d1e78ffae835ea85af0ea83314982226741(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6b0639740027e2956ef75accf08890b127e6abfe952bfa6d87cfc3f09746d3e(
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d3157f79de94cce4c5e39b0dd7fe499ebe6ab2d708722d8efc92eb341bcf0e6(
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__adc0f4cb61cc3aac7aec0791c6a2b536a21c29e940650db0379b52e4b0712274(
+    path: builtins.str,
+    *,
+    copy_options: typing.Optional[typing.Union[WebFunctionCodeCopyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    deploy_time: typing.Optional[builtins.bool] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    readers: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IGrantable]] = None,
+    source_kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    asset_hash: typing.Optional[builtins.str] = None,
+    asset_hash_type: typing.Optional[_aws_cdk_0cae9daa.AssetHashType] = None,
+    bundling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a113058d45115c2aa73a6c7f8dd8f2bc893857534300553cf000b3106b6fc340(
+    bucket: _aws_s3_01158f40.IBucket,
+    path: builtins.str,
+    *,
+    key_prefix: typing.Optional[builtins.str] = None,
+    copy_options: typing.Optional[typing.Union[WebFunctionCodeCopyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    deploy_time: typing.Optional[builtins.bool] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    readers: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IGrantable]] = None,
+    source_kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    asset_hash: typing.Optional[builtins.str] = None,
+    asset_hash_type: typing.Optional[_aws_cdk_0cae9daa.AssetHashType] = None,
+    bundling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa03ba7eabee37c07c16aee6d9c4939bedf9da21362001cebe4c17bf05da1f3d(
+    bucket: _aws_s3_01158f40.IBucket,
+    key: builtins.str,
+    object_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ced4c6fd5cc0b2604236fd5222536774430b3c2a713f0d087341ced6b0cd299c(
+    _resource: _aws_cdk_0cae9daa.CfnResource,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__31cdc99a9f393c0da3a319fa916602bd49677aed5f57b485ca8f1b8fbc04e5d8(
+    scope: _constructs_77d1e7e8.Construct,
+    *,
+    web_function_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21ead5f29a51059e786539acd708922f503de9cd855a68a7cbfd9296f75993ab(
+    *,
+    web_function_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df4f1aa3ae0ac04caa9e3a64c5cab0a7098ec2f6b06be1abafdce797d03bb251(
+    *,
+    s3_location: typing.Union[WebFunctionS3Location, typing.Dict[builtins.str, typing.Any]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f5e24b6b7512ea8ec4d068d320179df8c42380e1a9d54ffb8a16bf7cd9d30613(
+    *,
+    log_group: typing.Optional[_aws_logs_8e99d4be.ILogGroupRef] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef0876a785b3688e0133ccd47f20a81c8e70295f4eadc88b9d31c089208606e3(
+    *,
+    endpoint_description: typing.Optional[builtins.str] = None,
+    endpoint_location: typing.Optional[WebFunctionEndpointLocation] = None,
+    endpoint_name: typing.Optional[builtins.str] = None,
+    max_environments: typing.Optional[jsii.Number] = None,
+    rate_limit: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d1e50fe37d01128b2c010b5fa2a159fb977d3eee036ed1498923e7f218f1107(
+    *,
+    auth_type: WebFunctionAuthType,
+    domain_name: builtins.str,
+    endpoint_arn: builtins.str,
+    endpoint_type: WebFunctionEndpointType,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c16b81198ce176f9ee97b0bb6124b1fab2d80469bdc2f976b1fc85869efb0b4f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b01497d4e9b078a6a5968317d5d2e6fcec33e6ba2f427ce1d7f2346f837239dd(
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7bbfc12f5135b6aed0bbdaeb7cadba7bf7d59f3a2750eebfda5c99e467c1a959(
+    endpoint: _aws_lambda_aaab8031.IWebFunctionEndpointRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e352a290de361afcf1d08b347a963c7a5fa0475ff53a4d57d4433885f846a4e9(
+    grantee: _aws_iam_1f54b5e8.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c8718ff15b14bc7ffa3ff6ec3177b512507b058141d4fe1e367da478861e18d(
+    replica_regions: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c03cb870d8dad68f899b40d0285e86d8274e4d45c6dafad21c468110833e9b36(
+    replica_regions: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__31df4dda815d527860bb479cd273c156dd316eea28c6f1bb28d8c31c8bed5d75(
+    *,
+    endpoint_description: typing.Optional[builtins.str] = None,
+    endpoint_location: typing.Optional[WebFunctionEndpointLocation] = None,
+    endpoint_name: typing.Optional[builtins.str] = None,
+    max_environments: typing.Optional[jsii.Number] = None,
+    rate_limit: typing.Optional[jsii.Number] = None,
+    auth_type: WebFunctionAuthType,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84379b1662ceb3928809f1d669b826a17b1a7d75f8ff22c0c6fc0db73c2c3176(
+    *,
+    endpoint_description: typing.Optional[builtins.str] = None,
+    endpoint_location: typing.Optional[WebFunctionEndpointLocation] = None,
+    endpoint_name: typing.Optional[builtins.str] = None,
+    max_environments: typing.Optional[jsii.Number] = None,
+    rate_limit: typing.Optional[jsii.Number] = None,
+    auth_type: WebFunctionAuthType,
+    traffic: WebFunctionTraffic,
+    web_function: _aws_lambda_aaab8031.IWebFunctionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4afef188792c9f98f2a29b6fa32b7d31855aafb641d05ada792111197a2e13d6(
+    *,
+    asset_hash: typing.Optional[builtins.str] = None,
+    asset_hash_type: typing.Optional[_aws_cdk_0cae9daa.AssetHashType] = None,
+    bundling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
+    deploy_time: typing.Optional[builtins.bool] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    readers: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IGrantable]] = None,
+    source_kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    copy_options: typing.Optional[typing.Union[WebFunctionCodeCopyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7e30ec72017468553446b76c9aa2c5ef0146dde7c195c90f1f0662dc69a2844(
+    *,
+    code: WebFunctionCode,
+    default_endpoint_auth: WebFunctionAuthType,
+    runtime: WebFunctionRuntime,
+    application_log_level: typing.Optional[ApplicationLogLevel] = None,
+    default_endpoint: typing.Optional[typing.Union[WebFunctionDefaultEndpointOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    egress_network_connector: typing.Optional[INetworkConnector] = None,
+    entry_point: typing.Optional[builtins.str] = None,
+    environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    log_group: typing.Optional[_aws_logs_8e99d4be.ILogGroupRef] = None,
+    max_concurrency_per_environment: typing.Optional[jsii.Number] = None,
+    revision_description: typing.Optional[builtins.str] = None,
+    role: typing.Optional['_IRoleRef_IGrantable'] = None,
+    system_log_level: typing.Optional[SystemLogLevel] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    web_function_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ef2883415464fa787392f1410668e75764b7a99417836022ed695b3a7a7a2a0(
+    *,
+    asset_hash: typing.Optional[builtins.str] = None,
+    asset_hash_type: typing.Optional[_aws_cdk_0cae9daa.AssetHashType] = None,
+    bundling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_0cae9daa.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_0cae9daa.IgnoreMode] = None,
+    deploy_time: typing.Optional[builtins.bool] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    readers: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IGrantable]] = None,
+    source_kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    copy_options: typing.Optional[typing.Union[WebFunctionCodeCopyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    key_prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc70ea69cdd95fc88d8241413b16b67118d55bbdacaad1b5c5cb3965c607b9fd(
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e307bfd1d44beef29d8f1c63ced6f153aa16a88f9416e145c65e646a6107f41f(
+    *,
+    bucket_name: builtins.str,
+    object_key: builtins.str,
+    object_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0924a9fb5297bbc455c95e20211eaa73b6983d8d0068220ed0bc83b05bbb8f43(
+    revision_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -45781,6 +51557,107 @@ def _typecheckingstub__443bc00c048cff544d1b9157c685f2bee9d441bcf7ce0880c8c977ef8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1bfec28ec1bc19821cff96dd0c9060558fef54e48c0bee1e7412e428c8e01ab1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    code: WebFunctionCode,
+    default_endpoint_auth: WebFunctionAuthType,
+    runtime: WebFunctionRuntime,
+    application_log_level: typing.Optional[ApplicationLogLevel] = None,
+    default_endpoint: typing.Optional[typing.Union[WebFunctionDefaultEndpointOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    egress_network_connector: typing.Optional[INetworkConnector] = None,
+    entry_point: typing.Optional[builtins.str] = None,
+    environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    log_group: typing.Optional[_aws_logs_8e99d4be.ILogGroupRef] = None,
+    max_concurrency_per_environment: typing.Optional[jsii.Number] = None,
+    revision_description: typing.Optional[builtins.str] = None,
+    role: typing.Optional['_IRoleRef_IGrantable'] = None,
+    system_log_level: typing.Optional[SystemLogLevel] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    web_function_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9e4a65d2c38db1ab70fb806f82b40b1b591bb67951289313edd7b60120077f9(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    web_function_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9f935afbca0a558ae433237d79d86e5a2a4796f0e079241c65b2b93385e5950(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    web_function_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ccf9b1b54fe34f657161f21baef8a6e4097c390e076f9954cce76688e513f35(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ddc66cb53f8ca3d3fb398db31bff3d42d228482c6c4eb868f50fc51f430a1b9(
+    id: builtins.str,
+    *,
+    auth_type: WebFunctionAuthType,
+    endpoint_description: typing.Optional[builtins.str] = None,
+    endpoint_location: typing.Optional[WebFunctionEndpointLocation] = None,
+    endpoint_name: typing.Optional[builtins.str] = None,
+    max_environments: typing.Optional[jsii.Number] = None,
+    rate_limit: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6d73c9ff60cb8b75da89e878c4e1a88ade0da6404174884153d22268e5af1f4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    traffic: WebFunctionTraffic,
+    web_function: _aws_lambda_aaab8031.IWebFunctionRef,
+    auth_type: WebFunctionAuthType,
+    endpoint_description: typing.Optional[builtins.str] = None,
+    endpoint_location: typing.Optional[WebFunctionEndpointLocation] = None,
+    endpoint_name: typing.Optional[builtins.str] = None,
+    max_environments: typing.Optional[jsii.Number] = None,
+    rate_limit: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__31b9a84fb4665d1b4b3ed6a64bb4322449a6b3b77bed35b1bb5389313416b39e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    auth_type: WebFunctionAuthType,
+    domain_name: builtins.str,
+    endpoint_arn: builtins.str,
+    endpoint_type: WebFunctionEndpointType,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a484857b2b466ea224a7cf027dc7a874c8787f2af144b829cd69b596e9cb0e92(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6205e32edfd9fd0658a017710199a1fa1248d706d8c134bb59fe4bb839d65a3(
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7eb7f1b7797ece46277943295281e14e297861d861f76a46d026f5e48b82b84b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -46043,5 +51920,8 @@ def _typecheckingstub__368a49fe1f866c7ea7986c57b6f8488d0fddea8f62bf05ec1ed7eb09b
     """Type checking stubs"""
     pass
 
-for cls in [IAlias, ICapacityProvider, ICodeSigningConfig, IDestination, IEventSource, IEventSourceDlq, IEventSourceMapping, IFunction, IFunctionUrl, ILayerVersion, IScalableFunctionAttribute, ISchemaRegistry, IVersion]:
+class _IRoleRef_IGrantable(_aws_iam_632e20f6.IRoleRef, _aws_iam_1f54b5e8.IGrantable, typing_extensions.Protocol):
+    pass
+
+for cls in [IAlias, ICapacityProvider, ICodeSigningConfig, IDestination, IEventSource, IEventSourceDlq, IEventSourceMapping, IFunction, IFunctionUrl, ILayerVersion, INetworkConnector, IScalableFunctionAttribute, ISchemaRegistry, IVersion, IWebFunction, IWebFunctionEndpoint, _IRoleRef_IGrantable]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

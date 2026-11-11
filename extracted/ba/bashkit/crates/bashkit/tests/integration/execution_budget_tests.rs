@@ -373,10 +373,12 @@ async fn jq_stream_empty_consumes_shared_work_budget() {
 
 #[cfg(feature = "python")]
 #[tokio::test]
-/// TM-DOS-096: separate Python entries cannot each claim a fresh VM allowance.
+/// TM-DOS-096: separate Python entries cannot each claim a fresh VM allowance:
+/// the heap each run actually uses is charged to the shared work budget.
 async fn repeated_python_entries_share_runtime_admission_budget() {
     let limits = ExecutionLimits::new()
-        .max_work_units(1_500_000)
+        // ~19 MiB of Python heap at 64 bytes per unit.
+        .max_work_units(300_000)
         .max_aggregate_input_bytes(100_000);
     let mut bash = Bash::builder()
         .limits(limits)
@@ -385,21 +387,27 @@ async fn repeated_python_entries_share_runtime_admission_budget() {
         .build();
 
     assert_budget_exhausted(
-        bash.exec("python -c 'print(1)'; python -c 'print(2)'")
-            .await,
+        bash.exec(
+            "python -c 'x = \"a\" * (12 * 1024 * 1024)'; python -c 'x = \"a\" * (12 * 1024 * 1024)'",
+        )
+        .await,
     );
 }
 
 #[cfg(feature = "typescript")]
 #[tokio::test]
-/// TM-DOS-096: separate TypeScript entries cannot refresh allocation fuel.
+/// TM-DOS-096: separate TypeScript entries cannot refresh fuel: each pays a
+/// fixed admission cost plus the VM time it runs from one shared budget.
 async fn repeated_typescript_entries_share_runtime_admission_budget() {
     let limits = ExecutionLimits::new()
-        .max_work_units(1_500_000)
+        .max_work_units(20_000)
         .max_aggregate_input_bytes(100_000);
     let mut bash = Bash::builder().limits(limits).typescript().build();
 
-    assert_budget_exhausted(bash.exec("ts -c '1 + 1'; ts -c '2 + 2'").await);
+    assert_budget_exhausted(
+        bash.exec("for i in 1 2 3 4 5 6 7 8 9 10; do ts -c '1 + 1'; done")
+            .await,
+    );
 }
 
 #[cfg(feature = "sqlite")]

@@ -4,8 +4,10 @@ project-direct runs (twin: app/runs)."""
 from __future__ import annotations
 import uuid
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 from ....values import values as _coerce
+from ....values.times import to_iso_time
 
 from .... import agent_session, errors
 from ....errors import CapabilityUnavailable
@@ -42,6 +44,7 @@ class RunCreateMixin:
         launcher: bool = False,
         authored_by: str | None = None,
         parent_provenance: str | None = None,
+        started_at: str | datetime | None = None,
     ) -> dict[str, Any]:
         # 0268 (plan 2.5): a fresh key per create, so the SAME body can be sent
         # again when its response is lost and the server hands back the run it
@@ -132,6 +135,10 @@ class RunCreateMixin:
             # A hand-off: the row is for a job that has not started. Nothing owns
             # it yet, so it lands 'created' and the sweep is the backstop.
             body["awaiting_attach"] = True
+        if started_at is not None:
+            # A re-logged past run keeps its real start (0269; the server needs the
+            # creation_key above and stores a future time as its own now).
+            body["started_at"] = to_iso_time(started_at, label="started_at")
         return body
 
     def create_run(
@@ -157,6 +164,7 @@ class RunCreateMixin:
         slug: str | None = None,
         authored_by: str | None = None,
         project_id: str | None = None,
+        started_at: str | datetime | None = None,
     ) -> Run:
         """Create an experiment-attached run
         (``POST /v1/projects/{P}/experiments/{E}/runs``; ``project_id`` saves the
@@ -184,6 +192,7 @@ class RunCreateMixin:
             awaiting_attach=awaiting_attach,
             launcher=launcher,
             authored_by=authored_by,
+            started_at=started_at,
         )
         session_id, lease = self._lease_for_create(
             body, heartbeat=heartbeat, awaiting_attach=awaiting_attach, launcher=launcher
@@ -325,6 +334,7 @@ class RunCreateMixin:
         labeled_point_budget: int | None = None,
         slug: str | None = None,
         authored_by: str | None = None,
+        started_at: str | datetime | None = None,
     ) -> Run:
         """POST /v1/projects/{id}/runs — open a PROJECT-DIRECT run (W&B shape).
 
@@ -354,6 +364,7 @@ class RunCreateMixin:
             awaiting_attach=awaiting_attach,
             launcher=launcher,
             authored_by=authored_by,
+            started_at=started_at,
         )
         session_id, lease = self._lease_for_create(
             body, heartbeat=heartbeat, awaiting_attach=awaiting_attach, launcher=launcher

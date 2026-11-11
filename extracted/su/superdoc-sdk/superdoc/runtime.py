@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 from .embedded_cli import resolve_embedded_cli_path
 from .generated.contract import OPERATION_INDEX
+from .notifications import DEFAULT_NOTIFICATION_CAPACITY, AsyncNotifications, Notifications
 from .protocol import normalize_default_change_mode
 from .transport import (
     DEFAULT_STDOUT_BUFFER_LIMIT_BYTES,
@@ -51,6 +52,9 @@ class SuperDocSyncRuntime:
     def connect(self) -> None:
         self._transport.connect()
 
+    def subscribe(self, capacity: int = DEFAULT_NOTIFICATION_CAPACITY) -> Notifications:
+        return self._transport.subscribe(capacity)
+
     def dispose(self) -> None:
         self._transport.dispose()
 
@@ -62,6 +66,7 @@ class SuperDocSyncRuntime:
         timeout_ms: Optional[int] = None,
         stdin_bytes: Optional[bytes] = None,
         collaboration_auth: Optional[Dict[str, str]] = None,
+        identity_claim: Optional[str] = None,
     ) -> Dict[str, Any]:
         operation = OPERATION_INDEX[operation_id]
         return self._transport.invoke(
@@ -69,6 +74,7 @@ class SuperDocSyncRuntime:
             timeout_ms=timeout_ms,
             stdin_bytes=stdin_bytes,
             collaboration_auth=collaboration_auth,
+            identity_claim=identity_claim,
         )
 
 
@@ -107,6 +113,9 @@ class SuperDocAsyncRuntime:
     async def connect(self) -> None:
         await self._transport.connect()
 
+    def subscribe(self, capacity: int = DEFAULT_NOTIFICATION_CAPACITY) -> AsyncNotifications:
+        return self._transport.subscribe(capacity)
+
     async def dispose(self) -> None:
         await self._transport.dispose()
 
@@ -118,6 +127,7 @@ class SuperDocAsyncRuntime:
         timeout_ms: Optional[int] = None,
         stdin_bytes: Optional[bytes] = None,
         collaboration_auth: Optional[Dict[str, str]] = None,
+        identity_claim: Optional[str] = None,
     ) -> Dict[str, Any]:
         operation = OPERATION_INDEX[operation_id]
         return await self._transport.invoke(
@@ -125,4 +135,5 @@ class SuperDocAsyncRuntime:
             timeout_ms=timeout_ms,
             stdin_bytes=stdin_bytes,
             collaboration_auth=collaboration_auth,
+            identity_claim=identity_claim,
         )

@@ -1489,6 +1489,51 @@ class _IMitigationActionRefProxy(
 typing.cast(typing.Any, IMitigationActionRef).__jsii_proxy_class__ = lambda : _IMitigationActionRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iot.IOTAUpdateRef")
+class IOTAUpdateRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a OTAUpdate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="otaUpdateRef")
+    def ota_update_ref(self) -> "OTAUpdateReference":
+        '''(experimental) A reference to a OTAUpdate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOTAUpdateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a OTAUpdate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_iot.IOTAUpdateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="otaUpdateRef")
+    def ota_update_ref(self) -> "OTAUpdateReference":
+        '''(experimental) A reference to a OTAUpdate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OTAUpdateReference", jsii.get(self, "otaUpdateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOTAUpdateRef).__jsii_proxy_class__ = lambda : _IOTAUpdateRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_iot.IPolicyPrincipalAttachmentRef"
 )
@@ -2443,6 +2488,71 @@ class MitigationActionReference:
 
     def __repr__(self) -> str:
         return "MitigationActionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_iot.OTAUpdateReference",
+    jsii_struct_bases=[],
+    name_mapping={"ota_update_arn": "otaUpdateArn", "ota_update_id": "otaUpdateId"},
+)
+class OTAUpdateReference:
+    def __init__(
+        self,
+        *,
+        ota_update_arn: builtins.str,
+        ota_update_id: builtins.str,
+    ) -> None:
+        '''A reference to a OTAUpdate resource.
+
+        :param ota_update_arn: The OtaUpdateArn of the OTAUpdate resource.
+        :param ota_update_id: The OtaUpdateId of the OTAUpdate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_iot as interfaces_iot
+            
+            o_ta_update_reference = interfaces_iot.OTAUpdateReference(
+                ota_update_arn="otaUpdateArn",
+                ota_update_id="otaUpdateId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cda17c0d2ed215f218900e75e3063c95433bee6221a81a2b0db981388e90632b)
+            check_type(argname="argument ota_update_arn", value=ota_update_arn, expected_type=type_hints["ota_update_arn"])
+            check_type(argname="argument ota_update_id", value=ota_update_id, expected_type=type_hints["ota_update_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ota_update_arn": ota_update_arn,
+            "ota_update_id": ota_update_id,
+        }
+
+    @builtins.property
+    def ota_update_arn(self) -> builtins.str:
+        '''The OtaUpdateArn of the OTAUpdate resource.'''
+        result = self._values.get("ota_update_arn")
+        assert result is not None, "Required property 'ota_update_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ota_update_id(self) -> builtins.str:
+        '''The OtaUpdateId of the OTAUpdate resource.'''
+        result = self._values.get("ota_update_id")
+        assert result is not None, "Required property 'ota_update_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OTAUpdateReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -3428,6 +3538,7 @@ __all__ = [
     "IJobTemplateRef",
     "ILoggingRef",
     "IMitigationActionRef",
+    "IOTAUpdateRef",
     "IPolicyPrincipalAttachmentRef",
     "IPolicyRef",
     "IProvisioningTemplateRef",
@@ -3448,6 +3559,7 @@ __all__ = [
     "JobTemplateReference",
     "LoggingReference",
     "MitigationActionReference",
+    "OTAUpdateReference",
     "PolicyPrincipalAttachmentReference",
     "PolicyReference",
     "ProvisioningTemplateReference",
@@ -3590,6 +3702,14 @@ def _typecheckingstub__2ab56eb3d521febcf038be8ef1e03908bd95582acb3cf3b9cac5d7c92
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cda17c0d2ed215f218900e75e3063c95433bee6221a81a2b0db981388e90632b(
+    *,
+    ota_update_arn: builtins.str,
+    ota_update_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2c433b17a937fb1b126780e6e4b459921a745c39de25b681aa6e87feb4111932(
     *,
     policy_name: builtins.str,
@@ -3713,5 +3833,5 @@ def _typecheckingstub__eedeb429f63d21682b03ce0a579ac335118e4919a1318e377d4376db9
     """Type checking stubs"""
     pass
 
-for cls in [IAccountAuditConfigurationRef, IAuthorizerRef, IBillingGroupRef, ICACertificateRef, ICertificateProviderRef, ICertificateRef, ICommandRef, ICustomMetricRef, IDimensionRef, IDomainConfigurationRef, IEncryptionConfigurationRef, IFleetMetricRef, IJobRef, IJobTemplateRef, ILoggingRef, IMitigationActionRef, IPolicyPrincipalAttachmentRef, IPolicyRef, IProvisioningTemplateRef, IResourceSpecificLoggingRef, IRoleAliasRef, IScheduledAuditRef, ISecurityProfileRef, ISoftwarePackageRef, ISoftwarePackageVersionRef, IStreamRef, IThingGroupRef, IThingPrincipalAttachmentRef, IThingRef, IThingTypeRef, ITopicRuleDestinationRef, ITopicRuleRef]:
+for cls in [IAccountAuditConfigurationRef, IAuthorizerRef, IBillingGroupRef, ICACertificateRef, ICertificateProviderRef, ICertificateRef, ICommandRef, ICustomMetricRef, IDimensionRef, IDomainConfigurationRef, IEncryptionConfigurationRef, IFleetMetricRef, IJobRef, IJobTemplateRef, ILoggingRef, IMitigationActionRef, IOTAUpdateRef, IPolicyPrincipalAttachmentRef, IPolicyRef, IProvisioningTemplateRef, IResourceSpecificLoggingRef, IRoleAliasRef, IScheduledAuditRef, ISecurityProfileRef, ISoftwarePackageRef, ISoftwarePackageVersionRef, IStreamRef, IThingGroupRef, IThingPrincipalAttachmentRef, IThingRef, IThingTypeRef, ITopicRuleDestinationRef, ITopicRuleRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

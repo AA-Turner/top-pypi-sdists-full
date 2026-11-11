@@ -1,12 +1,13 @@
 use super::id_list_ids::CompactionPolicy;
 use super::shared_id_list_format::IdListImage;
+use crate::portable_id_list_ef::packed;
 use serde::Serialize;
 
 use crate::{
     id_lists_adapter::{IdListIds, IdListMetadata, IdListUpdate},
     unwrap_or_noop,
 };
-use std::sync::Arc;
+use std::{borrow::Cow, io, sync::Arc};
 
 #[derive(Clone, Serialize)]
 pub struct IdList {
@@ -14,6 +15,137 @@ pub struct IdList {
 
     #[serde(skip_serializing)]
     pub ids: Arc<IdListIds>,
+}
+
+/// The generation and byte length of an ordinary ID-list file. A signed URL may
+/// change while these values and the installed membership stay the same.
+#[derive(Clone, Copy, Debug)]
+pub struct IdListFileVersion<'a> {
+    pub file_id: Option<&'a str>,
+    /// Compares signed SDK and unsigned proxy manifest timestamps without narrowing either.
+    pub creation_time: i128,
+    pub size: u64,
+}
+
+impl IdListMetadata {
+    pub(super) fn file_version(&self) -> IdListFileVersion<'_> {
+        IdListFileVersion {
+            file_id: self.file_id.as_deref(),
+            creation_time: self.creation_time.into(),
+            size: self.size,
+        }
+    }
+}
+
+impl IdListFileVersion<'_> {
+    fn is_older_than(&self, previous: IdListFileVersion<'_>) -> bool {
+        self.creation_time < previous.creation_time
+    }
+
+    fn requires_full_replay(&self, previous: IdListFileVersion<'_>) -> bool {
+        self.creation_time > previous.creation_time || self.file_id != previous.file_id
+    }
+
+    // The HTTP adapter selects bytes before its update listener decides whether
+    // to install them. Keep that download contract for custom listeners.
+    pub(super) fn download_from(
+        &self,
+        previous: Option<IdListFileVersion<'_>>,
+    ) -> Option<IdListFileUpdate> {
+        let start = match previous {
+            None => 0,
+            Some(old) if self.requires_full_replay(old) => 0,
+            Some(old) if old.size < self.size => old.size,
+            Some(_) => return None,
+        };
+        Some(IdListFileUpdate {
+            start,
+            end: self.size,
+        })
+    }
+
+    /// Plan a full replay or an append from the installed cursor. An older file,
+    /// an unchanged file, or a same-file shrink has no update to apply.
+    pub fn update_from(&self, previous: Option<IdListFileVersion<'_>>) -> Option<IdListFileUpdate> {
+        if previous.is_some_and(|old| self.is_older_than(old)) {
+            return None;
+        }
+        self.download_from(previous)
+    }
+}
+
+/// The byte range to consume from a complete ordinary ID-list file.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct IdListFileUpdate {
+    pub(super) start: u64,
+    end: u64,
+}
+
+impl IdListFileUpdate {
+    /// Build a new membership snapshot from a body starting at byte zero. For
+    /// an append, supply the membership used to plan this update. Extra bytes
+    /// past the target size are left for a future update.
+    pub fn apply_to_membership(
+        &self,
+        name: &str,
+        previous: Option<&IdListMembership>,
+        body: &[u8],
+    ) -> io::Result<IdListMembership> {
+        if (body.len() as u64) < self.end {
+            return Err(io::ErrorKind::UnexpectedEof.into());
+        }
+        let mut members = if self.start == 0 {
+            IdListMembership::default()
+        } else {
+            previous.cloned().ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "missing membership for ID-list append",
+                )
+            })?
+        };
+        // Both offsets fit in usize because start <= end <= body.len().
+        members.apply(name, &body[self.start as usize..self.end as usize])?;
+        Ok(members)
+    }
+}
+
+/// A resident 48-bit ordinary ID list using the SDK's private Elias–Fano update policy.
+/// Clones share their current contents and can subsequently be updated independently.
+#[derive(Clone, Default)]
+pub struct IdListMembership {
+    ids: Arc<IdListIds>,
+}
+
+impl IdListMembership {
+    /// Apply a complete signed changeset for this list. Start with an empty instance
+    /// for a replacement file and pass only the new records when appending.
+    /// Pass a `Vec<u8>` to let the initial index build reuse its allocation.
+    /// Appends can be read directly from a borrowed `&[u8]`.
+    /// Invalid records reject the entire changeset before the index is updated.
+    pub fn apply<'a>(&mut self, name: &str, changeset: impl Into<Cow<'a, [u8]>>) -> io::Result<()> {
+        let invalid = || io::Error::new(io::ErrorKind::InvalidData, "invalid ID-list record");
+        let body = match changeset.into() {
+            Cow::Borrowed(bytes) => {
+                Cow::Borrowed(std::str::from_utf8(bytes).map_err(|_| invalid())?)
+            }
+            Cow::Owned(bytes) => Cow::Owned(String::from_utf8(bytes).map_err(|_| invalid())?),
+        };
+        for row in body.lines().filter(|row| !row.is_empty()) {
+            let [b'+' | b'-', key @ ..] = row.as_bytes() else {
+                return Err(invalid());
+            };
+            let key = key.try_into().map_err(|_| invalid())?;
+            packed::decode(key).ok_or_else(invalid)?;
+        }
+        self.ids.apply_private_elias_fano_changes(name, body);
+        Ok(())
+    }
+
+    /// Check a key encoded with `IdListFingerprintWidth::Bits48`.
+    pub fn contains(&self, hashed_id: &str) -> bool {
+        self.ids.contains(hashed_id)
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -58,42 +190,54 @@ impl IdList {
         let changeset_data = unwrap_or_noop!(update.raw_changeset);
         let consumed = changeset_data.len() as u64;
         let updated_meta = update.new_metadata;
-        let current_meta = &self.metadata;
-        if updated_meta.creation_time < current_meta.creation_time {
+        // A listener may supply a partial HTTP response or a delta with no
+        // advertised size. Advance by its actual bytes after checking the generation.
+        let current = self.metadata.file_version();
+        let target = updated_meta.file_version();
+        if target.is_older_than(current) {
             return;
         }
-
-        // The HTTP adapter downloads from byte zero when creationTime advances,
-        // even if the file ID is unchanged. Apply that body as a full replay so
-        // the consumed cursor and timestamp match the next manifest poll.
-        if updated_meta.creation_time > current_meta.creation_time
-            || updated_meta.file_id != current_meta.file_id
-        {
+        if target.requires_full_replay(current) {
             self.update_metadata(updated_meta);
         }
 
         match mode {
             UpdateMode::Private(IdListEncoding::Hash) => {
-                self.apply_edits(parse_edits(&changeset_data), CompactionPolicy::Immediate);
+                self.ids
+                    .apply_edits(parse_edits(&changeset_data), CompactionPolicy::Immediate);
             }
             UpdateMode::SharedPublisher => {
-                self.apply_edits(parse_edits(&changeset_data), CompactionPolicy::Batch);
+                self.ids
+                    .apply_edits(parse_edits(&changeset_data), CompactionPolicy::Batch);
             }
             UpdateMode::Private(IdListEncoding::EliasFano) => {
-                self.apply_private_elias_fano_changes(changeset_data);
+                self.ids
+                    .apply_private_elias_fano_changes(&self.metadata.name, changeset_data.into());
             }
         }
         self.metadata.size += consumed;
     }
 
-    fn apply_private_elias_fano_changes(&mut self, mut changeset_data: String) {
+    fn update_metadata(&mut self, metadata: IdListMetadata) {
+        self.metadata = metadata;
+        self.metadata.size = 0;
+        self.ids = Arc::new(IdListIds::new());
+    }
+}
+
+impl IdListIds {
+    fn apply_private_elias_fano_changes(
+        self: &mut Arc<Self>,
+        name: &str,
+        mut changeset_data: Cow<'_, str>,
+    ) {
         if changeset_data.is_empty() {
             return;
         }
-        if self.ids.is_empty() {
-            match IdListImage::try_heap_from_adds(&[0; 32], &self.metadata.name, changeset_data) {
+        if self.is_empty() {
+            match IdListImage::try_heap_from_adds(&[0; 32], name, changeset_data) {
                 Ok(image) => {
-                    self.ids = Arc::new(IdListIds::from_image(image));
+                    *self = Arc::new(IdListIds::from_image(image));
                     return;
                 }
                 Err(body) => changeset_data = body,
@@ -102,17 +246,17 @@ impl IdList {
 
         // Keep the existing index shared when every edit is a no-op.
         let mut edits = parse_edits(&changeset_data);
-        if let Some(first_change) = edits.find(|(id, present)| self.ids.contains(id) != *present) {
+        if let Some(first_change) = edits.find(|(id, present)| self.contains(id) != *present) {
             self.apply_edits(
                 std::iter::once(first_change).chain(edits),
                 CompactionPolicy::Batch,
             );
         }
-        self.ids.finish_private_batch(&self.metadata.name);
+        self.finish_private_batch(name);
     }
 
     fn apply_edits<'a>(
-        &mut self,
+        self: &mut Arc<Self>,
         edits: impl Iterator<Item = (&'a str, bool)>,
         policy: CompactionPolicy,
     ) {
@@ -120,16 +264,10 @@ impl IdList {
         if edits.peek().is_none() {
             return;
         }
-        let ids = Arc::make_mut(&mut self.ids);
+        let ids = Arc::make_mut(self);
         for (id, present) in edits {
             ids.set(id, present, policy);
         }
-    }
-
-    fn update_metadata(&mut self, metadata: IdListMetadata) {
-        self.metadata = metadata;
-        self.metadata.size = 0;
-        self.ids = Arc::new(IdListIds::new());
     }
 }
 

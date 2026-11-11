@@ -874,7 +874,7 @@ impl<'ctx, 'src> EmphasisContext<'ctx, 'src> {
         let ctx = self.ctx;
         let (line_index, line_num, column) = self.positions.position(span_start);
         if ctx.line_info(line_num).is_some_and(|info| {
-            info.in_front_matter || info.in_mkdocstrings || info.in_esm_block || info.is_myst_comment
+            info.in_front_matter || info.in_mkdocstrings || info.in_esm_block || info.is_myst_structural_line()
         }) {
             return true;
         }
@@ -898,6 +898,7 @@ impl<'ctx, 'src> EmphasisContext<'ctx, 'src> {
             || ctx.is_in_code_block_or_span(span_start)
             || in_line_markup
             || ctx.is_in_link(span_start)
+            || ctx.is_in_unresolved_autoref_identifier(span_start)
             || is_byte_in_html_tag(&self.html_tags, span_start)
             || ctx.is_in_jsx_component_tag(span_start)
             || ctx.is_in_jsx_component_tag(span_end.saturating_sub(1))
@@ -991,7 +992,7 @@ mod tests {
 
         // Skip matches in front matter, mkdocstrings blocks, MDX module code, or MyST comments
         if ctx.line_info(line_num).is_some_and(|info| {
-            info.in_front_matter || info.in_mkdocstrings || info.in_esm_block || info.is_myst_comment
+            info.in_front_matter || info.in_mkdocstrings || info.in_esm_block || info.is_myst_structural_line()
         }) {
             return true;
         }

@@ -6510,7 +6510,8 @@ class CfnDBCluster(
                 value="value"
             )],
             use_latest_restorable_time=False,
-            vpc_security_group_ids=["vpcSecurityGroupIds"]
+            vpc_security_group_ids=["vpcSecurityGroupIds"],
+            with_express_configuration=False
         )
     '''
 
@@ -6580,6 +6581,7 @@ class CfnDBCluster(
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
+        with_express_configuration: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::RDS::DBCluster``.
 
@@ -6646,6 +6648,7 @@ class CfnDBCluster(
         :param tags: Tags to assign to the DB cluster. Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB clusters
         :param use_latest_restorable_time: A value that indicates whether to restore the DB cluster to the latest restorable backup time. By default, the DB cluster is not restored to the latest restorable backup time. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param vpc_security_group_ids: A list of EC2 VPC security groups to associate with this DB cluster. If you plan to update the resource, don't specify VPC security groups in a shared VPC. Valid for: Aurora DB clusters and Multi-AZ DB clusters
+        :param with_express_configuration: 
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1eb14b9dcc306eabcc2963c7b6ef9b87bf8d616bb5691dbc6656242be7c6bf28)
@@ -6713,6 +6716,7 @@ class CfnDBCluster(
             tags=tags,
             use_latest_restorable_time=use_latest_restorable_time,
             vpc_security_group_ids=vpc_security_group_ids,
+            with_express_configuration=with_express_configuration,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -7834,6 +7838,23 @@ class CfnDBCluster(
             type_hints = cached_type_hints(_typecheckingstub__9157d76fdc416fb2667fc663c3e08fe740d3b43b5c2fb5bc0da881dc4fd3d1c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcSecurityGroupIds", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="withExpressConfiguration")
+    def with_express_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "withExpressConfiguration"))
+
+    @with_express_configuration.setter
+    def with_express_configuration(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aff078714d7310ffb050d8803666eea37327e7f4dabaabf5f56bbc47fab89568)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "withExpressConfiguration", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rds.CfnDBCluster.DBClusterRoleProperty",
@@ -9290,6 +9311,7 @@ class CfnDBClusterParameterGroupProps:
         "tags": "tags",
         "use_latest_restorable_time": "useLatestRestorableTime",
         "vpc_security_group_ids": "vpcSecurityGroupIds",
+        "with_express_configuration": "withExpressConfiguration",
     },
 )
 class CfnDBClusterProps:
@@ -9357,6 +9379,7 @@ class CfnDBClusterProps:
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]] = None,
+        with_express_configuration: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDBCluster``.
 
@@ -9421,6 +9444,7 @@ class CfnDBClusterProps:
         :param tags: Tags to assign to the DB cluster. Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB clusters
         :param use_latest_restorable_time: A value that indicates whether to restore the DB cluster to the latest restorable backup time. By default, the DB cluster is not restored to the latest restorable backup time. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param vpc_security_group_ids: A list of EC2 VPC security groups to associate with this DB cluster. If you plan to update the resource, don't specify VPC security groups in a shared VPC. Valid for: Aurora DB clusters and Multi-AZ DB clusters
+        :param with_express_configuration: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html
         :exampleMetadata: fixture=_generated
@@ -9515,7 +9539,8 @@ class CfnDBClusterProps:
                     value="value"
                 )],
                 use_latest_restorable_time=False,
-                vpc_security_group_ids=["vpcSecurityGroupIds"]
+                vpc_security_group_ids=["vpcSecurityGroupIds"],
+                with_express_configuration=False
             )
         '''
         if __debug__:
@@ -9581,6 +9606,7 @@ class CfnDBClusterProps:
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument use_latest_restorable_time", value=use_latest_restorable_time, expected_type=type_hints["use_latest_restorable_time"])
             check_type(argname="argument vpc_security_group_ids", value=vpc_security_group_ids, expected_type=type_hints["vpc_security_group_ids"])
+            check_type(argname="argument with_express_configuration", value=with_express_configuration, expected_type=type_hints["with_express_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if allocated_storage is not None:
             self._values["allocated_storage"] = allocated_storage
@@ -9704,6 +9730,8 @@ class CfnDBClusterProps:
             self._values["use_latest_restorable_time"] = use_latest_restorable_time
         if vpc_security_group_ids is not None:
             self._values["vpc_security_group_ids"] = vpc_security_group_ids
+        if with_express_configuration is not None:
+            self._values["with_express_configuration"] = with_express_configuration
 
     @builtins.property
     def allocated_storage(self) -> typing.Optional[jsii.Number]:
@@ -10786,6 +10814,16 @@ class CfnDBClusterProps:
         '''
         result = self._values.get("vpc_security_group_ids")
         return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]]], result)
+
+    @builtins.property
+    def with_express_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html#cfn-rds-dbcluster-withexpressconfiguration
+        '''
+        result = self._values.get("with_express_configuration")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -47037,7 +47075,12 @@ class SqlServerEngineVersion(
     @jsii.member(jsii_name="VER_13")
     @builtins.classmethod
     def VER_13(cls) -> "SqlServerEngineVersion":
-        '''Version "13.00" (only a major version, without a specific minor version).'''
+        '''(deprecated) Version "13.00" (only a major version, without a specific minor version).
+
+        :deprecated: SQL Server 13.00 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13"))
 
     @jsii.python.classproperty
@@ -47200,78 +47243,145 @@ class SqlServerEngineVersion(
     @jsii.member(jsii_name="VER_13_00_6300_2_V1")
     @builtins.classmethod
     def VER_13_00_6300_2_V1(cls) -> "SqlServerEngineVersion":
-        '''Version "13.00.6300.2.v1".'''
+        '''(deprecated) Version "13.00.6300.2.v1".
+
+        :deprecated: SQL Server 13.00.6300.2.v1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6300_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6419_1_V1")
     @builtins.classmethod
     def VER_13_00_6419_1_V1(cls) -> "SqlServerEngineVersion":
-        '''Version "13.00.6419.1.v1".'''
+        '''(deprecated) Version "13.00.6419.1.v1".
+
+        :deprecated: SQL Server 13.00.6419.1.v1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6419_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6430_49_V1")
     @builtins.classmethod
     def VER_13_00_6430_49_V1(cls) -> "SqlServerEngineVersion":
-        '''Version "13.00.6430.49.v1".'''
+        '''(deprecated) Version "13.00.6430.49.v1".
+
+        :deprecated: SQL Server 13.00.6430.49.v1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6430_49_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6435_1_V1")
     @builtins.classmethod
     def VER_13_00_6435_1_V1(cls) -> "SqlServerEngineVersion":
-        '''Version "13.00.6435.1.v1".'''
+        '''(deprecated) Version "13.00.6435.1.v1".
+
+        :deprecated: SQL Server 13.00.6435.1.v1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6435_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6441_1_V1")
     @builtins.classmethod
     def VER_13_00_6441_1_V1(cls) -> "SqlServerEngineVersion":
-        '''Version "13.00.6441.1.v1".'''
+        '''(deprecated) Version "13.00.6441.1.v1".
+
+        :deprecated: SQL Server 13.00.6441.1.v1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6441_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6445_1_V1")
     @builtins.classmethod
     def VER_13_00_6445_1_V1(cls) -> "SqlServerEngineVersion":
-        '''Version "13.00.6445.1.v1".'''
+        '''(deprecated) Version "13.00.6445.1.v1".
+
+        :deprecated: SQL Server 13.00.6445.1.v1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6445_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6450_1_V1")
     @builtins.classmethod
     def VER_13_00_6450_1_V1(cls) -> "SqlServerEngineVersion":
-        '''Version "13.00.6450.1.v1".'''
+        '''(deprecated) Version "13.00.6450.1.v1".
+
+        :deprecated: SQL Server 13.00.6450.1.v1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6450_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6455_2_V1")
     @builtins.classmethod
     def VER_13_00_6455_2_V1(cls) -> "SqlServerEngineVersion":
-        '''Version "13.00.6455.2.v1".'''
+        '''(deprecated) Version "13.00.6455.2.v1".
+
+        :deprecated: SQL Server 13.00.6455.2.v1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6455_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6460_7_V1")
     @builtins.classmethod
     def VER_13_00_6460_7_V1(cls) -> "SqlServerEngineVersion":
-        '''Version "13.00.6460.7.v1".'''
+        '''(deprecated) Version "13.00.6460.7.v1".
+
+        :deprecated: SQL Server 13.00.6460.7.v1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6460_7_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6465_1_V1")
     @builtins.classmethod
     def VER_13_00_6465_1_V1(cls) -> "SqlServerEngineVersion":
-        '''Version "13.00.6465.1.v1".'''
+        '''(deprecated) Version "13.00.6465.1.v1".
+
+        :deprecated: SQL Server 13.00.6465.1.v1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6465_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6470_1_V1")
     @builtins.classmethod
     def VER_13_00_6470_1_V1(cls) -> "SqlServerEngineVersion":
-        '''Version "13.00.6470.1.v1".'''
+        '''(deprecated) Version "13.00.6470.1.v1".
+
+        :deprecated: SQL Server 13.00.6470.1.v1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6470_1_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_13_00_6475_1_V1")
+    @builtins.classmethod
+    def VER_13_00_6475_1_V1(cls) -> "SqlServerEngineVersion":
+        '''(deprecated) Version "13.00.6475.1.v1".
+
+        :deprecated: SQL Server 13.00.6475.1.v1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
+        return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6475_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14")
@@ -47463,6 +47573,13 @@ class SqlServerEngineVersion(
     def VER_14_00_3505_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3505.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3505_1_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_14_00_3515_1_V1")
+    @builtins.classmethod
+    def VER_14_00_3515_1_V1(cls) -> "SqlServerEngineVersion":
+        '''Version "14.00.3515.1.v1".'''
+        return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3515_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15")
@@ -56164,6 +56281,7 @@ def _typecheckingstub__1eb14b9dcc306eabcc2963c7b6ef9b87bf8d616bb5691dbc6656242be
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
+    with_express_configuration: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -56558,6 +56676,12 @@ def _typecheckingstub__9157d76fdc416fb2667fc663c3e08fe740d3b43b5c2fb5bc0da881dc4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__aff078714d7310ffb050d8803666eea37327e7f4dabaabf5f56bbc47fab89568(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f433da378490e4c47bb4dc2c638ebcc057288a2e3fe24ac2927d3a7e6953fdcc(
     *,
     role_arn: builtins.str,
@@ -56831,6 +56955,7 @@ def _typecheckingstub__aaf089104646bb0ea95e48cd2107d642585c3eb3785a21112fc029b15
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
+    with_express_configuration: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

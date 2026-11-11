@@ -286,11 +286,12 @@ Table(self, "Table",
 )
 ```
 
+`tableName` may be schema-qualified, such as `analytics.orders`.
+
 Tables greater than v2.114.1 can have their table name changed, for versions <= v2.114.1, this would not be possible.
 Therefore, changing of table names for <= v2.114.1 have been disabled.
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
 from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_name="oldTableName",  # This value can be change for versions greater than v2.114.1
@@ -3479,7 +3480,7 @@ class Table(
         :param removal_policy: (experimental) The policy to apply when this resource is removed from the application. Default: cdk.RemovalPolicy.Retain
         :param sort_style: (experimental) The sort style of the table. Default: TableSortStyle.AUTO if no sort key is specified, TableSortStyle.COMPOUND if a sort key is specified
         :param table_comment: (experimental) A comment to attach to the table. Default: - no comment
-        :param table_name: (experimental) The name of the table. Default: - a name is generated
+        :param table_name: (experimental) The name of the table. May be schema-qualified. Default: - a name is generated
         :param timeout: (experimental) Handler timeout duration. Valid values are between 1 second and 15 minutes. Default: - 1 minute
         :param cluster: (experimental) The cluster containing the database.
         :param database_name: (experimental) The name of the database.
@@ -3525,7 +3526,7 @@ class Table(
         :param cluster: (experimental) The cluster where the table is located.
         :param database_name: (experimental) The name of the database where the table is located.
         :param table_columns: (experimental) The columns of the table.
-        :param table_name: (experimental) Name of the table.
+        :param table_name: (experimental) Name of the table. May be schema-qualified.
 
         :stability: experimental
         '''
@@ -3707,7 +3708,7 @@ class TableAttributes:
         :param cluster: (experimental) The cluster where the table is located.
         :param database_name: (experimental) The name of the database where the table is located.
         :param table_columns: (experimental) The columns of the table.
-        :param table_name: (experimental) Name of the table.
+        :param table_name: (experimental) Name of the table. May be schema-qualified.
 
         :stability: experimental
         :exampleMetadata: fixture=cluster infused
@@ -3779,6 +3780,8 @@ class TableAttributes:
     @builtins.property
     def table_name(self) -> builtins.str:
         '''(experimental) Name of the table.
+
+        May be schema-qualified.
 
         :stability: experimental
         '''
@@ -3880,7 +3883,7 @@ class TableProps(DatabaseOptions):
         :param removal_policy: (experimental) The policy to apply when this resource is removed from the application. Default: cdk.RemovalPolicy.Retain
         :param sort_style: (experimental) The sort style of the table. Default: TableSortStyle.AUTO if no sort key is specified, TableSortStyle.COMPOUND if a sort key is specified
         :param table_comment: (experimental) A comment to attach to the table. Default: - no comment
-        :param table_name: (experimental) The name of the table. Default: - a name is generated
+        :param table_name: (experimental) The name of the table. May be schema-qualified. Default: - a name is generated
         :param timeout: (experimental) Handler timeout duration. Valid values are between 1 second and 15 minutes. Default: - 1 minute
 
         :stability: experimental
@@ -4021,6 +4024,8 @@ class TableProps(DatabaseOptions):
     @builtins.property
     def table_name(self) -> typing.Optional[builtins.str]:
         '''(experimental) The name of the table.
+
+        May be schema-qualified.
 
         :default: - a name is generated
 

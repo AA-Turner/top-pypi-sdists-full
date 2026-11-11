@@ -18,7 +18,6 @@ import functools
 from typing import Any, Callable
 
 import jax
-from jax import numpy as jnp
 import numpy as np
 from qwix._src import interception
 from qwix._src.core import dot_general
@@ -43,6 +42,7 @@ class DotGeneralQtConfig:
   rhs_collect_quant_stat: Callable[[Any], Any] | None = None
   lhs_disable_channelwise_axes: bool = False
   rhs_disable_channelwise_axes: bool = False
+  multipass_mode: str | None = None
 
   # Backward pass (dlhs).
   dlhs_grad_qtype: jax.typing.DTypeLike | None = None  # incoming gradient
@@ -50,6 +50,7 @@ class DotGeneralQtConfig:
   dlhs_tile_size: int | float | None = None
   dlhs_stochastic_rounding_noise_fn: stochastic_rounding.NoiseFn | None = None
   dlhs_grad_disable_channelwise_axes: bool = False
+  dlhs_multipass_mode: str | None = None
 
   # Backward pass (drhs).
   drhs_grad_qtype: jax.typing.DTypeLike | None = None  # incoming gradient
@@ -57,6 +58,7 @@ class DotGeneralQtConfig:
   drhs_tile_size: int | float | None = None
   drhs_stochastic_rounding_noise_fn: stochastic_rounding.NoiseFn | None = None
   drhs_grad_disable_channelwise_axes: bool = False
+  drhs_multipass_mode: str | None = None
 
   # Whether not to clip the gradients to the calibration ranges of the quantized
   # inputs. Enabling this improves the performance but may decrease the
@@ -158,19 +160,55 @@ def _update_dimension_numbers_for_backward(
   return dnums, out_transpose_axes
 
 
-def _apply_rhs_scale_to_lhs(lhs, rhs_scale, dnums):
-  """Applies the rhs_scale to lhs."""
-  (lhs_ca, rhs_ca), (lhs_ba, rhs_ba) = dnums
-  lhs_axes_to_rhs = dict(zip(lhs_ca, rhs_ca)) | dict(zip(lhs_ba, rhs_ba))
-  lhs_scale = qarray.transpose_array(
-      rhs_scale, [lhs_axes_to_rhs.get(a) for a in range(lhs.ndim)]
+def _is_block_scaled(operand: qarray.MaybeQArray) -> bool:
+  """Returns True if the operand uses block-scaled or tiled quantization.
+
+  Args:
+    operand: The potentially quantized operand.
+
+  Returns:
+    True if the operand uses block-scaled or tiled quantization.
+  """
+  if not isinstance(operand, qarray.QArray):
+    return False
+  return (
+      bool(qarray.get_tiled_axes(operand))
+      or numerics.get_microscaled_block_size(operand.qtype) is not None
   )
-  return qarray.call_with_generic_broadcast(jnp.multiply, lhs, lhs_scale)
+
+
+def _requires_unquantized_residual(
+    config: DotGeneralQtConfig, operand_qt: qarray.MaybeQArray
+) -> bool:
+  """Returns True if the backward contraction cannot reuse the forward operand.
+
+  Block-scaled residuals cannot be reused because quantization scales defined
+  for the forward contraction axis do not align with the new contraction axis
+  in the backward pass. Multi-pass modes also require original residuals.
+
+  Args:
+    config: The quantization configuration.
+    operand_qt: The potentially quantized operand.
+
+  Returns:
+    True if the backward contraction cannot reuse the forward operand.
+  """
+  # `_check_caller_quantized` relies on this function to reject a caller-
+  # quantized `QArray` operand, which has no unquantized value to keep. Any new
+  # case in which the backward pass needs the unquantized operand must therefore
+  # be added here, or such an operand would silently be used in its place.
+  return (
+      config.use_original_residuals
+      or config.multipass_mode is not None
+      or config.dlhs_multipass_mode is not None
+      or config.drhs_multipass_mode is not None
+      or _is_block_scaled(operand_qt)
+  )
 
 
 def _get_residual_for_backward(
     config: DotGeneralQtConfig,
-    operand_in: jax.Array,
+    operand_in: jax.Array | None,
     operand_qt: qarray.MaybeQArray,
 ) -> qarray.MaybeQArray:
   """Returns the residual to be used in the backward pass.
@@ -182,33 +220,184 @@ def _get_residual_for_backward(
 
   Args:
     config: The quantization configuration.
-    operand_in: The original, unquantized operand.
+    operand_in: The original, unquantized operand, or None if not retained.
     operand_qt: The potentially quantized operand.
+
+  Returns:
+    The residual to be used in the backward pass.
   """
-  if config.use_original_residuals or (
-      isinstance(operand_qt, qarray.QArray)
-      and (
-          qarray.get_tiled_axes(operand_qt)
-          or isinstance(operand_qt.qtype, str)
-          and operand_qt.qtype in ('mxfp8', 'mxfp4', 'nvfp4')
-      )
-  ):
+  if _requires_unquantized_residual(config, operand_qt):
+    assert operand_in is not None
     return operand_in
   return operand_qt
+
+
+def _needs_original_residual(
+    config: DotGeneralQtConfig,
+    operand_qt: qarray.MaybeQArray,
+    calibration: dict[str, jax.Array] | None,
+    calibration_method: str,
+) -> bool:
+  """Returns True if the unquantized operand must be retained in residuals.
+
+  Args:
+    config: The quantization configuration.
+    operand_qt: The potentially quantized operand.
+    calibration: The calibration dictionary or None.
+    calibration_method: The calibration method string.
+
+  Returns:
+    True if the unquantized operand must be retained in residuals.
+  """
+  # 1. Contraction residual:
+  # The unquantized operand must be retained if:
+  #   a) The user explicitly opted into original residuals
+  #      (config.use_original_residuals).
+  #   b) The operand has tiled axes (transposed backward axes cannot align with
+  #      tiled scales).
+  #   c) The operand is an MXFP/microscaling type (block-level scales also
+  #      require original operands).
+  if _requires_unquantized_residual(config, operand_qt):
+    return True
+
+  # 2. Gradient clipping:
+  # Straight-through estimator clipping requires the unquantized operand
+  # unless clipping is a mathematical no-op (full-range absmax/minmax).
+  if not config.disable_gradient_clipping and calibration is not None:
+    if not qarray.is_gradient_clipping_noop(calibration_method):
+      return True
+
+  return False
+
+
+def _check_caller_quantized(
+    name: str,
+    operand: qarray.MaybeQArray,
+    calibration: dict[str, jax.Array] | None,
+    config: DotGeneralQtConfig,
+) -> None:
+  """Raises if a caller-quantized operand cannot be used as is.
+
+  Args:
+    name: The operand name, 'lhs' or 'rhs'.
+    operand: The potentially quantized operand.
+    calibration: The calibration passed for the operand.
+    config: The quantization configuration.
+
+  Raises:
+    ValueError: If `operand` is a `QArray` with a calibration, or the backward
+      pass requires its unquantized value.
+  """
+  if not isinstance(operand, qarray.QArray):
+    return
+  if calibration is not None:
+    raise ValueError(
+        f'{name} is already a QArray, so {name}_calibration must be None.'
+    )
+  if _requires_unquantized_residual(config, operand):
+    raise ValueError(
+        f'{name} is already a QArray, but the backward pass requires the'
+        f' unquantized {name} (use_original_residuals, multi-pass or block'
+        ' scales).'
+    )
+
+
+@jax.tree_util.register_pytree_node_class
+@dataclasses.dataclass(slots=True, frozen=True, kw_only=True)
+class DotGeneralQtResiduals:
+  """Residuals of `dot_general_qt_fwd`, to be passed to `dot_general_qt_bwd`.
+
+  Opaque to callers: the fields are qwix-internal and may change.
+  `dimension_numbers` is kept in PyTree `aux_data` so that JAX transformations
+  that trace residuals (e.g. `optimize_remat` / `jax.checkpoint`) keep the axis
+  indices static rather than turning them into tracers.
+  """
+
+  lhs_in: jax.Array | None
+  rhs_in: jax.Array | None
+  lhs: qarray.MaybeQArray
+  rhs: qarray.MaybeQArray
+  lhs_calibration: dict[str, jax.Array] | None
+  rhs_calibration: dict[str, jax.Array] | None
+  dimension_numbers: jax.lax.DotDimensionNumbers
+  config: DotGeneralQtConfig
+
+  def tree_flatten(self):
+    children = (
+        self.lhs_in,
+        self.rhs_in,
+        self.lhs,
+        self.rhs,
+        self.lhs_calibration,
+        self.rhs_calibration,
+        self.config,
+    )
+    return children, self.dimension_numbers
+
+  @classmethod
+  def tree_unflatten(cls, dimension_numbers, children):
+    (
+        lhs_in,
+        rhs_in,
+        lhs,
+        rhs,
+        lhs_calibration,
+        rhs_calibration,
+        config,
+    ) = children
+    return cls(
+        lhs_in=lhs_in,
+        rhs_in=rhs_in,
+        lhs=lhs,
+        rhs=rhs,
+        lhs_calibration=lhs_calibration,
+        rhs_calibration=rhs_calibration,
+        dimension_numbers=dimension_numbers,
+        config=config,
+    )
 
 
 # See test_scan_custom_vjp in interception_test.py for why we need to manually
 # disable interceptions for dot_general_qt_fwd.
 @interception.disable_interceptions
 def dot_general_qt_fwd(
-    lhs: jax.Array,
-    rhs: jax.Array,
+    lhs: qarray.MaybeQArray,
+    rhs: qarray.MaybeQArray,
     lhs_calibration: dict[str, jax.Array] | None,
     rhs_calibration: dict[str, jax.Array] | None,
     dimension_numbers: jax.lax.DotDimensionNumbers,
     config: DotGeneralQtConfig,
-):
-  """Forward pass for dot_general_qt custom VJP."""
+) -> tuple[jax.Array, DotGeneralQtResiduals]:
+  """Forward pass for dot_general_qt custom VJP.
+
+  Callers that run the forward and backward passes themselves pass the returned
+  residuals, which are opaque, to `dot_general_qt_bwd`.
+
+  Either operand may be a `QArray` quantized by the caller, with a None
+  calibration. It is then used as is, also as its backward residual, so `config`
+  must not require the unquantized operand (no `use_original_residuals`, no
+  multi-pass, no block scales), and its gradient is not clipped to a calibration
+  range.
+
+  Args:
+    lhs: The lhs, unquantized or already a `QArray`.
+    rhs: The rhs, unquantized or already a `QArray`.
+    lhs_calibration: The lhs calibration, or None if `lhs` is not quantized
+      here.
+    rhs_calibration: The rhs calibration, or None if `rhs` is not quantized
+      here.
+    dimension_numbers: The dimension numbers of the dot_general.
+    config: The dot_general_qt config.
+
+  Returns:
+    The output and the opaque residuals for `dot_general_qt_bwd`.
+
+  Raises:
+    ValueError: If a `QArray` operand has a calibration, or `config` requires
+      its unquantized value.
+  """
+  _check_caller_quantized('lhs', lhs, lhs_calibration, config)
+  _check_caller_quantized('rhs', rhs, rhs_calibration, config)
   lhs_in, rhs_in = lhs, rhs
   if lhs_calibration is not None:
     scale, zero_point = qarray.compute_scale_zero_point(
@@ -224,33 +413,77 @@ def dot_general_qt_fwd(
     rhs = qarray.quantize_with_scale_zero_point(  # pyrefly: ignore[bad-assignment]
         rhs, config.rhs_qtype, scale, zero_point  # pyrefly: ignore[bad-argument-type]
     )
-  residuals = (
-      lhs_in,
-      rhs_in,
-      lhs,
-      rhs,
-      lhs_calibration,
-      rhs_calibration,
-      config,
+  saved_lhs_in = None
+  if _needs_original_residual(
+      config, lhs, lhs_calibration, config.lhs_calibration_method
+  ):
+    saved_lhs_in = lhs_in
+
+  saved_rhs_in = None
+  if _needs_original_residual(
+      config, rhs, rhs_calibration, config.rhs_calibration_method
+  ):
+    saved_rhs_in = rhs_in
+
+  saved_lhs_calibration = (
+      None if config.disable_gradient_clipping else lhs_calibration
   )
-  return dot_general.dot_general(lhs, rhs, dimension_numbers), residuals
+  saved_rhs_calibration = (
+      None if config.disable_gradient_clipping else rhs_calibration
+  )
+
+  residuals = DotGeneralQtResiduals(
+      # Never a QArray: _check_caller_quantized rejects a QArray operand whose
+      # unquantized value would be needed.
+      lhs_in=saved_lhs_in,  # pyrefly: ignore[bad-argument-type]
+      rhs_in=saved_rhs_in,  # pyrefly: ignore[bad-argument-type]
+      lhs=lhs,
+      rhs=rhs,
+      lhs_calibration=saved_lhs_calibration,
+      rhs_calibration=saved_rhs_calibration,
+      dimension_numbers=dimension_numbers,
+      config=config,
+  )
+  if config.multipass_mode is not None:
+    # Multi-pass residual decomposition requires unquantized inputs (lhs_in,
+    # rhs_in) to compute successive residual passes (A_0 = quant(A),
+    # A_1 = quant(A - dequant(A_0))). Passing already-quantized QArrays (lhs,
+    # rhs) would cause residual decomposition to zero out subsequent passes.
+    out = dot_general.dot_general(
+        lhs_in,
+        rhs_in,
+        dimension_numbers,
+        multipass_mode=config.multipass_mode,
+        tile_size=config.tile_size,
+    )
+  else:
+    out = dot_general.dot_general(lhs, rhs, dimension_numbers)
+  return out, residuals
 
 
+@interception.disable_interceptions
 def dot_general_qt_bwd(
-    fwd_dimension_numbers: jax.lax.DotDimensionNumbers,
-    residuals: tuple[
-        jax.Array,
-        jax.Array,
-        qarray.MaybeQArray,
-        qarray.MaybeQArray,
-        dict[str, jax.Array] | None,
-        dict[str, jax.Array] | None,
-        DotGeneralQtConfig,
-    ],
+    residuals: DotGeneralQtResiduals,
     g: jax.Array,
-):
-  """Backward pass for dot_general_qt custom VJP."""
-  lhs_in, rhs_in, lhs, rhs, lhs_calibration, rhs_calibration, config = residuals
+) -> tuple[jax.Array, jax.Array]:
+  """Backward pass for dot_general_qt.
+
+  Args:
+    residuals: The opaque residuals returned by `dot_general_qt_fwd`, which
+      carry the forward dimension numbers.
+    g: The gradient of the output.
+
+  Returns:
+    The gradients `(dlhs, drhs)` of the lhs and the rhs.
+  """
+  lhs_in = residuals.lhs_in
+  rhs_in = residuals.rhs_in
+  lhs = residuals.lhs
+  rhs = residuals.rhs
+  lhs_calibration = residuals.lhs_calibration
+  rhs_calibration = residuals.rhs_calibration
+  fwd_dimension_numbers = residuals.dimension_numbers
+  config = residuals.config
 
   def _compute_gradient_for_operand(g: jax.Array, *, for_dlhs: bool):
     """Compute dot_general for gradient and other_fwd_operand."""
@@ -278,13 +511,29 @@ def dot_general_qt_bwd(
       y_calibration_method = config.drhs_residual_calibration_method
       y_disable_channelwise_axes = config.drhs_residual_disable_channelwise_axes
 
+    multipass_mode = (
+        config.dlhs_multipass_mode if for_dlhs else config.drhs_multipass_mode
+    )
+    if multipass_mode is not None:
+      grad_res = dot_general.dot_general(
+          g,
+          y,
+          dimension_numbers=bwd_dnums,
+          multipass_mode=multipass_mode,
+          tile_size=g_tile_size,
+      )
+      return jax.lax.transpose(grad_res, transpose_axes)
+
     if g_qtype and numerics.should_quantize(g.dtype):
       if isinstance(y, qarray.QArray):
         # Scale shifting for quantized residuals (use_original_residuals=False)
         # Apply the scale of y to g, this trick avoids requantizing y because
         # the y from fwd pass has different channelwise_axes.
         assert y.zero_point is None and y.qtype == y.qvalue.dtype
-        g = _apply_rhs_scale_to_lhs(g, y.scale, bwd_dnums)
+        (g_ca, y_ca), (g_ba, y_ba) = bwd_dnums
+        g = dot_general.fold_scale_into(
+            g, y.scale, (*g_ca, *g_ba), (*y_ca, *y_ba)
+        )
         y = y.qvalue
 
       g_how = dot_general.get_how_to_quantize(
@@ -325,15 +574,26 @@ def dot_general_qt_bwd(
   drhs = _compute_gradient_for_operand(g, for_dlhs=False)
 
   if not config.disable_gradient_clipping:
-    if lhs_calibration is not None:
+    if lhs_calibration is not None and lhs_in is not None:
       dlhs = qarray.clip_gradient_to_calibration(
           dlhs, lhs_in, lhs_calibration, config.lhs_calibration_method
       )
-    if rhs_calibration is not None:
+    if rhs_calibration is not None and rhs_in is not None:
       drhs = qarray.clip_gradient_to_calibration(
           drhs, rhs_in, rhs_calibration, config.rhs_calibration_method
       )
 
+  return dlhs, drhs
+
+
+def _dot_general_qt_custom_vjp_bwd(
+    dimension_numbers: jax.lax.DotDimensionNumbers,
+    residuals: DotGeneralQtResiduals,
+    g: jax.Array,
+):
+  """Adapts `dot_general_qt_bwd` to the signature `custom_vjp` requires."""
+  del dimension_numbers  # Carried by the residuals.
+  dlhs, drhs = dot_general_qt_bwd(residuals, g)
   return dlhs, drhs, None, None, None
 
 
@@ -353,7 +613,64 @@ def dot_general_qt_fwd_bwd(
   return result
 
 
-dot_general_qt_fwd_bwd.defvjp(dot_general_qt_fwd, dot_general_qt_bwd)
+dot_general_qt_fwd_bwd.defvjp(
+    dot_general_qt_fwd, _dot_general_qt_custom_vjp_bwd
+)
+
+
+def calibrate_operand(
+    x: qarray.MaybeQArray,
+    *,
+    for_lhs: bool,
+    dimension_numbers: jax.lax.DotDimensionNumbers,
+    ndims: tuple[int, int],
+    config: DotGeneralQtConfig,
+) -> dict[str, jax.Array] | None:
+  """Calibrates one operand of `dot_general_qt`.
+
+  Callers that quantize an operand themselves (e.g. inside a fused kernel) pass
+  the resulting `QArray`, whose calibration is None, and the calibration of the
+  other operand to `dot_general_qt_fwd`.
+
+  Args:
+    x: The operand, unquantized or already a `QArray`.
+    for_lhs: Whether `x` is the lhs.
+    dimension_numbers: The dimension numbers of the dot_general.
+    ndims: The ranks `(lhs.ndim, rhs.ndim)` of both operands.
+    config: The dot_general_qt config.
+
+  Returns:
+    The calibration of `x`, or None if `x` is already a `QArray` or `config`
+    leaves it unquantized.
+  """
+  if isinstance(x, qarray.QArray):
+    return None
+  if for_lhs:
+    qtype = config.lhs_qtype
+    calibration_method = config.lhs_calibration_method
+    disable_channelwise_axes = config.lhs_disable_channelwise_axes
+    collect_quant_stat = config.lhs_collect_quant_stat
+  else:
+    qtype = config.rhs_qtype
+    calibration_method = config.rhs_calibration_method
+    disable_channelwise_axes = config.rhs_disable_channelwise_axes
+    collect_quant_stat = config.rhs_collect_quant_stat
+  if not qtype or not numerics.should_quantize(x.dtype):
+    return None
+  how = dot_general.get_how_to_quantize(
+      dimension_numbers=dimension_numbers,
+      ndims=ndims,
+      for_lhs=for_lhs,
+      qtype=qtype,
+      tile_size=config.tile_size,
+      calibration_method=calibration_method,
+  )
+  if disable_channelwise_axes:
+    how = dataclasses.replace(how, channelwise_axes=[])
+  calibration = qarray.calibrate(x, how)
+  if collect_quant_stat:
+    calibration = collect_quant_stat(calibration)
+  return calibration
 
 
 def dot_general_qt(
@@ -363,42 +680,18 @@ def dot_general_qt(
     config: DotGeneralQtConfig,
 ) -> jax.Array:
   """Quantized dot_general with backpropagation support."""
-  lhs_calibration = None
-  rhs_calibration = None
-
-  if config.lhs_qtype and numerics.should_quantize(lhs.dtype):
-    lhs_how = dot_general.get_how_to_quantize(
-        dimension_numbers=dimension_numbers,
-        ndims=(lhs.ndim, rhs.ndim),
-        for_lhs=True,
-        qtype=config.lhs_qtype,
-        tile_size=config.tile_size,
-        calibration_method=config.lhs_calibration_method,
-    )
-    if config.lhs_disable_channelwise_axes:
-      lhs_how = dataclasses.replace(lhs_how, channelwise_axes=[])
-    lhs_calibration = qarray.calibrate(lhs, lhs_how)
-    if config.lhs_collect_quant_stat:
-      lhs_calibration = config.lhs_collect_quant_stat(lhs_calibration)
-
+  calibrate = functools.partial(
+      calibrate_operand,
+      dimension_numbers=dimension_numbers,
+      ndims=(lhs.ndim, rhs.ndim),
+      config=config,
+  )
+  lhs_calibration = calibrate(lhs, for_lhs=True)
   # Sparsify rhs before calibration and quantization to make sure we
   # are quantizing the remaining values correctly
   if config.sparsity_rule is not None:
     rhs = qarray.sparsify(rhs, config.sparsity_rule)
-  if config.rhs_qtype and numerics.should_quantize(rhs.dtype):
-    rhs_how = dot_general.get_how_to_quantize(
-        dimension_numbers=dimension_numbers,
-        ndims=(lhs.ndim, rhs.ndim),
-        for_lhs=False,
-        qtype=config.rhs_qtype,
-        tile_size=config.tile_size,
-        calibration_method=config.rhs_calibration_method,
-    )
-    if config.rhs_disable_channelwise_axes:
-      rhs_how = dataclasses.replace(rhs_how, channelwise_axes=[])
-    rhs_calibration = qarray.calibrate(rhs, rhs_how)
-    if config.rhs_collect_quant_stat:
-      rhs_calibration = config.rhs_collect_quant_stat(rhs_calibration)
+  rhs_calibration = calibrate(rhs, for_lhs=False)
   return dot_general_qt_fwd_bwd(
       lhs, rhs, lhs_calibration, rhs_calibration, dimension_numbers, config
   )

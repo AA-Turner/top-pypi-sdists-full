@@ -939,6 +939,14 @@ class CfnDBCluster(
         return typing.cast(builtins.str, jsii.get(self, "attrReadEndpoint"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrServerlessV2PlatformVersion")
+    def attr_serverless_v2_platform_version(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ServerlessV2PlatformVersion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrServerlessV2PlatformVersion"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))

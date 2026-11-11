@@ -19,7 +19,7 @@ from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.generation.meta import TestPhase
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.generation.value import GeneratedValue
-from schemathesis.resources import PoolPick
+from schemathesis.resources import PoolPick, record_delete_attempt
 from schemathesis.resources.descriptors import Cardinality, ResourceDescriptor
 from schemathesis.resources.repository import (
     MAX_CONTEXTS_PER_TYPE,
@@ -36,6 +36,12 @@ from test.utils import objects_at, run_given
 USER_RESOURCE = "User"
 POST_USERS = "POST /users"
 CREATED = 201
+USER_SCHEMA = {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}
+USER_RESPONSE = {"content": {"application/json": {"schema": USER_SCHEMA}}}
+ERROR_RESPONSE = {
+    "description": "Error",
+    "content": {"application/json": {"schema": {"type": "object", "properties": {"message": {"type": "string"}}}}},
+}
 
 
 @pytest.fixture
@@ -180,12 +186,46 @@ def test_ignore_non_matching_status_code(user_data_source):
     assert list(user_data_source.repository.iter_instances(USER_RESOURCE)) == []
 
 
-def test_lenient_2xx_matching(user_data_source):
-    # Schema expects 201 but server returns 200 - should still record (both are 2xx)
-    user_data_source.repository.record_response(operation=POST_USERS, status_code=200, payload={"id": "1"})
-    resources = list(user_data_source.repository.iter_instances(USER_RESOURCE))
-    assert len(resources) == 1
-    assert resources[0].data["id"] == "1"
+@pytest.mark.parametrize(
+    ("responses", "status_code"),
+    [
+        ({"201": USER_RESPONSE}, 200),
+        ({"201": USER_RESPONSE, "default": ERROR_RESPONSE}, 200),
+        ({"200": USER_RESPONSE, "201": {"description": "Created"}}, 201),
+        (
+            {
+                "200": USER_RESPONSE,
+                "201": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/UserCreated"}}}},
+            },
+            201,
+        ),
+    ],
+    ids=["no-default", "default", "bodyless-201", "unconsumed-201"],
+)
+def test_lenient_2xx_matching(ctx, case_factory, response_factory, responses, status_code):
+    # A 2xx status documenting no body, or a body nothing reads, still records under the documented 2xx resource.
+    schema = ctx.openapi.load_schema(
+        {
+            "/users": {"post": {"responses": responses}},
+            "/users/{id}": {
+                "get": {
+                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        },
+        components={"schemas": {"UserCreated": USER_SCHEMA}},
+    )
+    operation = schema["/users"]["POST"]
+    data_source = schema.create_extra_data_source()
+
+    data_source.record_response(
+        operation=operation,
+        response=response_factory.core(status_code=status_code, content=b'{"id": "1"}'),
+        case=case_factory(operation=operation),
+    )
+
+    assert [instance.data for instance in data_source.repository.iter_instances(USER_RESOURCE)] == [{"id": "1"}]
 
 
 def test_many_cardinality_extracts_each_item(user_schema_builder):
@@ -1048,6 +1088,89 @@ def test_record_successful_delete_evicts_pool_entry_and_filters_subsequent_draws
     assert drawn == {"alive"}, "tombstoned id must not be drawn even when it is the highest-weighted candidate"
 
 
+ORG_ID = {"name": "org_id", "in": "path", "required": True, "schema": {"type": "integer"}}
+USER_ID = {"name": "user_id", "in": "path", "required": True, "schema": {"type": "integer"}}
+ORG_RESPONSE = {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Org"}}}}
+USER_RESPONSE = {
+    "description": "OK",
+    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/User"}}},
+}
+ORGS_AND_USERS = {
+    "/orgs": {"post": {"responses": {"201": ORG_RESPONSE}}},
+    "/orgs/{org_id}": {"get": {"parameters": [ORG_ID], "responses": {"200": ORG_RESPONSE}}},
+    "/orgs/{org_id}/users": {"post": {"parameters": [ORG_ID], "responses": {"201": USER_RESPONSE}}},
+    "/orgs/{org_id}/users/{user_id}": {
+        "get": {"parameters": [ORG_ID, USER_ID], "responses": {"200": USER_RESPONSE}},
+        "delete": {"parameters": [ORG_ID, USER_ID], "responses": {"204": {"description": "Deleted"}}},
+    },
+    "/orgs/{org_id}/users/{user_id}.json": {
+        "delete": {"parameters": [ORG_ID, USER_ID], "responses": {"204": {"description": "Deleted"}}}
+    },
+    "/orgs/{org_id}/users/{user_id}#roles": {
+        "delete": {"parameters": [ORG_ID, USER_ID], "responses": {"204": {"description": "Deleted"}}}
+    },
+    "/orgs/{org_id}/logo": {"delete": {"parameters": [ORG_ID], "responses": {"204": {"description": "Deleted"}}}},
+}
+ORGS_AND_USERS_COMPONENTS = {
+    "schemas": {
+        "Org": {"type": "object", "properties": {"id": {"type": "integer"}}, "required": ["id"]},
+        "User": {
+            "type": "object",
+            "properties": {"id": {"type": "integer"}, "active": {"type": "boolean"}, "logins": {"type": "integer"}},
+            "required": ["id"],
+        },
+    }
+}
+
+
+@pytest.mark.parametrize(
+    ("path", "path_parameters", "status_code", "expected"),
+    [
+        ("/orgs/{org_id}/users/{user_id}", {"org_id": 1, "user_id": 7}, 204, {"Org": [{"id": 1}], "User": []}),
+        ("/orgs/{org_id}/users/{user_id}", {"org_id": 1, "user_id": 7}, 404, {"Org": [{"id": 1}], "User": [{"id": 7}]}),
+        ("/orgs/{org_id}/users/{user_id}.json", {"org_id": 1, "user_id": 7}, 204, {"Org": [{"id": 1}], "User": []}),
+        (
+            "/orgs/{org_id}/users/{user_id}#roles",
+            {"org_id": 1, "user_id": 7},
+            204,
+            {"Org": [{"id": 1}], "User": [{"id": 7}]},
+        ),
+        ("/orgs/{org_id}/logo", {"org_id": 1}, 204, {"Org": [{"id": 1}], "User": [{"id": 7}]}),
+    ],
+    ids=["deleted", "not-found", "format-suffix", "fragment-suffix", "sub-resource"],
+)
+def test_delete_attempt_evicts_only_the_deleted_resource(ctx, path, path_parameters, status_code, expected):
+    schema = ctx.openapi.load_schema(ORGS_AND_USERS, components=ORGS_AND_USERS_COMPONENTS)
+    data_source = schema.create_extra_data_source()
+    data_source.repository.record_response(operation="POST /orgs", status_code=201, payload={"id": 1})
+    data_source.repository.record_response(
+        operation="POST /orgs/{org_id}/users", status_code=201, payload={"id": 7}, context={"org_id": 1}
+    )
+    delete = schema[path]["DELETE"]
+    record_delete_attempt(data_source, delete.Case(path_parameters=path_parameters), status_code)
+    assert {
+        name: [instance.data for instance in data_source.repository.iter_instances(name)] for name in ("Org", "User")
+    } == expected
+    get_org = schema["/orgs/{org_id}"]["GET"]
+    assert data_source.pick_correlated_values(operation=get_org).values == {(ParameterLocation.PATH, "org_id"): 1}
+
+
+def test_successful_delete_keeps_instances_whose_other_fields_equal_the_deleted_id(ctx):
+    schema = ctx.openapi.load_schema(ORGS_AND_USERS, components=ORGS_AND_USERS_COMPONENTS)
+    data_source = schema.create_extra_data_source()
+    for payload in ({"id": 1}, {"id": 2, "active": True}, {"id": 3, "logins": 1}, {"id": 4, "active": False}):
+        data_source.repository.record_response(
+            operation="POST /orgs/{org_id}/users", status_code=201, payload=payload, context={"org_id": 1}
+        )
+    delete = schema["/orgs/{org_id}/users/{user_id}"]["DELETE"]
+    record_delete_attempt(data_source, delete.Case(path_parameters={"org_id": 1, "user_id": 1}), 204)
+    assert [instance.data for instance in data_source.repository.iter_instances("User")] == [
+        {"id": 2, "active": True},
+        {"id": 3, "logins": 1},
+        {"id": 4, "active": False},
+    ]
+
+
 _ITEMS_PATHS = {
     "/items": {
         "post": {
@@ -1566,6 +1689,54 @@ def test_prepopulate_from_response_examples(ctx):
         operation=get_operation, location=ParameterLocation.PATH, schema=path_schema
     )
     assert [v.overlay for v in variants] == [{"user_id": "example-user-123"}]
+
+
+@pytest.mark.parametrize(
+    ("examples", "expected"),
+    [
+        (
+            {"201": ("Order", "order-1"), "202": ("Job", "job-1")},
+            {"Order": [{"id": "order-1"}], "Job": [{"id": "job-1"}]},
+        ),
+        (
+            {"200": ("Order", "order-1"), "201": ("OrderCreated", "order-2")},
+            {"Order": [{"id": "order-1"}, {"id": "order-2"}], "Job": []},
+        ),
+    ],
+    ids=["other-resource", "unconsumed-schema"],
+)
+def test_response_examples_seed_the_resource_of_their_status(ctx, examples, expected):
+    def documented(name, example):
+        return {
+            "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{name}"}, "example": example}}
+        }
+
+    def lookup(parameter):
+        return {
+            "get": {
+                "parameters": [{"name": parameter, "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK"}},
+            }
+        }
+
+    resource = {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}
+    schema = ctx.openapi.load_schema(
+        {
+            "/orders": {
+                "post": {
+                    "responses": {status: documented(name, {"id": value}) for status, (name, value) in examples.items()}
+                }
+            },
+            "/orders/{order_id}": lookup("order_id"),
+            "/jobs/{job_id}": lookup("job_id"),
+        },
+        components={"schemas": {"Order": resource, "OrderCreated": resource, "Job": resource}},
+    )
+    repository = schema.create_extra_data_source().repository
+
+    assert {
+        name: [instance.data for instance in repository.iter_instances(name)] for name in ("Order", "Job")
+    } == expected
 
 
 def test_object_level_augmentation_preserves_relationships(ctx):

@@ -39,6 +39,136 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.AccessGrantReference",
+    jsii_struct_bases=[],
+    name_mapping={"access_grant_arn": "accessGrantArn"},
+)
+class AccessGrantReference:
+    def __init__(self, *, access_grant_arn: builtins.str) -> None:
+        '''A reference to a AccessGrant resource.
+
+        :param access_grant_arn: The Arn of the AccessGrant resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            access_grant_reference = interfaces_cloudwatch.AccessGrantReference(
+                access_grant_arn="accessGrantArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e07ec82757189cb7cce2ead671e43988de4f1345ea7c2a25a638260a917655fd)
+            check_type(argname="argument access_grant_arn", value=access_grant_arn, expected_type=type_hints["access_grant_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_grant_arn": access_grant_arn,
+        }
+
+    @builtins.property
+    def access_grant_arn(self) -> builtins.str:
+        '''The Arn of the AccessGrant resource.'''
+        result = self._values.get("access_grant_arn")
+        assert result is not None, "Required property 'access_grant_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessGrantReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.AccessProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_profile_arn": "accessProfileArn",
+        "profile_id": "profileId",
+        "space_id": "spaceId",
+    },
+)
+class AccessProfileReference:
+    def __init__(
+        self,
+        *,
+        access_profile_arn: builtins.str,
+        profile_id: builtins.str,
+        space_id: builtins.str,
+    ) -> None:
+        '''A reference to a AccessProfile resource.
+
+        :param access_profile_arn: The ARN of the AccessProfile resource.
+        :param profile_id: The ProfileId of the AccessProfile resource.
+        :param space_id: The SpaceId of the AccessProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            access_profile_reference = interfaces_cloudwatch.AccessProfileReference(
+                access_profile_arn="accessProfileArn",
+                profile_id="profileId",
+                space_id="spaceId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5640b91b6854e49160edd74bfc6c0aaa620e11892bab0fe00ba5e1b676ae94e9)
+            check_type(argname="argument access_profile_arn", value=access_profile_arn, expected_type=type_hints["access_profile_arn"])
+            check_type(argname="argument profile_id", value=profile_id, expected_type=type_hints["profile_id"])
+            check_type(argname="argument space_id", value=space_id, expected_type=type_hints["space_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_profile_arn": access_profile_arn,
+            "profile_id": profile_id,
+            "space_id": space_id,
+        }
+
+    @builtins.property
+    def access_profile_arn(self) -> builtins.str:
+        '''The ARN of the AccessProfile resource.'''
+        result = self._values.get("access_profile_arn")
+        assert result is not None, "Required property 'access_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def profile_id(self) -> builtins.str:
+        '''The ProfileId of the AccessProfile resource.'''
+        result = self._values.get("profile_id")
+        assert result is not None, "Required property 'profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def space_id(self) -> builtins.str:
+        '''The SpaceId of the AccessProfile resource.'''
+        result = self._values.get("space_id")
+        assert result is not None, "Required property 'space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.AlarmMuteRuleReference",
     jsii_struct_bases=[],
     name_mapping={"alarm_mute_rule_arn": "alarmMuteRuleArn"},
@@ -156,7 +286,7 @@ class AnomalyDetectorReference:
     def __init__(self, *, anomaly_detector_id: builtins.str) -> None:
         '''A reference to a AnomalyDetector resource.
 
-        :param anomaly_detector_id: The AnomalyDetectorId of the AnomalyDetector resource.
+        :param anomaly_detector_id: The Id of the AnomalyDetector resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -179,7 +309,7 @@ class AnomalyDetectorReference:
 
     @builtins.property
     def anomaly_detector_id(self) -> builtins.str:
-        '''The AnomalyDetectorId of the AnomalyDetector resource.'''
+        '''The Id of the AnomalyDetector resource.'''
         result = self._values.get("anomaly_detector_id")
         assert result is not None, "Required property 'anomaly_detector_id' is missing"
         return typing.cast(builtins.str, result)
@@ -311,6 +441,249 @@ class DashboardReference:
         return "DashboardReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.DomainAccessGrantForOrganizationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_access_grant_for_organization_arn": "domainAccessGrantForOrganizationArn",
+    },
+)
+class DomainAccessGrantForOrganizationReference:
+    def __init__(
+        self,
+        *,
+        domain_access_grant_for_organization_arn: builtins.str,
+    ) -> None:
+        '''A reference to a DomainAccessGrantForOrganization resource.
+
+        :param domain_access_grant_for_organization_arn: The Arn of the DomainAccessGrantForOrganization resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            domain_access_grant_for_organization_reference = interfaces_cloudwatch.DomainAccessGrantForOrganizationReference(
+                domain_access_grant_for_organization_arn="domainAccessGrantForOrganizationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7c4c77552faa32375582b759dbbd2dba56e6f388bddba29667d69fd99143a111)
+            check_type(argname="argument domain_access_grant_for_organization_arn", value=domain_access_grant_for_organization_arn, expected_type=type_hints["domain_access_grant_for_organization_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_access_grant_for_organization_arn": domain_access_grant_for_organization_arn,
+        }
+
+    @builtins.property
+    def domain_access_grant_for_organization_arn(self) -> builtins.str:
+        '''The Arn of the DomainAccessGrantForOrganization resource.'''
+        result = self._values.get("domain_access_grant_for_organization_arn")
+        assert result is not None, "Required property 'domain_access_grant_for_organization_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DomainAccessGrantForOrganizationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.DomainForOrganizationReference",
+    jsii_struct_bases=[],
+    name_mapping={"domain_for_organization_arn": "domainForOrganizationArn"},
+)
+class DomainForOrganizationReference:
+    def __init__(self, *, domain_for_organization_arn: builtins.str) -> None:
+        '''A reference to a DomainForOrganization resource.
+
+        :param domain_for_organization_arn: The Arn of the DomainForOrganization resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            domain_for_organization_reference = interfaces_cloudwatch.DomainForOrganizationReference(
+                domain_for_organization_arn="domainForOrganizationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ffd86aaf79fc122182457588489eb75226a9bd4eb694c59c6167c79c8b11565)
+            check_type(argname="argument domain_for_organization_arn", value=domain_for_organization_arn, expected_type=type_hints["domain_for_organization_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_for_organization_arn": domain_for_organization_arn,
+        }
+
+    @builtins.property
+    def domain_for_organization_arn(self) -> builtins.str:
+        '''The Arn of the DomainForOrganization resource.'''
+        result = self._values.get("domain_for_organization_arn")
+        assert result is not None, "Required property 'domain_for_organization_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DomainForOrganizationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.DomainReference",
+    jsii_struct_bases=[],
+    name_mapping={"domain_arn": "domainArn"},
+)
+class DomainReference:
+    def __init__(self, *, domain_arn: builtins.str) -> None:
+        '''A reference to a Domain resource.
+
+        :param domain_arn: The Arn of the Domain resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            domain_reference = interfaces_cloudwatch.DomainReference(
+                domain_arn="domainArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c04c0929436cc503237c8d05d4bedb07bdcd958c1e0510fcc0a89b97a1b5f436)
+            check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_arn": domain_arn,
+        }
+
+    @builtins.property
+    def domain_arn(self) -> builtins.str:
+        '''The Arn of the Domain resource.'''
+        result = self._values.get("domain_arn")
+        assert result is not None, "Required property 'domain_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DomainReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IAccessGrantRef")
+class IAccessGrantRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessGrant.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessGrantRef")
+    def access_grant_ref(self) -> "AccessGrantReference":
+        '''(experimental) A reference to a AccessGrant resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessGrantRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessGrant.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.IAccessGrantRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessGrantRef")
+    def access_grant_ref(self) -> "AccessGrantReference":
+        '''(experimental) A reference to a AccessGrant resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AccessGrantReference", jsii.get(self, "accessGrantRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessGrantRef).__jsii_proxy_class__ = lambda : _IAccessGrantRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IAccessProfileRef")
+class IAccessProfileRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessProfileRef")
+    def access_profile_ref(self) -> "AccessProfileReference":
+        '''(experimental) A reference to a AccessProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.IAccessProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessProfileRef")
+    def access_profile_ref(self) -> "AccessProfileReference":
+        '''(experimental) A reference to a AccessProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AccessProfileReference", jsii.get(self, "accessProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessProfileRef).__jsii_proxy_class__ = lambda : _IAccessProfileRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IAlarmMuteRuleRef")
@@ -538,6 +911,149 @@ class _IDashboardRefProxy(
 typing.cast(typing.Any, IDashboardRef).__jsii_proxy_class__ = lambda : _IDashboardRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IDomainAccessGrantForOrganizationRef"
+)
+class IDomainAccessGrantForOrganizationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DomainAccessGrantForOrganization.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="domainAccessGrantForOrganizationRef")
+    def domain_access_grant_for_organization_ref(
+        self,
+    ) -> "DomainAccessGrantForOrganizationReference":
+        '''(experimental) A reference to a DomainAccessGrantForOrganization resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDomainAccessGrantForOrganizationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DomainAccessGrantForOrganization.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.IDomainAccessGrantForOrganizationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="domainAccessGrantForOrganizationRef")
+    def domain_access_grant_for_organization_ref(
+        self,
+    ) -> "DomainAccessGrantForOrganizationReference":
+        '''(experimental) A reference to a DomainAccessGrantForOrganization resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DomainAccessGrantForOrganizationReference", jsii.get(self, "domainAccessGrantForOrganizationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDomainAccessGrantForOrganizationRef).__jsii_proxy_class__ = lambda : _IDomainAccessGrantForOrganizationRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IDomainForOrganizationRef"
+)
+class IDomainForOrganizationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DomainForOrganization.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="domainForOrganizationRef")
+    def domain_for_organization_ref(self) -> "DomainForOrganizationReference":
+        '''(experimental) A reference to a DomainForOrganization resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDomainForOrganizationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DomainForOrganization.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.IDomainForOrganizationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="domainForOrganizationRef")
+    def domain_for_organization_ref(self) -> "DomainForOrganizationReference":
+        '''(experimental) A reference to a DomainForOrganization resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DomainForOrganizationReference", jsii.get(self, "domainForOrganizationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDomainForOrganizationRef).__jsii_proxy_class__ = lambda : _IDomainForOrganizationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IDomainRef")
+class IDomainRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Domain.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> "DomainReference":
+        '''(experimental) A reference to a Domain resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDomainRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Domain.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.IDomainRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> "DomainReference":
+        '''(experimental) A reference to a Domain resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DomainReference", jsii.get(self, "domainRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDomainRef).__jsii_proxy_class__ = lambda : _IDomainRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IInsightRuleRef")
 class IInsightRuleRef(
     _constructs_77d1e7e8.IConstruct,
@@ -763,6 +1279,51 @@ class _IOTelEnrichmentRefProxy(
 typing.cast(typing.Any, IOTelEnrichmentRef).__jsii_proxy_class__ = lambda : _IOTelEnrichmentRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IOmniDashboardRef")
+class IOmniDashboardRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a OmniDashboard.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="omniDashboardRef")
+    def omni_dashboard_ref(self) -> "OmniDashboardReference":
+        '''(experimental) A reference to a OmniDashboard resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOmniDashboardRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a OmniDashboard.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.IOmniDashboardRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="omniDashboardRef")
+    def omni_dashboard_ref(self) -> "OmniDashboardReference":
+        '''(experimental) A reference to a OmniDashboard resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OmniDashboardReference", jsii.get(self, "omniDashboardRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOmniDashboardRef).__jsii_proxy_class__ = lambda : _IOmniDashboardRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IResourceMetricsConfigurationRef"
 )
@@ -812,6 +1373,51 @@ class _IResourceMetricsConfigurationRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IResourceMetricsConfigurationRef).__jsii_proxy_class__ = lambda : _IResourceMetricsConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.ISpaceRef")
+class ISpaceRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Space.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="spaceRef")
+    def space_ref(self) -> "SpaceReference":
+        '''(experimental) A reference to a Space resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISpaceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Space.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.ISpaceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="spaceRef")
+    def space_ref(self) -> "SpaceReference":
+        '''(experimental) A reference to a Space resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SpaceReference", jsii.get(self, "spaceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISpaceRef).__jsii_proxy_class__ = lambda : _ISpaceRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IViewRef")
@@ -1140,6 +1746,87 @@ class OTelEnrichmentReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.OmniDashboardReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dashboard_id": "dashboardId",
+        "omni_dashboard_arn": "omniDashboardArn",
+        "space_id": "spaceId",
+    },
+)
+class OmniDashboardReference:
+    def __init__(
+        self,
+        *,
+        dashboard_id: builtins.str,
+        omni_dashboard_arn: builtins.str,
+        space_id: builtins.str,
+    ) -> None:
+        '''A reference to a OmniDashboard resource.
+
+        :param dashboard_id: The DashboardId of the OmniDashboard resource.
+        :param omni_dashboard_arn: The ARN of the OmniDashboard resource.
+        :param space_id: The SpaceId of the OmniDashboard resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            omni_dashboard_reference = interfaces_cloudwatch.OmniDashboardReference(
+                dashboard_id="dashboardId",
+                omni_dashboard_arn="omniDashboardArn",
+                space_id="spaceId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__546800fdc9e2f801fe650322fb740db8ed0e2a010db6ded0e9e822cbc4757608)
+            check_type(argname="argument dashboard_id", value=dashboard_id, expected_type=type_hints["dashboard_id"])
+            check_type(argname="argument omni_dashboard_arn", value=omni_dashboard_arn, expected_type=type_hints["omni_dashboard_arn"])
+            check_type(argname="argument space_id", value=space_id, expected_type=type_hints["space_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dashboard_id": dashboard_id,
+            "omni_dashboard_arn": omni_dashboard_arn,
+            "space_id": space_id,
+        }
+
+    @builtins.property
+    def dashboard_id(self) -> builtins.str:
+        '''The DashboardId of the OmniDashboard resource.'''
+        result = self._values.get("dashboard_id")
+        assert result is not None, "Required property 'dashboard_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def omni_dashboard_arn(self) -> builtins.str:
+        '''The ARN of the OmniDashboard resource.'''
+        result = self._values.get("omni_dashboard_arn")
+        assert result is not None, "Required property 'omni_dashboard_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def space_id(self) -> builtins.str:
+        '''The SpaceId of the OmniDashboard resource.'''
+        result = self._values.get("space_id")
+        assert result is not None, "Required property 'space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OmniDashboardReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.ResourceMetricsConfigurationReference",
     jsii_struct_bases=[],
     name_mapping={"resource_arn": "resourceArn"},
@@ -1184,6 +1871,55 @@ class ResourceMetricsConfigurationReference:
 
     def __repr__(self) -> str:
         return "ResourceMetricsConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.SpaceReference",
+    jsii_struct_bases=[],
+    name_mapping={"space_arn": "spaceArn"},
+)
+class SpaceReference:
+    def __init__(self, *, space_arn: builtins.str) -> None:
+        '''A reference to a Space resource.
+
+        :param space_arn: The Arn of the Space resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            space_reference = interfaces_cloudwatch.SpaceReference(
+                space_arn="spaceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ff714d1753001152aac5ff0296c413f2250d752e14d4609a94779157fdf24dc9)
+            check_type(argname="argument space_arn", value=space_arn, expected_type=type_hints["space_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "space_arn": space_arn,
+        }
+
+    @builtins.property
+    def space_arn(self) -> builtins.str:
+        '''The Arn of the Space resource.'''
+        result = self._values.get("space_arn")
+        assert result is not None, "Required property 'space_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SpaceReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1249,33 +1985,63 @@ class ViewReference:
 
 
 __all__ = [
+    "AccessGrantReference",
+    "AccessProfileReference",
     "AlarmMuteRuleReference",
     "AlarmReference",
     "AnomalyDetectorReference",
     "CompositeAlarmReference",
     "DashboardReference",
+    "DomainAccessGrantForOrganizationReference",
+    "DomainForOrganizationReference",
+    "DomainReference",
+    "IAccessGrantRef",
+    "IAccessProfileRef",
     "IAlarmMuteRuleRef",
     "IAlarmRef",
     "IAnomalyDetectorRef",
     "ICompositeAlarmRef",
     "IDashboardRef",
+    "IDomainAccessGrantForOrganizationRef",
+    "IDomainForOrganizationRef",
+    "IDomainRef",
     "IInsightRuleRef",
     "IIntegrationRef",
     "ILogAlarmRef",
     "IMetricStreamRef",
     "IOTelEnrichmentRef",
+    "IOmniDashboardRef",
     "IResourceMetricsConfigurationRef",
+    "ISpaceRef",
     "IViewRef",
     "InsightRuleReference",
     "IntegrationReference",
     "LogAlarmReference",
     "MetricStreamReference",
     "OTelEnrichmentReference",
+    "OmniDashboardReference",
     "ResourceMetricsConfigurationReference",
+    "SpaceReference",
     "ViewReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__e07ec82757189cb7cce2ead671e43988de4f1345ea7c2a25a638260a917655fd(
+    *,
+    access_grant_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5640b91b6854e49160edd74bfc6c0aaa620e11892bab0fe00ba5e1b676ae94e9(
+    *,
+    access_profile_arn: builtins.str,
+    profile_id: builtins.str,
+    space_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__3a96a894c3e3ce3a85ad1fdae64962a99174f720bb052efd2e1096d6fde57c59(
     *,
@@ -1310,6 +2076,27 @@ def _typecheckingstub__1042889d771e7e4d3b68678612b0204f4e8b84ad00f0672fd7f96a4d3
 def _typecheckingstub__b8a69e4049e357c44415bff967a5b2a7dd2e87def21cda4b468303b1a5be2771(
     *,
     dashboard_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c4c77552faa32375582b759dbbd2dba56e6f388bddba29667d69fd99143a111(
+    *,
+    domain_access_grant_for_organization_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ffd86aaf79fc122182457588489eb75226a9bd4eb694c59c6167c79c8b11565(
+    *,
+    domain_for_organization_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c04c0929436cc503237c8d05d4bedb07bdcd958c1e0510fcc0a89b97a1b5f436(
+    *,
+    domain_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1351,9 +2138,25 @@ def _typecheckingstub__a72478b59e18716d7b088eea5376f19505d1e07e3dc74672316f85c01
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__546800fdc9e2f801fe650322fb740db8ed0e2a010db6ded0e9e822cbc4757608(
+    *,
+    dashboard_id: builtins.str,
+    omni_dashboard_arn: builtins.str,
+    space_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6f9ebe063604c60ac79278954c382c68f40c11bf77a8d558d7d5c2ab1d8751bb(
     *,
     resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff714d1753001152aac5ff0296c413f2250d752e14d4609a94779157fdf24dc9(
+    *,
+    space_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1366,5 +2169,5 @@ def _typecheckingstub__05ebab8b587ee4cf5b5a00c1b85685b2fcfa1e308f34bc1df1b2dece2
     """Type checking stubs"""
     pass
 
-for cls in [IAlarmMuteRuleRef, IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IInsightRuleRef, IIntegrationRef, ILogAlarmRef, IMetricStreamRef, IOTelEnrichmentRef, IResourceMetricsConfigurationRef, IViewRef]:
+for cls in [IAccessGrantRef, IAccessProfileRef, IAlarmMuteRuleRef, IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IDomainAccessGrantForOrganizationRef, IDomainForOrganizationRef, IDomainRef, IInsightRuleRef, IIntegrationRef, ILogAlarmRef, IMetricStreamRef, IOTelEnrichmentRef, IOmniDashboardRef, IResourceMetricsConfigurationRef, ISpaceRef, IViewRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

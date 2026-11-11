@@ -1,0 +1,54 @@
+//! Implementation of the `datetime` module.
+//!
+//! This module exposes a minimal phase-1 surface:
+//! - `date`
+//! - `datetime`
+//! - `time`
+//! - `timedelta`
+//! - `timezone`
+//!
+//! Behavior for constructors, arithmetic, and classmethods is implemented by the
+//! corresponding runtime types.
+
+use crate::{
+    builtins::Builtins,
+    bytecode::VM,
+    heap::{HeapData, HeapId},
+    intern::StaticStrings,
+    types::{BuiltinType, Module},
+    value::Value,
+};
+
+/// Creates the `datetime` module and allocates it on the heap.
+///
+pub fn create_module(vm: &mut VM<'_>) -> HeapId {
+    let mut module = Module::new(StaticStrings::Datetime, vm.interns);
+
+    module.set_attr(
+        StaticStrings::Date,
+        Value::Builtin(Builtins::Type(BuiltinType::Date)),
+        vm,
+    );
+    module.set_attr(
+        StaticStrings::Datetime,
+        Value::Builtin(Builtins::Type(BuiltinType::DateTime)),
+        vm,
+    );
+    module.set_attr(
+        StaticStrings::Time,
+        Value::Builtin(Builtins::Type(BuiltinType::Time)),
+        vm,
+    );
+    module.set_attr(
+        StaticStrings::Timedelta,
+        Value::Builtin(Builtins::Type(BuiltinType::TimeDelta)),
+        vm,
+    );
+    module.set_attr(
+        StaticStrings::Timezone,
+        Value::Builtin(Builtins::Type(BuiltinType::TimeZone)),
+        vm,
+    );
+
+    vm.heap.allocate(HeapData::Module(Box::new(module)))
+}

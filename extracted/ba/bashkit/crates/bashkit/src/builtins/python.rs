@@ -23,16 +23,16 @@ use async_trait::async_trait;
 use chrono::{Datelike, Timelike};
 use monty::{MontyRun, RunProgress};
 use monty_types::{
-    CompileOptions, ExcType, ExtFunctionResult, FileMode, LimitedTracker, MontyDate, MontyDateTime,
-    MontyException, MontyFileHandle, MontyObject, NameLookupResult, OsFunctionCall, PrintWriter,
-    ResourceError, ResourceLimits, ResourceTracker, dir_stat, file_stat, symlink_stat,
+    CompileOptions, ExcType, ExtFunctionResult, FileMode, MontyDate, MontyDateTime, MontyException,
+    MontyFileHandle, MontyObject, NameLookupResult, OsFunctionCall, PrintWriter, ResourceLimits,
+    ResourceTracker, dir_stat, file_stat, symlink_stat,
 };
-use std::cell::Cell;
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use super::{Builtin, Context, ExecutionDeadline, RuntimeLimits, resolve_path};
@@ -44,92 +44,11 @@ use crate::interpreter::ExecResult;
 /// Python's default recursion-depth cap. The other VM limits (duration,
 /// memory) default via [`RuntimeLimits::default`].
 const DEFAULT_MAX_RECURSION: usize = 200;
-// Security hard-stop: catastrophic regex backtracking can bypass cooperative
-// interpreter budget checks, so disable regex stdlib module in untrusted code.
-const DISABLED_STDLIB_MODULES: &[&str] = &["re"];
 // Security decision: virtual Python datetime uses a fixed UTC instant so
 // sandboxed code cannot fingerprint host clock/timezone state.
 const VIRTUAL_NOW_UNIX_SECS: i64 = 1_704_067_200; // 2024-01-01T00:00:00Z
 
-/// Bridges Monty's statement/allocation checkpoints into the shared request
-/// budget while retaining Monty's own memory/time/recursion ceilings.
-#[derive(Debug)]
-struct BudgetTracker {
-    runtime: LimitedTracker,
-    execution: Option<crate::limits::ExecutionBudget>,
-    vm_checkpoints: Cell<u64>,
-}
-
-impl BudgetTracker {
-    fn budget_error(err: crate::limits::LimitExceeded) -> ResourceError {
-        // Monty's tracker error type has no host-defined variant. The shared
-        // budget retains the precise poisoned reason; use an uncatchable
-        // memory error only to stop the VM at this checkpoint.
-        let _ = err;
-        ResourceError::Memory { limit: 0, used: 1 }
-    }
-
-    fn consume_work(&self) -> std::result::Result<(), ResourceError> {
-        if let Some(budget) = &self.execution {
-            budget.consume_work(1).map_err(Self::budget_error)?;
-        }
-        Ok(())
-    }
-
-    fn check_vm(&self) -> std::result::Result<(), ResourceError> {
-        if let Some(budget) = &self.execution {
-            budget.check().map_err(Self::budget_error)?;
-            let checkpoints = self.vm_checkpoints.get().wrapping_add(1);
-            self.vm_checkpoints.set(checkpoints);
-            if checkpoints.is_multiple_of(64) {
-                budget.consume_work(1).map_err(Self::budget_error)?;
-            }
-        }
-        Ok(())
-    }
-}
-
-impl ResourceTracker for BudgetTracker {
-    fn on_free(&self, get_size: impl FnOnce() -> usize) {
-        self.runtime.on_free(get_size);
-    }
-
-    fn check_time(&self) -> std::result::Result<(), ResourceError> {
-        self.check_vm()?;
-        self.runtime.check_time()
-    }
-
-    fn check_recursion_depth(
-        &self,
-        current_depth: usize,
-    ) -> std::result::Result<(), ResourceError> {
-        self.runtime.check_recursion_depth(current_depth)
-    }
-
-    fn check_large_result(&self, estimated_bytes: usize) -> std::result::Result<(), ResourceError> {
-        self.runtime.check_large_result(estimated_bytes)
-    }
-
-    fn on_grow(
-        &self,
-        additional_bytes: impl FnOnce() -> usize,
-    ) -> std::result::Result<(), ResourceError> {
-        self.consume_work()?;
-        self.runtime.on_grow(additional_bytes)
-    }
-
-    fn gc_interval(&self) -> Option<usize> {
-        self.runtime.gc_interval()
-    }
-
-    fn on_execution_start(&self) {
-        self.runtime.on_execution_start();
-    }
-
-    fn on_execution_stop(&self) {
-        self.runtime.on_execution_stop();
-    }
-}
+// TRIAL PORT (monty 1.4): ResourceTracker is a concrete struct; no hooks.
 const VIRTUAL_NOW_NANOS: u32 = 123_456_000; // 123456 µs for deterministic microseconds
 
 const PYTHON_INPROCESS_OPT_IN_ENV: &str = "BASHKIT_ALLOW_INPROCESS_PYTHON";
@@ -276,7 +195,7 @@ impl std::fmt::Debug for PythonExternalFns {
 /// python3 -c "print('hello')"
 /// python3 script.py
 /// echo "print('hello')" | python3
-/// python3 -c "2 + 2"              # expression result printed
+/// python3 -c "print(2 + 2)"       # prints 4 (last expression is not echoed)
 /// python3 --version
 /// python3 -c "print(open('/tmp/f.txt').read())"
 /// ```
@@ -346,76 +265,16 @@ impl Default for Python {
     }
 }
 
-fn is_disabled_import(code: &str) -> Option<&'static str> {
-    let is_disabled_module = |module: &str| {
-        DISABLED_STDLIB_MODULES.iter().any(|disabled| {
-            module == *disabled
-                || (module.starts_with(disabled)
-                    && module
-                        .as_bytes()
-                        .get(disabled.len())
-                        .is_some_and(|next| *next == b'.'))
-        })
-    };
-
-    for raw_line in code.lines() {
-        let line = raw_line.split('#').next().unwrap_or("").trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        if let Some(imports) = line.strip_prefix("import ") {
-            for import in imports.split(',') {
-                let module = import
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("")
-                    .trim()
-                    .trim_matches(|c: char| c == '\'' || c == '"')
-                    .trim_end_matches(|c: char| {
-                        !(c.is_ascii_alphanumeric() || c == '_' || c == '.')
-                    })
-                    .to_string();
-                if is_disabled_module(&module) {
-                    return Some("re");
-                }
-            }
-        }
-
-        if let Some(from_stmt) = line.strip_prefix("from ") {
-            let module = from_stmt
-                .split_whitespace()
-                .next()
-                .unwrap_or("")
-                .trim()
-                .trim_matches(|c: char| c == '\'' || c == '"')
-                .trim_end_matches(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '.'))
-                .to_string();
-            if is_disabled_module(&module) {
-                return Some("re");
-            }
-        }
-
-        if line.contains("__import__('re'") || line.contains("__import__(\"re\"") {
-            return Some("re");
-        }
-        if line.contains("importlib.import_module('re'")
-            || line.contains("importlib.import_module(\"re\"")
-        {
-            return Some("re");
-        }
-    }
-    None
-}
-
 #[async_trait]
 impl Builtin for Python {
     fn llm_hint(&self) -> Option<&'static str> {
         Some(
-            "python/python3: Embedded Python (Monty). \
-             Stdlib: math, pathlib, os.getenv, sys, typing. \
-             File I/O via pathlib.Path and open() against the VFS. \
-             No HTTP/network. No classes. No third-party imports.",
+            "python/python3: Embedded Python (Monty), not CPython. \
+             Stdlib: json, math, re, datetime, pathlib, os, sys, typing, csv, collections, \
+             itertools, functools, dataclasses, hashlib, base64, random, decimal, unicodedata; \
+             no sys.exit/sys.stdin. File I/O via pathlib.Path and open() against the VFS. \
+             Simple classes only (no inheritance), no generators (yield). \
+             No HTTP/network, subprocess or third-party imports. Output via print().",
         )
     }
 
@@ -527,14 +386,8 @@ impl Builtin for Python {
             ));
         };
 
-        if let Some(module) = is_disabled_import(&code) {
-            return Ok(ExecResult::err(
-                format!(
-                    "python3: importing module '{module}' is disabled for security reasons (regex DoS risk)\n"
-                ),
-                1,
-            ));
-        }
+        // Charge the source before Monty parses it, so untrusted input is
+        // accounted for before any work is done on it.
         ctx.consume_budget_input(code.len())?;
         ctx.consume_budget_work(u64::try_from(code.len().div_ceil(64)).unwrap_or(u64::MAX))?;
 
@@ -553,12 +406,8 @@ impl Builtin for Python {
         {
             limits.common.max_duration = limits.common.max_duration.min(remaining);
         }
-        // Monty exposes an independent VM ceiling. Reserve a conservative
-        // share so repeated runtime invocations cannot each claim a fresh full
-        // memory/allocation allowance from one host request.
-        ctx.consume_budget_work(
-            u64::try_from(limits.common.max_memory.div_ceil(64)).unwrap_or(u64::MAX),
-        )?;
+        // Monty's own memory ceiling is per run; heap growth is charged to the
+        // shared work budget as it happens (`BudgetTracker::charge_memory_peak`).
 
         let code = if let Some(prelude) = self
             .external_fns
@@ -622,21 +471,64 @@ async fn run_python(
         code
     };
 
-    let runner = match MontyRun::new(code.to_owned(), filename, vec![], CompileOptions::default()) {
-        Ok(r) => r,
+    // Important security decision: end every program with a `None` statement so
+    // Monty's result is always `None`. Monty converts the module's final value
+    // to a host `MontyObject` outside its memory/time limits; a shared list
+    // graph (`x = [x, x]` thirty times) expands to 2^30 leaves there. CPython
+    // never echoes the final expression for `-c`, files or stdin, so nothing
+    // user-visible is lost. A trailing backslash would join `None` onto the last
+    // line, so leave that (already invalid) code alone.
+    let code = if code.trim_end().ends_with('\\') {
+        code.to_owned()
+    } else {
+        format!("{code}\nNone\n")
+    };
+    // Per-VM memory meter + shared-budget checkpoints (vm_meter.rs).
+    if let Err(msg) = crate::vm_meter::ensure_metering() {
+        return Ok(ExecResult::err(format!("{msg}\n"), 1));
+    }
+    let meter = crate::vm_meter::VmMeter::new(execution_budget.clone());
+    let mut vm_time = Duration::ZERO;
+    // Runs one synchronous Monty call inside this VM's metering window.
+    macro_rules! in_vm {
+        ($e:expr) => {{
+            let _window = crate::vm_meter::VmWindow::enter(&meter);
+            let started = Instant::now();
+            let r = $e;
+            vm_time += started.elapsed();
+            r
+        }};
+    }
+    let runner = match in_vm!(MontyRun::new(
+        code,
+        filename,
+        vec![],
+        CompileOptions::default()
+    )) {
+        Ok(r) => {
+            // Security decision: no host clock, no real sleeps (a blocking
+            // sleep would also stall the async executor thread).
+            let mut r = r.with_os_policy(monty_types::OsPolicy {
+                datetime: monty_types::DateTimeSource::Fixed {
+                    unix_seconds: VIRTUAL_NOW_UNIX_SECS,
+                    microsecond: VIRTUAL_NOW_NANOS / 1000,
+                },
+                sleep: monty_types::SleepMode::Zero,
+                ..monty_types::OsPolicy::default()
+            });
+            r.set_cwd(&cwd.to_string_lossy());
+            r
+        }
         Err(e) => return Ok(format_exception(e)),
     };
 
-    let limits = ResourceLimits::new()
-        .max_duration(py_limits.common.max_duration)
+    let limits = ResourceLimits::default()
+        .max_feed_duration(py_limits.common.max_duration)
         .max_memory(py_limits.common.max_memory)
-        .max_recursion_depth(Some(py_limits.common.max_call_depth));
+        .max_recursion_depth(py_limits.common.max_call_depth);
 
-    let tracker = BudgetTracker {
-        runtime: LimitedTracker::new(limits),
-        execution: execution_budget.clone(),
-        vm_checkpoints: Cell::new(0),
-    };
+    let time_limit_hit = Arc::new(AtomicBool::new(false));
+    let tracker = ResourceTracker::new(limits);
     // Important security decision: cap collected print output at the same
     // memory budget as the VM heap. Monty 0.0.19 added a byte cap on
     // `PrintWriter::CollectString` because a `while True: print(...)` loop
@@ -645,6 +537,7 @@ async fn run_python(
     // `max_memory` keeps one number to reason about: tightening the memory
     // limit tightens the output cap with it.
     let print_cap = Some(py_limits.common.max_memory);
+    let time_limit = py_limits.common.max_duration;
     // Important security decision: cap awaited host callbacks with the same wall-clock
     // budget as Monty so external functions cannot pin execution between VM steps.
     let python_deadline = Instant::now().checked_add(py_limits.common.max_duration);
@@ -653,14 +546,21 @@ async fn run_python(
     // PrintWriter::CollectString is not Send, so we scope it to avoid holding across .await.
     let (mut progress, mut buf) = {
         let mut buf = String::new();
-        match runner.start(
+        match in_vm!(runner.start(
             vec![],
             tracker,
             PrintWriter::CollectString(&mut buf, print_cap),
-        ) {
+        )) {
             Ok(p) => (p, buf),
             Err(e) => {
-                return Ok(format_exception_with_output(e, &buf));
+                if e.exc_type() == ExcType::TimeoutError && vm_time >= time_limit {
+                    time_limit_hit.store(true, Ordering::Relaxed);
+                }
+                return Ok(format_exception_with_output(
+                    e,
+                    &buf,
+                    timed_out(&time_limit_hit, time_limit),
+                ));
             }
         }
     };
@@ -669,16 +569,41 @@ async fn run_python(
         if let Some(budget) = &execution_budget {
             budget.consume_work(1)?;
         }
+        // Important security decision: Monty's clock pauses while the VM is
+        // suspended on the host, so `max_duration` alone bounds VM time only and
+        // a loop of cheap host calls (file writes) ran ~10x past it. Bound wall
+        // clock at every host call too, and yield to the executor there: the VM
+        // never yields on its own, so without this a caller-side timeout cannot
+        // cancel the call and co-tenants on the same worker thread starve.
+        if !matches!(progress, RunProgress::Complete(_)) {
+            if python_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+                return Ok(format_exception_with_output(
+                    MontyException::new(ExcType::TimeoutError, None),
+                    &buf,
+                    Some(time_limit),
+                ));
+            }
+            tokio::task::yield_now().await;
+        }
         match progress {
             RunProgress::OsCall(os_call) => {
                 let function_call = os_call.function_call.clone();
                 let result = handle_os_call(function_call, &fs, cwd, env).await;
-                match os_call.resume(result, PrintWriter::CollectString(&mut buf, print_cap)) {
+                match in_vm!(
+                    os_call.resume(result, PrintWriter::CollectString(&mut buf, print_cap))
+                ) {
                     Ok(next) => {
                         progress = next;
                     }
                     Err(e) => {
-                        return Ok(format_exception_with_output(e, &buf));
+                        if e.exc_type() == ExcType::TimeoutError && vm_time >= time_limit {
+                            time_limit_hit.store(true, Ordering::Relaxed);
+                        }
+                        return Ok(format_exception_with_output(
+                            e,
+                            &buf,
+                            timed_out(&time_limit_hit, time_limit),
+                        ));
                     }
                 }
             }
@@ -690,8 +615,11 @@ async fn run_python(
                     call_external_with_deadline(
                         ef,
                         call.function_name.clone(),
-                        call.args.clone(),
-                        call.kwargs.clone(),
+                        call.args.args().map(|a| a.to_owned()).collect(),
+                        call.args
+                            .kwargs()
+                            .map(|(k, v)| (k.to_owned(), v.to_owned()))
+                            .collect(),
                         python_deadline,
                     )
                     .await
@@ -705,12 +633,19 @@ async fn run_python(
                     ))
                 };
 
-                match call.resume(result, PrintWriter::CollectString(&mut buf, print_cap)) {
+                match in_vm!(call.resume(result, PrintWriter::CollectString(&mut buf, print_cap))) {
                     Ok(next) => {
                         progress = next;
                     }
                     Err(e) => {
-                        return Ok(format_exception_with_output(e, &buf));
+                        if e.exc_type() == ExcType::TimeoutError && vm_time >= time_limit {
+                            time_limit_hit.store(true, Ordering::Relaxed);
+                        }
+                        return Ok(format_exception_with_output(
+                            e,
+                            &buf,
+                            timed_out(&time_limit_hit, time_limit),
+                        ));
                     }
                 }
             }
@@ -724,20 +659,25 @@ async fn run_python(
                 {
                     // Return a callable marker — monty will pause again with
                     // FunctionCall when it's actually invoked.
-                    NameLookupResult::Value(MontyObject::Function {
-                        name: lookup.name.clone(),
-                        docstring: None,
-                    })
+                    NameLookupResult::Value(MontyObject::function(lookup.name.clone(), None))
                 } else {
                     NameLookupResult::Undefined
                 };
 
-                match lookup.resume(result, PrintWriter::CollectString(&mut buf, print_cap)) {
+                match in_vm!(lookup.resume(result, PrintWriter::CollectString(&mut buf, print_cap)))
+                {
                     Ok(next) => {
                         progress = next;
                     }
                     Err(e) => {
-                        return Ok(format_exception_with_output(e, &buf));
+                        if e.exc_type() == ExcType::TimeoutError && vm_time >= time_limit {
+                            time_limit_hit.store(true, Ordering::Relaxed);
+                        }
+                        return Ok(format_exception_with_output(
+                            e,
+                            &buf,
+                            timed_out(&time_limit_hit, time_limit),
+                        ));
                     }
                 }
             }
@@ -747,15 +687,13 @@ async fn run_python(
                     ExcType::RuntimeError,
                     Some("async operations not supported in virtual mode".into()),
                 );
-                return Ok(format_exception_with_output(err, &buf));
+                return Ok(format_exception_with_output(
+                    err,
+                    &buf,
+                    timed_out(&time_limit_hit, time_limit),
+                ));
             }
-            RunProgress::Complete(result) => {
-                // If the result is not None and there was no print output,
-                // display the result (like Python REPL behavior for expressions)
-                if !matches!(result, MontyObject::None) && buf.is_empty() {
-                    buf = format!("{}\n", result.py_repr());
-                }
-
+            RunProgress::Complete(_) => {
                 return Ok(ExecResult::ok(buf));
             }
         }
@@ -798,266 +736,241 @@ async fn call_external_with_deadline(
 // VFS bridging: Monty OsCall → Bashkit FileSystem
 // ---------------------------------------------------------------------------
 
-/// Monty's `OsFunctionCall` is a tagged enum carrying typed args. We project it
-/// to the generic `(positional, keyword)` `MontyObject` view via the public
-/// `to_args()` and dispatch on the stable `name()` string (kept byte-identical
-/// across monty releases for snapshot compatibility), keeping the per-op VFS
-/// logic unchanged.
+/// TRIAL PORT (monty 1.4): dispatch on the typed OsFunctionCall enum.
 async fn handle_os_call(
     function: OsFunctionCall,
     fs: &Arc<dyn FileSystem>,
     cwd: &Path,
     env: &HashMap<String, String>,
 ) -> ExtFunctionResult {
-    let name = function.name();
-    let (args, kwargs) = function.to_args();
-    let args = args.as_slice();
-    let kwargs = kwargs.as_slice();
-
-    // Non-filesystem operations: env access, date/time
-    match name {
-        "os.getenv" => return handle_getenv(args, env),
-        "os.environ" => return handle_get_environ(env),
-        "date.today" => return handle_date_today(),
-        "datetime.now" => return handle_datetime_now(args),
-        _ => {}
-    }
-
-    // All other ops need a path as first arg
-    let path = match extract_path(args, cwd) {
-        Some(p) => p,
-        None => {
-            return ExtFunctionResult::Error(MontyException::new(
-                ExcType::TypeError,
-                Some("expected path argument".into()),
-            ));
-        }
-    };
-
-    match name {
-        "open" => {
-            let mode = match parse_open_mode(args) {
-                Ok(mode) => mode,
-                Err(err) => return err,
-            };
-            match open_vfs_file(&path, mode, fs).await {
-                Ok(()) => ExtFunctionResult::Return(MontyObject::FileHandle(MontyFileHandle {
+    use OsFunctionCall as F;
+    let rp = |p: &monty_types::MontyPath| resolve_python_path(p.as_str(), cwd);
+    let ret = ExtFunctionResult::Return;
+    match function {
+        F::Getenv(a) => match env.get(&a.key) {
+            Some(v) => ret(MontyObject::string(v.clone())),
+            None => ret(a.default),
+        },
+        F::GetEnviron => ret(MontyObject::dict(env.iter().map(|(k, v)| {
+            (
+                MontyObject::string(k.clone()),
+                MontyObject::string(v.clone()),
+            )
+        }))),
+        F::DateToday => handle_date_today(),
+        F::DateTimeNow(tz) => handle_datetime_now(tz),
+        F::Open(a) => {
+            let path = rp(&a.path);
+            match open_vfs_file(&path, a.mode, fs).await {
+                Ok(()) => ret(MontyObject::file_handle(MontyFileHandle {
                     path: path.to_string_lossy().to_string(),
-                    mode,
+                    mode: a.mode,
                     position: 0,
                 })),
                 Err(e) => map_vfs_error(e, &path),
             }
         }
-        "Path.exists" => {
-            let exists = fs.exists(&path).await.unwrap_or(false);
-            ExtFunctionResult::Return(MontyObject::Bool(exists))
-        }
-        "Path.is_file" => match fs.stat(&path).await {
-            Ok(meta) => ExtFunctionResult::Return(MontyObject::Bool(meta.file_type.is_file())),
-            Err(_) => ExtFunctionResult::Return(MontyObject::Bool(false)),
-        },
-        "Path.is_dir" => match fs.stat(&path).await {
-            Ok(meta) => ExtFunctionResult::Return(MontyObject::Bool(meta.file_type.is_dir())),
-            Err(_) => ExtFunctionResult::Return(MontyObject::Bool(false)),
-        },
-        "Path.is_symlink" => match fs.lstat(&path).await {
-            Ok(meta) => ExtFunctionResult::Return(MontyObject::Bool(meta.file_type.is_symlink())),
-            Err(_) => ExtFunctionResult::Return(MontyObject::Bool(false)),
-        },
-        "Path.read_text" => match fs.read_file(&path).await {
-            Ok(bytes) => match String::from_utf8(bytes) {
-                Ok(s) => ExtFunctionResult::Return(MontyObject::String(s)),
-                Err(_) => ExtFunctionResult::Error(MontyException::new(
-                    ExcType::OSError,
-                    Some(format!(
-                        "can't decode '{}': not valid UTF-8",
-                        path.display()
+        F::Exists(p) => ret(MontyObject::bool(fs.exists(&rp(&p)).await.unwrap_or(false))),
+        F::IsFile(p) => ret(MontyObject::bool(
+            fs.stat(&rp(&p))
+                .await
+                .map(|m| m.file_type.is_file())
+                .unwrap_or(false),
+        )),
+        F::IsDir(p) => ret(MontyObject::bool(
+            fs.stat(&rp(&p))
+                .await
+                .map(|m| m.file_type.is_dir())
+                .unwrap_or(false),
+        )),
+        F::IsSymlink(p) => ret(MontyObject::bool(
+            fs.lstat(&rp(&p))
+                .await
+                .map(|m| m.file_type.is_symlink())
+                .unwrap_or(false),
+        )),
+        F::ReadText(p) => {
+            let path = rp(&p);
+            match fs.read_file(&path).await {
+                Ok(bytes) => match String::from_utf8(bytes) {
+                    Ok(s) => ret(MontyObject::string(s)),
+                    Err(_) => ExtFunctionResult::Error(MontyException::new(
+                        ExcType::OSError,
+                        Some(format!(
+                            "can't decode '{}': not valid UTF-8",
+                            path.display()
+                        )),
                     )),
-                )),
-            },
-            Err(e) => map_vfs_error(e, &path),
-        },
-        "Path.read_bytes" => match fs.read_file(&path).await {
-            Ok(bytes) => ExtFunctionResult::Return(MontyObject::Bytes(bytes)),
-            Err(e) => map_vfs_error(e, &path),
-        },
-        "Path.write_text" => {
-            let content = match args.get(1) {
-                Some(MontyObject::String(s)) => s.as_bytes().to_vec(),
-                _ => {
-                    return ExtFunctionResult::Error(MontyException::new(
-                        ExcType::TypeError,
-                        Some("write_text() requires a string argument".into()),
-                    ));
-                }
-            };
-            let len = match args.get(1) {
-                Some(MontyObject::String(s)) => s.chars().count(),
-                _ => 0,
-            };
-            match fs.write_file(&path, &content).await {
-                Ok(()) => ExtFunctionResult::Return(MontyObject::Int(len as i64)),
+                },
                 Err(e) => map_vfs_error(e, &path),
             }
         }
-        "Path.write_bytes" => {
-            let content = match args.get(1) {
-                Some(MontyObject::Bytes(b)) => b.clone(),
-                _ => {
-                    return ExtFunctionResult::Error(MontyException::new(
-                        ExcType::TypeError,
-                        Some("write_bytes() requires a bytes argument".into()),
-                    ));
-                }
-            };
-            let len = content.len();
-            match fs.write_file(&path, &content).await {
-                Ok(()) => ExtFunctionResult::Return(MontyObject::Int(len as i64)),
+        F::ReadBytes(p) => {
+            let path = rp(&p);
+            match fs.read_file(&path).await {
+                Ok(bytes) => ret(MontyObject::bytes(bytes)),
                 Err(e) => map_vfs_error(e, &path),
             }
         }
-        "Path.append_text" => {
-            let content = match args.get(1) {
-                Some(MontyObject::String(s)) => s.as_bytes().to_vec(),
-                _ => {
-                    return ExtFunctionResult::Error(MontyException::new(
-                        ExcType::TypeError,
-                        Some("append_text() requires a string argument".into()),
-                    ));
-                }
-            };
-            let len = match args.get(1) {
-                Some(MontyObject::String(s)) => s.chars().count(),
-                _ => 0,
-            };
-            match fs.append_file(&path, &content).await {
-                Ok(()) => ExtFunctionResult::Return(MontyObject::Int(len as i64)),
+        F::WriteText(a) => {
+            let path = rp(&a.path);
+            match fs.write_file(&path, a.data.as_bytes()).await {
+                Ok(()) => ret(MontyObject::int(a.data.chars().count() as i64)),
                 Err(e) => map_vfs_error(e, &path),
             }
         }
-        "Path.append_bytes" => {
-            let content = match args.get(1) {
-                Some(MontyObject::Bytes(b)) => b.clone(),
-                _ => {
-                    return ExtFunctionResult::Error(MontyException::new(
-                        ExcType::TypeError,
-                        Some("append_bytes() requires a bytes argument".into()),
-                    ));
-                }
-            };
-            let len = content.len();
-            match fs.append_file(&path, &content).await {
-                Ok(()) => ExtFunctionResult::Return(MontyObject::Int(len as i64)),
+        F::AppendText(a) => {
+            let path = rp(&a.path);
+            match fs.append_file(&path, a.data.as_bytes()).await {
+                Ok(()) => ret(MontyObject::int(a.data.chars().count() as i64)),
                 Err(e) => map_vfs_error(e, &path),
             }
         }
-        "Path.mkdir" => {
-            let parents = get_bool_kwarg(kwargs, "parents").unwrap_or(false);
-            let exist_ok = get_bool_kwarg(kwargs, "exist_ok").unwrap_or(false);
-            match fs.mkdir(&path, parents).await {
-                Ok(()) => ExtFunctionResult::Return(MontyObject::None),
-                Err(e) => {
-                    let msg = e.to_string();
-                    if exist_ok && msg.contains("already exists") {
-                        ExtFunctionResult::Return(MontyObject::None)
-                    } else {
-                        map_vfs_error(e, &path)
-                    }
-                }
+        F::WriteBytes(a) => {
+            let path = rp(&a.path);
+            match fs.write_file(&path, &a.data).await {
+                Ok(()) => ret(MontyObject::int(a.data.len() as i64)),
+                Err(e) => map_vfs_error(e, &path),
             }
         }
-        "Path.unlink" => match fs.remove(&path, false).await {
-            Ok(()) => ExtFunctionResult::Return(MontyObject::None),
-            Err(e) => map_vfs_error(e, &path),
-        },
-        "Path.rmdir" => match fs.remove(&path, false).await {
-            Ok(()) => ExtFunctionResult::Return(MontyObject::None),
-            Err(e) => map_vfs_error(e, &path),
-        },
-        "Path.iterdir" => match fs.read_dir(&path).await {
-            Ok(entries) => {
-                let items: Vec<MontyObject> = entries
-                    .into_iter()
-                    .map(|e| {
-                        let child = vfs_join(&path, &e.name);
-                        MontyObject::Path(child.to_string_lossy().to_string())
+        F::AppendBytes(a) => {
+            let path = rp(&a.path);
+            match fs.append_file(&path, &a.data).await {
+                Ok(()) => ret(MontyObject::int(a.data.len() as i64)),
+                Err(e) => map_vfs_error(e, &path),
+            }
+        }
+        F::Mkdir(a) => {
+            let path = rp(&a.path);
+            match fs.mkdir(&path, a.parents).await {
+                Ok(()) => ret(MontyObject::none()),
+                Err(e) if a.exist_ok && e.to_string().contains("already exists") => {
+                    ret(MontyObject::none())
+                }
+                Err(e) => map_vfs_error(e, &path),
+            }
+        }
+        F::Unlink(p) | F::Rmdir(p) => {
+            let path = rp(&p);
+            match fs.remove(&path, false).await {
+                Ok(()) => ret(MontyObject::none()),
+                Err(e) => map_vfs_error(e, &path),
+            }
+        }
+        F::Iterdir(p) => {
+            let path = rp(&p);
+            match fs.read_dir(&path).await {
+                Ok(entries) => ret(MontyObject::list(entries.into_iter().map(|e| {
+                    MontyObject::path(vfs_join(&path, &e.name).to_string_lossy().to_string())
+                }))),
+                Err(e) => map_vfs_error(e, &path),
+            }
+        }
+        F::Stat(p) => {
+            let path = rp(&p);
+            match fs.stat(&path).await {
+                Ok(meta) => {
+                    let mtime = meta
+                        .modified
+                        .duration_since(crate::time_compat::UNIX_EPOCH)
+                        .map(|d| d.as_secs_f64())
+                        .unwrap_or(0.0);
+                    ret(match meta.file_type {
+                        FileType::Directory => dir_stat(meta.mode as i64, mtime),
+                        FileType::Symlink => symlink_stat(meta.mode as i64, mtime),
+                        _ => file_stat(meta.mode as i64, meta.size as i64, mtime),
                     })
-                    .collect();
-                ExtFunctionResult::Return(MontyObject::List(items))
-            }
-            Err(e) => map_vfs_error(e, &path),
-        },
-        "Path.stat" => match fs.stat(&path).await {
-            Ok(meta) => {
-                let mtime = meta
-                    .modified
-                    .duration_since(crate::time_compat::UNIX_EPOCH)
-                    .map(|d| d.as_secs_f64())
-                    .unwrap_or(0.0);
-                let stat_obj = match meta.file_type {
-                    FileType::Directory => dir_stat(meta.mode as i64, mtime),
-                    FileType::Symlink => symlink_stat(meta.mode as i64, mtime),
-                    _ => file_stat(meta.mode as i64, meta.size as i64, mtime),
-                };
-                ExtFunctionResult::Return(stat_obj)
-            }
-            Err(e) => map_vfs_error(e, &path),
-        },
-        "Path.rename" => {
-            let target = match args.get(1) {
-                Some(MontyObject::Path(p)) | Some(MontyObject::String(p)) => {
-                    resolve_python_path(p, cwd)
                 }
-                _ => {
-                    return ExtFunctionResult::Error(MontyException::new(
-                        ExcType::TypeError,
-                        Some("rename() requires a target path".into()),
-                    ));
-                }
-            };
-            match fs.rename(&path, &target).await {
-                Ok(()) => ExtFunctionResult::Return(MontyObject::Path(
-                    target.to_string_lossy().to_string(),
-                )),
                 Err(e) => map_vfs_error(e, &path),
             }
         }
-        "Path.resolve" | "Path.absolute" => {
-            // No symlink resolution in Bashkit VFS; just return absolute path
-            ExtFunctionResult::Return(MontyObject::Path(path.to_string_lossy().to_string()))
+        F::Rename(a) => {
+            let (src, dst) = (rp(&a.src), rp(&a.dst));
+            match fs.rename(&src, &dst).await {
+                Ok(()) => ret(MontyObject::path(dst.to_string_lossy().to_string())),
+                Err(e) => map_vfs_error(e, &src),
+            }
         }
-        // Getenv/GetEnviron handled above
-        _ => ExtFunctionResult::Error(MontyException::new(
+        F::Resolve(p) | F::Absolute(p) => {
+            ret(MontyObject::path(rp(&p).to_string_lossy().to_string()))
+        }
+        F::Scan(a) => handle_scan(&a, &rp(&a.path), fs).await,
+        // Unknown modules: no host modules are offered. Monty 1.5 passes the
+        // import's `search_path` alongside the name for its file-import path;
+        // bashkit answers from host modules only, so the name is all that is
+        // needed and every import of an unoffered module still fails here.
+        F::Import(args) => ExtFunctionResult::NotFound(args.module),
+        other => ExtFunctionResult::Error(MontyException::new(
             ExcType::OSError,
-            Some(format!("{name} not supported in virtual mode")),
+            Some(format!("{} not supported in virtual mode", other.name())),
         )),
     }
 }
 
-/// Extract a path from the first OsCall arg and resolve relative to cwd.
-fn extract_path(args: &[MontyObject], cwd: &Path) -> Option<PathBuf> {
-    match args.first()? {
-        MontyObject::Path(s) | MontyObject::String(s) => Some(resolve_python_path(s, cwd)),
-        MontyObject::FileHandle(handle) => Some(resolve_python_path(&handle.path, cwd)),
-        _ => None,
-    }
-}
+/// Upper bound on entries one `Path.scan` reply may carry (`os.walk`,
+/// `glob`, `scandir`). Security decision: the reply is materialised on the host
+/// before Monty sees it, so it is capped independently of the VFS size.
+const MAX_SCAN_ENTRIES: usize = 100_000;
 
-fn parse_open_mode(args: &[MontyObject]) -> std::result::Result<FileMode, ExtFunctionResult> {
-    let Some(MontyObject::String(mode)) = args.get(1) else {
-        return Err(ExtFunctionResult::Error(MontyException::new(
-            ExcType::TypeError,
-            Some("open() missing mode argument".into()),
-        )));
+/// Answer `Path.scan` with the VFS subtree under `root` to `max_depth`.
+///
+/// Decision: reply with the plain tree and let Monty run the glob selector
+/// itself (`ScanReply::Tree`); a superset is always correct. Symlinks are
+/// reported but never descended, since the VFS has no symlink resolution here.
+async fn handle_scan(
+    args: &monty_types::ScanArgs,
+    root: &Path,
+    fs: &Arc<dyn FileSystem>,
+) -> ExtFunctionResult {
+    use monty_types::scan::{EntryInfo, ScanEntry, scan_reply};
+    let info = |t: FileType| EntryInfo {
+        is_dir: t.is_dir(),
+        is_file: t.is_file(),
+        is_symlink: t.is_symlink(),
     };
-
-    mode.parse::<FileMode>().map_err(|msg| {
-        ExtFunctionResult::Error(MontyException::new(
-            ExcType::ValueError,
-            Some(msg.into_owned()),
-        ))
-    })
+    let root_meta = match fs.stat(root).await {
+        Ok(m) => m,
+        Err(e) => return map_vfs_error(e, root),
+    };
+    let mut entries = vec![ScanEntry {
+        path: String::new(),
+        info: info(root_meta.file_type),
+    }];
+    let mut queue = std::collections::VecDeque::new();
+    if root_meta.file_type.is_dir() {
+        queue.push_back((root.to_path_buf(), String::new(), 0u32));
+    }
+    while let Some((dir, rel, depth)) = queue.pop_front() {
+        if args.max_depth.is_some_and(|max| depth >= max) {
+            continue;
+        }
+        let children = match fs.read_dir(&dir).await {
+            Ok(c) => c,
+            Err(e) => return map_vfs_error(e, &dir),
+        };
+        for child in children {
+            if entries.len() >= MAX_SCAN_ENTRIES {
+                return ExtFunctionResult::Error(MontyException::new(
+                    ExcType::OSError,
+                    Some(format!("directory scan exceeds {MAX_SCAN_ENTRIES} entries")),
+                ));
+            }
+            let child_rel = if rel.is_empty() {
+                child.name.clone()
+            } else {
+                format!("{rel}/{}", child.name)
+            };
+            let kind = child.metadata.file_type;
+            if kind.is_dir() {
+                queue.push_back((vfs_join(&dir, &child.name), child_rel.clone(), depth + 1));
+            }
+            entries.push(ScanEntry {
+                path: child_rel,
+                info: info(kind),
+            });
+        }
+    }
+    ExtFunctionResult::Return(scan_reply(entries))
 }
 
 async fn open_vfs_file(path: &Path, mode: FileMode, fs: &Arc<dyn FileSystem>) -> Result<()> {
@@ -1118,60 +1031,10 @@ fn map_vfs_error(e: crate::Error, path: &Path) -> ExtFunctionResult {
     ))
 }
 
-/// Extract a bool kwarg by name from the kwargs list.
-fn get_bool_kwarg(kwargs: &[(MontyObject, MontyObject)], name: &str) -> Option<bool> {
-    for (key, val) in kwargs {
-        if let MontyObject::String(k) = key
-            && k == name
-        {
-            return match val {
-                MontyObject::Bool(b) => Some(*b),
-                _ => None,
-            };
-        }
-    }
-    None
-}
-
-/// Handle os.getenv(key, default=None).
-fn handle_getenv(args: &[MontyObject], env: &HashMap<String, String>) -> ExtFunctionResult {
-    let key = match args.first() {
-        Some(MontyObject::String(s)) => s.as_str(),
-        _ => {
-            return ExtFunctionResult::Error(MontyException::new(
-                ExcType::TypeError,
-                Some("getenv() requires a string argument".into()),
-            ));
-        }
-    };
-    let default = match args.get(1) {
-        Some(MontyObject::None) | None => MontyObject::None,
-        Some(other) => other.clone(),
-    };
-    match env.get(key) {
-        Some(val) => ExtFunctionResult::Return(MontyObject::String(val.clone())),
-        None => ExtFunctionResult::Return(default),
-    }
-}
-
-/// Handle os.environ → dict of all env vars.
-fn handle_get_environ(env: &HashMap<String, String>) -> ExtFunctionResult {
-    let pairs: Vec<(MontyObject, MontyObject)> = env
-        .iter()
-        .map(|(k, v)| {
-            (
-                MontyObject::String(k.clone()),
-                MontyObject::String(v.clone()),
-            )
-        })
-        .collect();
-    ExtFunctionResult::Return(MontyObject::dict(pairs))
-}
-
 /// Handle datetime.date.today() using the sandbox virtual clock.
 fn handle_date_today() -> ExtFunctionResult {
     let now = virtual_now_utc();
-    ExtFunctionResult::Return(MontyObject::Date(MontyDate {
+    ExtFunctionResult::Return(MontyObject::date(MontyDate {
         year: now.year(),
         month: now.month() as u8,
         day: now.day() as u8,
@@ -1182,19 +1045,15 @@ fn handle_date_today() -> ExtFunctionResult {
 ///
 /// If tz is None, returns a naive datetime (no timezone info).
 /// If tz is a TimeZone, returns an aware datetime at that offset.
-fn handle_datetime_now(args: &[MontyObject]) -> ExtFunctionResult {
+fn handle_datetime_now(tz: Option<monty_types::MontyTimeZone>) -> ExtFunctionResult {
     let base_utc = virtual_now_utc();
-    let tz = match args.first() {
-        Some(MontyObject::TimeZone(tz)) => Some(tz),
-        _ => None,
-    };
 
     if let Some(tz) = tz {
         // Aware datetime at the requested offset
         let offset = chrono::FixedOffset::east_opt(tz.offset_seconds)
             .unwrap_or(chrono::FixedOffset::east_opt(0).expect("UTC offset is always valid"));
         let dt = base_utc.with_timezone(&offset);
-        ExtFunctionResult::Return(MontyObject::DateTime(MontyDateTime {
+        ExtFunctionResult::Return(MontyObject::datetime(MontyDateTime {
             year: dt.year(),
             month: dt.month() as u8,
             day: dt.day() as u8,
@@ -1203,12 +1062,12 @@ fn handle_datetime_now(args: &[MontyObject]) -> ExtFunctionResult {
             second: dt.second() as u8,
             microsecond: dt.nanosecond() / 1000,
             offset_seconds: Some(tz.offset_seconds),
-            timezone_name: tz.name.clone(),
+            timezone_name: tz.name,
         }))
     } else {
         // No timezone → naive UTC datetime (no timezone metadata)
         let dt = base_utc.naive_utc();
-        ExtFunctionResult::Return(MontyObject::DateTime(MontyDateTime {
+        ExtFunctionResult::Return(MontyObject::datetime(MontyDateTime {
             year: dt.year(),
             month: dt.month() as u8,
             day: dt.day() as u8,
@@ -1236,8 +1095,35 @@ fn format_exception(e: MontyException) -> ExecResult {
     ExecResult::err(format!("{e}\n"), 1)
 }
 
+/// The limit to report when Monty's own time limit fired, else `None`.
+fn timed_out(hit: &AtomicBool, limit: Duration) -> Option<Duration> {
+    hit.load(Ordering::Relaxed).then_some(limit)
+}
+
 /// Format exception, preserving any output produced before the error.
-fn format_exception_with_output(e: MontyException, printed: &str) -> ExecResult {
+///
+/// Decision: Monty's time limit reports like the CPython runtime and coreutils
+/// `timeout` (exit 124, `python3: execution timed out after Ns`), so callers can
+/// tell a limit from a script error without parsing a traceback. Monty raises
+/// the limit as an uncatchable `TimeoutError`; the tracker records that its
+/// check fired, because script code can raise a `TimeoutError` with the same
+/// message.
+fn format_exception_with_output(
+    e: MontyException,
+    printed: &str,
+    time_limit: Option<Duration>,
+) -> ExecResult {
+    if let Some(time_limit) = time_limit
+        && e.exc_type() == ExcType::TimeoutError
+    {
+        let mut result = ExecResult::with_code(printed.to_string(), 124);
+        result.stderr = format!(
+            "python3: execution timed out after {:.1}s\n",
+            time_limit.as_secs_f64()
+        )
+        .into();
+        return result;
+    }
     let stderr = format!("{e}\n");
     let mut result = ExecResult::err(stderr, 1);
     if !printed.is_empty() {
@@ -1328,10 +1214,32 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_inline_expression() {
+    async fn test_inline_expression_is_not_echoed() {
+        // Matches CPython: `python3 -c "2 + 3"` prints nothing. Echoing made
+        // Monty export the final value to the host, unbounded by its limits.
         let r = run(&["-c", "2 + 3"], None).await;
         assert_eq!(r.exit_code, 0);
-        assert_eq!(r.stdout, "5\n");
+        assert_eq!(r.stdout, "");
+    }
+
+    #[tokio::test]
+    async fn test_large_shared_final_value_finishes() {
+        // Regression: a 2^30-leaf shared list as the last expression expanded
+        // to ~500 MiB on the host and ignored the timeout.
+        let r = run(
+            &["-c", "x = [1]\nfor _ in range(30):\n    x = [x, x]\nx"],
+            None,
+        )
+        .await;
+        assert_eq!(r.exit_code, 0, "{}", r.stderr);
+        assert_eq!(r.stdout, "");
+    }
+
+    #[tokio::test]
+    async fn test_trailing_backslash_stays_a_syntax_error() {
+        let r = run(&["-c", "x = 1 + \\"], None).await;
+        assert_ne!(r.exit_code, 0);
+        assert!(r.stderr.contains("Error"), "{}", r.stderr);
     }
 
     #[tokio::test]
@@ -1420,7 +1328,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_comprehension() {
-        let r = run(&["-c", "[x*2 for x in range(3)]"], None).await;
+        let r = run(&["-c", "print([x*2 for x in range(3)])"], None).await;
         assert_eq!(r.exit_code, 0);
         assert_eq!(r.stdout, "[0, 2, 4]\n");
     }
@@ -1710,7 +1618,7 @@ mod tests {
     #[tokio::test]
     async fn test_external_fn_return_value() {
         let handler: PythonExternalFnHandler = Arc::new(|_name, _args, _kwargs| {
-            Box::pin(async { ExtFunctionResult::Return(MontyObject::Int(42)) })
+            Box::pin(async { ExtFunctionResult::Return(MontyObject::int(42)) })
         });
         let r = run_with_external("print(get_answer())", &["get_answer"], handler).await;
         assert_eq!(r.exit_code, 0);
@@ -1722,7 +1630,7 @@ mod tests {
         let handler: PythonExternalFnHandler = Arc::new(|_name, _args, _kwargs| {
             Box::pin(async {
                 tokio::time::sleep(Duration::from_secs(1)).await;
-                ExtFunctionResult::Return(MontyObject::Int(1))
+                ExtFunctionResult::Return(MontyObject::int(1))
             })
         });
         let started = Instant::now();
@@ -1748,15 +1656,9 @@ mod tests {
     async fn test_external_fn_with_args() {
         let handler: PythonExternalFnHandler = Arc::new(|_name, args, _kwargs| {
             Box::pin(async move {
-                let a = match &args[0] {
-                    MontyObject::Int(i) => *i,
-                    _ => 0,
-                };
-                let b = match &args[1] {
-                    MontyObject::Int(i) => *i,
-                    _ => 0,
-                };
-                ExtFunctionResult::Return(MontyObject::Int(a + b))
+                let a = args[0].as_ref().as_int().unwrap_or(0);
+                let b = args[1].as_ref().as_int().unwrap_or(0);
+                ExtFunctionResult::Return(MontyObject::int(a + b))
             })
         });
         let r = run_with_external("print(add(3, 4))", &["add"], handler).await;
@@ -1769,15 +1671,15 @@ mod tests {
         let handler: PythonExternalFnHandler = Arc::new(|_name, _args, kwargs| {
             Box::pin(async move {
                 for (k, v) in &kwargs {
-                    if let (MontyObject::String(key), MontyObject::String(val)) = (k, v)
+                    if let (Some(key), Some(val)) = (k.as_ref().as_str(), v.as_ref().as_str())
                         && key == "name"
                     {
-                        return ExtFunctionResult::Return(MontyObject::String(format!(
+                        return ExtFunctionResult::Return(MontyObject::string(format!(
                             "hello {val}"
                         )));
                     }
                 }
-                ExtFunctionResult::Return(MontyObject::String("hello unknown".into()))
+                ExtFunctionResult::Return(MontyObject::string("hello unknown"))
             })
         });
         let r = run_with_external("print(greet(name='world'))", &["greet"], handler).await;
@@ -1830,7 +1732,7 @@ mod tests {
             let c = counter_clone.clone();
             Box::pin(async move {
                 let val = c.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                ExtFunctionResult::Return(MontyObject::Int(val))
+                ExtFunctionResult::Return(MontyObject::int(val))
             })
         });
         let r = run_with_external(
@@ -1847,11 +1749,8 @@ mod tests {
     async fn test_external_fn_returns_string() {
         let handler: PythonExternalFnHandler = Arc::new(|_name, args, _kwargs| {
             Box::pin(async move {
-                let input = match &args[0] {
-                    MontyObject::String(s) => s.clone(),
-                    _ => String::new(),
-                };
-                ExtFunctionResult::Return(MontyObject::String(input.to_uppercase()))
+                let input = args[0].as_ref().as_str().unwrap_or_default().to_owned();
+                ExtFunctionResult::Return(MontyObject::string(input.to_uppercase()))
             })
         });
         let r = run_with_external("print(upper('hello'))", &["upper"], handler).await;
@@ -1864,9 +1763,9 @@ mod tests {
         let handler: PythonExternalFnHandler = Arc::new(|name, _args, _kwargs| {
             Box::pin(async move {
                 let result = match name.as_str() {
-                    "get_x" => MontyObject::Int(10),
-                    "get_y" => MontyObject::Int(20),
-                    _ => MontyObject::None,
+                    "get_x" => MontyObject::int(10),
+                    "get_y" => MontyObject::int(20),
+                    _ => MontyObject::none(),
                 };
                 ExtFunctionResult::Return(result)
             })
@@ -1881,7 +1780,7 @@ mod tests {
         // Referencing a name (not as a call) that is NOT in the registered
         // external function list should raise NameError via NameLookup → Undefined.
         let handler: PythonExternalFnHandler = Arc::new(|_name, _args, _kwargs| {
-            Box::pin(async { ExtFunctionResult::Return(MontyObject::Int(1)) })
+            Box::pin(async { ExtFunctionResult::Return(MontyObject::int(1)) })
         });
         // Register "registered_fn" but reference "unknown_var" (not a call)
         let r = run_with_external("x = unknown_var", &["registered_fn"], handler).await;
@@ -1899,24 +1798,50 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_re_module_is_blocked() {
+    async fn test_llm_hint_matches_runtime() {
+        let hint = Python::new().llm_hint().unwrap();
+        let stdlib = hint
+            .split("Stdlib: ")
+            .nth(1)
+            .and_then(|rest| rest.split(';').next())
+            .unwrap();
+        for module in stdlib.split(", ") {
+            let module = module.split('.').next().unwrap();
+            let r = run(&["-c", &format!("import {module}")], None).await;
+            assert_eq!(r.exit_code, 0, "hint names {module}: {}", r.stderr);
+        }
+        assert!(hint.contains("Simple classes only (no inheritance)"));
         let r = run(
             &[
                 "-c",
-                "import re; m = re.search(r'(\\d+)', 'abc123def'); print(m.group(1))",
+                "class A:\n    def __init__(self):\n        self.v = 1\nprint(A().v)",
             ],
             None,
         )
         .await;
-        assert_eq!(r.exit_code, 1);
-        assert!(r.stderr.contains("importing module 're' is disabled"));
+        assert_eq!(r.stdout, "1\n", "{}", r.stderr);
+        let r = run(&["-c", "class A: pass\nclass B(A): pass"], None).await;
+        assert_ne!(r.exit_code, 0, "inheritance now works; update the hint");
+        assert!(hint.contains("no generators (yield)"));
+        let r = run(&["-c", "def g():\n    yield 1\nlist(g())"], None).await;
+        assert_ne!(r.exit_code, 0, "generators now work; update the hint");
+        assert!(hint.contains("no sys.exit/sys.stdin"));
+        let r = run(&["-c", "import sys\nsys.exit(0)"], None).await;
+        assert_ne!(r.exit_code, 0, "sys.exit now works; update the hint");
     }
 
     #[tokio::test]
-    async fn test_re_module_dynamic_import_is_blocked() {
-        let r = run(&["-c", "m = __import__('re')"], None).await;
-        assert_eq!(r.exit_code, 1);
-        assert!(r.stderr.contains("importing module 're' is disabled"));
+    async fn test_re_module_works() {
+        let r = run(
+            &[
+                "-c",
+                "import re; m = re.search(r'(\\d+)', 'abc123def'); print(m.group(1), re.sub(r'a+', 'x', 'caab'))",
+            ],
+            None,
+        )
+        .await;
+        assert_eq!(r.exit_code, 0, "{}", r.stderr);
+        assert_eq!(r.stdout, "123 cxb\n");
     }
 
     #[tokio::test]

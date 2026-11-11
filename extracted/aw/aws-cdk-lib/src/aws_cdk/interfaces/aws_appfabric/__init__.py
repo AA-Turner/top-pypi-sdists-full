@@ -87,6 +87,55 @@ class AppAuthorizationReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_appfabric.AppBundleReference",
+    jsii_struct_bases=[],
+    name_mapping={"app_bundle_arn": "appBundleArn"},
+)
+class AppBundleReference:
+    def __init__(self, *, app_bundle_arn: builtins.str) -> None:
+        '''A reference to a AppBundle resource.
+
+        :param app_bundle_arn: The Arn of the AppBundle resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_appfabric as interfaces_appfabric
+            
+            app_bundle_reference = interfaces_appfabric.AppBundleReference(
+                app_bundle_arn="appBundleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__745c605d58ff484ad3bb153c2503be738532396fda612c6bc2842587c0fd8dd4)
+            check_type(argname="argument app_bundle_arn", value=app_bundle_arn, expected_type=type_hints["app_bundle_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_bundle_arn": app_bundle_arn,
+        }
+
+    @builtins.property
+    def app_bundle_arn(self) -> builtins.str:
+        '''The Arn of the AppBundle resource.'''
+        result = self._values.get("app_bundle_arn")
+        assert result is not None, "Required property 'app_bundle_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppBundleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appfabric.IAppAuthorizationRef")
 class IAppAuthorizationRef(
     _constructs_77d1e7e8.IConstruct,
@@ -130,6 +179,51 @@ class _IAppAuthorizationRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAppAuthorizationRef).__jsii_proxy_class__ = lambda : _IAppAuthorizationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appfabric.IAppBundleRef")
+class IAppBundleRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AppBundle.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="appBundleRef")
+    def app_bundle_ref(self) -> "AppBundleReference":
+        '''(experimental) A reference to a AppBundle resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAppBundleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AppBundle.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_appfabric.IAppBundleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="appBundleRef")
+    def app_bundle_ref(self) -> "AppBundleReference":
+        '''(experimental) A reference to a AppBundle resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AppBundleReference", jsii.get(self, "appBundleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAppBundleRef).__jsii_proxy_class__ = lambda : _IAppBundleRefProxy
 
 
 @jsii.interface(
@@ -177,6 +271,51 @@ class _IIngestionDestinationRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IIngestionDestinationRef).__jsii_proxy_class__ = lambda : _IIngestionDestinationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appfabric.IIngestionRef")
+class IIngestionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Ingestion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="ingestionRef")
+    def ingestion_ref(self) -> "IngestionReference":
+        '''(experimental) A reference to a Ingestion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIngestionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Ingestion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_appfabric.IIngestionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="ingestionRef")
+    def ingestion_ref(self) -> "IngestionReference":
+        '''(experimental) A reference to a Ingestion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IngestionReference", jsii.get(self, "ingestionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIngestionRef).__jsii_proxy_class__ = lambda : _IIngestionRefProxy
 
 
 @jsii.data_type(
@@ -228,11 +367,64 @@ class IngestionDestinationReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_appfabric.IngestionReference",
+    jsii_struct_bases=[],
+    name_mapping={"ingestion_arn": "ingestionArn"},
+)
+class IngestionReference:
+    def __init__(self, *, ingestion_arn: builtins.str) -> None:
+        '''A reference to a Ingestion resource.
+
+        :param ingestion_arn: The Arn of the Ingestion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_appfabric as interfaces_appfabric
+            
+            ingestion_reference = interfaces_appfabric.IngestionReference(
+                ingestion_arn="ingestionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__31bba515ab0c40c9cffd9ce7e2f9ea2c2214feb9f70e305e79804ef098fc8084)
+            check_type(argname="argument ingestion_arn", value=ingestion_arn, expected_type=type_hints["ingestion_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ingestion_arn": ingestion_arn,
+        }
+
+    @builtins.property
+    def ingestion_arn(self) -> builtins.str:
+        '''The Arn of the Ingestion resource.'''
+        result = self._values.get("ingestion_arn")
+        assert result is not None, "Required property 'ingestion_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IngestionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "AppAuthorizationReference",
+    "AppBundleReference",
     "IAppAuthorizationRef",
+    "IAppBundleRef",
     "IIngestionDestinationRef",
+    "IIngestionRef",
     "IngestionDestinationReference",
+    "IngestionReference",
 ]
 
 publication.publish()
@@ -244,6 +436,13 @@ def _typecheckingstub__ba17382f5bcb502afdfb286355ee6c9d9098453583eb50af8d1553914
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__745c605d58ff484ad3bb153c2503be738532396fda612c6bc2842587c0fd8dd4(
+    *,
+    app_bundle_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3699f08bc317604ae8d61df4e0f96f9dbcfe8a56a69f59e29c14a01747d69864(
     *,
     ingestion_destination_arn: builtins.str,
@@ -251,5 +450,12 @@ def _typecheckingstub__3699f08bc317604ae8d61df4e0f96f9dbcfe8a56a69f59e29c14a0174
     """Type checking stubs"""
     pass
 
-for cls in [IAppAuthorizationRef, IIngestionDestinationRef]:
+def _typecheckingstub__31bba515ab0c40c9cffd9ce7e2f9ea2c2214feb9f70e305e79804ef098fc8084(
+    *,
+    ingestion_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IAppAuthorizationRef, IAppBundleRef, IIngestionDestinationRef, IIngestionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

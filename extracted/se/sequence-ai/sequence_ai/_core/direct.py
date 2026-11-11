@@ -729,10 +729,12 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
 
 
         with self._lock:
-            ending = None if self._closed or not self._episode_open else (self._worker, self._worker_episode)
-            self._episode_open = False
-        if ending is not None and ending[0] is not None and ending[1]:
-            ending[0].post_episode_end(ending[1])
+
+            ending = [] if self._closed else [*([self._worker_episode] if self._episode_open else []), *self._observed()]
+            worker, self._episode_open = self._worker, False
+        for episode in dict.fromkeys(e for e in ending if e):
+            if worker is not None:
+                worker.post_episode_end(episode)
         with self._lock:
             if self._closed:
                 return

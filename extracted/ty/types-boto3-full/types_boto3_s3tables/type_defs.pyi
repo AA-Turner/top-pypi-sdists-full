@@ -34,6 +34,7 @@ from .literals import (
     MigrationRequestedStateType,
     MigrationStateType,
     MigrationTypeType,
+    PartitionDateSourceType,
     ReplicationStatusType,
     SSEAlgorithmType,
     StorageClassType,
@@ -77,6 +78,8 @@ __all__ = (
     "GetNamespaceResponseTypeDef",
     "GetTableBucketEncryptionRequestTypeDef",
     "GetTableBucketEncryptionResponseTypeDef",
+    "GetTableBucketLoggingRequestTypeDef",
+    "GetTableBucketLoggingResponseTypeDef",
     "GetTableBucketMaintenanceConfigurationRequestTypeDef",
     "GetTableBucketMaintenanceConfigurationResponseTypeDef",
     "GetTableBucketMetricsConfigurationRequestTypeDef",
@@ -139,6 +142,7 @@ __all__ = (
     "ListTablesResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "LoggingEnabledTypeDef",
     "MaintenanceSettingsTypeDef",
     "ManagedTableInformationTypeDef",
     "MigrationCompactionSettingsTypeDef",
@@ -153,8 +157,10 @@ __all__ = (
     "MigrationTablePropertiesTypeDef",
     "NamespaceSummaryTypeDef",
     "PaginatorConfigTypeDef",
+    "PartitionedPrefixTypeDef",
     "PlanningStatsTypeDef",
     "PutTableBucketEncryptionRequestTypeDef",
+    "PutTableBucketLoggingRequestTypeDef",
     "PutTableBucketMaintenanceConfigurationRequestTypeDef",
     "PutTableBucketMetricsConfigurationRequestTypeDef",
     "PutTableBucketPolicyRequestTypeDef",
@@ -180,6 +186,7 @@ __all__ = (
     "StorageClassConfigurationTypeDef",
     "SyncTableMigrationRequestTypeDef",
     "SyncTableMigrationResponseTypeDef",
+    "TableBucketLoggingStatusTypeDef",
     "TableBucketMaintenanceConfigurationValueTypeDef",
     "TableBucketMaintenanceSettingsTypeDef",
     "TableBucketReplicationConfigurationOutputTypeDef",
@@ -202,6 +209,7 @@ __all__ = (
     "TableReplicationRuleTypeDef",
     "TableSummaryTypeDef",
     "TagResourceRequestTypeDef",
+    "TargetObjectKeyFormatTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateTableMetadataLocationRequestTypeDef",
     "UpdateTableMetadataLocationResponseTypeDef",
@@ -280,6 +288,9 @@ class GetNamespaceRequestTypeDef(TypedDict):
     namespace: str
 
 class GetTableBucketEncryptionRequestTypeDef(TypedDict):
+    tableBucketARN: str
+
+class GetTableBucketLoggingRequestTypeDef(TypedDict):
     tableBucketARN: str
 
 class GetTableBucketMaintenanceConfigurationRequestTypeDef(TypedDict):
@@ -541,6 +552,9 @@ class ReportOverviewTypeDef(TypedDict):
     key: NotRequired[str]
     checksumCRC64NVME: NotRequired[str]
     invalidFindings: NotRequired[dict[FindingCategoryType, int]]
+
+class PartitionedPrefixTypeDef(TypedDict):
+    partitionDateSource: PartitionDateSourceType
 
 class PutTableBucketMetricsConfigurationRequestTypeDef(TypedDict):
     tableBucketARN: str
@@ -836,6 +850,9 @@ class MigrationOutputOverviewTypeDef(TypedDict):
     objectCompatibilityReport: ReportOverviewTypeDef
     objectMigrationReport: ReportOverviewTypeDef
 
+class TargetObjectKeyFormatTypeDef(TypedDict):
+    partitionedPrefix: PartitionedPrefixTypeDef
+
 class TableBucketReplicationRuleOutputTypeDef(TypedDict):
     destinations: list[ReplicationDestinationTypeDef]
 
@@ -920,6 +937,11 @@ class SyncTableMigrationRequestTypeDef(TypedDict):
     tableARN: str
     migrationOutput: MigrationOutputConfigurationTypeDef
     reviewMigrationPlan: NotRequired[bool]
+
+class LoggingEnabledTypeDef(TypedDict):
+    targetBucket: str
+    targetPrefix: str
+    targetObjectKeyFormat: TargetObjectKeyFormatTypeDef
 
 class TableBucketReplicationConfigurationOutputTypeDef(TypedDict):
     role: str
@@ -1014,6 +1036,9 @@ class StartTableMigrationRequestTypeDef(TypedDict):
     dataMigration: NotRequired[DataMigrationSettingsTypeDef]
     reviewMigrationPlan: NotRequired[bool]
 
+class TableBucketLoggingStatusTypeDef(TypedDict):
+    loggingEnabled: NotRequired[LoggingEnabledTypeDef]
+
 class GetTableBucketReplicationResponseTypeDef(TypedDict):
     versionToken: str
     configuration: TableBucketReplicationConfigurationOutputTypeDef
@@ -1044,6 +1069,14 @@ CreateTableRequestTypeDef = TypedDict(
         "tags": NotRequired[Mapping[str, str]],
     },
 )
+
+class GetTableBucketLoggingResponseTypeDef(TypedDict):
+    tableBucketLoggingStatus: TableBucketLoggingStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutTableBucketLoggingRequestTypeDef(TypedDict):
+    tableBucketARN: str
+    tableBucketLoggingStatus: TableBucketLoggingStatusTypeDef
 
 class PutTableBucketReplicationRequestTypeDef(TypedDict):
     tableBucketARN: str

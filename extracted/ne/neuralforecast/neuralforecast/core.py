@@ -1,6 +1,7 @@
 __all__ = ['NeuralForecast']
 
 
+import functools
 import io
 import json
 import os
@@ -449,6 +450,27 @@ _type2scaler = {
     "minmax": LocalMinMaxScaler,
     "boxcox": lambda: LocalBoxCoxScaler(method="loglik", lower=0.0),
 }
+
+
+def _restore_scalers(method):
+    """Restore the fitted scalers after `method`, which refits them when it gets a new `df`.
+
+    This also covers the case where `method` raises, so that later calls without `df`
+    still use the scalers fitted on the training data.
+    """
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if not self._fitted:
+            # nothing to restore, `method` raises its own error
+            return method(self, *args, **kwargs)
+        saved = self.scalers_, self.static_scalers_
+        try:
+            return method(self, *args, **kwargs)
+        finally:
+            self.scalers_, self.static_scalers_ = saved
+
+    return wrapper
 
 
 class NeuralForecast:
@@ -1087,12 +1109,11 @@ class NeuralForecast:
         if not self._fitted:
             raise Exception("You must fit the model first.")
         if df is not None:
-            df = ufp.sort(df, by=[self.id_col, self.time_col])
-            last_times_by_id = ufp.group_by_agg(
-                df,
+            # only the last time of each series is needed, so sort the
+            # aggregated frame (one row per series) instead of the whole df
+            last_times_by_id = ufp.sort(
+                ufp.group_by_agg(df, by=self.id_col, aggs={self.time_col: "max"}),
                 by=self.id_col,
-                aggs={self.time_col: "max"},
-                maintain_order=True,
             )
             uids = last_times_by_id[self.id_col]
             last_times = last_times_by_id[self.time_col]
@@ -1312,6 +1333,7 @@ class NeuralForecast:
             ),
         )
 
+    @_restore_scalers
     def predict(
         self,
         df: Optional[Union[DataFrame, SparkDataFrame]] = None,
@@ -1425,36 +1447,11 @@ class NeuralForecast:
                 "When the model has been trained on a dataset that is split between multiple files, you must pass in a specific dataframe for prediction."
             )
 
-        # Process new dataset but does not store it.
-        # Save original scalers; when df is provided we refit on the new data
-        # but must restore afterwards so that predict() without df still works.
-        _saved_scalers = self.scalers_
-        _saved_static_scalers = self.static_scalers_
         if df is not None:
             validate_freq(df[self.time_col], self.freq)
-            dataset, uids, last_dates, _ = self._prepare_fit(
-                df=df,
-                static_df=static_df,
-                id_col=self.id_col,
-                time_col=self.time_col,
-                target_col=self.target_col,
-            )
-        else:
-            dataset = self.dataset
-            uids = self.uids
-            last_dates = self.last_dates
-            if verbose:
-                print("Using stored dataset.")
 
         # Placeholder dataframe for predictions with unique_id and ds
-        fcsts_df = ufp.make_future_dataframe(
-            uids=uids,
-            last_times=last_dates,
-            freq=self.freq,
-            h=h,
-            id_col=self.id_col,
-            time_col=self.time_col,
-        )
+        fcsts_df = self.make_future_dataframe(df, h=h)
 
         # Update and define new forecasting dataset
         if futr_df is None:
@@ -1487,6 +1484,23 @@ class NeuralForecast:
                 warnings.warn(f"Dropped {dropped_rows:,} unused rows from `futr_df`.")
             if any(ufp.is_none(futr_df[col]).any() for col in needed_futr_exog):
                 raise ValueError("Found null values in `futr_df`")
+
+        # Process new dataset but does not store it. When df is provided the scalers are refitted
+        # on the new data, and `_restore_scalers` puts the training ones back afterwards.
+        if df is not None:
+            dataset, uids, _, _ = self._prepare_fit(
+                df=df,
+                static_df=static_df,
+                id_col=self.id_col,
+                time_col=self.time_col,
+                target_col=self.target_col,
+            )
+        else:
+            dataset = self.dataset
+            uids = self.uids
+            if verbose:
+                print("Using stored dataset.")
+
         futr_df = self._encode_categoricals(futr_df)
         futr_dataset = dataset.align(
             futr_df,
@@ -1510,10 +1524,6 @@ class NeuralForecast:
         if self.scalers_:
             indptr = np.append(0, np.full(len(uids), h).cumsum())
             fcsts = self._scalers_target_inverse_transform(fcsts, indptr)
-
-        # Restore original scalers so subsequent predict() without df uses training stats.
-        self.scalers_ = _saved_scalers
-        self.static_scalers_ = _saved_static_scalers
 
         # Declare predictions pd.DataFrame
         if isinstance(fcsts_df, pl_DataFrame):
@@ -1735,6 +1745,7 @@ class NeuralForecast:
             method=method,
         )  # (n_series, n_paths, H)
 
+    @_restore_scalers
     def simulate(
         self,
         df: Optional[Union[DataFrame, SparkDataFrame]] = None,
@@ -1811,27 +1822,9 @@ class NeuralForecast:
 
         h = self.h
 
-        # Prepare dataset
-        # Save original scalers; when df is provided we refit on the new data
-        # but must restore afterwards so that predict() without df still works.
-        _saved_scalers = self.scalers_
-        _saved_static_scalers = self.static_scalers_
         if df is not None:
             validate_freq(df[self.time_col], self.freq)
-            dataset, uids, last_dates, _ = self._prepare_fit(
-                df=df,
-                static_df=static_df,
-                id_col=self.id_col,
-                time_col=self.time_col,
-                target_col=self.target_col,
-            )
-        else:
-            dataset = self.dataset
-            uids = self.uids
-            last_dates = self.last_dates
-            if verbose:
-                print("Using stored dataset.")
-                
+
         # Build future exogenous dataset
         needed_futr_exog = self._get_needed_futr_exog()
         if needed_futr_exog:
@@ -1846,14 +1839,7 @@ class NeuralForecast:
                     f"The following features are missing from `futr_df`: {missing}"
                 )
 
-        fcsts_df = ufp.make_future_dataframe(
-            uids=uids,
-            last_times=last_dates,
-            freq=self.freq,
-            h=h,
-            id_col=self.id_col,
-            time_col=self.time_col,
-        )
+        fcsts_df = self.make_future_dataframe(df, h=h)
 
         # Update and define new forecasting dataset (mirrors predict()'s validation)
         if futr_df is None:
@@ -1878,6 +1864,22 @@ class NeuralForecast:
                 warnings.warn(f"Dropped {dropped_rows:,} unused rows from `futr_df`.")
             if any(ufp.is_none(futr_df[col]).any() for col in needed_futr_exog):
                 raise ValueError("Found null values in `futr_df`")
+
+        # Prepare dataset. When df is provided the scalers are refitted on the new data,
+        # and `_restore_scalers` puts the training ones back afterwards.
+        if df is not None:
+            dataset, uids, _, _ = self._prepare_fit(
+                df=df,
+                static_df=static_df,
+                id_col=self.id_col,
+                time_col=self.time_col,
+                target_col=self.target_col,
+            )
+        else:
+            dataset = self.dataset
+            uids = self.uids
+            if verbose:
+                print("Using stored dataset.")
 
         # Encode categoricals with the vocabulary fitted on the training data
         # (the df-provided path already encodes via _prepare_fit).
@@ -1980,10 +1982,6 @@ class NeuralForecast:
         for name, samples in zip(model_names, model_samples):
             # samples: (n_series, n_paths, H) → (n_paths, n_series, H) → flat
             tiled[name] = samples.transpose(1, 0, 2).reshape(-1)
-
-        # Restore original scalers so subsequent calls without df use training stats.
-        self.scalers_ = _saved_scalers
-        self.static_scalers_ = _saved_static_scalers
 
         if use_polars:
             import polars as pl_mod
@@ -2722,7 +2720,7 @@ class NeuralForecast:
 
         # Process each series separately
         fcsts_dfs = []
-        trimmed_datasets = []
+        series_spans = []
 
         for i in range(self.dataset.n_groups):
             # Calculate series-specific length and offset
@@ -2730,52 +2728,14 @@ class NeuralForecast:
             _, forefront_offset = np.divmod(
                 (series_length - test_size - self.h), step_size
             )
-
-            if test_size > 0 or forefront_offset > 0:
-                # Create single-series dataset
-                series_dataset = TimeSeriesDataset(
-                    temporal=self.dataset.temporal[
-                        self.dataset.indptr[i] : self.dataset.indptr[i + 1]
-                    ],
-                    temporal_cols=self.dataset.temporal_cols,
-                    static=None
-                    if self.dataset.static is None
-                    else self.dataset.static[i : i + 1],
-                    static_cols=self.dataset.static_cols,
-                    indptr=np.array([0, series_length]),
-                    y_idx=self.dataset.y_idx,
-                )
-                # Trim the series
-                trimmed_series = TimeSeriesDataset.trim_dataset(
-                    dataset=series_dataset,
-                    right_trim=test_size,
-                    left_trim=forefront_offset,
-                )
-
-                new_idxs = np.arange(
-                    self.dataset.indptr[i] + forefront_offset,
-                    self.dataset.indptr[i + 1] - test_size,
-                )
-                times = self.ds[new_idxs]
-            else:
-                trimmed_series = TimeSeriesDataset(
-                    temporal=self.dataset.temporal[
-                        self.dataset.indptr[i] : self.dataset.indptr[i + 1]
-                    ],
-                    temporal_cols=self.dataset.temporal_cols,
-                    static=None
-                    if self.dataset.static is None
-                    else self.dataset.static[i : i + 1],
-                    static_cols=self.dataset.static_cols,
-                    indptr=np.array([0, series_length]),
-                    y_idx=self.dataset.y_idx,
-                )
-                times = self.ds[self.dataset.indptr[i] : self.dataset.indptr[i + 1]]
-
+            start = self.dataset.indptr[i]
+            stop = self.dataset.indptr[i + 1] - test_size
+            times = self.ds[start + forefront_offset : stop]
+            forecast_size = len(times)
             series_fcsts_df = _insample_times(
                 times=times,
                 uids=self.uids[i : i + 1],
-                indptr=trimmed_series.indptr,
+                indptr=np.array([0, forecast_size]),
                 h=self.h,
                 freq=self.freq,
                 step_size=step_size,
@@ -2784,7 +2744,7 @@ class NeuralForecast:
             )
 
             fcsts_dfs.append(series_fcsts_df)
-            trimmed_datasets.append(trimmed_series)
+            series_spans.append((start, stop, forecast_size))
 
         # Combine all series forecasts DataFrames
         fcsts_df = ufp.vertical_concat(fcsts_dfs)
@@ -2792,9 +2752,20 @@ class NeuralForecast:
         h_backup = self.h
         fcst_list = []
         # Generate predictions for each dataset
-        for i, trimmed_dataset in enumerate(trimmed_datasets):
-            # Set test size to current series length
-            self.h = trimmed_dataset.max_size
+        for i, (start, stop, forecast_size) in enumerate(series_spans):
+            # Copy one series at a time, retaining context before the first origin.
+            trimmed_dataset = TimeSeriesDataset(
+                temporal=self.dataset.temporal[start:stop],
+                temporal_cols=self.dataset.temporal_cols,
+                static=None
+                if self.dataset.static is None
+                else self.dataset.static[i : i + 1],
+                static_cols=self.dataset.static_cols,
+                indptr=np.array([0, stop - start]),
+                y_idx=self.dataset.y_idx,
+            )
+            # The forecast span excludes the earlier context kept in the dataset.
+            self.h = forecast_size
             fcsts, cols = self._generate_forecasts(
                 dataset=trimmed_dataset,
                 uids=self.uids[i : i + 1],

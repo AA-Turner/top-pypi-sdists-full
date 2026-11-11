@@ -203,19 +203,22 @@ on:
         value: ${{ jobs.regression-test.outputs.both_failed || jobs.regression-test-eu.outputs.both_failed }}
       incomplete:
         description: "True if the read was stopped early (deadline or record cap). Its verdict is incomplete, never a pass: the records read were compared and can show a regression but cannot clear one. With regression_detected also true, the records read show a regression: treat it as one, not as a reason to rerun"
-        value: ${{ jobs.regression-test.outputs.incomplete || jobs.regression-test-eu.outputs.incomplete }}
+        value: ${{ jobs.regression-test.outputs.incomplete || jobs.regression-test-eu.outputs.incomplete || 'false' }}
+      exercised_partial:
+        description: "True if new streams emitted records before a capped or timed-out read stopped, without failing record checks. The verdict remains incomplete, never a pass."
+        value: ${{ jobs.regression-test.outputs.exercised_partial || jobs.regression-test-eu.outputs.exercised_partial || 'false' }}
       regression_detected:
         description: "True if any step's comparison found a regression, including a read stopped early (incomplete) that found one in the records it read"
         value: ${{ jobs.regression-test.outputs.regression_detected || jobs.regression-test-eu.outputs.regression_detected }}
       not_exercised:
         description: "True if a stream only the target was configured to read (typically one the PR adds) returned no records. Its verdict is not exercised, never a pass: the streams both versions read were compared, but the PR's new code path never ran. A read that was also stopped early reports incomplete as its verdict, with this flag beside it"
-        value: ${{ jobs.regression-test.outputs.not_exercised || jobs.regression-test-eu.outputs.not_exercised }}
+        value: ${{ jobs.regression-test.outputs.not_exercised || jobs.regression-test-eu.outputs.not_exercised || 'false' }}
       setup_error:
         description: "True if the target does not define a target-only stream; the read verdict is SETUP ERROR."
-        value: ${{ jobs.regression-test.outputs.setup_error || jobs.regression-test-eu.outputs.setup_error }}
+        value: ${{ jobs.regression-test.outputs.setup_error || jobs.regression-test-eu.outputs.setup_error || 'false' }}
       could_not_test:
         description: "True if target-only streams failed with config errors that prevented testing; the verdict is COULD NOT TEST (config error)."
-        value: ${{ jobs.regression-test.outputs.could_not_test || jobs.regression-test-eu.outputs.could_not_test }}
+        value: ${{ jobs.regression-test.outputs.could_not_test || jobs.regression-test-eu.outputs.could_not_test || 'false' }}
       stream_injection:
         description: "JSON of the streams discover_missing_streams added: new_streams (target only), shared_streams (read by both), unknown_streams, kept_target_only (already in the catalog, not in the control version, target only), sync_modes, notes and reference_image, the image novelty was decided against. Empty when nothing was added. Always empty on the EU path: stream names never leave the EU."
         value: ${{ jobs.regression-test.outputs.stream_injection || jobs.regression-test-eu.outputs.stream_injection }}
@@ -1009,6 +1012,11 @@ jobs:
           else
             echo "incomplete=false" >> "$GITHUB_OUTPUT"
           fi
+          if [ "${{ steps.run-read.outputs.exercised_partial }}" = "true" ]; then
+            echo "exercised_partial=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exercised_partial=false" >> "$GITHUB_OUTPUT"
+          fi
 
           # Surface a regression from any step. On a stopped-early read this is
           # what tells "found a regression in what it read" from "only stopped".
@@ -1286,6 +1294,7 @@ jobs:
       internal_failure: ${{ steps.final-status.outputs.internal_failure }}
       both_failed: ${{ steps.final-status.outputs.both_failed }}
       incomplete: ${{ steps.final-status.outputs.incomplete }}
+      exercised_partial: ${{ steps.final-status.outputs.exercised_partial }}
       regression_detected: ${{ steps.final-status.outputs.regression_detected }}
       not_exercised: ${{ steps.final-status.outputs.not_exercised }}
       setup_error: ${{ steps.final-status.outputs.setup_error }}
@@ -1320,6 +1329,7 @@ jobs:
       internal_failure: ${{ steps.finalize.outputs.internal_failure }}
       both_failed: ${{ steps.finalize.outputs.both_failed }}
       incomplete: ${{ steps.finalize.outputs.incomplete }}
+      exercised_partial: ${{ steps.finalize.outputs.exercised_partial }}
       regression_detected: ${{ steps.finalize.outputs.regression_detected }}
       not_exercised: ${{ steps.finalize.outputs.not_exercised }}
       setup_error: ${{ steps.finalize.outputs.setup_error }}
@@ -1384,6 +1394,8 @@ jobs:
           selected_stream_names="$(python3 -c 'import os; print(bool({name.strip() for name in os.environ["SELECTED_STREAMS"].split(",") if name.strip()}))')"
           [[ "$DISCOVER_MISSING_STREAMS" != "true" || "$selected_stream_names" == "True" ]] \
             || { echo "::error::selected_streams is required when discover_missing_streams is true"; exit 1; }
+          [[ -z "$INJECTED_SYNC_MODE" || "$DISCOVER_MISSING_STREAMS" == "true" ]] \
+            || { echo "::error::injected_sync_mode only applies with discover_missing_streams"; exit 1; }
           case "$INJECTED_SYNC_MODE" in
             full_refresh|incremental|"") ;;
             *)
@@ -1632,6 +1644,7 @@ jobs:
           internal_failure=true
           both_failed=false
           incomplete=false
+          exercised_partial=false
           not_exercised=false
           setup_error=false
           could_not_test=false
@@ -1653,11 +1666,12 @@ jobs:
 
           print(
               " ".join(
-                  str(verdict[key]).lower()
+                  str(verdict.get(key, False)).lower()
                   for key in (
                       "success",
                       "both_failed",
                       "incomplete",
+                      "exercised_partial",
                       "not_exercised",
                       "regression_detected",
                       "setup_error",
@@ -1667,7 +1681,7 @@ jobs:
           )
           PY
             )"; then
-              read -r success both_failed incomplete not_exercised regression_detected setup_error could_not_test <<< "$verdict_flags"
+              read -r success both_failed incomplete exercised_partial not_exercised regression_detected setup_error could_not_test <<< "$verdict_flags"
               internal_failure=false
             fi
           fi
@@ -1690,6 +1704,7 @@ jobs:
             printf 'internal_failure=%s\n' "$internal_failure"
             printf 'both_failed=%s\n' "$both_failed"
             printf 'incomplete=%s\n' "$incomplete"
+            printf 'exercised_partial=%s\n' "$exercised_partial"
             printf 'regression_detected=%s\n' "$regression_detected"
             printf 'not_exercised=%s\n' "$not_exercised"
             printf 'setup_error=%s\n' "$setup_error"
@@ -1704,7 +1719,8 @@ jobs:
           if [ "$could_not_test" = "true" ]; then
             echo "::error::COULD NOT TEST (config error)"
           fi
-          if [ "$success" = "true" ] && [ "$incomplete" != "true" ] && [ "$internal_failure" != "true" ]; then
+          if [ "$success" = "true" ] && [ "$incomplete" != "true" ] && [ "$internal_failure" != "true" ] \
+            && [ "$not_exercised" != "true" ] && [ "$exercised_partial" != "true" ]; then
             : "${RUN_PREFIX:?RUN_PREFIX must be set}"
             run_prefix_root="gs://internal-airbyte-ai-infra-connector-regression-eu/gh/"
             run_prefix_suffix="${RUN_PREFIX#"$run_prefix_root"}"

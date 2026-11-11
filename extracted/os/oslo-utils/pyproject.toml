@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Typing :: Typed",
 ]
 
@@ -37,6 +38,20 @@ include = ["oslo_utils"]
 image-inspection = [
     "cryptography>=43.0.3",  # BSD/Apache-2.0
 ]
+
+[tool.coverage.run]
+source = [
+    "oslo_utils"
+]
+branch = true
+parallel = true
+omit = [
+    "oslo_utils/tests/*"
+]
+
+[tool.coverage.report]
+ignore_errors = true
+show_missing = true
 
 [tool.mypy]
 python_version = "3.11"

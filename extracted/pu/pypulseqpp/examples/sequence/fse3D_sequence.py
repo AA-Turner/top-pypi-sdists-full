@@ -703,7 +703,9 @@ def fse3d(
         ``'radial'``: choose PCLO for identical trains, or Buonincontri joint
         shot/echo assignment for a centre/periphery transition. ``'pclo'``
         explicitly selects Rydén's radius-band permutation for an arbitrary
-        centre echo, with identical trains only. ``'busse_radial'`` uses the
+        centre echo, with identical trains only; for a centre echo in the
+        second half of the train the echoes after it take the outer bands in
+        order instead of Rydén's mirrored order. ``'busse_radial'`` uses the
         basic Busse radius-then-angle order (no sorting jitter/consolidation),
         with identical trains and centre echo 0; under ``busse``, explicitly
         set ``busse_centre_echo=0``. ``'buonincontri'`` requires a parameter
@@ -713,8 +715,8 @@ def fse3d(
     flip_modulation : {'constant', 'optimized', 'busse', 'pd'}, default='constant'
         Constant refocusing angles, or variable trains designed by direct-angle
         optimization, prescribed-PSS Busse inverse EPG or relaxation-aware
-        prescribed-signal PD inverse EPG. Forward EPG optimization
-        requires the ``design`` extra.
+        prescribed-signal PD inverse EPG. Every variable train is designed
+        with blochsim, which the ``design`` extra installs.
     busse_minimum_angle_deg : float, default=25.0
         Minimum actual refocusing angle (degrees), under ``busse``.
     busse_centre_angle_deg : float, default=70.0
@@ -829,7 +831,7 @@ def fse3d(
         mode, individually parameterized trains are shuffled, a train ends
         before the TE echo, or a TR is shorter than the longest train.
     ImportError
-        If ``optimized`` is asked for without blochsim.
+        If a variable train is asked for without blochsim.
 
     Examples
     --------

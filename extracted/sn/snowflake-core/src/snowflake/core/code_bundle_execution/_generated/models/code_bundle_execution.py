@@ -55,6 +55,16 @@ class CodeBundleExecution(BaseModel):
         File path entrypoint of the execution.
     query_id : str, optional
         Query id of the statement that executed the code bundle.
+    runtime_version : str, optional
+        Version of the runtime backing the execution.
+    runtime_status_details : str, optional
+        Additional detail about the runtime or service status, when available.
+    sql_error_code : str, optional
+        Snowflake SQL error code associated with a failed execution, if any.
+    error_message : str, optional
+        Error message associated with a failed execution, if any.
+    task_name : str, optional
+        Name of the task associated with the execution, when it ran as part of a task.
     """
 
     bundle_name: Optional[StrictStr] = None
@@ -83,6 +93,16 @@ class CodeBundleExecution(BaseModel):
 
     query_id: Optional[StrictStr] = None
 
+    runtime_version: Optional[StrictStr] = None
+
+    runtime_status_details: Optional[StrictStr] = None
+
+    sql_error_code: Optional[StrictStr] = None
+
+    error_message: Optional[StrictStr] = None
+
+    task_name: Optional[StrictStr] = None
+
     __properties = [
         "bundle_name",
         "database_name",
@@ -97,6 +117,11 @@ class CodeBundleExecution(BaseModel):
         "end_time",
         "entrypoint",
         "query_id",
+        "runtime_version",
+        "runtime_status_details",
+        "sql_error_code",
+        "error_message",
+        "task_name",
     ]
 
     @field_validator("database_name")
@@ -177,6 +202,11 @@ class CodeBundleExecution(BaseModel):
                 "end_time": obj.get("end_time"),
                 "entrypoint": obj.get("entrypoint"),
                 "query_id": obj.get("query_id"),
+                "runtime_version": obj.get("runtime_version"),
+                "runtime_status_details": obj.get("runtime_status_details"),
+                "sql_error_code": obj.get("sql_error_code"),
+                "error_message": obj.get("error_message"),
+                "task_name": obj.get("task_name"),
             }
         )
 
@@ -199,6 +229,11 @@ class CodeBundleExecutionModel:
         end_time: Optional[str] = None,
         entrypoint: Optional[str] = None,
         query_id: Optional[str] = None,
+        runtime_version: Optional[str] = None,
+        runtime_status_details: Optional[str] = None,
+        sql_error_code: Optional[str] = None,
+        error_message: Optional[str] = None,
+        task_name: Optional[str] = None,
     ):
         """A model object representing the CodeBundleExecution resource.
 
@@ -232,6 +267,16 @@ class CodeBundleExecutionModel:
             File path entrypoint of the execution.
         query_id : str, optional
             Query id of the statement that executed the code bundle.
+        runtime_version : str, optional
+            Version of the runtime backing the execution.
+        runtime_status_details : str, optional
+            Additional detail about the runtime or service status, when available.
+        sql_error_code : str, optional
+            Snowflake SQL error code associated with a failed execution, if any.
+        error_message : str, optional
+            Error message associated with a failed execution, if any.
+        task_name : str, optional
+            Name of the task associated with the execution, when it ran as part of a task.
         """
         self.bundle_name = bundle_name
         self.database_name = database_name
@@ -246,6 +291,11 @@ class CodeBundleExecutionModel:
         self.end_time = end_time
         self.entrypoint = entrypoint
         self.query_id = query_id
+        self.runtime_version = runtime_version
+        self.runtime_status_details = runtime_status_details
+        self.sql_error_code = sql_error_code
+        self.error_message = error_message
+        self.task_name = task_name
 
     __properties = [
         "bundle_name",
@@ -261,6 +311,11 @@ class CodeBundleExecutionModel:
         "end_time",
         "entrypoint",
         "query_id",
+        "runtime_version",
+        "runtime_status_details",
+        "sql_error_code",
+        "error_message",
+        "task_name",
     ]
 
     def __repr__(self) -> str:
@@ -281,6 +336,11 @@ class CodeBundleExecutionModel:
             end_time=self.end_time,
             entrypoint=self.entrypoint,
             query_id=self.query_id,
+            runtime_version=self.runtime_version,
+            runtime_status_details=self.runtime_status_details,
+            sql_error_code=self.sql_error_code,
+            error_message=self.error_message,
+            task_name=self.task_name,
         )
 
     @classmethod
@@ -299,6 +359,11 @@ class CodeBundleExecutionModel:
             end_time=model.end_time,
             entrypoint=model.entrypoint,
             query_id=model.query_id,
+            runtime_version=model.runtime_version,
+            runtime_status_details=model.runtime_status_details,
+            sql_error_code=model.sql_error_code,
+            error_message=model.error_message,
+            task_name=model.task_name,
         )
 
     def to_dict(self):

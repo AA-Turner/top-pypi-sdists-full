@@ -13,7 +13,7 @@
 # limitations under the License.
 import itertools
 from collections import defaultdict
-from typing import Literal, TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
@@ -52,6 +52,7 @@ from ._integrations import IntegrationConfigsIO, IntegrationsIO
 from ._location import LocationFilterIO
 from ._migration import ResourceViewMappingIO
 from ._neat import NeatIO
+from ._postgres_gateway import PostgresGatewayTableIO, PostgresGatewayUserIO
 from ._raw import RawDatabaseIO, RawTableIO
 from ._relationship import RelationshipIO
 from ._rulesets import RuleSetIO, RuleSetVersionIO
@@ -95,6 +96,9 @@ if not FeatureFlag.is_enabled(Flags.CATALOG_DATASET):
     _EXCLUDED_CRUDS.add(CatalogDataSetsIO)
 if not FeatureFlag.is_enabled(Flags.NEAT):
     _EXCLUDED_CRUDS.add(NeatIO)
+if not FeatureFlag.is_enabled(Flags.POSTGRES_GATEWAY):
+    _EXCLUDED_CRUDS.add(PostgresGatewayUserIO)
+    _EXCLUDED_CRUDS.add(PostgresGatewayTableIO)
 
 RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
 RESOURCE_IO_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
@@ -146,7 +150,7 @@ RESOURCE_BUILD_IO_LIST: list[type[BaseResourceIO]] = list(
 RESOURCE_IO_LIST = [io_cls for io_cls in RESOURCE_BUILD_IO_LIST if issubclass(io_cls, ResourceIO)]
 
 
-ResourceTypes: TypeAlias = Literal[
+_GAResourceTypes: TypeAlias = Literal[
     "3dmodels",
     "agents",
     "apps",
@@ -175,6 +179,11 @@ ResourceTypes: TypeAlias = Literal[
     "streamlit",
     "workflows",
 ]
+
+if TYPE_CHECKING or FeatureFlag.is_enabled(Flags.POSTGRES_GATEWAY):
+    ResourceTypes: TypeAlias = Literal[_GAResourceTypes, "postgres_gateway"]
+else:
+    ResourceTypes: TypeAlias = _GAResourceTypes
 
 
 def get_resource_build_io(resource_dir: str, kind: str) -> type[BaseResourceIO]:
@@ -226,6 +235,8 @@ __all__ = [
     "LabelIO",
     "LocationFilterIO",
     "NodeIO",
+    "PostgresGatewayTableIO",
+    "PostgresGatewayUserIO",
     "RawDatabaseIO",
     "RawTableIO",
     "RelationshipIO",

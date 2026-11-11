@@ -248,9 +248,9 @@ _ALL_LAZY = _NamedEnum_RO(_name='_ALL_LAZY',
                                    'bqrt', 'cbrt', 'cbrt2', 'euclid', 'euclid_',
                                    'facos1', 'fasin1', 'fatan', 'fatan1', 'fatan2', 'favg',
                                    'fdot', 'fdot_', 'fdot3', 'fma', 'fmean', 'fmean_', 'fhorner', 'fidw', 'f2mul_',
-                                   'fpolynomial', 'fpowers', 'fprod', 'frandoms', 'frange', 'freduce', 'fremainder',
+                                   'fpolynomial', 'fpowers', 'fprod', 'frandoms', 'frange', 'freduce', 'fremainder', 'ftruncate',
                                    'hypot', 'hypot_', 'hypot1', 'hypot2', 'hypot2_',
-                                   'norm2', 'norm_', 'polar2', 'polar2d',
+                                   'norm2', 'norm_', 'polar2', 'polar2d', 'polar3',
                                    'sqrt0', 'sqrt3', 'sqrt_a', 'zcrt', 'zqrt'),
                           formy=_a('Radical2Tuple',
                                    'angle2chord', 'antipode', 'antipode_', 'bearing', 'bearing_',
@@ -928,7 +928,7 @@ def _lazy_module(name):  # overwritten by _lazy_import2
 
 
 __all__ = _ALL_LAZY.lazily
-__version__ = '26.10.18'
+__version__ = '26.11.06'
 
 if __name__ == _DMAIN_:
 
@@ -990,7 +990,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2018-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2018-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

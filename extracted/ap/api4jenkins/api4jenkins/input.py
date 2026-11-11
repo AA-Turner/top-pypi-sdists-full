@@ -1,5 +1,7 @@
-# encoding: utf-8
+from __future__ import annotations
+
 import json
+from typing import Any
 
 from .item import AsyncItem, Item
 from .mix import AsyncRawJsonMixIn, RawJsonMixIn
@@ -10,17 +12,17 @@ class PendingInputAction(RawJsonMixIn, Item):
     `input step <https://www.jenkins.io/doc/pipeline/steps/pipeline-input-step/>`_
     '''
 
-    def __init__(self, jenkins, raw):
+    def __init__(self, jenkins: Any, raw: dict[str, Any]) -> None:
         super().__init__(
             jenkins, f"{jenkins.url}{raw['abortUrl'].rstrip('abort').lstrip('/')}")
         self.raw = raw
         self.raw['_class'] = 'PendingInputAction'
 
-    def abort(self):
+    def abort(self) -> Any:
         '''submit `input step <https://www.jenkins.io/doc/pipeline/steps/pipeline-input-step/>`_'''
         return self.handle_req('POST', 'abort')
 
-    def submit(self, **params):
+    def submit(self, **params: Any) -> Any:
         '''submit `input step <https://www.jenkins.io/doc/pipeline/steps/pipeline-input-step/>`_
 
         - if input requires parameters:
@@ -34,7 +36,7 @@ class PendingInputAction(RawJsonMixIn, Item):
         return self.handle_req('POST', 'proceedEmpty')
 
 
-def _make_input_params(api_json, **params):
+def _make_input_params(api_json: dict[str, Any], **params: Any) -> dict[str, str]:
     input_args = [input['name'] for input in api_json['inputs']]
     params_keys = list(params.keys())
     if not input_args:
@@ -42,22 +44,22 @@ def _make_input_params(api_json, **params):
     if any(k not in input_args for k in params_keys):
         raise TypeError(
             f'input takes arguments: {input_args}, but got {params_keys}')
-    params = [{'name': k, 'value': v} for k, v in params.items()]
+    param_list = [{'name': k, 'value': v} for k, v in params.items()]
     return {'proceed': api_json['proceedText'],
-            'json': json.dumps({'parameter': params})}
+            'json': json.dumps({'parameter': param_list})}
 
 
 class AsyncPendingInputAction(AsyncRawJsonMixIn, AsyncItem):
-    def __init__(self, jenkins, raw):
+    def __init__(self, jenkins: Any, raw: dict[str, Any]) -> None:
         super().__init__(
             jenkins, f"{jenkins.url}{raw['abortUrl'].rstrip('abort').lstrip('/')}")
         self.raw = raw
         self.raw['_class'] = 'AsyncPendingInputAction'
 
-    async def abort(self):
+    async def abort(self) -> Any:
         return await self.handle_req('POST', 'abort')
 
-    async def submit(self, **params):
+    async def submit(self, **params: Any) -> Any:
         if params:
             data = _make_input_params(self.raw, **params)
             return await self.handle_req('POST', 'submit', data=data)

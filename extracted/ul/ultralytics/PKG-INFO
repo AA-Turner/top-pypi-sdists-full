@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.4.208
+Version: 8.4.210
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, instance segmentation, semantic segmentation, depth estimation, classification, pose estimation, oriented object detection, and multi-object tracking.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -98,6 +98,7 @@ Provides-Extra: export-litert
 Requires-Dist: litert-torch>=0.10.0; (((platform_system == "Linux" and platform_machine == "x86_64") or platform_system == "Darwin") and python_version >= "3.10") and extra == "export-litert"
 Requires-Dist: ai-edge-litert>=2.3.0; (((platform_system == "Linux" and platform_machine == "x86_64") or platform_system == "Darwin") and python_version >= "3.10") and extra == "export-litert"
 Requires-Dist: ai-edge-quantizer>=0.10.0; (((platform_system == "Linux" and platform_machine == "x86_64") or platform_system == "Darwin") and python_version >= "3.10") and extra == "export-litert"
+Requires-Dist: typer<0.29.0; (((platform_system == "Linux" and platform_machine == "x86_64") or platform_system == "Darwin") and python_version >= "3.14") and extra == "export-litert"
 Provides-Extra: export
 Requires-Dist: ultralytics[export-base]; extra == "export"
 Requires-Dist: ultralytics[export-openvino]; extra == "export"

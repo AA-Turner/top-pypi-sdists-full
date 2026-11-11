@@ -1,5 +1,7 @@
 """Originally Adapted from sphinxcontrib.details.directive"""
 
+from typing import Any
+
 from docutils import nodes
 from docutils.parsers.rst import directives
 from sphinx.application import Sphinx
@@ -14,7 +16,6 @@ from sphinx_design.shared import (
     margin_option,
 )
 
-from ._compat import findall
 from .icons import get_octicon, list_octicons
 
 
@@ -34,10 +35,14 @@ class dropdown_title(nodes.TextElement, nodes.General):  # noqa: N801
 
 
 def visit_dropdown_main(self, node):
+    attributes = {}
+    if node.get("details_name"):
+        # a shared name makes sibling <details> mutually exclusive (the
+        # native, JS-free basis of the ``accordion`` component)
+        attributes["name"] = node["details_name"]
     if node.get("opened"):
-        self.body.append(self.starttag(node, "details", open="open"))
-    else:
-        self.body.append(self.starttag(node, "details"))
+        attributes["open"] = "open"
+    self.body.append(self.starttag(node, "details", **attributes))
 
 
 def depart_dropdown_main(self, node):
@@ -148,10 +153,10 @@ class DropdownHtmlTransform(SphinxPostTransform):
     default_priority = 199
     formats = ("html",)
 
-    def run(self) -> None:
+    def run(self, **kwargs: Any) -> None:
         """Run the transform"""
         document: nodes.document = self.document
-        for node in findall(document)(lambda node: is_component(node, "dropdown")):
+        for node in document.findall(lambda node: is_component(node, "dropdown")):
             # TODO option to not have card css (but requires more formatting)
             use_card = True
 
@@ -175,6 +180,9 @@ class DropdownHtmlTransform(SphinxPostTransform):
                 + (["sd-card"] if use_card else ["sd-d-flex-column"])
                 + node["container_classes"],
             )
+            if node.get("details_name"):
+                # propagate the accordion group name onto the <details> element
+                newnode["details_name"] = node["details_name"]
 
             if node["has_title"]:
                 title_text_children = node[0].children
@@ -228,10 +236,11 @@ class DropdownHtmlTransform(SphinxPostTransform):
                 children=body_children,
             )
             if use_card:
-                for para in findall(body_node)(nodes.paragraph):
-                    para["classes"] = ([] if "classes" in para else para["classes"]) + [
-                        "sd-card-text"
-                    ]
+                # only stamp direct child paragraphs of the body (see #40),
+                # and append the class rather than replacing existing classes
+                for para in body_node.children:
+                    if isinstance(para, nodes.paragraph):
+                        para["classes"] = [*para.get("classes", []), "sd-card-text"]
             newnode += body_node
             # newnode += open_marker
             node.replace_self(newnode)

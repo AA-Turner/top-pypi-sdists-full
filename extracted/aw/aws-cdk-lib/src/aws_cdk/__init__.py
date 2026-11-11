@@ -1884,6 +1884,33 @@ Validations.of(self).acknowledge(
 )
 ```
 
+#### Acknowledging a subset of a warning (context filters)
+
+A single warning `id` is sometimes emitted for a range of situations. A construct
+can attach structured **context** to each occurrence (the keys and values are the
+construct's choice — values may be strings, numbers, booleans, or arrays), and you
+can then acknowledge only the occurrences whose context matches — leaving the rest
+to still warn.
+
+```python
+# The construct attaches context describing this specific occurrence:
+Validations.of(self).add_warning("my-lib:unsupportedActionType", "This action type is not supported and will be ignored", context={"service": "aiops", "resource": "investigation-group"})
+
+# Acknowledge only the occurrences that match. `where` is an objectLike partial
+# match against the context: any key you do not mention is left unconstrained,
+# so the filter below also suppresses an occurrence whose context is
+# `{ service: 'aiops', resource: 'other' }`:
+Validations.of(self).acknowledge(
+    id="my-lib:unsupportedActionType",
+    reason="aiops actions are attached intentionally",
+    where={"service": "aiops"}
+)
+```
+
+Omitting `where` acknowledges every occurrence of the `id`, which is the default
+behavior. A warning emitted without any context can only be acknowledged by an
+unfiltered acknowledgement, so a specific filter never silences it accidentally.
+
 ### Acknowledging Infos
 
 Informational messages can also be emitted and acknowledged. Use `addInfoV2()`
@@ -2466,14 +2493,21 @@ class AWSEventMetadataProps:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.Acknowledgment",
     jsii_struct_bases=[],
-    name_mapping={"id": "id", "reason": "reason"},
+    name_mapping={"id": "id", "reason": "reason", "where": "where"},
 )
 class Acknowledgment:
-    def __init__(self, *, id: builtins.str, reason: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        id: builtins.str,
+        reason: builtins.str,
+        where: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    ) -> None:
         '''An acknowledgment of a validation rule, used to suppress it from output.
 
         :param id: The rule ID to acknowledge.
         :param reason: The reason for acknowledging this rule.
+        :param where: Optionally narrow the acknowledgement to only the warning occurrences whose call-site context matches this filter. The object is treated as an **``objectLike`` partial match** against the context attached to each occurrence (the same semantics as ``template.hasResourceProperties``): every key you specify must be present with a matching value, and any key you do not mention is left unconstrained. A warning emitted without any context is never matched by a non-empty filter, so a specific filter cannot accidentally silence an undetailed warning. A value is matched for equality (including non-string values such as numbers, booleans, or arrays). Because the value type is ``any``, richer per-key matching can be introduced later without a breaking change — a future release may accept a matcher as a value (e.g. a glob/regex) in addition to a literal, leaving existing literal callers untouched. When omitted, all occurrences of the rule id are acknowledged (backwards-compatible behavior). Default: - acknowledges all occurrences of the rule id
 
         :exampleMetadata: infused
 
@@ -2491,10 +2525,13 @@ class Acknowledgment:
             type_hints = cached_type_hints(_typecheckingstub__e05a7aa8f549a5dc72e7e836d28527330120e3572857eb69990b9f068f4f5b84)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
+            check_type(argname="argument where", value=where, expected_type=type_hints["where"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "id": id,
             "reason": reason,
         }
+        if where is not None:
+            self._values["where"] = where
 
     @builtins.property
     def id(self) -> builtins.str:
@@ -2509,6 +2546,32 @@ class Acknowledgment:
         result = self._values.get("reason")
         assert result is not None, "Required property 'reason' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def where(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''Optionally narrow the acknowledgement to only the warning occurrences whose call-site context matches this filter.
+
+        The object is treated as an **``objectLike`` partial match** against the
+        context attached to each occurrence (the same semantics as
+        ``template.hasResourceProperties``): every key you specify must be present
+        with a matching value, and any key you do not mention is left unconstrained.
+        A warning emitted without any context is never matched by a non-empty
+        filter, so a specific filter cannot accidentally silence an undetailed
+        warning.
+
+        A value is matched for equality (including non-string values such as
+        numbers, booleans, or arrays). Because the value type is ``any``, richer
+        per-key matching can be introduced later without a breaking change — a
+        future release may accept a matcher as a value (e.g. a glob/regex) in
+        addition to a literal, leaving existing literal callers untouched.
+
+        When omitted, all occurrences of the rule id are acknowledged
+        (backwards-compatible behavior).
+
+        :default: - acknowledges all occurrences of the rule id
+        '''
+        result = self._values.get("where")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2807,7 +2870,13 @@ class Annotations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Annotations"):
         return typing.cast(None, jsii.invoke(self, "addWarning", [message]))
 
     @jsii.member(jsii_name="addWarningV2")
-    def add_warning_v2(self, id: builtins.str, message: builtins.str) -> None:
+    def add_warning_v2(
+        self,
+        id: builtins.str,
+        message: builtins.str,
+        *,
+        context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    ) -> None:
         '''Adds an acknowledgeable warning metadata entry to this construct.
 
         The CLI will display the warning when an app is synthesized, or fail if run
@@ -2820,6 +2889,7 @@ class Annotations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Annotations"):
 
         :param id: the unique identifier for the warning. This can be used to acknowledge the warning
         :param message: The warning message.
+        :param context: Structured context describing this specific warning occurrence. The construct chooses the keys and values (e.g. ``{ service: 'aiops' }``, or richer values such as numbers or arrays). A later ``acknowledge({ where })`` is matched against this context as an ``objectLike`` partial match, to selectively suppress only the matching occurrences of the warning id while the rest continue to warn. When omitted, the warning carries no context and can only be suppressed by an unfiltered acknowledgement. Default: - no context is attached
 
         Example::
 
@@ -2831,7 +2901,9 @@ class Annotations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Annotations"):
             type_hints = cached_type_hints(_typecheckingstub__433aa46ed24ea9868fb9a2456cff447934d7579c56de53736ca48c128282d48d)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
-        return typing.cast(None, jsii.invoke(self, "addWarningV2", [id, message]))
+        options = WarningOptions(context=context)
+
+        return typing.cast(None, jsii.invoke(self, "addWarningV2", [id, message, options]))
 
 
 @jsii.data_type(
@@ -3233,6 +3305,12 @@ class Arn(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Arn"):
         and a Token representing a dynamic CloudFormation expression
         (in which case the returned components will also be dynamic CloudFormation expressions,
         encoded as Tokens).
+
+        Throws on a malformed ARN — a concrete string that is not a valid ARN, or
+        an ``arn:``-prefixed string (even one that embeds tokens) missing a required
+        component — rather than returning a partial result. To handle a value that
+        may legitimately not be an ARN, branch it away up front (``startsWith('arn:')``
+        / ``Token.isUnresolved``) instead of catching the throw.
 
         :param arn: the ARN to split into its components.
         :param arn_format: the expected format of 'arn' - depends on what format the service 'arn' represents uses.
@@ -33556,7 +33634,13 @@ class Validations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Validations"):
         return typing.cast(None, jsii.invoke(self, "addPlugins", [*plugins]))
 
     @jsii.member(jsii_name="addWarning")
-    def add_warning(self, id: builtins.str, message: builtins.str) -> None:
+    def add_warning(
+        self,
+        id: builtins.str,
+        message: builtins.str,
+        *,
+        context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    ) -> None:
         '''Adds a warning metadata entry to this construct that can be acknowledged.
 
         The CLI will display the warning when an app is synthesized, or fail if run
@@ -33567,12 +33651,15 @@ class Validations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Validations"):
 
         :param id: unique identifier for the warning, used for acknowledgement.
         :param message: the warning message.
+        :param context: Structured context describing this specific warning occurrence. The construct chooses the keys and values (e.g. ``{ service: 'aiops' }``, or richer values such as numbers or arrays). A later ``acknowledge({ where })`` is matched against this context as an ``objectLike`` partial match, to selectively suppress only the matching occurrences of the warning id while the rest continue to warn. When omitted, the warning carries no context and can only be suppressed by an unfiltered acknowledgement. Default: - no context is attached
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9e0de264d3673a9e5be4ea8aab5628722846a5d2c190d1f8d9eec8a69a92d45d)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
-        return typing.cast(None, jsii.invoke(self, "addWarning", [id, message]))
+        options = WarningOptions(context=context)
+
+        return typing.cast(None, jsii.invoke(self, "addWarning", [id, message, options]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACKNOWLEDGED_RULES_METADATA_KEY")
@@ -33584,6 +33671,73 @@ class Validations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Validations"):
         acknowledgments recorded via ``acknowledge()``.
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "ACKNOWLEDGED_RULES_METADATA_KEY"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.WarningOptions",
+    jsii_struct_bases=[],
+    name_mapping={"context": "context"},
+)
+class WarningOptions:
+    def __init__(
+        self,
+        *,
+        context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    ) -> None:
+        '''Options for adding an acknowledgeable warning via ``Annotations.addWarningV2`` or ``Validations.addWarning``.
+
+        :param context: Structured context describing this specific warning occurrence. The construct chooses the keys and values (e.g. ``{ service: 'aiops' }``, or richer values such as numbers or arrays). A later ``acknowledge({ where })`` is matched against this context as an ``objectLike`` partial match, to selectively suppress only the matching occurrences of the warning id while the rest continue to warn. When omitted, the warning carries no context and can only be suppressed by an unfiltered acknowledgement. Default: - no context is attached
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # The construct attaches context describing this specific occurrence:
+            Validations.of(self).add_warning("my-lib:unsupportedActionType", "This action type is not supported and will be ignored", context={"service": "aiops", "resource": "investigation-group"})
+            
+            # Acknowledge only the occurrences that match. `where` is an objectLike partial
+            # match against the context: any key you do not mention is left unconstrained,
+            # so the filter below also suppresses an occurrence whose context is
+            # `{ service: 'aiops', resource: 'other' }`:
+            Validations.of(self).acknowledge(
+                id="my-lib:unsupportedActionType",
+                reason="aiops actions are attached intentionally",
+                where={"service": "aiops"}
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__36fe351ca1cfdffa92c0550642878f41de4c141b0136b5fef2034a34ebb88d32)
+            check_type(argname="argument context", value=context, expected_type=type_hints["context"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if context is not None:
+            self._values["context"] = context
+
+    @builtins.property
+    def context(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''Structured context describing this specific warning occurrence.
+
+        The construct chooses the keys and values (e.g. ``{ service: 'aiops' }``, or
+        richer values such as numbers or arrays). A later ``acknowledge({ where })``
+        is matched against this context as an ``objectLike`` partial match, to
+        selectively suppress only the matching occurrences of the warning id while
+        the rest continue to warn. When omitted, the warning carries no context and
+        can only be suppressed by an unfiltered acknowledgement.
+
+        :default: - no context is attached
+        '''
+        result = self._values.get("context")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WarningOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 class App(Stage, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.App"):
@@ -44483,6 +44637,7 @@ __all__ = [
     "ValidationResults",
     "ValidationRuleSource",
     "Validations",
+    "WarningOptions",
     "alexa_ask",
     "assertions",
     "aws_accessanalyzer",
@@ -45578,6 +45733,7 @@ def _typecheckingstub__e05a7aa8f549a5dc72e7e836d28527330120e3572857eb69990b9f068
     *,
     id: builtins.str,
     reason: builtins.str,
+    where: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -45651,6 +45807,8 @@ def _typecheckingstub__e2fdcebb577d63295330a53b495fc6906cfbd98497144c53b1cb802e3
 def _typecheckingstub__433aa46ed24ea9868fb9a2456cff447934d7579c56de53736ca48c128282d48d(
     id: builtins.str,
     message: builtins.str,
+    *,
+    context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -49221,6 +49379,15 @@ def _typecheckingstub__8a49ad616c6be0e08de769e51e25757202dbb461c8f88e7522a8e10ce
 def _typecheckingstub__9e0de264d3673a9e5be4ea8aab5628722846a5d2c190d1f8d9eec8a69a92d45d(
     id: builtins.str,
     message: builtins.str,
+    *,
+    context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36fe351ca1cfdffa92c0550642878f41de4c141b0136b5fef2034a34ebb88d32(
+    *,
+    context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

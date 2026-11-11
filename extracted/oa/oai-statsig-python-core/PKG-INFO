@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oai_statsig_python_core
-Version: 0.39.0
+Version: 0.40.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -105,6 +105,21 @@ across language bindings; wrappers that disable it continue to opt out.
 A successful proxy request makes no additional request. Primary and fallback
 requests share the same per-file attempt budget (three attempts by default).
 The next synchronization starts with the configured override again.
+
+## GNU/Linux heap trimming
+
+By default, the SDK calls glibc's `malloc_trim(0)` after eligible config updates and mmap writes.
+To skip these calls across all SDK instances and native bindings in a process, set `NO_MALLOC_TRIM`
+in the worker environment.
+
+```sh
+export NO_MALLOC_TRIM=1
+```
+
+The SDK checks the variable before each trim. Only `1` and lowercase `true` skip the call.
+An unset variable or any other value keeps trimming enabled. For Flink, set the variable in
+the TaskManager environment and restart the workers so their Python processes inherit it.
+To restore the default, unset the variable and restart the workers.
 
 ## Read-only data stores
 

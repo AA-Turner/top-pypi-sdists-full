@@ -491,7 +491,10 @@ class ApplicationCodeConfig:
                         key_id="keyId"
                     ),
                     application_snapshot_configuration=ApplicationSnapshotConfigurationProperty(
-                        snapshots_enabled=False
+                        snapshots_enabled=False,
+            
+                        # the properties below are optional
+                        snapshot_mode="snapshotMode"
                     ),
                     application_system_rollback_configuration=ApplicationSystemRollbackConfigurationProperty(
                         rollback_enabled=False

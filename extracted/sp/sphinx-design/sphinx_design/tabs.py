@@ -1,13 +1,35 @@
+from typing import Any
+
 from docutils import nodes
 from docutils.parsers.rst import directives
 from sphinx.application import Sphinx
 from sphinx.transforms.post_transforms import SphinxPostTransform
 from sphinx.util.logging import getLogger
 
-from ._compat import findall
-from .shared import WARNING_TYPE, SdDirective, create_component, is_component
+from .shared import (
+    WARNING_TYPE,
+    SdDirective,
+    create_component,
+    is_component,
+    is_ignorable_child,
+    make_choice,
+)
 
 LOGGER = getLogger(__name__)
+
+ORIENTATIONS = ("horizontal", "vertical")
+"""Layouts a tab set can be rendered in, the first one being the default."""
+
+
+def orientation_classes(orientation: str | None) -> list[str]:
+    """Return the modifier classes carrying a tab set's orientation.
+
+    :param orientation: One of :data:`ORIENTATIONS`, or ``None`` for the default.
+    :return: The classes to append to the tab set's own.
+    """
+    if orientation == "vertical":
+        return ["sd-tab-set-vertical"]
+    return []
 
 
 def setup_tabs(app: Sphinx) -> None:
@@ -24,6 +46,7 @@ class TabSetDirective(SdDirective):
 
     has_content = True
     option_spec = {
+        "orientation": make_choice(ORIENTATIONS),
         "sync-group": directives.unchanged_required,
         "class": directives.class_option,
     }
@@ -31,11 +54,24 @@ class TabSetDirective(SdDirective):
     def run_with_defaults(self) -> list[nodes.Node]:
         self.assert_has_content()
         tab_set = create_component(
-            "tab-set", classes=["sd-tab-set", *self.options.get("class", [])]
+            "tab-set",
+            classes=[
+                "sd-tab-set",
+                *orientation_classes(self.options.get("orientation")),
+                *self.options.get("class", []),
+            ],
         )
         self.set_source_info(tab_set)
         self.state.nested_parse(self.content, self.content_offset, tab_set)
+        valid_children = []
         for item in tab_set.children:
+            if is_ignorable_child(item):
+                # comments and system messages can be safely dropped,
+                # but hyperlink targets must be kept,
+                # so that references to them still resolve
+                if isinstance(item, nodes.target):
+                    valid_children.append(item)
+                continue
             if not is_component(item, "tab-item"):
                 LOGGER.warning(
                     f"All children of a 'tab-set' "
@@ -44,9 +80,12 @@ class TabSetDirective(SdDirective):
                     type=WARNING_TYPE,
                     subtype="tab",
                 )
-                break
+                continue  # Skip invalid children instead of breaking
             if "sync_id" in item.children[0]:
                 item.children[0]["sync_group"] = self.options.get("sync-group", "tab")
+            valid_children.append(item)
+
+        tab_set.children = valid_children
         return [tab_set]
 
 
@@ -125,6 +164,7 @@ class TabSetCodeDirective(SdDirective):
     has_content = True
     option_spec = {
         "no-sync": directives.flag,
+        "orientation": make_choice(ORIENTATIONS),
         "sync-group": directives.unchanged_required,
         "class-set": directives.class_option,
         "class-item": directives.class_option,
@@ -133,12 +173,24 @@ class TabSetCodeDirective(SdDirective):
     def run_with_defaults(self) -> list[nodes.Node]:
         self.assert_has_content()
         tab_set = create_component(
-            "tab-set", classes=["sd-tab-set", *self.options.get("class-set", [])]
+            "tab-set",
+            classes=[
+                "sd-tab-set",
+                *orientation_classes(self.options.get("orientation")),
+                *self.options.get("class-set", []),
+            ],
         )
         self.set_source_info(tab_set)
         self.state.nested_parse(self.content, self.content_offset, tab_set)
         new_children = []
         for item in tab_set.children:
+            if is_ignorable_child(item):
+                # comments and system messages can be safely dropped,
+                # but hyperlink targets must be kept,
+                # so that references to them still resolve
+                if isinstance(item, nodes.target):
+                    new_children.append(item)
+                continue
             if not isinstance(item, nodes.literal_block):
                 LOGGER.warning(
                     f"All children of a 'tab-code-set' "
@@ -195,6 +247,9 @@ def depart_tab_input(self, node):
 
 def visit_tab_label(self, node):
     attributes = {"for": node["input_id"]}
+    if "aria_controls" in node:
+        # programmatically associate the label with the content panel it toggles
+        attributes["aria-controls"] = node["aria_controls"]
     if "sync_id" in node and "sync_group" in node:
         attributes["data-sync-id"] = node["sync_id"]
         attributes["data-sync-group"] = node["sync_group"]
@@ -211,7 +266,7 @@ class TabSetHtmlTransform(SphinxPostTransform):
     default_priority = 200
     formats = ("html",)
 
-    def run(self) -> None:
+    def run(self, **kwargs: Any) -> None:
         """Run the transform."""
 
         # setup id generators
@@ -220,13 +275,23 @@ class TabSetHtmlTransform(SphinxPostTransform):
         tab_item_id_num = 0
 
         for tab_set_id_num, tab_set in enumerate(
-            findall(self.document)(lambda node: is_component(node, "tab-set"))
+            self.document.findall(lambda node: is_component(node, "tab-set"))
         ):
             tab_set_identity = tab_set_id_base + str(tab_set_id_num)
             children = []
+            # keep non tab-item children (e.g. hyperlink targets),
+            # placing them at the front of the rebuilt tab-set
+            preserved = [
+                child
+                for child in tab_set.children
+                if not is_component(child, "tab-item")
+            ]
+            tab_items = [
+                child for child in tab_set.children if is_component(child, "tab-item")
+            ]
             # get the first selected node
             selected_idx = None
-            for idx, tab_item in enumerate(tab_set.children):
+            for idx, tab_item in enumerate(tab_items):
                 if tab_item.get("selected", False):
                     if selected_idx is None:
                         selected_idx = idx
@@ -239,11 +304,16 @@ class TabSetHtmlTransform(SphinxPostTransform):
                         )
             selected_idx = 0 if selected_idx is None else selected_idx
 
-            for idx, tab_item in enumerate(tab_set.children):
-                try:
-                    tab_label, tab_content = tab_item.children
-                except ValueError:
-                    raise
+            for idx, tab_item in enumerate(tab_items):
+                if len(tab_item.children) != 2:
+                    LOGGER.warning(
+                        f"Malformed 'tab-item' directive [{WARNING_TYPE}.tab]",
+                        location=tab_item,
+                        type=WARNING_TYPE,
+                        subtype="tab",
+                    )
+                    continue
+                tab_label, tab_content = tab_item.children
                 tab_item_identity = tab_item_id_base + str(tab_item_id_num)
                 tab_item_id_num += 1
 
@@ -268,13 +338,25 @@ class TabSetHtmlTransform(SphinxPostTransform):
                 )
                 if tab_label.get("ids"):
                     label_node["ids"] += tab_label["ids"]
+                if tab_item.get("ids"):
+                    # ids propagated onto the container (e.g. from a preceding
+                    # hyperlink target, via docutils PropagateTargets) must
+                    # survive the container's removal, or anchors break
+                    label_node["ids"] += tab_item["ids"]
                 if "sync_group" in tab_label and "sync_id" in tab_label:
                     label_node["sync_group"] = tab_label["sync_group"]
                     label_node["sync_id"] = tab_label["sync_id"]
                 label_node.source, label_node.line = tab_item.source, tab_item.line
                 children.append(label_node)
 
+                # give the content panel a stable id and point the label at it
+                # via aria-controls; prepend so any existing ids (e.g. anchors
+                # propagated from a preceding hyperlink target) still resolve
+                tab_content_identity = f"{tab_item_identity}-content"
+                tab_content["ids"].insert(0, tab_content_identity)
+                label_node["aria_controls"] = tab_content_identity
+
                 # add content
                 children.append(tab_content)
 
-            tab_set.children = children
+            tab_set.children = preserved + children

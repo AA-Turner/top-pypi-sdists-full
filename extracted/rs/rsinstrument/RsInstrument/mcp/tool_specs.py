@@ -5,6 +5,7 @@ from __future__ import annotations
 import typing
 from collections.abc import Collection
 from dataclasses import dataclass, field
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -25,8 +26,8 @@ from RsInstrument.mcp._common import (
 from RsInstrument.mcp.basic_tools import (
     instrument_discovery,
     instrument_fetch_errors,
-    instrument_query_scpi,
     instrument_scpi_exists,
+    make_instrument_query_scpi,
     make_instrument_reset,
     make_instrument_write_scpi,
 )
@@ -38,6 +39,19 @@ from RsInstrument.mcp.device_io import (
     make_instrument_get_screenshot,
 )
 from RsInstrument.mcp.file_transfer import FileTransferPolicy, make_instrument_file
+from RsInstrument.mcp.results import (
+    BATCH_OUTPUT_SCHEMA,
+    DISCOVERY_OUTPUT_SCHEMA,
+    FETCH_ERRORS_OUTPUT_SCHEMA,
+    FILE_OUTPUT_SCHEMA,
+    GO_TO_LOCAL_OUTPUT_SCHEMA,
+    QUERY_OUTPUT_SCHEMA,
+    SAVE_RECALL_OUTPUT_SCHEMA,
+    SCPI_EXISTS_OUTPUT_SCHEMA,
+    SCREENSHOT_OUTPUT_SCHEMA,
+    USER_INTERACTION_OUTPUT_SCHEMA,
+    WRITE_OUTPUT_SCHEMA,
+)
 from RsInstrument.mcp.scpi_write_policy import ScpiWritePolicy
 from RsInstrument.mcp.state_storage import make_instrument_save_recall
 
@@ -50,7 +64,8 @@ class ToolSpec(BaseModel):
     name: str
     description: str
     fn: typing.Callable[..., typing.Any]
-    annotations: dict[str, typing.Any] | None = None
+    annotations: dict[str, Any] | None = None
+    output_schema: dict[str, Any] | None = None
 
 
 ToolInput = tuple[str, str, typing.Callable[..., typing.Any]] | ToolSpec
@@ -81,11 +96,13 @@ class BuiltinToolSettings:
         excluded_tools: Collection[str] = (),
         excluded_write_rule_ids: Collection[str] = (),
     ) -> BuiltinToolSettings:
-        """Resolve defaults; apply rule exclusion only to builtin default policy."""
+        """Resolve defaults; apply rule exclusion to both default and custom policies."""
         if write_policy is None:
             resolved_write = ScpiWritePolicy.defaults(
                 exclude_rule_ids=excluded_write_rule_ids,
             )
+        elif excluded_write_rule_ids:
+            resolved_write = write_policy.without_rules(excluded_write_rule_ids)
         else:
             resolved_write = write_policy
         return cls(
@@ -142,36 +159,43 @@ def create_builtin_tool_specs(
         ToolSpec(
             name="Instrument-Query-SCPI",
             description="Query a command from an instrument via RsInstrument.",
-            fn=instrument_query_scpi,
+            fn=make_instrument_query_scpi(policy),
             annotations=ANN_READONLY,
+            output_schema=QUERY_OUTPUT_SCHEMA,
         ),
         ToolSpec(
             name="Instrument-Write-SCPI",
             description=(
                 "Write a command to an instrument via RsInstrument. "
-                "Dangerous writes may require user confirmation (elicitation) "
-                "or confirm=true."
+                "Dangerous writes require approval through MCP elicitation "
+                "(client must support elicitation)."
             ),
             fn=make_instrument_write_scpi(policy),
             annotations=ANN_WRITE,
+            output_schema=WRITE_OUTPUT_SCHEMA,
         ),
         ToolSpec(
             name="Instrument-Fetch-Errors",
             description="Fetch errors from an instrument via RsInstrument.",
             fn=instrument_fetch_errors,
             annotations=ANN_WRITE,
+            output_schema=FETCH_ERRORS_OUTPUT_SCHEMA,
         ),
         ToolSpec(
             name="Instrument-Reset",
-            description=("Reset the instrument. Requires confirmation (*RST policy)."),
+            description=(
+                "Reset the instrument. Requires MCP elicitation approval (*RST policy)."
+            ),
             fn=make_instrument_reset(policy),
             annotations=ANN_DESTRUCTIVE_IDEMPOTENT,
+            output_schema=WRITE_OUTPUT_SCHEMA,
         ),
         ToolSpec(
             name="Instrument-Go-To-Local",
             description="Restore local front-panel control (GTL).",
             fn=instrument_go_to_local,
             annotations=ANN_STATE_CHANGE,
+            output_schema=GO_TO_LOCAL_OUTPUT_SCHEMA,
         ),
         ToolSpec(
             name="Instrument-Enable-User-Interaction",
@@ -181,31 +205,41 @@ def create_builtin_tool_specs(
             ),
             fn=make_instrument_enable_user_interaction(cfg.device_profiles),
             annotations=ANN_STATE_CHANGE,
+            output_schema=USER_INTERACTION_OUTPUT_SCHEMA,
         ),
         ToolSpec(
             name="Instrument-Get-Screenshot",
             description="Capture a PNG screenshot from the instrument display.",
-            fn=make_instrument_get_screenshot(cfg.device_profiles),
+            fn=make_instrument_get_screenshot(
+                cfg.device_profiles,
+                cfg.file_transfer.instrument_allowed_dirs if cfg.file_transfer.enabled else (),
+            ),
             annotations=ANN_STATE_CHANGE,
+            output_schema=SCREENSHOT_OUTPUT_SCHEMA,
         ),
         ToolSpec(
             name="Instrument-Batch-SCPI",
             description=(
-                "Run multiple SCPI commands (query if '?' present). "
-                "Matching writes use write_with_opc; trailing error queue is drained. "
-                "Writes may require confirmation; confirm=true skips elicitation."
+                "Run multiple SCPI commands; entries are strings or "
+                "{'command', 'resource', 'opc_timeout'} objects "
+                "(top-level resource is used when the per-entry field is absent). "
+                "A blocked write (forbidden, cancelled, or needs-confirmation) stops all "
+                "subsequent entries unless continue_on_blocked=true; "
+                "gated writes require a client with MCP elicitation support."
             ),
             fn=make_instrument_batch_scpi(policy, cfg.batch_policy),
             annotations=ANN_WRITE,
+            output_schema=BATCH_OUTPUT_SCHEMA,
         ),
         ToolSpec(
             name="Instrument-Save-Recall",
             description=(
                 "Save or recall instrument state via *SAV/*RCL (slots 0..9). "
-                "Recall uses write_with_opc and requires confirmation."
+                "Recall uses write_with_opc and may require MCP elicitation."
             ),
             fn=make_instrument_save_recall(policy),
             annotations=ANN_WRITE,
+            output_schema=SAVE_RECALL_OUTPUT_SCHEMA,
         ),
         ToolSpec(
             name="Instrument-File",
@@ -215,6 +249,7 @@ def create_builtin_tool_specs(
             ),
             fn=make_instrument_file(cfg.file_transfer, policy),
             annotations=ANN_WRITE,
+            output_schema=FILE_OUTPUT_SCHEMA,
         ),
         ToolSpec(
             name="Instrument-SCPI-Exists",
@@ -223,6 +258,7 @@ def create_builtin_tool_specs(
             ),
             fn=instrument_scpi_exists,
             annotations=ANN_READONLY,
+            output_schema=SCPI_EXISTS_OUTPUT_SCHEMA,
         ),
         ToolSpec(
             name="Instrument-Discovery",
@@ -234,6 +270,7 @@ def create_builtin_tool_specs(
             ),
             fn=instrument_discovery,
             annotations=ANN_READONLY,
+            output_schema=DISCOVERY_OUTPUT_SCHEMA,
         ),
     ]
     if not cfg.excluded_tools:
@@ -245,13 +282,15 @@ def register_one_tool(
     fastmcp: FastMCP,
     spec: ToolSpec,
 ) -> None:
-    """Register a single tool, forwarding annotations when supported."""
+    """Register a single tool, forwarding annotations and output_schema when supported."""
     tool_kwargs: dict[str, typing.Any] = {
         "name": spec.name,
         "description": spec.description,
     }
     if spec.annotations:
         tool_kwargs["annotations"] = spec.annotations
+    if spec.output_schema is not None:
+        tool_kwargs["output_schema"] = spec.output_schema
     try:
         decorator = fastmcp.tool(**tool_kwargs)
         decorator(spec.fn)

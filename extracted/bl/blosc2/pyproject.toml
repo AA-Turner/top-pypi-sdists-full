@@ -35,13 +35,12 @@ dependencies = [
     "numpy>=1.26",
     "ndindex",
     "msgpack",
-    "numexpr>=2.14.1; platform_machine != 'wasm32'",
     "pydantic",
     "httpx[http2]",
     "rich",
     "threadpoolctl; platform_machine != 'wasm32'",
 ]
-version = "4.14.1"
+version = "4.15.0"
 [project.entry-points."array_api"]
 blosc2 = "blosc2"
 
@@ -58,9 +57,10 @@ hdf5 = ["h5py", "hdf5plugin"]
 # wasm32 (no TTY).  Install with `pip install "blosc2[tui]"`.  This also pulls
 # textual-plotext for the in-terminal braille plot (the 'p' key).
 tui = ["textual", "textual-plotext"]
+images = ["blosc2[tui]", "textual-image", "pillow"]
 # Adds the high-res 'h' view on top of [tui], rendering a real matplotlib image
 # (kitty/iTerm2/sixel, or half-cells elsewhere) — matplotlib is the heavy part.
-hires = ["blosc2[tui]", "textual-image", "matplotlib"]
+hires = ["blosc2[images]", "matplotlib"]
 # Read/write single-file containers through any fsspec URL (https://, s3://,
 # gs://, zip://, memory://...).  HTTP support is included; the other protocol
 # backends (s3fs, gcsfs, adlfs...) are the caller's install:
@@ -71,6 +71,8 @@ fsspec = ["fsspec[http]"]
 parquet-to-blosc2 = "blosc2.cli.parquet_to_blosc2:main"
 b2nd-to-zarr = "blosc2.cli.b2nd_to_zarr:main"
 blosc2-to-zarr = "blosc2.cli.b2nd_to_zarr:main"
+zarr-to-b2nd = "blosc2.cli.zarr_to_b2nd:main"
+zarr-to-blosc2 = "blosc2.cli.zarr_to_b2nd:main"
 b2view = "blosc2.b2view.cli:main"
 
 [dependency-groups]

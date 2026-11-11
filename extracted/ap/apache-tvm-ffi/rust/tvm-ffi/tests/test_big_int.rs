@@ -18,6 +18,7 @@
  */
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use tvm_ffi::extra::structural_visit::StructuralVisitorView;
 use tvm_ffi::*;
 
 // (1 << 255) | (0x0123456789ABCDEF << 128) | 0xFEDCBA9876543210: distinct words, an
@@ -197,7 +198,8 @@ fn test_big_int_words_mirror_runtime_content() {
         BigInt::from(-5i64),
     ] {
         let mut any = Any::from(value.clone());
-        let content = unsafe { tvm_ffi_sys::TVMFFIBigIntGetContentByteArray(any.as_data_ptr()) };
+        let content =
+            unsafe { tvm_ffi_sys::TVMFFIBigIntGetContentByteArray(any.as_raw_ffi_any_mut()) };
         let runtime = unsafe {
             std::slice::from_raw_parts(
                 content.data as *const i64,
@@ -244,7 +246,8 @@ fn test_big_int_from_words_normalizes() {
 
 #[test]
 fn test_big_int_native_conversions() {
-    let cases: [(BigInt, Option<i64>, Option<u64>, Option<i128>, Option<u128>); 9] = [
+    type Case = (BigInt, Option<i64>, Option<u64>, Option<i128>, Option<u128>);
+    let cases: [Case; 9] = [
         (BigInt::from(0i64), Some(0), Some(0), Some(0), Some(0)),
         (BigInt::from(-1i64), Some(-1), None, Some(-1), None),
         (
@@ -395,7 +398,7 @@ fn test_big_int_any_round_trip() {
     let any = Any::from(value.clone());
     assert_eq!(any.type_index(), TypeIndex::kTVMFFIBigInt as i32);
     assert_eq!(any.debug_strong_count(), Some(2));
-    assert_eq!(any.try_as::<BigInt>(), Some(value.clone()));
+    assert_eq!(any.downcast_ref::<BigInt>().cloned(), Some(value.clone()));
     let view = AnyView::from(&value);
     assert_eq!(BigInt::try_from(view).unwrap(), value);
     let restored = BigInt::try_from(any).unwrap();
@@ -409,12 +412,15 @@ fn test_big_int_any_round_trip() {
     assert_eq!(any.type_index(), TypeIndex::kTVMFFIInt as i32);
     assert_eq!(i64::try_from(any).unwrap(), -42);
     assert_eq!(BigInt::try_from(Any::from(-42i64)).unwrap(), small);
-    assert_eq!(Any::from(7i32).try_as::<BigInt>(), Some(BigInt::from(7i64)));
+    assert_eq!(
+        Any::from(7i32).downcast_ref::<BigInt>().cloned(),
+        Some(BigInt::from(7i64))
+    );
     assert_eq!(
         BigInt::try_from(Any::from(true)).unwrap(),
         BigInt::from(1i64)
     );
-    assert_eq!(Any::from(true).try_as::<BigInt>(), None);
+    assert_eq!(Any::from(true).downcast_ref::<BigInt>().cloned(), None);
 
     let error = BigInt::try_from(Any::from(1.5f64)).unwrap_err();
     assert_eq!(error.kind(), TYPE_ERROR);
@@ -457,7 +463,7 @@ fn test_big_int_function_round_trip() {
 #[test]
 fn test_big_int_containers() {
     let values = vec![wide(), BigInt::from(-1i64), BigInt::from(u64::MAX)];
-    let array = Array::new(values.clone());
+    let array = Array::from_vec(values.clone());
     assert_eq!(array.len(), 3);
     for (i, value) in values.iter().enumerate() {
         assert_eq!(array.get(i).unwrap(), *value);
@@ -466,7 +472,7 @@ fn test_big_int_containers() {
         .call_tuple((array.clone(),))
         .and_then(Array::<BigInt>::try_from)
         .unwrap();
-    assert_eq!(echoed.iter().collect::<Vec<_>>(), values);
+    assert_eq!(echoed.into_iter().collect::<Vec<_>>(), values);
 
     let map: Map<BigInt, i64> = values
         .iter()
@@ -475,17 +481,17 @@ fn test_big_int_containers() {
         .collect();
     assert_eq!(map.len(), 3);
     for (i, value) in values.iter().enumerate() {
-        assert!(map.contains_key(value));
+        assert!(map.contains_key(value).unwrap());
         assert_eq!(map.get(value).unwrap(), Some(i as i64));
     }
-    assert_eq!(map.get(&BigInt::from(1u128 << 64)).unwrap(), None);
+    assert_eq!(map.get(BigInt::from(1u128 << 64)).unwrap(), None);
 }
 
 #[test]
 fn test_big_int_optional() {
     assert_eq!(std::mem::size_of::<Optional<BigInt>>(), 16);
     let some = Optional::some(wide());
-    assert!(some.has_value());
+    assert!(some.is_some());
     assert_eq!(some.get(), Some(wide()));
     let none = Optional::<BigInt>::none();
     assert!(none.is_none());
@@ -505,26 +511,37 @@ fn test_big_int_optional() {
 
 #[test]
 fn test_big_int_structural_traversal() {
-    let root = Array::new(vec![Any::from(1i64), Any::from(wide())]);
+    let root = Array::from_vec(vec![Any::from(1i64), Any::from(wide())]);
     let wide_pointer = root
         .get(1)
         .unwrap()
-        .try_as::<BigInt>()
+        .downcast_ref::<BigInt>()
+        .cloned()
         .unwrap()
         .words()
         .as_ptr();
 
     // A BigInt callback also accepts inline integers, mirroring the C++ cast rule.
-    let seen = std::cell::RefCell::new(Vec::new());
-    assert!(structural_visit(
-        &root,
-        |value: BigInt, _visitor: &mut VisitContext<'_, ()>| {
-            seen.borrow_mut().push(value);
+    #[derive(Default)]
+    struct Integers(Vec<BigInt>);
+    #[dispatch(
+        visit,
+        (AnyView<'_>, &mut StructuralVisitorView<'_, Self>),
+        Result<Option<VisitInterrupt>>
+    )]
+    impl Integers {
+        fn visit_integer(
+            &mut self,
+            value: BigInt,
+            _: &mut StructuralVisitorView<'_, Self>,
+        ) -> Result<Option<VisitInterrupt>> {
+            self.0.push(value);
+            Ok(None)
         }
-    )
-    .unwrap()
-    .is_none());
-    assert_eq!(seen.into_inner(), vec![BigInt::from(1i64), wide()]);
+    }
+    let mut seen = Integers::default();
+    assert!(structural_visit(&root, &mut seen).unwrap().is_none());
+    assert_eq!(seen.0, vec![BigInt::from(1i64), wide()]);
 
     // The heap integer is a leaf: mapping the inline integer leaves it untouched.
     let mapped = structural_map(
@@ -534,8 +551,16 @@ fn test_big_int_structural_traversal() {
     )
     .and_then(Array::<Any>::try_from)
     .unwrap();
-    assert_eq!(mapped.get(0).unwrap().try_as::<i64>(), Some(2));
-    let leaf = mapped.get(1).unwrap().try_as::<BigInt>().unwrap();
+    assert_eq!(
+        mapped.get(0).unwrap().downcast_ref::<i64>().copied(),
+        Some(2)
+    );
+    let leaf = mapped
+        .get(1)
+        .unwrap()
+        .downcast_ref::<BigInt>()
+        .cloned()
+        .unwrap();
     assert_eq!(leaf, wide());
     assert_eq!(leaf.words().as_ptr(), wide_pointer);
 }
@@ -572,6 +597,7 @@ fn test_big_int_promotion_demotion_and_mixed_operands() {
     assert_eq!(&big(i64::MIN as i128) - 1i64, -(&high + 1i64));
     assert_eq!(-big(i64::MIN as i128), high);
     assert_eq!(&big(i64::MIN as i128) / -1i64, high);
+    #[allow(clippy::modulo_one)] // intentional: i64::MIN % -1 must not overflow
     assert_inline(&(&big(i64::MIN as i128) % -1i64), 0);
     assert_eq!(BigInt::from(u64::MAX).to_string(), "18446744073709551615");
     assert_eq!(1i64 + BigInt::from(u64::MAX), pow2(64));
@@ -977,7 +1003,7 @@ fn test_big_int_random_algebraic_properties() {
     ];
     let mut rng = XorShift(0x9E37_79B9_7F4A_7C15);
     let pick = |rng: &mut XorShift| {
-        if rng.next() % 4 == 0 {
+        if rng.next().is_multiple_of(4) {
             pool[(rng.next() % pool.len() as u64) as usize].clone()
         } else {
             rng.big_int()
@@ -1161,7 +1187,7 @@ fn test_big_int_native_objects_cross_runtime() {
 /// last strong reference to heap `value` goes, then release it (`Object::DecWeakRef`).
 /// Returns the (strong, weak) counts the weak reference saw and whether it freed.
 fn outlive_with_weak_ref(value: BigInt) -> (u64, u64, bool) {
-    use std::sync::atomic::{fence, Ordering};
+    use std::sync::atomic::{Ordering, fence};
     use tvm_ffi_sys::COMBINED_REF_COUNT_WEAK_ONE as WEAK_ONE;
     unsafe {
         let raw = Any::into_raw_ffi_any(Any::from(value));

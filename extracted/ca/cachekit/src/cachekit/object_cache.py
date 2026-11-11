@@ -13,12 +13,106 @@ import os
 import random
 import sys
 import threading
-import time
 import weakref
-from collections import OrderedDict
-from collections.abc import Iterable
+from collections import OrderedDict, deque
+from collections.abc import Callable, Hashable, Iterable
 from dataclasses import dataclass
 from typing import Any, cast
+
+from cachekit._rust_serializer import HitEntry, HitMemo
+from cachekit._rust_serializer import monotonic as _monotonic
+
+# The SWR threshold's ±10% jitter. Its low end also bounds a lock-free hit: short of it no read can
+# flag a refresh, so the hit may serve an entry up to there without the lock.
+_JITTER_LOW, _JITTER_HIGH = 0.9, 1.1
+
+# Records one put or refresh moves from the detached lists to the live ones, dropping the dead, while
+# a compaction runs (_ObjectCacheState.compact_step). Each costs about a dict lookup and a heap push,
+# so this bounds what compaction adds to one lock hold, about 15µs at 100k entries, whatever the cache's size.
+_COMPACT_BATCH = 16
+
+# Invalidation epoch stripes, here and in the decorator's backed mode: a power of two. An invalidation of
+# one key also drops the overlapping fills of the other keys in its stripe, about one in this many.
+EPOCH_STRIPES = 64
+
+
+def epoch_stripe(key: str) -> int:
+    """The invalidation epoch stripe of key: its hash, which a str caches, masked to EPOCH_STRIPES."""
+    return hash(key) & (EPOCH_STRIPES - 1)
+
+
+def scoped_epoch_stripe(scope: str, key: str) -> int:
+    """The stripe of key in scope (ScopedEpochStripes): the hash of the pair, masked to EPOCH_STRIPES."""
+    return hash((scope, key)) & (EPOCH_STRIPES - 1)
+
+
+class EpochStripes:
+    """Invalidation epochs, one per stripe of keys, and the sequence number that orders them.
+
+    An invalidation stamps the next sequence number on its keys' stripes (every stripe for None). A
+    fill reads ``seq`` before its source and asks ``moved_since`` before it stores. The owner holds
+    its own lock around ``stamp`` and the checks that must be exact; a check without it can miss a
+    stamp that races it. Reading ``seq`` costs one attribute load; a key is hashed only once some
+    stamp has run since the fill read it.
+    """
+
+    __slots__ = ("_stripes", "seq")
+
+    def __init__(self) -> None:
+        self.seq = 0
+        self._stripes = [0] * EPOCH_STRIPES  # per stripe, the seq of the latest stamp on it
+
+    def stamp(self, keys: Iterable[str] | None) -> None:
+        """Stamp these keys' stripes, or every stripe for None, with the next sequence number."""
+        seq = self.seq + 1
+        if keys is None:
+            self._stripes[:] = [seq] * EPOCH_STRIPES
+        else:
+            for key in keys:
+                self._stripes[epoch_stripe(key)] = seq
+        self.seq = seq  # last: a reader that sees it may still see an older stripe, and only skips less
+
+    def moved_since(self, key: str, epoch: int) -> bool:
+        """Whether a stamp on key's stripe ran after a fill read ``seq`` as epoch."""
+        return epoch != self.seq and self._stripes[epoch_stripe(key)] > epoch
+
+
+class ScopedEpochStripes(EpochStripes):
+    """EpochStripes plus a second gate scoped by the L2 scope ``scope()`` reads in the calling context.
+
+    A backed function's L2 is per tenant, so its L2 write asks ``moved_in_scope``: a stamp of keys also
+    moves the stripe of each (scope, key), and a stamp of every key the stripe of its scope. Its L1 put,
+    which is not per tenant, still asks ``moved_since``. The arrays are fixed: two tenants, or two keys,
+    that share a stripe still skip each other's writes, about one pair in EPOCH_STRIPES.
+    """
+
+    __slots__ = ("_scope", "_keys", "_scopes")
+
+    def __init__(self, scope: Callable[[], str]) -> None:
+        super().__init__()
+        self._scope = scope
+        self._keys = [0] * EPOCH_STRIPES  # per stripe of (scope, key)
+        self._scopes = [0] * EPOCH_STRIPES  # per stripe of scope: the whole-function stamps
+
+    def stamp(self, keys: Iterable[str] | None) -> None:
+        """Stamp as EpochStripes does, and these keys' stripes in the calling scope, or its scope's stripe."""
+        scope = self._scope()
+        seq = self.seq + 1
+        if keys is None:
+            self._stripes[:] = [seq] * EPOCH_STRIPES
+            self._scopes[epoch_stripe(scope)] = seq
+        else:
+            for key in keys:
+                self._stripes[epoch_stripe(key)] = seq
+                self._keys[scoped_epoch_stripe(scope, key)] = seq
+        self.seq = seq  # last, as in EpochStripes.stamp
+
+    def moved_in_scope(self, key: str, epoch: int) -> bool:
+        """Whether a stamp in the calling scope on key's stripe, or on the whole scope, ran after epoch."""
+        if epoch == self.seq:
+            return False
+        scope = self._scope()
+        return self._scopes[epoch_stripe(scope)] > epoch or self._keys[scoped_epoch_stripe(scope, key)] > epoch
 
 
 def _estimate_object_size(obj: Any) -> int:
@@ -57,35 +151,86 @@ def _estimate_object_size(obj: Any) -> int:
 
 @dataclass(slots=True)
 class _Entry:
-    """Cache entry: value reference plus timing and size bookkeeping."""
+    """Cache entry: value reference plus timing, size and lock-free-hit bookkeeping."""
 
     value: Any
-    expires_at: float  # time.monotonic() hard-expiry deadline
-    cached_at: float  # time.monotonic() write timestamp (SWR freshness clock)
+    expires_at: float  # clock (_monotonic) hard-expiry deadline
+    cached_at: float  # clock write timestamp (SWR freshness clock)
+    used_at: float  # clock reading of the latest read under the lock, or the write (recency, with hit.used_at)
     size_bytes: int  # 0 when the cache is not byte-bounded
     generation: int  # anti-resurrection token: allocated per stored entry, never reused
-    refresh_failed_at: float | None = None  # time.monotonic() of the last failed SWR refresh (retry back-off)
+    hit: HitEntry | None = None  # what a lock-free hit reads, in a cache with a memo; replaced on refresh
+    refresh_failed_at: float | None = None  # clock time of the last failed SWR refresh (retry back-off)
+    # Its live (expires_at, key) tuple in the expiry heap. Only this object is live: a store or refresh of
+    # the key at the same clock reading leaves an equal tuple behind, which a compaction must drop.
+    deadline: tuple[float, str] | None = None
+
+
+def _used_at(entry: _Entry) -> float:
+    """An entry's recency in a cache with a memo: its latest use under the lock or, if later, by a lock-free hit."""
+    hit = entry.hit
+    assert hit is not None  # noqa: S101 - every entry of a cache with a memo has a hit
+    return max(entry.used_at, hit.used_at)
 
 
 class _ObjectCacheState:
-    """The entries, their byte total, their expiry heap, their in-flight refresh markers, and the lock guarding them.
+    """The entries, their byte total, their deadline and recency records, their in-flight refresh markers, and the lock.
 
     One object so the at-fork hook can replace all of it with a single attribute store: a thread
-    still inside a critical section finishes on the state it bound. The stats and the generation
-    counter stay on the cache, so a swap keeps them.
+    still inside a critical section finishes on the state it bound. The stats, the generation
+    counter and the memo stay with the cache, so a swap keeps them.
     """
 
-    __slots__ = ("expiry", "lock", "refreshing", "size_bytes", "store")
+    __slots__ = (
+        "compacting",
+        "expiry",
+        "filed",
+        "lock",
+        "memo",
+        "old_expiry",
+        "old_filed",
+        "old_refiled",
+        "refiled",
+        "refreshing",
+        "size_bytes",
+        "store",
+    )
 
-    def __init__(self) -> None:
+    def __init__(self, memo: HitMemo | None) -> None:
+        # Without a memo every read takes the lock, so the store's order is the LRU order: a put
+        # appends its entry and a read moves its entry to the end.
         self.store: OrderedDict[str, _Entry] = OrderedDict()
         self.size_bytes = 0
         # Min-heap of (expires_at, key), one per stored or refreshed deadline, so the over-bound
         # eviction finds expired entries without scanning the store. Deletion is lazy: a removal or a
-        # refresh leaves the old tuple behind. A tuple is live while its key holds an entry with that
-        # deadline, and every entry's current deadline has one, so a dead tuple is safe to drop.
-        # push() rebuilds the heap from the store once dead tuples outnumber live entries.
+        # refresh leaves the old tuple behind. A tuple is live while its key's entry points at it
+        # (_Entry.deadline), and every entry points at one, so a dead tuple is safe to drop.
+        # Once dead tuples outnumber live entries, push() compacts them (see old_expiry below).
         self.expiry: list[tuple[float, str]] = []
+        # With a memo, a lock-free hit stamps its entry's HitEntry but cannot move the entry in the
+        # store, so recency records hold the LRU order instead: (used_at, generation, key), exactly one
+        # live record per entry. A put files its entry's record at the end of `filed`, so `filed` runs
+        # in clock order. A use stamps only its entry, so a record can hold a time older than its
+        # entry's latest use: evict_lru() re-files such a record at that use when it is the oldest, in
+        # the min-heap `refiled`, and evicts the first entry whose record is current. Every other entry
+        # was used at or after its own record's time, which is no earlier than that one's, so that
+        # entry is the least recently used. A removed or replaced entry's record is dead (its key holds
+        # no entry of its generation) and is dropped where it surfaces, or by a compaction.
+        self.filed: deque[tuple[float, int, str]] = deque()
+        self.refiled: list[tuple[float, int, str]] = []
+        # A compaction detaches the three lists above into these and starts empty ones; each later
+        # push() moves _COMPACT_BATCH of the detached records back, dropping the dead, until none is
+        # left. Rebuilding them from the store in one go held the lock for 65 to 300 ms at 100k
+        # entries, and freeing the old lists stalled every thread waiting for the GIL. Until then a
+        # live record sits in a detached list or a live one, never both, so readers look at both:
+        # old_expiry and old_refiled are popped from the end, which leaves a heap a heap, and old_filed
+        # from its newest end, so every record left in it still precedes every record in filed.
+        self.old_expiry: list[tuple[float, str]] = []
+        self.old_filed: deque[tuple[float, int, str]] = deque()
+        self.old_refiled: list[tuple[float, int, str]] = []
+        # Set when a compaction starts; cleared by the compact_step that finds the detached lists empty.
+        # Readers pop from those lists too, so they can run empty while it is still set.
+        self.compacting = False
         # In-flight refresh ownership: key -> owning generation. A refresh captures the entry's
         # generation at read time and only lands — or clears/cancels its marker — for that exact
         # generation, so a stale refresh from a replaced entry can neither resurrect data nor
@@ -94,67 +239,203 @@ class _ObjectCacheState:
         # because every single-key entry change funnels through remove(), which pops it, and
         # clear() and the fork reset empty every marker at once. Removal leaves no per-key residue.
         self.refreshing: dict[str, int] = {}
+        self.memo = memo
         self.lock = threading.RLock()
 
     def remove(self, key: str) -> None:
         """Remove an entry and update all bookkeeping; call with lock held.
 
-        Every single-key removal funnels here so byte accounting and in-flight refresh cancellation
-        stay consistent. Anti-resurrection needs no per-key residue: a refresh can only land on the exact
-        entry (generation) it was started against.
+        Every single-key removal funnels here so byte accounting, in-flight refresh cancellation and
+        the memo stay consistent. Anti-resurrection needs no per-key residue: a refresh can only land
+        on the exact entry (generation) it was started against.
+
+        A lock-free hit of the entry ends before the entry leaves the store: the memo's forget kills
+        the entry, then drops its slots (see HitMemo.forget).
         """
-        entry = self.store.pop(key, None)
+        entry = self.store.get(key)
         if entry is None:
             return
+        hit = entry.hit
+        if hit is not None:
+            memo = self.memo
+            assert memo is not None  # noqa: S101 - an entry has a hit only in a cache with a memo
+            memo.forget(hit)
+        del self.store[key]
         self.size_bytes -= entry.size_bytes
         self.refreshing.pop(key, None)
 
-    def push(self, key: str, entry: _Entry) -> None:
-        """Record a stored entry's deadline in the expiry heap; call with lock held, after the store write.
+    def push(self, key: str, entry: _Entry, *, new: bool = True) -> None:
+        """Record an entry's deadline and, when it is new and the cache has a memo, its recency; call with lock held.
 
-        A rebuild from the store drops the dead tuples once they outnumber the live entries. It costs
-        O(n) in the entries left, and it at least halves the heap, so it amortises to O(1) per push.
+        Call after the store write. A refreshed entry (new=False) keeps its recency record, which is
+        re-filed at the refresh when it is the oldest, as at any use. Once the dead deadline records,
+        or the dead recency records, outnumber the live entries, this starts a compaction, and it and
+        each later push move at most _COMPACT_BATCH records until it ends (compact_step): O(log n) each.
         """
-        if len(self.expiry) >= 2 * len(self.store):
-            self.expiry = [(e.expires_at, k) for k, e in self.store.items()]
-            heapq.heapify(self.expiry)
-        else:
-            heapq.heappush(self.expiry, (entry.expires_at, key))
+        expiry, memoised = self.expiry, self.memo is not None
+        deadline = entry.deadline = (entry.expires_at, key)
+        heapq.heappush(expiry, deadline)
+        if memoised and new:
+            self.filed.append((entry.used_at, entry.generation, key))
+        if not self.compacting:
+            live = 2 * len(self.store)
+            if len(expiry) <= live and (not memoised or len(self.filed) + len(self.refiled) <= live):
+                return
+            self.old_expiry, self.expiry = expiry, []
+            self.old_filed, self.filed = self.filed, deque()
+            self.old_refiled, self.refiled = self.refiled, []
+            self.compacting = True
+        self.compact_step()
+
+    def compact_step(self) -> None:
+        """Move up to _COMPACT_BATCH records from the detached lists to the live ones, dropping the dead; call with lock held.
+
+        Each dead record is freed as it is popped, so no list of them is freed in one go.
+        """
+        store, budget = self.store, _COMPACT_BATCH
+        old_expiry = self.old_expiry
+        while old_expiry and budget:
+            budget -= 1
+            deadline = old_expiry.pop()
+            entry = store.get(deadline[1])
+            if entry is not None and entry.deadline is deadline:
+                heapq.heappush(self.expiry, deadline)
+        old_refiled = self.old_refiled
+        while old_refiled and budget:
+            budget -= 1
+            record = old_refiled.pop()
+            entry = store.get(record[2])
+            if entry is not None and entry.generation == record[1]:
+                heapq.heappush(self.refiled, record)
+        old_filed = self.old_filed
+        while old_filed and budget:
+            budget -= 1
+            record = old_filed.pop()  # the newest left, so it precedes every record in filed
+            entry = store.get(record[2])
+            if entry is not None and entry.generation == record[1]:
+                self.filed.appendleft(record)
+        self.compacting = bool(old_expiry or old_refiled or old_filed)
 
     def remove_expired(self, now: float) -> None:
         """Remove every entry whose deadline has passed; call with lock held.
 
         Pops heap tuples only while the earliest deadline is due, so when nothing has expired it
-        returns after one comparison. Each due tuple costs O(log n). A due tuple is dead when its key
-        holds no entry with that deadline, as a replaced or refreshed entry leaves behind; it is dropped.
+        returns after one comparison per heap: the live one and, while a compaction runs, the detached
+        one. Each due tuple costs O(log n). A due tuple is dead unless its key's entry points at it,
+        as a replaced or refreshed entry leaves behind; it is dropped.
+
+        Both heaps are read afresh before every pop: a removal can run a finalizer that stores into
+        this cache, and that store's compaction step moves due tuples from the detached heap into the
+        live one, or starts a compaction that swaps them.
         """
-        heap = self.expiry
-        while heap and heap[0][0] <= now:
-            expires_at, key = heapq.heappop(heap)
-            entry = self.store.get(key)
-            if entry is not None and entry.expires_at == expires_at:
+        store = self.store
+        while True:
+            heap = self.expiry
+            if not heap or heap[0][0] > now:
+                heap = self.old_expiry
+                if not heap or heap[0][0] > now:
+                    return
+            deadline = heapq.heappop(heap)
+            key = deadline[1]
+            entry = store.get(key)
+            if entry is not None and entry.deadline is deadline:
                 self.remove(key)
+                # Free it here, not when the next lookup rebinds the name: its value's finalizer may store
+                # into this cache, and must not replace a key between that lookup and its deadline check.
+                entry = None
+
+    def evict_lru(self) -> None:
+        """Remove the least recently used entry; call with lock held and at least one entry stored.
+
+        Without a memo that is the store's first entry. With one it is the entry of the oldest
+        current recency record, the older of the first filed and the first re-filed, the detached
+        lists included while a compaction runs: O(1) per record popped from `filed`, O(log n) per
+        record re-filed or popped from `refiled`. Without concurrent lock-free hits each live record
+        is re-filed at most once per call, as its entry's use time holds still. Such hits can move it
+        while this runs, so after as many re-files as there are entries the oldest record's entry
+        goes, re-filed or not: hits that race an eviction have no order to keep, and the eviction ends.
+        """
+        if self.memo is None:
+            self.remove(next(iter(self.store)))
+            return
+        store = self.store
+        refiles = len(store)
+        while store:
+            # Read the lists afresh on every pass: an allocation here can collect a cycle whose finalizer
+            # stores into this cache, and that store's compaction swaps the lists or drains them.
+            filed, refiled, old_refiled = self.filed, self.refiled, self.old_refiled
+            queue = self.old_filed or filed  # every record left in old_filed precedes every one in filed
+            heap = old_refiled if old_refiled and (not refiled or old_refiled[0] < refiled[0]) else refiled
+            if heap and (not queue or heap[0] < queue[0]):
+                used_at, generation, key = heapq.heappop(heap)
+            else:
+                used_at, generation, key = queue.popleft()
+            entry = store.get(key)
+            if entry is None or entry.generation != generation:
+                continue  # a removed or replaced entry's record
+            last_used = _used_at(entry)
+            if store.get(key) is not entry:
+                continue  # a finalizer removed or replaced it meanwhile: its record is dead
+            if last_used > used_at and refiles:
+                refiles -= 1
+                record = (last_used, generation, key)  # built first: the list is read after the allocation
+                heapq.heappush(self.refiled, record)  # used since it was filed
+                continue
+            self.remove(key)
+            return
+
+    def kill_all(self) -> None:
+        """End every entry's lock-free hits: forget every stored entry, then clear the memo; call with lock held.
+
+        Every stored entry is killed, memoised or not: a thread that forked inside a critical section
+        returns there in the child on the state this retires and may memoise one of its entries
+        before _take_back_if_retired forgets it, and a hit in between must find it dead. The memo's
+        clear then drops every slot left, which already leaves no hit a way to an entry a refresh or a
+        memo write had in hand when a fork interrupted it; it kills such an entry too, as defence in
+        depth.
+        """
+        memo = self.memo
+        if memo is None:
+            return
+        for entry in list(self.store.values()):  # a snapshot: a finalizer may re-enter and write
+            memo.forget(cast("HitEntry", entry.hit))
+        memo.clear()
 
 
 class ObjectCache:
     """Thread-safe in-memory cache storing Python object references directly.
 
-    Uses an OrderedDict for O(1) LRU ordering. On a put() when a bound is
-    exceeded, expired entries are removed first; if still over, the oldest fresh
-    entries are evicted (LRU). A min-heap of deadlines finds the expired entries,
-    so a put at capacity costs O(log n) per expired entry it removes and does not
-    scan for expired entries. The heap is memory the byte bound does not
-    count: about 64 to 72 bytes per entry (one 2-tuple and its list slot on 64-bit
-    CPython), plus the tuples of removed or refreshed entries. Once those
-    outnumber the live ones, the put that finds it rebuilds the heap: an O(n)
-    pause once per about n puts at capacity, against a full scan on every one
-    before the heap.
+    On a put() when a bound is exceeded, expired entries are removed first; if
+    still over, the least recently used fresh entries are evicted. A min-heap of
+    deadlines finds the expired entries, so a put at capacity costs O(log n) per
+    expired entry it removes and does not scan for them. The least recently used
+    entry is the first in the store, an OrderedDict that every read reorders:
+    O(1). A cache with a memo (lock-free hits, below) keeps recency records
+    instead, as a lock-free hit cannot reorder the store: one per entry, filed
+    in clock order at its put, and re-filed in a min-heap once an eviction finds
+    the entry used since. Evicting an entry unused since its put costs O(1), and
+    each re-filed record O(log n). The records are memory the byte bound does
+    not count: on 64-bit CPython about 64 to 72 bytes per entry for the deadline
+    record and, with a memo, 80 to 100 for the recency record (a tuple, its slot,
+    and the time it was re-filed at), plus the records of removed or replaced
+    entries. Once those outnumber the live ones, a compaction drops them, a
+    few records per put until it is done, so no put holds the lock for a pass
+    over the cache.
 
     Bounds (at least one required):
     - max_entries: entry-count bound (default 256, pass None to disable)
     - max_size_bytes: byte bound using a best-effort recursive size estimate
       (default None = disabled). Values larger than the whole budget are never
       cached — the function result is still returned, just not stored.
+
+    Times are read on ``cachekit._rust_serializer.monotonic``, the clock a
+    lock-free hit (below) reads too, so a deadline means the same instant to
+    both. The extension reads the OS monotonic clock itself, so patching
+    ``time.monotonic`` (monkeypatch, freezegun) does not move this cache's
+    deadlines. With a memo, an entry's LRU recency is the clock reading of its latest
+    use: exact wherever the clock advances between two uses, as the OS monotonic
+    clock it reads does within nanoseconds. Of two entries last used at one
+    reading, the one stored first is evicted first.
 
     Stale-while-revalidate (SWR): ``get_with_swr`` serves a fresh-enough entry
     while flagging it for background refresh once past
@@ -169,15 +450,44 @@ class ObjectCache:
     replacement can never resurrect stale data — without retaining any per-key
     state for removed entries.
 
+    Invalidation epoch: every ``delete`` and ``clear`` takes the next number
+    of a sequence, ``invalidation_epoch``, and stamps it, under the lock that
+    ``put`` takes too, on the stripe of its key (one of ``EPOCH_STRIPES``, by
+    key hash; ``clear`` stamps them all). A fill (a miss that computes a value
+    and stores it) reads the sequence number before it reads its source and
+    passes it to ``put``, which drops the store if its key's stripe carries a
+    later number. So once a ``delete`` has returned, no fill of its key that
+    read its source before it stores what it read (no fill of any key, for
+    ``clear``). A ``delete`` also drops the overlapping fills of the other keys
+    in its stripe, about one in ``EPOCH_STRIPES``, which store nothing and leave
+    the next call to compute again: a key that shares a stripe with a key
+    deleted more often than its fill takes never caches. The stripes are fixed,
+    so no per-key state outlives its key.
+
     Thread safety: RLock on every public method so callers need no external
     synchronisation.
+
+    Lock-free hits: a cache built with a ``HitMemo`` (the decorator's L1-only
+    mode) gives each entry a ``HitEntry``, and ``get``, ``get_with_swr`` and
+    ``put`` take the caller's memo key, under which they point the memo at the
+    entry they find or store. ``HitMemo.get`` then answers the next such call
+    without the lock, while the entry is stored and before its ``fresh_until``:
+    its hard expiry, or with ``swr=True`` the earliest point ``get_with_swr``
+    could flag it for refresh (``ttl * swr_threshold_ratio * 0.9`` after it was
+    stored, with the ttl it was stored with). Every removal (expiry, eviction,
+    ``delete``, replacement, ``clear``, the at-fork reset) has the memo forget
+    the entry's ``HitEntry`` before it returns, and a refresh has it repoint the
+    entry's slots at the new one: either way the memo kills the old ``HitEntry``
+    and holds it no more. So no lock-free hit serves a removed entry once its
+    removal has returned, and the memo keeps no removed value. ``hits`` counts
+    lookups through the lock only.
 
     Fork safety: in a forked child an at-fork hook (``_reset_caches_after_fork``)
     repairs every live cache before the child's first call. The parent's threads
     did not survive the fork, so their in-flight refresh markers are emptied and
     the next stale read refreshes again. Entries carry over, unless a thread held
     the lock at fork and so may have left them half-updated: then the cache starts
-    empty, with a fresh lock. A child forked without at-fork hooks (uWSGI without
+    empty, with a fresh lock and an empty memo. A child forked without at-fork hooks (uWSGI without
     ``--py-call-uwsgi-fork-hooks``) gets no repair: its first call to a cached
     function hangs if a parent thread held that cache's lock at fork, and a key
     whose refresh was in flight in the parent is served stale until it expires.
@@ -203,6 +513,9 @@ class ObjectCache:
         max_size_bytes: int | None = None,
         swr_threshold_ratio: float = 0.5,
         swr_retry_interval: float = 0.0,
+        *,
+        memo: HitMemo | None = None,
+        swr: bool = False,
     ) -> None:
         """Initialise the object cache.
 
@@ -216,6 +529,12 @@ class ObjectCache:
             swr_retry_interval: Seconds after a failed refresh before
                 ``get_with_swr`` flags that entry again. 0 retries on the next
                 stale read. Must be >= 0.
+            memo: The ``HitMemo`` that answers hits without the lock, which
+                this cache keeps in step with its entries; None for none.
+            swr: Whether reads go through ``get_with_swr`` with the ttl the
+                entries were stored with: a lock-free hit then stops at the
+                earliest point a refresh could be flagged, rather than at the
+                entry's hard expiry, and leaves that decision to the lock.
 
         Raises:
             ValueError: If both bounds are None, a bound is < 1,
@@ -237,28 +556,37 @@ class ObjectCache:
         self._max_size_bytes = max_size_bytes
         self._swr_threshold_ratio = swr_threshold_ratio
         self._swr_retry_interval = swr_retry_interval
+        # The part of an entry's ttl short of which no read can flag a refresh: the SWR threshold at its
+        # jitter's low end. get_with_swr serves an entry that young without drawing a jitter.
+        self._swr_floor = swr_threshold_ratio * _JITTER_LOW
+        # The part of an entry's ttl a lock-free hit may serve it for: up to that floor, or all of it.
+        self._fresh_ratio = self._swr_floor if swr else 1.0
         # Every critical section binds this once: `s = self._state; with s.lock: ...`. Reading
         # self._state again inside one would mix states if the at-fork hook replaced it meanwhile.
-        self._state = _ObjectCacheState()
-        # Kept outside _state, so the at-fork hook keeps them: lifetime stats, and the generation
-        # counter stamped onto every stored entry. A generation is never reused across states, so a
-        # refresh started before a swap cannot land on an entry stored after it.
+        self._state = _ObjectCacheState(memo)
+        # Kept outside _state, so the at-fork hook keeps them: lifetime stats, the generation counter
+        # stamped onto every stored entry, and the invalidation epoch. A generation is never reused
+        # across states, so a refresh started before a swap cannot land on an entry stored after it.
+        # The epoch moves only under the lock, in delete() and clear().
         self._hits = 0
         self._misses = 0
         self._generation = 0
+        self._epochs = EpochStripes()
         _caches.add(self)
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def get(self, key: str) -> tuple[bool, Any]:
+    def get(self, key: str, memo_key: Hashable | None = None) -> tuple[bool, Any]:
         """Retrieve a value from the cache.
 
         Expired entries are removed on read (lazy expiry).
 
         Args:
             key: Cache key to look up.
+            memo_key: The memo key of the call asking, under which the memo is pointed at the
+                entry found (see "Lock-free hits"); None leaves the memo as it is.
 
         Returns:
             A (found, value) tuple. found is False on miss or expiry;
@@ -271,14 +599,22 @@ class ObjectCache:
                 self._misses += 1
                 return False, None
 
-            if time.monotonic() >= entry.expires_at:
+            now = _monotonic()
+            if now >= entry.expires_at:
                 # Lazy expiry — remove and report miss
                 s.remove(key)
                 self._misses += 1
                 return False, None
 
-            # Move to end (most-recently-used)
-            s.store.move_to_end(key)
+            # A read's bookkeeping, the same in get_with_swr: its recency (the store's order, or the
+            # stamp the memo cache's records read), its memo slot, and the hit. A read path that skips
+            # a part breaks LRU or the counts. Inline, not a helper: a call costs every @cache.local()
+            # hit about 9% more instructions.
+            entry.used_at = now  # most recently used
+            if s.memo is None:
+                s.store.move_to_end(key)
+            elif memo_key is not None:
+                self._memoise(s, entry, memo_key)
             self._hits += 1
             return True, entry.value
 
@@ -298,11 +634,11 @@ class ObjectCache:
         s = self._state
         with s.lock:
             entry = s.store.get(key)
-            if entry is None or time.monotonic() >= entry.expires_at:
+            if entry is None or _monotonic() >= entry.expires_at:
                 return False, None
             return True, entry.value
 
-    def get_with_swr(self, key: str, ttl: float) -> tuple[bool, Any, bool, int]:
+    def get_with_swr(self, key: str, ttl: float, memo_key: Hashable | None = None) -> tuple[bool, Any, bool, int]:
         """Get value with stale-while-revalidate support.
 
         Once an entry is older than ``ttl * swr_threshold_ratio`` (±10% jitter
@@ -317,6 +653,7 @@ class ObjectCache:
         Args:
             key: Cache key.
             ttl: TTL in seconds used for the refresh-threshold calculation.
+            memo_key: As ``get`` takes it.
 
         Returns:
             Tuple of (hit, value, needs_refresh, version):
@@ -332,25 +669,29 @@ class ObjectCache:
                 self._misses += 1
                 return False, None, False, 0
 
-            now = time.monotonic()
+            now = _monotonic()
             if now >= entry.expires_at:
                 s.remove(key)
                 self._misses += 1
                 return False, None, False, 0
 
-            s.store.move_to_end(key)
+            entry.used_at = now  # a read's bookkeeping, as in get
+            if s.memo is None:
+                s.store.move_to_end(key)
+            elif memo_key is not None:
+                self._memoise(s, entry, memo_key)
             self._hits += 1
 
             version = entry.generation
             age = now - entry.cached_at
-            threshold = ttl * self._swr_threshold_ratio
-            # Not stale even at the jitter's low end (0.9), so no draw from random could flag it:
-            # the common hit returns here without one.
-            if age <= threshold * 0.9:
+            # Not stale even at the jitter's low end, so no draw from random could flag it: the
+            # common hit returns here without one.
+            if age <= ttl * self._swr_floor:
                 return True, entry.value, False, version
             needs_refresh = False
-            # ±10% jitter staggers refreshes when many keys cross the threshold together
-            jitter = random.uniform(0.9, 1.1)  # noqa: S311 - not cryptographic
+            threshold = ttl * self._swr_threshold_ratio
+            # The jitter staggers refreshes when many keys cross the threshold together
+            jitter = random.uniform(_JITTER_LOW, _JITTER_HIGH)  # noqa: S311 - not cryptographic
             backing_off = entry.refresh_failed_at is not None and now - entry.refresh_failed_at < self._swr_retry_interval
             if age > threshold * jitter and key not in s.refreshing and not backing_off:
                 s.refreshing[key] = entry.generation
@@ -363,7 +704,8 @@ class ObjectCache:
 
         Unlike L1Cache (where Redis owns expiry), there is no L2 source of
         truth here — the refreshed value restarts both the freshness clock and
-        the hard-expiry deadline.
+        the hard-expiry deadline. In a cache with a memo the entry gets a new
+        ``HitEntry``, which its memo slots point at before the old one is killed.
 
         Args:
             key: Cache key.
@@ -405,15 +747,26 @@ class ObjectCache:
                 s.remove(key)
                 return False
 
-            now = time.monotonic()
+            now = _monotonic()
             s.size_bytes += size - entry.size_bytes
             entry.value = value
             entry.cached_at = now
             entry.expires_at = now + ttl
+            entry.used_at = now
             entry.size_bytes = size
             entry.refresh_failed_at = None  # success ends any retry back-off
-            s.store.move_to_end(key)
-            s.push(key, entry)  # the old deadline's tuple is now dead
+            stale = entry.hit
+            if stale is not None:
+                # A HitEntry's value never changes, so the refresh gets a new one, and the memo
+                # repoints the stale one's slots at it, then kills the stale one (HitMemo.repoint).
+                memo = s.memo
+                assert memo is not None  # noqa: S101 - an entry has a hit only in a cache with a memo
+                fresh = entry.hit = HitEntry(value, now + ttl * self._fresh_ratio, now)
+                memo.repoint(stale, fresh)
+                self._take_back_if_retired(s, fresh)
+            else:
+                s.store.move_to_end(key)
+            s.push(key, entry, new=False)  # the old deadline's record is now dead
             # New value may be larger — restore the byte bound by evicting LRU others
             self._evict(s, extra_bytes=0, need_slot=False)
             return True
@@ -453,16 +806,24 @@ class ObjectCache:
             del s.refreshing[key]
             # The marker invariant guarantees the live entry has this generation
             entry = s.store[key]
-            entry.refresh_failed_at = time.monotonic()
+            entry.refresh_failed_at = _monotonic()
 
-    def put(self, key: str, value: Any, ttl: int) -> None:
+    @property
+    def invalidation_epoch(self) -> int:
+        """The sequence number of the latest ``delete`` or ``clear``: a fill reads it before its source, for ``put``.
+
+        Read without the lock. A read that races a ``delete`` or ``clear`` returns the number before
+        or after it, and both are safe: the earlier one only makes ``put`` drop more stores.
+        """
+        return self._epochs.seq
+
+    def put(self, key: str, value: Any, ttl: int, memo_key: Hashable | None = None, epoch: int | None = None) -> None:
         """Store a value in the cache.
 
         When a bound is exceeded:
         1. Expired entries are removed first, wherever they sit in LRU order.
-           The expiry heap finds them, so no entry is scanned to look for them; the one
-           put in about n that rebuilds the heap makes one pass over the entries.
-        2. If still over, the oldest (LRU) fresh entries are evicted.
+           The expiry heap finds them, so no entry is scanned to look for them.
+        2. If still over, the least recently used fresh entries are evicted.
 
         A value whose estimated size exceeds the entire byte budget is never
         cached (any smaller stale entry under the same key is dropped so it
@@ -472,6 +833,10 @@ class ObjectCache:
             key: Cache key.
             value: Python object to store (no serialisation performed).
             ttl: Time-to-live in seconds (must be >= 1).
+            memo_key: As ``get`` takes it.
+            epoch: The ``invalidation_epoch`` the caller read before it read the value's source. If a
+                ``delete`` or ``clear`` has stamped the key's stripe since, the value may predate that
+                invalidation, and nothing is stored. None stores unconditionally.
 
         Raises:
             ValueError: If ttl is less than 1.
@@ -483,30 +848,44 @@ class ObjectCache:
         s = self._state
         if self._max_size_bytes is not None and size > self._max_size_bytes:
             with s.lock:
-                s.remove(key)
+                if epoch is None or not self._epochs.moved_since(key, epoch):  # else the entry is newer than the value
+                    s.remove(key)
             return
 
         with s.lock:
-            # Replacing? Remove through remove() so byte accounting and any
-            # in-flight refresh marker stay consistent (the new entry re-appends
-            # at MRU below). The fresh generation below makes an older in-flight
-            # refresh unable to overwrite this newer value.
+            if epoch is not None and self._epochs.moved_since(key, epoch):
+                return  # read before an invalidation that has returned since: storing it would undo that
+            # Replacing? Remove through remove() so byte accounting, any in-flight
+            # refresh marker and the memo stay consistent. The fresh generation
+            # below makes an older in-flight refresh unable to overwrite this newer value.
             s.remove(key)
 
             self._evict(s, extra_bytes=size, need_slot=True)
 
-            now = time.monotonic()
+            now = _monotonic()
             self._generation += 1
-            entry = _Entry(value=value, expires_at=now + ttl, cached_at=now, size_bytes=size, generation=self._generation)
-            s.store[key] = entry  # a new key appends at the MRU end, so no move_to_end
+            entry = _Entry(
+                value=value,
+                expires_at=now + ttl,
+                cached_at=now,
+                used_at=now,
+                size_bytes=size,
+                generation=self._generation,
+                hit=None if s.memo is None else HitEntry(value, now + ttl * self._fresh_ratio, now),
+            )
+            s.store[key] = entry
             s.size_bytes += size
             s.push(key, entry)
+            if memo_key is not None:
+                self._memoise(s, entry, memo_key)
 
     def delete(self, key: str) -> bool:
         """Remove a single entry from the cache.
 
         An in-flight SWR refresh cannot resurrect it: the refresh only lands
-        on the exact entry (generation) it was started against.
+        on the exact entry (generation) it was started against. A fill in flight
+        cannot either: this stamps the key's epoch stripe, also when the key holds
+        no entry, as it does while its fill runs.
 
         Args:
             key: Cache key to remove.
@@ -516,6 +895,7 @@ class ObjectCache:
         """
         s = self._state
         with s.lock:
+            self._epochs.stamp((key,))
             if key in s.store:
                 s.remove(key)
                 return True
@@ -526,14 +906,28 @@ class ObjectCache:
 
         Hit/miss counters are NOT reset; they represent lifetime statistics.
         In-flight SWR refreshes cannot resurrect cleared entries — their
-        target entries no longer exist.
+        target entries no longer exist. Fills in flight store nothing: this stamps
+        every epoch stripe.
         """
         s = self._state
         with s.lock:
+            self._epochs.stamp(None)
+            s.kill_all()
+            # Freeing the values can run a finalizer that stores into this cache. They are held here and
+            # freed only once the store and its bookkeeping are reset: an OrderedDict's clear() drops an
+            # entry stored while it runs, and that entry's records and bytes would outlive it.
+            doomed = list(s.store.values())
             s.store.clear()
             s.size_bytes = 0
             s.expiry.clear()
+            s.filed.clear()
+            s.refiled.clear()
+            s.old_expiry.clear()
+            s.old_filed.clear()
+            s.old_refiled.clear()
+            s.compacting = False
             s.refreshing.clear()
+            del doomed
 
     # ------------------------------------------------------------------
     # Properties
@@ -541,7 +935,7 @@ class ObjectCache:
 
     @property
     def hits(self) -> int:
-        """Total number of successful cache lookups since creation."""
+        """Total number of successful lookups under the lock since creation (lock-free hits are not counted)."""
         with self._state.lock:
             return self._hits
 
@@ -579,6 +973,32 @@ class ObjectCache:
     # Private helpers
     # ------------------------------------------------------------------
 
+    def _memoise(self, s: _ObjectCacheState, entry: _Entry, memo_key: Hashable) -> None:
+        """Point memo_key's memo slot at the entry, for the next such call's lock-free hit; call with s.lock held.
+
+        Not for an entry of a state the at-fork reset retired: the reset killed it, and its slot would
+        only displace one the child set meanwhile.
+        """
+        hit = entry.hit
+        if hit is None or self._state is not s:
+            return
+        memo = s.memo
+        assert memo is not None  # noqa: S101 - an entry has a hit only in a cache with a memo
+        memo.set(memo_key, hit)
+        self._take_back_if_retired(s, hit)
+
+    def _take_back_if_retired(self, s: _ObjectCacheState, hit: HitEntry) -> None:
+        """End hit and drop its memo slots if s is no longer the cache's state; call with s.lock held, after a memo write.
+
+        A thread that forked inside its critical section, from a signal handler or a finalizer,
+        returns there in the child on the state the at-fork hook retired, after the hook emptied the
+        memo. A slot it then set for an entry of that state would outlive every removal. _memoise
+        sets none on a state already retired, but a fork during the memo write itself (a finalizer
+        that an allocation in it runs) retires the state after that check.
+        """
+        if self._state is not s:
+            cast("HitMemo", s.memo).forget(hit)
+
     def _evict(self, s: _ObjectCacheState, extra_bytes: int, need_slot: bool) -> None:
         """Evict entries until both bounds accommodate the pending write.
 
@@ -587,7 +1007,7 @@ class ObjectCache:
         Strategy:
         1. If any bound is exceeded, remove all expired entries first, popping them off the
            expiry heap: one comparison when none has expired, never a scan of the store.
-        2. While still over a bound, evict the oldest (LRU) fresh entry.
+        2. While still over a bound, evict the least recently used fresh entry (evict_lru).
 
         Args:
             s: The state the caller bound and holds the lock of.
@@ -604,11 +1024,11 @@ class ObjectCache:
         if not over_bounds():
             return
 
-        s.remove_expired(time.monotonic())
+        s.remove_expired(_monotonic())
 
         # Still over a bound — evict the least-recently-used fresh entries
         while s.store and over_bounds():
-            s.remove(next(iter(s.store)))
+            s.evict_lru()
 
     def _reset_after_fork(self) -> None:
         """Retire what the parent's threads left in this cache; call only from _reset_caches_after_fork.
@@ -617,15 +1037,17 @@ class ObjectCache:
         markers, whose threads did not survive the fork, are emptied. A held lock may never come
         free and its holder may have left the entries half-updated, so the cache gets a fresh state
         in one attribute store, never a clear in place: a forking thread that returns into its
-        critical section finishes on the state it bound. _is_owned() comes first because the
-        forking thread's own hold is reentrant, and a try-acquire alone would report it free.
+        critical section finishes on the state it bound. The dropped entries' lock-free hits end
+        first, as any removal's do. _is_owned() comes first because the forking thread's own hold
+        is reentrant, and a try-acquire alone would report it free.
         """
         s = self._state
         if not s.lock._is_owned() and s.lock.acquire(blocking=False):  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
             s.lock.release()
             s.refreshing.clear()
             return
-        self._state = _ObjectCacheState()
+        s.kill_all()
+        self._state = _ObjectCacheState(s.memo)
 
 
 # Every live ObjectCache, for the at-fork hook. Weak: each decorated function owns one, and callers

@@ -13339,6 +13339,34 @@ class Messages(System.Object):
             """Returns a message explaining that orders for the extended market must be Limit orders with Day time-in-force."""
             ...
 
+    class EtoroBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.EtoroBrokerageModel class and its consumers or related classes"""
+
+        @staticmethod
+        def crypto_stop_loss_too_close(order: QuantConnect.Orders.Order, price: float, minimum_percent: int) -> str:
+            """Returns a message explaining that a crypto stop loss has to be at least a given percent away from the price."""
+            ...
+
+        @staticmethod
+        def leverage_requires_stop_loss(order: QuantConnect.Orders.Order, leverage: float) -> str:
+            """Returns a message explaining that a position with leverage above 1 needs a stop loss: a stop market order the entry triggers."""
+            ...
+
+        @staticmethod
+        def short_sale_requires_stop_loss(order: QuantConnect.Orders.Order) -> str:
+            """Returns a message explaining that a short sale needs a stop loss: a stop market order it triggers."""
+            ...
+
+        @staticmethod
+        def stop_loss_on_the_wrong_side(order: QuantConnect.Orders.Order, stop_price: float, price: float) -> str:
+            """Returns a message explaining that a stop loss has to be below the price of a long position and above the price of a short one."""
+            ...
+
+        @staticmethod
+        def take_profit_on_the_wrong_side(order: QuantConnect.Orders.Order, limit_price: float, price: float) -> str:
+            """Returns a message explaining that a take profit has to be above the price of a long position and below the price of a short one."""
+            ...
+
     class RBIBrokerageModel(System.Object):
         """Provides user-facing messages for the Brokerages.RBIBrokerageModel class and its consumers or related classes"""
 

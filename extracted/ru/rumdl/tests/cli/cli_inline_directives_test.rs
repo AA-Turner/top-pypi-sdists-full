@@ -6,6 +6,8 @@
 //!   syntax, whatever whitespace follows `<!--`, and never rewrites one.
 //! - One whitespace class serves every comment helper.
 //! - A directive comment may span lines.
+//! - MD048 exempts a block whose opening fence is disabled: its closing fence
+//!   is neither reported nor rewritten.
 //!
 //! Each case has a control that must behave the other way: the same document
 //! without the directive, or a near-miss comment that is not one.
@@ -112,6 +114,101 @@ fn a_plain_paragraph_with_a_disabled_line_keeps_its_over_long_enabled_line() {
 fn control_a_disabled_first_line_still_drops_the_warning() {
     let doc = format!("<!-- rumdl-disable MD013 -->\n{ITEM}  iiii jjjj kkkk\n<!-- rumdl-enable MD013 -->\n");
     assert!(findings(MD013_NORMALIZE, "MD013", &doc).is_empty());
+}
+
+// ── default-mode reflow: one over-long line, one paragraph-wide fix ──────────
+//
+// Default mode reports each over-long line on its own, and every such warning
+// carries the fix for the whole paragraph. The fix is withheld when it would
+// rewrite a disabled line, whichever line the warning is reported on.
+
+const MD013_REFLOW: &str = "[global]\nenable = [\"MD013\"]\n[MD013]\nline-length = 30\nreflow = true\n";
+
+const LONG_A: &str = "aaaa bbbb cccc dddd eeee ffff gggg hhhh";
+const LONG_B: &str = "iiii jjjj kkkk llll mmmm nnnn oooo pppp";
+
+/// Paragraphs holding a disabled line beside an enabled over-long one, with the
+/// 1-indexed line the enabled one is on.
+fn paragraphs_with_a_disabled_line() -> Vec<(String, usize)> {
+    vec![
+        (
+            format!("<!-- rumdl-disable-next-line MD013 -->\n{LONG_A}\n{LONG_B}\n"),
+            3,
+        ),
+        (
+            format!("{LONG_A}\niiii jjjj kkkk <!-- rumdl-disable-line MD013 -->\n"),
+            1,
+        ),
+        (
+            format!("{LONG_A} <!-- markdownlint-disable-line MD013 -->\n{LONG_B}\n"),
+            2,
+        ),
+        (
+            format!("> {LONG_A}\n> iiii jjjj kkkk <!-- rumdl-disable-line MD013 -->\n"),
+            1,
+        ),
+        (format!("> {LONG_A} <!-- rumdl-disable-line MD013 -->\n> {LONG_B}\n"), 2),
+    ]
+}
+
+#[test]
+fn default_reflow_reports_the_enabled_line_of_a_paragraph_with_a_disabled_line_without_a_fix() {
+    for (doc, enabled_line) in paragraphs_with_a_disabled_line() {
+        assert_eq!(
+            findings(MD013_REFLOW, "MD013", &doc),
+            [(enabled_line, false)],
+            "the fix would rewrite a disabled line, so none is offered: {doc:?}"
+        );
+    }
+}
+
+#[test]
+fn default_reflow_leaves_a_paragraph_with_a_disabled_line_as_written() {
+    for (doc, _) in paragraphs_with_a_disabled_line() {
+        assert_eq!(fmt(MD013_REFLOW, &doc), doc, "{doc:?}");
+    }
+}
+
+#[test]
+fn default_reflow_still_rewraps_the_paragraph_after_one_with_a_disabled_line() {
+    let kept = format!("<!-- rumdl-disable-next-line MD013 -->\n{LONG_A}\n{LONG_B}\n");
+    let after = fmt(MD013_REFLOW, &format!("{kept}\n{LONG_A}\n"));
+    assert_eq!(after, format!("{kept}\naaaa bbbb cccc dddd eeee ffff\ngggg hhhh\n"));
+    assert_eq!(fmt(MD013_REFLOW, &after), after, "second pass changes nothing");
+}
+
+/// The fix covers whole lines up to, not including, the line after the
+/// paragraph: a disabled line on either side of it is no reason to withhold it.
+#[test]
+fn default_reflow_fixes_a_paragraph_beside_a_disabled_line_it_does_not_hold() {
+    let wrapped = "aaaa bbbb cccc dddd eeee ffff\ngggg hhhh";
+    let heading = "# iiii jjjj kkkk llll <!-- rumdl-disable-line MD013 -->";
+    for (doc, expected, paragraph_line) in [
+        // The disabled line starts where the fix ends.
+        (format!("{LONG_A}\n{heading}\n"), format!("{wrapped}\n{heading}\n"), 1),
+        (format!("{LONG_A}\n{heading}"), format!("{wrapped}\n{heading}"), 1),
+        // The disabled line ends where the fix starts.
+        (format!("{heading}\n{LONG_A}\n"), format!("{heading}\n{wrapped}\n"), 2),
+        (format!("{heading}\n{LONG_A}"), format!("{heading}\n{wrapped}"), 2),
+    ] {
+        assert_eq!(
+            findings(MD013_REFLOW, "MD013", &doc),
+            [(paragraph_line, true)],
+            "{doc:?}"
+        );
+        let after = fmt(MD013_REFLOW, &doc);
+        assert_eq!(after, expected, "{doc:?}");
+        assert_eq!(fmt(MD013_REFLOW, &after), after, "second pass: {doc:?}");
+    }
+}
+
+#[test]
+fn control_default_reflow_without_a_directive_offers_the_fix_and_rewraps() {
+    for doc in [format!("{LONG_A}\n{LONG_B}\n"), format!("> {LONG_A}\n> {LONG_B}\n")] {
+        let found = findings(MD013_REFLOW, "MD013", &doc);
+        assert!(found.iter().any(|&(_, fixable)| fixable), "{doc:?}: {found:?}");
+        assert_ne!(fmt(MD013_REFLOW, &doc), doc, "{doc:?}");
+    }
 }
 
 // ── 20, 21: MD044 and tool comments ─────────────────────────────────────────
@@ -358,4 +455,63 @@ fn prose_before_a_comment_in_a_blockquote_does_not_hide_the_quote_markers() {
 fn an_unclosed_configure_file_example_in_code_does_not_hide_the_directive_after_it() {
     let doc = format!("```\n<!-- rumdl-configure-file\n```\n\n<!--\nrumdl-disable MD013\n-->\n\n{LONG}\n");
     assert!(md013_lines(&doc).is_empty());
+}
+
+// ── MD048: a directive on the opening fence exempts the whole block ─────────
+//
+// MD048 reports the two fences of a block on their own lines, each with a fix
+// for that line alone. Only the opener can carry a directive, because nothing
+// between the fences is one, and a closing fence converted on its own no longer
+// closes its opener: the block then swallows the rest of the document.
+
+const MD048_BACKTICK: &str = "[global]\nenable = [\"MD048\"]\n[MD048]\nstyle = \"backtick\"\n";
+const TILDE_BLOCK: &str = "~~~markdown\n```rust\nfn main() {}\n```\n~~~\n\nAfter the block.\n";
+
+/// The tilde block with MD048 disabled on its opening fence, in each spelling.
+fn tilde_blocks_disabled_at_the_opening_fence() -> Vec<String> {
+    vec![
+        format!("<!-- rumdl-disable-next-line MD048 -->\n{TILDE_BLOCK}"),
+        format!("<!-- markdownlint-disable-next-line MD048 -->\n{TILDE_BLOCK}"),
+        format!("<!-- rumdl-disable-next-line -->\n{TILDE_BLOCK}"),
+        format!("<!-- rumdl-disable-next-line MD048 -->\n{TILDE_BLOCK}").replace('\n', "\r\n"),
+    ]
+}
+
+#[test]
+fn a_block_disabled_at_its_opening_fence_is_not_reported_at_its_closing_fence() {
+    for doc in tilde_blocks_disabled_at_the_opening_fence() {
+        assert!(findings(MD048_BACKTICK, "MD048", &doc).is_empty(), "{doc:?}");
+    }
+}
+
+#[test]
+fn a_block_disabled_at_its_opening_fence_keeps_its_closing_fence() {
+    for doc in tilde_blocks_disabled_at_the_opening_fence() {
+        assert_eq!(fmt(MD048_BACKTICK, &doc), doc);
+    }
+}
+
+#[test]
+fn the_default_rule_set_keeps_a_block_disabled_at_its_opening_fence_closed() {
+    let doc = format!("# Title\n\n```text\nfirst\n```\n\n<!-- rumdl-disable-next-line MD048 -->\n{TILDE_BLOCK}");
+    assert_eq!(fmt("", &doc), doc);
+}
+
+#[test]
+fn a_block_after_one_disabled_at_its_opening_fence_is_still_converted() {
+    let doc = format!("<!-- rumdl-disable-next-line MD048 -->\n{TILDE_BLOCK}\n~~~\nplain\n~~~\n");
+    assert_eq!(findings(MD048_BACKTICK, "MD048", &doc), [(10, true), (12, true)]);
+    assert_eq!(
+        fmt(MD048_BACKTICK, &doc),
+        format!("<!-- rumdl-disable-next-line MD048 -->\n{TILDE_BLOCK}\n```\nplain\n```\n")
+    );
+}
+
+#[test]
+fn control_without_the_directive_both_fences_are_reported_and_converted() {
+    assert_eq!(findings(MD048_BACKTICK, "MD048", TILDE_BLOCK), [(1, true), (5, true)]);
+    assert_eq!(
+        fmt(MD048_BACKTICK, TILDE_BLOCK),
+        "````markdown\n```rust\nfn main() {}\n```\n````\n\nAfter the block.\n"
+    );
 }

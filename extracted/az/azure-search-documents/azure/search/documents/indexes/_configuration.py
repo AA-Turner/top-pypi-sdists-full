@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long,useless-suppression
 # coding=utf-8
 # --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     from azure.core.credentials import TokenCredential
 
 
-class SearchIndexClientConfiguration:  # pylint: disable=too-many-instance-attributes
+class SearchIndexClientConfiguration:  # pylint: disable=too-many-instance-attributes,docstring-keyword-should-match-keyword-only
     """Configuration for SearchIndexClient.
 
     Note that all parameters used to create this instance are saved as instance
@@ -29,14 +30,14 @@ class SearchIndexClientConfiguration:  # pylint: disable=too-many-instance-attri
      credential type or a token credential type. Required.
     :type credential: ~azure.core.credentials.AzureKeyCredential or
      ~azure.core.credentials.TokenCredential
-    :keyword api_version: The API version to use for this operation. Known values are "2026-04-01".
-     Default value is "2026-04-01". Note that overriding this default value may result in
-     unsupported behavior.
+    :keyword api_version: The API version to use for this operation. Known values are "2026-10-01"
+     and None. Default value is None. If not set, the operation's default API version will be used.
+     Note that overriding this default value may result in unsupported behavior.
     :paramtype api_version: str
     """
 
     def __init__(self, endpoint: str, credential: Union[AzureKeyCredential, "TokenCredential"], **kwargs: Any) -> None:
-        api_version: str = kwargs.pop("api_version", "2026-04-01")
+        api_version: str = kwargs.pop("api_version", "2026-10-01")
 
         if endpoint is None:
             raise ValueError("Parameter 'endpoint' must not be None.")
@@ -72,7 +73,7 @@ class SearchIndexClientConfiguration:  # pylint: disable=too-many-instance-attri
             self.authentication_policy = self._infer_policy(**kwargs)
 
 
-class SearchIndexerClientConfiguration:  # pylint: disable=too-many-instance-attributes
+class SearchIndexerClientConfiguration:  # pylint: disable=too-many-instance-attributes,docstring-keyword-should-match-keyword-only
     """Configuration for SearchIndexerClient.
 
     Note that all parameters used to create this instance are saved as instance
@@ -84,14 +85,14 @@ class SearchIndexerClientConfiguration:  # pylint: disable=too-many-instance-att
      credential type or a token credential type. Required.
     :type credential: ~azure.core.credentials.AzureKeyCredential or
      ~azure.core.credentials.TokenCredential
-    :keyword api_version: The API version to use for this operation. Known values are "2026-04-01".
-     Default value is "2026-04-01". Note that overriding this default value may result in
-     unsupported behavior.
+    :keyword api_version: The API version to use for this operation. Known values are "2026-10-01"
+     and None. Default value is None. If not set, the operation's default API version will be used.
+     Note that overriding this default value may result in unsupported behavior.
     :paramtype api_version: str
     """
 
     def __init__(self, endpoint: str, credential: Union[AzureKeyCredential, "TokenCredential"], **kwargs: Any) -> None:
-        api_version: str = kwargs.pop("api_version", "2026-04-01")
+        api_version: str = kwargs.pop("api_version", "2026-10-01")
 
         if endpoint is None:
             raise ValueError("Parameter 'endpoint' must not be None.")

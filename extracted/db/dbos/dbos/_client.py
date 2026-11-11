@@ -11,14 +11,17 @@ from typing import (
     Generic,
     List,
     Optional,
+    Sequence,
     TypeVar,
     Union,
+    cast,
 )
 from zoneinfo import ZoneInfo
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+# Re-exported: EnqueueOptions is public as dbos.EnqueueOptions but is shared with _core.
 from dbos._core import (
     DEFAULT_POLLING_INTERVAL,
     read_stream,
@@ -26,8 +29,6 @@ from dbos._core import (
     read_stream_offset,
     read_stream_offset_async,
 )
-
-# Re-exported: EnqueueOptions is public as dbos.EnqueueOptions but is shared with _core.
 from dbos._enqueue_options import EnqueueOptions as EnqueueOptions
 from dbos._enqueue_options import build_enqueue_status
 from dbos._logger import dbos_logger
@@ -47,11 +48,19 @@ if TYPE_CHECKING:
 
 from croniter import croniter
 
+from dbos import _enterprise
 from dbos._dbos_config import is_valid_database_url
+from dbos._enterprise import ExternalStorage, ExternalStorageFactory
 from dbos._error import (
     DBOSException,
+    DBOSExternalStoreNotConfiguredError,
     DBOSNonExistentWorkflowError,
     DBOSQueueDeduplicatedError,
+)
+from dbos._external_storage import (
+    ExternalObjectRef,
+    ExternalStore,
+    check_external_stores,
 )
 from dbos._scheduler import backfill_schedule, schedule_shard_key, trigger_schedule
 from dbos._serialization import (
@@ -75,6 +84,7 @@ from dbos._sys_db import (
 from dbos._workflow_commands import fork_workflow, get_workflow, rewind_workflow
 
 R = TypeVar("R", covariant=True)  # A generic type for workflow return values
+T = TypeVar("T")
 
 
 class WorkflowHandleClientPolling(Generic[R]):
@@ -159,6 +169,7 @@ class DBOSClient:
         observability_query_timeout_sec: Optional[float] = None,
         sys_db_idle_transaction_timeout_sec: Optional[float] = None,
         sharding: bool = False,
+        external_stores: Optional[Sequence[ExternalStore]] = None,
     ):
         """Create a client for interacting with a DBOS application from outside it.
 
@@ -184,6 +195,7 @@ class DBOSClient:
             retry_connection_errors (bool): Whether an operation that loses its database connection blocks and retries until the connection recovers. Defaults to True. Set to False to raise instead, so an unreachable database surfaces as an error rather than a wait.
             observability_query_timeout_sec (float): Statement timeout, in seconds, for read-only observability queries against the system database. Defaults to 30.0.
             sys_db_idle_transaction_timeout_sec (float): Postgres idle_in_transaction_session_timeout, in seconds, for the system database connections this client creates. Defaults to 60.0. Set to a non-positive value to leave the server's setting in place. Not applied to a custom system_database_engine.
+            external_stores (List[ExternalStore]): The object stores for store_external_object and load_external_object, matching the application's. If there are multiple, store_external_object must specify one with store_id. Requires Transact Enterprise.
 
         Raises:
             Exception: If the system database cannot be reached, unless lazy is True.
@@ -205,6 +217,13 @@ class DBOSClient:
                     "A DBOSClient requires a system_database_url or a system_database_engine."
                 )
             assert is_valid_database_url(system_database_url)
+        stores = check_external_stores(external_stores)
+        # Loaded before any connection exists, so a missing package leaves nothing to clean up.
+        external_storage_factory: Optional[ExternalStorageFactory] = None
+        if stores:
+            external_storage_factory = _enterprise.load(
+                _enterprise.EXTERNAL_STORAGE.description
+            ).ExternalStorage
         # We only create database connections but do not run migrations
         self._sys_db = SystemDatabase.create(
             system_database_url=system_database_url,
@@ -231,6 +250,11 @@ class DBOSClient:
             idle_transaction_timeout_sec=sys_db_idle_transaction_timeout_sec,
             sharding=sharding,
         )
+        self._external_storage_field: Optional[ExternalStorage] = None
+        if external_storage_factory is not None:
+            self._external_storage_field = external_storage_factory(
+                self._sys_db, stores=stores, serializer=serializer
+            )
         self._notification_listener_thread: Optional[threading.Thread] = None
         if not lazy:
             self._sys_db.check_connection()
@@ -639,6 +663,63 @@ class DBOSClient:
                 workflow_ids, polling_interval_sec
             )
         return handle_map[completed_id]
+
+    def _external_storage(self) -> ExternalStorage:
+        if self._external_storage_field is None:
+            raise DBOSExternalStoreNotConfiguredError(None, [])
+        return self._external_storage_field
+
+    def store_external_object(
+        self,
+        value: T,
+        *,
+        owner_workflow_id: str,
+        serialization_type: Optional[
+            WorkflowSerializationFormat
+        ] = WorkflowSerializationFormat.DEFAULT,
+        key: Optional[str] = None,
+        shard_key: Optional[str] = None,
+        store_id: Optional[str] = None,
+    ) -> ExternalObjectRef[T]:
+        """Upload a value to an external store (if there are multiple, specify one with store_id) and return a ref to it. A bytes value is stored as is, without serialization, which is fastest for large objects."""
+        with bind_shard_keys({owner_workflow_id: shard_key}):
+            return self._external_storage().store(
+                value,
+                owner_workflow_id=owner_workflow_id,
+                serialization_type=serialization_type,
+                key=key,
+                store_id=store_id,
+            )
+
+    async def store_external_object_async(
+        self,
+        value: T,
+        *,
+        owner_workflow_id: str,
+        serialization_type: Optional[
+            WorkflowSerializationFormat
+        ] = WorkflowSerializationFormat.DEFAULT,
+        key: Optional[str] = None,
+        shard_key: Optional[str] = None,
+        store_id: Optional[str] = None,
+    ) -> ExternalObjectRef[T]:
+        """Upload a value to an external store (if there are multiple, specify one with store_id) and return a ref to it. A bytes value is stored as is, without serialization, which is fastest for large objects."""
+        with bind_shard_keys({owner_workflow_id: shard_key}):
+            return await self._external_storage().store_async(
+                value,
+                owner_workflow_id=owner_workflow_id,
+                serialization_type=serialization_type,
+                key=key,
+                store_id=store_id,
+            )
+
+    def load_external_object(self, ref: ExternalObjectRef[T]) -> T:
+        """Load the value an external object ref points to."""
+        return cast(T, self._external_storage().get(ref))
+
+    async def load_external_object_async(self, ref: ExternalObjectRef[T]) -> T:
+        """Load the value an external object ref points to."""
+        return cast(T, await self._external_storage().get_async(ref))
 
     def send(
         self,
@@ -1825,7 +1906,8 @@ class DBOSClient:
                 )
             )
         with self._sys_db.engine.begin() as c:
-            for sched in to_apply:
+            # Sorted, so concurrent writers lock schedule rows in one order.
+            for sched in sorted(to_apply, key=lambda s: s["schedule_name"]):
                 self._sys_db.upsert_schedule(sched, conn=c)
 
     async def apply_schedules_async(

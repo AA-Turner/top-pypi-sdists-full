@@ -32,6 +32,7 @@ import typing
 from urwid.util import is_mouse_press
 
 from .constants import BOX_SYMBOLS, SHADE_SYMBOLS, MouseButton, Sizing
+from .listbox import ListBox
 from .widget import AbstractBoxWidget, AbstractWidget
 from .widget_decoration import WidgetDecoration, WidgetError
 
@@ -42,7 +43,6 @@ if typing.TYPE_CHECKING:
     from urwid import Canvas, CompositeCanvas
 
     from .container import WidgetContainerListContentsMixin
-    from .listbox import ListBox
     from .widget import AbstractFixedWidget, AbstractFlowWidget
 
 
@@ -97,6 +97,58 @@ class ScrollbarSymbols(enum.StrEnum):
     - ASCII: :attr:`ARROW_ASCII_UP` and :attr:`ARROW_ASCII_DOWN`.
     - DEC special graphics: :attr:`MEDIUM_SHADE`, :attr:`DRAWING_LIGHT`, :attr:`BLACK_VERTICAL_RECTANGLE`
       and :attr:`MIDDLE_DOT`.
+
+    .. note::
+        The default terminal fonts of GNOME, KDE Plasma and Xfce on Ubuntu, Fedora and Arch,
+        and of Windows Terminal, show every member.
+        The default fonts of the Linux virtual console are:
+
+        - Ubuntu: Fixed 8x16.
+        - Fedora and openSUSE: eurlatgr.
+        - Arch: the built-in 8x16 font of the kernel.
+
+        The default fonts of the Linux virtual console and of the classic Windows console
+        show these non-ASCII members:
+
+        =============================  ======  ======  ======  ====  =======
+        Member                         Symbol  Ubuntu  Fedora  Arch  Windows
+        =============================  ======  ======  ======  ====  =======
+        ``FULL_BLOCK``                 █       yes     yes     yes   yes
+        ``DARK_SHADE``                 ▓       no      yes     yes   yes
+        ``MEDIUM_SHADE``               ▒       yes     yes     yes   yes
+        ``LITE_SHADE``                 ░       yes     yes     yes   yes
+        ``DRAWING_LIGHT``              │       yes     yes     yes   yes
+        ``DRAWING_LIGHT_2_DASH``       ╎       yes     no      no    no
+        ``DRAWING_LIGHT_3_DASH``       ┆       yes     no      no    no
+        ``DRAWING_LIGHT_4_DASH``       ┊       yes     no      no    no
+        ``DRAWING_HEAVY``              ┃       yes     yes     no    no
+        ``DRAWING_HEAVY_2_DASH``       ╏       yes     no      no    no
+        ``DRAWING_HEAVY_3_DASH``       ┇       yes     no      no    no
+        ``DRAWING_HEAVY_4_DASH``       ┋       yes     no      no    no
+        ``DRAWING_DOUBLE``             ║       yes     yes     yes   yes
+        ``BLACK_VERTICAL_RECTANGLE``   ▮       yes     no      no    no
+        ``MIDDLE_DOT``                 ·       yes     yes     yes   yes
+        ``WHITE_VERTICAL_RECTANGLE``   ▯       no      no      no    no
+        ``BLACK_SQUARE``               ■       yes     yes     yes   yes
+        ``WHITE_SQUARE``               □       no      no      no    yes
+        ``BULLET``                     •       yes     yes     yes   yes
+        ``BLACK_CIRCLE``               ●       yes     yes     no    yes
+        ``WHITE_CIRCLE``               ○       no      no      yes   yes
+        ``ARROW_TRIANGLE_UP``          ▲       yes     no      yes   yes
+        ``ARROW_TRIANGLE_DOWN``        ▼       yes     no      yes   yes
+        ``ARROW_SMALL_TRIANGLE_UP``    ▴       yes     no      no    no
+        ``ARROW_SMALL_TRIANGLE_DOWN``  ▾       yes     no      no    no
+        ``ARROW_WHITE_TRIANGLE_UP``    △       no      no      no    no
+        ``ARROW_WHITE_TRIANGLE_DOWN``  ▽       no      no      no    no
+        ``ARROW_UP``                   ↑       yes     yes     yes   yes
+        ``ARROW_DOWN``                 ↓       yes     yes     yes   yes
+        ``ARROW_HEAVY_UP``             ⬆       no      no      no    no
+        ``ARROW_HEAVY_DOWN``           ⬇       no      no      no    no
+        ``ARROW_MODIFIER_UP``          U+02C4  no      no      no    no
+        ``ARROW_MODIFIER_DOWN``        U+02C5  no      no      no    no
+        =============================  ======  ======  ======  ====  =======
+
+        A member marked ``no`` needs a console font with wider coverage.
     """
 
     FULL_BLOCK = SHADE_SYMBOLS.FULL_BLOCK
@@ -118,6 +170,12 @@ class ScrollbarSymbols(enum.StrEnum):
 
     BLACK_VERTICAL_RECTANGLE = "▮"
     MIDDLE_DOT = "·"
+    WHITE_VERTICAL_RECTANGLE = "▯"
+    BLACK_SQUARE = "■"
+    WHITE_SQUARE = "□"
+    BULLET = "•"
+    BLACK_CIRCLE = "●"
+    WHITE_CIRCLE = "○"
 
     ARROW_TRIANGLE_UP = "▲"
     ARROW_TRIANGLE_DOWN = "▼"
@@ -127,6 +185,10 @@ class ScrollbarSymbols(enum.StrEnum):
     ARROW_WHITE_TRIANGLE_DOWN = "▽"
     ARROW_UP = "↑"
     ARROW_DOWN = "↓"
+    ARROW_HEAVY_UP = "⬆"
+    ARROW_HEAVY_DOWN = "⬇"
+    ARROW_MODIFIER_UP = "˄"  # noqa: RUF001
+    ARROW_MODIFIER_DOWN = "˅"
     ARROW_ASCII_UP = "^"
     ARROW_ASCII_DOWN = "v"
 
@@ -589,12 +651,26 @@ def _pos_at_thumb_top(row: int, posmax: int, thumb_travel: int) -> int:
 
 
 class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
-    """Box widget decoration that adds a scrollbar alongside a scrollable wrapped widget."""
+    """Widget decoration that adds a scrollbar alongside a scrollable wrapped widget."""
 
     Symbols: typing.ClassVar[type[ScrollbarSymbols]] = ScrollbarSymbols
 
     def sizing(self) -> frozenset[Sizing]:
-        """Return that this widget is always a box widget."""
+        """Return BOX, and FLOW as well for a wrapped :class:`ListBox` with :attr:`ListBox.flow` set.
+
+        The ListBox may be wrapped in decorations such as :class:`AttrMap`, as long as they report FLOW too.
+        """
+        # Only the opt-in of the ListBox counts: a wrapped widget that reports FLOW on its own is laid out as BOX.
+        # The flag is tested by truth, as ListBox.sizing() tests it.
+        # Containers call sizing() on every layout, so a box-only wrapped widget is answered before any walk,
+        # and the walk tests a class rather than the SupportsScroll protocol, which is slow for a widget it misses.
+        ow = self._original_widget
+        if Sizing.FLOW not in ow.sizing():
+            return frozenset((Sizing.BOX,))
+
+        lbox = next((w for w in orig_iter(ow) if isinstance(w, ListBox)), None)
+        if lbox is not None and lbox.flow:
+            return frozenset((Sizing.BOX, Sizing.FLOW))
         return frozenset((Sizing.BOX,))
 
     def rows(self, size: tuple[int], focus: bool = False) -> int:
@@ -647,13 +723,14 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
         thumb_focus_attr: Hashable = None,
         marker_dim_attr: Hashable = None,
     ) -> None:
-        """Box widget that adds a scrollbar to `widget`.
+        """Create a widget that adds a scrollbar to `widget`.
 
         :param widget: box widget that has, or wraps a widget that has, the following methods:
 
             - `get_scrollpos` takes the arguments `size` and `focus` and returns the index of the first visible row.
             - `set_scrollpos` (optional, on the same widget as `get_scrollpos`; needed for mouse click and drag
               support on the scrollbar) takes the index of the first visible row.
+              The scrollbar does not use :meth:`ListBox.set_scrollpos`; see *scroll_by_focus* instead.
             - `rows_max` takes `size` and `focus` and returns the total number of rows `widget` can render.
         :param thumb_char: character used for the scrollbar handle.
         :param trough_char: character used for the space above and below the handle.
@@ -662,8 +739,8 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
         :param visible: when the scrollbar is drawn: ``None`` draws it only when `widget` needs scrolling,
             ``True`` always, so the wrapped widget always gets the same width,
             and ``False`` never, so the wrapped widget gets the full width and is still scrolled by keys and wheel.
-        :param scroll_by_focus: let a click or drag on the scrollbar scroll a :class:`ListBox`,
-            which has no `set_scrollpos`, by moving its focus to the widget at the top of the new view.
+        :param scroll_by_focus: let a click or drag on the scrollbar scroll a :class:`ListBox`
+            by moving its focus to the widget at the top of the new view.
             The focus then changes without passing through the ListBox ``keypress`` or ``mouse_event``,
             so this is off by default for code that tracks the focus there.
         :param delegate_selectable: take the input focus only when `widget` is selectable;
@@ -747,8 +824,6 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
         """
         if self._visible is False:
             return None
-
-        from .listbox import ListBox
 
         maxcol, maxrow = size
 
@@ -1010,9 +1085,10 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
         So does its release on displays that report the button of a release, such as curses, which send no drags.
         A press of button 1 on an end marker scrolls one step towards that end, as the mouse wheel does,
         and the drag and release that follow it do nothing.
-        Events in the wrapped widget's columns go to it. On the scrollbar, the vertical mouse wheel of a widget
-        without `set_scrollpos` (such as :class:`ListBox`) is passed on, together with the drags and releases
-        described below; other events there are not.
+        Events in the wrapped widget's columns go to it.
+        On the scrollbar, the vertical mouse wheel of a widget the scrollbar does not scroll through `set_scrollpos`
+        (such as :class:`ListBox`) is passed on, together with the drags and releases described below;
+        other events there are not.
 
         A drag or release goes where its press went: a drag started on the scrollbar keeps moving the thumb
         over the wrapped widget's columns, and a drag started on the wrapped widget stays with it over the scrollbar.
@@ -1026,7 +1102,7 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
         ow = self._original_widget
         ow_base = self._find_scrolling_base()
         ow_size = self._original_widget_size
-        supports_scroll = hasattr(ow_base, "set_scrollpos")
+        supports_scroll = _scrolls_by_scrollpos(ow_base)
         on_scrollbar = False
         ow_col = col
 
@@ -1068,7 +1144,7 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
                 button = (MouseButton.WHEEL_UP if step < 0 else MouseButton.WHEEL_DOWN).value
 
             if on_scrollbar and not supports_scroll and button in {MouseButton.WHEEL_UP, MouseButton.WHEEL_DOWN}:
-                # A widget without set_scrollpos (such as ListBox) scrolls itself on the wheel.
+                # A widget not scrolled through set_scrollpos (such as ListBox) scrolls itself on the wheel.
                 # A column past its right edge reaches no child, so the list scrolls even when the
                 # child on that row would handle the wheel itself.
                 on_scrollbar = False
@@ -1096,13 +1172,11 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
 
     def _move_thumb(self, layout: _ScrollbarLayout, row: int, focus: bool) -> bool:
         """Scroll so the thumb top is at *row*, and return whether the wrapped widget could be scrolled."""
-        from .listbox import ListBox
-
         newpos = _pos_at_thumb_top(row - layout.trough_top, layout.posmax, layout.trough_height - layout.thumb_height)
 
         ow_base = self.scrolling_base_widget
-        if hasattr(ow_base, "set_scrollpos"):
-            ow_base.set_scrollpos(newpos)
+        if _scrolls_by_scrollpos(ow_base):
+            ow_base.set_scrollpos(newpos)  # type: ignore[attr-defined]  # gated
             return True
 
         if self._scroll_by_focus and isinstance(ow_base, ListBox):
@@ -1110,6 +1184,17 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
             return True
 
         return False
+
+
+def _scrolls_by_scrollpos(widget: SupportsScroll | None) -> bool:
+    """Return whether the scrollbar scrolls *widget* through its `set_scrollpos`.
+
+    :meth:`ListBox.set_scrollpos` is left out, so the scrollbar keeps scrolling a :class:`ListBox` by its focus.
+    A subclass that defines its own `set_scrollpos` is scrolled through it.
+    """
+    return (
+        hasattr(widget, "set_scrollpos") and getattr(type(widget), "set_scrollpos", None) is not ListBox.set_scrollpos
+    )
 
 
 def _listbox_ends_visible(listbox: ListBox[typing.Any], size: tuple[int, int], focus: bool) -> tuple[bool, bool]:

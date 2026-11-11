@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from docutils import nodes
 
-from myst_parser.parsers.parse_html import Data, tokenize_html
+from myst_parser.parsers.parse_html import Data, Element, tokenize_html
 from myst_parser.warnings_ import MystWarnings
 
 if TYPE_CHECKING:
@@ -81,6 +81,30 @@ def html_to_nodes(
     ):
         return default_html(text, renderer.document["source"], line_number)
 
+    try:
+        return _html_ast_to_nodes(root, line_number, renderer)
+    except RecursionError:
+        msg_node = renderer.create_warning(
+            "HTML is too deeply nested to process",
+            MystWarnings.HTML_PARSE,
+            line=line_number,
+        )
+        return ([msg_node] if msg_node else []) + default_html(
+            text, renderer.document["source"], line_number
+        )
+
+
+def _html_ast_to_nodes(
+    root: Element, line_number: int, renderer: DocutilsRenderer
+) -> list[nodes.Element]:
+    """Convert the parsed HTML AST to docutils nodes,
+    by running the equivalent ``image``/``admonition`` directives.
+
+    Recursion depth scales with the HTML nesting depth
+    (via ``Element.render``/``Element.strip`` and the nested parse of
+    directive content, which can re-enter ``html_to_nodes``),
+    so callers must guard against ``RecursionError``.
+    """
     nodes_list = []
     for child in root:
         if child.name == "img":
@@ -90,14 +114,23 @@ def html_to_nodes(
                         "<img> missing 'src' attribute", line=line_number
                     )
                 ]
-            content = "\n".join(
-                f":{k}: {v}"
+            # A valueless attribute (``<img width>``) has the value None,
+            # which the directive's option converter rejects with a warning.
+            image_options = {
+                k: v.strip() if k in {"width", "height"} and v is not None else v
                 for k, v in sorted(child.attrs.items())
                 if k in OPTION_KEYS_IMAGE
-            )
+            }
             nodes_list.extend(
                 renderer.run_directive(
-                    "image", child.attrs["src"], content, line_number
+                    "image",
+                    child.attrs["src"],
+                    "",
+                    line_number,
+                    additional_options=image_options,
+                    # becomes the image node's rawsource: Sphinx drops the
+                    # source line of an image whose rawsource and alt are empty
+                    block_text=str(child),
                 )
             )
 

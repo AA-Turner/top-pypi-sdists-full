@@ -295,6 +295,10 @@ class ApiImplType1(ApiImpl):
             vehicle.last_updated_at = parse_datetime(
                 get_child_value(state, "status.time"), self.data_timezone
             )
+        elif get_child_value(state, "vehicleLocation.time"):
+            vehicle.last_updated_at = parse_datetime(
+                get_child_value(state, "vehicleLocation.time"), self.data_timezone
+            )
         else:
             vehicle.last_updated_at = dt.datetime.now(self.data_timezone)
 
@@ -670,6 +674,16 @@ class ApiImplType1(ApiImpl):
             date = parse_datetime(get_child_value(state, "Date"), dt.UTC)
             vehicle.last_updated_at = (
                 date.astimezone(self.data_timezone) if date else None
+            )
+        elif get_child_value(state, "Location.TimeStamp.Year"):
+            vehicle.last_updated_at = dt.datetime(
+                year=int(get_child_value(state, "Location.TimeStamp.Year")),
+                month=int(get_child_value(state, "Location.TimeStamp.Mon")),
+                day=int(get_child_value(state, "Location.TimeStamp.Day")),
+                hour=int(get_child_value(state, "Location.TimeStamp.Hour")),
+                minute=int(get_child_value(state, "Location.TimeStamp.Min")),
+                second=int(get_child_value(state, "Location.TimeStamp.Sec")),
+                tzinfo=self.data_timezone,
             )
         else:
             vehicle.last_updated_at = dt.datetime.now(self.data_timezone)
@@ -1069,12 +1083,18 @@ class ApiImplType1(ApiImpl):
                     DOMAIN,
                     lock_raw,
                 )
-        vehicle.ev_battery_is_plugged_in = (
-            True
-            if vehicle.ev_connector_fastening_state
-            is CONNECTOR_FASTENING_STATE.CONNECTED
-            else None
-        )
+        if vehicle.ev_connector_fastening_state is CONNECTOR_FASTENING_STATE.CONNECTED:
+            vehicle.ev_battery_is_plugged_in = True
+        elif (
+            vehicle.ev_connector_fastening_state
+            is CONNECTOR_FASTENING_STATE.DISCONNECTED
+            and vehicle.ev_connector_lock_state is CHARGING_CONNECTOR_LOCK_STATE.IDLE
+        ):
+            # Fastening 0 means the cable is out only when the connector
+            # lock reports idle; locked-idle plugs read 0 too (#2099).
+            vehicle.ev_battery_is_plugged_in = False
+        else:
+            vehicle.ev_battery_is_plugged_in = None
         charging_door_state = get_child_value(state, "Green.ChargingDoor.State")
         if charging_door_state in [0, 2]:
             vehicle.ev_charge_port_door_is_open = False
@@ -1380,7 +1400,14 @@ class ApiImplType1(ApiImpl):
         vehicle.smart_key_battery_warning_is_on = bool(
             get_child_value(state, "Electronics.FOB.LowBattery")
         )
-        if vehicle._ev_estimated_current_charge_duration is not None:
+        # Charging.State 0 or a disconnected connector block a stale
+        # RemainTime (kia_uvo #2094).
+        if get_child_value(state, "Green.ChargingInformation.Charging.State") == 0 or (
+            get_child_value(state, "Green.ChargingInformation.ConnectorFastening.State")
+            == 0
+        ):
+            vehicle.ev_battery_is_charging = False
+        elif vehicle._ev_estimated_current_charge_duration is not None:
             if vehicle._ev_estimated_current_charge_duration == 0:
                 vehicle.ev_battery_is_charging = False
             elif vehicle._ev_estimated_current_charge_duration > 0:
@@ -1898,7 +1925,7 @@ class ApiImplType1(ApiImpl):
                 self.temperature_range.index(options.set_temp)
             )
 
-            payload = {
+            payload: dict[str, Any] = {
                 "action": "start",
                 "hvacType": 0,
                 "options": {
@@ -1909,6 +1936,25 @@ class ApiImplType1(ApiImpl):
                 "tempCode": hex_set_temp,
                 "unit": "C",
             }
+            # The legacy options block also carries the per-seat and wheel
+            # levels (*SeatOptCmd / wheelHeating) when passed; the app sends
+            # them beside heating1 on the same endpoint. kia_uvo #1570.
+            options_map: dict[str, Any] = payload["options"]
+            if options.steering_wheel is not None:
+                options_map["wheelHeating"] = options.steering_wheel
+            if options.side_rear_mirror_heating is not None:
+                options_map["sideRearMirrorHeating"] = options.side_rear_mirror_heating
+            seat_cmds = {}
+            for seat, level in (
+                ("drvSeatOptCmd", options.front_left_seat),
+                ("astSeatOptCmd", options.front_right_seat),
+                ("rlSeatOptCmd", options.rear_left_seat),
+                ("rrSeatOptCmd", options.rear_right_seat),
+            ):
+                if level is not None:
+                    seat_cmds[seat] = level
+            if seat_cmds:
+                options_map["seatHeaterVentCMD"] = seat_cmds
             _LOGGER.debug(f"{DOMAIN} - Start Climate Action Request: {payload}")
             response = self.session.post(
                 url,

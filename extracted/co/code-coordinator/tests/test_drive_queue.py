@@ -81,6 +81,7 @@ from coord.models import (
     MERGE_LANDED_MARKER,
     NEEDS_DECOMPOSITION_MARKER,
     PREMISE_REFUSAL_MARKER,
+    UPSTREAM_GAP_PARK_MARKER,
 )
 
 REPO = "claude-coordinator"
@@ -4819,6 +4820,54 @@ def test_a_needs_decomposition_leg_and_a_premise_refusal_are_never_conflated():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# #3977: an upstream-gap park — `coord.upstream_gaps._park_queue_row` writes
+# `UPSTREAM_GAP_PARK_MARKER` into a downstream row's `last_reason` directly
+# (never through `coord.drive.decide`'s `exit_reasons`/`own_reason` path the
+# three parks above go through, since this one fires from a coordinator-side
+# gap check, not a worker leg's own exit), when a symbol the worker named
+# turned out to be on the upstream default branch already — unreleased, not
+# missing — or a dedup match closed too recently to trust a re-file. Same
+# "no external verdict to poll for" posture as a policy/premise refusal or a
+# needs-decomposition park: nothing on the board signals a release landing
+# or a coordinator's confirmation, so this must never auto-resume either.
+# ═══════════════════════════════════════════════════════════════════════════
+
+UPSTREAM_GAP_PARK_REASON = (
+    "blocked on upstream quadraui release: `RowAlign` (layout.rs:1) already "
+    f"on quadraui@main, unreleased {UPSTREAM_GAP_PARK_MARKER}"
+)
+
+
+def test_a_parked_upstream_gap_does_not_auto_resume_next_tick():
+    """Without the #3977 pre-pass check this reads exactly like a cleared
+    CI park (this row was never in the merge queue) and would flip back to
+    `waiting` with `attempts` reset, relaunching a worker straight into
+    re-emitting the identical marker every tick — the park/relaunch bounce
+    #2234's own comment (the sibling check right above this one in
+    production code) exists to prevent, replayed here for a park written
+    outside `coord/drive_queue.py` entirely."""
+    entries = [
+        entry(2114, position=3, state="parked", attempts=0,
+              last_reason=UPSTREAM_GAP_PARK_REASON)
+    ]
+    plan = plan_tick(entries, board(), capacity=1)
+    assert plan.reconciles == ()  # left alone — still parked
+    assert plan.launch is None
+
+
+def test_a_parked_upstream_gap_still_reconciles_to_done_if_it_lands_by_hand():
+    """A human confirming the release landed and merging out of band must
+    not leave the entry parked forever — the #2055 landed-check still
+    applies on top of #3977, same as every other park shape."""
+    entries = [entry(2114, position=3, state="parked", attempts=0,
+                      last_reason=UPSTREAM_GAP_PARK_REASON)]
+    plan = plan_tick(entries, board(merged=(2114,)), capacity=1)
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "done"
+    assert reconcile.updates["state"] == STATE_DONE
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # #3931 item 4: an `after=` pre-req parked `refused_premise` on the
 # "already implemented" finding satisfies its dependent immediately.
 #
@@ -7681,6 +7730,87 @@ def test_a_genuine_death_still_retries_and_exhausts_with_no_refused_flag():
     plan = plan_tick(entries, board(), capacity=1)
     assert plan.reconciles[0].outcome == "exhausted"
     assert plan.blocked[0].updates["attempts"] == DEFAULT_MAX_ATTEMPTS
+
+
+# ── plan_tick: a size-triage-pending refusal parks, not blocks (#3971) ───────
+#
+# quadraui#2304 (2026-11-10 UTC): `coord.dispatch.enforce_preflight_guard`'s
+# "a size-triage review is running — retry once it posts its verdict"
+# refusal reaches `coord drive`'s subprocess boundary with the SAME
+# `EXIT_DISPATCH_REFUSED` code every OTHER `DispatchRefused` carries (#1844)
+# — but unlike those, it is TEMPORARY: the condition clears the moment the
+# triage leg posts a verdict, no operator action needed. Before this, it
+# fell into the generic `exit_refused` → `blocked` branch and stayed blocked
+# forever, cascading `blocked` onto every `after=` dependent, even after the
+# triage leg returned `proceed` three minutes later.
+
+TRIAGE_PENDING_REFUSAL = (
+    "drive exited for claude-coordinator#2304 (exit_code=5): dispatch "
+    "failed: issue #2304 flagged by the preflight size scorer (score "
+    "4/4): 3 file(s) declared. A size-triage review is running on "
+    "'dell64' (review_target='size-triage-2304') — retry once it posts "
+    "its verdict. [size-triage-pending]"
+)
+
+
+def test_a_size_triage_pending_refusal_parks_with_attempts_unspent():
+    """The acceptance bar: NOT `blocked` — `parked`, same "no attempt
+    spent" contract #1844's `refused` branch gives a genuinely permanent
+    guard refusal, but recoverable without queue surgery."""
+    entries = [entry(2304, position=3, state=STATE_RUNNING, attempts=0)]
+    plan = plan_tick(
+        entries, board(), capacity=1,
+        exit_reasons={entry_key(REPO, 2304): TRIAGE_PENDING_REFUSAL},
+        exit_refused={entry_key(REPO, 2304): True},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "parked"
+    assert reconcile.occupies is False
+    assert reconcile.updates["state"] == STATE_PARKED
+    assert "attempts" not in reconcile.updates
+    assert plan.blocked == ()
+    assert TRIAGE_PENDING_REFUSAL in reconcile.reason
+
+
+def test_a_parked_triage_pending_entry_stays_parked_while_still_in_flight():
+    """`size_triage_pending` defaults every unresolved entry to "still
+    waiting" (fail closed) — the same posture `_fetch_gate_a_pending` takes
+    for an unreadable verdict."""
+    entries = [
+        entry(
+            2304, position=3, state=STATE_PARKED, attempts=0,
+            last_reason=TRIAGE_PENDING_REFUSAL,
+        )
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=1,
+        size_triage_pending={entry_key(REPO, 2304): True},
+    )
+    assert plan.reconciles == ()
+    assert plan.launch is None
+
+
+def test_a_parked_triage_pending_entry_resumes_once_the_verdict_posts():
+    """Once the shell confirms the matching `review_target` assignment went
+    terminal, the entry resumes to `waiting` — with `attempts` reset to 0
+    (#2273's convention for every positive-evidence resume) — so the next
+    real `coord assign`/`coord fix`/`coord approve-plan` dispatch runs
+    `enforce_preflight_guard` again and consumes whatever verdict actually
+    posted (PROCEED falls through to Work; SPLIT supersedes the entry)."""
+    entries = [
+        entry(
+            2304, position=3, state=STATE_PARKED, attempts=2,
+            last_reason=TRIAGE_PENDING_REFUSAL,
+        )
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=1,
+        size_triage_pending={entry_key(REPO, 2304): False},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "resumed"
+    assert reconcile.updates["state"] == STATE_WAITING
+    assert reconcile.updates["attempts"] == 0
 
 
 # ── plan_tick: a dead-end exit blocks the entry (#2019) ──────────────────────

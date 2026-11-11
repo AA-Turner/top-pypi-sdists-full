@@ -28,6 +28,7 @@ __all__ = (
     "ComputeNodeGroupStatusType",
     "EndpointTypeType",
     "ExecutionPolicyType",
+    "LaunchTemplateModeType",
     "ListClustersPaginatorName",
     "ListComputeNodeGroupsPaginatorName",
     "ListQueuesPaginatorName",
@@ -75,6 +76,7 @@ ComputeNodeGroupStatusType = Literal[
 ]
 EndpointTypeType = Literal["SLURMCTLD", "SLURMDBD", "SLURMRESTD"]
 ExecutionPolicyType = Literal["EVERY_BOOT", "FIRST_BOOT_ONLY"]
+LaunchTemplateModeType = Literal["CUSTOM", "MANAGED"]
 ListClustersPaginatorName = Literal["list_clusters"]
 ListComputeNodeGroupsPaginatorName = Literal["list_compute_node_groups"]
 ListQueuesPaginatorName = Literal["list_queues"]
@@ -107,6 +109,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -211,6 +214,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -262,8 +266,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -517,7 +519,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

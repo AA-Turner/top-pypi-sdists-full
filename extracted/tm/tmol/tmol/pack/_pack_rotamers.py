@@ -6,20 +6,23 @@ import time
 import attr
 import torch
 
-from tmol.pose import PoseStack, PoseStackBuilder
-from tmol.score import ScoreFunction
+from tmol.pose._pose_stack import PoseStack
+from tmol.pose._pose_stack_builder import PoseStackBuilder
+from tmol.score._score_function import ScoreFunction
 
-from tmol.pack import (
-    PackerTask,
-    SetPackerTask,
-    PackerEnergyTables,
-    run_simulated_annealing,
-    impose_top_rotamer_assignments,
+from tmol.pack._packer_task import PackerTask, SetPackerTask
+from tmol.pack._datatypes import PackerEnergyTables
+from tmol.pack._simulated_annealing import (
+    DEFAULT_ANNEAL_TRAJECTORIES,
+    _run_simulated_annealing,
 )
-from tmol.pack._impose_rotamers import chosen_rotamer_for_block
-from tmol.pack.rotamer import build_rotamers
-from tmol.utility._device import synchronize_device
-from tmol.pack.rotamer._conjugated_groups import write_group_members
+from tmol.pack._impose_rotamers import (
+    _impose_top_rotamer_assignments,
+    _chosen_rotamer_for_block,
+)
+from tmol.pack.rotamer._build_rotamers import build_rotamers
+from tmol.utility._device import _synchronize_device
+from tmol.pack.rotamer._conjugated_groups import _write_group_members
 
 
 def pack_rotamers(
@@ -28,6 +31,8 @@ def pack_rotamers(
     task: PackerTask,
     verbose: bool = False,
     seed: int | None = None,
+    anneal_device: torch.device | str | None = None,
+    n_anneal_trajectories: int = DEFAULT_ANNEAL_TRAJECTORIES,
 ) -> PoseStack:
     """Optimize side-chain conformers for a pose stack.
 
@@ -40,6 +45,17 @@ def pack_rotamers(
         task: Allowed block types, conformers, and packing positions.
         verbose: Print synchronized stage timings when true.
         seed: Seed for this call only, leaving torch's global random state unchanged.
+        anneal_device: Run annealing on this device instead of the pose
+            stack's. Simulated annealing reads the interaction graph and
+            writes rotamer indices, so it can run anywhere the tables can be
+            put; on Apple silicon the tables cost almost nothing to move
+            (9 ms for 174 MB of unified memory) and the Metal annealer
+            searches both faster and far better than the host one. Left
+            unset, host poses anneal on Metal when it is available, unless
+            ``TMOL_MPS_OFFLOAD=0``.
+        n_anneal_trajectories: High-temperature annealing trajectories per
+            pose; at least 4. The single-trajectory CPU annealer, used below
+            8 threads, ignores it.
 
     Returns:
         A new pose stack containing the lowest-ranked assignment per pose.
@@ -51,7 +67,14 @@ def pack_rotamers(
             if cuda:
                 with torch.cuda.device(pose_stack.device):
                     torch.cuda.manual_seed(seed)
-            return pack_rotamers(pose_stack, sfxn, task, verbose=verbose)
+            return pack_rotamers(
+                pose_stack,
+                sfxn,
+                task,
+                verbose=verbose,
+                anneal_device=anneal_device,
+                n_anneal_trajectories=n_anneal_trajectories,
+            )
 
     max_poses_per_chunk = _max_poses_per_packing_chunk(pose_stack)
     if pose_stack.n_poses > max_poses_per_chunk:
@@ -63,7 +86,12 @@ def pack_rotamers(
             )
             chunk_task = _slice_packer_task(task, first_pose, last_pose)
             packed_chunk = pack_rotamers(
-                chunk_pose_stack, sfxn, chunk_task, verbose=verbose
+                chunk_pose_stack,
+                sfxn,
+                chunk_task,
+                verbose=verbose,
+                anneal_device=anneal_device,
+                n_anneal_trajectories=n_anneal_trajectories,
             )
             packed_chunks.append(packed_chunk)
         combined_pose_stack = PoseStackBuilder.from_poses(
@@ -72,7 +100,7 @@ def pack_rotamers(
         return combined_pose_stack
 
     if verbose:
-        synchronize_device(pose_stack.device)
+        _synchronize_device(pose_stack.device)
     start_time = time.perf_counter()
 
     task = SetPackerTask.from_packer_task(task)
@@ -80,7 +108,7 @@ def pack_rotamers(
 
     pose_stack, rotamer_set = build_rotamers(pose_stack, task, pbt.chem_db)
     if verbose:
-        synchronize_device(pose_stack.device)
+        _synchronize_device(pose_stack.device)
     end_time1 = time.perf_counter()
 
     (
@@ -96,12 +124,14 @@ def pack_rotamers(
     ) = _calculate_packer_energies(pose_stack, sfxn, rotamer_set, task, verbose=verbose)
 
     if verbose:
-        synchronize_device(pose_stack.device)
+        _synchronize_device(pose_stack.device)
     end_time4 = time.perf_counter()
 
-    _, rotamer_assignments = run_simulated_annealing(packer_energy_tables)
+    _, rotamer_assignments = _anneal_on(
+        packer_energy_tables, anneal_device, pose_stack.device, n_anneal_trajectories
+    )
     if verbose:
-        synchronize_device(pose_stack.device)
+        _synchronize_device(pose_stack.device)
     end_time5 = time.perf_counter()
 
     assignment_context = (
@@ -110,7 +140,7 @@ def pack_rotamers(
         else contextlib.nullcontext()
     )
     with assignment_context:
-        new_pose_stack = impose_top_rotamer_assignments(
+        new_pose_stack = _impose_top_rotamer_assignments(
             pose_stack,
             rotamer_set,
             rotamer_for_nonmolten_block,
@@ -121,7 +151,7 @@ def pack_rotamers(
         )
     if collapse is not None:
         # the packer chose for the representative; its group moves with it
-        assignment = chosen_rotamer_for_block(
+        assignment = _chosen_rotamer_for_block(
             pose_stack,
             rotamer_for_nonmolten_block,
             n_molten_blocks_per_pose,
@@ -129,11 +159,11 @@ def pack_rotamers(
             bc_rot_to_orig_rot,
             rotamer_assignments[:, 0, :],
         )
-        new_pose_stack = write_group_members(
+        new_pose_stack = _write_group_members(
             new_pose_stack, rotamer_set, collapse, assignment
         )
     if verbose:
-        synchronize_device(pose_stack.device)
+        _synchronize_device(pose_stack.device)
     end_time6 = time.perf_counter()
 
     if verbose:
@@ -199,6 +229,10 @@ def _max_poses_per_packing_chunk(pose_stack: PoseStack) -> int:
 
     if pose_stack.device.type == "cuda":
         free_bytes, _ = torch.cuda.mem_get_info(pose_stack.device)
+        # Blocks cached but unused by torch's allocator are free to the packer too.
+        free_bytes += torch.cuda.memory_reserved(
+            pose_stack.device
+        ) - torch.cuda.memory_allocated(pose_stack.device)
         memory_budget = int(free_bytes * _PACKING_FREE_MEMORY_FRACTION)
         estimated_bytes_per_pose = (
             max(1, max_n_blocks) * _ESTIMATED_PACKING_BYTES_PER_BLOCK
@@ -303,6 +337,41 @@ def _slice_packer_task(task: PackerTask, first_pose: int, last_pose: int) -> Pac
     return chunk_task
 
 
+def _anneal_on(energy_tables, anneal_device, pose_device, n_trajectories):
+    """Anneal the interaction graph, optionally on a device of its own.
+
+    The graph is already built when this runs, and annealing only reads it and
+    returns rotamer indices, so the choice of device is a backend choice
+    rather than a semantic one. Left unset, annealing stays where the poses
+    are, except that host poses anneal on the Apple GPU when CPU scoring is
+    offloading there too (see tmol.score._mps_offload).
+    """
+    if anneal_device is None and pose_device.type == "cpu":
+        from tmol.score._mps_offload import mps_offload_enabled
+
+        if mps_offload_enabled():
+            anneal_device = "mps"
+    if anneal_device is None:
+        return _run_simulated_annealing(energy_tables, n_trajectories)
+
+    anneal_device = torch.device(anneal_device)
+    if anneal_device == pose_device:
+        return _run_simulated_annealing(energy_tables, n_trajectories)
+
+    # Not TensorGroup.to: the table group carries plain ints beside its
+    # tensors, which that method rejects.
+    moved = attr.evolve(
+        energy_tables,
+        **{
+            name: value.to(anneal_device)
+            for name, value in attr.asdict(energy_tables, recurse=False).items()
+            if torch.is_tensor(value)
+        },
+    )
+    scores, assignments = _run_simulated_annealing(moved, n_trajectories)
+    return scores.to(pose_device), assignments.to(pose_device)
+
+
 def _should_stream_interaction_graph(pose_stack, rotamer_set, task) -> bool:
     """Select the non-differentiable bounded-memory CUDA packing path."""
     return (
@@ -313,10 +382,10 @@ def _should_stream_interaction_graph(pose_stack, rotamer_set, task) -> bool:
 
 
 def _calculate_packer_energies(pose_stack, sfxn, rotamer_set, task, verbose=False):
-    from tmol.pack.compiled import build_interaction_graph
+    from tmol.pack.compiled._compiled import _build_interaction_graph
     from tmol.pack.rotamer._conjugated_groups import (
-        collapse_group_energies,
-        collapse_group_rotamers,
+        _collapse_group_energies,
+        _collapse_group_rotamers,
     )
 
     pbt = pose_stack.packed_block_types
@@ -325,6 +394,8 @@ def _calculate_packer_energies(pose_stack, sfxn, rotamer_set, task, verbose=Fals
         pose_stack, rotamer_set, task
     )
 
+    n_unique_entries = -1
+    device_entries = None
     if stream_interaction_graph:
         energy_indices = None
         energy_values = None
@@ -336,25 +407,75 @@ def _calculate_packer_energies(pose_stack, sfxn, rotamer_set, task, verbose=Fals
         energy_indices, energy_values = rotamer_scoring_module.forward_sparse_entries(
             rotamer_set.coords
         )
+    elif (
+        hasattr(rotamer_scoring_module, "forward_device_entries")
+        and not rotamer_set.correlated_groups
+        and not task.bump_check
+    ):
+        # A scorer whose table is computed on the GPU (see
+        # tmol.score._mps_offload) keeps it there, and the graph is built
+        # beside it; see _build_device_interaction_graph.
+        device_entries = rotamer_scoring_module.forward_device_entries(
+            rotamer_set.coords
+        )
+        energy_indices = None
+        energy_values = None
+    elif (
+        hasattr(rotamer_scoring_module, "unique_prefix_nnz")
+        and not rotamer_set.correlated_groups
+    ):
+        # A split scorer reports where its distinct-key prefix ends (see the
+        # contract below) for its raw int32 entries too, so take those
+        # directly and skip the int64 COO round trip.
+        energy_indices, energy_values = rotamer_scoring_module.forward_sparse_entries(
+            rotamer_set.coords
+        )
+        n_unique_entries = rotamer_scoring_module.unique_prefix_nnz
+        if n_unique_entries is None:
+            energies = torch.sparse_coo_tensor(
+                energy_indices, energy_values, rotamer_scoring_module.shape
+            ).coalesce()
+            energy_indices = energies.indices().to(torch.int32)
+            energy_values = energies.values()
+            n_unique_entries = -1
     else:
-        # The CPU interaction-graph accumulator is deliberately non-atomic.
-        # Coalesce cross-layout duplicates before its parallel native loops.
-        energies = rotamer_scoring_module(rotamer_set.coords).coalesce()
-        energy_indices = energies.indices().to(torch.int32)
-        energy_values = energies.values()
+        # The CPU interaction-graph accumulator is deliberately non-atomic, so
+        # it may only run its parallel passes over entries whose keys are
+        # distinct. Coalescing guarantees that globally, and is what happens
+        # unless the scoring module can say where the duplicates start.
+        #
+        # A module may expose `unique_prefix_nnz`: the number of leading
+        # entries of the table it just returned that are known to carry
+        # distinct (pose, rot1, rot2) keys. A split scorer knows this without
+        # looking -- it concatenates one internally-unique layout ahead of the
+        # rest -- and the graph builder then runs parallel over the prefix and
+        # serial over the tail, which is cheaper than sorting the whole table.
+        energies = rotamer_scoring_module(rotamer_set.coords)
+        unique_prefix = getattr(rotamer_scoring_module, "unique_prefix_nnz", None)
+        if unique_prefix is None:
+            energies = energies.coalesce()
+            n_unique_entries = -1
+        else:
+            n_unique_entries = int(unique_prefix)
+        # The underscore accessors: an uncoalesced table is exactly what the
+        # prefix contract describes, and the checked accessors refuse it.
+        energy_indices = energies._indices().to(torch.int32)
+        energy_values = energies._values()
 
     # a group of covalently joined blocks is one choice, not several: fold its
     #    members onto a representative so the packer cannot pick a conformer
     #    for one that disagrees with its neighbour
     groups = rotamer_set.correlated_groups
-    collapsed = collapse_group_rotamers(pose_stack, rotamer_set, groups)
+    collapsed = _collapse_group_rotamers(pose_stack, rotamer_set, groups)
     if collapsed is not None:
         collapse, group_of_rot, conformer_of_rot = collapsed
-        energies = collapse_group_energies(
+        energies = _collapse_group_energies(
             energies, collapse, group_of_rot, conformer_of_rot
         )
         energy_indices = energies.indices().to(torch.int32)
         energy_values = energies.values()
+        # collapse_group_energies returns a coalesced table of its own.
+        n_unique_entries = -1
         n_rots_for_block = collapse.compact_n_rots_for_block
         rot_offset_for_block = collapse.compact_rot_offset_for_block
         block_ind_for_rot = collapse.compact_block_ind_for_rot
@@ -373,7 +494,7 @@ def _calculate_packer_energies(pose_stack, sfxn, rotamer_set, task, verbose=Fals
         rot_offset_for_pose = rotamer_set.rot_offset_for_pose
 
     if verbose:
-        synchronize_device(pose_stack.device)
+        _synchronize_device(pose_stack.device)
     end_time2 = time.perf_counter()
 
     chunk_size = _interaction_graph_chunk_size(pose_stack.device)
@@ -396,13 +517,18 @@ def _calculate_packer_energies(pose_stack, sfxn, rotamer_set, task, verbose=Fals
             graph_inputs,
             verbose,
         )
+    elif device_entries is not None:
+        graph_result = _build_device_interaction_graph(
+            device_entries, chunk_size, graph_inputs, verbose
+        )
     else:
-        graph_result = build_interaction_graph(
+        graph_result = _build_interaction_graph(
             task.bump_check,
             chunk_size,
             *graph_inputs,
             energy_indices,
             energy_values,
+            n_unique_entries,
             verbose,
         )
     (
@@ -424,7 +550,7 @@ def _calculate_packer_energies(pose_stack, sfxn, rotamer_set, task, verbose=Fals
         energy2b,
     ) = graph_result
     if verbose:
-        synchronize_device(pose_stack.device)
+        _synchronize_device(pose_stack.device)
     end_time3 = time.perf_counter()
 
     if collapse is not None:
@@ -469,6 +595,151 @@ def _calculate_packer_energies(pose_stack, sfxn, rotamer_set, task, verbose=Fals
 
 
 @torch.no_grad()
+def _build_device_interaction_graph(entries, chunk_size, graph_inputs, verbose):
+    """Build the interaction graph on the device that holds the energy table.
+
+    The streaming builder's passes, run over a table that is already
+    materialized on the GPU rather than re-scored page by page: the entry-wise
+    passes (block adjacency, chunk occupancy, energy accumulation) run there,
+    one entry per thread with atomics, while the topology steps between them
+    -- per block and per chunk pair, a few thousand rows -- run on the host.
+    The rotamer numbering and everything addressed by it stay on the host as
+    the CPU builder leaves them; the one- and two-body energy tables stay on
+    the GPU, where the annealer reads them.
+    """
+    from tmol.pack.compiled._compiled import (
+        _accumulate_interaction_graph_entries,
+        _build_interaction_graph,
+        _finalize_interaction_graph_chunk_topology,
+        _finalize_interaction_graph_topology,
+        _initialize_interaction_graph_topology,
+        _note_interaction_graph_chunk_topology,
+        _note_interaction_graph_topology,
+    )
+
+    (
+        _max_n_block_types,
+        _n_rots_for_pose,
+        _rot_offset_for_pose,
+        n_rots_for_block,
+        rot_offset_for_block,
+        _pose_for_rot,
+        _block_type_ind_for_rot,
+        block_ind_for_rot,
+    ) = graph_inputs
+    device = entries[0][1].device if entries else torch.device("cpu")
+    empty_indices = torch.empty((3, 0), dtype=torch.int32)
+    empty_values = torch.empty(0, dtype=torch.float32)
+
+    # The empty build fixes the kept/fixed rotamer numbering on the host.
+    base = list(
+        _build_interaction_graph(
+            False,
+            chunk_size,
+            *graph_inputs,
+            empty_indices,
+            empty_values,
+            -1,
+            verbose,
+        )
+    )
+    block_adjacency, orig_block_to_molten = _initialize_interaction_graph_topology(
+        n_rots_for_block, base[4], empty_values
+    )
+
+    def up(tensor):
+        return tensor.to(device)
+
+    n_rots_for_block_d = up(n_rots_for_block)
+    rot_offset_for_block_d = up(rot_offset_for_block)
+    block_ind_for_rot_d = up(block_ind_for_rot)
+    orig_block_to_molten_d = up(orig_block_to_molten)
+    n_bc_rots_for_molten_block_d = up(base[4])
+
+    # Pass one: which molten blocks interact.
+    block_adjacency = up(block_adjacency)
+    for indices, values in entries:
+        (block_adjacency,) = _note_interaction_graph_topology(
+            block_ind_for_rot_d,
+            orig_block_to_molten_d,
+            block_adjacency,
+            indices,
+            values,
+        )
+    chunk_topology = list(
+        _finalize_interaction_graph_topology(
+            chunk_size, base[4], block_adjacency.cpu(), empty_values
+        )
+    )
+    del block_adjacency
+
+    # Pass two: which rotamer chunks inside those block pairs interact.
+    neighbor_row_offsets_d = up(chunk_topology[0])
+    neighbor_blocks_d = up(chunk_topology[1])
+    chunk_adjacency = up(chunk_topology[4])
+    for indices, values in entries:
+        (chunk_adjacency,) = _note_interaction_graph_chunk_topology(
+            chunk_size,
+            n_rots_for_block_d,
+            rot_offset_for_block_d,
+            block_ind_for_rot_d,
+            orig_block_to_molten_d,
+            n_bc_rots_for_molten_block_d,
+            neighbor_row_offsets_d,
+            neighbor_blocks_d,
+            up(chunk_topology[3]),
+            chunk_adjacency,
+            indices,
+            values,
+        )
+    base[11], base[12], base[13] = chunk_topology[:3]
+    base[14], base[15] = _finalize_interaction_graph_chunk_topology(
+        chunk_size,
+        base[4],
+        chunk_topology[0],
+        chunk_topology[1],
+        chunk_topology[2],
+        chunk_topology[3],
+        chunk_adjacency.cpu(),
+        empty_values,
+    )
+    del chunk_topology, chunk_adjacency
+
+    # Pass three: accumulate the energies.
+    bg_bg_energies = up(base[9])
+    energy1b = up(base[10])
+    energy2b = up(base[15])
+    rotamer_for_nonmolten_block_d = up(base[7])
+    bc_rot_offset_for_molten_block_d = up(base[5])
+    neighbor_chunk_offset_offsets_d = up(base[13])
+    chunk_offsets_d = up(base[14])
+    for indices, values in entries:
+        bg_bg_energies, energy1b, energy2b = _accumulate_interaction_graph_entries(
+            chunk_size,
+            n_rots_for_block_d,
+            rot_offset_for_block_d,
+            block_ind_for_rot_d,
+            orig_block_to_molten_d,
+            rotamer_for_nonmolten_block_d,
+            n_bc_rots_for_molten_block_d,
+            bc_rot_offset_for_molten_block_d,
+            neighbor_row_offsets_d,
+            neighbor_blocks_d,
+            neighbor_chunk_offset_offsets_d,
+            chunk_offsets_d,
+            bg_bg_energies,
+            energy1b,
+            energy2b,
+            indices,
+            values,
+        )
+    base[9] = bg_bg_energies.cpu()
+    base[10] = energy1b
+    base[15] = energy2b
+    return tuple(base)
+
+
+@torch.no_grad()
 def _build_streaming_interaction_graph(
     rotamer_scoring_module,
     coords,
@@ -482,14 +753,14 @@ def _build_streaming_interaction_graph(
     each bounded page from retaining autograd state for the whole candidate
     set, which otherwise accumulates across FastRelax packing stages.
     """
-    from tmol.pack.compiled import (
-        accumulate_interaction_graph_entries,
-        build_interaction_graph,
-        finalize_interaction_graph_chunk_topology,
-        finalize_interaction_graph_topology,
-        initialize_interaction_graph_topology,
-        note_interaction_graph_chunk_topology,
-        note_interaction_graph_topology,
+    from tmol.pack.compiled._compiled import (
+        _accumulate_interaction_graph_entries,
+        _build_interaction_graph,
+        _finalize_interaction_graph_chunk_topology,
+        _finalize_interaction_graph_topology,
+        _initialize_interaction_graph_topology,
+        _note_interaction_graph_chunk_topology,
+        _note_interaction_graph_topology,
     )
 
     (
@@ -508,7 +779,7 @@ def _build_streaming_interaction_graph(
     # Empty no-bump construction establishes the canonical kept/fixed rotamer
     # numbering without retaining any score layout.
     base = list(
-        build_interaction_graph(
+        _build_interaction_graph(
             False,
             chunk_size,
             max_n_block_types,
@@ -521,10 +792,14 @@ def _build_streaming_interaction_graph(
             block_ind_for_rot,
             empty_indices,
             empty_values,
+            # The table is empty: this call establishes the kept/fixed rotamer
+            # numbering and retains no score layout, so "all entries unique"
+            # is both true and irrelevant.
+            -1,
             verbose,
         )
     )
-    block_adjacency, orig_block_to_molten = initialize_interaction_graph_topology(
+    block_adjacency, orig_block_to_molten = _initialize_interaction_graph_topology(
         n_rots_for_block,
         base[4],
         empty_values,
@@ -535,7 +810,7 @@ def _build_streaming_interaction_graph(
     for _, indices, values in rotamer_scoring_module._iter_weighted_sparse_entries(
         coords, retain_shared_dispatch=False, topology_only=True
     ):
-        (block_adjacency,) = note_interaction_graph_topology(
+        (block_adjacency,) = _note_interaction_graph_topology(
             block_ind_for_rot,
             orig_block_to_molten,
             block_adjacency,
@@ -545,7 +820,7 @@ def _build_streaming_interaction_graph(
         del indices, values
 
     chunk_topology = list(
-        finalize_interaction_graph_topology(
+        _finalize_interaction_graph_topology(
             chunk_size,
             base[4],
             block_adjacency,
@@ -558,7 +833,7 @@ def _build_streaming_interaction_graph(
     for _, indices, values in rotamer_scoring_module._iter_weighted_sparse_entries(
         coords, retain_shared_dispatch=False, topology_only=True
     ):
-        (chunk_topology[4],) = note_interaction_graph_chunk_topology(
+        (chunk_topology[4],) = _note_interaction_graph_chunk_topology(
             chunk_size,
             n_rots_for_block,
             rot_offset_for_block,
@@ -575,7 +850,7 @@ def _build_streaming_interaction_graph(
         del indices, values
 
     base[11], base[12], base[13] = chunk_topology[:3]
-    base[14], base[15] = finalize_interaction_graph_chunk_topology(
+    base[14], base[15] = _finalize_interaction_graph_chunk_topology(
         chunk_size,
         base[4],
         chunk_topology[0],
@@ -592,7 +867,7 @@ def _build_streaming_interaction_graph(
     for _, indices, values in rotamer_scoring_module._iter_weighted_sparse_entries(
         coords, retain_shared_dispatch=False
     ):
-        base[9], base[10], base[15] = accumulate_interaction_graph_entries(
+        base[9], base[10], base[15] = _accumulate_interaction_graph_entries(
             chunk_size,
             n_rots_for_block,
             rot_offset_for_block,

@@ -7,6 +7,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
 use ryo3_core::macros::{py_runtime_error, py_value_error};
 use ryo3_core::sync::RyRwLock;
+use ryo3_core::{PyNotImplementedOr, PyOperandArg};
 
 use crate::http_types::{
     PyHttpHeaderMapRef, PyHttpHeaderName, PyHttpHeaderNameRef, PyHttpHeaderValue,
@@ -14,7 +15,7 @@ use crate::http_types::{
 };
 use crate::{PyHeadersLike, PyHttpHeaderMap};
 
-#[pyclass(name = "Headers", frozen, immutable_type, mapping)]
+#[pyclass(name = "Headers", frozen, immutable_type, eq, mapping)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Clone, Debug)]
 pub struct PyHeaders(pub Arc<RyRwLock<HeaderMap, false>>);
@@ -120,6 +121,24 @@ impl From<Arc<RyRwLock<HeaderMap, false>>> for PyHeaders {
     }
 }
 
+impl PyHeaders {
+    fn try_or(&self, other: PyHeadersLike) -> PyResult<Self> {
+        let mut new_map = self.read().clone();
+        match other {
+            PyHeadersLike::Headers(other) => {
+                let other_inner = other.read();
+                update_headers_insert(&other_inner, &mut new_map)
+            }
+            PyHeadersLike::Map(other) => {
+                let hm = other.into();
+                update_headers_insert(&hm, &mut new_map)
+            }
+        }
+        .map_err(|e| map_max_size_reached_to_pyerr(&e))?;
+        Ok(Self::from(new_map))
+    }
+}
+
 #[pymethods]
 impl PyHeaders {
     #[new]
@@ -162,16 +181,6 @@ impl PyHeaders {
     #[must_use]
     fn __len__(&self) -> usize {
         self.with_read(http::HeaderMap::len)
-    }
-
-    #[must_use]
-    fn __eq__(&self, other: &Self) -> bool {
-        self.with_read(|inner| inner == &*(other.read()))
-    }
-
-    #[must_use]
-    fn __ne__(&self, other: &Self) -> bool {
-        !self.__eq__(other)
     }
 
     #[must_use]
@@ -336,20 +345,8 @@ impl PyHeaders {
         .map_err(|e| map_max_size_reached_to_pyerr(&e))
     }
 
-    fn __or__(&self, other: PyHeadersLike) -> PyResult<Self> {
-        let mut new_map = self.read().clone();
-        match other {
-            PyHeadersLike::Headers(other) => {
-                let other_inner = other.read();
-                update_headers_insert(&other_inner, &mut new_map)
-            }
-            PyHeadersLike::Map(other) => {
-                let hm = other.into();
-                update_headers_insert(&hm, &mut new_map)
-            }
-        }
-        .map_err(|e| map_max_size_reached_to_pyerr(&e))?;
-        Ok(Self::from(new_map))
+    fn __or__(&self, other: PyOperandArg<PyHeadersLike>) -> PyResult<PyNotImplementedOr<Self>> {
+        other.try_map(|other| self.try_or(other))
     }
 
     fn to_py<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {

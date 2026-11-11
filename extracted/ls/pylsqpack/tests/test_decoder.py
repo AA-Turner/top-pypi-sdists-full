@@ -1,11 +1,29 @@
-import binascii
 from unittest import TestCase
 
-from pylsqpack import Decoder, DecompressionFailed, EncoderStreamError, StreamBlocked
+from pylsqpack import (
+    Decoder,
+    DecompressionFailed,
+    Encoder,
+    EncoderStreamError,
+    FieldSectionTooLarge,
+    StreamBlocked,
+)
+
+# Set Dynamic Table Capacity to 4096, then Insert with Literal Name a field of
+# 5 + 100 bytes, whose size in a field section is 137 bytes.
+BIG_ENTRY_ENCODER = bytes.fromhex("3fe11f") + b"\x45x-big\x64" + b"a" * 100
+
+
+def big_entry_references(count: int) -> bytes:
+    """
+    Return a header block with `count` references to the entry inserted by
+    BIG_ENTRY_ENCODER: Required Insert Count = 1, Base = 1, relative index 0.
+    """
+    return b"\x02\x00" + b"\x80" * count
 
 
 class DecoderTest(TestCase):
-    def test_blocked_stream(self):
+    def test_blocked_stream(self) -> None:
         decoder = Decoder(0x100, 0x10)
         stream_id = 0
 
@@ -18,7 +36,7 @@ class DecoderTest(TestCase):
 
         # the stream is blocked
         with self.assertRaises(StreamBlocked):
-            decoder.feed_header(stream_id, binascii.unhexlify("0482d9101112"))
+            decoder.feed_header(stream_id, bytes.fromhex("0482d9101112"))
 
         # the stream is still blocked
         with self.assertRaises(StreamBlocked):
@@ -27,7 +45,7 @@ class DecoderTest(TestCase):
         # the stream becomes unblocked
         self.assertEqual(
             decoder.feed_encoder(
-                binascii.unhexlify(
+                bytes.fromhex(
                     "3fe10168f2b14939d69ce84f8d9635e9ef2a12bd454dc69a659f6cf2b14939d6"
                     "b505b161cc5a9385198fdad313c696dd6d5f4a082a65b6850400bea0837190dc"
                     "138a62d1bf"
@@ -52,24 +70,24 @@ class DecoderTest(TestCase):
         # free the decoder
         del decoder
 
-    def test_blocked_stream_free(self):
+    def test_blocked_stream_free(self) -> None:
         decoder = Decoder(0x100, 0x10)
         stream_id = 0
 
         # the stream is blocked
         with self.assertRaises(StreamBlocked):
-            decoder.feed_header(stream_id, binascii.unhexlify("0482d9101112"))
+            decoder.feed_header(stream_id, bytes.fromhex("0482d9101112"))
 
         # free the decoder with pending block
         del decoder
 
-    def test_cancel_stream_blocked(self):
+    def test_cancel_stream_blocked(self) -> None:
         decoder = Decoder(0x100, 0x10)
         stream_id = 0
 
         # the stream is blocked
         with self.assertRaises(StreamBlocked):
-            decoder.feed_header(stream_id, binascii.unhexlify("0482d9101112"))
+            decoder.feed_header(stream_id, bytes.fromhex("0482d9101112"))
 
         # cancel the stream
         self.assertEqual(decoder.cancel_stream(stream_id), b"\x40")
@@ -77,7 +95,7 @@ class DecoderTest(TestCase):
         # the stream is not reported as unblocked
         self.assertEqual(
             decoder.feed_encoder(
-                binascii.unhexlify(
+                bytes.fromhex(
                     "3fe10168f2b14939d69ce84f8d9635e9ef2a12bd454dc69a659f6cf2b14939d6"
                     "b505b161cc5a9385198fdad313c696dd6d5f4a082a65b6850400bea0837190dc"
                     "138a62d1bf"
@@ -91,21 +109,19 @@ class DecoderTest(TestCase):
             decoder.resume_header(stream_id)
 
         # a new header block can be decoded for the stream
-        control, headers = decoder.feed_header(
-            stream_id, binascii.unhexlify("0482d9101112")
-        )
+        control, headers = decoder.feed_header(stream_id, bytes.fromhex("0482d9101112"))
         self.assertEqual(control, b"\x80")
         self.assertEqual(len(headers), 4)
 
         # free the decoder
         del decoder
 
-    def test_cancel_stream_no_dynamic_table(self):
+    def test_cancel_stream_no_dynamic_table(self) -> None:
         decoder = Decoder(0, 0x10)
 
         self.assertEqual(decoder.cancel_stream(4), b"")
 
-    def test_cancel_stream_not_blocked(self):
+    def test_cancel_stream_not_blocked(self) -> None:
         decoder = Decoder(0x100, 0x10)
 
         self.assertEqual(decoder.cancel_stream(4), b"\x44")
@@ -113,10 +129,10 @@ class DecoderTest(TestCase):
         # the largest stream ID needs a 10-byte instruction
         self.assertEqual(
             decoder.cancel_stream(2**62 - 1),
-            binascii.unhexlify("7fc0ffffffffffffff3f"),
+            bytes.fromhex("7fc0ffffffffffffff3f"),
         )
 
-    def test_decompress_failed_empty_header_name(self):
+    def test_decompress_failed_empty_header_name(self) -> None:
         """
         Decoding a header with an empty name should fail but not crash.
 
@@ -126,30 +142,204 @@ class DecoderTest(TestCase):
         """
         decoder = Decoder(0x100, 0x10)
         with self.assertRaises(DecompressionFailed) as cm:
-            decoder.feed_header(0, binascii.unhexlify("00002a3d458294e72003626172"))
+            decoder.feed_header(0, bytes.fromhex("00002a3d458294e72003626172"))
         self.assertEqual(str(cm.exception), "lsqpack_dec_header_in for stream 0 failed")
 
-    def test_decompression_failed_too_short(self):
+    def test_decompression_failed_too_short(self) -> None:
         decoder = Decoder(0x100, 0x10)
 
         with self.assertRaises(DecompressionFailed) as cm:
             decoder.feed_header(0, b"")
         self.assertEqual(str(cm.exception), "lsqpack_dec_header_in for stream 0 failed")
 
-    def test_decompression_failed_invalid(self):
+    def test_decompression_failed_invalid(self) -> None:
         decoder = Decoder(0x100, 0x10)
 
         with self.assertRaises(DecompressionFailed) as cm:
             decoder.feed_header(0, b"123")
         self.assertEqual(str(cm.exception), "lsqpack_dec_header_in for stream 0 failed")
 
-    def test_encoder_stream_error(self):
+    def test_encoder_stream_error(self) -> None:
         decoder = Decoder(0x100, 0x10)
         with self.assertRaises(EncoderStreamError) as cm:
             decoder.feed_encoder(b"\x00")
         self.assertEqual(str(cm.exception), "lsqpack_dec_enc_in failed")
 
-    def test_reduced_table_capacity(self):
+    def test_encoder_stream_not_bytes(self) -> None:
+        decoder = Decoder(0x100, 0x10)
+        with self.assertRaises(TypeError):
+            decoder.feed_encoder("hello")  # type: ignore[arg-type]
+
+    def test_feed_header_already_pending(self) -> None:
+        """
+        A stream can only have one pending header block.
+        """
+        decoder = Decoder(0x100, 0x10)
+
+        with self.assertRaises(StreamBlocked):
+            decoder.feed_header(0, bytes.fromhex("0482d9101112"))
+
+        with self.assertRaises(ValueError) as cm:
+            decoder.feed_header(0, bytes.fromhex("0482d9101112"))
+        self.assertEqual(
+            str(cm.exception), "a header block for stream 0 already exists"
+        )
+
+    def test_field_section_too_large(self) -> None:
+        """
+        A field section counts the length of each name and value plus 32
+        bytes per field, see RFC 9114 section 4.2.2.
+        """
+        headers = [(b":method", b"GET"), (b"x-foo", b"a" * 100)]
+        _, data = Encoder().encode(0, headers)
+
+        # (7 + 3 + 32) + (5 + 100 + 32) = 179 bytes
+        decoder = Decoder(0x100, 0x10, max_field_section_size=179)
+        self.assertEqual(decoder.feed_header(0, data), (b"", headers))
+
+        decoder = Decoder(0x100, 0x10, max_field_section_size=178)
+        with self.assertRaises(FieldSectionTooLarge) as cm:
+            decoder.feed_header(0, data)
+        self.assertEqual(
+            str(cm.exception), "field section for stream 0 exceeds 178 bytes"
+        )
+
+    def test_field_section_too_large_blocked(self) -> None:
+        """
+        The limit also applies to a header block which was blocked, and the
+        header block is discarded.
+        """
+        decoder = Decoder(4096, 16, max_field_section_size=3 * 137)
+
+        with self.assertRaises(StreamBlocked):
+            decoder.feed_header(0, big_entry_references(4))
+        self.assertEqual(decoder.feed_encoder(BIG_ENTRY_ENCODER), [0])
+
+        with self.assertRaises(FieldSectionTooLarge) as cm:
+            decoder.resume_header(0)
+        self.assertEqual(
+            str(cm.exception), "field section for stream 0 exceeds 411 bytes"
+        )
+
+        with self.assertRaises(ValueError) as value_cm:
+            decoder.resume_header(0)
+        self.assertEqual(
+            str(value_cm.exception), "no pending header block for stream 0"
+        )
+
+    def test_field_section_too_large_default(self) -> None:
+        """
+        By default, field sections are limited to 256 KiB. The error is also a
+        DecompressionFailed, for callers which only catch that.
+        """
+        decoder = Decoder(0x100, 0x10)
+
+        # 4 * (1 + 65503 + 32) = 262144 bytes
+        headers = [(b"x", b"a" * 65503)] * 4
+        self.assertEqual(
+            decoder.feed_header(0, Encoder().encode(0, headers)[1]), (b"", headers)
+        )
+
+        with self.assertRaises(FieldSectionTooLarge) as cm:
+            decoder.feed_header(4, Encoder().encode(4, headers + [(b"y", b"")])[1])
+        self.assertIsInstance(cm.exception, DecompressionFailed)
+        self.assertEqual(
+            str(cm.exception), "field section for stream 4 exceeds 262144 bytes"
+        )
+
+    def test_field_section_too_large_dynamic_table(self) -> None:
+        """
+        References to the dynamic table are counted at their decoded size. The
+        stream can be cancelled, and the decoder keeps working for other streams.
+        """
+        decoder = Decoder(4096, 16, max_field_section_size=3 * 137)
+        self.assertEqual(decoder.feed_encoder(BIG_ENTRY_ENCODER), [])
+
+        with self.assertRaises(FieldSectionTooLarge) as cm:
+            decoder.feed_header(0, big_entry_references(4))
+        self.assertEqual(
+            str(cm.exception), "field section for stream 0 exceeds 411 bytes"
+        )
+        self.assertEqual(decoder.cancel_stream(0), b"\x40")
+
+        control, headers = decoder.feed_header(4, big_entry_references(3))
+        self.assertEqual(control, b"\x84")
+        self.assertEqual(headers, [(b"x-big", b"a" * 100)] * 3)
+
+    def test_field_section_too_large_static_table(self) -> None:
+        """
+        A field from the static table is counted too, even when it is the first
+        one.
+        """
+        _, data = Encoder().encode(0, [(b":method", b"GET")])
+
+        # 7 + 3 + 32 = 42 bytes
+        decoder = Decoder(0x100, 0x10, max_field_section_size=41)
+        with self.assertRaises(FieldSectionTooLarge) as cm:
+            decoder.feed_header(0, data)
+        self.assertEqual(
+            str(cm.exception), "field section for stream 0 exceeds 41 bytes"
+        )
+
+    def test_init_invalid_arguments(self) -> None:
+        """
+        The settings must fit in an unsigned int without wrapping around.
+        """
+        Decoder(2**32 - 1, 2**32 - 1)
+
+        for args, message in [
+            ((-1, 16), "max_table_capacity must be between 0 and 2**32 - 1"),
+            ((2**32, 16), "max_table_capacity must be between 0 and 2**32 - 1"),
+            ((4096, -1), "blocked_streams must be between 0 and 2**32 - 1"),
+            ((4096, 2**32), "blocked_streams must be between 0 and 2**32 - 1"),
+        ]:
+            with self.subTest(args=args):
+                with self.assertRaises(ValueError) as cm:
+                    Decoder(*args)
+                self.assertEqual(str(cm.exception), message)
+
+        with self.assertRaises(TypeError) as type_cm:
+            Decoder(4096.0, 16)  # type: ignore[arg-type]
+        self.assertEqual(str(type_cm.exception), "max_table_capacity must be an int")
+
+    def test_max_field_section_size_range(self) -> None:
+        """
+        The maximum field section size must be a QUIC variable-length integer,
+        so that it can be advertised in SETTINGS_MAX_FIELD_SECTION_SIZE.
+        """
+        # 0 refuses any field.
+        decoder = Decoder(0x100, 0x10, max_field_section_size=0)
+        with self.assertRaises(FieldSectionTooLarge) as cm:
+            decoder.feed_header(0, Encoder().encode(0, [(b"x", b"")])[1])
+        self.assertEqual(
+            str(cm.exception), "field section for stream 0 exceeds 0 bytes"
+        )
+
+        # 2**62 - 1 accepts more than the default.
+        decoder = Decoder(0x100, 0x10, max_field_section_size=2**62 - 1)
+        headers = [(b"x", b"a" * 65503)] * 5
+        self.assertEqual(
+            decoder.feed_header(0, Encoder().encode(0, headers)[1]), (b"", headers)
+        )
+
+        for value in (-1, 2**62):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError) as value_cm:
+                    Decoder(0x100, 0x10, max_field_section_size=value)
+                self.assertEqual(
+                    str(value_cm.exception),
+                    "max_field_section_size must be between 0 and 2**62 - 1",
+                )
+
+        for wrong_type in (None, "1"):
+            with self.subTest(value=wrong_type):
+                with self.assertRaises(TypeError) as type_cm:
+                    Decoder(0x100, 0x10, max_field_section_size=wrong_type)  # type: ignore[arg-type]
+                self.assertEqual(
+                    str(type_cm.exception), "max_field_section_size must be an int"
+                )
+
+    def test_reduced_table_capacity(self) -> None:
         """
         Decoding a header block must succeed when the encoder selected a
         dynamic table capacity lower than the maximum, and the Required
@@ -162,15 +352,124 @@ class DecoderTest(TestCase):
         stream_id = 0
 
         # Set Dynamic Table Capacity to 4096, then insert 258 entries.
-        data = binascii.unhexlify("3fe11f")
+        data = bytes.fromhex("3fe11f")
         for i in range(258):
             value = b"%03d" % i
             data += b"\x41a" + bytes([len(value)]) + value
         decoder.feed_encoder(data)
 
         # Required Insert Count = 258, Base = 258, relative indexes 2, 1, 0.
-        control, headers = decoder.feed_header(
-            stream_id, binascii.unhexlify("ff0400828180")
-        )
+        control, headers = decoder.feed_header(stream_id, bytes.fromhex("ff0400828180"))
         self.assertEqual(control, b"\x80")
         self.assertEqual(headers, [(b"a", b"255"), (b"a", b"256"), (b"a", b"257")])
+
+    def test_resume_header_decompression_failed(self) -> None:
+        """
+        A header block which fails to decode once it is unblocked is discarded.
+        """
+        decoder = Decoder(0x100, 0x10)
+        stream_id = 0
+
+        # Required Insert Count = 1, Base = 1, then an indexed field line for
+        # static index 190, which does not exist.
+        with self.assertRaises(StreamBlocked):
+            decoder.feed_header(stream_id, b"\x02\x00\xff\x7f")
+
+        # Set Dynamic Table Capacity to 256, then insert ("a", "b").
+        self.assertEqual(
+            decoder.feed_encoder(bytes.fromhex("3fe101") + b"\x41a\x01b"),
+            [stream_id],
+        )
+
+        with self.assertRaises(DecompressionFailed) as cm:
+            decoder.resume_header(stream_id)
+        self.assertEqual(
+            str(cm.exception), "lsqpack_dec_header_read for stream 0 failed (3)"
+        )
+
+        with self.assertRaises(ValueError) as value_cm:
+            decoder.resume_header(stream_id)
+        self.assertEqual(
+            str(value_cm.exception), "no pending header block for stream 0"
+        )
+
+    def test_stream_id_in_messages(self) -> None:
+        """
+        Error messages show stream IDs in full, up to the largest QUIC stream ID.
+        """
+        stream_id = 2**62 - 1
+        decoder = Decoder(0x100, 0x10)
+
+        with self.assertRaises(DecompressionFailed) as failed_cm:
+            decoder.feed_header(stream_id, b"")
+        self.assertEqual(
+            str(failed_cm.exception),
+            "lsqpack_dec_header_in for stream 4611686018427387903 failed",
+        )
+
+        with self.assertRaises(ValueError) as value_cm:
+            decoder.resume_header(stream_id)
+        self.assertEqual(
+            str(value_cm.exception),
+            "no pending header block for stream 4611686018427387903",
+        )
+
+        # Required Insert Count = 1, Base = 1, then an indexed field line for
+        # static index 190, which does not exist.
+        with self.assertRaises(StreamBlocked) as blocked_cm:
+            decoder.feed_header(stream_id, b"\x02\x00\xff\x7f")
+        self.assertEqual(
+            str(blocked_cm.exception), "stream 4611686018427387903 is blocked"
+        )
+
+        with self.assertRaises(ValueError) as value_cm:
+            decoder.feed_header(stream_id, b"\x02\x00\xff\x7f")
+        self.assertEqual(
+            str(value_cm.exception),
+            "a header block for stream 4611686018427387903 already exists",
+        )
+
+        with self.assertRaises(StreamBlocked) as blocked_cm:
+            decoder.resume_header(stream_id)
+        self.assertEqual(
+            str(blocked_cm.exception), "stream 4611686018427387903 is blocked"
+        )
+
+        # Set Dynamic Table Capacity to 256, then insert ("a", "b").
+        self.assertEqual(
+            decoder.feed_encoder(bytes.fromhex("3fe101") + b"\x41a\x01b"),
+            [stream_id],
+        )
+        with self.assertRaises(DecompressionFailed) as failed_cm:
+            decoder.resume_header(stream_id)
+        self.assertEqual(
+            str(failed_cm.exception),
+            "lsqpack_dec_header_read for stream 4611686018427387903 failed (3)",
+        )
+
+    def test_stream_id_invalid(self) -> None:
+        """
+        Stream IDs must be QUIC stream IDs, see RFC 9000 section 2.1.
+        """
+        decoder = Decoder(0x100, 0x10)
+        self.assertEqual(
+            decoder.cancel_stream(2**62 - 1),
+            bytes.fromhex("7fc0ffffffffffffff3f"),
+        )
+
+        for name, call in [
+            ("cancel_stream", decoder.cancel_stream),
+            ("feed_header", lambda stream_id: decoder.feed_header(stream_id, b"")),
+            ("resume_header", decoder.resume_header),
+        ]:
+            for stream_id in (-1, 2**62):
+                with self.subTest(method=name, stream_id=stream_id):
+                    with self.assertRaises(ValueError) as cm:
+                        call(stream_id)
+                    self.assertEqual(
+                        str(cm.exception), "stream_id must be between 0 and 2**62 - 1"
+                    )
+            with self.subTest(method=name, stream_id="0"):
+                with self.assertRaises(TypeError) as type_cm:
+                    call("0")  # type: ignore[arg-type]
+                self.assertEqual(str(type_cm.exception), "stream_id must be an int")

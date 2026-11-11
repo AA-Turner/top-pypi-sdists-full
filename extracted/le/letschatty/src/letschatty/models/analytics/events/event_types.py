@@ -148,3 +148,9 @@ class EventType(StrEnum):
     SEGUIMIENTO_REGISTRADO = "chat.seguimiento.registrado"
     SEGUIMIENTO_RESPONDIDO = "chat.seguimiento.respondido"
     SEGUIMIENTO_ANULADO = "chat.seguimiento.anulado"
+    ##ACCIONES EXTERNAS Y TURNOS (0.6.57.1, api-chatty docs/precalificacion-con-accion-externa.md)
+    #: Sin clase en EVENT_TO_TYPE_CLASSES todavía (como los de seguimientos): api-chatty los emite recién
+    #: cuando sus consumidores tengan un pin que los conozca (un valor nuevo es ilegible para un pin viejo).
+    ACCION_EXTERNA_ENTREGADA = "chat.atencion.accion_externa.entregada"
+    ACCION_EXTERNA_FALLIDA = "chat.atencion.accion_externa.fallida"
+    TURNO_AGENDADO = "chat.atencion.turno.agendado"

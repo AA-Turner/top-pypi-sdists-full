@@ -5,7 +5,7 @@ The targets keep their own scopes and forms, such as the client's resources and 
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Final, TypeVar
 
 from datamodel_code_generator._api_types import APIGenerationError, Diagnostic, OperationRef
@@ -21,7 +21,6 @@ from datamodel_code_generator._target_contract import (
     parameter_location,
 )
 from datamodel_code_generator._target_naming import NameScope, explicit_name, operation_basis, path_placeholders
-from datamodel_code_generator._target_types import takes_null
 from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
@@ -34,19 +33,17 @@ if TYPE_CHECKING:
     from datamodel_code_generator._runtime.model_codecs.media import MediaKind
     from datamodel_code_generator._target_contract import (
         DeclarationId,
-        FieldUseBinding,
-        FinalModelSymbol,
         OperationContract,
         OperationId,
         SourceDocumentId,
         SourceLocation,
-        SymbolId,
         TypeUseBinding,
         TypeUseId,
         TypeView,
         WireDeclaration,
     )
     from datamodel_code_generator._target_naming import TargetNames
+    from datamodel_code_generator._target_types import TypeTables
 
 SettingT = TypeVar("SettingT")
 
@@ -177,10 +174,16 @@ def binding_problem(
 
 
 def raise_selected(diagnostics: Iterable[CodecDiagnostic], selected: Iterable[OperationId]) -> None:
-    """Refuse, at the binding stage, the codec diagnostics of the whole document and of the selected operations."""
+    """Refuse, at the binding stage, the codec diagnostics of the whole document and of the selected operations.
+
+    A diagnostic of a request body's type use names the media it refuses.
+    """
     operations = {None, *selected}
     if problems := tuple(
-        binding_problem(item.code, item.message, item.source, item.operation, item.feature)
+        replace(
+            binding_problem(item.code, item.message, item.source, item.operation, item.feature),
+            media=next((use.media for use in item.uses if use.role.startswith("request")), None),
+        )
         for item in diagnostics
         if item.operation in operations
     ):
@@ -245,11 +248,10 @@ def declared_media_type(
 def json_null(
     kind: MediaKind,
     use: TypeUseBinding | None,
-    symbols: Mapping[SymbolId, FinalModelSymbol],
-    members: Mapping[SymbolId, Sequence[FieldUseBinding]],
+    tables: TypeTables,
 ) -> bool:
     """Return whether a body or response of a media kind sends None as JSON null: JSON whose type takes null."""
-    return kind == "json" and takes_null(None if use is None else use.type, symbols, members)
+    return kind == "json" and tables.takes_null(None if use is None else use.type)
 
 
 def coded_use(kind: MediaKind, use: TypeUseBinding | None) -> TypeUseBinding | None:

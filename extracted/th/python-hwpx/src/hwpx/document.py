@@ -30,12 +30,13 @@ from .oxml import (
 )
 from .opc.package import (
     HwpxPackage,
+    structure_errors,
 )
 from .oxml.namespaces import register_owpml_namespaces
 from .oxml.table_sizes import new_table_width
 from .mutation_report import Fallback, Mode, MutationReport
 from .quality import QualityPolicy, SavePipeline, VisualCompleteReport
-from .templates import blank_document_bytes
+from .templates import new_document_bytes
 
 from ._document import fields as _fields
 from ._document import media as _media
@@ -99,6 +100,8 @@ class HwpxDocument(_LegacyFacade):
         # is resolved lazily and only when a policy actually renders, so normal
         # (transparent) saves never probe Hancom.
         self._save_pipeline = SavePipeline()
+        # What add_paragraph(inherit_style=None) means for this document (new(inherit_style=...)).
+        self._inherit_style_default = True
 
     def __repr__(self) -> str:
         """Return a compact and safe summary of the document state."""
@@ -126,9 +129,26 @@ class HwpxDocument(_LegacyFacade):
     ) -> "HwpxDocument":
         """Open *source* and return a :class:`HwpxDocument` instance.
 
+        *source*는 경로, 바이트, 또는 읽을 수 있는 이진 스트림이다. 내용이 HWP 5.0
+        복합 파일(``.hwp``)로 시작하면 같은 문서 모델로 바꿔서 연다.
+
         Raises:
-            HwpxStructureError: 필수 파일이나 구조가 올바르지 않은 HWPX를 열 때 발생합니다.
-            HwpxPackageError: 패키지를 여는 과정에서 일반적인 I/O/포맷 오류가 발생하면 전달됩니다.
+            FileNotFoundError: 경로에 파일이 없다. 그 밖의 ``OSError``(권한 등)도
+                파이썬이 낸 그대로 올라온다.
+            HwpxStructureError: 손상됐거나 필수 구성이 없는 HWPX. 손상 종류는 하위
+                클래스로 가린다. 원래 예외는 ``__cause__``에 있다.
+
+                - ``HwpxArchiveError``: ZIP이 아니거나 잘린 파일, 빈 파일.
+                  ``zipfile.BadZipFile``이기도 하다.
+                - ``HwpxCompressedDataError``: 압축 데이터 손상.
+                  ``zlib.error``이기도 하다.
+                - ``HwpxXmlSyntaxError``: 깨진 XML 파트(암호가 걸린 HWPX 포함).
+                  ``lxml.etree.XMLSyntaxError``이기도 하다.
+                - ``HwpxStructureError`` 자체: ``mimetype``·``container.xml``·
+                  rootfile 같은 필수 구성이 없다.
+            HwpxSecurityError: 항목 수·크기·압축률이 안전 상한을 넘는다
+                (``ValueError`` 계열).
+            Hwp5Error: ``.hwp`` 입력이 손상됐거나 암호·배포용·DRM 문서다.
         """
         internal_resources: list[Any] = []
         open_source = source
@@ -141,7 +161,8 @@ class HwpxDocument(_LegacyFacade):
         # HwpxPackage/ZipFile accepts os.PathLike at runtime; its narrower
         # compatibility annotation intentionally remains frozen.
         package = HwpxPackage.open(cast(Any, open_source))
-        root = HwpxOxmlDocument.from_package(package)
+        with structure_errors():
+            root = HwpxOxmlDocument.from_package(package)
         return cls(package, root, managed_resources=tuple(internal_resources))
 
     @classmethod
@@ -151,14 +172,15 @@ class HwpxDocument(_LegacyFacade):
         import warnings
 
         from .hwp5.errors import Hwp5ConversionReport, Hwp5ConversionWarning
-        from .hwp5.package import convert, to_hwpx_bytes
+        from .hwp5.package import MAX_FILE_BYTES, convert, to_hwpx_bytes
 
+        # One byte past the limit is enough for convert() to refuse the file.
         if isinstance(source, (str, PathLike)):
             with open(source, "rb") as handle:
-                data = handle.read()
+                data = handle.read(MAX_FILE_BYTES + 1)
         else:
             source.seek(0)
-            data = source.read()
+            data = source.read(MAX_FILE_BYTES + 1)
         converted = convert(data)
         package = HwpxPackage.open(to_hwpx_bytes(converted.files))
         root = HwpxOxmlDocument.from_package(package)
@@ -183,15 +205,28 @@ class HwpxDocument(_LegacyFacade):
         return self._hwp5_report
 
     @classmethod
-    def new(cls) -> "HwpxDocument":
+    def new(cls, *, inherit_style: bool = True) -> "HwpxDocument":
         """Return a new blank document based on the default skeleton template.
 
         Its only paragraph is empty and holds the section settings, and
         :meth:`add_paragraph` appends after it, so the document starts with an
         empty line. Write the first line with ``document.paragraphs[0].text = ...``.
+
+        ``inherit_style=False`` makes a clean document: :meth:`add_paragraph`
+        then starts every paragraph from the base shapes (바탕글) instead of
+        copying the last paragraph's, unless a call passes ``inherit_style``
+        itself. A paragraph added after a heading or a list item then does not
+        pick up its outline or list numbering. The default keeps the inheriting
+        behaviour.
+
+        The document's metadata starts clean: no author, no last-saved-by, and
+        the creation and modification dates set to now (UTC). Set the author
+        with ``document.package.set_document_metadata(creator=...)``.
         """
 
-        return cls.open(blank_document_bytes())
+        document = cls.open(new_document_bytes())
+        document._inherit_style_default = bool(inherit_style)
+        return document
 
     @classmethod
     def from_package(cls, package: HwpxPackage) -> "HwpxDocument":
@@ -411,12 +446,14 @@ class HwpxDocument(_LegacyFacade):
         char_pr_id_ref: str | int | None = None,
         run_attributes: dict[str, str] | None = None,
         include_run: bool = True,
-        inherit_style: bool = True,
+        inherit_style: bool | None = None,
         **extra_attrs: str,
     ) -> HwpxOxmlParagraph:
         """Append a paragraph to the document and return it.
 
-        When *inherit_style* is ``True`` (the default) and no explicit
+        *inherit_style* ``None`` (the default) follows the document: ``True``
+        unless it was made with ``HwpxDocument.new(inherit_style=False)``.
+        When it is ``True`` and no explicit
         style references are given, the new paragraph inherits
         ``paraPrIDRef``, ``styleIDRef`` and ``charPrIDRef`` from the
         last paragraph in the target section so that consecutive
@@ -456,7 +493,7 @@ class HwpxDocument(_LegacyFacade):
             char_pr_id_ref=char_pr_id_ref,
             run_attributes=run_attributes,
             include_run=include_run,
-            inherit_style=inherit_style,
+            inherit_style=self._inherit_style_default if inherit_style is None else inherit_style,
             **cast(Any, extra_attrs),
         )
 

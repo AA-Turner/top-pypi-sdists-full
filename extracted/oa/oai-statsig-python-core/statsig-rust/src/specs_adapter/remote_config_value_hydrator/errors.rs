@@ -36,6 +36,7 @@ pub(super) enum HydrationFailureReason {
     TotalBytesExceeded,
     InvalidDefaultMetadata,
     InvalidMetadata,
+    UnsupportedEntity,
     InvalidPlaceholder,
     InvalidSha256,
     InvalidContentType,
@@ -75,6 +76,7 @@ impl HydrationFailureReason {
             Self::TotalBytesExceeded,
             Self::InvalidDefaultMetadata,
             Self::InvalidMetadata,
+            Self::UnsupportedEntity,
             Self::InvalidPlaceholder,
             Self::InvalidSha256,
             Self::InvalidContentType,
@@ -109,6 +111,7 @@ impl HydrationFailureReason {
             Self::TotalBytesExceeded => "total_bytes_exceeded",
             Self::InvalidDefaultMetadata => "invalid_default_metadata",
             Self::InvalidMetadata => "invalid_metadata",
+            Self::UnsupportedEntity => "unsupported_entity",
             Self::InvalidPlaceholder => "invalid_placeholder",
             Self::InvalidSha256 => "invalid_sha256",
             Self::InvalidContentType => "invalid_content_type",
@@ -133,4 +136,11 @@ pub(super) fn hydration_error(reason: HydrationFailureReason, message: &str) -> 
         "Dynamic config hydration failure: {}: {message}",
         reason.as_str()
     ))
+}
+
+pub(crate) fn unsupported_entity_error() -> StatsigErr {
+    hydration_error(
+        HydrationFailureReason::UnsupportedEntity,
+        "remote value metadata belongs on a default or rule in dynamic_configs",
+    )
 }

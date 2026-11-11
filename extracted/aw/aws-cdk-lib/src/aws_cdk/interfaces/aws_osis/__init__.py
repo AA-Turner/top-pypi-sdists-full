@@ -38,6 +38,51 @@ else:
     _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_osis.IPipelineEndpointRef")
+class IPipelineEndpointRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PipelineEndpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineEndpointRef")
+    def pipeline_endpoint_ref(self) -> "PipelineEndpointReference":
+        '''(experimental) A reference to a PipelineEndpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPipelineEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PipelineEndpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_osis.IPipelineEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineEndpointRef")
+    def pipeline_endpoint_ref(self) -> "PipelineEndpointReference":
+        '''(experimental) A reference to a PipelineEndpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PipelineEndpointReference", jsii.get(self, "pipelineEndpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPipelineEndpointRef).__jsii_proxy_class__ = lambda : _IPipelineEndpointRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_osis.IPipelineRef")
 class IPipelineRef(
     _constructs_77d1e7e8.IConstruct,
@@ -81,6 +126,55 @@ class _IPipelineRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IPipelineRef).__jsii_proxy_class__ = lambda : _IPipelineRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_osis.PipelineEndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={"pipeline_endpoint_arn": "pipelineEndpointArn"},
+)
+class PipelineEndpointReference:
+    def __init__(self, *, pipeline_endpoint_arn: builtins.str) -> None:
+        '''A reference to a PipelineEndpoint resource.
+
+        :param pipeline_endpoint_arn: The Arn of the PipelineEndpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_osis as interfaces_osis
+            
+            pipeline_endpoint_reference = interfaces_osis.PipelineEndpointReference(
+                pipeline_endpoint_arn="pipelineEndpointArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a004438901ba6beab8b447594d801c141332dd61e835c2f9f46bcc32307f20ac)
+            check_type(argname="argument pipeline_endpoint_arn", value=pipeline_endpoint_arn, expected_type=type_hints["pipeline_endpoint_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "pipeline_endpoint_arn": pipeline_endpoint_arn,
+        }
+
+    @builtins.property
+    def pipeline_endpoint_arn(self) -> builtins.str:
+        '''The Arn of the PipelineEndpoint resource.'''
+        result = self._values.get("pipeline_endpoint_arn")
+        assert result is not None, "Required property 'pipeline_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PipelineEndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -133,11 +227,20 @@ class PipelineReference:
 
 
 __all__ = [
+    "IPipelineEndpointRef",
     "IPipelineRef",
+    "PipelineEndpointReference",
     "PipelineReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__a004438901ba6beab8b447594d801c141332dd61e835c2f9f46bcc32307f20ac(
+    *,
+    pipeline_endpoint_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__5a1c8d90d5a4774bab00e23378d24796245018abfab541e57a022417378e6eb0(
     *,
@@ -146,5 +249,5 @@ def _typecheckingstub__5a1c8d90d5a4774bab00e23378d24796245018abfab541e57a0224173
     """Type checking stubs"""
     pass
 
-for cls in [IPipelineRef]:
+for cls in [IPipelineEndpointRef, IPipelineRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

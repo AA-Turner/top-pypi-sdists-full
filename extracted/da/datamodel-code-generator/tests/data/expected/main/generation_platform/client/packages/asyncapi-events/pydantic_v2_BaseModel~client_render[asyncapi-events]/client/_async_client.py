@@ -24,12 +24,14 @@ from .responses import AsyncRawResponse
 
 if TYPE_CHECKING:
     from ._runtime.protocols.options import HelperOptions
-    from .protocols._async_helpers import AsyncActivitySse
-    from .protocols._async_helpers import AsyncChatWebsocket
-    from .protocols._async_helpers import AsyncNoticesSse
-    from .protocols._async_helpers import AsyncPricesSse
-    from .protocols._async_helpers import AsyncProtocolHelpers
-    from .protocols._async_helpers import AsyncTradesSse
+    from .protocols._async_helpers import (
+        AsyncActivitySse,
+        AsyncChatWebsocket,
+        AsyncNoticesSse,
+        AsyncPricesSse,
+        AsyncProtocolHelpers,
+        AsyncTradesSse,
+    )
 
 _DEFAULTS = ClientDefaults(
     security_schemes=security.ROOT_SCHEMES,
@@ -171,9 +173,11 @@ class AsyncClient(AsyncClientView):
             clock=clock,
             http_client=http_client,
             protocols=HelperSettings(defaults=helper_defaults),
-            credentials=SchemeCredentials({
-                "token": token,
-            }),
+            credentials=SchemeCredentials(
+                {
+                    "token": token,
+                }
+            ),
         )
 
     async def aclose(self) -> None:

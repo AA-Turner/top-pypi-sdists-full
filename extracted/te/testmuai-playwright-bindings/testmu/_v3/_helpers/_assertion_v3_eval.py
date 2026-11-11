@@ -501,6 +501,7 @@ class Assertion:
         verification: str = "",
         claim: str = "",
         json_path: str = "",
+        match_mode: str = "",
     ):
         # Handle backward compatibility with 'operator' parameter
         if operator is not None and assertion_operator is None:
@@ -531,6 +532,9 @@ class Assertion:
         self.verification: str = verification or ""
         self.claim: str = claim or ""
         self.json_path: str = json_path or ""
+        # JSONPath match_mode: "any" = one match satisfying every condition is
+        # enough; anything else keeps every-match ("all") behaviour.
+        self.match_mode: str = match_mode or ""
 
     # ---------- helpers ----------
 
@@ -705,10 +709,15 @@ class Assertion:
         used_variables.update(right_variables)
 
         if self.json_path:
-            from testmu_helper.evaluation._evaluate import _apply_rfc_json_path
+            from testmu_helper.evaluation._evaluate import _apply_rfc_json_path, _rfc_match_mode
             matches = _apply_rfc_json_path(left, self.json_path)
             if not matches:
                 return False, used_variables
+            if _rfc_match_mode(self.match_mode) == "any":
+                passed = any(
+                    all(self._eval_leaf_condition(cond, match_value, right) for cond in self.assertion_operator)
+                    for match_value in matches)
+                return passed, used_variables
             for cond in self.assertion_operator:
                 for match_value in matches:
                     if not self._eval_leaf_condition(cond, match_value, right):
@@ -792,5 +801,6 @@ class Assertion:
             left_operand=json_data.get("left_operand"),
             right_operand=json_data.get("right_operand"),
             json_path=json_data.get("json_path", ""),
+            match_mode=json_data.get("match_mode") or "",
             **v16_kwargs,
         )

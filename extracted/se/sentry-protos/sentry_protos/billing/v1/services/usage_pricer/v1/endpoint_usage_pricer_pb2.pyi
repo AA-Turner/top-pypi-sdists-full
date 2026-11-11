@@ -163,10 +163,13 @@ class LineItemUsageSummary(google.protobuf.message.Message):
     HAS_REMAINING_CAPACITY_FIELD_NUMBER: builtins.int
     NON_GRANTED_QUANTITY_FIELD_NUMBER: builtins.int
     EXCEEDED_PAYG_BUDGET_FIELD_NUMBER: builtins.int
+    UNCAPPED_SPEND_CENTS_FIELD_NUMBER: builtins.int
     line_item_uid: builtins.str
     """Refers to uid in sentry_protos.billing.v1.common.v1.LineItemDetails"""
     payg_spend_cents: builtins.int
-    """Net cents consumed by this line item in the billing period (after credits/trials applied)."""
+    """Net cents consumed by this line item in the billing period (after credits/trials applied).
+    Counts toward the PAYG budget. 0 for uncapped line items; see uncapped_spend_cents.
+    """
     quantity: builtins.int
     """How much of the line item was consumed by PAYG (in the line item's units)"""
     payg_budget_exhausted: builtins.bool
@@ -202,6 +205,11 @@ class LineItemUsageSummary(google.protobuf.message.Message):
     For example, a $1 allocation against a $1 budget returns false.
     For an all-items budget, compares the total spend across its line items.
     """
+    uncapped_spend_cents: builtins.int
+    """Net cents billed for this line item in the billing period that do not count
+    toward the PAYG budget, because the line item is priced with an uncapped
+    rate (e.g. Seer seats). 0 for line items without an uncapped rate.
+    """
     def __init__(
         self,
         *,
@@ -215,8 +223,9 @@ class LineItemUsageSummary(google.protobuf.message.Message):
         has_remaining_capacity: builtins.bool = ...,
         non_granted_quantity: builtins.int = ...,
         exceeded_payg_budget: builtins.bool = ...,
+        uncapped_spend_cents: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["exceeded_payg_budget", b"exceeded_payg_budget", "has_remaining_capacity", b"has_remaining_capacity", "line_item_uid", b"line_item_uid", "non_granted_quantity", b"non_granted_quantity", "payg_budget_exhausted", b"payg_budget_exhausted", "payg_spend_cents", b"payg_spend_cents", "quantity", b"quantity", "reserved_budget_exhausted", b"reserved_budget_exhausted", "reserved_spend_cents", b"reserved_spend_cents", "total_quantity", b"total_quantity"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["exceeded_payg_budget", b"exceeded_payg_budget", "has_remaining_capacity", b"has_remaining_capacity", "line_item_uid", b"line_item_uid", "non_granted_quantity", b"non_granted_quantity", "payg_budget_exhausted", b"payg_budget_exhausted", "payg_spend_cents", b"payg_spend_cents", "quantity", b"quantity", "reserved_budget_exhausted", b"reserved_budget_exhausted", "reserved_spend_cents", b"reserved_spend_cents", "total_quantity", b"total_quantity", "uncapped_spend_cents", b"uncapped_spend_cents"]) -> None: ...
 
 global___LineItemUsageSummary = LineItemUsageSummary
 

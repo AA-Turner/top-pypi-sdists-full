@@ -1585,7 +1585,7 @@ class CfnAcmeEndpoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_certificatemanager.CfnAcmeEndpoint",
 ):
-    '''Resource Type definition for AWS::CertificateManager::AcmeEndpoint.
+    '''Resource Type definition for AWS::CertificateManager::AcmeEndpoint, an ACME protocol endpoint for issuing certificates through AWS Certificate Manager.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-acmeendpoint.html
     :cloudformationResource: AWS::CertificateManager::AcmeEndpoint

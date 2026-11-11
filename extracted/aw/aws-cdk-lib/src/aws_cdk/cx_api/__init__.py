@@ -995,7 +995,7 @@ class CloudArtifact(
 
     Example::
 
-        from aws_cdk.cloud_assembly_schema import MetadataEntry, AwsCloudFormationStackProperties, BootstrapRole
+        from aws_cdk.cloud_assembly_schema import MetadataEntry, NestedCloudAssemblyProperties, BootstrapRole
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import cloud_assembly_schema
@@ -1021,7 +1021,7 @@ class CloudArtifact(
                     trace=["trace"]
                 )]
             },
-            properties=AwsCloudFormationStackProperties(
+            properties=NestedCloudAssemblyProperties(
                 template_file="templateFile",
         
                 # the properties below are optional
@@ -1678,7 +1678,7 @@ class CloudFormationStackArtifact(
 
     Example::
 
-        from aws_cdk.cloud_assembly_schema import MetadataEntry, AwsCloudFormationStackProperties, BootstrapRole
+        from aws_cdk.cloud_assembly_schema import MetadataEntry, NestedCloudAssemblyProperties, BootstrapRole
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import cloud_assembly_schema
@@ -1704,7 +1704,7 @@ class CloudFormationStackArtifact(
                     trace=["trace"]
                 )]
             },
-            properties=AwsCloudFormationStackProperties(
+            properties=NestedCloudAssemblyProperties(
                 template_file="templateFile",
         
                 # the properties below are optional
@@ -2932,7 +2932,7 @@ class NestedCloudAssemblyArtifact(
 
     Example::
 
-        from aws_cdk.cloud_assembly_schema import MetadataEntry, AwsCloudFormationStackProperties, BootstrapRole
+        from aws_cdk.cloud_assembly_schema import MetadataEntry, NestedCloudAssemblyProperties, BootstrapRole
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import cloud_assembly_schema
@@ -2958,7 +2958,7 @@ class NestedCloudAssemblyArtifact(
                     trace=["trace"]
                 )]
             },
-            properties=AwsCloudFormationStackProperties(
+            properties=NestedCloudAssemblyProperties(
                 template_file="templateFile",
         
                 # the properties below are optional
@@ -3294,7 +3294,7 @@ class TreeCloudArtifact(
 
     Example::
 
-        from aws_cdk.cloud_assembly_schema import MetadataEntry, AwsCloudFormationStackProperties, BootstrapRole
+        from aws_cdk.cloud_assembly_schema import MetadataEntry, NestedCloudAssemblyProperties, BootstrapRole
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import cloud_assembly_schema
@@ -3320,7 +3320,7 @@ class TreeCloudArtifact(
                     trace=["trace"]
                 )]
             },
-            properties=AwsCloudFormationStackProperties(
+            properties=NestedCloudAssemblyProperties(
                 template_file="templateFile",
         
                 # the properties below are optional
@@ -4035,7 +4035,7 @@ class AssetManifestArtifact(
 
     Example::
 
-        from aws_cdk.cloud_assembly_schema import MetadataEntry, AwsCloudFormationStackProperties, BootstrapRole
+        from aws_cdk.cloud_assembly_schema import MetadataEntry, NestedCloudAssemblyProperties, BootstrapRole
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import cloud_assembly_schema
@@ -4061,7 +4061,7 @@ class AssetManifestArtifact(
                     trace=["trace"]
                 )]
             },
-            properties=AwsCloudFormationStackProperties(
+            properties=NestedCloudAssemblyProperties(
                 template_file="templateFile",
         
                 # the properties below are optional

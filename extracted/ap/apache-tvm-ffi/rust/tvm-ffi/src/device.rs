@@ -16,16 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+//! The device stream of the FFI environment: [`current_stream`] and [`with_stream`].
+
 use crate::error::Result;
 use crate::type_traits::AnyCompatible;
 use tvm_ffi_sys::dlpack::DLDevice;
 use tvm_ffi_sys::{TVMFFIAny, TVMFFITypeIndex as TypeIndex};
 use tvm_ffi_sys::{TVMFFIEnvGetStream, TVMFFIEnvSetStream, TVMFFIStreamHandle};
 
-/// Get the current stream for a device
+/// The current stream of `device`, as the caller or [`with_stream`] set it;
+/// null if none is set.
 pub fn current_stream(device: &DLDevice) -> TVMFFIStreamHandle {
-    unsafe { TVMFFIEnvGetStream(device.device_type as i32, device.device_id) }
+    unsafe { TVMFFIEnvGetStream(device.device_type, device.device_id) }
 }
+
 /// Call `f` with the device stream temporarily set to `stream`.
 ///
 /// The previous stream is restored however `f` exits: when it returns a
@@ -42,7 +46,7 @@ pub unsafe fn with_stream<T>(
     let mut prev_stream: TVMFFIStreamHandle = std::ptr::null_mut();
     unsafe {
         crate::check_safe_call!(TVMFFIEnvSetStream(
-            device.device_type as i32,
+            device.device_type,
             device.device_id,
             stream,
             &mut prev_stream as *mut TVMFFIStreamHandle
@@ -70,7 +74,7 @@ impl RestoreStream {
     fn set(&self) -> i32 {
         unsafe {
             TVMFFIEnvSetStream(
-                self.device.device_type as i32,
+                self.device.device_type,
                 self.device.device_id,
                 self.stream,
                 std::ptr::null_mut(),
@@ -92,12 +96,11 @@ impl Drop for RestoreStream {
     }
 }
 
-/// AnyCompatible for DLDevice
 unsafe impl AnyCompatible for DLDevice {
     #[inline]
     unsafe fn is_undefined(field: *const Self) -> bool {
-        // No device type is zero; read as an integer, since zero is no `DLDeviceType`.
-        *std::ptr::addr_of!((*field).device_type).cast::<u32>() == 0
+        // No device type is zero.
+        unsafe { *std::ptr::addr_of!((*field).device_type) == 0 }
     }
 
     fn type_str() -> String {
@@ -120,22 +123,65 @@ unsafe impl AnyCompatible for DLDevice {
     }
 
     unsafe fn check_any_strict(data: &TVMFFIAny) -> bool {
-        return data.type_index == TypeIndex::kTVMFFIDevice as i32;
+        data.type_index == TypeIndex::kTVMFFIDevice as i32
     }
 
     unsafe fn copy_from_any_view_after_check(data: &TVMFFIAny) -> Self {
-        data.data_union.v_device
+        unsafe { data.data_union.v_device }
     }
 
     unsafe fn move_from_any_after_check(data: &mut TVMFFIAny) -> Self {
-        data.data_union.v_device
+        unsafe { data.data_union.v_device }
     }
 
     unsafe fn try_cast_from_any_view(data: &TVMFFIAny) -> Result<Self, ()> {
         if data.type_index == TypeIndex::kTVMFFIDevice as i32 {
-            Ok(data.data_union.v_device)
-        } else {
-            Err(())
+            return Ok(unsafe { data.data_union.v_device });
         }
+        let text = unsafe { <crate::String as AnyCompatible>::try_cast_from_any_view(data)? };
+        parse_device(text.as_str()).ok_or(())
     }
+}
+
+/// The device a string such as `"cuda:1"` names, as C++ converts one: a
+/// device name, an optional `:index`, and anything after a space ignored.
+#[cold]
+fn parse_device(text: &str) -> Option<DLDevice> {
+    use tvm_ffi_sys::dlpack::DLDeviceType::*;
+    let text = text.split(' ').next().unwrap_or_default();
+    let (name, index) = match text.split_once(':') {
+        Some((name, index)) => (name, Some(index)),
+        None => (text, None),
+    };
+    let device_type = match name {
+        "cpu" => kDLCPU,
+        "cuda" => kDLCUDA,
+        "opencl" => kDLOpenCL,
+        "vulkan" => kDLVulkan,
+        "metal" | "mps" => kDLMetal,
+        "vpi" => kDLVPI,
+        "rocm" => kDLROCM,
+        "ext_dev" => kDLExtDev,
+        "oneapi" | "xpu" => kDLOneAPI,
+        "hexagon" => kDLHexagon,
+        "wgpu" | "webgpu" => kDLWebGPU,
+        "maia" => kDLMAIA,
+        "trn" => kDLTrn,
+        "tpu" => kDLTPU,
+        "tpu_host" => kDLTPUHost,
+        "ascend" => kDLAscend,
+        _ => return None,
+    };
+    let device_id = match index {
+        // Digits only, as C++ parses them: no sign.
+        Some(index) if !index.is_empty() && index.bytes().all(|b| b.is_ascii_digit()) => {
+            index.parse::<i32>().ok()?
+        }
+        Some(_) => return None,
+        None => 0,
+    };
+    Some(DLDevice {
+        device_type: device_type as i32,
+        device_id,
+    })
 }

@@ -6,7 +6,7 @@ use std::{collections::HashMap, fmt};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct IdListMetadata {
     #[serde(alias = "key")]
@@ -23,6 +23,14 @@ pub struct IdListMetadata {
 pub struct IdListUpdate {
     pub raw_changeset: Option<String>,
     pub new_metadata: IdListMetadata,
+}
+
+/// Private HTTP adapter handoff. Capture the previously committed cursor so
+/// a concurrent replacement cannot install an older image or raw fallback.
+#[doc(hidden)]
+pub struct IdListUpdateBase {
+    pub(crate) previous: Option<IdListMetadata>,
+    pub(crate) list: Option<super::IdList>,
 }
 
 #[async_trait]
@@ -128,6 +136,26 @@ pub trait IdListsUpdateListener: Send + Sync {
         }
     }
 
+    #[doc(hidden)]
+    fn supports_id_list_snapshot_updates(&self) -> bool {
+        false
+    }
+
+    /// Publish verified private EF bases and ordinary raw updates together.
+    #[doc(hidden)]
+    fn try_receive_id_list_snapshot_updates(
+        &self,
+        _updates: HashMap<String, IdListUpdate>,
+        _bases: HashMap<String, IdListUpdateBase>,
+        _propagation: HashMap<String, super::IdListPropagationUpdate>,
+        _mode: IdListPublicationMode,
+        _eager_downloads: Option<u64>,
+    ) -> Result<(), StatsigErr> {
+        Err(StatsigErr::InvalidOperation(
+            "unsupported ID-list snapshot update".into(),
+        ))
+    }
+
     /// Whether HTTP publication must run on a blocking worker.
     fn requires_blocking_id_list_publication(&self) -> bool {
         false
@@ -158,7 +186,8 @@ impl fmt::Debug for dyn IdListsAdapter {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum IdListPublicationMode {
+#[doc(hidden)]
+pub enum IdListPublicationMode {
     Replace,
     IncompleteRefresh,
     Merge,

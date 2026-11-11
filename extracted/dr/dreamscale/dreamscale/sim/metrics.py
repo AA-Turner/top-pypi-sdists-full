@@ -69,6 +69,8 @@ class SimMetrics:
     started_ns: int = field(default_factory=time.monotonic_ns)
     finished_ns: int | None = None
     steps: int = 0
+    # Set when max_steps budgets the policy's actions only (a stateful LIBERO episode).
+    policy_action_steps: int | None = None
     policy_calls: int = 0
     observations_sent: int = 0
     chunks_received: int = 0
@@ -154,8 +156,11 @@ class SimMetrics:
         if capacity is not None:
             self.action_buffer_capacity = max(0, int(capacity))
 
-    def note_step(self, *, steps: int, buffer_remaining: int) -> None:
+    def note_step(self, *, steps: int, buffer_remaining: int,
+                  policy_action_steps: int | None = None) -> None:
         self.steps = steps
+        if policy_action_steps is not None:
+            self.policy_action_steps = policy_action_steps
         self.note_buffer(buffer_remaining)
 
     def finish(self, *, steps: int, policy_calls: int, done: bool,
@@ -178,6 +183,8 @@ class SimMetrics:
         return {
             "steps": self.steps,
             "max_steps": self.max_steps,
+            **({} if self.policy_action_steps is None
+               else {"policy_action_steps": self.policy_action_steps}),
             "policy_calls": self.policy_calls,
             "observations_sent": self.observations_sent,
             "chunks_received": self.chunks_received,
@@ -255,8 +262,11 @@ def format_sim_metrics(snapshot: dict[str, Any]) -> str:
     return "\n".join((
         "Dreamscale sim metrics",
         (
-            f"step {snapshot['steps']:>4}/{snapshot['max_steps']:<4} | "
-            f"policy calls {snapshot['policy_calls']:<3} | "
+            (f"step {snapshot['steps']:>4}/{snapshot['max_steps']:<4} | "
+             if "policy_action_steps" not in snapshot else
+             f"action {snapshot['policy_action_steps']:>4}/{snapshot['max_steps']:<4} "
+             f"(step {snapshot['steps']}) | ")
+            + f"policy calls {snapshot['policy_calls']:<3} | "
             f"chunks {snapshot['chunks_received']:<3} | "
             f"rate {snapshot['steps_per_s']:>5.1f} step/s"
         ),

@@ -2,7 +2,8 @@
 
 from enum import Enum
 
-from .Conversions import enum_ext_list_to_str, enum_ext_scalar_to_str, enum_list_to_str, enum_scalar_to_str, list_to_csv_quoted_str, list_to_csv_str, value_to_quoted_str, value_to_str
+from .Conversions import enum_ext_list_to_str, enum_ext_scalar_to_str, enum_list_to_str, enum_scalar_to_str, list_to_csv_quoted_str, list_to_csv_str, \
+	value_to_quoted_str, value_to_str, CornerValues
 from .InstrumentErrors import RsInstrException
 from .Types import DataType
 
@@ -53,6 +54,15 @@ def value_to_scpi_string(data, data_type: DataType) -> str:
 	elif data_type == DataType.IntegerExt or data_type == DataType.FloatExt:
 		assert (isinstance(data, int) or isinstance(data, float) or isinstance(data, bool)), f"Expected command parameter number or boolean, actual data type: {type(data)}. Value: {data}"
 		return value_to_str(data)
+
+	# For integer and float extended by corner values enum, convert just like normal extension,
+	elif data_type == DataType.IntegerMinMaxDfltList or data_type == DataType.FloatMinMaxDfltList:
+		assert all((type(x) is int or isinstance(x, float) or isinstance(x, CornerValues)) for x in data), f"Expected command parameter: list of numbers or CornerValue enums, detected one or more elements of non-number type. Value: {data}"
+		return list_to_csv_str(data)
+	elif data_type == DataType.IntegerMinMaxDflt or data_type == DataType.FloatMinMaxDflt:
+		assert (type(data) is int or isinstance(data, float) or isinstance(data, CornerValues)), f"Expected command parameter: number or CornerValue enum, actual data type: {type(data)}. Value: {data}"
+		return value_to_str(data)
+
 	else:
 		raise RsInstrException(f"Unsupported data type: '{type(data_type)}'.")
 

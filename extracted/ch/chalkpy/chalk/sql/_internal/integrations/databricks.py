@@ -35,6 +35,8 @@ _DATABRICKS_DATABASE_NAME = "DATABRICKS_DATABASE"
 _DATABRICKS_PORT_NAME = "DATABRICKS_PORT"
 _DATABRICKS_CLIENT_ID_NAME = "DATABRICKS_CLIENT_ID"
 _DATABRICKS_CLIENT_SECRET_NAME = "DATABRICKS_CLIENT_SECRET"
+_DATABRICKS_TEMP_CATALOG_NAME = "DATABRICKS_TEMP_CATALOG"
+_DATABRICKS_TEMP_SCHEMA_NAME = "DATABRICKS_TEMP_SCHEMA"
 
 
 class DatabricksSourceImpl(BaseSQLSource):
@@ -54,6 +56,8 @@ class DatabricksSourceImpl(BaseSQLSource):
         executor: Optional[concurrent.futures.ThreadPoolExecutor] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
         permission_tags: list[str] | None = None,
+        temp_catalog: Optional[str] = None,
+        temp_schema: Optional[str] = None,
     ):
         try:
             from databricks import sql
@@ -92,6 +96,15 @@ class DatabricksSourceImpl(BaseSQLSource):
         )
         self.client_secret = client_secret or load_integration_variable(
             name=_DATABRICKS_CLIENT_SECRET_NAME, integration_name=name, override=integration_variable_override
+        )
+        # Where temp-table filter pushdown stages its tables. When temp_schema is unset, staging
+        # tables are created unqualified (the session's current catalog and its `default` schema).
+        # temp_catalog defaults to `db` and lets staging live in a different catalog than the data.
+        self.temp_catalog = temp_catalog or load_integration_variable(
+            name=_DATABRICKS_TEMP_CATALOG_NAME, integration_name=name, override=integration_variable_override
+        )
+        self.temp_schema = temp_schema or load_integration_variable(
+            name=_DATABRICKS_TEMP_SCHEMA_NAME, integration_name=name, override=integration_variable_override
         )
         self.executor = executor or DEFAULT_IO_EXECUTOR
 
@@ -155,6 +168,14 @@ class DatabricksSourceImpl(BaseSQLSource):
         else:
             return {"access_token": self.access_token}
 
+    def temp_table_namespace(self) -> tuple[str, ...]:
+        """The ``(catalog, schema)`` (or ``(schema,)``) under which temp-table filter pushdown should
+        create its staging tables, or ``()`` to create them unqualified in the session's current schema."""
+        if not self.temp_schema:
+            return ()
+        catalog = self.temp_catalog or self.db
+        return (catalog, self.temp_schema) if catalog else (self.temp_schema,)
+
     @contextlib.contextmanager
     def _create_temp_table(
         self,
@@ -167,9 +188,19 @@ class DatabricksSourceImpl(BaseSQLSource):
         """Create temporary table with data for temp table pushdown"""
         from chalk.sql._internal.sql_source import insert_size_limit
 
-        chalk_logger.info(f"Creating temporary table {temp_table.name} in Databricks.")
+        chalk_logger.info(f"Creating temporary table {temp_table.fullname} in Databricks.")
 
-        connection.execute(create_temp_table)
+        try:
+            connection.execute(create_temp_table)
+        except Exception as e:
+            if "SCHEMA_NOT_FOUND" in str(e) and temp_table.schema is None:
+                raise RuntimeError(
+                    f"Databricks could not create the filter pushdown staging table {temp_table.name!r} because "
+                    + "the session's current schema does not exist. Set DATABRICKS_TEMP_SCHEMA (and optionally "
+                    + "DATABRICKS_TEMP_CATALOG) on the Databricks integration to a schema the integration's "
+                    + "principal can create tables in."
+                ) from e
+            raise
 
         try:
             # Insert with multi-row INSERT ... VALUES statements (one round trip per batch)
@@ -183,7 +214,7 @@ class DatabricksSourceImpl(BaseSQLSource):
                 connection.execute(temp_table.insert().values(batch))
             yield
         finally:
-            chalk_logger.info(f"Dropping temporary table {temp_table.name} in Databricks.")
+            chalk_logger.info(f"Dropping temporary table {temp_table.fullname} in Databricks.")
             connection.execute(drop_temp_table)
 
     def _execute_query_efficient(
@@ -414,6 +445,8 @@ class DatabricksSourceImpl(BaseSQLSource):
                 create_integration_variable(_DATABRICKS_PORT_NAME, self.name, self.port),
                 create_integration_variable(_DATABRICKS_CLIENT_ID_NAME, self.name, self.client_id),
                 create_integration_variable(_DATABRICKS_CLIENT_SECRET_NAME, self.name, self.client_secret),
+                create_integration_variable(_DATABRICKS_TEMP_CATALOG_NAME, self.name, self.temp_catalog),
+                create_integration_variable(_DATABRICKS_TEMP_SCHEMA_NAME, self.name, self.temp_schema),
             ]
             if v is not None
         }

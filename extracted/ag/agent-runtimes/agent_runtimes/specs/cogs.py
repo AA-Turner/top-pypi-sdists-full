@@ -193,11 +193,13 @@ Check your output against every Guard before you hand it over, and say which you
     policy={"shield": {"egress": ["*"]}},
     notifications=None,
     memory="mem0",
+    decisions=None,
     pre_hooks=None,
     post_hooks=None,
     tool_hooks=None,
     parameters=None,
     subagents=None,
+    identity="web-bot-auth-agent",
 )
 
 COG_CUSTOMER_INTERVIEWER_AGENTSPEC_0_0_1 = Agentspec(
@@ -349,6 +351,7 @@ Check your output against every Guard before you hand it over, and say which you
     policy={"shield": {"egress": ["*"]}},
     notifications=None,
     memory="mem0",
+    decisions=None,
     pre_hooks=None,
     post_hooks=None,
     tool_hooks=None,
@@ -377,6 +380,7 @@ Check your output against every Guard before you hand it over, and say which you
         "required": ["research_goal"],
     },
     subagents=None,
+    identity="datalayer-acting-agent",
 )
 
 COG_SALES_PIPELINE_BOARD_REPORT_AGENTSPEC_0_0_1 = Agentspec(
@@ -518,11 +522,13 @@ Check your output against every Guard before you hand it over, and say which you
     policy={"shield": {"egress": ["*"]}},
     notifications=None,
     memory="ephemeral",
+    decisions=None,
     pre_hooks=None,
     post_hooks=None,
     tool_hooks=None,
     parameters=None,
     subagents=None,
+    identity="datalayer-acting-agent",
 )
 
 

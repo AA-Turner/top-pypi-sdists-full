@@ -34,6 +34,7 @@ from .literals import (
     ExecutionResultCodeType,
     ExecutionResultType,
     ExecutionStatusType,
+    InsightsTypeType,
     InstanceStatusType,
     InteractionModeType,
     NetworkProfileTypeType,
@@ -1297,7 +1298,7 @@ class ScheduleRunConfigurationTypeDef(TypedDict):
     billingMethod: NotRequired[BillingMethodType]
     environmentVariables: NotRequired[Sequence[EnvironmentVariableTypeDef]]
     executionRoleArn: NotRequired[str]
-    insightsTypes: NotRequired[Sequence[Literal["TEST_REPORT"]]]
+    insightsTypes: NotRequired[Sequence[InsightsTypeType]]
 
 class DeviceSelectionConfigurationTypeDef(TypedDict):
     filters: Sequence[DeviceFilterUnionTypeDef]
@@ -1507,11 +1508,12 @@ RunTypeDef = TypedDict(
         "webUrl": NotRequired[str],
         "skipAppResign": NotRequired[bool],
         "testSpecArn": NotRequired[str],
+        "testPackageArn": NotRequired[str],
         "deviceSelectionResult": NotRequired[DeviceSelectionResultTypeDef],
         "vpcConfig": NotRequired[VpcConfigOutputTypeDef],
         "executionRoleArn": NotRequired[str],
         "environmentVariables": NotRequired[list[EnvironmentVariableTypeDef]],
-        "insightsTypes": NotRequired[list[Literal["TEST_REPORT"]]],
+        "insightsTypes": NotRequired[list[InsightsTypeType]],
         "insights": NotRequired[RunInsightsTypeDef],
     },
 )

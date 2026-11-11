@@ -1,6 +1,6 @@
 [project]
 name = "autoware-carla-scenario"
-version = "26.7.0"
+version = "26.8.7"
 description = "CARLA scenario testing framework for Autoware"
 readme = "README.md"
 license = "Apache-2.0"
@@ -74,7 +74,13 @@ rerun-lidar = [
     "rerun-sdk>=0.38.1,<0.39",
 ]
 t4 = ["autoware-carla-scenario-t4>=0.1,<0.2"]
-hils = ["hilspy>=0.16,<0.17"]
+hils = ["hilspy>=0.16,<0.18"]
+hils-setup = [
+    "autoware-carla-scenario[hils]",
+    "hilspy>=0.17,<0.18",
+    "ansible-runner>=2.4",
+    "ansible-core>=2.15",
+]
 viewer = ["autoware-carla-scenario-rerun[viewer]>=0.3,<0.4"]
 
 [project.scripts]

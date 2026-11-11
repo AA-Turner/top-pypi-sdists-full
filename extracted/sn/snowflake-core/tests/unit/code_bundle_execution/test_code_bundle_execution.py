@@ -8,8 +8,8 @@ from snowflake.core._internal.snowapi_parameters import SnowApiParameter, SnowAp
 from snowflake.core.code_bundle_execution import (
     CodeBundleExecutionCollection,
     ExecuteCodeBundleRequest,
+    ExecuteCodeBundleResponse,
     SuccessAcceptedResponse,
-    SuccessResponse,
 )
 from snowflake.core.exceptions import NotFoundError
 
@@ -38,20 +38,30 @@ def test_execute_code_bundle(fake_root, code_bundle_execution):
     kwargs = extra_params(query_params=[("asyncExec", True)], body=body)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        mocked_request.return_value = mock_http_response(SuccessResponse(status="Execution successful").to_json())
+        mocked_request.return_value = mock_http_response(ExecuteCodeBundleResponse(return_value="42").to_json())
         result = code_bundle_execution.execute(request)
-        assert isinstance(result, SuccessResponse)
-        assert result.status == "Execution successful"
+        assert isinstance(result, ExecuteCodeBundleResponse)
+        assert result.return_value == "42"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        mocked_request.return_value = mock_http_response(SuccessResponse(status="Execution successful").to_json())
+        mocked_request.return_value = mock_http_response(ExecuteCodeBundleResponse(return_value="42").to_json())
         op = code_bundle_execution.execute_async(request)
         assert isinstance(op, PollingOperation)
         result = op.result()
-        assert isinstance(result, SuccessResponse)
-        assert result.status == "Execution successful"
+        assert isinstance(result, ExecuteCodeBundleResponse)
+        assert result.return_value == "42"
     mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_execute_code_bundle_status_response(code_bundle_execution):
+    request = ExecuteCodeBundleRequest(from_location="@my_db.my_schema.my_stage/src", entrypoint="main.py")
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response('{"status": "Execution completed."}')
+        result = code_bundle_execution.execute(request, async_exec=False)
+    assert isinstance(result, ExecuteCodeBundleResponse)
+    assert result.status == "Execution completed."
+    assert result.return_value is None
 
 
 def test_execute_code_bundle_with_specification_and_execution_name(fake_root, code_bundle_execution):
@@ -74,7 +84,7 @@ def test_execute_code_bundle_with_specification_and_execution_name(fake_root, co
     kwargs = extra_params(query_params=[("asyncExec", True)], body=body)
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
-        mocked_request.return_value = mock_http_response(SuccessResponse(status="Execution successful").to_json())
+        mocked_request.return_value = mock_http_response(ExecuteCodeBundleResponse(return_value="42").to_json())
         code_bundle_execution.execute(request)
     mocked_request.assert_called_once_with(*args, **kwargs)
 
@@ -107,7 +117,7 @@ def test_execute_code_bundle_async_exec_returns_202_without_polling(fake_root, c
 
 def test_execute_code_bundle_async_exec_polls_when_disabled(fake_root, code_bundle_execution):
     # With SKIP_ASYNC_EXEC_POLLING disabled, the client falls back to polling the 202 result endpoint to
-    # completion and returns the final 200 SuccessResponse.
+    # completion and returns the final 200 ExecuteCodeBundleResponse.
     fake_root.parameters.return_value = SnowApiParameters(
         {SnowApiParameter.MAX_THREADS: "1", SnowApiParameter.SKIP_ASYNC_EXEC_POLLING: "false"}
     )
@@ -117,7 +127,7 @@ def test_execute_code_bundle_async_exec_polls_when_disabled(fake_root, code_bund
         SuccessAcceptedResponse(code="392604", message="in progress", job_id="01c-abc").to_json(),
         location="/api/v2/results/01c-abc",
     )
-    completed = mock_http_response(SuccessResponse(status="Execution successful").to_json())
+    completed = mock_http_response(ExecuteCodeBundleResponse(return_value="42").to_json())
 
     with (
         mock.patch(API_CLIENT_REQUEST) as mocked_request,
@@ -126,8 +136,8 @@ def test_execute_code_bundle_async_exec_polls_when_disabled(fake_root, code_bund
         mocked_request.side_effect = [accepted, completed]
         result = code_bundle_execution.execute(request)
 
-    assert isinstance(result, SuccessResponse)
-    assert result.status == "Execution successful"
+    assert isinstance(result, ExecuteCodeBundleResponse)
+    assert result.return_value == "42"
     # Original POST plus one poll GET against the result endpoint.
     assert mocked_request.call_count == 2
 

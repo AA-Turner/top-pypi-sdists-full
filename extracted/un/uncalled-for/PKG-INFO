@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: uncalled-for
-Version: 0.6.0
+Version: 0.6.1
 Summary: Async dependency injection for Python functions
 Project-URL: Repository, https://github.com/chrisguidry/uncalled-for
 Project-URL: Bug Tracker, https://github.com/chrisguidry/uncalled-for/issues
@@ -100,6 +100,11 @@ reference sees the same value the outer function receives, whether the caller
 passed it or another dependency on the outer signature produced it.
 `CallArgument(optional=True)` yields `None` when the outer function has no
 such argument. References that form a cycle raise `CycleError`.
+
+When the outer function doesn't declare the parameter,
+`without_dependencies` adds it to the wrapper's signature as keyword-only,
+required unless the reference has a `default`. Optional references are never
+added.
 
 ## Bindings
 

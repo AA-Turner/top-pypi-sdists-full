@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfyui_workflow_templates
-Version: 0.11.103
+Version: 0.11.106
 Summary: ComfyUI workflow templates package
 Author: Comfy-Org
 License: MIT
@@ -9,19 +9,19 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: comfyui-workflow-templates-core==0.3.394
-Requires-Dist: comfyui-workflow-templates-json==0.1.129
+Requires-Dist: comfyui-workflow-templates-core==0.3.397
+Requires-Dist: comfyui-workflow-templates-json==0.1.132
 Requires-Dist: comfyui-workflow-templates-media-api==0.3.84
 Requires-Dist: comfyui-workflow-templates-media-video==0.3.101
 Requires-Dist: comfyui-workflow-templates-media-image==0.3.160
 Requires-Dist: comfyui-workflow-templates-media-other==0.3.229
 Requires-Dist: comfyui-workflow-templates-media-assets-01==0.1.48
-Requires-Dist: comfyui-workflow-templates-media-assets-02==0.1.29
+Requires-Dist: comfyui-workflow-templates-media-assets-02==0.1.31
 Provides-Extra: json
-Requires-Dist: comfyui-workflow-templates-json==0.1.129; extra == "json"
+Requires-Dist: comfyui-workflow-templates-json==0.1.132; extra == "json"
 Provides-Extra: assets
 Requires-Dist: comfyui-workflow-templates-media-assets-01==0.1.48; extra == "assets"
-Requires-Dist: comfyui-workflow-templates-media-assets-02==0.1.29; extra == "assets"
+Requires-Dist: comfyui-workflow-templates-media-assets-02==0.1.31; extra == "assets"
 Provides-Extra: api
 Requires-Dist: comfyui-workflow-templates-media-api==0.3.84; extra == "api"
 Provides-Extra: video
@@ -31,9 +31,9 @@ Requires-Dist: comfyui-workflow-templates-media-image==0.3.160; extra == "image"
 Provides-Extra: other
 Requires-Dist: comfyui-workflow-templates-media-other==0.3.229; extra == "other"
 Provides-Extra: all
-Requires-Dist: comfyui-workflow-templates-json==0.1.129; extra == "all"
+Requires-Dist: comfyui-workflow-templates-json==0.1.132; extra == "all"
 Requires-Dist: comfyui-workflow-templates-media-assets-01==0.1.48; extra == "all"
-Requires-Dist: comfyui-workflow-templates-media-assets-02==0.1.29; extra == "all"
+Requires-Dist: comfyui-workflow-templates-media-assets-02==0.1.31; extra == "all"
 Requires-Dist: comfyui-workflow-templates-media-api==0.3.84; extra == "all"
 Requires-Dist: comfyui-workflow-templates-media-video==0.3.101; extra == "all"
 Requires-Dist: comfyui-workflow-templates-media-image==0.3.160; extra == "all"
@@ -106,7 +106,7 @@ PR opened/updated
 
 | Task | Commands |
 |------|----------|
-| Add a workflow template | Edit `templates/`, `bundles.json`, then `python scripts/sync/sync_bundles.py` |
+| Add a workflow template | Edit `templates/` + `bundles.json` (assign a bundle). Manifest sync is optional on template-only PRs — required on version-bump/release |
 | Add a subgraph blueprint | Edit `blueprints/`, `blueprints_bundles.json`, then `python scripts/sync/sync_blueprints.py` |
 | Import external blueprints | Copy JSONs to `blueprints/`, then `python scripts/blueprints/import_blueprints.py` |
 | Check node compatibility | `npm run validate:comfyui-nodes` (local ComfyUI) or see [`scripts/README.md`](scripts/README.md#comfyui-node-compatibility-check) |
@@ -200,21 +200,30 @@ Then move the renamed files to your templates folder.
 
 Each template lives in one bundle (`media-image`, `media-video`, etc.). Update
 [`bundles.json`](bundles.json) with the template ID so the correct media package ships it.
-After editing `templates/` or `bundles.json`, regenerate the manifest and copy assets into
-the package directories:
+Update [`bundles.json`](bundles.json) so the template is assigned to a media bundle.
+Template-only PRs do **not** need to regenerate or commit
+`packages/core/src/comfyui_workflow_templates_core/manifest.json`.
+
+Manifest regeneration runs on **version-bump / release** PRs (when the root
+`pyproject.toml` version changes):
+
+- `version-check.yml` runs `python scripts/sync/sync_bundles.py` and commits the
+  regenerated manifest back to the release PR
+- `validate-manifests.yml` and `build-test.yml` enforce committed-manifest SHA256
+  only on those version-bump/release changes (they do **not** sync before
+  validating, so a stale release manifest still fails — same #1091 guard)
+- `publish.yml` syncs again immediately before PyPI upload as a final safety net
+
+Locally, maintainers can still regenerate anytime:
 
 ```bash
 python scripts/sync/sync_bundles.py
-# or via Nx  
+# or via Nx
 npm run sync
 ```
 
-This step must be run before committing, and the regenerated
-`packages/core/src/comfyui_workflow_templates_core/manifest.json` must be committed with your
-change. Two workflows enforce it against the **committed** manifest — the `Validate Manifests`
-job (`.github/workflows/validate-manifests.yml`) and the pre-sync check in
-`.github/workflows/build-test.yml` — both of which fail with a SHA256 mismatch if you skip it.
-Neither runs the sync first, so a stale manifest cannot pass by being silently regenerated.
+Template-only PRs still must keep `bundles.json` complete (every `templates/*.json`
+assigned); CI checks that without requiring a manifest rewrite.
 
 ### 8 — Add Entry to `index.json`
 

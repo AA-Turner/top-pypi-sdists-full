@@ -673,6 +673,9 @@ def _char_class_excludes_all(items: list[_Node], allowed_codes: frozenset[int]) 
 @lru_cache
 def update_quantifier(pattern: str, min_length: int | None, max_length: int | None) -> str:
     """Update the quantifier of a regular expression based on given min and max lengths."""
+    # Regex repeats cannot express bounds this large, so they mean no limit.
+    if max_length is not None and max_length >= MAXREPEAT:
+        max_length = None
     if not pattern or (min_length in (None, 0) and max_length is None):
         return pattern
 
@@ -1292,7 +1295,12 @@ def _distribute_multi(
             return None
         distribution = full_distribution
 
-    if complete and not exact_length:
+    # A narrow rewrite must still let an optional part be skipped; requiring it loses every value without it.
+    forced_optional = any(
+        orig_min == 0 < new_min and orig_max != MAXREPEAT
+        for (orig_min, orig_max), (new_min, _) in zip(quantifier_bounds, distribution, strict=True)
+    )
+    if (complete or forced_optional) and not exact_length:
         distribution = _cover_needed_counts(
             distribution, quantifier_bounds, repetition_lengths, repetition_max_lengths, fixed_length, min_l, max_l
         )

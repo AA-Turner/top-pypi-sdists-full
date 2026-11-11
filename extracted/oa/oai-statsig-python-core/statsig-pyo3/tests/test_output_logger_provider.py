@@ -7,7 +7,6 @@ from mock_output_logger import MockOutputLoggerProvider
 @pytest.fixture
 def statsig_setup():
     log_provider = MockOutputLoggerProvider()
-    log_provider.logs = []
 
     options = StatsigOptions()
     options.specs_url = "http://localhost"
@@ -17,7 +16,7 @@ def statsig_setup():
     yield log_provider, options
 
 
-def test_output_logger_provider_with_test_param(statsig_setup):
+def test_output_logger_provider_with_test_param():
     log_provider = MockOutputLoggerProvider(test_param="test_param")
     assert log_provider.test_param == "test_param"
 
@@ -52,7 +51,4 @@ def test_output_logger_filter_level(statsig_setup):
     assert debug_logs is None
 
     warn_logs = next((log for log in log_provider.logs if log[0] == "WARN"), None)
-    assert warn_logs is not None
-
-    assert debug_logs is None
     assert warn_logs is not None

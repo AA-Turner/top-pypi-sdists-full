@@ -97,6 +97,7 @@ __all__ = (
     "ListScriptsPaginatorName",
     "LocationFilterType",
     "LocationUpdateStatusType",
+    "LogDeliveryDestinationTypeType",
     "LogDestinationType",
     "MatchmakingConfigurationStatusType",
     "MetricNameType",
@@ -956,6 +957,7 @@ ListLocationsPaginatorName = Literal["list_locations"]
 ListScriptsPaginatorName = Literal["list_scripts"]
 LocationFilterType = Literal["AWS", "CUSTOM"]
 LocationUpdateStatusType = Literal["PENDING_UPDATE"]
+LogDeliveryDestinationTypeType = Literal["CLOUDWATCH", "FIREHOSE", "S3"]
 LogDestinationType = Literal["CLOUDWATCH", "NONE", "S3"]
 MatchmakingConfigurationStatusType = Literal[
     "CANCELLED",
@@ -1011,6 +1013,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -1115,6 +1118,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -1166,8 +1170,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -1421,7 +1423,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

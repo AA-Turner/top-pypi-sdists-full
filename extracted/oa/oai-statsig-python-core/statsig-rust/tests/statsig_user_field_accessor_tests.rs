@@ -31,9 +31,6 @@ fn test_custom_ids_accessor() {
     );
 }
 
-#[test]
-fn test_email_accessor() {}
-
 macro_rules! test_string_field_accessor {
     ($test_name:ident, $getter_name:ident, $setter_name:ident) => {
         #[test]

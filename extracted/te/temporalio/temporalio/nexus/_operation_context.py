@@ -10,7 +10,7 @@ from collections.abc import (
     MutableMapping,
     Sequence,
 )
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import timedelta
@@ -32,6 +32,7 @@ from nexusrpc.handler import (
 from typing_extensions import Self
 
 import temporalio.api.common.v1
+import temporalio.api.nexus.v1
 import temporalio.api.workflowservice.v1
 import temporalio.common
 from temporalio.types import (
@@ -71,6 +72,45 @@ _temporal_cancel_operation_context: ContextVar[_TemporalCancelOperationContext] 
 # It is thus a narrower context than _temporal_start_operation_context.
 _temporal_nexus_backing_start_context: ContextVar[bool] = ContextVar(
     "temporal-nexus-backing-start-context"
+)
+
+
+class _SignalSlot:
+    """Allows one in-flight or successful signal per Temporal operation handler invocation."""
+
+    def __init__(self) -> None:
+        self._taken = False
+
+    @staticmethod
+    @contextmanager
+    def scope() -> Generator[None]:
+        token = _temporal_operation_signal_slot.set(_SignalSlot())
+        try:
+            yield
+        finally:
+            _temporal_operation_signal_slot.reset(token)
+
+    @contextmanager
+    def reserve(self) -> Generator[None]:
+        # Every signal from the handler carries the operation's request ID, so the server
+        # would deduplicate a second one against the first and report it delivered.
+        if self._taken:
+            raise nexusrpc.HandlerError(
+                "Only one signal can be sent per Temporal operation handler invocation",
+                type=nexusrpc.HandlerErrorType.BAD_REQUEST,
+            )
+        self._taken = True
+        try:
+            yield
+        except BaseException:
+            self._taken = False
+            raise
+
+
+# Set for the duration of a Temporal operation handler's start so its signals reuse the
+# Nexus request ID and are not delivered twice when the Nexus task is retried.
+_temporal_operation_signal_slot: ContextVar[_SignalSlot | None] = ContextVar(
+    "temporal-operation-signal-slot", default=None
 )
 
 
@@ -171,6 +211,25 @@ def _try_temporal_context() -> (
 def _try_start_operation_context() -> _TemporalStartOperationContext | None:  # pyright: ignore[reportUnusedFunction]
     """Return the active Nexus start-operation context, if any."""
     return _temporal_start_operation_context.get(None)
+
+
+def _current_propagated_nexus_serialization_context() -> (  # pyright: ignore[reportUnusedFunction]
+    temporalio.api.nexus.v1.PropagatedSerializationContext | None
+):
+    """The serialization context of the Nexus operation being handled, in the form sent with start
+    requests, or None outside a Nexus start operation handler.
+
+    A workflow or standalone activity started by the handler returns its result and failure to the
+    Nexus caller, so the server propagates this context to the worker and to clients reading them.
+    """
+    nexus_ctx = _try_start_operation_context()
+    if nexus_ctx is None:
+        return None
+    return temporalio.api.nexus.v1.PropagatedSerializationContext(
+        endpoint=nexus_ctx.info().endpoint,
+        service=nexus_ctx.nexus_context.service,
+        operation=nexus_ctx.nexus_context.operation,
+    )
 
 
 @contextmanager
@@ -747,7 +806,10 @@ def _apply_nexus_context_to_start_workflow_update_request(  # pyright: ignore[re
     This is a no-op unless the update is backing the current Nexus operation.
     """
     nexus_ctx = _try_start_operation_context()
-    if nexus_ctx is not None and _in_nexus_backing_start_context():
+    if nexus_ctx is None:
+        return
+    _apply_nexus_serialization_context_to_workflow_update_request(req)
+    if _in_nexus_backing_start_context():
         request_links = nexus_ctx._get_request_links()
         req.request.request_id = nexus_ctx.nexus_context.request_id
         req.request.links.extend(request_links)
@@ -772,6 +834,18 @@ def _apply_nexus_context_to_start_workflow_update_request(  # pyright: ignore[re
         )
 
 
+def _apply_nexus_serialization_context_to_workflow_update_request(  # pyright: ignore[reportUnusedFunction]
+    req: temporalio.api.workflowservice.v1.UpdateWorkflowExecutionRequest,
+) -> None:
+    """Send the current Nexus operation's serialization context with a Workflow Update request.
+
+    This is a no-op outside a Nexus operation context.
+    """
+    context = _current_propagated_nexus_serialization_context()
+    if context is not None:
+        req.request.propagated_nexus_serialization_context.CopyFrom(context)
+
+
 def _apply_start_workflow_update_response_to_nexus_context(  # pyright: ignore[reportUnusedFunction]
     resp: temporalio.api.workflowservice.v1.UpdateWorkflowExecutionResponse,
 ) -> None:
@@ -789,13 +863,36 @@ def _apply_query_workflow_response_to_nexus_context(  # pyright: ignore[reportUn
         nexus_ctx._add_response_link(resp.link)
 
 
-def _apply_nexus_context_to_signal_workflow_request(  # pyright: ignore[reportUnusedFunction]
-    req: temporalio.api.workflowservice.v1.SignalWorkflowExecutionRequest,
-) -> None:
-    """Apply the current Nexus operation context to a workflow signal request."""
+@contextmanager
+def _signal_request_nexus_context(  # pyright: ignore[reportUnusedFunction]
+    req: (
+        temporalio.api.workflowservice.v1.SignalWorkflowExecutionRequest
+        | temporalio.api.workflowservice.v1.SignalWithStartWorkflowExecutionRequest
+    ),
+) -> Generator[None]:
+    """Apply the current Nexus operation context to a signal or signal-with-start RPC.
+
+    Inside a Temporal operation handler, the request reuses the Nexus request ID and takes
+    the invocation's only signal, which is released if the RPC fails.
+    """
     nexus_ctx = _try_start_operation_context()
-    if nexus_ctx is not None:
+    is_backing_start = (
+        isinstance(
+            req,
+            temporalio.api.workflowservice.v1.SignalWithStartWorkflowExecutionRequest,
+        )
+        and _in_nexus_backing_start_context()
+    )
+
+    slot = None
+    if nexus_ctx is not None and not is_backing_start:
         req.links.extend(nexus_ctx._get_request_links())
+        slot = _temporal_operation_signal_slot.get()
+        if slot is not None:
+            req.request_id = nexus_ctx.nexus_context.request_id
+
+    with slot.reserve() if slot is not None else nullcontext():
+        yield
 
 
 def _apply_signal_workflow_response_to_nexus_context(  # pyright: ignore[reportUnusedFunction]
@@ -807,28 +904,20 @@ def _apply_signal_workflow_response_to_nexus_context(  # pyright: ignore[reportU
         nexus_ctx._add_response_link(resp.link)
 
 
-def _apply_nexus_context_to_signal_with_start_workflow_request(  # pyright: ignore[reportUnusedFunction]
-    req: temporalio.api.workflowservice.v1.SignalWithStartWorkflowExecutionRequest,
-) -> None:
-    """Apply the current Nexus operation context to a signal-with-start request."""
-    nexus_ctx = _try_start_operation_context()
-    if nexus_ctx is not None and not _in_nexus_backing_start_context():
-        req.links.extend(nexus_ctx._get_request_links())
-
-
 def _apply_nexus_context_to_start_workflow_request(  # pyright: ignore[reportUnusedFunction]
     req: temporalio.api.workflowservice.v1.StartWorkflowExecutionRequest,
 ) -> None:
     """Apply the current Nexus operation context to a workflow start request.
 
-    This is a no-op outside a Nexus operation context. Within one, it attaches
-    inbound links and configures conflict handling to preserve Nexus metadata.
-    The Nexus request ID and completion callbacks are added only when the
+    This is a no-op outside a Nexus operation context. Within one, it sends the
+    operation's serialization context, attaches inbound links and configures
+    conflict handling to preserve Nexus metadata. The Nexus request ID and completion callbacks are added only when the
     workflow is backing the Nexus operation. on_conflict_options is populated
     only when there are links or callbacks to attach.
     """
     nexus_ctx = _try_start_operation_context()
     if nexus_ctx is not None:
+        _apply_nexus_serialization_context_to_start_workflow_request(req)
         request_links = nexus_ctx._get_request_links()
 
         # Links are duplicated on request for compatibility with older server versions.
@@ -861,6 +950,18 @@ def _apply_nexus_context_to_start_workflow_request(  # pyright: ignore[reportUnu
             req.on_conflict_options.attach_links = True
 
 
+def _apply_nexus_serialization_context_to_start_workflow_request(  # pyright: ignore[reportUnusedFunction]
+    req: temporalio.api.workflowservice.v1.StartWorkflowExecutionRequest,
+) -> None:
+    """Send the current Nexus operation's serialization context with a workflow start request.
+
+    This is a no-op outside a Nexus operation context.
+    """
+    context = _current_propagated_nexus_serialization_context()
+    if context is not None:
+        req.propagated_nexus_serialization_context.CopyFrom(context)
+
+
 def _apply_start_workflow_response_to_nexus_context(  # pyright: ignore[reportUnusedFunction]
     workflow_handle: temporalio.client.WorkflowHandle[Any, Any],
 ) -> None:
@@ -875,15 +976,19 @@ def _apply_nexus_context_to_start_activity_request(  # pyright: ignore[reportUnu
     """Apply the current Nexus operation context to an activity start request.
 
     This is a no-op outside a Nexus operation context. Within one, it attaches
-    the Nexus request ID and configures conflict handling to preserve the Nexus
-    metadata. Inbound links are attached to the completion callback when the
-    activity backs the operation and to the request otherwise.
+    the Nexus request ID and the operation's serialization context and
+    configures conflict handling to preserve the Nexus metadata. Inbound links
+    are attached to the completion callback when the activity backs the
+    operation and has a callback, and to the request otherwise.
     on_conflict_options is populated only when there are links or callbacks to
     attach.
     """
     nexus_ctx = _try_start_operation_context()
     if nexus_ctx is not None:
         req.request_id = nexus_ctx.nexus_context.request_id
+        context = _current_propagated_nexus_serialization_context()
+        if context is not None:
+            req.propagated_nexus_serialization_context.CopyFrom(context)
         request_links = nexus_ctx._get_request_links()
 
         callbacks: list[NexusCallback] = []
@@ -905,7 +1010,7 @@ def _apply_nexus_context_to_start_activity_request(  # pyright: ignore[reportUnu
                 )
                 for callback in callbacks
             )
-        else:
+        if not callbacks:
             req.links.extend(request_links)
 
         if request_links or callbacks:

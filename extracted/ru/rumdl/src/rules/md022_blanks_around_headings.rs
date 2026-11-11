@@ -233,6 +233,64 @@ fn opens_item_on_marker_line(
     heading.first_line_prefix_len() > margin
 }
 
+/// Number of MyST target lines directly above a heading's first line.
+///
+/// A target (`(label)=`) labels the block below it, so a run of them is part of
+/// the heading unit: the blank line a heading needs above it goes above the run,
+/// never between a target and its heading. Only an unquoted heading that does not
+/// open a list item can be labelled this way, and only by targets written in the
+/// heading's own container: a blank line above a target that a list item holds
+/// would land inside the list instead of above the heading.
+fn attached_target_run(
+    ctx: &crate::lint_context::LintContext,
+    first_idx: usize,
+    quoted: bool,
+    heading: &crate::lint_context::HeadingInfo,
+) -> usize {
+    if quoted || opens_item_on_marker_line(ctx, first_idx, heading) {
+        return 0;
+    }
+    let container = ctx.heading_container(first_idx + 1);
+    let heading_indent = ctx.lines[first_idx].visual_indent;
+    (0..first_idx)
+        .rev()
+        .take_while(|&idx| {
+            ctx.lines[idx].is_myst_target && target_shares_container(ctx, idx, container, heading_indent)
+        })
+        .count()
+}
+
+/// Whether the target on line `idx` sits in `container`, the container of the
+/// heading below it whose first line is indented `heading_indent` columns.
+///
+/// A target is indented at most three columns, so the only list item that can
+/// hold one is a top-level item, whose content starts at column two or later.
+fn target_shares_container(
+    ctx: &crate::lint_context::LintContext,
+    idx: usize,
+    container: crate::lint_context::HeadingContainer,
+    heading_indent: usize,
+) -> bool {
+    use crate::lint_context::HeadingContainer;
+    let indent = ctx.lines[idx].visual_indent;
+    match container {
+        HeadingContainer::Outside => !list_item_reaches(ctx, idx, indent),
+        HeadingContainer::Item { content_col } => indent >= content_col,
+        HeadingContainer::Unknown => indent == heading_indent,
+    }
+}
+
+/// Whether the list block running into line `idx` has an item whose content
+/// starts at or before column `indent`, which a line indented that far continues.
+fn list_item_reaches(ctx: &crate::lint_context::LintContext, idx: usize, indent: usize) -> bool {
+    ctx.lines[..=idx]
+        .iter()
+        .rev()
+        .take_while(|line| line.in_list_block)
+        .filter_map(|line| line.list_item.as_deref())
+        .any(|item| item.content_column <= indent)
+}
+
 /// Protect headings whose structural marker belongs to template code, while
 /// retaining visible headings built from multiline template expressions.
 fn heading_is_in_template_code(
@@ -272,6 +330,7 @@ fn heading_at_start_idx(ctx: &crate::lint_context::LintContext, is_pandoc: bool)
         if is_blank_or_comment_only(trimmed)
             || line.in_kramdown_extension_block
             || line.is_kramdown_block_ial
+            || line.is_myst_target
             || (is_pandoc && (pandoc::is_div_open(trimmed) || pandoc::is_div_close(trimmed)))
         {
             continue;
@@ -281,6 +340,81 @@ fn heading_at_start_idx(ctx: &crate::lint_context::LintContext, is_pandoc: bool)
         return None;
     }
     None
+}
+
+fn heading_end_idx(parsed: crate::lint_context::ParsedHeading<'_>) -> usize {
+    parsed.line_num - 1 + usize::from(parsed.is_setext())
+}
+
+fn is_adjacent_nested_heading(
+    ctx: &crate::lint_context::LintContext,
+    parent: crate::lint_context::ParsedHeading<'_>,
+    child: crate::lint_context::ParsedHeading<'_>,
+    is_pandoc: bool,
+) -> bool {
+    let parent_end = heading_end_idx(parent);
+    let child_first = child.first_line_num() - 1;
+    if child.heading.level <= parent.heading.level
+        || parent.blockquote_depth != child.blockquote_depth
+        || ctx.heading_container(parent.first_line_num()) != ctx.heading_container(child.first_line_num())
+        || parent_end >= child_first
+    {
+        return false;
+    }
+    for idx in parent_end + 1..child_first {
+        let info = &ctx.lines[idx];
+        if info.in_code_block || info.in_front_matter {
+            return false;
+        }
+        let line = info.content(ctx.content);
+        let trimmed = neighbour_text(ctx, idx, child.is_blockquote()).trim();
+        if info.is_blank
+            || is_blank_or_comment_only(line)
+            || info.in_html_comment
+            || info.in_mdx_comment
+            || is_block_attribute_line(trimmed, ctx.flavor)
+            || (is_pandoc && (pandoc::is_div_open(trimmed) || pandoc::is_div_close(trimmed)))
+            // Targets label the child heading, so they do not separate it from its parent
+            || (info.is_myst_target && !child.is_blockquote())
+        {
+            continue;
+        }
+        return false;
+    }
+    true
+}
+
+/// The gaps where a deeper heading directly follows its parent heading.
+///
+/// Both maps are keyed by the 0-indexed line a heading's text starts on and
+/// hold the child's level, which indexes `nested-heading-lines-above`.
+#[derive(Default)]
+struct NestedGaps {
+    /// Children that directly follow their parent.
+    by_child: std::collections::HashMap<usize, usize>,
+    /// Parents directly followed by a child.
+    by_parent: std::collections::HashMap<usize, usize>,
+}
+
+impl NestedGaps {
+    /// Pairs each heading with the one before it in a single pass. Headings
+    /// come in document order, so the previous heading is the nearest one
+    /// above and is the only candidate parent.
+    fn new(ctx: &crate::lint_context::LintContext, is_pandoc: bool) -> Self {
+        let mut gaps = Self::default();
+        let mut previous: Option<crate::lint_context::ParsedHeading<'_>> = None;
+        for heading in ctx.headings() {
+            if let Some(parent) = previous
+                && is_adjacent_nested_heading(ctx, parent, heading, is_pandoc)
+            {
+                let level = heading.heading.level as usize;
+                gaps.by_child.insert(heading.first_line_num() - 1, level);
+                gaps.by_parent.insert(parent.first_line_num() - 1, level);
+            }
+            previous = Some(heading);
+        }
+        gaps
+    }
 }
 
 ///
@@ -365,10 +499,13 @@ struct Violation {
     heading_line: usize,
     /// Index of the line the heading text starts on.
     first_line: usize,
+    /// Line the added blank lines go before: the first label line of a run of
+    /// targets above the heading, else `first_line`.
+    insert_line: usize,
     /// `"above"` or `"below"`.
     position: &'static str,
     needed_blanks: usize,
-    heading_level: usize,
+    required_blanks: usize,
     is_setext: bool,
     /// The text of each blank line the fix adds: empty at the top level, the
     /// shared quote and list container prefix inside one.
@@ -400,12 +537,55 @@ impl MD022BlanksAroundHeadings {
                 lines_below: HeadingLevelConfig::scalar(lines_below),
                 allowed_at_start: true,
                 lines_above_mode: HeadingBlankMode::Minimum,
+                nested_heading_lines_above: None,
             },
         }
     }
 
     pub fn from_config_struct(config: MD022Config) -> Self {
         Self { config }
+    }
+
+    /// The nested gaps in the document, or none when
+    /// `nested-heading-lines-above` is unset and they would go unused.
+    fn nested_gaps(&self, ctx: &crate::lint_context::LintContext, is_pandoc: bool) -> NestedGaps {
+        if self.config.nested_heading_lines_above.is_some() {
+            NestedGaps::new(ctx, is_pandoc)
+        } else {
+            NestedGaps::default()
+        }
+    }
+
+    /// The blank lines required above the heading whose text starts on
+    /// `first_line` (0-indexed).
+    fn above_requirement(
+        &self,
+        gaps: &NestedGaps,
+        first_line: usize,
+        level: usize,
+    ) -> &md022_config::HeadingBlankRequirement {
+        if let Some(nested) = &self.config.nested_heading_lines_above
+            && let Some(&child_level) = gaps.by_child.get(&first_line)
+        {
+            return nested.get_for_level(child_level);
+        }
+        self.config.lines_above.get_for_level(level)
+    }
+
+    /// The blank lines required below the heading whose text starts on
+    /// `first_line` (0-indexed).
+    fn below_requirement(
+        &self,
+        gaps: &NestedGaps,
+        first_line: usize,
+        level: usize,
+    ) -> &md022_config::HeadingBlankRequirement {
+        if let Some(nested) = &self.config.nested_heading_lines_above
+            && let Some(&child_level) = gaps.by_parent.get(&first_line)
+        {
+            return nested.get_for_level(child_level);
+        }
+        self.config.lines_below.get_for_level(level)
     }
 
     /// Exact mode caps actual blank lines. Comment-only lines still satisfy the
@@ -416,6 +596,7 @@ impl MD022BlanksAroundHeadings {
         }
         let is_pandoc = ctx.flavor.is_pandoc_compatible();
         let at_start = heading_at_start_idx(ctx, is_pandoc);
+        let gaps = self.nested_gaps(ctx, is_pandoc);
         // A gap shared by two headings must also satisfy the earlier heading's
         // minimum below it, including any attached attribute lines.
         let mut below_requirements = std::collections::HashMap::new();
@@ -429,9 +610,7 @@ impl MD022BlanksAroundHeadings {
                 continue;
             }
             let Some(required) = self
-                .config
-                .lines_below
-                .get_for_level(parsed.heading.level as usize)
+                .below_requirement(&gaps, parsed.first_line_num() - 1, parsed.heading.level as usize)
                 .required_count()
             else {
                 continue;
@@ -450,9 +629,7 @@ impl MD022BlanksAroundHeadings {
             let heading_line = parsed.line_num - 1;
             let heading = parsed.heading;
             let Some(mut required) = self
-                .config
-                .lines_above
-                .get_for_level(heading.level as usize)
+                .above_requirement(&gaps, first, heading.level as usize)
                 .required_count()
             else {
                 continue;
@@ -475,7 +652,8 @@ impl MD022BlanksAroundHeadings {
             if required == 0 && parsed.is_setext() {
                 required = 1;
             }
-            for idx in (0..first).rev() {
+            let anchor = first - attached_target_run(ctx, first, quoted, heading);
+            for idx in (0..anchor).rev() {
                 let info = &ctx.lines[idx];
                 let line = info.content(ctx.content);
                 let trimmed = neighbour_text(ctx, idx, quoted).trim();
@@ -551,6 +729,7 @@ impl MD022BlanksAroundHeadings {
         let mut skip_count: usize = 0;
 
         let heading_at_start_idx = heading_at_start_idx(ctx, is_pandoc);
+        let gaps = self.nested_gaps(ctx, is_pandoc);
 
         // Headings inside a blockquote by the line their text starts on; the
         // per-line `heading` field holds none of them.
@@ -629,8 +808,12 @@ impl MD022BlanksAroundHeadings {
                 let heading_level = heading.level as usize;
 
                 // Count existing blank lines above in the result, skipping HTML comments, IAL, and Quarto div markers
+                // Target lines directly above are the tail of `result`; blanks are
+                // counted and added above them.
+                let attached = attached_target_run(ctx, i, quoted, heading).min(result.len());
+                let anchor_pos = result.len() - attached;
                 let mut blank_lines_above = 0;
-                let mut check_idx = result.len();
+                let mut check_idx = anchor_pos;
                 while check_idx > 0 {
                     let prev_line = &result[check_idx - 1];
                     let trimmed = if quoted {
@@ -654,7 +837,7 @@ impl MD022BlanksAroundHeadings {
                 }
 
                 // Determine how many blank lines we need above
-                let requirement_above = self.config.lines_above.get_for_level(heading_level);
+                let requirement_above = self.above_requirement(&gaps, i, heading_level);
                 let follows_mdg_tags = is_mdg && follows_mdg_tag_line(ctx, i, heading);
                 let needed_blanks_above = if follows_mdg_tags
                     || (is_first_heading && self.config.allowed_at_start)
@@ -669,11 +852,9 @@ impl MD022BlanksAroundHeadings {
 
                 // Add missing blank lines above if needed
                 if blank_lines_above < needed_blanks_above {
-                    let blank = blank_line_above(line, result.iter().rev().map(String::as_str));
-                    while blank_lines_above < needed_blanks_above {
-                        result.push(blank.clone());
-                        blank_lines_above += 1;
-                    }
+                    let blank = blank_line_above(line, result[..anchor_pos].iter().rev().map(String::as_str));
+                    let missing = needed_blanks_above - blank_lines_above;
+                    result.splice(anchor_pos..anchor_pos, std::iter::repeat_n(blank, missing));
                 }
 
                 // Add the heading's own lines, underline included, so nothing
@@ -719,7 +900,7 @@ impl MD022BlanksAroundHeadings {
                 }
 
                 // Add missing blank lines below if needed
-                let requirement_below = self.config.lines_below.get_for_level(heading_level);
+                let requirement_below = self.below_requirement(&gaps, i, heading_level);
                 // A heading that ends the document has nothing to separate
                 // from, and `check` asks for no blank line below it.
                 let needed_blanks_below = if next_content_line_idx.is_none() {
@@ -781,6 +962,7 @@ impl Rule for MD022BlanksAroundHeadings {
         let is_mdg = ctx.flavor == crate::config::MarkdownFlavor::MDG;
 
         let heading_at_start_idx = heading_at_start_idx(ctx, is_pandoc);
+        let gaps = self.nested_gaps(ctx, is_pandoc);
 
         // Collect all headings first to batch process
         let mut heading_violations = Vec::new();
@@ -799,7 +981,6 @@ impl Rule for MD022BlanksAroundHeadings {
                 continue;
             }
 
-            let heading_level = heading.level as usize;
             let quoted = parsed.is_blockquote();
 
             // What sits above the heading sits above the line its text starts
@@ -810,9 +991,8 @@ impl Rule for MD022BlanksAroundHeadings {
             // Check if this heading is at document start
             let is_first_heading = Some(first_idx) == heading_at_start_idx;
 
-            // Get configured blank line requirements for this heading level
-            let required_above_count = self.config.lines_above.get_for_level(heading_level).required_count();
-            let required_below_count = self.config.lines_below.get_for_level(heading_level).required_count();
+            let heading_level = heading.level as usize;
+            let required_above_count = self.above_requirement(&gaps, first_idx, heading_level).required_count();
 
             // Count blank lines above if needed
             let should_check_above = required_above_count.is_some()
@@ -824,10 +1004,12 @@ impl Rule for MD022BlanksAroundHeadings {
             let should_check_above = should_check_above
                 && !starts_item_under_bare_marker(ctx, first_idx)
                 && !opens_item_on_marker_line(ctx, first_idx, heading);
-            if should_check_above {
+            // Target lines directly above belong to the heading; blanks are counted above them.
+            let anchor = first_idx - attached_target_run(ctx, first_idx, quoted, heading);
+            if should_check_above && anchor > 0 {
                 let mut blank_lines_above = 0;
                 let mut hit_frontmatter_end = false;
-                for j in (0..first_idx).rev() {
+                for j in (0..anchor).rev() {
                     let line_content = ctx.lines[j].content(ctx.content);
                     let trimmed = neighbour_text(ctx, j, quoted).trim();
                     if ctx.lines[j].is_blank || is_blank_or_comment_only(line_content) {
@@ -860,16 +1042,14 @@ impl Rule for MD022BlanksAroundHeadings {
                     heading_violations.push(Violation {
                         heading_line: line_num,
                         first_line: first_idx,
+                        insert_line: anchor,
                         position: "above",
                         needed_blanks,
-                        heading_level,
+                        required_blanks: required,
                         is_setext: parsed.is_setext(),
                         blank_line: blank_line_above(
                             ctx.lines[first_idx].content(ctx.content),
-                            ctx.lines[..first_idx]
-                                .iter()
-                                .rev()
-                                .map(|line| line.content(ctx.content)),
+                            ctx.lines[..anchor].iter().rev().map(|line| line.content(ctx.content)),
                         ),
                     });
                 }
@@ -925,7 +1105,7 @@ impl Rule for MD022BlanksAroundHeadings {
                     continue;
                 }
 
-                if let Some(required) = required_below_count {
+                if let Some(required) = self.below_requirement(&gaps, first_idx, heading_level).required_count() {
                     // Count blank lines below (counting only blank lines, not skipped transparent lines)
                     let mut blank_lines_below = 0;
                     for k in (effective_last_line + 1)..next_non_blank_idx {
@@ -940,9 +1120,10 @@ impl Rule for MD022BlanksAroundHeadings {
                         heading_violations.push(Violation {
                             heading_line: line_num,
                             first_line: first_idx,
+                            insert_line: first_idx,
                             position: "below",
                             needed_blanks,
-                            heading_level,
+                            required_blanks: required,
                             is_setext: parsed.is_setext(),
                             blank_line: blank_line_between(
                                 ctx.lines[first_idx].content(ctx.content),
@@ -958,11 +1139,13 @@ impl Rule for MD022BlanksAroundHeadings {
         for Violation {
             heading_line,
             first_line,
+            insert_line,
             position,
             needed_blanks,
-            heading_level,
+            required_blanks,
             is_setext,
             blank_line,
+            ..
         } in heading_violations
         {
             let line_info = &ctx.lines[heading_line];
@@ -971,42 +1154,22 @@ impl Rule for MD022BlanksAroundHeadings {
             let (start_line, start_col, end_line, end_col) =
                 calculate_heading_range(first_line + 1, heading_line + 1, line_info.content(ctx.content));
 
-            // Each requirement is resolved inside the arm that uses it. A
-            // requirement can be unlimited (a negative config value such as
-            // `lines_above: -1`), in which case it has no required count and
-            // never produces a violation for its own position. Resolving both
-            // up front panicked whenever one position was unlimited and the
-            // other reported.
             let (message, insertion_point) = match position {
-                "above" => {
-                    let Some(required_above_count) =
-                        self.config.lines_above.get_for_level(heading_level).required_count()
-                    else {
-                        continue;
-                    };
-                    (
-                        format!(
-                            "Expected {} blank {} above heading",
-                            required_above_count,
-                            if required_above_count == 1 { "line" } else { "lines" }
-                        ),
-                        first_line, // Insert before the line the heading text starts on
-                    )
-                }
+                "above" => (
+                    format!(
+                        "Expected {} blank {} above heading",
+                        required_blanks,
+                        if required_blanks == 1 { "line" } else { "lines" }
+                    ),
+                    insert_line, // Insert before the targets (or heading text) of the heading
+                ),
                 "below" => {
-                    let Some(required_below_count) =
-                        self.config.lines_below.get_for_level(heading_level).required_count()
-                    else {
-                        continue;
-                    };
-                    // For Setext headings, insert after the underline
                     let insert_after = if is_setext { heading_line + 2 } else { heading_line + 1 };
-
                     (
                         format!(
                             "Expected {} blank {} below heading",
-                            required_below_count,
-                            if required_below_count == 1 { "line" } else { "lines" }
+                            required_blanks,
+                            if required_blanks == 1 { "line" } else { "lines" }
                         ),
                         insert_after,
                     )
@@ -1123,11 +1286,11 @@ impl Rule for MD022BlanksAroundHeadings {
     crate::impl_rule_config_methods!(MD022Config);
 
     fn polymorphic_config_keys(&self) -> &'static [&'static str] {
-        // Both options accept either one integer for every heading level or an
+        // These options accept either one integer for every heading level or an
         // array of six integers, one for each of h1 through h6. The serialized
         // defaults are scalar, so validation must not reject the array form
         // before MD022's deserializer can read it.
-        &["lines-above", "lines-below"]
+        &["lines-above", "lines-below", "nested-heading-lines-above"]
     }
 }
 
@@ -1135,6 +1298,155 @@ impl Rule for MD022BlanksAroundHeadings {
 mod tests {
     use super::*;
     use crate::lint_context::LintContext;
+
+    fn nested_rule(lines_below: usize, mode: HeadingBlankMode) -> MD022BlanksAroundHeadings {
+        MD022BlanksAroundHeadings::from_config_struct(MD022Config {
+            lines_above: md022_config::HeadingLevelConfig::scalar(2),
+            lines_above_mode: mode,
+            nested_heading_lines_above: Some(md022_config::HeadingLevelConfig::scalar(1)),
+            lines_below: md022_config::HeadingLevelConfig::scalar(lines_below),
+            allowed_at_start: true,
+        })
+    }
+
+    #[test]
+    fn nested_heading_spacing_overrides_parent_below_spacing() {
+        let rule = nested_rule(3, HeadingBlankMode::Minimum);
+        let content = "# Parent\n\n## Child";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        assert!(rule.check(&ctx).unwrap().is_empty());
+        assert_eq!(rule.fix(&ctx).unwrap(), content);
+    }
+
+    #[test]
+    fn nested_heading_spacing_does_not_apply_after_parent_content() {
+        let rule = nested_rule(1, HeadingBlankMode::Minimum);
+        let content = "# Parent\n\nBody\n\n## Child\n\nText";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].message.contains("2 blank lines above"));
+        assert_eq!(rule.fix(&ctx).unwrap(), "# Parent\n\nBody\n\n\n## Child\n\nText");
+    }
+
+    #[test]
+    fn nested_heading_spacing_does_not_apply_to_same_level_headings() {
+        let rule = nested_rule(1, HeadingBlankMode::Minimum);
+        let content = "# Parent\n\n# Sibling";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            warnings
+                .iter()
+                .any(|warning| warning.message.contains("2 blank lines above"))
+        );
+        assert_eq!(rule.fix(&ctx).unwrap(), "# Parent\n\n\n# Sibling");
+    }
+
+    #[test]
+    fn exact_spacing_caps_nested_heading_gap_at_configured_value() {
+        let rule = nested_rule(3, HeadingBlankMode::Exact);
+        let content = "# Parent\n\n\n## Child";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].message.contains("exactly 1 blank line"));
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(fixed, "# Parent\n\n## Child");
+        let fixed_ctx = LintContext::new(&fixed, crate::config::MarkdownFlavor::Standard, None);
+        assert!(rule.check(&fixed_ctx).unwrap().is_empty());
+        assert_eq!(rule.fix(&fixed_ctx).unwrap(), fixed);
+    }
+
+    /// Checks `content` with exact nested spacing, asserts the fix produces
+    /// `expected`, and that the fixed document is clean and fixes to itself.
+    fn assert_exact_nested_fix(rule: &MD022BlanksAroundHeadings, content: &str, expected: &str) {
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        assert_eq!(
+            rule.check(&ctx).unwrap().is_empty(),
+            content == expected,
+            "warnings for {content:?}"
+        );
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(fixed, expected);
+        let fixed_ctx = LintContext::new(&fixed, crate::config::MarkdownFlavor::Standard, None);
+        assert!(rule.check(&fixed_ctx).unwrap().is_empty(), "{fixed:?}");
+        assert_eq!(rule.fix(&fixed_ctx).unwrap(), fixed);
+    }
+
+    #[test]
+    fn nested_heading_spacing_applies_to_setext_headings() {
+        let rule = nested_rule(1, HeadingBlankMode::Exact);
+        assert_exact_nested_fix(
+            &rule,
+            "Parent\n======\n\n\nChild\n-----\n",
+            "Parent\n======\n\nChild\n-----\n",
+        );
+        assert_exact_nested_fix(
+            &rule,
+            "Parent\n======\n\nBody\n\nChild\n-----\n",
+            "Parent\n======\n\nBody\n\n\nChild\n-----\n",
+        );
+    }
+
+    #[test]
+    fn nested_heading_spacing_applies_inside_blockquotes() {
+        let rule = nested_rule(1, HeadingBlankMode::Exact);
+        assert_exact_nested_fix(&rule, "> # Parent\n>\n>\n> ## Child\n", "> # Parent\n>\n> ## Child\n");
+        assert_exact_nested_fix(
+            &rule,
+            "> # Parent\n>\n> Body\n>\n> ## Child\n",
+            "> # Parent\n>\n> Body\n>\n>\n> ## Child\n",
+        );
+    }
+
+    #[test]
+    fn nested_heading_spacing_looks_through_comments() {
+        let rule = nested_rule(1, HeadingBlankMode::Exact);
+        assert_exact_nested_fix(
+            &rule,
+            "# Parent\n\n<!-- note -->\n\n\n## Child\n",
+            "# Parent\n\n<!-- note -->\n\n## Child\n",
+        );
+    }
+
+    #[test]
+    fn reference_definitions_and_thematic_breaks_count_as_parent_body() {
+        let rule = nested_rule(1, HeadingBlankMode::Exact);
+        for body in ["[ref]: https://example.com", "***"] {
+            assert_exact_nested_fix(
+                &rule,
+                &format!("# Parent\n\n{body}\n\n## Child\n"),
+                &format!("# Parent\n\n{body}\n\n\n## Child\n"),
+            );
+        }
+    }
+
+    #[test]
+    fn nested_heading_spacing_is_indexed_by_the_child_level() {
+        let rule = MD022BlanksAroundHeadings::from_config_struct(MD022Config {
+            lines_above: md022_config::HeadingLevelConfig::scalar(2),
+            lines_above_mode: HeadingBlankMode::Exact,
+            nested_heading_lines_above: Some(md022_config::HeadingLevelConfig::per_level([0, 0, 3, 1, 1, 1])),
+            lines_below: md022_config::HeadingLevelConfig::scalar(1),
+            allowed_at_start: true,
+        });
+        assert_exact_nested_fix(
+            &rule,
+            "# Parent\n\n## Child\n\n### Grandchild\n",
+            "# Parent\n## Child\n\n\n\n### Grandchild\n",
+        );
+    }
+
+    #[test]
+    fn nested_heading_spacing_applies_after_front_matter() {
+        let rule = nested_rule(1, HeadingBlankMode::Exact);
+        assert_exact_nested_fix(
+            &rule,
+            "---\ntitle: Doc\n---\n\n\n## Parent\n\n\n### Child\n",
+            "---\ntitle: Doc\n---\n\n\n## Parent\n\n### Child\n",
+        );
+    }
 
     #[test]
     fn test_valid_headings() {
@@ -1495,6 +1807,7 @@ Final content.";
             lines_below: HeadingLevelConfig::scalar(1),
             allowed_at_start: false, // Disable special handling for first heading
             lines_above_mode: HeadingBlankMode::Minimum,
+            nested_heading_lines_above: None,
         });
 
         // H1 without blank above should be OK
@@ -1523,6 +1836,7 @@ Final content.";
             lines_below: HeadingLevelConfig::scalar(1),
             allowed_at_start: false,
             lines_above_mode: HeadingBlankMode::Minimum,
+            nested_heading_lines_above: None,
         });
 
         // "## Banana" has no blank line below it, so a "below" violation fires.
@@ -1552,6 +1866,7 @@ Final content.";
             lines_below: HeadingLevelConfig::scalar_requirement(HeadingBlankRequirement::Unlimited),
             allowed_at_start: false,
             lines_above_mode: HeadingBlankMode::Minimum,
+            nested_heading_lines_above: None,
         });
 
         // "## Banana" has no blank line above it, so an "above" violation fires.
@@ -1582,6 +1897,7 @@ Final content.";
             lines_below: HeadingLevelConfig::scalar(1),
             allowed_at_start: false,
             lines_above_mode: HeadingBlankMode::Minimum,
+            nested_heading_lines_above: None,
         });
 
         let content = "Text\n# H1\n\nText\n\n## H2\n\nText\n\n### H3\n\nText\n\n\n#### H4\n\nText";
@@ -1606,6 +1922,7 @@ Final content.";
             lines_below: HeadingLevelConfig::scalar(1),
             allowed_at_start: false,
             lines_above_mode: HeadingBlankMode::Minimum,
+            nested_heading_lines_above: None,
         });
 
         // H4 with only 1 blank above should trigger warning
@@ -1627,6 +1944,7 @@ Final content.";
             lines_below: HeadingLevelConfig::scalar(1),
             allowed_at_start: false,
             lines_above_mode: HeadingBlankMode::Minimum,
+            nested_heading_lines_above: None,
         });
 
         let content = "Text\n# H1\nContent\n## H2\nContent\n### H3\nContent";
@@ -1649,6 +1967,7 @@ Final content.";
             lines_below: HeadingLevelConfig::per_level([2, 1, 1, 1, 1, 1]), // H1 needs 2 blanks below
             allowed_at_start: true,
             lines_above_mode: HeadingBlankMode::Minimum,
+            nested_heading_lines_above: None,
         });
 
         // H1 with only 1 blank below should trigger warning
@@ -1674,6 +1993,7 @@ Final content.";
             lines_below: HeadingLevelConfig::scalar(2),
             allowed_at_start: false,
             lines_above_mode: HeadingBlankMode::Minimum,
+            nested_heading_lines_above: None,
         });
 
         let content = "Text\n# H1\nContent\n## H2\nContent";
@@ -1708,6 +2028,7 @@ Final content.";
             ]),
             allowed_at_start: false,
             lines_above_mode: HeadingBlankMode::Minimum,
+            nested_heading_lines_above: None,
         });
 
         let content = "# H1\nParagraph\n## H2\nParagraph";

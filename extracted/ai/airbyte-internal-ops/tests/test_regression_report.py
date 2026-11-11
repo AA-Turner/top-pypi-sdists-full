@@ -9,12 +9,14 @@ import pytest
 from airbyte_protocol.models import AirbyteMessage, AirbyteRecordMessage
 from airbyte_protocol.models import Type as AirbyteMessageType
 
+from airbyte_ops_mcp.regression_tests import report
 from airbyte_ops_mcp.regression_tests.ci_output import (
     ARTIFACT_NAME_PREFIX,
     evaluate_comparison_outcome,
     generate_action_test_comparison_report,
     github_artifact_name,
 )
+from airbyte_ops_mcp.regression_tests.models import StreamError
 from airbyte_ops_mcp.regression_tests.regression import (
     ComparisonResult,
     RecordComparisonSummary,
@@ -70,6 +72,263 @@ def _comparison(command: str, target: dict, control: dict, **kwargs):
         control_result=control,
         **kwargs,
     )
+
+
+@pytest.mark.parametrize(
+    ("streams", "counts", "excluded", "passed", "summary"),
+    [
+        ((), {}, (), None, None),
+        (("new",), {}, ("new",), None, None),
+        (("new",), {"new": 2}, (), True, "1 of 1 new stream(s) emitted records"),
+        (
+            ("new",),
+            {},
+            (),
+            False,
+            "0 of 1 new stream(s) emitted records; no records from new",
+        ),
+        (
+            ("undefined", "config_error", "new", "empty"),
+            {"new": 2},
+            ("undefined", "config_error"),
+            False,
+            "1 of 2 new stream(s) emitted records; no records from empty",
+        ),
+    ],
+)
+def test_new_stream_coverage_row(streams, counts, excluded, passed, summary):
+    model = _comparison(
+        "read",
+        _run_result(
+            True,
+            record_counts_per_stream=counts,
+            excluded_not_exercised_streams=excluded,
+        ),
+        _run_result(True),
+        target_only_streams=streams,
+        include_report_sections=False,
+    )
+    rows = [
+        check for check in model.checks if check.name == "Stream coverage (new streams)"
+    ]
+    if passed is None:
+        assert rows == []
+    else:
+        assert rows == [
+            CheckResult(
+                name="Stream coverage (new streams)",
+                passed=passed,
+                severity="strict",
+                summary=summary,
+            )
+        ]
+
+
+@pytest.mark.parametrize("record_regression", [None, False, True])
+@pytest.mark.parametrize("stopped", [False, True])
+@pytest.mark.parametrize("errored", [False, True])
+def test_new_stream_coverage_preserves_verdict_flags(
+    monkeypatch, record_regression, stopped, errored
+):
+    target = _run_result(True)
+    if errored and record_regression is None:
+        target["record_checks_regression"] = False
+    if record_regression is not None:
+        target["record_checks_regression"] = record_regression
+    if stopped:
+        target["stopped_early"] = {"reason": "cap", "records_seen": 0, "elapsed_s": 1}
+    checks = (
+        (
+            CheckResult(
+                name="Record schema (new streams)",
+                passed=False,
+                summary="errored (RuntimeError)",
+            ),
+        )
+        if errored or record_regression is True
+        else ()
+    )
+    kwargs = {
+        "target_only_streams": ("new",),
+        "extra_checks": checks,
+        "include_report_sections": False,
+    }
+    model = _comparison("read", target, _run_result(True), **kwargs)
+    monkeypatch.setattr(report, "_new_stream_coverage_check", lambda *_: None)
+    baseline = _comparison("read", target, _run_result(True), **kwargs)
+    assert model.verdict_flags() == baseline.verdict_flags()
+    assert model.verdict_label == baseline.verdict_label
+    assert model.verdict_detail == baseline.verdict_detail
+    assert model.not_exercised is True
+    assert model.checks[1].name == "Stream coverage (new streams)"
+    assert model.checks[1].status == "fail"
+    assert model.regression_detected is (record_regression is True)
+    assert model.strict_failed is (record_regression is True)
+    if stopped:
+        assert model.verdict_label == "INCOMPLETE"
+    elif record_regression is True:
+        assert model.verdict_label == "FAIL (regression)"
+    elif errored:
+        assert model.verdict_label == "FAIL (inconclusive)"
+    else:
+        assert model.verdict_label == "NOT EXERCISED"
+
+
+@pytest.mark.parametrize(
+    ("scenario", "label", "flag", "coverage"),
+    [
+        ("empty", "NOT EXERCISED", "not_exercised", False),
+        ("records", "PASS", None, True),
+        ("undefined", "SETUP ERROR", "setup_error", None),
+        ("config", "COULD NOT TEST (config error)", "could_not_test", None),
+        ("crash", "FAIL", "not_exercised", False),
+        ("unknown", "PASS", None, None),
+        ("stopped", "INCOMPLETE", "not_exercised", False),
+    ],
+)
+def test_single_version_new_stream_verdicts(scenario, label, flag, coverage):
+    result = _run_result(
+        True, record_counts_per_stream={"new": 2} if scenario == "records" else {}
+    )
+    if scenario == "stopped":
+        result["stopped_early"] = {"reason": "cap", "records_seen": 0, "elapsed_s": 1}
+    if scenario in {"config", "crash"}:
+        result.update(success=False, exit_code=1)
+    model = build_single_version_report_model(
+        connector_image=TARGET_IMAGE,
+        command="read",
+        result=result,
+        target_only_streams=() if scenario == "unknown" else ("new",),
+        stream_statuses={"new": ["INCOMPLETE"]} if scenario == "undefined" else {},
+        stream_errors={"new": [StreamError("config_error", "Missing permission")]}
+        if scenario == "config"
+        else {},
+        include_report_sections=False,
+    )
+    assert model.verdict_label == label
+    assert model.passed is (label == "PASS")
+    assert model.regression_detected is False
+    assert model.incomplete is (scenario == "stopped")
+    for name in ("not_exercised", "setup_error", "could_not_test"):
+        assert model.verdict_flags()[name] is (flag == name)
+    rows = [
+        check for check in model.checks if check.name == "Stream coverage (new streams)"
+    ]
+    if coverage is None:
+        assert rows == []
+    else:
+        assert len(rows) == 1
+        assert rows[0].passed is coverage
+        assert rows[0].severity == "strict"
+    if scenario == "stopped":
+        assert model.context.not_exercised_note is not None
+        assert "Not exercised:" in model.context.not_exercised_note
+
+
+@pytest.mark.parametrize("single", [False, True])
+@pytest.mark.parametrize(
+    ("scenario", "expected"),
+    [
+        ("cap", True),
+        ("timeout", True),
+        ("warn", True),
+        ("schema_fail", False),
+        ("pk_fail", False),
+        ("errored", False),
+        ("zero", False),
+        ("control_only", False),
+        ("command_fail", False),
+        ("per_stream_fail", False),
+        ("complete", False),
+        ("unknown", False),
+        ("setup_excluded", True),
+        ("config_excluded", True),
+        ("other_zero", True),
+    ],
+)
+def test_partial_new_stream_evidence(single, scenario, expected):
+    target = _run_result(
+        True, record_counts_per_stream={"new": 0 if scenario == "zero" else 2}
+    )
+    control = _run_result(True)
+    stop = {
+        "reason": "timeout" if scenario == "timeout" else "cap",
+        "records_seen": 2,
+        "elapsed_s": 1,
+    }
+    if scenario not in {"complete", "control_only"}:
+        target["stopped_early"] = stop
+    if scenario == "control_only":
+        control["stopped_early"] = stop
+    if scenario == "command_fail":
+        target.update(success=False, exit_code=1)
+    checks = ()
+    if scenario in {"warn", "schema_fail", "pk_fail", "errored"}:
+        checks = (
+            CheckResult(
+                name="Primary key (new streams)"
+                if scenario == "pk_fail"
+                else "Record schema (new streams)",
+                passed=False,
+                severity="diagnostic" if scenario == "warn" else "strict",
+                summary="errored (RuntimeError)"
+                if scenario == "errored"
+                else "Validation finding",
+            ),
+        )
+    if scenario == "errored":
+        target["record_checks_regression"] = False
+    streams = () if scenario == "unknown" else ("new",)
+    if scenario in {"setup_excluded", "config_excluded", "other_zero"}:
+        streams = ("new", "excluded")
+    errors = (
+        {"excluded": [StreamError("config_error", "Missing permission")]}
+        if scenario == "config_excluded"
+        else {}
+    )
+    statuses = {"excluded": ["INCOMPLETE"]} if scenario == "setup_excluded" else {}
+    kwargs = {
+        "target_only_streams": streams,
+        "extra_checks": checks,
+        "failed_new_streams": ("new",) if scenario == "per_stream_fail" else (),
+        "include_report_sections": False,
+    }
+    if single:
+        model = build_single_version_report_model(
+            connector_image=TARGET_IMAGE,
+            command="read",
+            result=target,
+            stream_errors=errors,
+            stream_statuses=statuses,
+            **kwargs,
+        )
+    else:
+        if scenario in {"setup_excluded", "config_excluded"}:
+            target["excluded_not_exercised_streams"] = ("excluded",)
+        model = _comparison("read", target, control, **kwargs)
+    assert model.exercised_partial is expected
+    assert model.partial_streams == (("new",) if expected else ())
+    assert model.verdict_flags()["exercised_partial"] is expected
+    assert model.verdict_flags(github=True)["exercised_partial"] is expected
+    assert "partial_streams" not in model.verdict_flags(github=True)
+    assert all("partial_streams" not in row for row in model.check_results())
+    if expected:
+        assert model.incomplete and not model.passed
+        assert model.verdict_label == "INCOMPLETE"
+        assert (
+            "Exercised (partial): 1 new stream(s) emitted records"
+            in model.verdict_detail
+        )
+    if scenario == "zero":
+        assert model.not_exercised
+        assert model.verdict_label == "INCOMPLETE"
+    if scenario == "other_zero":
+        assert model.not_exercised
+        assert model.verdict_label == "INCOMPLETE"
+        assert not model.passed
+        assert model.partial_streams == ("new",)
+    assert model.exercised_partial == bool(model.partial_streams)
+    assert not model.exercised_partial or (model.incomplete and not model.passed)
 
 
 @pytest.mark.parametrize("single", [False, True])
@@ -4442,7 +4701,11 @@ def test_a_target_only_stream_with_records_changes_nothing():
         baseline.verdict_label,
         baseline.verdict_detail,
     )
-    assert render_inline_summary(model) == render_inline_summary(baseline)
+    coverage_row = "| Stream coverage (new streams) | ✅ | 1 of 1 new stream(s) emitted records |\n"
+    assert coverage_row in render_inline_summary(model)
+    assert render_inline_summary(model).replace(
+        coverage_row, ""
+    ) == render_inline_summary(baseline)
 
 
 def test_identical_catalogs_on_both_sides_keep_the_rule_silent():

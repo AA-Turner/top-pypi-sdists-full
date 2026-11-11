@@ -29,7 +29,7 @@ This module is stdlib-only, like the copy it extends.
 import json
 
 from ._core import _compare, apply_transforms
-from ._evaluate import _apply_rfc_json_path, _rfc_compare, _stringify_match
+from ._evaluate import _apply_rfc_json_path, _rfc_compare, _rfc_match_mode, _stringify_match
 
 #: Operators this module owns; everything else falls through to the canonical set.
 JSON_OPERATORS = frozenset({
@@ -193,7 +193,8 @@ def evaluate_sub_checks(claim: str, composite_operator: str, sub_checks: list[di
         if rfc_json_path:
             matches = _apply_rfc_json_path(sc.get("extracted_value", "") or "", rfc_json_path)
             expected_raw = str(sc.get("expected_value", "") or "")
-            passed = bool(matches) and all(
+            reduce = any if _rfc_match_mode(sc.get("match_mode")) == "any" else all
+            passed = bool(matches) and reduce(
                 _rfc_compare(_stringify_match(m), expected_raw, operator) for m in matches)
         else:
             actual = apply_transforms(sc.get("extracted_value", "") or "", transforms, json_path)

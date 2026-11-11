@@ -86,6 +86,7 @@ def get_all_ops():
       'jax.lax.dot_general': DotEinsumConv,
       'jax.nn.gelu': quantize(0),
       'jax.nn.leaky_relu': quantize(0),
+      'jax.nn.sigmoid': Sigmoid,
       'jax.nn.silu': Silu,
       'jax.nn.softmax': Softmax,
       'jax.numpy.clip': OnlyOutputOp,
@@ -144,13 +145,25 @@ class AuxDataKey(str, enum.Enum):
   # static weight.
   WEIGHT_NAME = 'weight_name'  # str
 
+  # Whether this exact array is the direct logical value exposed by the
+  # Linen/NNX parameter API, with no subsequently intercepted tensor transform.
+  # This is stricter than WEIGHT_NAME, but it does not prove that a lifted or
+  # boxed static parameter tree has the same shape and layout.
+  IS_ORIGINAL_WEIGHT = 'is_original_weight'  # bool
+
   # Fixed range for logistic functions whose output ranges are known, e.g.
   # softmax.
   FIXED_RANGE = 'fixed_range'  # tuple[float, float]
 
+  # Exact RHS permutation to replay before flattened-einsum calibration.
+  FLATTENED_EINSUM_RHS_PERM = 'flattened_einsum_rhs_perm'  # tuple[int, ...]
+
 
 # Metadata keys that depend on the value being preserved.
 # If the value changes (e.g. add, mul), these keys become invalid.
+# IS_ORIGINAL_WEIGHT is intentionally excluded from all propagation. A
+# transform may retain weight provenance, but without a general static replay
+# mechanism its output cannot be treated as the direct parameter API value.
 _VALUE_DEPENDENT_METADATA = (
     AuxDataKey.WEIGHT_NAME,
     AuxDataKey.FQ_RULE,
@@ -295,6 +308,11 @@ class QuantizedOp:
     obj = sys.modules[name_parts[0]]
     for attr in name_parts[1:]:
       obj = getattr(obj, attr)
+    if isinstance(
+        obj,
+        jax._src.lib._jax.PjitFunction,  # pylint: disable=protected-access
+    ):
+      obj = obj._fun  # pylint: disable=protected-access  # pyrefly: ignore[missing-attribute]
     return obj(*args, **kwargs)  # pyrefly: ignore[not-callable]
 
   def _fake_quant_inputs(
@@ -706,6 +724,15 @@ class Softmax(QuantizedOp):
   fixed_range_for_output = (0.0, 255 / 256)
 
 
+class Sigmoid(QuantizedOp):
+  """Sigmoid op."""
+
+  input_idx = [0]
+  # The converter requires (scale, zero_point) = (1.0 / 256.0, -128). Qwix uses
+  # [-128, 127], which maps to [0, 255 / 256] with the above scale/zp.
+  fixed_range_for_output = (0.0, 255 / 256)
+
+
 class Tanh(QuantizedOp):
   """tanh op."""
 
@@ -798,9 +825,10 @@ class Take(OnlyInputOp):
     rule, op_id = self._get_rule_and_op_id_fn(self._op_name)
     args[0] = self._maybe_fake_quant(args[0], rule, op_id)
 
-    if rule and rule.act_qtype:
-      # Provide a default fill_value for take. Otherwise, it will be nan
-      # and cause the conversion to fail.
+    if rule and (rule.act_qtype or rule.weight_qtype):
+      # A fake-quantized table cannot keep jnp.take's default nan fill value
+      # (the converter would have to quantize nan), so default it to 0
+      # whenever this op may quantize the table.
       kwargs.setdefault('fill_value', 0)
 
     out = self._call_original_op(*args, **kwargs)
@@ -820,7 +848,7 @@ class Silu(QuantizedOp):
     rule, op_id = self._get_rule_and_op_id_fn(self._op_name)
     x = self._maybe_fake_quant(x, rule, op_id)
     y = jax.nn.sigmoid(x)
-    aux_data.set(y, AuxDataKey.FIXED_RANGE, Softmax.fixed_range_for_output)
+    aux_data.set(y, AuxDataKey.FIXED_RANGE, Sigmoid.fixed_range_for_output)
     y = self._maybe_fake_quant(y, rule, op_id + '_sigmoid')
     return self._fake_quant_output(x * y, rule)
 

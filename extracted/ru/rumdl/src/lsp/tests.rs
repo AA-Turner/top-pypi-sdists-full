@@ -5501,6 +5501,953 @@ async fn test_find_references_positions_links_after_multibyte_text() {
     }
 }
 
+/// A workspace of `(file name, content)` pairs, written to disk, opened in a
+/// test server and indexed the way the index worker indexes them.
+async fn indexed_workspace(files: &[(&str, &str)]) -> (tempfile::TempDir, RumdlLanguageServer, Vec<Url>) {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().resolve_like_server();
+    let server = create_test_server();
+    let rules = crate::lsp::index_worker::cross_file_rules(&Config::default());
+    let mut uris = Vec::new();
+    for (name, content) in files {
+        let path = root.join(name);
+        std::fs::write(&path, content).unwrap();
+        let uri = Url::from_file_path(&path).unwrap();
+        server.documents.write().await.insert(
+            uri.clone(),
+            DocumentEntry {
+                content: content.to_string(),
+                version: Some(1),
+                from_disk: false,
+            },
+        );
+        let file_index = crate::build_file_index_only(
+            content,
+            &rules,
+            crate::config::MarkdownFlavor::Standard,
+            Some(path.clone()),
+        );
+        server.workspace_index.write().await.insert_file(path, file_index);
+        uris.push(uri);
+    }
+    (dir, server, uris)
+}
+
+/// Text that only resembles a link, written beside real links on the same
+/// line, alongside a reference definition that is a link.
+const LINK_LOOKALIKES: &str = "\
+[ref][r] and `[code](t.md#a)` here
+<!-- [comment](t.md#a) -->
+\\[escaped](t.md#a) text
+![alt [inner](t.md#a)](img.png)
+[shortcut] `[span](t.md#a)` [real](t.md#b)
+
+[r]: t.md#c
+[shortcut]: t.md
+
+<!--
+[hidden]: t.md#a
+-->
+";
+
+#[test]
+fn link_index_holds_parsed_links_and_definitions_only() {
+    let rules = crate::lsp::index_worker::cross_file_rules(&Config::default());
+    let index = crate::build_file_index_only(
+        LINK_LOOKALIKES,
+        &rules,
+        crate::config::MarkdownFlavor::Standard,
+        Some(std::path::PathBuf::from("s.md")),
+    );
+    let mut found: Vec<_> = index
+        .cross_file_links
+        .iter()
+        .map(|link| {
+            (
+                link.target_path.as_str(),
+                link.fragment.as_str(),
+                link.line,
+                link.column,
+            )
+        })
+        .collect();
+    found.sort_unstable();
+    // Inline links report the link's start, definitions their destination's.
+    assert_eq!(
+        found,
+        [("t.md", "", 8, 13), ("t.md", "b", 5, 29), ("t.md", "c", 7, 6)],
+        "{:#?}",
+        index.cross_file_links
+    );
+}
+
+/// Regions of a document, with `@@` where a link goes, and whether the renderer
+/// reads that place as Markdown of the document body.
+const LINK_REGIONS: &[(crate::config::MarkdownFlavor, &str, bool)] = {
+    use crate::config::MarkdownFlavor::*;
+    &[
+        (Standard, "@@", true),
+        (Standard, "> @@", true),
+        (Standard, "```\n@@\n```", false),
+        (Standard, "~~~\n@@\n~~~", false),
+        (Standard, "    @@", false),
+        (Standard, "---\nk: v\n@@\n---", false),
+        (Standard, "<!--\n@@\n-->", false),
+        (Standard, "<div>\n@@\n</div>", false),
+        (Standard, "$$\n@@\n$$", false),
+        (Standard, "{%\n@@\n%}", false),
+        (MkDocs, "$$\n@@\n$$", false),
+        (MkDocs, "/// note\n@@\n///", false),
+        (Kramdown, "{::comment}\n@@\n{:/comment}", false),
+        (Kramdown, "{::nomarkdown}\n@@\n{:/nomarkdown}", false),
+        (Obsidian, "%%\n@@\n%%", false),
+        (MDX, "{/*\n@@\n*/}", false),
+        (MDX, "{\n@@\n}", false),
+        (Hugo, "{{< note\n@@\n>}}", false),
+        (MyST, "```{code-block}\n@@\n```", false),
+        (Quarto, "::: {.note}\n@@\n:::", true),
+        (Quarto, "::: {.note}\n\n@@\n\n:::", true),
+    ]
+};
+
+/// Where a flavor's own block fence ends the block before it, a definition
+/// written directly after or before the fence line is one: the index holds
+/// it, MD051 checks its fragment and references resolve to it. Where the
+/// fence line is plain text, a line directly after it continues that
+/// paragraph and is text, while one after a blank line is a definition.
+#[test]
+fn definitions_beside_flavor_fences() {
+    use crate::config::MarkdownFlavor::{Quarto, Standard};
+    use crate::rule::Rule;
+    let rules = crate::lsp::index_worker::cross_file_rules(&Config::default());
+    let cases = [
+        (Quarto, "::: {.note}\n@@\n:::", true),
+        (Quarto, "::: {.note}\nText.\n\n@@\n:::", true),
+        (Quarto, ":::: {.outer}\n::: {.inner}\n@@\n:::\n::::", true),
+        (Quarto, ":::: {.outer}\n::: {.inner}\nText.\n:::\n@@\n::::", true),
+        (Standard, "::: {.note}\n@@\n:::", false),
+        (Standard, "::: {.note}\nText.\n\n@@\n:::", true),
+    ];
+    let mut wrong = Vec::new();
+    for (flavor, region, is_definition) in cases {
+        let place = |definition: &str| format!("{}\n\nSee [text][d].\n\n# Real\n", region.replace("@@", definition));
+
+        let content = place("[d]: t.md#gone");
+        let index = crate::build_file_index_only(&content, &rules, flavor, Some(std::path::PathBuf::from("s.md")));
+        let indexed = index
+            .cross_file_links
+            .iter()
+            .any(|link| link.origin == crate::workspace_index::LinkOrigin::Body && link.fragment == "gone");
+        let ctx = crate::lint_context::LintContext::new(&content, flavor, None);
+        let resolved = ctx.get_reference_url("d") == Some("t.md#gone");
+        if indexed != is_definition || resolved != is_definition {
+            wrong.push(format!(
+                "{flavor:?} {content:?}: indexed {indexed}, resolved {resolved}"
+            ));
+        }
+
+        let content = place("[d]: #gone");
+        let ctx = crate::lint_context::LintContext::new(&content, flavor, None);
+        let warnings = crate::rules::MD051LinkFragments::default().check(&ctx).unwrap();
+        if warnings.iter().any(|warning| warning.message.contains("'#gone'")) != is_definition {
+            wrong.push(format!("MD051 {flavor:?} {content:?}"));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+}
+
+/// Text shaped like a definition outside the document body never shadows the
+/// body definition of the same label: the index holds the body definition,
+/// MD057 and MD051 check it, and references resolve to it.
+#[test]
+fn definitions_outside_the_body_never_shadow_a_body_definition() {
+    use crate::config::MarkdownFlavor::*;
+    use crate::rule::Rule;
+    let rules = crate::lsp::index_worker::cross_file_rules(&Config::default());
+    let cases = [
+        (Standard, "---\n@@\n---", "@@"),
+        (Standard, "---\n@@\nk: v\n---", "@@"),
+        (Standard, "---\nk: v\n@@\n---", "@@"),
+        (Standard, "+++\n@@\n+++", "@@"),
+        (Standard, "{\n\"k\": 1,\n@@\n}", "@@"),
+        (MkDocs, "---\n@@\n---", "@@"),
+        (Pandoc, "---\n@@\n---", "@@"),
+        (Quarto, "---\n@@\n---", "@@"),
+        (Quarto, "---\n@@\n---", "::: {.n}\n@@\n:::"),
+        (MDX, "---\n@@\n---", "@@"),
+        (Standard, "<!--\n@@\n-->", "@@"),
+        (Standard, "<div>\n@@\n</div>", "@@"),
+        (Standard, "```\n@@\n```", "@@"),
+        (Standard, "~~~\n@@\n~~~", "@@"),
+        (Standard, "Text.\n\n    @@", "@@"),
+        (Standard, "$$\n@@\n$$", "@@"),
+        (Standard, "{%\n@@\n%}", "@@"),
+        (MkDocs, "/// note\n@@\n///", "@@"),
+        (MkDocs, "::: my.module\n    @@", "@@"),
+        (MyST, "```{code-block}\n@@\n```", "@@"),
+        (MDX, "{/*\n@@\n*/}", "@@"),
+        (MDX, "{\n@@\n}", "@@"),
+        (Kramdown, "{::comment}\n@@\n{:/comment}", "@@"),
+        (Kramdown, "{::nomarkdown}\n@@\n{:/nomarkdown}", "@@"),
+        (Obsidian, "%%\n@@\n%%", "@@"),
+        (Hugo, "{{< note\n@@\n>}}", "@@"),
+    ];
+    let dir = tempfile::tempdir().unwrap();
+    let mut wrong = Vec::new();
+    for (flavor, region, body) in cases {
+        let document = |shadow: &str, real: &str| {
+            format!(
+                "{}\n\n{}\n\nSee [x][r].\n\n# Real\n",
+                region.replace("@@", &format!("[r]: {shadow}")),
+                body.replace("@@", &format!("[r]: {real}"))
+            )
+        };
+
+        let content = document("shadow.md#s", "real.md#g");
+        let index = crate::build_file_index_only(&content, &rules, flavor, Some(std::path::PathBuf::from("s.md")));
+        let indexed: Vec<_> = index
+            .cross_file_links
+            .iter()
+            .filter(|link| link.origin == crate::workspace_index::LinkOrigin::Body)
+            .map(|link| link.target_path.as_str())
+            .collect();
+        let ctx = crate::lint_context::LintContext::new(&content, flavor, None);
+        let resolved = ctx.get_reference_url("r");
+        let checked: Vec<_> = crate::rules::MD057ExistingRelativeLinks::default()
+            .with_path(dir.path())
+            .check(&ctx)
+            .unwrap()
+            .into_iter()
+            .map(|warning| warning.message)
+            .collect();
+        let md057_real = checked.len() == 1 && checked[0].contains("'real.md#g'");
+        if indexed != ["real.md"] || resolved != Some("real.md#g") || !md057_real {
+            wrong.push(format!(
+                "{flavor:?} {content:?}: indexed {indexed:?}, resolved {resolved:?}, MD057 {checked:?}"
+            ));
+        }
+
+        let content = document("#shadow", "#gone");
+        let ctx = crate::lint_context::LintContext::new(&content, flavor, None);
+        let anchors: Vec<_> = crate::rules::MD051LinkFragments::default()
+            .check(&ctx)
+            .unwrap()
+            .into_iter()
+            .map(|warning| warning.message)
+            .collect();
+        if anchors.len() != 1 || !anchors[0].contains("'#gone'") {
+            wrong.push(format!("MD051 {flavor:?} {content:?}: {anchors:?}"));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+}
+
+/// A line shaped like a definition inside the title of another definition is
+/// title text: the index holds no link for it and MD051 does not check it,
+/// while the same line after a closed title is a definition both see.
+#[test]
+fn a_definition_shaped_line_inside_a_title_is_neither_indexed_nor_checked() {
+    use crate::rule::Rule;
+    let rules = crate::lsp::index_worker::cross_file_rules(&Config::default());
+    let flavor = crate::config::MarkdownFlavor::Standard;
+    let cases = [
+        ("[a]: #real \"t\n@@\n\"", false),
+        ("[a]: #real 't\n@@\n'", false),
+        ("[a]: #real (t\n@@\n)", false),
+        ("[a]: #real \"t\nmore\n@@\nmore\n\"", false),
+        ("> [a]: #real \"t\n> @@\n> \"", false),
+        ("- [a]: #real \"t\n  @@\n  \"", false),
+        ("[a]: #real \"t\"\n@@", true),
+        ("[a]: #real \"t\nx\"\n@@", true),
+    ];
+    let mut wrong = Vec::new();
+    for (case, is_definition) in cases {
+        let content = format!(
+            "# Real\n\n{}\n\nSee [x][a] and [y][b].\n",
+            case.replace("@@", "[b]: t.md#gone")
+        );
+        let index = crate::build_file_index_only(&content, &rules, flavor, Some(std::path::PathBuf::from("s.md")));
+        let indexed = index
+            .cross_file_links
+            .iter()
+            .any(|link| link.origin == crate::workspace_index::LinkOrigin::Body && link.target_path == "t.md");
+        if indexed != is_definition {
+            wrong.push(format!("index {content:?}: {indexed}"));
+        }
+
+        let content = format!(
+            "# Real\n\n{}\n\nSee [x][a] and [y][b].\n",
+            case.replace("@@", "[b]: #gone")
+        );
+        let ctx = crate::lint_context::LintContext::new(&content, flavor, None);
+        let checked = crate::rules::MD051LinkFragments::default()
+            .check(&ctx)
+            .unwrap()
+            .iter()
+            .any(|warning| warning.message.contains("'#gone'"));
+        if checked != is_definition {
+            wrong.push(format!("MD051 {content:?}: {checked}"));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+}
+
+/// An inline link and a reference definition written in the same place are
+/// both read as links, or both as text: the index holds both or neither, and
+/// MD051 checks both or neither.
+#[test]
+fn inline_links_and_definitions_share_one_notion_of_body() {
+    use crate::rule::Rule;
+    let rules = crate::lsp::index_worker::cross_file_rules(&Config::default());
+    let mut wrong = Vec::new();
+    for &(flavor, region, is_body) in LINK_REGIONS {
+        for (cross_file, same_file) in [("[i](t.md#gone)", "[i](#gone)"), ("[d]: t.md#gone", "[d]: #gone")] {
+            let place = |link: &str| format!("{}\n\n# Real\n", region.replace("@@", link));
+
+            let content = place(cross_file);
+            let index = crate::build_file_index_only(&content, &rules, flavor, Some(std::path::PathBuf::from("s.md")));
+            // Frontmatter values that read as paths are indexed under their
+            // own origin; only Markdown links are in question here.
+            let indexed = index
+                .cross_file_links
+                .iter()
+                .any(|link| link.origin == crate::workspace_index::LinkOrigin::Body && link.fragment == "gone");
+            if indexed != is_body {
+                wrong.push(format!("index {flavor:?} {content:?}"));
+            }
+
+            let content = place(same_file);
+            let ctx = crate::lint_context::LintContext::new(&content, flavor, None);
+            let warnings = crate::rules::MD051LinkFragments::default().check(&ctx).unwrap();
+            if warnings.iter().any(|warning| warning.message.contains("'#gone'")) != is_body {
+                wrong.push(format!("MD051 {flavor:?} {content:?}"));
+            }
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "read against the region's body status:\n{}",
+        wrong.join("\n")
+    );
+}
+
+#[tokio::test]
+async fn references_skip_lookalikes_and_include_definitions() {
+    let target = "# Doc\n\n## A\n\n## B\n\n## C\n";
+    let (_dir, server, uris) = indexed_workspace(&[("t.md", target), ("s.md", LINK_LOOKALIKES)]).await;
+    let (target_uri, source_uri) = (&uris[0], &uris[1]);
+
+    let references = |line: u32| {
+        let server = &server;
+        async move {
+            server
+                .handle_references(target_uri, Position { line, character: 3 })
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|location| &location.uri == source_uri)
+                .map(|location| (location.range.start.line, location.range.start.character))
+                .collect::<Vec<_>>()
+        }
+    };
+    assert_eq!(references(2).await, [], "nothing links to `#a`");
+    assert_eq!(references(4).await, [(4, 28)]);
+    assert_eq!(references(6).await, [(6, 5)], "the definition links to `#c`");
+}
+
+/// Apply a workspace edit's changes for `uri` to `text` the way a client does:
+/// every edit addresses the original text, and no two of them may overlap.
+fn apply_workspace_edit(edit: &WorkspaceEdit, uri: &Url, text: &str) -> String {
+    let Some(edits) = edit.changes.as_ref().and_then(|changes| changes.get(uri)) else {
+        return text.to_string();
+    };
+    let mut edits: Vec<_> = edits
+        .iter()
+        .map(|edit| {
+            let start = crate::lsp::position::lsp_position_to_byte_offset(text, edit.range.start);
+            let end = crate::lsp::position::lsp_position_to_byte_offset(text, edit.range.end);
+            (start, end, edit.new_text.as_str())
+        })
+        .collect();
+    edits.sort_by_key(|&(start, end, _)| (start, end));
+    let mut result = String::new();
+    let mut copied = 0;
+    for (start, end, new_text) in edits {
+        assert!(copied <= start && start <= end, "overlapping edits for {uri}: {edit:?}");
+        result.push_str(&text[copied..start]);
+        result.push_str(new_text);
+        copied = end;
+    }
+    result.push_str(&text[copied..]);
+    result
+}
+
+/// Rename the heading on the 0-based `line` of the first file and return every
+/// file's content with the resulting workspace edit applied.
+async fn renamed_workspace(files: &[(&str, &str)], line: u32, new_name: &str) -> Vec<String> {
+    let (_dir, server, uris) = indexed_workspace(files).await;
+    let edit = server
+        .handle_rename(&uris[0], Position { line, character: 4 }, new_name)
+        .await
+        .expect("the rename is accepted");
+    uris.iter()
+        .zip(files)
+        .map(|(uri, (_, content))| apply_workspace_edit(&edit, uri, content))
+        .collect()
+}
+
+#[tokio::test]
+async fn rename_rewrites_exactly_the_links_to_the_renamed_heading() {
+    let target = "\
+# Setup
+
+[self](#setup) and [other](o.md#setup) and `[code](#setup)` here
+[pre](#setup-1) [enc](#setup%20x) [upper](#SETUP) [title](#setup \"#setup\")
+[#setup][q] and [path](t.md#setup) and [dec](#%73etup)
+
+```text
+[f]: #setup
+```
+
+[q]: #setup
+
+<!--
+[h]: #setup
+-->
+";
+    let source = "\
+[a](t.md#setup) [b](o.md#setup) [c](t.md#setup-1) `[d](t.md#setup)`
+[e][d] [f](<t.md#setup>)
+İİ [g](t.md#setup)
+
+[d]: t.md#Setup \"t.md#setup\"
+";
+    let other = "# Setup\n\n[back](t.md#setup) [own](#setup)\n";
+    let renamed = renamed_workspace(&[("t.md", target), ("s.md", source), ("o.md", other)], 0, "Install").await;
+
+    assert_eq!(
+        renamed[0],
+        "\
+# Install
+
+[self](#install) and [other](o.md#setup) and `[code](#setup)` here
+[pre](#setup-1) [enc](#setup%20x) [upper](#install) [title](#install \"#setup\")
+[#setup][q] and [path](t.md#install) and [dec](#install)
+
+```text
+[f]: #setup
+```
+
+[q]: #install
+
+<!--
+[h]: #setup
+-->
+"
+    );
+    assert_eq!(
+        renamed[1],
+        "\
+[a](t.md#install) [b](o.md#setup) [c](t.md#setup-1) `[d](t.md#setup)`
+[e][d] [f](<t.md#install>)
+İİ [g](t.md#install)
+
+[d]: t.md#install \"t.md#setup\"
+"
+    );
+    assert_eq!(renamed[2], "# Setup\n\n[back](t.md#install) [own](#setup)\n");
+}
+
+/// Renaming one of several headings with the same text moves the numbered
+/// anchors of the later ones, and links to those follow their headings.
+#[tokio::test]
+async fn rename_moves_links_to_siblings_whose_anchors_shift() {
+    let target = "\
+# Doc
+
+## Setup
+
+## Setup
+
+## Setup
+
+[a](#setup) [b](#setup-1) [c](#setup-2)
+";
+    let source = "[a](t.md#setup) [b](t.md#setup-1) [c](t.md#setup-2)\n";
+    let files = [("t.md", target), ("s.md", source)];
+
+    let first = renamed_workspace(&files, 2, "Install").await;
+    assert!(
+        first[0].ends_with("[a](#install) [b](#setup) [c](#setup-1)\n"),
+        "{}",
+        first[0]
+    );
+    assert!(
+        first[0].starts_with("# Doc\n\n## Install\n\n## Setup\n"),
+        "{}",
+        first[0]
+    );
+    assert_eq!(first[1], "[a](t.md#install) [b](t.md#setup) [c](t.md#setup-1)\n");
+
+    let second = renamed_workspace(&files, 4, "Install").await;
+    assert!(
+        second[0].ends_with("[a](#setup) [b](#install) [c](#setup-1)\n"),
+        "{}",
+        second[0]
+    );
+    assert_eq!(second[1], "[a](t.md#setup) [b](t.md#install) [c](t.md#setup-1)\n");
+
+    let last = renamed_workspace(&files, 6, "Install").await;
+    assert!(
+        last[0].ends_with("[a](#setup) [b](#setup-1) [c](#install)\n"),
+        "{}",
+        last[0]
+    );
+    assert_eq!(last[1], "[a](t.md#setup) [b](t.md#setup-1) [c](t.md#install)\n");
+}
+
+/// Inline links with the path written as `P` and the fragment as `F`, in every
+/// CommonMark spelling of a destination and title.
+const INLINE_LINK_FORMS: &[&str] = &[
+    "[x](P#F)",
+    "[x](P#F \"#F\")",
+    "[x](P#F '#F')",
+    "[x](P#F (#F))",
+    "[x](<P#F>)",
+    "[x](<P#F> '#F')",
+    "[x](P#F\n  '#F')",
+    "[x](  P#F\t)",
+    "[x](\nP#F\n)",
+];
+
+/// The paths each form is tried with: bare destinations cannot hold a space,
+/// angle brackets can.
+fn inline_link_form_paths(form: &str) -> &'static [&'static str] {
+    if form.contains('<') {
+        &["t.md", "f(1).md", "t x.md"]
+    } else {
+        &["t.md", "f(1).md", "f((1)).md"]
+    }
+}
+
+/// LSP range of the first `#F` fragment, without its `#`, in `text`.
+fn first_fragment_range(text: &str, fragment: &str) -> Range {
+    let start = text.find(&format!("#{fragment}")).unwrap() + 1;
+    crate::lsp::position::byte_range_to_lsp_range(text, start..start + fragment.len()).unwrap()
+}
+
+#[tokio::test]
+async fn every_inline_link_form_is_indexed_referenced_and_renamed() {
+    let rules = crate::lsp::index_worker::cross_file_rules(&Config::default());
+    for form in INLINE_LINK_FORMS {
+        for path in inline_link_form_paths(form) {
+            let source = format!("{}\n", form.replace('P', path).replace('F', "setup"));
+
+            let index = crate::build_file_index_only(
+                &source,
+                &rules,
+                crate::config::MarkdownFlavor::Standard,
+                Some(std::path::PathBuf::from("s.md")),
+            );
+            let indexed: Vec<_> = index
+                .cross_file_links
+                .iter()
+                .map(|link| {
+                    (
+                        link.target_path.as_str(),
+                        link.fragment.as_str(),
+                        link.line,
+                        link.column,
+                    )
+                })
+                .collect();
+            assert_eq!(indexed, [(*path, "setup", 1, 1)], "{source:?}");
+
+            let (_dir, server, uris) = indexed_workspace(&[(path, "# Setup\n"), ("s.md", &source)]).await;
+            let references: Vec<_> = server
+                .handle_references(&uris[0], Position { line: 0, character: 3 })
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|location| location.uri == uris[1])
+                .map(|location| location.range.start)
+                .collect();
+            assert_eq!(references, [Position { line: 0, character: 0 }], "{source:?}");
+
+            let edit = server
+                .handle_rename(&uris[0], Position { line: 0, character: 4 }, "Install")
+                .await
+                .expect("the rename is accepted");
+            let edits = edit.changes.as_ref().and_then(|changes| changes.get(&uris[1]));
+            assert_eq!(
+                edits.map(Vec::as_slice),
+                Some(
+                    &[TextEdit {
+                        range: first_fragment_range(&source, "setup"),
+                        new_text: "install".to_string(),
+                    }][..]
+                ),
+                "{source:?}"
+            );
+        }
+
+        let target = format!("# Setup\n\n{}\n", form.replace('P', "").replace('F', "setup"));
+        let renamed = renamed_workspace(&[("t.md", &target)], 0, "Install").await;
+        assert_eq!(
+            renamed[0],
+            target
+                .replacen("# Setup", "# Install", 1)
+                .replacen("#setup", "#install", 1),
+            "{target:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn inline_links_wrapped_inside_containers_are_indexed_referenced_and_renamed() {
+    // Containers as the prefix of a link's first line and of its
+    // continuation lines.
+    const CONTAINERS: &[(&str, &str)] = &[
+        ("> ", "> "),
+        ("> > ", "> > "),
+        (">> ", ">>"),
+        ("- ", "  "),
+        ("- > ", "  > "),
+        ("> - ", ">   "),
+        ("- ", "\t"),
+        ("> -\t", ">\t  "),
+    ];
+    // Destination, title, or both on a continuation line opening with `C`.
+    const FORMS: &[&str] = &[
+        "[x](\nCt.md#setup)",
+        "[x](t.md#setup\nC\"title\")",
+        "[x](\nCt.md#setup\nC'title')",
+        "[x](\nC<t.md#setup>)",
+    ];
+    let rules = crate::lsp::index_worker::cross_file_rules(&Config::default());
+    for (first, continuation) in CONTAINERS {
+        for form in FORMS {
+            let source = format!("{first}{}\n", form.replace('C', continuation));
+            let column = first.chars().count() as u32;
+
+            let index = crate::build_file_index_only(
+                &source,
+                &rules,
+                crate::config::MarkdownFlavor::Standard,
+                Some(std::path::PathBuf::from("s.md")),
+            );
+            let indexed: Vec<_> = index
+                .cross_file_links
+                .iter()
+                .map(|link| {
+                    (
+                        link.target_path.as_str(),
+                        link.fragment.as_str(),
+                        link.line,
+                        link.column,
+                    )
+                })
+                .collect();
+            assert_eq!(indexed, [("t.md", "setup", 1, column as usize + 1)], "{source:?}");
+
+            let (_dir, server, uris) = indexed_workspace(&[("t.md", "# Setup\n"), ("s.md", &source)]).await;
+            let references: Vec<_> = server
+                .handle_references(&uris[0], Position { line: 0, character: 3 })
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|location| location.uri == uris[1])
+                .map(|location| location.range.start)
+                .collect();
+            assert_eq!(
+                references,
+                [Position {
+                    line: 0,
+                    character: column
+                }],
+                "{source:?}"
+            );
+
+            let edit = server
+                .handle_rename(&uris[0], Position { line: 0, character: 4 }, "Install")
+                .await
+                .expect("the rename is accepted");
+            let edits = edit.changes.as_ref().and_then(|changes| changes.get(&uris[1]));
+            assert_eq!(
+                edits.map(Vec::as_slice),
+                Some(
+                    &[TextEdit {
+                        range: first_fragment_range(&source, "setup"),
+                        new_text: "install".to_string(),
+                    }][..]
+                ),
+                "{source:?}"
+            );
+        }
+    }
+}
+
+/// Text written in place of `D`, a destination, with whether the parser reads
+/// it as a link reference definition of that destination.
+const DEFINITION_CANDIDATES: &[(&str, bool)] = &[
+    ("[r]: D", true),
+    ("[r]: D \"title\"", true),
+    ("[r]:\nD\n'title'", true),
+    ("- [r]: D", true),
+    ("> - [r]: D", true),
+    ("> [r]:\n> D", true),
+    ("- [r]:\n  D", true),
+    ("> > [r]:\n> > D \"title\"", true),
+    // A definition cannot interrupt a paragraph, in a container or not.
+    ("Text\n[r]: D", false),
+    ("- item\n  [r]: D", false),
+    ("> quote\n> [r]: D", false),
+    ("- item\n[r]: D", false),
+    // Indented four columns, it is code.
+    ("    [r]: D", false),
+    ("- item\n\n      [r]: D", false),
+    // A later definition of the same label defines nothing.
+    ("[r]: other.md\n[r]: D", false),
+    ("[R]: other.md\n[ r ]: D", false),
+    // Text after the destination that is not a title.
+    ("[r]: D junk", false),
+    ("[r]: D \"title\" junk", false),
+    ("[r]: D 'open", false),
+    ("```\n[r]: D\n```", false),
+    ("<!-- [r]: D -->", false),
+];
+
+/// Every definition the parser reads is checked, indexed, referenced and
+/// renamed, at its destination; text the parser reads otherwise is none of
+/// these, however much it looks like a definition.
+#[tokio::test]
+async fn reference_definitions_are_exactly_the_parsers() {
+    use crate::rule::Rule;
+    let md051 = crate::rules::MD051LinkFragments::default();
+    for &(text, defines) in DEFINITION_CANDIDATES {
+        let parser_defines = |source: &str, destination: &str| {
+            let options = crate::utils::parser_options::rumdl_parser_options_for(source);
+            pulldown_cmark::Parser::new_ext(source, options)
+                .reference_definitions()
+                .iter()
+                .any(|(_, definition)| definition.dest.as_ref() == destination)
+        };
+
+        // Same file: a missing anchor is reported at the destination.
+        let content = format!("# Setup\n\n{}\n", text.replace('D', "#missing"));
+        assert_eq!(parser_defines(&content, "#missing"), defines, "{content:?}");
+        let ctx = crate::lint_context::LintContext::new(&content, crate::config::MarkdownFlavor::Standard, None);
+        let found: Vec<_> = md051
+            .check(&ctx)
+            .unwrap()
+            .into_iter()
+            .map(|w| (w.line, w.column, w.end_line, w.end_column))
+            .collect();
+        let expected: Vec<_> = defines
+            .then(|| {
+                let start = content.find("#missing").unwrap();
+                let (_, line, column) = crate::lint_context::SourcePositions::new(&content, &ctx.lines).position(start);
+                (line, column + 1, line, column + 1 + "#missing".len())
+            })
+            .into_iter()
+            .collect();
+        assert_eq!(found, expected, "{content:?}");
+
+        // Another file: indexed at the destination, checked against the
+        // target, found by references and renamed exactly there.
+        for fragment in ["setup", "missing"] {
+            let destination = format!("t.md#{fragment}");
+            let source = format!("# S\n\n{}\n", text.replace('D', &destination));
+            assert_eq!(parser_defines(&source, &destination), defines, "{source:?}");
+            let (dir, server, uris) = indexed_workspace(&[("t.md", "# Setup\n"), ("s.md", &source)]).await;
+            let start = crate::lsp::position::byte_range_to_lsp_range(&source, {
+                let at = source.find(&destination).unwrap();
+                at..at
+            })
+            .unwrap()
+            .start;
+            let path = dir.path().resolve_like_server().join("s.md");
+            let workspace = server.workspace_index.read().await;
+            let file_index = workspace.get_file(&path).expect("s.md is indexed");
+            // The candidates that repeat a label also define it to `other.md`.
+            let indexed: Vec<_> = file_index
+                .cross_file_links
+                .iter()
+                .filter(|link| link.target_path == "t.md")
+                .map(|link| (link.target_path.clone(), link.fragment.clone(), link.line, link.column))
+                .collect();
+            let expected: Vec<_> = defines
+                .then(|| {
+                    (
+                        "t.md".to_string(),
+                        fragment.to_string(),
+                        start.line as usize + 1,
+                        start.character as usize + 1,
+                    )
+                })
+                .into_iter()
+                .collect();
+            assert_eq!(indexed, expected, "{source:?}");
+            let reported: Vec<_> = md051
+                .cross_file_check(&path, file_index, &workspace)
+                .unwrap()
+                .into_iter()
+                .map(|w| (w.line, w.column))
+                .collect();
+            let expected: Vec<_> = (defines && fragment == "missing")
+                .then_some((start.line as usize + 1, start.character as usize + 1))
+                .into_iter()
+                .collect();
+            assert_eq!(reported, expected, "{source:?}");
+            drop(workspace);
+            if fragment != "setup" {
+                continue;
+            }
+
+            let references: Vec<_> = server
+                .handle_references(&uris[0], Position { line: 0, character: 3 })
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|location| location.uri == uris[1])
+                .map(|location| location.range.start)
+                .collect();
+            assert_eq!(
+                references,
+                defines.then_some(start).into_iter().collect::<Vec<_>>(),
+                "{source:?}"
+            );
+
+            let edit = server
+                .handle_rename(&uris[0], Position { line: 0, character: 4 }, "Install")
+                .await
+                .expect("the rename is accepted");
+            let edits = edit
+                .changes
+                .as_ref()
+                .and_then(|changes| changes.get(&uris[1]))
+                .cloned()
+                .unwrap_or_default();
+            let expected: Vec<_> = defines
+                .then(|| TextEdit {
+                    range: first_fragment_range(&source, "setup"),
+                    new_text: "install".to_string(),
+                })
+                .into_iter()
+                .collect();
+            assert_eq!(edits, expected, "{source:?}");
+        }
+    }
+}
+
+/// A definition's destination is the parser's: escapes and entities are
+/// decoded before it is checked, indexed or referenced. Only a destination
+/// written exactly as it reads is renamed, since the new fragment would
+/// otherwise replace a spelling it does not match.
+#[tokio::test]
+async fn reference_definition_destinations_are_read_decoded() {
+    use crate::rule::Rule;
+    let md051 = crate::rules::MD051LinkFragments::default();
+    // Same file: the entity and escape spell `#a-b`, which resolves.
+    for written in ["#a-b", "#a&#45;b", "#a&#x2D;b", "#a\\-b", "<#a&#45;b>"] {
+        for (heading, reported) in [("A-b", false), ("Other", true)] {
+            let content = format!("# {heading}\n\n[r]: {written}\n");
+            let ctx = crate::lint_context::LintContext::new(&content, crate::config::MarkdownFlavor::Standard, None);
+            let found: Vec<_> = md051
+                .check(&ctx)
+                .unwrap()
+                .into_iter()
+                .map(|w| (w.line, w.column, w.message))
+                .collect();
+            let column = 6 + usize::from(written.starts_with('<'));
+            let expected: Vec<_> = reported
+                .then(|| {
+                    (
+                        3,
+                        column,
+                        "Link anchor '#a-b' does not exist in document headings".to_string(),
+                    )
+                })
+                .into_iter()
+                .collect();
+            assert_eq!(found, expected, "{content:?}");
+        }
+    }
+
+    // Another file: the decoded fragment is indexed and referenced at the
+    // destination; only the literal spelling is renamed.
+    for (written, renamed) in [
+        ("t.md#setup", true),
+        ("<t.md#setup>", true),
+        ("t.md#set&#117;p", false),
+        ("t.md#set&#x75;p", false),
+        ("t\\.md#setup", false),
+        ("t.md#set\\up", false),
+    ] {
+        let source = format!("# S\n\n[r]: {written}\n");
+        let (dir, server, uris) = indexed_workspace(&[("t.md", "# Setup\n"), ("s.md", &source)]).await;
+        let column = 6 + usize::from(written.starts_with('<'));
+        let path = dir.path().resolve_like_server().join("s.md");
+        let indexed: Vec<_> = server
+            .workspace_index
+            .read()
+            .await
+            .get_file(&path)
+            .expect("s.md is indexed")
+            .cross_file_links
+            .iter()
+            .map(|link| (link.target_path.clone(), link.fragment.clone(), link.line, link.column))
+            .collect();
+        let fragment = if written.ends_with("set\\up") {
+            "set\\up"
+        } else {
+            "setup"
+        };
+        assert_eq!(
+            indexed,
+            [("t.md".to_string(), fragment.to_string(), 3, column)],
+            "{source:?}"
+        );
+        if fragment != "setup" {
+            continue;
+        }
+        let references: Vec<_> = server
+            .handle_references(&uris[0], Position { line: 0, character: 3 })
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|location| location.uri == uris[1])
+            .map(|location| location.range.start)
+            .collect();
+        assert_eq!(
+            references,
+            [Position {
+                line: 2,
+                character: column as u32 - 1
+            }],
+            "{source:?}"
+        );
+        let edit = server
+            .handle_rename(&uris[0], Position { line: 0, character: 4 }, "Install")
+            .await
+            .expect("the rename is accepted");
+        let edits = edit
+            .changes
+            .as_ref()
+            .and_then(|changes| changes.get(&uris[1]))
+            .cloned()
+            .unwrap_or_default();
+        let expected: Vec<_> = renamed
+            .then(|| TextEdit {
+                range: first_fragment_range(&source, "setup"),
+                new_text: "install".to_string(),
+            })
+            .into_iter()
+            .collect();
+        assert_eq!(edits, expected, "{source:?}");
+    }
+}
+
 #[tokio::test]
 async fn test_find_references_heading_with_incoming_links() {
     use crate::workspace_index::{CrossFileLinkIndex, FileIndex, HeadingIndex, LinkOrigin};
@@ -14208,5 +15155,267 @@ fn test_lsp_config_walk_stops_at_the_profile_boundary() {
         workspace_is_profile.first(),
         Some(&profile.join(".rumdl.toml")),
         "A workspace opened at the profile keeps its own config"
+    );
+}
+
+/// A server that runs MD048 alone, enforcing `style`.
+async fn md048_server(style: &str) -> RumdlLanguageServer {
+    let server = create_test_server();
+    let mut config = crate::config::Config::default();
+    config.global.enable = vec!["MD048".into()];
+    config
+        .rules
+        .entry("MD048".into())
+        .or_default()
+        .values
+        .insert("style".into(), toml::Value::String(style.into()));
+    *server.rumdl_config.write().await = config;
+    server
+}
+
+/// The MD048 fix actions a client is offered with the cursor on `line`.
+async fn md048_quick_fixes(server: &RumdlLanguageServer, uri: &Url, text: &str, line: u32) -> Vec<CodeAction> {
+    let cursor = Position::new(line, 0);
+    server
+        .get_code_actions(uri, text, Range::new(cursor, cursor))
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|action| {
+            action.kind == Some(CodeActionKind::QUICKFIX)
+                && action.title.starts_with("Fix: ")
+                && action
+                    .diagnostics
+                    .iter()
+                    .flatten()
+                    .any(|diagnostic| diagnostic.code == Some(NumberOrString::String("MD048".into())))
+        })
+        .collect()
+}
+
+/// Apply one code action the way a client does: every edit addresses the
+/// document the action was computed for, and no two of them may overlap.
+fn apply_code_action(action: &CodeAction, uri: &Url, text: &str) -> String {
+    let mut edits: Vec<_> = action.edit.as_ref().unwrap().changes.as_ref().unwrap()[uri]
+        .iter()
+        .map(|edit| {
+            let start = crate::lsp::position::lsp_position_to_byte_offset(text, edit.range.start);
+            let end = crate::lsp::position::lsp_position_to_byte_offset(text, edit.range.end);
+            (start, end, edit.new_text.as_str())
+        })
+        .collect();
+    edits.sort_by_key(|&(start, end, _)| (start, end));
+    let mut result = String::new();
+    let mut copied = 0;
+    for (start, end, new_text) in edits {
+        assert!(copied <= start && start <= end, "overlapping edits in {action:?}");
+        result.push_str(&text[copied..start]);
+        result.push_str(new_text);
+        copied = end;
+    }
+    result.push_str(&text[copied..]);
+    result
+}
+
+/// MD048 reports the two fences of a block as separate diagnostics. The quick
+/// fix of either one must rewrite both fences: a fence converted on its own no
+/// longer pairs with the other, and the block runs on over the prose after it.
+#[tokio::test]
+async fn md048_quick_fix_on_either_fence_converts_both_fences_of_the_block() {
+    let uri = Url::parse("untitled:fences.md").unwrap();
+    // Style, document, the document with the first block converted, and the
+    // 0-indexed lines of that block's opening and closing fence.
+    let cases: [(&str, &str, &str, u32, u32); 8] = [
+        (
+            "backtick",
+            "Before.\n\n~~~text\ncode\n~~~\n\nAfter.\n",
+            "Before.\n\n```text\ncode\n```\n\nAfter.\n",
+            2,
+            4,
+        ),
+        (
+            "tilde",
+            "Before.\n\n```text\ncode\n```\n\nAfter.\n",
+            "Before.\n\n~~~text\ncode\n~~~\n\nAfter.\n",
+            2,
+            4,
+        ),
+        // The converted fences are lengthened past the inner ones.
+        (
+            "backtick",
+            "~~~markdown\n```rust\ncode\n```\n~~~\n\nAfter.\n",
+            "````markdown\n```rust\ncode\n```\n````\n\nAfter.\n",
+            0,
+            4,
+        ),
+        (
+            "tilde",
+            "```markdown\n~~~~\ncode\n~~~~\n```\n\nAfter.\n",
+            "~~~~~markdown\n~~~~\ncode\n~~~~\n~~~~~\n\nAfter.\n",
+            0,
+            4,
+        ),
+        // A block in a list item, its closing fence indented differently.
+        (
+            "backtick",
+            "- item\n\n  ~~~text\n  code\n   ~~~\n\n  After.\n",
+            "- item\n\n  ```text\n  code\n   ```\n\n  After.\n",
+            2,
+            4,
+        ),
+        // Only the block under the cursor is converted.
+        (
+            "backtick",
+            "~~~text\none\n~~~\n\n~~~text\ntwo\n~~~\n",
+            "```text\none\n```\n\n~~~text\ntwo\n~~~\n",
+            0,
+            2,
+        ),
+        // Characters wider than one byte or one UTF-16 unit, before and on the fence line.
+        (
+            "backtick",
+            "Ünï 🎉 cödé.\n\n~~~~内容 🎉\ncode 🎉\n~~~~~ \n\nAfter 🎉.\n",
+            "Ünï 🎉 cödé.\n\n````内容 🎉\ncode 🎉\n```` \n\nAfter 🎉.\n",
+            2,
+            4,
+        ),
+        // The closing fence ends the document.
+        ("backtick", "~~~text\ncode\n~~~", "```text\ncode\n```", 0, 2),
+    ];
+
+    for (style, document, converted, opener, closer) in cases {
+        let server = md048_server(style).await;
+        for (text, expected) in [
+            (document.to_string(), converted.to_string()),
+            (document.replace('\n', "\r\n"), converted.replace('\n', "\r\n")),
+        ] {
+            for line in [opener, closer] {
+                let actions = md048_quick_fixes(&server, &uri, &text, line).await;
+                assert_eq!(
+                    actions.len(),
+                    1,
+                    "one MD048 fix on line {line} of {text:?}: {actions:?}"
+                );
+                // Each diagnostic stays on its own fence.
+                let diagnostics = actions[0].diagnostics.as_ref().unwrap();
+                assert_eq!(diagnostics.len(), 1);
+                assert_eq!(diagnostics[0].range.start.line, line);
+                assert_eq!(diagnostics[0].range.end.line, line);
+
+                let fixed = apply_code_action(&actions[0], &uri, &text);
+                assert_eq!(
+                    fixed, expected,
+                    "the quick fix on line {line} of {text:?} must convert both fences"
+                );
+            }
+        }
+    }
+}
+
+/// The edits of a paired MD048 quick fix address whole fence lines in UTF-16
+/// units, whichever fence the action was requested on.
+#[tokio::test]
+async fn md048_quick_fix_edits_address_both_fence_lines_in_utf16_units() {
+    let server = md048_server("backtick").await;
+    let uri = Url::parse("untitled:fences.md").unwrap();
+    for ending in ["\n", "\r\n"] {
+        let text = "Ünï 🎉 cödé.\n\n~~~内容 🎉\ncode 🎉\n~~~\n\nAfter 🎉.\n".replace('\n', ending);
+        for line in [2, 4] {
+            let actions = md048_quick_fixes(&server, &uri, &text, line).await;
+            assert_eq!(actions.len(), 1, "{actions:?}");
+            let mut edits = actions[0].edit.as_ref().unwrap().changes.as_ref().unwrap()[&uri].clone();
+            edits.sort_by_key(|edit| edit.range.start.line);
+            assert_eq!(
+                edits,
+                [
+                    TextEdit {
+                        // `~~~内容 🎉`: three tildes, two ideographs, a space, a surrogate pair.
+                        range: Range::new(Position::new(2, 0), Position::new(2, 8)),
+                        new_text: "```内容 🎉".into(),
+                    },
+                    TextEdit {
+                        range: Range::new(Position::new(4, 0), Position::new(4, 3)),
+                        new_text: "```".into(),
+                    },
+                ],
+                "line {line} of {text:?}"
+            );
+        }
+    }
+}
+
+/// Fix-all and formatting collect the fixes of both diagnostics of a block.
+/// Each fence is still rewritten exactly once.
+#[tokio::test]
+async fn md048_fix_all_rewrites_each_fence_of_a_block_once() {
+    let uri = Url::parse("untitled:fences.md").unwrap();
+    for (style, document, converted) in [
+        (
+            "backtick",
+            "~~~text\none\n~~~\n\n~~~markdown\n```rust\ntwo\n```\n~~~\n\n- item\n\n  ~~~text\n  three\n   ~~~\n\nAfter 🎉.\n",
+            "```text\none\n```\n\n````markdown\n```rust\ntwo\n```\n````\n\n- item\n\n  ```text\n  three\n   ```\n\nAfter 🎉.\n",
+        ),
+        (
+            "tilde",
+            "```text\none\n```\n\n```markdown\n~~~~\ntwo\n~~~~\n```\n\nAfter 🎉.\n",
+            "~~~text\none\n~~~\n\n~~~~~markdown\n~~~~\ntwo\n~~~~\n~~~~~\n\nAfter 🎉.\n",
+        ),
+    ] {
+        let server = md048_server(style).await;
+        for (text, expected) in [
+            (document.to_string(), converted.to_string()),
+            (document.replace('\n', "\r\n"), converted.replace('\n', "\r\n")),
+        ] {
+            assert_eq!(fix_all_text(&server, &uri, &text).await.as_ref(), Some(&expected));
+            assert_eq!(
+                server.apply_all_fixes(&uri, &text).await.unwrap().as_ref(),
+                Some(&expected)
+            );
+            assert_eq!(fix_all_text(&server, &uri, &expected).await, None);
+        }
+    }
+}
+
+/// Blocks MD048 offers no paired conversion for keep the actions they had.
+#[tokio::test]
+async fn md048_quick_fix_leaves_unpaired_and_exempt_fences_as_they_were() {
+    let server = md048_server("backtick").await;
+    let uri = Url::parse("untitled:fences.md").unwrap();
+
+    // A directive on the opening fence exempts the block: no fix on either fence.
+    for text in [
+        "<!-- rumdl-disable-next-line MD048 -->\n~~~text\ncode\n~~~\n\nAfter.\n",
+        "<!-- rumdl-disable MD048 -->\n~~~text\ncode\n~~~\n<!-- rumdl-enable MD048 -->\n\nAfter.\n",
+    ] {
+        for line in [1, 3] {
+            let actions = md048_quick_fixes(&server, &uri, text, line).await;
+            assert!(actions.is_empty(), "line {line} of {text:?}: {actions:?}");
+        }
+        assert_eq!(fix_all_text(&server, &uri, text).await, None);
+    }
+
+    // The block after an exempt one is still converted as a pair.
+    let text = "<!-- rumdl-disable-next-line MD048 -->\n~~~text\none\n~~~\n\n~~~text\ntwo\n~~~\n";
+    let expected = "<!-- rumdl-disable-next-line MD048 -->\n~~~text\none\n~~~\n\n```text\ntwo\n```\n";
+    assert_eq!(fix_all_text(&server, &uri, text).await.as_deref(), Some(expected));
+
+    // An info string a backtick fence cannot carry: reported, never converted.
+    let text = "~~~foo `bar`\ncode\n~~~\n\nAfter.\n";
+    for line in [0, 2] {
+        let actions = md048_quick_fixes(&server, &uri, text, line).await;
+        assert!(actions.is_empty(), "line {line} of {text:?}: {actions:?}");
+    }
+
+    // An unclosed block has one fence to convert, lengthened past its content.
+    let text = "Before.\n\n~~~text\n```\ncode\n";
+    let actions = md048_quick_fixes(&server, &uri, text, 2).await;
+    assert_eq!(actions.len(), 1, "{actions:?}");
+    assert_eq!(
+        actions[0].edit.as_ref().unwrap().changes.as_ref().unwrap()[&uri].len(),
+        1
+    );
+    assert_eq!(
+        apply_code_action(&actions[0], &uri, text),
+        "Before.\n\n````text\n```\ncode\n"
     );
 }

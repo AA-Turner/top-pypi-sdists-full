@@ -125,13 +125,57 @@ pub(crate) fn is_default_cdn_url(url: &str) -> bool {
     has_url_prefix(url, DEFAULT_CDN_URL)
 }
 
-pub(crate) fn replace_url_base(base_url: &str, url: &str) -> String {
-    let parsed_url = StatsigUrl::new(url);
-    if parsed_url.path.is_empty() {
-        return base_url.to_string();
+// Rebase only the canonical path and query. Replaying a raw "../" suffix could
+// escape a configured gateway prefix even when both requests share an origin.
+pub(crate) fn replace_url_base(
+    endpoint: &url::Url,
+    source: &str,
+) -> Result<url::Url, crate::StatsigErr> {
+    let invalid = || crate::StatsigErr::InvalidOperation("invalid ID-list file URL".into());
+    let source = endpoint
+        .join("/")
+        .and_then(|root| root.join(source))
+        .map_err(|_| invalid())?;
+    if !matches!(endpoint.scheme(), "http" | "https")
+        || !matches!(source.scheme(), "http" | "https")
+        || endpoint.fragment().is_some()
+    {
+        return Err(invalid());
     }
-
-    join_url(base_url, parsed_url.path)
+    let mut target = endpoint.clone();
+    let prefix = format!("{}/", endpoint.path().trim_end_matches('/'));
+    let path = source.path().trim_start_matches('/');
+    // Some gateways decode the separator within a private company/file selector.
+    // Reject traversal that materializes only after path decoding.
+    fn safe_segments(path: &str, remaining: u8) -> bool {
+        if path
+            .split(['/', '\\'])
+            .any(|part| matches!(part, "." | ".."))
+        {
+            return false;
+        }
+        match percent_encoding::percent_decode_str(path).decode_utf8_lossy() {
+            std::borrow::Cow::Borrowed(_) => true,
+            std::borrow::Cow::Owned(decoded) => {
+                remaining > 0 && safe_segments(&decoded, remaining - 1)
+            }
+        }
+    }
+    if !safe_segments(path, 4) {
+        return Err(invalid());
+    }
+    if let Some(query) = endpoint.query() {
+        // Legacy gateways may take the source path in a query such as "?path=".
+        let suffix = &source[url::Position::BeforePath..url::Position::AfterQuery];
+        target.set_query(Some(&join_url(query, suffix)));
+        return Ok(target);
+    }
+    target.set_path(&format!("{prefix}{path}"));
+    target.set_query(source.query());
+    if target.origin() != endpoint.origin() || !target.path().starts_with(&prefix) {
+        return Err(invalid());
+    }
+    Ok(target)
 }
 
 #[cfg(any(test, not(feature = "custom_network_provider")))]
@@ -370,9 +414,11 @@ mod tests {
     fn test_replace_url_base_preserves_path() {
         assert_eq!(
             replace_url_base(
-                "https://download-proxy.example",
+                &url::Url::parse("https://download-proxy.example").unwrap(),
                 "https://fake-id-list-host/v1/download_id_list_file/3wHgh0FhoQH0p"
-            ),
+            )
+            .unwrap()
+            .as_str(),
             "https://download-proxy.example/v1/download_id_list_file/3wHgh0FhoQH0p"
         );
     }

@@ -305,6 +305,46 @@ def build_robocasa_observation(*, session_id: str, observation_id: int,
     ), camera_payloads=payloads, chunk_size=chunk_size)
 
 
+def build_robocasa_window_observation(*, session_id: str, observation_id: int,
+                                      images: dict[str, np.ndarray], robot_state: dict,
+                                      instruction: str, chunk_size: int = 32,
+                                      now_ns: int | None = None) -> Observation:
+    """A RoboCasa365 window (``RoboCasaSimEnv(camera_history=...)``): each camera's frames,
+    oldest first, as one lossless strip (``CameraFrame.frames``), and the current state."""
+    from io import BytesIO
+
+    from dreamscale_transport.robocasa import CAMERA_KEYS
+    from PIL import Image, features
+
+    if set(images) != set(CAMERA_KEYS):
+        raise ValueError("RoboCasa365 requires its three named cameras")
+    count = {np.asarray(images[key]).shape[0] for key in CAMERA_KEYS}
+    if len(count) != 1:
+        raise ValueError("every RoboCasa365 camera sends the same window")
+    (frames,) = count
+    encoding = "webp" if features.check("webp") else "png"
+    options = {"lossless": True, "method": 0} if encoding == "webp" else {"compress_level": 3}
+    cameras, payloads = [], {}
+    for key in CAMERA_KEYS:
+        window = np.asarray(images[key])
+        if window.shape[1:] != (256, 256, 3) or window.dtype != np.uint8:
+            raise ValueError("a RoboCasa365 window needs 256x256 RGB uint8 frames per camera")
+        encoded = BytesIO()
+        Image.fromarray(np.concatenate(list(window), axis=1)).save(
+            encoded, format=encoding.upper(), **options)
+        payload = encoded.getvalue()
+        cameras.append(CameraFrame(camera_id=key, width=256 * frames, height=256,
+                                   encoding=encoding, payload_bytes=len(payload), frames=frames))
+        payloads[key] = payload
+    now = time.time_ns() if now_ns is None else now_ns
+    return Observation(frame=ObservationFrame(
+        session_id=session_id, observation_id=observation_id,
+        capture_time_ns=now, send_time_ns=now, cameras=cameras,
+        robot_state=RoboCasaRobotState.model_validate(robot_state),
+        actions_remaining=0, instruction=instruction,
+    ), camera_payloads=payloads, chunk_size=chunk_size)
+
+
 def build_rldx_libero_observation(*, session_id: str, observation_id: int,
                                   agent_frames: np.ndarray, wrist_frames: np.ndarray,
                                   libero_state: list[float], instruction: str,

@@ -187,12 +187,13 @@ class Object {
    *       copy-on-write in multi-threaded setting.
    */
   bool unique() const {
+    // Acquire pairs with the releasing decrement: other owners' accesses precede an in-place write.
 #ifdef _MSC_VER
-    return (reinterpret_cast<const volatile uint64_t*>(
-               &header_.combined_ref_count))[0] ==  // NOLINT(*)
-           kCombinedRefCountBothOne;
+    return static_cast<uint64_t>(
+               ReadAcquire64(reinterpret_cast<const volatile LONG64*>(  // NOLINT(*)
+                   &header_.combined_ref_count))) == kCombinedRefCountBothOne;
 #else
-    return __atomic_load_n(&(header_.combined_ref_count), __ATOMIC_RELAXED) ==
+    return __atomic_load_n(&(header_.combined_ref_count), __ATOMIC_ACQUIRE) ==
            kCombinedRefCountBothOne;
 #endif
   }
@@ -260,7 +261,8 @@ class Object {
   /*! \brief increase strong reference count, the caller must already hold a strong reference */
   TVM_FFI_INLINE void IncRef() {
 #ifdef _MSC_VER
-    _InterlockedIncrement64(
+    // Use the Windows SDK wrapper, which also supports 32-bit x86.
+    InterlockedIncrement64(
         reinterpret_cast<volatile __int64*>(&header_.combined_ref_count));  // NOLINT(*)
 #else
     __atomic_fetch_add(&(header_.combined_ref_count), 1, __ATOMIC_RELAXED);
@@ -317,7 +319,7 @@ class Object {
 #ifdef _MSC_VER
     // use simpler impl in windows to ensure correctness
     uint64_t count_before_sub =
-        _InterlockedDecrement64(                                              //
+        InterlockedDecrement64(                                               //
             reinterpret_cast<volatile __int64*>(&header_.combined_ref_count)  // NOLINT(*)
             ) +
         1;

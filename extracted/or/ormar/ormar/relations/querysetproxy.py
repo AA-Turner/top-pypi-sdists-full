@@ -4,21 +4,21 @@ from typing import (  # noqa: I100, I201
     Any,
     AsyncGenerator,
     Generic,
+    Literal,
     MutableSequence,
     Optional,
     Sequence,
     TypeVar,
     Union,
     cast,
+    overload,
 )
-
-import sqlalchemy.exc
 
 import ormar  # noqa: I100, I202
 from ormar.exceptions import ModelPersistenceError, NoMatch, QueryDefinitionError
 
 if TYPE_CHECKING:  # pragma no cover
-    from ormar import ManyToManyField, OrderAction, RelationType
+    from ormar import ManyToManyField, OrderAction, RandomOrder, RelationType
     from ormar.models import Model, T
     from ormar.queryset import QuerySet
     from ormar.queryset.prefetch import Prefetch
@@ -553,7 +553,17 @@ class QuerysetProxy(Generic[T]):
         async for item in self.queryset.iterate(*args, **kwargs):
             yield item
 
-    async def create(self, **kwargs: Any) -> "T":
+    @overload
+    async def create(
+        self, *, on_conflict: Literal["ignore"], **kwargs: Any
+    ) -> Optional["T"]: ...
+
+    @overload
+    async def create(self, *, on_conflict: None = None, **kwargs: Any) -> "T": ...
+
+    async def create(
+        self, *, on_conflict: Optional[Literal["ignore"]] = None, **kwargs: Any
+    ) -> Optional["T"]:
         """
         Creates the model instance, saves it in a database and returns the updates model
         (with pk populated if not passed and autoincrement is set).
@@ -564,16 +574,26 @@ class QuerysetProxy(Generic[T]):
 
         Actual call delegated to QuerySet.
 
+        :raises QueryDefinitionError: for ``on_conflict`` on a many to many relation
+        :param on_conflict: ``ignore`` to skip a conflicting row, not for many to
+            many relations
+        :type on_conflict: Optional[Literal["ignore"]]
         :param kwargs: fields names and proper value types
         :type kwargs: Any
-        :return: created model
-        :rtype: Model
+        :return: created model, ``None`` when the row was skipped
+        :rtype: Optional[Model]
         """
         self.to.verify_writable()
+        if on_conflict and self.type_ == ormar.RelationType.MULTIPLE:
+            raise QueryDefinitionError(
+                "on_conflict is not supported for many to many relations"
+            )
         through_kwargs = kwargs.pop(self.through_model_name, {})
         if self.type_ == ormar.RelationType.REVERSE:
             kwargs[self.related_field_name] = self._owner
-        created = await self.queryset.create(**kwargs)
+        created = await self.queryset.create(on_conflict=on_conflict, **kwargs)
+        if created is None:
+            return None
         self._register_related(created)
         if self.type_ == ormar.RelationType.MULTIPLE:
             await self.create_through_instance(created, **through_kwargs)
@@ -633,7 +653,8 @@ class QuerysetProxy(Generic[T]):
         ``sqlalchemy.exc.IntegrityError`` and ``get`` is retried once.
         If the retry still finds no row, the original ``IntegrityError`` is
         re-raised because the violation isn't a race but a legitimate
-        constraint conflict (e.g. a different unique key).
+        constraint conflict (e.g. a different unique key). Inside a transaction
+        the ``create`` runs in a savepoint, so the transaction stays usable.
 
         :param kwargs: fields names and proper value types
         :type kwargs: Any
@@ -642,19 +663,12 @@ class QuerysetProxy(Generic[T]):
         :return: model instance and a boolean
         :rtype: tuple("T", bool)
         """
-        try:
-            return await self.get(*args, **kwargs), False
-        except NoMatch:
-            pass
-
         _defaults = _defaults or {}
-        try:
-            return await self.create(**{**kwargs, **_defaults}), True
-        except sqlalchemy.exc.IntegrityError as integrity_error:
-            try:
-                return await self.get(*args, **kwargs), False
-            except NoMatch:
-                raise integrity_error from None
+        return await ormar.queryset.utils.get_or_create_with_retry(
+            database=self.queryset.model_config.database,
+            get=lambda: self.get(*args, **kwargs),
+            create=lambda: self.create(**{**kwargs, **_defaults}),
+        )
 
     async def update_or_create(self, **kwargs: Any) -> "T":
         """
@@ -964,7 +978,9 @@ class QuerysetProxy(Generic[T]):
             relation=self.relation, type_=self.type_, to=self.to, qryset=queryset
         )
 
-    def order_by(self, columns: Union[list, str, "OrderAction"]) -> "QuerysetProxy[T]":
+    def order_by(
+        self, columns: Union[list, str, "OrderAction", "RandomOrder"]
+    ) -> "QuerysetProxy[T]":
         """
         With `order_by()` you can order the results from database based on your
         choice of fields.
@@ -990,6 +1006,8 @@ class QuerysetProxy(Generic[T]):
         reverse virtual FK and `ManyToMany` fields.
 
         To sort in descending order provide a hyphen in front of the field name
+
+        To sort randomly provide ``"?"`` or ``ormar.random()``
 
         Actual call delegated to QuerySet.
 

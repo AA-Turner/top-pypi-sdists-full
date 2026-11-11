@@ -13518,22 +13518,17 @@ class ServicePrincipalOpts:
         :param conditions: Additional conditions to add to the Service Principal. Default: - No conditions
         :param region: The region in which you want to reference the service. This is only necessary for *cross-region* references to *opt-in* regions. In those cases, the region name needs to be included to reference the correct service principal. In all other cases, the global service principal name is sufficient. This field behaves differently depending on whether the ``@aws-cdk/aws-iam:standardizedServicePrincipals`` flag is set or not: - If the flag is set, the input service principal is assumed to be of the form ``SERVICE.amazonaws.com``. That value will always be returned, unless the given region is an opt-in region and the service principal is rendered in a stack in a different region, in which case ``SERVICE.REGION.amazonaws.com`` will be rendered. Under this regime, there is no downside to always specifying the region property: it will be rendered only if necessary. - If the flag is not set, the service principal will resolve to a single principal whose name comes from the ``@aws-cdk/region-info`` package, using the region to override the stack region. If there is no entry for this service principal in the database,, the input service name is returned literally. This is legacy behavior and is not recommended. Default: - the resolving Stack's region.
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
+            # fn: lambda.WebFunction
+            # distribution_arn: str
             
-            # conditions: Any
             
-            service_principal_opts = iam.ServicePrincipalOpts(
-                conditions={
-                    "conditions_key": conditions
-                },
-                region="region"
-            )
+            fn.endpoint.grants.invoke(iam.ServicePrincipal("cloudfront.amazonaws.com",
+                conditions={"ArnLike": {"aws:SourceArn": distribution_arn}}
+            ))
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b1a7b908a503ee76c237762d915d7a503778df01faaca4c8b3e6de46c413efea)
@@ -16491,7 +16486,7 @@ class ArnPrincipal(
     Example::
 
         # Option 2: create your custom mastersRole with scoped assumeBy arn as the Cluster prop. Switch to this role from the AWS console.
-        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
+        from aws_cdk.lambda_layer_kubectl_v37 import KubectlV37Layer
         # vpc: ec2.Vpc
         
         
@@ -16501,8 +16496,8 @@ class ArnPrincipal(
         
         cluster = eks.Cluster(self, "EksCluster",
             vpc=vpc,
-            version=eks.KubernetesVersion.V1_36,
-            kubectl_layer=KubectlV36Layer(self, "KubectlLayer"),
+            version=eks.KubernetesVersion.V1_37,
+            kubectl_layer=KubectlV37Layer(self, "KubectlLayer"),
             masters_role=masters_role
         )
         

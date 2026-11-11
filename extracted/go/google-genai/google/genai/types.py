@@ -693,6 +693,19 @@ class ModelStage(_common.CaseInSensitiveEnum):
   """Models in this stage are retired. These models cannot be used."""
 
 
+class ServiceTier(_common.CaseInSensitiveEnum):
+  """Pricing and performance service tier."""
+
+  UNSPECIFIED = 'unspecified'
+  """Default service tier, which is standard."""
+  FLEX = 'flex'
+  """Flex service tier."""
+  STANDARD = 'standard'
+  """Standard service tier."""
+  PRIORITY = 'priority'
+  """Priority service tier."""
+
+
 class MediaResolution(_common.CaseInSensitiveEnum):
   """The media resolution to use."""
 
@@ -1005,19 +1018,6 @@ class DocumentState(_common.CaseInSensitiveEnum):
   """All `Chunks` of the `Document` is processed and available for querying."""
   STATE_FAILED = 'STATE_FAILED'
   """Some `Chunks` of the `Document` failed processing."""
-
-
-class ServiceTier(_common.CaseInSensitiveEnum):
-  """Pricing and performance service tier."""
-
-  UNSPECIFIED = 'unspecified'
-  """Default service tier, which is standard."""
-  FLEX = 'flex'
-  """Flex service tier."""
-  STANDARD = 'standard'
-  """Standard service tier."""
-  PRIORITY = 'priority'
-  """Priority service tier."""
 
 
 class RubricContentType(_common.CaseInSensitiveEnum):
@@ -2750,7 +2750,7 @@ class HttpOptions(_common.BaseModel):
       description="""Extra parameters to add to the request body.
       The structure must match the backend API's request structure.
       - Gemini Enterprise Agent Platform backend API docs: https://cloud.google.com/vertex-ai/docs/reference/rest
-      - GeminiAPI backend API docs: https://ai.google.dev/api/rest""",
+      - GeminiAPI backend API docs: https://aistudio.google.com/api-reference""",
   )
   retry_options: Optional[HttpRetryOptions] = Field(
       default=None, description="""HTTP retry options for the request."""
@@ -2798,7 +2798,7 @@ class HttpOptionsDict(TypedDict, total=False):
   """Extra parameters to add to the request body.
       The structure must match the backend API's request structure.
       - Gemini Enterprise Agent Platform backend API docs: https://cloud.google.com/vertex-ai/docs/reference/rest
-      - GeminiAPI backend API docs: https://ai.google.dev/api/rest"""
+      - GeminiAPI backend API docs: https://aistudio.google.com/api-reference"""
 
   retry_options: Optional[HttpRetryOptionsDict]
   """HTTP retry options for the request."""
@@ -9396,6 +9396,102 @@ EmbedContentMetadataOrDict = Union[
 ]
 
 
+class UsageMetadata(_common.BaseModel):
+  """Usage metadata about response(s)."""
+
+  prompt_token_count: Optional[int] = Field(
+      default=None,
+      description="""The total number of tokens in the prompt. This includes any text, images, or other media provided in the request. When `cached_content` is set, this also includes the number of tokens in the cached content.""",
+  )
+  cached_content_token_count: Optional[int] = Field(
+      default=None,
+      description="""Output only. The number of tokens in the cached content that was used for this request.""",
+  )
+  response_token_count: Optional[int] = Field(
+      default=None,
+      description="""Total number of tokens across all the generated response candidates.""",
+  )
+  tool_use_prompt_token_count: Optional[int] = Field(
+      default=None,
+      description="""Output only. The number of tokens in the results from tool executions, which are provided back to the model as input, if applicable.""",
+  )
+  thoughts_token_count: Optional[int] = Field(
+      default=None,
+      description="""Output only. The number of tokens that were part of the model's generated "thoughts" output, if applicable.""",
+  )
+  total_token_count: Optional[int] = Field(
+      default=None,
+      description="""The total number of tokens for the entire request. This is the sum of `prompt_token_count`, `candidates_token_count`, `tool_use_prompt_token_count`, and `thoughts_token_count`.""",
+  )
+  prompt_tokens_details: Optional[list[ModalityTokenCount]] = Field(
+      default=None,
+      description="""Output only. A detailed breakdown of the token count for each modality in the prompt.""",
+  )
+  cache_tokens_details: Optional[list[ModalityTokenCount]] = Field(
+      default=None,
+      description="""Output only. A detailed breakdown of the token count for each modality in the cached content.""",
+  )
+  response_tokens_details: Optional[list[ModalityTokenCount]] = Field(
+      default=None,
+      description="""List of modalities that were returned in the response.""",
+  )
+  tool_use_prompt_tokens_details: Optional[list[ModalityTokenCount]] = Field(
+      default=None,
+      description="""Output only. A detailed breakdown by modality of the token counts from the results of tool executions, which are provided back to the model as input.""",
+  )
+  traffic_type: Optional[TrafficType] = Field(
+      default=None,
+      description="""Output only. The traffic type for this request. This field is not supported in Gemini API.""",
+  )
+  service_tier: Optional[ServiceTier] = Field(
+      default=None,
+      description="""Output only. Service tier of the request. This field is not supported in Vertex AI.""",
+  )
+
+
+class UsageMetadataDict(TypedDict, total=False):
+  """Usage metadata about response(s)."""
+
+  prompt_token_count: Optional[int]
+  """The total number of tokens in the prompt. This includes any text, images, or other media provided in the request. When `cached_content` is set, this also includes the number of tokens in the cached content."""
+
+  cached_content_token_count: Optional[int]
+  """Output only. The number of tokens in the cached content that was used for this request."""
+
+  response_token_count: Optional[int]
+  """Total number of tokens across all the generated response candidates."""
+
+  tool_use_prompt_token_count: Optional[int]
+  """Output only. The number of tokens in the results from tool executions, which are provided back to the model as input, if applicable."""
+
+  thoughts_token_count: Optional[int]
+  """Output only. The number of tokens that were part of the model's generated "thoughts" output, if applicable."""
+
+  total_token_count: Optional[int]
+  """The total number of tokens for the entire request. This is the sum of `prompt_token_count`, `candidates_token_count`, `tool_use_prompt_token_count`, and `thoughts_token_count`."""
+
+  prompt_tokens_details: Optional[list[ModalityTokenCountDict]]
+  """Output only. A detailed breakdown of the token count for each modality in the prompt."""
+
+  cache_tokens_details: Optional[list[ModalityTokenCountDict]]
+  """Output only. A detailed breakdown of the token count for each modality in the cached content."""
+
+  response_tokens_details: Optional[list[ModalityTokenCountDict]]
+  """List of modalities that were returned in the response."""
+
+  tool_use_prompt_tokens_details: Optional[list[ModalityTokenCountDict]]
+  """Output only. A detailed breakdown by modality of the token counts from the results of tool executions, which are provided back to the model as input."""
+
+  traffic_type: Optional[TrafficType]
+  """Output only. The traffic type for this request. This field is not supported in Gemini API."""
+
+  service_tier: Optional[ServiceTier]
+  """Output only. Service tier of the request. This field is not supported in Vertex AI."""
+
+
+UsageMetadataOrDict = Union[UsageMetadata, UsageMetadataDict]
+
+
 class EmbedContentResponse(_common.BaseModel):
   """Response for the embed_content method."""
 
@@ -9413,6 +9509,13 @@ class EmbedContentResponse(_common.BaseModel):
       description="""Gemini Enterprise Agent Platform only. Metadata about the request.
       """,
   )
+  truncated: Optional[bool] = Field(
+      default=None,
+      description="""Whether the input content was truncated before generating the embedding. This field is not supported in Gemini API.""",
+  )
+  usage_metadata: Optional[UsageMetadata] = Field(
+      default=None, description="""Usage metadata about the response(s)."""
+  )
 
 
 class EmbedContentResponseDict(TypedDict, total=False):
@@ -9429,6 +9532,12 @@ class EmbedContentResponseDict(TypedDict, total=False):
   metadata: Optional[EmbedContentMetadataDict]
   """Gemini Enterprise Agent Platform only. Metadata about the request.
       """
+
+  truncated: Optional[bool]
+  """Whether the input content was truncated before generating the embedding. This field is not supported in Gemini API."""
+
+  usage_metadata: Optional[UsageMetadataDict]
+  """Usage metadata about the response(s)."""
 
 
 EmbedContentResponseOrDict = Union[
@@ -20813,102 +20922,6 @@ LiveServerToolCallCancellationOrDict = Union[
 ]
 
 
-class UsageMetadata(_common.BaseModel):
-  """Usage metadata about response(s)."""
-
-  prompt_token_count: Optional[int] = Field(
-      default=None,
-      description="""The total number of tokens in the prompt. This includes any text, images, or other media provided in the request. When `cached_content` is set, this also includes the number of tokens in the cached content.""",
-  )
-  cached_content_token_count: Optional[int] = Field(
-      default=None,
-      description="""Output only. The number of tokens in the cached content that was used for this request.""",
-  )
-  response_token_count: Optional[int] = Field(
-      default=None,
-      description="""Total number of tokens across all the generated response candidates.""",
-  )
-  tool_use_prompt_token_count: Optional[int] = Field(
-      default=None,
-      description="""Output only. The number of tokens in the results from tool executions, which are provided back to the model as input, if applicable.""",
-  )
-  thoughts_token_count: Optional[int] = Field(
-      default=None,
-      description="""Output only. The number of tokens that were part of the model's generated "thoughts" output, if applicable.""",
-  )
-  total_token_count: Optional[int] = Field(
-      default=None,
-      description="""The total number of tokens for the entire request. This is the sum of `prompt_token_count`, `candidates_token_count`, `tool_use_prompt_token_count`, and `thoughts_token_count`.""",
-  )
-  prompt_tokens_details: Optional[list[ModalityTokenCount]] = Field(
-      default=None,
-      description="""Output only. A detailed breakdown of the token count for each modality in the prompt.""",
-  )
-  cache_tokens_details: Optional[list[ModalityTokenCount]] = Field(
-      default=None,
-      description="""Output only. A detailed breakdown of the token count for each modality in the cached content.""",
-  )
-  response_tokens_details: Optional[list[ModalityTokenCount]] = Field(
-      default=None,
-      description="""List of modalities that were returned in the response.""",
-  )
-  tool_use_prompt_tokens_details: Optional[list[ModalityTokenCount]] = Field(
-      default=None,
-      description="""Output only. A detailed breakdown by modality of the token counts from the results of tool executions, which are provided back to the model as input.""",
-  )
-  traffic_type: Optional[TrafficType] = Field(
-      default=None,
-      description="""Output only. The traffic type for this request. This field is not supported in Gemini API.""",
-  )
-  service_tier: Optional[ServiceTier] = Field(
-      default=None,
-      description="""Output only. Service tier of the request. This field is not supported in Vertex AI.""",
-  )
-
-
-class UsageMetadataDict(TypedDict, total=False):
-  """Usage metadata about response(s)."""
-
-  prompt_token_count: Optional[int]
-  """The total number of tokens in the prompt. This includes any text, images, or other media provided in the request. When `cached_content` is set, this also includes the number of tokens in the cached content."""
-
-  cached_content_token_count: Optional[int]
-  """Output only. The number of tokens in the cached content that was used for this request."""
-
-  response_token_count: Optional[int]
-  """Total number of tokens across all the generated response candidates."""
-
-  tool_use_prompt_token_count: Optional[int]
-  """Output only. The number of tokens in the results from tool executions, which are provided back to the model as input, if applicable."""
-
-  thoughts_token_count: Optional[int]
-  """Output only. The number of tokens that were part of the model's generated "thoughts" output, if applicable."""
-
-  total_token_count: Optional[int]
-  """The total number of tokens for the entire request. This is the sum of `prompt_token_count`, `candidates_token_count`, `tool_use_prompt_token_count`, and `thoughts_token_count`."""
-
-  prompt_tokens_details: Optional[list[ModalityTokenCountDict]]
-  """Output only. A detailed breakdown of the token count for each modality in the prompt."""
-
-  cache_tokens_details: Optional[list[ModalityTokenCountDict]]
-  """Output only. A detailed breakdown of the token count for each modality in the cached content."""
-
-  response_tokens_details: Optional[list[ModalityTokenCountDict]]
-  """List of modalities that were returned in the response."""
-
-  tool_use_prompt_tokens_details: Optional[list[ModalityTokenCountDict]]
-  """Output only. A detailed breakdown by modality of the token counts from the results of tool executions, which are provided back to the model as input."""
-
-  traffic_type: Optional[TrafficType]
-  """Output only. The traffic type for this request. This field is not supported in Gemini API."""
-
-  service_tier: Optional[ServiceTier]
-  """Output only. Service tier of the request. This field is not supported in Vertex AI."""
-
-
-UsageMetadataOrDict = Union[UsageMetadata, UsageMetadataDict]
-
-
 class LiveServerGoAway(_common.BaseModel):
   """Server will not be able to service client soon."""
 
@@ -21273,6 +21286,13 @@ class ProactivityConfig(_common.BaseModel):
         example, this allows the model to ignore out of context speech or to stay
         silent if the user did not make a request, yet.""",
   )
+  proactive_video: Optional[bool] = Field(
+      default=None,
+      description="""If enabled, the system might trigger a generation on each received
+      image. This requires that `proactive_audio` is enabled. The rate
+      of generation depends on the rate of incoming images and can cause a
+      significant increase in cost.""",
+  )
 
 
 class ProactivityConfigDict(TypedDict, total=False):
@@ -21282,6 +21302,12 @@ class ProactivityConfigDict(TypedDict, total=False):
   """If enabled, the model can reject responding to the last prompt. For
         example, this allows the model to ignore out of context speech or to stay
         silent if the user did not make a request, yet."""
+
+  proactive_video: Optional[bool]
+  """If enabled, the system might trigger a generation on each received
+      image. This requires that `proactive_audio` is enabled. The rate
+      of generation depends on the rate of incoming images and can cause a
+      significant increase in cost."""
 
 
 ProactivityConfigOrDict = Union[ProactivityConfig, ProactivityConfigDict]
@@ -22879,7 +22905,7 @@ class LiveConnectConstraints(_common.BaseModel):
       default=None,
       description="""ID of the model to configure in the ephemeral token for Live API.
       For a list of models, see `Gemini models
-      <https://ai.google.dev/gemini-api/docs/models>`.""",
+      <https://aistudio.google.com/docs/models>`.""",
   )
   config: Optional[LiveConnectConfig] = Field(
       default=None,
@@ -22893,7 +22919,7 @@ class LiveConnectConstraintsDict(TypedDict, total=False):
   model: Optional[str]
   """ID of the model to configure in the ephemeral token for Live API.
       For a list of models, see `Gemini models
-      <https://ai.google.dev/gemini-api/docs/models>`."""
+      <https://aistudio.google.com/docs/models>`."""
 
   config: Optional[LiveConnectConfigDict]
   """Configuration specific to Live API connections created using this token."""

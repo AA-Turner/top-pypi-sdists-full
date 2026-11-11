@@ -1254,7 +1254,7 @@ class CfnTopic(
         :param fifo_throughput_scope: Specifies the throughput quota and deduplication behavior to apply for the FIFO topic. Valid values are ``Topic`` or ``MessageGroup`` .
         :param fifo_topic: Set to true to create a FIFO topic.
         :param kms_master_key_id: The ID of an AWS managed customer master key (CMK) for Amazon or a custom CMK. For more information, see `Key terms <https://docs.aws.amazon.com/sns/latest/dg/sns-server-side-encryption.html#sse-key-terms>`_ . For more examples, see ``[KeyId](https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html#API_DescribeKey_RequestParameters)`` in the *AWS Key Management Service API Reference* . This property applies only to `server-side-encryption <https://docs.aws.amazon.com/sns/latest/dg/sns-server-side-encryption.html>`_ .
-        :param maximum_message_size: 
+        :param maximum_message_size: The maximum payload size, in bytes, for messages published to the topic. Valid values are ``1024`` to ``1048576`` (1 MiB). When this property is not specified, the topic uses the default SNS message size of ``262144`` bytes (256 KiB). A topic with ``MaximumMessageSize`` above ``262144`` supports a maximum of 100 subscriptions, all of which must use the SQS, AWS Lambda, or Amazon Data Firehose protocols. For more information, see `Publishing large messages with <https://docs.aws.amazon.com/sns/latest/dg/large-message-payloads.html>`_ in the *Developer Guide*.
         :param signature_version: The signature version corresponds to the hashing algorithm used while creating the signature of the notifications, subscription confirmations, or unsubscribe confirmation messages sent by Amazon SNS. By default, ``SignatureVersion`` is set to ``1`` .
         :param subscription: The Amazon subscriptions (endpoints) for this topic. .. epigraph:: If you specify the ``Subscription`` property in the ``AWS::SNS::Topic`` resource and it creates an associated subscription resource, the associated subscription is not deleted when the ``AWS::SNS::Topic`` resource is deleted.
         :param tags: The list of tags to add to a new topic. .. epigraph:: To be able to tag a topic on creation, you must have the ``sns:CreateTopic`` and ``sns:TagResource`` permissions.
@@ -1500,6 +1500,7 @@ class CfnTopic(
     @builtins.property
     @jsii.member(jsii_name="maximumMessageSize")
     def maximum_message_size(self) -> typing.Optional[jsii.Number]:
+        '''The maximum payload size, in bytes, for messages published to the topic.'''
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maximumMessageSize"))
 
     @maximum_message_size.setter
@@ -2248,7 +2249,7 @@ class CfnTopicProps:
         :param fifo_throughput_scope: Specifies the throughput quota and deduplication behavior to apply for the FIFO topic. Valid values are ``Topic`` or ``MessageGroup`` .
         :param fifo_topic: Set to true to create a FIFO topic.
         :param kms_master_key_id: The ID of an AWS managed customer master key (CMK) for Amazon or a custom CMK. For more information, see `Key terms <https://docs.aws.amazon.com/sns/latest/dg/sns-server-side-encryption.html#sse-key-terms>`_ . For more examples, see ``[KeyId](https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html#API_DescribeKey_RequestParameters)`` in the *AWS Key Management Service API Reference* . This property applies only to `server-side-encryption <https://docs.aws.amazon.com/sns/latest/dg/sns-server-side-encryption.html>`_ .
-        :param maximum_message_size: 
+        :param maximum_message_size: The maximum payload size, in bytes, for messages published to the topic. Valid values are ``1024`` to ``1048576`` (1 MiB). When this property is not specified, the topic uses the default SNS message size of ``262144`` bytes (256 KiB). A topic with ``MaximumMessageSize`` above ``262144`` supports a maximum of 100 subscriptions, all of which must use the SQS, AWS Lambda, or Amazon Data Firehose protocols. For more information, see `Publishing large messages with <https://docs.aws.amazon.com/sns/latest/dg/large-message-payloads.html>`_ in the *Developer Guide*.
         :param signature_version: The signature version corresponds to the hashing algorithm used while creating the signature of the notifications, subscription confirmations, or unsubscribe confirmation messages sent by Amazon SNS. By default, ``SignatureVersion`` is set to ``1`` .
         :param subscription: The Amazon subscriptions (endpoints) for this topic. .. epigraph:: If you specify the ``Subscription`` property in the ``AWS::SNS::Topic`` resource and it creates an associated subscription resource, the associated subscription is not deleted when the ``AWS::SNS::Topic`` resource is deleted.
         :param tags: The list of tags to add to a new topic. .. epigraph:: To be able to tag a topic on creation, you must have the ``sns:CreateTopic`` and ``sns:TagResource`` permissions.
@@ -2452,7 +2453,11 @@ class CfnTopicProps:
 
     @builtins.property
     def maximum_message_size(self) -> typing.Optional[jsii.Number]:
-        '''
+        '''The maximum payload size, in bytes, for messages published to the topic.
+
+        Valid values are ``1024`` to ``1048576`` (1 MiB). When this property is not specified, the topic uses the default SNS message size of ``262144`` bytes (256 KiB).
+        A topic with ``MaximumMessageSize`` above ``262144`` supports a maximum of 100 subscriptions, all of which must use the SQS, AWS Lambda, or Amazon Data Firehose protocols. For more information, see `Publishing large messages with <https://docs.aws.amazon.com/sns/latest/dg/large-message-payloads.html>`_ in the *Developer Guide*.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sns-topic.html#cfn-sns-topic-maximummessagesize
         '''
         result = self._values.get("maximum_message_size")
@@ -2999,6 +3004,15 @@ class ITopic(
     def add_subscription(self, subscription: "ITopicSubscription") -> "Subscription":
         '''Subscribe some endpoint to this topic.
 
+        Creates an ``AWS::SNS::Subscription`` resource. The endpoint and protocol
+        come from the given ``ITopicSubscription`` (for example an SQS queue, a
+        Lambda function or an email address). For some subscribers the
+        subscription also waits for a related resource; for example, an SQS
+        subscription is created only after the queue policy that lets the topic
+        send to the queue.
+
+        Subscribing the same subscriber to this topic twice throws an error.
+
         :param subscription: -
         '''
         ...
@@ -3025,7 +3039,21 @@ class ITopic(
     ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant topic publishing permissions to the given identity.
 
+        This will grant the following permissions:
+
+        - sns:Publish
+
+        If the topic is encrypted with a customer-managed KMS key, permission
+        to use the key for encryption will also be granted to the same principal.
+
+        This will grant the following KMS permissions:
+
+        - kms:Decrypt
+        - kms:GenerateDataKey*
+
         :param identity: -
+
+        :see: https://docs.aws.amazon.com/sns/latest/dg/sns-server-side-encryption.html
         '''
         ...
 
@@ -3035,6 +3063,15 @@ class ITopic(
         identity: "_aws_iam_1f54b5e8.IGrantable",
     ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant topic subscribing permissions to the given identity.
+
+        This will grant the following permissions:
+
+        - sns:Subscribe
+
+        Note that this only grants permission to call the ``Subscribe`` API;
+        it does not grant permission to receive messages on a particular
+        delivery protocol. KMS permissions are not required because subscribing
+        does not access topic message payloads.
 
         :param identity: -
         '''
@@ -3465,6 +3502,15 @@ class _ITopicProxy(
     def add_subscription(self, subscription: "ITopicSubscription") -> "Subscription":
         '''Subscribe some endpoint to this topic.
 
+        Creates an ``AWS::SNS::Subscription`` resource. The endpoint and protocol
+        come from the given ``ITopicSubscription`` (for example an SQS queue, a
+        Lambda function or an email address). For some subscribers the
+        subscription also waits for a related resource; for example, an SQS
+        subscription is created only after the queue policy that lets the topic
+        send to the queue.
+
+        Subscribing the same subscriber to this topic twice throws an error.
+
         :param subscription: -
         '''
         if __debug__:
@@ -3497,7 +3543,21 @@ class _ITopicProxy(
     ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant topic publishing permissions to the given identity.
 
+        This will grant the following permissions:
+
+        - sns:Publish
+
+        If the topic is encrypted with a customer-managed KMS key, permission
+        to use the key for encryption will also be granted to the same principal.
+
+        This will grant the following KMS permissions:
+
+        - kms:Decrypt
+        - kms:GenerateDataKey*
+
         :param identity: -
+
+        :see: https://docs.aws.amazon.com/sns/latest/dg/sns-server-side-encryption.html
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bf96d0b079cfedfe1ad406a08f2229f4ed5332b9d92fc6d78e1571fce3a1ee5f)
@@ -3510,6 +3570,15 @@ class _ITopicProxy(
         identity: "_aws_iam_1f54b5e8.IGrantable",
     ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant topic subscribing permissions to the given identity.
+
+        This will grant the following permissions:
+
+        - sns:Subscribe
+
+        Note that this only grants permission to call the ``Subscribe`` API;
+        it does not grant permission to receive messages on a particular
+        delivery protocol. KMS permissions are not required because subscribing
+        does not access topic message payloads.
 
         :param identity: -
         '''
@@ -5539,6 +5608,15 @@ class TopicBase(
     ) -> "Subscription":
         '''Subscribe some endpoint to this topic.
 
+        Creates an ``AWS::SNS::Subscription`` resource. The endpoint and protocol
+        come from the given ``ITopicSubscription`` (for example an SQS queue, a
+        Lambda function or an email address). For some subscribers the
+        subscription also waits for a related resource; for example, an SQS
+        subscription is created only after the queue policy that lets the topic
+        send to the queue.
+
+        Subscribing the same subscriber to this topic twice throws an error.
+
         :param topic_subscription: -
         '''
         if __debug__:
@@ -5618,11 +5696,25 @@ class TopicBase(
     ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant topic publishing permissions to the given identity.
 
+        This will grant the following permissions:
+
+        - sns:Publish
+
+        If the topic is encrypted with a customer-managed KMS key, permission
+        to use the key for encryption will also be granted to the same principal.
+
+        This will grant the following KMS permissions:
+
+        - kms:Decrypt
+        - kms:GenerateDataKey*
+
         The use of this method is discouraged. Please use ``grants.publish()`` instead.
 
         [disable-awslint:no-grants]
 
         :param grantee: -
+
+        :see: https://docs.aws.amazon.com/sns/latest/dg/sns-server-side-encryption.html
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6461236ee087e9f8e6de731371b913e918bbd3ec5d928bd677a69c9c8eb82381)
@@ -5635,6 +5727,15 @@ class TopicBase(
         grantee: "_aws_iam_1f54b5e8.IGrantable",
     ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant topic subscribing permissions to the given identity.
+
+        This will grant the following permissions:
+
+        - sns:Subscribe
+
+        Note that this only grants permission to call the ``Subscribe`` API;
+        it does not grant permission to receive messages on a particular
+        delivery protocol. KMS permissions are not required because subscribing
+        does not access topic message payloads.
 
         The use of this method is discouraged. Please use ``grants.subscribe()`` instead.
 

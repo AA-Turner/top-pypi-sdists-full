@@ -15,6 +15,10 @@ use std::io::Write;
 use crate::networking::ResponseData;
 use crate::specs_adapter::SpecsSyncTrigger;
 use crate::specs_response::proto_stream_reader::ProtoStreamReader;
+use crate::specs_response::specs_hash_map::{
+    json_maps_have_remote_metadata, may_mention_remote_metadata,
+    raw_spec_has_unhydrated_remote_config_metadata,
+};
 use crate::specs_response::statsig_config_specs::{self as pb, return_value};
 use crate::{DynamicReturnable, StatsigErr};
 
@@ -306,6 +310,10 @@ impl RemoteConfigValueHydrator {
                         envelopes.push(PreparedProtobufEnvelope::Bytes(encoded.to_vec()));
                         continue;
                     };
+                    if declares_unsupported_remote_metadata(envelope_kind, &envelope) {
+                        hydration_result.mark_remote_metadata();
+                        return Err(super::errors::unsupported_entity_error());
+                    }
                     let is_done = envelope_kind == pb::SpecsEnvelopeKind::Done;
 
                     let prepared_envelope = match envelope_kind {
@@ -417,16 +425,13 @@ impl RemoteConfigValueHydrator {
         else {
             return Ok(None);
         };
-        let Some(has_remote_metadata) = tolerate_malformed_full_response(
+        let Some(true) = tolerate_malformed_full_response(
             response_mode,
             protobuf_spec_has_remote_metadata(spec_data),
         )?
         else {
             return Ok(None);
         };
-        if !has_remote_metadata {
-            return Ok(None);
-        }
         let Some(spec) =
             tolerate_malformed_full_response(response_mode, decode_protobuf_spec(spec_data))?
         else {
@@ -1296,6 +1301,30 @@ pub(crate) fn protobuf_top_level_has_hydrated_sidecar_provenance(
     };
 
     Ok(!last && previous.contains(&true))
+}
+
+/// A missing or false hydration hint does not make an inline-only declaration valid.
+pub(crate) fn declares_unsupported_remote_metadata(
+    kind: pb::SpecsEnvelopeKind,
+    envelope: &pb::SpecsEnvelope,
+) -> bool {
+    let Some(data) = envelope.data.as_deref() else {
+        return false;
+    };
+    match kind {
+        // Only decode the top level to inspect its JSON if the wire bytes can contain the key.
+        pb::SpecsEnvelopeKind::TopLevel if may_mention_remote_metadata(data) => {
+            pb::SpecsTopLevel::decode(data)
+                .is_ok_and(|top| json_maps_have_remote_metadata(&top.rest, ["override_rules"]))
+        }
+        pb::SpecsEnvelopeKind::ParamStore => {
+            std::str::from_utf8(data).is_ok_and(raw_spec_has_unhydrated_remote_config_metadata)
+        }
+        pb::SpecsEnvelopeKind::FeatureGate | pb::SpecsEnvelopeKind::LayerConfig => {
+            protobuf_spec_has_remote_metadata(data).unwrap_or(false)
+        }
+        _ => false,
+    }
 }
 
 pub(crate) fn protobuf_spec_has_remote_metadata(data: &[u8]) -> Result<bool, StatsigErr> {

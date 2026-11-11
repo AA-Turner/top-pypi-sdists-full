@@ -12,10 +12,109 @@ from airbyte_ops_mcp.regression_tests.eu_runner.verdict import (
     build_verdict,
     validate_verdict,
 )
+from airbyte_ops_mcp.regression_tests.models import StreamError
 from airbyte_ops_mcp.regression_tests.report import (
     build_comparison_report_model,
     build_single_version_report_model,
 )
+
+
+@pytest.mark.parametrize("single", [False, True])
+@pytest.mark.parametrize("command_passed", [False, True])
+@pytest.mark.parametrize("config_error", [False, True])
+def test_failed_new_stream_command_label_matches_us(
+    tmp_path, capsys, single, command_passed, config_error
+):
+    target = {
+        "success": command_passed,
+        "exit_code": 0 if command_passed else 1,
+        "record_counts_per_stream": {},
+    }
+    if single:
+        model = build_single_version_report_model(
+            connector_image="source-test:2",
+            command="read",
+            result=target,
+            target_only_streams=("new",),
+            stream_errors={"new": [StreamError("config_error", "Missing permission")]}
+            if config_error
+            else {},
+            include_report_sections=False,
+        )
+    else:
+        target["could_not_test"] = config_error
+        target["excluded_not_exercised_streams"] = ("new",) if config_error else ()
+        model = build_comparison_report_model(
+            target_image="source-test:2",
+            control_image="source-test:1",
+            command="read",
+            target_result=target,
+            control_result={"success": True, "exit_code": 0},
+            target_only_streams=("new",),
+            include_report_sections=False,
+        )
+    report = {
+        **model.verdict_flags(),
+        "command": "read",
+        "output_mode": "masked",
+        "target": target,
+        "check_results": model.check_results(),
+    }
+    if not single:
+        report["control"] = {"success": True, "exit_code": 0}
+    (tmp_path / "regression_report.json").write_text(json.dumps(report))
+    verdict = build_verdict(tmp_path)
+    validate_verdict(verdict)
+    verdict_path = tmp_path / "verdict.json"
+    verdict_path.write_text(json.dumps(verdict))
+    render_summary(
+        batch_url="batch", logs_url="logs", report_url="report", verdict=verdict_path
+    )
+    assert f"- **Result:** {model.verdict_label}\n" in capsys.readouterr().out
+    if single and not command_passed:
+        assert model.verdict_label == (
+            "COULD NOT TEST (config error)" if config_error else "FAIL"
+        )
+    assert verdict["not_exercised"] is (not config_error)
+    assert verdict["could_not_test"] is config_error
+
+
+@pytest.mark.parametrize("precedence", ["stopped", "setup"])
+@pytest.mark.parametrize("command", ["read", "check"])
+def test_failed_single_command_retains_stopped_and_setup_labels(
+    tmp_path, capsys, precedence, command
+):
+    result = {"success": False, "exit_code": 1, "record_counts_per_stream": {}}
+    if precedence == "stopped":
+        result["stopped_early"] = {"reason": "cap", "records_seen": 0, "elapsed_s": 1}
+    model = build_single_version_report_model(
+        connector_image="source-test:2",
+        command=command,
+        result=result,
+        target_only_streams=("new",),
+        stream_statuses={"new": ["INCOMPLETE"]} if precedence == "setup" else {},
+        include_report_sections=False,
+    )
+    assert model.verdict_label == (
+        "INCOMPLETE" if precedence == "stopped" else "SETUP ERROR"
+    )
+    (tmp_path / "regression_report.json").write_text(
+        json.dumps(
+            {
+                **model.verdict_flags(),
+                "command": command,
+                "output_mode": "masked",
+                "target": result,
+                "check_results": model.check_results(),
+            }
+        )
+    )
+    verdict_path = tmp_path / "verdict.json"
+    verdict_path.write_text(json.dumps(build_verdict(tmp_path)))
+    render_summary(
+        batch_url="batch", logs_url="logs", report_url="report", verdict=verdict_path
+    )
+    assert f"- **Result:** {model.verdict_label}\n" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("single", [False, True])
@@ -95,6 +194,47 @@ def test_model_checks_reach_metadata_only_verdict(tmp_path, single, warn):
     assert all("summary" not in row for row in verdict["checks"])
 
 
+@pytest.mark.parametrize("records", [0, 2])
+def test_new_stream_coverage_is_metadata_only(tmp_path, records):
+    stream = "private_new_stream"
+    target = {
+        "success": True,
+        "exit_code": 0,
+        "record_counts_per_stream": {stream: records},
+    }
+    control = {"success": True, "exit_code": 0}
+    model = build_comparison_report_model(
+        target_image="source-test:2",
+        control_image="source-test:1",
+        command="read",
+        target_result=target,
+        control_result=control,
+        target_only_streams=(stream,),
+        include_report_sections=False,
+    )
+    report = {
+        **model.verdict_flags(),
+        "command": "read",
+        "output_mode": "masked",
+        "target": target,
+        "control": control,
+        "check_results": model.check_results(),
+    }
+    (tmp_path / "regression_report.json").write_text(json.dumps(report))
+    verdict = build_verdict(tmp_path)
+    assert verdict["schema_version"] == 4
+    assert {
+        "check_name": "Stream coverage (new streams)",
+        "passed": bool(records),
+        "status": "pass" if records else "fail",
+    } in verdict["checks"]
+    assert all(
+        set(row) == {"check_name", "passed", "status"} for row in verdict["checks"]
+    )
+    assert stream not in json.dumps(verdict)
+    validate_verdict(verdict)
+
+
 @pytest.mark.parametrize("single", [False, True])
 @pytest.mark.parametrize("report_success", [False, True])
 @pytest.mark.parametrize(
@@ -130,7 +270,7 @@ def test_report_command_pass_requires_matching_summary_to_pass(
 
     assert verdict["commands"][0]["passed"] is (report_success and summary_passed)
     assert verdict["success"] is (report_success and summary_passed)
-    assert verdict["schema_version"] == 3
+    assert verdict["schema_version"] == 4
 
 
 @pytest.mark.parametrize("single", [False, True])
@@ -176,7 +316,7 @@ def test_check_execution_row_uses_model_connection_status(tmp_path, single, stat
     assert report["check_results"] == [
         {"name": "Command execution", "passed": passed, "severity": "strict"}
     ]
-    assert verdict["schema_version"] == 3
+    assert verdict["schema_version"] == 4
 
 
 @pytest.mark.parametrize(
@@ -207,9 +347,41 @@ def test_command_execution_falls_back_to_exit_code_without_a_valid_report_row(
     ]
 
 
+def test_schema_four_exports_only_partial_boolean(tmp_path):
+    model = build_single_version_report_model(
+        connector_image="source-test:2",
+        command="read",
+        result={
+            "success": True,
+            "exit_code": 0,
+            "record_counts_per_stream": {"private_new_stream": 2},
+            "stopped_early": {"reason": "cap", "records_seen": 2, "elapsed_s": 1},
+        },
+        target_only_streams=("private_new_stream",),
+        include_report_sections=False,
+    )
+    assert model.exercised_partial
+    report = {
+        **model.verdict_flags(),
+        "command": "read",
+        "output_mode": "masked",
+        "target": {"exit_code": 0},
+        "check_results": model.check_results(),
+        "partial_streams": list(model.partial_streams),
+    }
+    (tmp_path / "regression_report.json").write_text(json.dumps(report))
+    verdict = build_verdict(tmp_path)
+    validate_verdict(verdict)
+    assert verdict["schema_version"] == 4
+    serialized = json.dumps(verdict)
+    assert verdict["exercised_partial"] is True
+    assert "partial_streams" not in serialized
+    assert "private_new_stream" not in serialized
+
+
 def _valid_verdict() -> dict:
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "output_mode": "masked",
         "commands": [
             {
@@ -223,6 +395,7 @@ def _valid_verdict() -> dict:
         "regression_detected": False,
         "both_failed": False,
         "incomplete": False,
+        "exercised_partial": False,
         "not_exercised": False,
         "setup_error": False,
         "could_not_test": False,
@@ -590,12 +763,85 @@ def test_verdict_rejects_unknown_or_record_like_values(mutate) -> None:
         lambda verdict: verdict.update({"schema_version": 2}),
     ],
 )
-def test_verdict_requires_schema_v3_and_boolean_flags(mutate) -> None:
+def test_verdict_requires_supported_schema_and_boolean_flags(mutate) -> None:
     verdict = _valid_verdict()
     mutate(verdict)
 
     with pytest.raises(ValueError):
         validate_verdict(verdict)
+
+
+@pytest.mark.parametrize("version", [3, 4])
+def test_verdict_schema_round_trip(version):
+    verdict = _valid_verdict()
+    verdict["schema_version"] = version
+    if version == 3:
+        verdict.pop("exercised_partial")
+    validate_verdict(json.loads(json.dumps(verdict)))
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda verdict: verdict.pop("exercised_partial"),
+        lambda verdict: verdict.update(exercised_partial="true"),
+        lambda verdict: verdict.update(exercised_partial=1),
+        lambda verdict: verdict.update(
+            exercised_partial=True, incomplete=False, success=False
+        ),
+        lambda verdict: verdict.update(
+            exercised_partial=True, incomplete=True, success=True
+        ),
+        lambda verdict: verdict.update(schema_version=3),
+    ],
+)
+def test_partial_verdict_requires_exact_version_keys_and_invariants(mutate):
+    verdict = _valid_verdict()
+    mutate(verdict)
+    with pytest.raises(ValueError):
+        validate_verdict(verdict)
+
+
+@pytest.mark.parametrize("flag", [None, False, "true", 1, True])
+@pytest.mark.parametrize(
+    "incomplete,success", [(False, False), (True, True), (True, False)]
+)
+def test_partial_projection_requires_valid_report_evidence(
+    tmp_path, flag, incomplete, success
+):
+    report = {
+        "command": "read",
+        "output_mode": "masked",
+        "success": success,
+        "incomplete": incomplete,
+        "exercised_partial": flag,
+    }
+    (tmp_path / "regression_report.json").write_text(json.dumps(report))
+    verdict = build_verdict(tmp_path)
+    assert verdict["exercised_partial"] is (flag is True and incomplete and not success)
+
+
+@pytest.mark.parametrize("version,partial", [(3, False), (4, False), (4, True)])
+def test_render_summary_accepts_both_schema_versions(
+    tmp_path, capsys, version, partial
+):
+    verdict = _valid_verdict()
+    verdict.update(schema_version=version, success=not partial, incomplete=partial)
+    if version == 3:
+        verdict.pop("exercised_partial")
+    else:
+        verdict["exercised_partial"] = partial
+    path = tmp_path / "verdict.json"
+    path.write_text(json.dumps(verdict))
+    render_summary(
+        batch_url="batch", logs_url="logs", report_url="report", verdict=path
+    )
+    summary = capsys.readouterr().out
+    assert (
+        "Exercised (partial): New streams emitted records before the read stopped"
+        in summary
+    ) is partial
+    assert ("INCOMPLETE" in summary) is partial
 
 
 @pytest.mark.parametrize(

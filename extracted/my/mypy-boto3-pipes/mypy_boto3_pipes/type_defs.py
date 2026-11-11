@@ -286,12 +286,8 @@ class EcsInferenceAcceleratorOverrideTypeDef(TypedDict):
     deviceType: NotRequired[str]
 
 
-FilterTypeDef = TypedDict(
-    "FilterTypeDef",
-    {
-        "Pattern": NotRequired[str],
-    },
-)
+class FilterTypeDef(TypedDict):
+    Pattern: NotRequired[str]
 
 
 class FirehoseLogDestinationParametersTypeDef(TypedDict):

@@ -39,6 +39,55 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_securityhub.ActionTargetReference",
+    jsii_struct_bases=[],
+    name_mapping={"action_target_arn": "actionTargetArn"},
+)
+class ActionTargetReference:
+    def __init__(self, *, action_target_arn: builtins.str) -> None:
+        '''A reference to a ActionTarget resource.
+
+        :param action_target_arn: The ActionTargetArn of the ActionTarget resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_securityhub as interfaces_securityhub
+            
+            action_target_reference = interfaces_securityhub.ActionTargetReference(
+                action_target_arn="actionTargetArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5289cd114a875afd2266179657dd2f2d522aa6b0cfcde63dab84a4e4bdc51f34)
+            check_type(argname="argument action_target_arn", value=action_target_arn, expected_type=type_hints["action_target_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action_target_arn": action_target_arn,
+        }
+
+    @builtins.property
+    def action_target_arn(self) -> builtins.str:
+        '''The ActionTargetArn of the ActionTarget resource.'''
+        result = self._values.get("action_target_arn")
+        assert result is not None, "Required property 'action_target_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ActionTargetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_securityhub.AggregatorV2Reference",
     jsii_struct_bases=[],
     name_mapping={"aggregator_v2_arn": "aggregatorV2Arn"},
@@ -526,6 +575,51 @@ class HubV2Reference:
         return "HubV2Reference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_securityhub.IActionTargetRef")
+class IActionTargetRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ActionTarget.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="actionTargetRef")
+    def action_target_ref(self) -> "ActionTargetReference":
+        '''(experimental) A reference to a ActionTarget resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IActionTargetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ActionTarget.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_securityhub.IActionTargetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="actionTargetRef")
+    def action_target_ref(self) -> "ActionTargetReference":
+        '''(experimental) A reference to a ActionTarget resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ActionTargetReference", jsii.get(self, "actionTargetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IActionTargetRef).__jsii_proxy_class__ = lambda : _IActionTargetRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_securityhub.IAggregatorV2Ref")
@@ -1557,6 +1651,7 @@ class StandardReference:
 
 
 __all__ = [
+    "ActionTargetReference",
     "AggregatorV2Reference",
     "AutomationRuleReference",
     "AutomationRuleV2Reference",
@@ -1567,6 +1662,7 @@ __all__ = [
     "FindingAggregatorReference",
     "HubReference",
     "HubV2Reference",
+    "IActionTargetRef",
     "IAggregatorV2Ref",
     "IAutomationRuleRef",
     "IAutomationRuleV2Ref",
@@ -1592,6 +1688,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__5289cd114a875afd2266179657dd2f2d522aa6b0cfcde63dab84a4e4bdc51f34(
+    *,
+    action_target_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__35a220db7509efb96c8abd58d83c974df0d1ec6221841ce0031c7e29166870a6(
     *,
@@ -1705,5 +1808,5 @@ def _typecheckingstub__7db55b49984acf12a9808e2ad6d880d3718370198d6511f8d5a94f898
     """Type checking stubs"""
     pass
 
-for cls in [IAggregatorV2Ref, IAutomationRuleRef, IAutomationRuleV2Ref, IConfigurationPolicyRef, IConnectorRef, IConnectorV2Ref, IDelegatedAdminRef, IFindingAggregatorRef, IHubRef, IHubV2Ref, IInsightRef, IOrganizationConfigurationRef, IPolicyAssociationRef, IProductSubscriptionRef, ISecurityControlRef, IStandardRef]:
+for cls in [IActionTargetRef, IAggregatorV2Ref, IAutomationRuleRef, IAutomationRuleV2Ref, IConfigurationPolicyRef, IConnectorRef, IConnectorV2Ref, IDelegatedAdminRef, IFindingAggregatorRef, IHubRef, IHubV2Ref, IInsightRef, IOrganizationConfigurationRef, IPolicyAssociationRef, IProductSubscriptionRef, ISecurityControlRef, IStandardRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

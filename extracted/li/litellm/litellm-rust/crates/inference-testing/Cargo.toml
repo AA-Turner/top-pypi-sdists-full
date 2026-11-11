@@ -8,6 +8,7 @@ publish = false
 readme = "README.md"
 
 [dependencies]
+litellm-secret-value.workspace = true
 litellm-auth.workspace = true
 futures-util.workspace = true
 litellm-http.workspace = true

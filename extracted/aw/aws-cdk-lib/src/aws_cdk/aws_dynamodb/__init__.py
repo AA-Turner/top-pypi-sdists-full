@@ -1872,6 +1872,7 @@ class CfnGlobalTable(
                     mode="mode"
                 ),
                 deletion_protection_enabled=False,
+                disassociation_protection_enabled=False,
                 global_secondary_indexes=[dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty(
                     index_name="indexName",
         
@@ -2043,6 +2044,7 @@ class CfnGlobalTable(
                 stream_view_type="streamViewType"
             ),
             table_name="tableName",
+            table_type="tableType",
             time_to_live_specification=dynamodb.CfnGlobalTable.TimeToLiveSpecificationProperty(
                 enabled=False,
         
@@ -2113,6 +2115,7 @@ class CfnGlobalTable(
         sse_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.SSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stream_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.StreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         table_name: typing.Optional[builtins.str] = None,
+        table_type: typing.Optional[builtins.str] = None,
         time_to_live_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.TimeToLiveSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         vector_indexes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.VectorIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         warm_throughput: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2137,6 +2140,7 @@ class CfnGlobalTable(
         :param sse_specification: Specifies the settings to enable server-side encryption. These settings will be applied to all replicas. If you plan to use customer-managed KMS keys, you must provide a key for each replica using the ``ReplicaSpecification.ReplicaSSESpecification`` property.
         :param stream_specification: Specifies the streams settings on your global table. You must provide a value for this property if your global table contains more than one replica. You can only change the streams settings if your global table has only one replica. For Multi-Region Strong Consistency (MRSC), you do not need to provide a value for this property and can change the settings at any time.
         :param table_name: A name for the global table. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID as the table name. For more information, see `Name type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param table_type: 
         :param time_to_live_specification: Specifies the time to live (TTL) settings for the table. This setting will be applied to all replicas.
         :param vector_indexes: 
         :param warm_throughput: Provides visibility into the number of read and write operations your table or secondary index can instantaneously support. The settings can be modified using the ``UpdateTable`` operation to meet the throughput requirements of an upcoming peak event.
@@ -2162,6 +2166,7 @@ class CfnGlobalTable(
             sse_specification=sse_specification,
             stream_specification=stream_specification,
             table_name=table_name,
+            table_type=table_type,
             time_to_live_specification=time_to_live_specification,
             vector_indexes=vector_indexes,
             warm_throughput=warm_throughput,
@@ -2510,6 +2515,18 @@ class CfnGlobalTable(
             type_hints = cached_type_hints(_typecheckingstub__db38617fc8b7b8f4ed3d8858186d464cb90a597e2acb75a0d09d8fecadfb89b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tableName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tableType")
+    def table_type(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tableType"))
+
+    @table_type.setter
+    def table_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__781fa2916b5d5211ca0bcc3e456865d9b86cfe904dddf43f4d7e6b9678ce0b40)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tableType", value)
 
     @builtins.property
     @jsii.member(jsii_name="timeToLiveSpecification")
@@ -4012,6 +4029,7 @@ class CfnGlobalTable(
             "region": "region",
             "contributor_insights_specification": "contributorInsightsSpecification",
             "deletion_protection_enabled": "deletionProtectionEnabled",
+            "disassociation_protection_enabled": "disassociationProtectionEnabled",
             "global_secondary_indexes": "globalSecondaryIndexes",
             "global_table_settings_replication_mode": "globalTableSettingsReplicationMode",
             "kinesis_stream_specification": "kinesisStreamSpecification",
@@ -4032,6 +4050,7 @@ class CfnGlobalTable(
             region: builtins.str,
             contributor_insights_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.ContributorInsightsSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            disassociation_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             global_secondary_indexes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             global_table_settings_replication_mode: typing.Optional[builtins.str] = None,
             kinesis_stream_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.KinesisStreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4049,6 +4068,7 @@ class CfnGlobalTable(
             :param region: The region in which this replica exists.
             :param contributor_insights_specification: The settings used to enable or disable CloudWatch Contributor Insights for the specified replica. When not specified, defaults to contributor insights disabled for the replica.
             :param deletion_protection_enabled: Determines if a replica is protected from deletion. When enabled, the table cannot be deleted by any user or process. This setting is disabled by default. For more information, see `Using deletion protection <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithTables.Basics.html#WorkingWithTables.Basics.DeletionProtection>`_ in the *Amazon DynamoDB Developer Guide* .
+            :param disassociation_protection_enabled: 
             :param global_secondary_indexes: Defines additional settings for the global secondary indexes of this replica.
             :param global_table_settings_replication_mode: 
             :param kinesis_stream_specification: Defines the Kinesis Data Streams configuration for the specified replica.
@@ -4084,6 +4104,7 @@ class CfnGlobalTable(
                         mode="mode"
                     ),
                     deletion_protection_enabled=False,
+                    disassociation_protection_enabled=False,
                     global_secondary_indexes=[dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty(
                         index_name="indexName",
                 
@@ -4175,6 +4196,7 @@ class CfnGlobalTable(
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
                 check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
                 check_type(argname="argument deletion_protection_enabled", value=deletion_protection_enabled, expected_type=type_hints["deletion_protection_enabled"])
+                check_type(argname="argument disassociation_protection_enabled", value=disassociation_protection_enabled, expected_type=type_hints["disassociation_protection_enabled"])
                 check_type(argname="argument global_secondary_indexes", value=global_secondary_indexes, expected_type=type_hints["global_secondary_indexes"])
                 check_type(argname="argument global_table_settings_replication_mode", value=global_table_settings_replication_mode, expected_type=type_hints["global_table_settings_replication_mode"])
                 check_type(argname="argument kinesis_stream_specification", value=kinesis_stream_specification, expected_type=type_hints["kinesis_stream_specification"])
@@ -4193,6 +4215,8 @@ class CfnGlobalTable(
                 self._values["contributor_insights_specification"] = contributor_insights_specification
             if deletion_protection_enabled is not None:
                 self._values["deletion_protection_enabled"] = deletion_protection_enabled
+            if disassociation_protection_enabled is not None:
+                self._values["disassociation_protection_enabled"] = disassociation_protection_enabled
             if global_secondary_indexes is not None:
                 self._values["global_secondary_indexes"] = global_secondary_indexes
             if global_table_settings_replication_mode is not None:
@@ -4250,6 +4274,16 @@ class CfnGlobalTable(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-deletionprotectionenabled
             '''
             result = self._values.get("deletion_protection_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def disassociation_protection_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-disassociationprotectionenabled
+            '''
+            result = self._values.get("disassociation_protection_enabled")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
@@ -5376,6 +5410,7 @@ class CfnGlobalTable(
         "sse_specification": "sseSpecification",
         "stream_specification": "streamSpecification",
         "table_name": "tableName",
+        "table_type": "tableType",
         "time_to_live_specification": "timeToLiveSpecification",
         "vector_indexes": "vectorIndexes",
         "warm_throughput": "warmThroughput",
@@ -5401,6 +5436,7 @@ class CfnGlobalTableProps:
         sse_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.SSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stream_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.StreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         table_name: typing.Optional[builtins.str] = None,
+        table_type: typing.Optional[builtins.str] = None,
         time_to_live_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.TimeToLiveSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         vector_indexes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.VectorIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         warm_throughput: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5423,6 +5459,7 @@ class CfnGlobalTableProps:
         :param sse_specification: Specifies the settings to enable server-side encryption. These settings will be applied to all replicas. If you plan to use customer-managed KMS keys, you must provide a key for each replica using the ``ReplicaSpecification.ReplicaSSESpecification`` property.
         :param stream_specification: Specifies the streams settings on your global table. You must provide a value for this property if your global table contains more than one replica. You can only change the streams settings if your global table has only one replica. For Multi-Region Strong Consistency (MRSC), you do not need to provide a value for this property and can change the settings at any time.
         :param table_name: A name for the global table. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID as the table name. For more information, see `Name type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param table_type: 
         :param time_to_live_specification: Specifies the time to live (TTL) settings for the table. This setting will be applied to all replicas.
         :param vector_indexes: 
         :param warm_throughput: Provides visibility into the number of read and write operations your table or secondary index can instantaneously support. The settings can be modified using the ``UpdateTable`` operation to meet the throughput requirements of an upcoming peak event.
@@ -5453,6 +5490,7 @@ class CfnGlobalTableProps:
                         mode="mode"
                     ),
                     deletion_protection_enabled=False,
+                    disassociation_protection_enabled=False,
                     global_secondary_indexes=[dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty(
                         index_name="indexName",
             
@@ -5624,6 +5662,7 @@ class CfnGlobalTableProps:
                     stream_view_type="streamViewType"
                 ),
                 table_name="tableName",
+                table_type="tableType",
                 time_to_live_specification=dynamodb.CfnGlobalTable.TimeToLiveSpecificationProperty(
                     enabled=False,
             
@@ -5690,6 +5729,7 @@ class CfnGlobalTableProps:
             check_type(argname="argument sse_specification", value=sse_specification, expected_type=type_hints["sse_specification"])
             check_type(argname="argument stream_specification", value=stream_specification, expected_type=type_hints["stream_specification"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+            check_type(argname="argument table_type", value=table_type, expected_type=type_hints["table_type"])
             check_type(argname="argument time_to_live_specification", value=time_to_live_specification, expected_type=type_hints["time_to_live_specification"])
             check_type(argname="argument vector_indexes", value=vector_indexes, expected_type=type_hints["vector_indexes"])
             check_type(argname="argument warm_throughput", value=warm_throughput, expected_type=type_hints["warm_throughput"])
@@ -5724,6 +5764,8 @@ class CfnGlobalTableProps:
             self._values["stream_specification"] = stream_specification
         if table_name is not None:
             self._values["table_name"] = table_name
+        if table_type is not None:
+            self._values["table_type"] = table_type
         if time_to_live_specification is not None:
             self._values["time_to_live_specification"] = time_to_live_specification
         if vector_indexes is not None:
@@ -5917,6 +5959,14 @@ class CfnGlobalTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-tablename
         '''
         result = self._values.get("table_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def table_type(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-tabletype
+        '''
+        result = self._values.get("table_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -20446,6 +20496,7 @@ def _typecheckingstub__751414def1994180982879a700bdaa6afcf528def91a672904946db1b
     sse_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stream_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.StreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     table_name: typing.Optional[builtins.str] = None,
+    table_type: typing.Optional[builtins.str] = None,
     time_to_live_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.TimeToLiveSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_indexes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.VectorIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     warm_throughput: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -20558,6 +20609,12 @@ def _typecheckingstub__0b312fc3bf6b9413081bae5b2557691650d4bf70fd047bf867dd8ce60
     pass
 
 def _typecheckingstub__db38617fc8b7b8f4ed3d8858186d464cb90a597e2acb75a0d09d8fecadfb89b6(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__781fa2916b5d5211ca0bcc3e456865d9b86cfe904dddf43f4d7e6b9678ce0b40(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -20725,6 +20782,7 @@ def _typecheckingstub__912e2bc047b1f65121a39316718e5632909682a5243ef8e21ead42e3e
     region: builtins.str,
     contributor_insights_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.ContributorInsightsSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    disassociation_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     global_secondary_indexes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     global_table_settings_replication_mode: typing.Optional[builtins.str] = None,
     kinesis_stream_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.KinesisStreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -20853,6 +20911,7 @@ def _typecheckingstub__ca0383ad91536c26961e85e52a3e6a3d2d74db3c4d430cbbe3d9f42e2
     sse_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stream_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.StreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     table_name: typing.Optional[builtins.str] = None,
+    table_type: typing.Optional[builtins.str] = None,
     time_to_live_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.TimeToLiveSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_indexes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.VectorIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     warm_throughput: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

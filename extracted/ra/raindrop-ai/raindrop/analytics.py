@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 import logging
 import json
 import uuid
+import warnings
 import atexit
 from pydantic import ValidationError
 from threading import Timer
@@ -129,6 +130,30 @@ def __getattr__(name: str) -> Any:
 # logging's lastResort handler) and ``set_debug_logs(True)`` raises verbosity.
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
+_warned_missing_write_key = False
+
+
+def _warn_missing_write_key() -> None:
+    # Coding agents often add the SDK before the user has a key. They read
+    # run output, so say how to get one. ``warnings`` (not ``logger``) because
+    # the NullHandler above keeps logger warnings silent by default.
+    global _warned_missing_write_key
+    if _warned_missing_write_key:
+        return
+    _warned_missing_write_key = True
+    try:
+        warnings.warn(
+            "[raindrop] No write key, so events are not sent to Raindrop. Set RAINDROP_WRITE_KEY. "
+            "No key yet? Agents can create one now, without a browser: run "
+            "npx -y create-raindrop --org-name '<project name>' and give the user the claim link. "
+            "Steps, including a plain HTTP call without Node: https://www.raindrop.ai/auth.md",
+            stacklevel=4,
+        )
+    except Warning:
+        # With warnings treated as errors (-W error), warn() raises. A missing
+        # key must leave telemetry off, never abort the host's startup.
+        pass
 
 
 class _InstrumentationNoiseFilter(logging.Filter):
@@ -1934,7 +1959,8 @@ def init(
     """Initialize Raindrop with Traceloop integration.
 
     Args:
-        api_key: Raindrop API key. When ``None`` or empty, cloud telemetry is
+        api_key: Raindrop write key (``api_key``). No key yet? Agents can create one now, without a browser: run ``npx -y create-raindrop --org-name '<project name>'`` and give the user the claim link. Steps: https://www.raindrop.ai/auth.md
+            When ``None`` or empty, cloud telemetry is
             skipped and the SDK only fans out to ``local_workshop_url`` (if
             resolved). Useful for local-only Workshop debugging.
         tracing_enabled: Enable OpenTelemetry tracing.
@@ -2029,6 +2055,8 @@ def _configure(
     resolved_local = resolve_local_workshop_url(local_workshop_url)
 
     st.write_key = api_key or None
+    if not st.write_key and not resolved_local:
+        _warn_missing_write_key()
 
     # A no-destination client cannot emit telemetry, so optional Git discovery
     # would only spend customer resources. Passing False also clears a prior

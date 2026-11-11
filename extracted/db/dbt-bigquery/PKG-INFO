@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dbt-bigquery
-Version: 1.12.2
+Version: 1.12.3
 Summary: The BigQuery adapter plugin for dbt
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-bigquery
 Project-URL: Documentation, https://docs.getdbt.com
@@ -29,7 +29,7 @@ Requires-Dist: google-auth>=2.29.0
 Requires-Dist: google-cloud-aiplatform>=1.148.0
 Requires-Dist: google-cloud-bigquery[pandas]<4.0,>=3.0
 Requires-Dist: google-cloud-dataproc~=5.0
-Requires-Dist: google-cloud-storage<3.2,>=2.4
+Requires-Dist: google-cloud-storage<4.0,>=2.4
 Requires-Dist: nbformat>=5.10.4
 Description-Content-Type: text/markdown
 

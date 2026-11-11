@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: beniget
-Version: 0.5.0
+Version: 0.5.1
 Summary: Extract semantic information about static Python code
 Home-page: https://github.com/serge-sans-paille/beniget/
 Author: serge-sans-paille

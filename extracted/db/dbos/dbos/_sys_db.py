@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import functools
+import hashlib
 import json
 import random
 import sys
@@ -88,9 +89,22 @@ from ._serialization import (
 from ._shard_keys import bind_shard_keys, bound_shard_key
 
 if TYPE_CHECKING:
+    from ._enterprise import Suspend
     from ._queue import Queue, QueueRateLimit
 
 _MAX_BIGINT = 2**63 - 1
+
+
+def advisory_lock_key(name: str) -> int:
+    """A bigint advisory lock key: the leading 8 bytes of name's SHA-256, big-endian signed."""
+    return int.from_bytes(
+        hashlib.sha256(name.encode()).digest()[:8], "big", signed=True
+    )
+
+
+def lock_name(*parts: Optional[str]) -> str:
+    """A lock's name, serialized as JSON.stringify does so workers in every language share it."""
+    return json.dumps(list(parts), separators=(",", ":"), ensure_ascii=False)
 
 
 def queue_from_db_row(
@@ -139,6 +153,7 @@ class WorkflowStatusString(Enum):
     CANCELLED = "CANCELLED"
     ENQUEUED = "ENQUEUED"
     DELAYED = "DELAYED"
+    SUSPENDED = "SUSPENDED"
 
 
 def workflow_is_active(status: str) -> bool:
@@ -146,6 +161,7 @@ def workflow_is_active(status: str) -> bool:
         status == WorkflowStatusString.ENQUEUED.value
         or status == WorkflowStatusString.PENDING.value
         or status == WorkflowStatusString.DELAYED.value
+        or status == WorkflowStatusString.SUSPENDED.value
     )
 
 
@@ -157,9 +173,11 @@ WorkflowStatuses = Literal[
     "CANCELLED",
     "ENQUEUED",
     "DELAYED",
+    "SUSPENDED",
 ]
 
-# The reason start_queued_workflows did not dequeue workflows
+# The reason start_queued_workflows did not dequeue workflows: a limit with no room, or
+# claim_lock when another worker held the claim's lock
 DequeueStopReason = Literal[
     "worker_concurrency",
     "partition_worker_concurrency",
@@ -167,13 +185,14 @@ DequeueStopReason = Literal[
     "partition_limiter",
     "concurrency",
     "partition_concurrency",
+    "claim_lock",
 ]
 
 
 class WorkflowStatus:
     # The workflow ID
     workflow_id: str
-    # The workflow status. Must be one of DELAYED, ENQUEUED, PENDING, SUCCESS, ERROR, CANCELLED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
+    # The workflow status. Must be one of DELAYED, ENQUEUED, PENDING, SUSPENDED, SUCCESS, ERROR, CANCELLED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
     status: WorkflowStatuses
     # The name of the workflow function
     name: str
@@ -653,6 +672,9 @@ class SystemDatabase(ABC):
     tables: type[SystemSchema] = SystemSchema
     # Whether this handle routes every statement by shard key.
     sharded: bool = False
+    # Suspend mode (Transact Enterprise), installed by DBOS when it is on: recv and sleep
+    # may park their workflow. Waking a parked recv is core: every send does it.
+    suspend: Optional["Suspend"] = None
 
     @staticmethod
     def create(
@@ -1099,6 +1121,22 @@ class SystemDatabase(ABC):
         """Predicates a queue claim must also meet, evaluated once before it scans; a
         sharded subclass caps the claimers per key at a time."""
         return []
+
+    def _uses_claim_locks(self) -> bool:
+        """Whether queue claims serialize on transaction-scoped advisory locks."""
+        return False
+
+    def _claim_lock(
+        self, c: sa.Connection, queue_name: str, partition_key: Optional[str]
+    ) -> Optional[bool]:
+        """Whether a claim took its budget scope's transaction lock; None if there is nothing to claim."""
+        raise NotImplementedError
+
+    def _partition_locks(
+        self, c: sa.Connection, queue_name: str, partition_keys: List[str]
+    ) -> List[str]:
+        """Which of partition_keys a sweep's transaction locked."""
+        raise NotImplementedError
 
     def _scoped(self, table: Any) -> List[sa.ColumnElement[bool]]:
         """Predicates confining a statement that names no single workflow to the current shard."""
@@ -1687,6 +1725,7 @@ class SystemDatabase(ABC):
                         owner_xid=None,
                         queue_name=None,
                         deduplication_id=None,
+                        suspend_key=None,
                         started_at_epoch_ms=None,
                         updated_at=now_ms,
                         completed_at=now_ms,
@@ -1747,6 +1786,7 @@ class SystemDatabase(ABC):
                     recovery_attempts=0,
                     workflow_deadline_epoch_ms=None,
                     deduplication_id=None,
+                    suspend_key=None,
                     started_at_epoch_ms=None,
                     updated_at=self._now_ms_sql(),
                     completed_at=None,
@@ -2173,6 +2213,7 @@ class SystemDatabase(ABC):
                     recovery_attempts=0,
                     workflow_deadline_epoch_ms=None,
                     deduplication_id=None,
+                    suspend_key=None,
                     started_at_epoch_ms=None,
                     updated_at=self._now_ms_sql(),
                     completed_at=None,
@@ -2785,8 +2826,8 @@ class SystemDatabase(ABC):
     def check_first_workflow_id(self, workflow_ids: List[str]) -> Union[NoResult, str]:
         """Check if at least one of the given workflows has completed.
 
-        A workflow is considered complete when its status is not PENDING
-        not ENQUEUED, and not DELAYED.  Returns the workflow_uuid of the first
+        A workflow is considered complete when its status is not PENDING,
+        ENQUEUED, DELAYED, or SUSPENDED.  Returns the workflow_uuid of the first
         completed workflow found, or NoResult() if none have completed.
         """
         if not workflow_ids:
@@ -2804,6 +2845,7 @@ class SystemDatabase(ABC):
                             WorkflowStatusString.PENDING.value,
                             WorkflowStatusString.ENQUEUED.value,
                             WorkflowStatusString.DELAYED.value,
+                            WorkflowStatusString.SUSPENDED.value,
                         ]
                     ),
                 )
@@ -2977,7 +3019,7 @@ class SystemDatabase(ABC):
             if not status_list:
                 query = query.where(
                     self.tables.workflow_status.c.status.in_(
-                        ["DELAYED", "ENQUEUED", "PENDING"]
+                        ["DELAYED", "ENQUEUED", "PENDING", "SUSPENDED"]
                     )
                 )
         else:
@@ -3790,6 +3832,35 @@ class SystemDatabase(ABC):
             send_to_forks=send_to_forks,
         )
 
+    def _wake_receivers(
+        self,
+        conn: Union[sa.Connection, Session],
+        destinations: List[str],
+        topics: List[str],
+    ) -> None:
+        """Make SUSPENDED receivers waiting on one of topics due, for the background pass
+        to re-enqueue. Runs on every send, whether or not this process uses suspend mode,
+        so any sender wakes a workflow another process parked. A primary-key probe per
+        destination; it matches nothing in the common case.
+
+        The match is destinations x topics, so a batch sending A on topic X and B on
+        topic Y also wakes A if it waits on Y. The spurious wake-up is harmless: the
+        replayed recv finds no message and parks again."""
+        ws = self.tables.workflow_status
+        conn.execute(
+            sa.update(ws).where(
+                *self._wf_in(ws, destinations),
+                ws.c.suspend_key.in_(topics),
+            )
+            # Status is tested here, not in WHERE, so the planner cannot scan idx_workflow_status_suspended.
+            .values(
+                delay_until_epoch_ms=sa.case(
+                    (ws.c.status == WorkflowStatusString.SUSPENDED.value, 0),
+                    else_=ws.c.delay_until_epoch_ms,
+                )
+            )
+        )
+
     def _send_bulk_txn(
         self,
         messages: List[SendMessage],
@@ -3896,6 +3967,13 @@ class SystemDatabase(ABC):
                     ", ".join(sorted({m.destination_id for m in messages})),
                 )
             raise
+
+        if rows:
+            self._wake_receivers(
+                conn,
+                sorted({r["destination_uuid"] for r in rows}),
+                sorted({r["topic"] for r in rows}),
+            )
 
         if workflow_id is not None:
             assert function_id is not None
@@ -4846,10 +4924,13 @@ class SystemDatabase(ABC):
             yield c
 
     @contextmanager
-    def background_job_lock(self, job_name: str) -> Generator[bool, None, None]:
-        """Try the lock letting one of this application's processes run a background
-        job at a time, yielding whether it was taken; held until the block exits."""
-        yield True
+    def background_job_lock(
+        self, job_name: str
+    ) -> Generator[Optional[Callable[[], None]], None, None]:
+        """Try the lock letting one of this application's processes run a background job at a
+        time, yielding None if refused, else a call renewing it in place; held until the block exits.
+        """
+        yield lambda: None
 
     def transition_delayed_workflows(self) -> None:
         """Transition DELAYED workflows whose delay has expired to ENQUEUED.
@@ -4894,12 +4975,13 @@ class SystemDatabase(ABC):
         timed_out = (
             sa.select(ws.c.workflow_uuid)
             .where(
-                # Literals, so SQLite's prover matches idx_workflow_status_deadline's IN predicate.
+                # Literals, so SQLite's prover matches idx_workflow_status_deadline_v2's IN predicate.
                 ws.c.status.in_(
                     [
                         sa.literal_column(f"'{WorkflowStatusString.ENQUEUED.value}'"),
                         sa.literal_column(f"'{WorkflowStatusString.PENDING.value}'"),
                         sa.literal_column(f"'{WorkflowStatusString.DELAYED.value}'"),
+                        sa.literal_column(f"'{WorkflowStatusString.SUSPENDED.value}'"),
                     ]
                 ),
                 ws.c.workflow_deadline_epoch_ms.isnot(None),
@@ -4921,6 +5003,7 @@ class SystemDatabase(ABC):
                     owner_xid=None,
                     queue_name=None,
                     deduplication_id=None,
+                    suspend_key=None,
                     started_at_epoch_ms=None,
                     updated_at=cancelled_at,
                     completed_at=cancelled_at,
@@ -4984,18 +5067,62 @@ class SystemDatabase(ABC):
             or queue._limiter is not None
             or queue._partition_limiter is not None
         )
-        # Shares a concurrency or limiter budget with other executors and other partitions
+        # Shares a concurrency or limiter budget with other executors and other partitions: lock the whole queue
         has_write_skew = queue_partition_key is not None and (
             queue._concurrency is not None or queue._limiter is not None
         )
+
+        # Compute max_tasks under every flow control limit enforced on this queue
+        max_tasks = sys.maxsize
+
+        # This worker's own limits need no database, so a full worker returns before taking the claim lock a peer could use.
+        if queue._worker_concurrency is not None:
+            # Use the in-memory registry for this worker's running count — avoids a DB round trip.
+            max_tasks = min(
+                max_tasks, max(0, queue._worker_concurrency - local_running_count)
+            )
+            if max_tasks <= 0:
+                return [], "worker_concurrency"
+        if queue._partition_worker_concurrency is not None:
+            max_tasks = min(
+                max_tasks,
+                max(
+                    0,
+                    queue._partition_worker_concurrency - partition_local_running_count,
+                ),
+            )
+            if max_tasks <= 0:
+                return [], "partition_worker_concurrency"
+
         # A sharded database keeps the version row under another key, which the claim's transaction cannot span.
         if is_latest_version is None and self.sharded:
             is_latest_version = self._is_latest_version(app_version)
-        # Otherwise READ COMMITTED
+        # Row locks only collide when claimers see the same queue head, so serialize claims on the budget's scope.
+        use_claim_lock = has_shared_budget and self._uses_claim_locks()
+        # READ COMMITTED by default: under a claim lock, each statement then sees the previous holder's commit.
         isolation: Optional[str] = None
-        if self.engine.dialect.name == "postgresql" and has_shared_budget:
-            isolation = "SERIALIZABLE" if has_write_skew else "REPEATABLE READ"
+        if (
+            self.engine.dialect.name == "postgresql"
+            and has_shared_budget
+            and not use_claim_lock
+        ):
+            # CockroachDB, without advisory locks: SERIALIZABLE aborts claimers that spend the same budget.
+            isolation = "SERIALIZABLE"
         with self._begin(isolation) as c:
+            if self.engine.dialect.name == "sqlite" and has_shared_budget:
+                # pysqlite would run the budget reads in autocommit, letting workers overspend a shared budget.
+                driver_conn = c.connection.driver_connection
+                if driver_conn is not None and not driver_conn.in_transaction:
+                    c.execute(sa.text("BEGIN IMMEDIATE"))
+            if use_claim_lock:
+                acquired = self._claim_lock(
+                    c, queue.name, None if has_write_skew else queue_partition_key
+                )
+                if acquired is None:
+                    return [], None
+                if not acquired:
+                    # Another worker is claiming from this scope, so it still has work; the next poll retries.
+                    return [], "claim_lock"
 
             def rate_limit_remaining(
                 limiter: "QueueRateLimit", partition_scoped: bool
@@ -5042,28 +5169,6 @@ class SystemDatabase(ABC):
                     query = query.where(ws.c.queue_partition_key == queue_partition_key)
                 return c.execute(query).scalar() or 0
 
-            # Compute max_tasks under every flow control limit enforced on this queue
-            max_tasks = sys.maxsize
-
-            if queue._worker_concurrency is not None:
-                # Use the in-memory registry for this worker's running count — avoids a DB round trip.
-                max_tasks = min(
-                    max_tasks, max(0, queue._worker_concurrency - local_running_count)
-                )
-                if max_tasks <= 0:
-                    return [], "worker_concurrency"
-            if queue._partition_worker_concurrency is not None:
-                max_tasks = min(
-                    max_tasks,
-                    max(
-                        0,
-                        queue._partition_worker_concurrency
-                        - partition_local_running_count,
-                    ),
-                )
-                if max_tasks <= 0:
-                    return [], "partition_worker_concurrency"
-
             if queue._limiter is not None:
                 # Bound the claim by the limiter's remaining slots so a backlogged queue locks only what it can start.
                 max_tasks = min(max_tasks, rate_limit_remaining(queue._limiter, False))
@@ -5079,6 +5184,9 @@ class SystemDatabase(ABC):
             if queue._concurrency is not None:
                 # Global concurrency still requires a DB query since other workers may be running workflows too.
                 global_pending_workflows = pending_count(False)
+                DebugTriggers.debug_trigger_point(
+                    DebugTriggers.DEBUG_TRIGGER_QUEUE_CONCURRENCY_AFTER_BUDGET_READ
+                )
                 if global_pending_workflows > queue._concurrency:
                     dbos_logger.warning(
                         f"The total number of pending workflows ({global_pending_workflows}) on queue {queue.name} exceeds the global concurrency limit ({queue._concurrency})"
@@ -5155,6 +5263,9 @@ class SystemDatabase(ABC):
                 query = query.limit(int(max_tasks))
 
             rows = c.execute(query).fetchall()
+            DebugTriggers.debug_trigger_point(
+                DebugTriggers.DEBUG_TRIGGER_FIND_AND_MARK_AFTER_SELECT
+            )
 
             # Get the workflow IDs
             dequeued_ids: List[str] = [row[0] for row in rows]
@@ -5232,8 +5343,11 @@ class SystemDatabase(ABC):
             # Return the IDs of all functions we started, in dequeue order: RETURNING order is unspecified.
             return [id for id in dequeued_ids if id in claimed], None
 
-    # Max heads dequeued per partitioned sweep: bounds the IN-list bind params below (SQLite caps at 32766, libpq at 65535); leftover partitions rotate in on later polls via the PENDING gate.
+    # Max heads dequeued per partitioned sweep: bounds dispatch, not the partition walk; leftover partitions rotate in on later polls via the PENDING gate.
     PARTITIONED_DEQUEUE_SWEEP_CAP = 8192
+
+    # Max partitions a sweep claims per transaction, which bounds the locks it holds at once and for how long.
+    PARTITIONED_DEQUEUE_BATCH_SIZE = 64
 
     def start_queued_partitioned_workflows(
         self,
@@ -5256,12 +5370,17 @@ class SystemDatabase(ABC):
         assert queue._partition_limiter is None
         start_time_ms = int(time.time() * 1000)
         ws = self.tables.workflow_status
+        # CockroachDB runs under its own dialect and takes the Postgres path.
+        is_postgres = self.engine.dialect.name != "sqlite"
         # A sharded database keeps the version row under another key, which the claim's transaction cannot span.
         if is_latest_version is None and self.sharded:
             is_latest_version = self._is_latest_version(app_version)
-        with self.engine.begin() as c:
+        # Sweeps whose heads differ lock disjoint rows, so a claim also takes its partition's lock; CockroachDB, without advisory locks, relies on its SERIALIZABLE default.
+        use_partition_locks = self._uses_claim_locks()
+        with self.engine.connect() as c:
             if is_latest_version is None:
-                is_latest_version = self._is_latest_version(app_version, c)
+                with c.begin():
+                    is_latest_version = self._is_latest_version(app_version, c)
             version_predicate = ws.c.application_version == app_version
             if is_latest_version:
                 version_predicate = sa.or_(
@@ -5276,6 +5395,64 @@ class SystemDatabase(ABC):
                 status_prover,
                 self._name_filter(ws.c.application_name, self.app_name),
             )
+
+            def no_pending(pk: sa.ColumnElement[Any]) -> sa.ColumnElement[bool]:
+                # No application filter by design: a mutual-exclusion probe must block on any owner's row.
+                return ~(
+                    sa.select(sa.literal(1))
+                    .where(*self._scoped(ws))
+                    .where(ws.c.queue_name == queue.name)
+                    .where(ws.c.status == WorkflowStatusString.PENDING.value)
+                    .where(status_prover)
+                    .where(ws.c.queue_partition_key.isnot(None))
+                    .where(ws.c.queue_partition_key == pk)
+                    .exists()
+                )
+
+            def heads(
+                keys: sa.FromClause,
+                pk: sa.ColumnElement[Any],
+                *where: sa.ColumnElement[bool],
+            ) -> "sa.Select[Any]":
+                """The (head, partition key) of each partition in keys that has a head, by key."""
+                # A partition's head is its first version-eligible row; workflow_uuid totalizes the order (same head for every worker under created_at ties), and the index's trailing workflow_uuid makes this a pure top-1 probe.
+                head_query = (
+                    sa.select(ws.c.workflow_uuid)
+                    .where(enq)
+                    .where(ws.c.queue_partition_key == pk)
+                    .where(version_predicate)
+                    .order_by(
+                        ws.c.priority.asc(),
+                        ws.c.created_at.asc(),
+                        ws.c.workflow_uuid.asc(),
+                    )
+                    .limit(1)
+                )
+                if is_postgres:
+                    # LATERAL joins plan as tight nested loops; correlated scalar subqueries run as slower per-row SubPlans on Postgres.
+                    head = head_query.lateral("head")
+                    return (
+                        sa.select(head.c.workflow_uuid, pk)
+                        .select_from(keys.join(head, sa.true()))
+                        .where(*where)
+                        .order_by(pk.asc())
+                    )
+                # SQLite has no LATERAL; a correlated scalar subquery probes each head, with version-ineligible (NULL-head) partitions filtered in the outer select.
+                probed = (
+                    sa.select(
+                        head_query.scalar_subquery().label("workflow_uuid"),
+                        pk.label("pk"),
+                    )
+                    .select_from(keys)
+                    .where(*where)
+                    .subquery("heads")
+                )
+                return (
+                    sa.select(probed.c.workflow_uuid, probed.c.pk)
+                    .where(probed.c.workflow_uuid.isnot(None))
+                    .order_by(probed.c.pk.asc())
+                )
+
             # Walk distinct partition keys with a recursive-CTE loose index scan (one seek per key, mirroring get_queue_partitions) so sweep cost scales with partition count, not backlog depth.
             partitions = (
                 sa.select(sa.func.min(ws.c.queue_partition_key).label("pk"))
@@ -5292,18 +5469,7 @@ class SystemDatabase(ABC):
             partitions = partitions.union_all(
                 sa.select(next_pk).where(partitions.c.pk.isnot(None))
             )
-            # No application filter by design: a mutual-exclusion probe must block on any owner's row.
-            pending_probe = (
-                sa.select(sa.literal(1))
-                .where(*self._scoped(ws))
-                .where(ws.c.queue_name == queue.name)
-                .where(ws.c.status == WorkflowStatusString.PENDING.value)
-                .where(status_prover)
-                .where(ws.c.queue_partition_key.isnot(None))
-                .where(ws.c.queue_partition_key == partitions.c.pk)
-                .exists()
-            )
-            # This worker's own budget bounds the sweep alongside the bind-param cap.
+            # This worker's own budget bounds the sweep alongside the cap.
             sweep_limit = min(self.PARTITIONED_DEQUEUE_SWEEP_CAP, max_tasks)
             # When local concurrency is constrained, probe partitions in random order to prevent starvation
             sweep_order = (
@@ -5314,51 +5480,16 @@ class SystemDatabase(ABC):
             chosen = (
                 sa.select(partitions.c.pk)
                 .where(partitions.c.pk.isnot(None))
-                .where(~pending_probe)
+                .where(no_pending(partitions.c.pk))
                 .order_by(sweep_order)
                 .limit(sweep_limit)
                 .subquery("chosen")
             )
-            # A partition's head is its first version-eligible row; workflow_uuid totalizes the order (same head for every worker under created_at ties), and the index's trailing workflow_uuid makes this a pure top-1 probe.
-            head_query = (
-                sa.select(ws.c.workflow_uuid)
-                .where(enq)
-                .where(ws.c.queue_partition_key == chosen.c.pk)
-                .where(version_predicate)
-                .order_by(
-                    ws.c.priority.asc(),
-                    ws.c.created_at.asc(),
-                    ws.c.workflow_uuid.asc(),
-                )
-                .limit(1)
-            )
-            # Order the (already limited) result by partition so the claim below, and the dispatch order it feeds, are deterministic; which partitions were chosen is settled above.
-            if self.engine.dialect.name == "postgresql":
-                # LATERAL joins plan as tight nested loops; correlated scalar subqueries run as slower per-row SubPlans on Postgres.
-                head = head_query.lateral("head")
-                cand_query = (
-                    sa.select(head.c.workflow_uuid)
-                    .select_from(chosen.join(head, sa.true()))
-                    .order_by(chosen.c.pk.asc())
-                )
-            else:
-                # SQLite has no LATERAL; a correlated scalar subquery probes each head, with version-ineligible (NULL-head) partitions filtered in the outer select.
-                heads = (
-                    sa.select(
-                        head_query.scalar_subquery().label("workflow_uuid"),
-                        chosen.c.pk,
-                    )
-                    .select_from(chosen)
-                    .subquery("heads")
-                )
-                cand_query = (
-                    sa.select(heads.c.workflow_uuid)
-                    .where(heads.c.workflow_uuid.isnot(None))
-                    .order_by(heads.c.pk.asc())
-                )
-            candidate_ids = [row[0] for row in c.execute(cand_query).fetchall()]
-            if not candidate_ids:
-                return []
+            # The walk takes no lock: each batch below picks its heads again under its partitions' locks.
+            with c.begin():
+                partition_keys: List[str] = [
+                    row[1] for row in c.execute(heads(chosen, chosen.c.pk)).fetchall()
+                ]
 
             # Re-check queue/partition/version alongside status so a row resume_workflows moved to another queue mid-sweep is dropped, not hijacked.
             claim_guard = sa.and_(
@@ -5368,59 +5499,120 @@ class SystemDatabase(ABC):
                 version_predicate,
                 self._name_filter(ws.c.application_name, self.app_name),
             )
-            # Lock the fixed candidate set -- never a LIMIT query, whose SKIP LOCKED could slide past a locked head and admit out of order. On SQLite this is an unlocked re-read; the RETURNING flip below is the guard.
-            locked_rows = c.execute(
-                sa.select(ws.c.workflow_uuid)
-                .where(*self._wf_in(ws, candidate_ids))
-                .where(claim_guard)
-                .with_for_update(skip_locked=True)
-            ).fetchall()
-            locked_ids = {row[0] for row in locked_rows}
-            claim_ids = [id for id in candidate_ids if id in locked_ids]
-            if not claim_ids:
-                return []
 
-            # Start the workflows by marking them PENDING; RETURNING reports exactly the rows this statement flipped (requires SQLite >= 3.35).
-            flipped_rows = c.execute(
-                ws.update()
-                .where(*self._wf_in(ws, claim_ids))
-                .where(claim_guard)
-                .values(
-                    status=WorkflowStatusString.PENDING.value,
-                    owner_xid=owner_xid,
-                    application_version=app_version,
-                    executor_id=executor_id,
-                    # Claim the row, as the unpartitioned dequeue does.
-                    application_name=self.app_name,
-                    started_at_epoch_ms=self._now_ms_sql(),
-                    rate_limited=False,
-                    # Count this dispatch against the DLQ limit; no later insert does it.
-                    recovery_attempts=ws.c.recovery_attempts + 1,
-                    updated_at=self._now_ms_sql(),
-                    # If a timeout is set, set the deadline on dequeue
-                    workflow_deadline_epoch_ms=sa.case(
-                        (
-                            sa.and_(
-                                ws.c.workflow_timeout_ms.isnot(None),
-                                ws.c.workflow_deadline_epoch_ms.is_(None),
-                            ),
-                            sa.case(
-                                (
-                                    ws.c.workflow_timeout_ms
-                                    > _MAX_BIGINT - start_time_ms,
-                                    _MAX_BIGINT,
-                                ),
-                                else_=start_time_ms + ws.c.workflow_timeout_ms,
-                            ),
-                        ),
-                        else_=ws.c.workflow_deadline_epoch_ms,
-                    ),
+            def claim_batch(batch: List[str]) -> List[str]:
+                """Claim the heads of these partitions inside the open transaction, returning the IDs it marked PENDING."""
+                held = batch
+                if not is_postgres:
+                    # pysqlite would run the head and no-pending reads in autocommit, letting workers co-admit a partition.
+                    driver_conn = c.connection.driver_connection
+                    if driver_conn is not None and not driver_conn.in_transaction:
+                        c.execute(sa.text("BEGIN IMMEDIATE"))
+                if use_partition_locks:
+                    DebugTriggers.debug_trigger_point(
+                        DebugTriggers.DEBUG_TRIGGER_PARTITIONED_DEQUEUE_BEFORE_LOCKS
+                    )
+                    # Partitions another sweep holds are left to it, or to the next poll.
+                    held = self._partition_locks(c, queue.name, batch)
+                    if not held:
+                        return []
+
+                # Pick the heads again under the locks, so a previous holder's claims and any newly visible head are seen.
+                keys: sa.TableValuedAlias
+                if is_postgres:
+                    keys = (
+                        sa.func.unnest(sa.literal(held, sa.ARRAY(sa.Text)))
+                        .table_valued("pk")
+                        .render_derived(name="batch")
+                    )
+                    pk = keys.c.pk
+                else:
+                    keys = sa.func.json_each(json.dumps(held)).table_valued(
+                        "value", name="batch"
+                    )
+                    pk = keys.c.value
+                candidate_ids: List[str] = [
+                    row[0]
+                    for row in c.execute(heads(keys, pk, no_pending(pk))).fetchall()
+                ]
+                if not candidate_ids:
+                    return []
+                DebugTriggers.debug_trigger_point(
+                    DebugTriggers.DEBUG_TRIGGER_PARTITIONED_DEQUEUE_AFTER_CANDIDATES
                 )
-                .returning(ws.c.workflow_uuid)
-            ).fetchall()
-            flipped_ids = {row[0] for row in flipped_rows}
-            # Preserve partition order for submission.
-            ret_ids = [id for id in claim_ids if id in flipped_ids]
+
+                # Lock the fixed candidate set -- never a LIMIT query, whose SKIP LOCKED could slide past a locked head and admit out of order. On SQLite this is a re-read under the write lock.
+                locked_rows = c.execute(
+                    sa.select(ws.c.workflow_uuid)
+                    .where(*self._wf_in(ws, candidate_ids))
+                    .where(claim_guard)
+                    .with_for_update(skip_locked=True)
+                ).fetchall()
+                locked_ids = {row[0] for row in locked_rows}
+                claim_ids = [id for id in candidate_ids if id in locked_ids]
+                if not claim_ids:
+                    return []
+
+                # Start the workflows by marking them PENDING; RETURNING reports exactly the rows this statement flipped (requires SQLite >= 3.35).
+                flipped_rows = c.execute(
+                    ws.update()
+                    .where(*self._wf_in(ws, claim_ids))
+                    .where(claim_guard)
+                    .values(
+                        status=WorkflowStatusString.PENDING.value,
+                        owner_xid=owner_xid,
+                        application_version=app_version,
+                        executor_id=executor_id,
+                        # Claim the row, as the unpartitioned dequeue does.
+                        application_name=self.app_name,
+                        started_at_epoch_ms=self._now_ms_sql(),
+                        rate_limited=False,
+                        # Count this dispatch against the DLQ limit; no later insert does it.
+                        recovery_attempts=ws.c.recovery_attempts + 1,
+                        updated_at=self._now_ms_sql(),
+                        # If a timeout is set, set the deadline on dequeue
+                        workflow_deadline_epoch_ms=sa.case(
+                            (
+                                sa.and_(
+                                    ws.c.workflow_timeout_ms.isnot(None),
+                                    ws.c.workflow_deadline_epoch_ms.is_(None),
+                                ),
+                                sa.case(
+                                    (
+                                        ws.c.workflow_timeout_ms
+                                        > _MAX_BIGINT - start_time_ms,
+                                        _MAX_BIGINT,
+                                    ),
+                                    else_=start_time_ms + ws.c.workflow_timeout_ms,
+                                ),
+                            ),
+                            else_=ws.c.workflow_deadline_epoch_ms,
+                        ),
+                    )
+                    .returning(ws.c.workflow_uuid)
+                ).fetchall()
+                flipped_ids = {row[0] for row in flipped_rows}
+                # Preserve partition order for submission.
+                return [id for id in claim_ids if id in flipped_ids]
+
+            # One short transaction per batch, so a sweep holds at most a batch's locks, and only while it claims that batch.
+            ret_ids: List[str] = []
+            batch_size = self.PARTITIONED_DEQUEUE_BATCH_SIZE
+            for start in range(0, len(partition_keys), batch_size):
+                try:
+                    with c.begin():
+                        batch_ids = claim_batch(
+                            partition_keys[start : start + batch_size]
+                        )
+                except Exception as e:
+                    # Earlier batches committed their claims, which must still reach dispatch; the next poll retries the rest.
+                    if not ret_ids:
+                        raise
+                    dbos_logger.warning(
+                        f"[{queue.name}] stopping a partitioned sweep after {len(ret_ids)} claim(s): {e}"
+                    )
+                    break
+                ret_ids.extend(batch_ids)
             if ret_ids:
                 dbos_logger.debug(f"[{queue.name}] dequeueing {len(ret_ids)} task(s)")
             return ret_ids
@@ -5679,6 +5871,57 @@ class SystemDatabase(ABC):
         """
         if len(statuses) == 0:
             return set()
+        rows, input_rows = self._batch_workflow_rows(statuses)
+        with self.engine.begin() as conn:
+            return self._insert_workflow_batch(conn, rows, input_rows)
+
+    @db_retry()
+    def enqueue_scheduled_workflows(
+        self, statuses: List[WorkflowStatusInternal], fired_at: Dict[str, str]
+    ) -> Set[str]:
+        """Batch-enqueue scheduled runs, skipping existing IDs, and stamp last_fired_at from
+        fired_at (workflow ID -> tick) for the runs inserted, in one transaction."""
+        if len(statuses) == 0:
+            return set()
+        rows, input_rows = self._batch_workflow_rows(statuses)
+        with self.engine.begin() as conn:
+            inserted = self._insert_workflow_batch(conn, rows, input_rows)
+            self._stamp_last_fired_at(conn, statuses, fired_at, inserted)
+        return inserted
+
+    def _stamp_last_fired_at(
+        self,
+        conn: sa.Connection,
+        statuses: List[WorkflowStatusInternal],
+        fired_at: Dict[str, str],
+        inserted: Set[str],
+    ) -> None:
+        """Set each schedule's last_fired_at to its last inserted tick, statuses being in tick order."""
+        latest: Dict[str, str] = {}
+        for status in statuses:
+            workflow_id = status["workflow_uuid"]
+            schedule_name = status["schedule_name"]
+            if (
+                workflow_id in inserted
+                and workflow_id in fired_at
+                and schedule_name is not None
+            ):
+                latest[schedule_name] = fired_at[workflow_id]
+        if not latest:
+            return
+        ws = self.tables.workflow_schedules
+        conn.execute(
+            sa.update(ws)
+            .where(*self._global(ws), ws.c.schedule_name == sa.bindparam("b_name"))
+            .values(last_fired_at=sa.bindparam("b_fired")),
+            # Sorted, like apply_schedules, so concurrent writers lock schedule rows in one order.
+            [{"b_name": name, "b_fired": latest[name]} for name in sorted(latest)],
+        )
+
+    def _batch_workflow_rows(
+        self, statuses: List[WorkflowStatusInternal]
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """The status and input rows a batch insert writes for these ENQUEUED workflows."""
         # Stamp created_at monotonic within each partition key so per-key order holds across batches; unordered rows (no key) get wall-clock time.
         now_ms = int(time.time() * 1000)
         # On first sight of a key, seed its cursor from the DB high-water mark so per-key order survives a restart/rebalance instead of resetting to wall-clock.
@@ -5763,34 +6006,45 @@ class SystemDatabase(ABC):
             }
             for i, status in enumerate(statuses)
         ]
+        return rows, input_rows
+
+    def _insert_workflow_batch(
+        self,
+        conn: sa.Connection,
+        rows: List[Dict[str, Any]],
+        input_rows: List[Dict[str, Any]],
+    ) -> Set[str]:
+        """Insert a batch's rows, skipping existing IDs. Returns the IDs inserted."""
+        # One global insert order, so batches overlapping across processes wait on each other instead of deadlocking.
+        rows = sorted(rows, key=lambda row: row["workflow_uuid"])
+        input_rows = sorted(input_rows, key=lambda row: row["workflow_uuid"])
         inserted: Set[str] = set()
         # Chunk to stay well under bind-parameter limits (~30 params per row).
         chunk_size = 500
-        with self.engine.begin() as conn:
-            for start in range(0, len(rows), chunk_size):
-                chunk = rows[start : start + chunk_size]
-                result = self._insert_rows(
-                    conn,
-                    lambda batch: self.dialect.insert(self.tables.workflow_status)
-                    .values(batch)
-                    .on_conflict_do_nothing(
-                        index_elements=self._key_conflict("workflow_uuid")
-                    )
-                    .returning(self.tables.workflow_status.c.workflow_uuid),
-                    chunk,
-                    returning=True,
+        for start in range(0, len(rows), chunk_size):
+            chunk = rows[start : start + chunk_size]
+            result = self._insert_rows(
+                conn,
+                lambda batch: self.dialect.insert(self.tables.workflow_status)
+                .values(batch)
+                .on_conflict_do_nothing(
+                    index_elements=self._key_conflict("workflow_uuid")
                 )
-                inserted.update(row[0] for row in result)
-            for start in range(0, len(input_rows), chunk_size):
-                self._insert_rows(
-                    conn,
-                    lambda batch: self.dialect.insert(self.tables.workflow_input)
-                    .values(batch)
-                    .on_conflict_do_nothing(
-                        index_elements=self._key_conflict("workflow_uuid")
-                    ),
-                    input_rows[start : start + chunk_size],
-                )
+                .returning(self.tables.workflow_status.c.workflow_uuid),
+                chunk,
+                returning=True,
+            )
+            inserted.update(row[0] for row in result)
+        for start in range(0, len(input_rows), chunk_size):
+            self._insert_rows(
+                conn,
+                lambda batch: self.dialect.insert(self.tables.workflow_input)
+                .values(batch)
+                .on_conflict_do_nothing(
+                    index_elements=self._key_conflict("workflow_uuid")
+                ),
+                input_rows[start : start + chunk_size],
+            )
         return inserted
 
     def _apply_caller_schema(self, conn: Union[sa.Connection, Session]) -> None:
@@ -6101,19 +6355,47 @@ class SystemDatabase(ABC):
             ).scalar()
             return checkpoint_name
 
+    def _checkpoint_at_or_after_txn(
+        self, c: sa.Connection, workflow_id: str, function_id: int
+    ) -> Optional[Tuple[int, str]]:
+        """The earliest checkpoint at or past this point in history, as
+        (function_id, function_name), or None if the history ends before it."""
+        row = c.execute(
+            sa.select(
+                self.tables.operation_outputs.c.function_id,
+                self.tables.operation_outputs.c.function_name,
+            )
+            .where(
+                *self._wf(self.tables.operation_outputs, workflow_id),
+                self.tables.operation_outputs.c.function_id >= function_id,
+            )
+            .order_by(self.tables.operation_outputs.c.function_id)
+            .limit(1)
+        ).first()
+        return None if row is None else (row[0], row[1])
+
+    @db_retry()
+    def get_checkpoint_at_or_after(
+        self, *, workflow_id: str, function_id: int
+    ) -> Optional[Tuple[int, str]]:
+        """The earliest checkpoint at or past this point in history, as
+        (function_id, function_name), or None if the history ends before it."""
+        with self.engine.begin() as c:
+            return self._checkpoint_at_or_after_txn(c, workflow_id, function_id)
+
     @db_retry()
     def patch(self, *, workflow_id: str, function_id: int, patch_name: str) -> bool:
-        """If there is no checkpoint for this point in history,
-        insert a patch marker and return True.
-        Otherwise, return whether the checkpoint is this patch marker."""
+        """If the history ends before this point, insert a patch marker and
+        return True. If a checkpoint is recorded here, return whether it is this
+        patch marker. If the history has a checkpoint past this point but none
+        here, the execution reached it on pre-patch code, so return False."""
         with self.engine.begin() as c:
-            checkpoint_name: str | None = c.execute(
-                sa.select(self.tables.operation_outputs.c.function_name).where(
-                    *self._wf(self.tables.operation_outputs, workflow_id),
-                    self.tables.operation_outputs.c.function_id == function_id,
-                )
-            ).scalar()
-            if checkpoint_name is None:
+            checkpoint = self._checkpoint_at_or_after_txn(c, workflow_id, function_id)
+            if checkpoint is not None:
+                checkpoint_id, checkpoint_name = checkpoint
+                # Either we found the patch (new code) or the workflow is an old execution that recorded a future checkpoint
+                return checkpoint_id == function_id and checkpoint_name == patch_name
+            else:
                 result: OperationResultInternal = {
                     "workflow_uuid": workflow_id,
                     "function_id": function_id,
@@ -6126,8 +6408,6 @@ class SystemDatabase(ABC):
                 }
                 self._record_operation_result_txn(result, int(time.time() * 1000), c)
                 return True
-            else:
-                return checkpoint_name == patch_name
 
     @db_retry()
     def deprecate_patch(
@@ -6766,6 +7046,7 @@ class SystemDatabase(ABC):
         WorkflowStatusString.PENDING.value,
         WorkflowStatusString.ENQUEUED.value,
         WorkflowStatusString.DELAYED.value,
+        WorkflowStatusString.SUSPENDED.value,
     ]
 
     @staticmethod

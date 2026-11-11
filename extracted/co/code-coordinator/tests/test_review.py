@@ -32,6 +32,7 @@ from coord.review import (
     dispatch_review,
     dispatch_scoped_review,
     dispatch_scoped_reviews_for_queue,
+    fetch_review_findings_from_github_many,
     maybe_scoped_review_for_completed_fix,
     parse_review_from_log,
     pick_reviewer_machine,
@@ -4597,6 +4598,110 @@ def test_scoped_briefing_request_changes_without_findings_says_so_plainly() -> N
     assert "(prior findings text unavailable)" in briefing
 
 
+def test_scoped_briefing_fix_round_carries_forward_prior_partial() -> None:
+    """#3966: a fix round's only blocking finding was a code bug, but the
+    prior review ALSO recorded a separate `ISSUE_RESOLUTION: partial` that
+    lives outside `## Blocking findings` — "check each blocking finding"
+    alone never re-checks it, so the re-review briefing must surface it
+    explicitly and tell the reviewer to re-check it against the delta."""
+    from coord.models import IssueResolution
+
+    briefing = build_scoped_review_briefing(
+        pr_number=42,
+        pr_url="https://github.com/acme/api/pull/42",
+        repo_github="acme/api",
+        repo_name="api",
+        issue_number=7,
+        issue_title="Add feature",
+        branch="issue-7-fix",
+        resolution_delta="-old resolution\n+new resolution\n",
+        default_branch="main",
+        prior_verdict="request-changes",
+        prior_findings_body=(
+            "## Blocking findings\n- the render-frame slot was non-nullable\n"
+            "## Non-blocking concerns\nNone.\n## Nits\nNone.\n"
+        ),
+        prior_issue_resolution=IssueResolution(
+            "partial", "28 of 29 additive primitives still Any/unknown"
+        ),
+    )
+    assert "ISSUE_RESOLUTION: partial" in briefing
+    assert "28 of 29 additive primitives still Any/unknown" in briefing
+    assert "still outstanding" in briefing
+    assert "re-check it against the delta" in briefing
+    # The reviewer must be told to state their OWN line either way.
+    assert "ALWAYS include your own `ISSUE_RESOLUTION:` line" in briefing
+    assert "carrying the PRIOR review's own" in briefing
+
+
+def test_scoped_briefing_resolved_prior_adds_nothing_new() -> None:
+    """Control: when the prior review's resolution was `resolved` (today's
+    default), the briefing gets no extra "still outstanding" section —
+    only the generic always-present ISSUE_RESOLUTION instructions."""
+    from coord.models import IssueResolution
+
+    briefing_without = build_scoped_review_briefing(
+        pr_number=42,
+        pr_url="https://github.com/acme/api/pull/42",
+        repo_github="acme/api",
+        repo_name="api",
+        issue_number=7,
+        issue_title="Add feature",
+        branch="issue-7-fix",
+        resolution_delta="-old resolution\n+new resolution\n",
+        default_branch="main",
+        prior_verdict="request-changes",
+        prior_findings_body="## Blocking findings\n- a bug\n",
+        prior_issue_resolution=None,
+    )
+    briefing_with_resolved = build_scoped_review_briefing(
+        pr_number=42,
+        pr_url="https://github.com/acme/api/pull/42",
+        repo_github="acme/api",
+        repo_name="api",
+        issue_number=7,
+        issue_title="Add feature",
+        branch="issue-7-fix",
+        resolution_delta="-old resolution\n+new resolution\n",
+        default_branch="main",
+        prior_verdict="request-changes",
+        prior_findings_body="## Blocking findings\n- a bug\n",
+        prior_issue_resolution=IssueResolution("resolved", ""),
+    )
+    for briefing in (briefing_without, briefing_with_resolved):
+        assert "still outstanding" not in briefing
+        assert "Prior ISSUE_RESOLUTION judgment" not in briefing
+
+
+def test_scoped_briefing_base_move_also_carries_forward_prior_partial() -> None:
+    """#3966 non-blocking: a prior APPROVING review can carry its own
+    `ISSUE_RESOLUTION: partial` (#3502) — the already-approved/base-move
+    path must surface it too, not just the fix-round path."""
+    from coord.models import IssueResolution
+
+    briefing = build_scoped_review_briefing(
+        pr_number=42,
+        pr_url="https://github.com/acme/api/pull/42",
+        repo_github="acme/api",
+        repo_name="api",
+        issue_number=7,
+        issue_title="Add feature",
+        branch="issue-7-fix",
+        resolution_delta="-old resolution\n+new resolution\n",
+        default_branch="main",
+        prior_verdict="approve",
+        is_base_move=True,
+        prior_issue_resolution=IssueResolution(
+            "partial", "root cause is a quadraui gap", explicit=True
+        ),
+    )
+    assert "already approved" in briefing
+    assert "ISSUE_RESOLUTION: partial" in briefing
+    assert "root cause is a quadraui gap" in briefing
+    assert "still outstanding" in briefing
+    assert "re-check it against the current branch" in briefing
+
+
 def _scoped_entry(**overrides) -> QueuedMerge:
     defaults = dict(
         assignment_id="w1",
@@ -4713,6 +4818,49 @@ def test_dispatch_scoped_review_request_changes_prior_embeds_findings(
     assert "was **not** an approval" in payload["briefing"]
     assert "fix the off-by-one" in payload["briefing"]
     assert "**already approved**" not in payload["briefing"]
+
+
+def test_dispatch_scoped_review_carries_forward_prior_partial(
+    two_machine_config: Config, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#3966: the prior round's `ISSUE_RESOLUTION:` judgment lives in the
+    recovered findings BODY, not a separate structured field — this must be
+    re-parsed from that body and threaded into the dispatched briefing, even
+    when `_load_review_findings` hit the DB-cache fast path (which never
+    parses `issue_resolution` onto the `ReviewFindings` it returns)."""
+    import coord.auto_loop as auto_loop_mod
+
+    board = Board()
+    entry = _scoped_entry()
+    prior = _scoped_prior_review(review_verdict="request-changes")
+    client = _FakeHTTPClient({"id": "scoped-3"})
+
+    def _fake_load_findings(review, log_path, machine_host, repo_github=None):
+        # Mirrors the DB-cache path's `ReviewFindings(verdict=..., body=...)`
+        # construction — `issue_resolution` deliberately left at its default.
+        return ReviewFindings(
+            verdict="request-changes",
+            body=(
+                "## Blocking findings\n- non-nullable render-frame slots\n\n"
+                "ISSUE_RESOLUTION: partial — 28 of 29 additive primitives "
+                "still Any/unknown"
+            ),
+        )
+
+    monkeypatch.setattr(
+        auto_loop_mod, "_load_review_findings", _fake_load_findings,
+    )
+
+    result = dispatch_scoped_review(
+        entry, prior, board, two_machine_config,
+        http_client=client, now=999.0, diff_fetcher=_scoped_diff_fetcher,
+    )
+
+    assert result is not None
+    _, payload = client.calls[0]
+    assert "ISSUE_RESOLUTION: partial" in payload["briefing"]
+    assert "28 of 29 additive primitives still Any/unknown" in payload["briefing"]
+    assert "still outstanding" in payload["briefing"]
 
 
 def test_dispatch_scoped_review_skips_candidate_with_dead_claude_credential(
@@ -7526,6 +7674,56 @@ END_REVIEW
         result = parse_review_from_log(log)
         assert result is not None
         assert result.issue_resolution.value == "resolved"
+
+
+class TestFetchReviewFindingsFromGithubMany:
+    """#3966: the batched form of `fetch_review_findings_from_github` —
+    one `get_issue_comments` fetch covering every requested assignment id,
+    instead of one fetch per id (the cost a multi-round review-chain fold
+    would otherwise pay on every merge-queue tick)."""
+
+    def test_single_fetch_covers_every_requested_assignment(self) -> None:
+        from unittest.mock import patch
+
+        from coord.comments import format_findings_block
+
+        comments = [
+            {"body": format_findings_block("rev-1", "request-changes", "First round.")},
+            {"body": format_findings_block("rev-2", "approve", "Second round.")},
+        ]
+        with patch(
+            "coord.github_ops.get_issue_comments", return_value=comments
+        ) as mock_fetch:
+            result = fetch_review_findings_from_github_many(
+                "acme/api", 42, ["rev-1", "rev-2", "rev-missing"]
+            )
+
+        mock_fetch.assert_called_once_with("acme/api", 42)
+        assert set(result) == {"rev-1", "rev-2"}
+        assert result["rev-1"].verdict == "request-changes"
+        assert result["rev-1"].body == "First round."
+        assert result["rev-2"].verdict == "approve"
+        assert result["rev-2"].body == "Second round."
+
+    def test_empty_assignment_ids_skips_the_fetch(self) -> None:
+        from unittest.mock import patch
+
+        with patch("coord.github_ops.get_issue_comments") as mock_fetch:
+            result = fetch_review_findings_from_github_many("acme/api", 42, [])
+        mock_fetch.assert_not_called()
+        assert result == {}
+
+    def test_fetch_failure_returns_empty_dict(self) -> None:
+        from unittest.mock import patch
+
+        with patch(
+            "coord.github_ops.get_issue_comments",
+            side_effect=RuntimeError("gh timed out"),
+        ):
+            result = fetch_review_findings_from_github_many(
+                "acme/api", 42, ["rev-1"]
+            )
+        assert result == {}
 
 
 class TestParseReviewFromAgent:

@@ -25,19 +25,20 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from sentry_protos.billing.v1.services.contract.v1 import pricing_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_pricing__config__pb2
 from sentry_protos.billing.v1.services.contract.v2 import billing_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v2_dot_billing__config__pb2
+from sentry_protos.billing.v1.services.contract.v2 import sales_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v2_dot_sales__config__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nUsentry_protos/billing/v1/services/checkout/v1/endpoint_provision_sales_contract.proto\x12-sentry_protos.billing.v1.services.checkout.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x42sentry_protos/billing/v1/services/contract/v1/pricing_config.proto\x1a\x42sentry_protos/billing/v1/services/contract/v2/billing_config.proto\"\xa0\x03\n\x1dProvisionSalesContractRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x13\n\x0bpackage_uid\x18\x02 \x01(\t\x12\x16\n\x0emonth_interval\x18\x03 \x01(\r\x12O\n\x0cuser_configs\x18\x04 \x03(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.UserConfig\x12T\n\x06timing\x18\x05 \x01(\x0e\x32\x42.sentry_protos.billing.v1.services.checkout.v1.SalesContractTimingH\x00\x12\x34\n\x0enew_term_start\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00\x12O\n\x08invoiced\x18\x07 \x01(\x0b\x32=.sentry_protos.billing.v1.services.contract.v2.InvoicedConfigB\x0b\n\teffective\"H\n\x1eProvisionSalesContractResponse\x12\x17\n\ninvoice_id\x18\x01 \x01(\x04H\x00\x88\x01\x01\x42\r\n\x0b_invoice_id*\x85\x01\n\x13SalesContractTiming\x12%\n!SALES_CONTRACT_TIMING_UNSPECIFIED\x10\x00\x12 \n\x1cSALES_CONTRACT_TIMING_COTERM\x10\x01\x12%\n!SALES_CONTRACT_TIMING_AT_TERM_END\x10\x02\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nUsentry_protos/billing/v1/services/checkout/v1/endpoint_provision_sales_contract.proto\x12-sentry_protos.billing.v1.services.checkout.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x42sentry_protos/billing/v1/services/contract/v1/pricing_config.proto\x1a\x42sentry_protos/billing/v1/services/contract/v2/billing_config.proto\x1a@sentry_protos/billing/v1/services/contract/v2/sales_config.proto\"\x88\x04\n\x1dProvisionSalesContractRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x13\n\x0bpackage_uid\x18\x02 \x01(\t\x12\x16\n\x0emonth_interval\x18\x03 \x01(\r\x12O\n\x0cuser_configs\x18\x04 \x03(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.UserConfig\x12T\n\x06timing\x18\x05 \x01(\x0e\x32\x42.sentry_protos.billing.v1.services.checkout.v1.SalesContractTimingH\x00\x12\x34\n\x0enew_term_start\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00\x12O\n\x08invoiced\x18\x07 \x01(\x0b\x32=.sentry_protos.billing.v1.services.contract.v2.InvoicedConfig\x12U\n\x0csales_config\x18\x08 \x01(\x0b\x32:.sentry_protos.billing.v1.services.contract.v2.SalesConfigH\x01\x88\x01\x01\x42\x0b\n\teffectiveB\x0f\n\r_sales_config\"H\n\x1eProvisionSalesContractResponse\x12\x17\n\ninvoice_id\x18\x01 \x01(\x04H\x00\x88\x01\x01\x42\r\n\x0b_invoice_id*\x85\x01\n\x13SalesContractTiming\x12%\n!SALES_CONTRACT_TIMING_UNSPECIFIED\x10\x00\x12 \n\x1cSALES_CONTRACT_TIMING_COTERM\x10\x01\x12%\n!SALES_CONTRACT_TIMING_AT_TERM_END\x10\x02\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.checkout.v1.endpoint_provision_sales_contract_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_SALESCONTRACTTIMING']._serialized_start=799
-  _globals['_SALESCONTRACTTIMING']._serialized_end=932
-  _globals['_PROVISIONSALESCONTRACTREQUEST']._serialized_start=306
-  _globals['_PROVISIONSALESCONTRACTREQUEST']._serialized_end=722
-  _globals['_PROVISIONSALESCONTRACTRESPONSE']._serialized_start=724
-  _globals['_PROVISIONSALESCONTRACTRESPONSE']._serialized_end=796
+  _globals['_SALESCONTRACTTIMING']._serialized_start=969
+  _globals['_SALESCONTRACTTIMING']._serialized_end=1102
+  _globals['_PROVISIONSALESCONTRACTREQUEST']._serialized_start=372
+  _globals['_PROVISIONSALESCONTRACTREQUEST']._serialized_end=892
+  _globals['_PROVISIONSALESCONTRACTRESPONSE']._serialized_start=894
+  _globals['_PROVISIONSALESCONTRACTRESPONSE']._serialized_end=966
 # @@protoc_insertion_point(module_scope)

@@ -24,6 +24,7 @@ from polar.v2027_01.inputs import (
     ProductUpdate,
 )
 from polar.v2027_01.literals import (
+    CatalogStatus,
     ProductSortProperty,
     ProductVisibility,
 )
@@ -38,7 +39,10 @@ class ProductsSync(SyncServiceBase):
         self,
         *,
         id: str | builtins.list[str] | None = None,
+        external_id: str | builtins.list[str] | None = None,
         organization_id: str | builtins.list[str] | None = None,
+        catalog_id: str | builtins.list[str] | None = None,
+        catalog_status: CatalogStatus | builtins.list[CatalogStatus] | None = None,
         query: str | None = None,
         is_archived: bool | None = None,
         is_recurring: bool | None = None,
@@ -58,7 +62,10 @@ class ProductsSync(SyncServiceBase):
 
         Args:
             id: Filter by product ID.
+            external_id: Filter by product external ID.
             organization_id: Filter by organization ID.
+            catalog_id: Filter by catalog ID.
+            catalog_status: Filter by catalog status.
             query: Filter by product name.
             is_archived: Filter on archived products.
             is_recurring: Filter on recurring products. If `true`, only subscriptions tiers are returned. If `false`, only one-time purchase products are returned.
@@ -84,7 +91,10 @@ class ProductsSync(SyncServiceBase):
             path_params={},
             query_params={
                 "id": id,
+                "external_id": external_id,
                 "organization_id": organization_id,
+                "catalog_id": catalog_id,
+                "catalog_status": catalog_status,
                 "query": query,
                 "is_archived": is_archived,
                 "is_recurring": is_recurring,
@@ -108,7 +118,10 @@ class ProductsSync(SyncServiceBase):
         self,
         *,
         id: str | builtins.list[str] | None = None,
+        external_id: str | builtins.list[str] | None = None,
         organization_id: str | builtins.list[str] | None = None,
+        catalog_id: str | builtins.list[str] | None = None,
+        catalog_status: CatalogStatus | builtins.list[CatalogStatus] | None = None,
         query: str | None = None,
         is_archived: bool | None = None,
         is_recurring: bool | None = None,
@@ -128,7 +141,10 @@ class ProductsSync(SyncServiceBase):
 
         Args:
             id: Filter by product ID.
+            external_id: Filter by product external ID.
             organization_id: Filter by organization ID.
+            catalog_id: Filter by catalog ID.
+            catalog_status: Filter by catalog status.
             query: Filter by product name.
             is_archived: Filter on archived products.
             is_recurring: Filter on recurring products. If `true`, only subscriptions tiers are returned. If `false`, only one-time purchase products are returned.
@@ -154,7 +170,10 @@ class ProductsSync(SyncServiceBase):
         while True:
             response = self.list(
                 id=id,
+                external_id=external_id,
                 organization_id=organization_id,
+                catalog_id=catalog_id,
+                catalog_status=catalog_status,
                 query=query,
                 is_archived=is_archived,
                 is_recurring=is_recurring,
@@ -209,6 +228,7 @@ class ProductsSync(SyncServiceBase):
             **kwargs: Request body parameters
 
         Raises:
+            NotPermitted: Organization product limit reached.
             HTTPValidationError: Validation Error
             PolarNetworkError: Raised when a network error occurs while making the request.
             PolarRateLimitError: Raised when the rate limit is exceeded.
@@ -225,6 +245,7 @@ class ProductsSync(SyncServiceBase):
         )
         response = self.client.send_request(request)
         method_errors = {
+            403: NotPermitted,
             422: HTTPValidationError,
         }
         return parse_response_json(response, Product, method_errors)
@@ -420,7 +441,10 @@ class ProductsAsync(AsyncServiceBase):
         self,
         *,
         id: str | builtins.list[str] | None = None,
+        external_id: str | builtins.list[str] | None = None,
         organization_id: str | builtins.list[str] | None = None,
+        catalog_id: str | builtins.list[str] | None = None,
+        catalog_status: CatalogStatus | builtins.list[CatalogStatus] | None = None,
         query: str | None = None,
         is_archived: bool | None = None,
         is_recurring: bool | None = None,
@@ -440,7 +464,10 @@ class ProductsAsync(AsyncServiceBase):
 
         Args:
             id: Filter by product ID.
+            external_id: Filter by product external ID.
             organization_id: Filter by organization ID.
+            catalog_id: Filter by catalog ID.
+            catalog_status: Filter by catalog status.
             query: Filter by product name.
             is_archived: Filter on archived products.
             is_recurring: Filter on recurring products. If `true`, only subscriptions tiers are returned. If `false`, only one-time purchase products are returned.
@@ -466,7 +493,10 @@ class ProductsAsync(AsyncServiceBase):
             path_params={},
             query_params={
                 "id": id,
+                "external_id": external_id,
                 "organization_id": organization_id,
+                "catalog_id": catalog_id,
+                "catalog_status": catalog_status,
                 "query": query,
                 "is_archived": is_archived,
                 "is_recurring": is_recurring,
@@ -490,7 +520,10 @@ class ProductsAsync(AsyncServiceBase):
         self,
         *,
         id: str | builtins.list[str] | None = None,
+        external_id: str | builtins.list[str] | None = None,
         organization_id: str | builtins.list[str] | None = None,
+        catalog_id: str | builtins.list[str] | None = None,
+        catalog_status: CatalogStatus | builtins.list[CatalogStatus] | None = None,
         query: str | None = None,
         is_archived: bool | None = None,
         is_recurring: bool | None = None,
@@ -510,7 +543,10 @@ class ProductsAsync(AsyncServiceBase):
 
         Args:
             id: Filter by product ID.
+            external_id: Filter by product external ID.
             organization_id: Filter by organization ID.
+            catalog_id: Filter by catalog ID.
+            catalog_status: Filter by catalog status.
             query: Filter by product name.
             is_archived: Filter on archived products.
             is_recurring: Filter on recurring products. If `true`, only subscriptions tiers are returned. If `false`, only one-time purchase products are returned.
@@ -536,7 +572,10 @@ class ProductsAsync(AsyncServiceBase):
         while True:
             response = await self.list(
                 id=id,
+                external_id=external_id,
                 organization_id=organization_id,
+                catalog_id=catalog_id,
+                catalog_status=catalog_status,
                 query=query,
                 is_archived=is_archived,
                 is_recurring=is_recurring,
@@ -592,6 +631,7 @@ class ProductsAsync(AsyncServiceBase):
             **kwargs: Request body parameters
 
         Raises:
+            NotPermitted: Organization product limit reached.
             HTTPValidationError: Validation Error
             PolarNetworkError: Raised when a network error occurs while making the request.
             PolarRateLimitError: Raised when the rate limit is exceeded.
@@ -608,6 +648,7 @@ class ProductsAsync(AsyncServiceBase):
         )
         response = await self.client.send_request(request)
         method_errors = {
+            403: NotPermitted,
             422: HTTPValidationError,
         }
         return parse_response_json(response, Product, method_errors)

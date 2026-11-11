@@ -450,15 +450,53 @@ class HistoryLiberoSimEnv(LiberoSimEnv):
         self._ticks = ticks
         self._history: deque = deque(maxlen=ticks[0] + 1)
         self._sent: deque = deque(maxlen=2 * (ticks[0] + 1))
+        self._step = -1  # the newest rendered frame's step in the episode
+        self._wanted: set[int] = set()
 
-    def send_frames_ahead(self, send) -> None:
-        """Hand every frame to ``send(key, agent, wrist)`` as it is rendered (a model that sends
-        its window ahead); a request then names the frames ``send`` accepted."""
+    def send_frames_ahead(self, send, *, kept: int | None = None) -> None:
+        """Hand frames to ``send(key, agent, wrist)`` (a model that sends its window ahead); a
+        request then names the frames ``send`` accepted.
+
+        By default every frame goes as it is rendered. With ``kept`` (how many ticks of frames
+        the server keeps a session, the oldest sent evicted first), only the frames a window
+        will name go: those of the next request announced by ``expect_request``, and any of a
+        request's own still missing; a window names only frames among the last ``kept`` sent.
+        """
+        from collections import deque
+
         self._send = send
+        self._targeted = kept is not None
+        if kept is not None:
+            self._sent = deque(maxlen=kept)
+
+    def expect_request(self, after_steps: int) -> None:
+        """The next request comes ``after_steps`` steps from now: send its window's older
+        frames already rendered, and the others as they are (with ``send_frames_ahead(kept=)``).
+        """
+        if not getattr(self, "_targeted", False):
+            return
+        target = self._step + after_steps
+        if target < self._ticks[0]:
+            self._wanted = set()  # an early window repeats its first frame: a strip
+            return
+        steps = {target - tick for tick in self._ticks[:-1]}
+        self._wanted = {step for step in steps if step > self._step}
+        for step in sorted(steps - self._wanted):
+            self._send_step(step)
+
+    def _send_step(self, step: int) -> None:
+        back = self._step - step
+        if not 0 <= back < len(self._history):
+            return
+        agent, wrist, key = self._history[len(self._history) - 1 - back]
+        if key not in self._sent and self._send(key, agent, wrist):
+            self._sent.append(key)
 
     def reset(self) -> dict:
         obs = super().reset()
         self._history.clear()
+        self._step = -1
+        self._wanted = set()
         self._last_gripper = -1.0
         self._remember(obs)
         return obs
@@ -476,9 +514,16 @@ class HistoryLiberoSimEnv(LiberoSimEnv):
         if self._history and key <= self._history[-1][2]:
             key = self._history[-1][2] + 1  # capture keys only ever increase
         self._history.append((agent, wrist, key))
+        self._step += 1
         send = getattr(self, "_send", None)
-        if send is not None and send(key, agent, wrist):
-            self._sent.append(key)
+        if send is None:
+            return
+        if not getattr(self, "_targeted", False):
+            if send(key, agent, wrist):
+                self._sent.append(key)
+        elif self._step in self._wanted:
+            self._wanted.discard(self._step)
+            self._send_step(self._step)
 
     def hold_action(self) -> list[float]:
         return [0.0] * 6 + [self._last_gripper]
@@ -494,9 +539,12 @@ class HistoryLiberoSimEnv(LiberoSimEnv):
         keys = tuple(key for _, _, key in sampled)
         # Name the older frames only when each was sent ahead and the window is full (before an
         # episode has enough steps its oldest frame repeats, and repeats travel in a strip).
-        if (getattr(self, "_send", None) is not None and len(set(keys)) == len(keys)
-                and set(keys[:-1]) <= set(self._sent)):
-            inputs["frame_keys"] = keys
+        if getattr(self, "_send", None) is not None and len(set(keys)) == len(keys):
+            if getattr(self, "_targeted", False):
+                for tick in self._ticks[:-1]:  # any the announcement missed go now, in order
+                    self._send_step(self._step - tick)
+            if set(keys[:-1]) <= set(self._sent):
+                inputs["frame_keys"] = keys
         return inputs
 
     def policy_preview_frame(self, obs) -> np.ndarray:

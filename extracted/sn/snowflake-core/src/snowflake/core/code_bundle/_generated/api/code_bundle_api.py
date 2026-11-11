@@ -33,6 +33,7 @@ from snowflake.core.code_bundle._generated import models
 from snowflake.core.code_bundle._generated.models.add_version_code_bundle_request import AddVersionCodeBundleRequest
 from snowflake.core.code_bundle._generated.models.code_bundle import CodeBundle
 from snowflake.core.code_bundle._generated.models.execute_code_bundle_request import ExecuteCodeBundleRequest
+from snowflake.core.code_bundle._generated.models.execute_code_bundle_response import ExecuteCodeBundleResponse
 from snowflake.core.code_bundle._generated.models.success_response import SuccessResponse
 from snowflake.core.exceptions import (  # noqa: F401
     _APITypeError,
@@ -841,7 +842,7 @@ class CodeBundleApi:
         ] = None,
         async_req: Literal[False] = False,
         **kwargs,
-    ) -> SuccessResponse: ...
+    ) -> ExecuteCodeBundleResponse: ...
 
     @overload
     def execute_code_bundle(
@@ -867,7 +868,7 @@ class CodeBundleApi:
         ] = None,
         async_req: Literal[True] = True,
         **kwargs,
-    ) -> Future[SuccessResponse]: ...
+    ) -> Future[ExecuteCodeBundleResponse]: ...
 
     @overload
     def execute_code_bundle(
@@ -893,7 +894,7 @@ class CodeBundleApi:
         ] = None,
         async_req: bool = False,
         **kwargs,
-    ) -> Union[SuccessResponse, Future[SuccessResponse]]: ...
+    ) -> Union[ExecuteCodeBundleResponse, Future[ExecuteCodeBundleResponse]]: ...
 
     @validate_call
     def execute_code_bundle(
@@ -918,7 +919,7 @@ class CodeBundleApi:
             Optional[StrictBool], Field(description="Asynchronous execution enable/disable. Default is disable.")
         ] = None,
         **kwargs,
-    ) -> Union[SuccessResponse, Future[SuccessResponse]]:
+    ) -> Union[ExecuteCodeBundleResponse, Future[ExecuteCodeBundleResponse]]:
         r"""Execute a code bundle  # noqa: E501
 
         Execute a code bundle with the given name.  # noqa: E501
@@ -953,7 +954,7 @@ class CodeBundleApi:
         :return: Returns the result object.
                  If the method is called asynchronously,
                  returns a Future object representing the execution of the method.
-        :rtype: Union[SuccessResponse, Future[SuccessResponse]]
+        :rtype: Union[ExecuteCodeBundleResponse, Future[ExecuteCodeBundleResponse]]
         """
         kwargs["_return_http_data_only"] = True
         return self.execute_code_bundle_with_http_info(
@@ -1026,7 +1027,7 @@ class CodeBundleApi:
         :return: Returns the result object.
                  If the method is called asynchronously,
                  returns a Future object representing the execution of the method.
-        :rtype: tuple(Union[SuccessResponse, Future[SuccessResponse]], status_code(int), headers(HTTPHeaderDict))
+        :rtype: tuple(Union[ExecuteCodeBundleResponse, Future[ExecuteCodeBundleResponse]], status_code(int), headers(HTTPHeaderDict))
         """
         _params = locals()
 
@@ -1097,7 +1098,7 @@ class CodeBundleApi:
         _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
-            "200": "SuccessResponse",
+            "200": "ExecuteCodeBundleResponse",
             "202": "SuccessAcceptedResponse",
             "400": "ErrorResponse",
             "401": "ErrorResponse",

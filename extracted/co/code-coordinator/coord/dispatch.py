@@ -450,6 +450,7 @@ def enforce_preflight_guard(
         return
 
     from coord.decomposition_chat import (  # noqa: PLC0415
+        SIZE_TRIAGE_PENDING_MARKER,
         SizeTriageError,
         dispatch_size_triage_review,
         size_triage_review_target_for,
@@ -540,12 +541,22 @@ def enforce_preflight_guard(
             # follow-up in flight to ever clear the refusal.
             return
 
+    # #3971: this refusal is TEMPORARY — the triage leg just dispatched (or
+    # already in flight) clears it on its own the moment it posts a
+    # verdict, unlike `enforce_oracle_readiness`/`enforce_epic_dispatch_
+    # guard`'s refusals above, which nothing but an operator action can
+    # clear. `SIZE_TRIAGE_PENDING_MARKER` lets `coord.drive_queue.
+    # _reconcile_running` tell this ONE `DispatchRefused` shape apart from
+    # every other one sharing the same `EXIT_DISPATCH_REFUSED` exit code
+    # (#1844) and park the drive-queue row instead of blocking it forever —
+    # see that function's #3971 comment for the quadraui#2304 incident this
+    # closes.
     raise DispatchRefused(
         f"issue #{issue_number} flagged by the preflight size scorer "
         f"(score {score.total:g}/{score.threshold:g}): {score.reason}. "
         f"A size-triage review is {'already ' if in_flight is not None else ''}"
         f"running on {machine.name!r} (review_target={review_target!r}) — "
-        "retry once it posts its verdict."
+        f"retry once it posts its verdict. {SIZE_TRIAGE_PENDING_MARKER}"
     )
 
 
@@ -581,6 +592,12 @@ that hosts it.
 # half (parse, file through the issue-tracker seam, link, block the queue row
 # `after=` it). The example deliberately uses `<placeholders>`: the parser
 # rejects them, so a log that echoes this briefing never files a fake gap.
+# #3977: the body MUST name a real inline-code symbol (not `<placeholder>`,
+# not a backtick-quoted sentence or shell command — `_named_symbols` only
+# recognises a single identifier path) — a marker with none can't be checked
+# against the upstream repo before filing (`_verify_gap`), so it goes out
+# unverified and unqueued, costing a human a confirmation round-trip that
+# naming the symbol up front would have skipped.
 UPSTREAM_GAP_BRIEFING_NOTE = """
 
 ## Cross-repo gaps — `BLOCKED_ON_UPSTREAM` (#3676)
@@ -597,11 +614,17 @@ the lines directly below it (a blank line ends the body):
 where this repo would call it>
 
 `<repo>` is the upstream repo's coordinator name or its `owner/name` GitHub \
-slug. The coordinator files the upstream issue for you, links it to this \
-one, and holds this issue's drive-queue row until it lands — you never need \
-the issue number. Still commit and push whatever is genuinely done; if the \
-gap leaves this issue unresolved, also declare `ISSUE_RESOLUTION: partial — \
-blocked on upstream (BLOCKED_ON_UPSTREAM above)`.
+slug. The body MUST name at least one inline-code symbol for the missing \
+API — a bare symbol (`` `Foo::bar` ``) is clearest, and a path-prefixed or \
+call-decorated span (`` `a/b.rs::Foo::bar(Baz)` ``) is also recognised — \
+the coordinator greps the upstream repo's own default branch for it before \
+filing, so a marker with no checkable symbol is filed unverified and held \
+unqueued until a human confirms it (#3977). The coordinator files the upstream \
+issue for you, links it to this one, and holds this issue's drive-queue \
+row until it lands — you never need the issue number. Still commit and \
+push whatever is genuinely done; if the gap leaves this issue unresolved, \
+also declare `ISSUE_RESOLUTION: partial — blocked on upstream \
+(BLOCKED_ON_UPSTREAM above)`.
 """
 
 # #3711: appended to every `type="work"` briefing, alongside
@@ -1672,6 +1695,14 @@ def dispatch(
         effective_provider_name, config,
     ):
         payload["provider"] = effective_provider_name
+    # #3945: a custom system prompt — only ever set by the board-doctor
+    # follow-through's plan leg, whose JSON-plan contract differs from
+    # `type="plan"`'s default `WORKER_PLAN_PROMPT` schema (see
+    # `Proposal.system_prompt`'s docstring). Same "only send when set"
+    # discipline as every other optional field above — an agent predating
+    # `AssignmentSpec.system_prompt` 400s on an unrecognized kwarg.
+    if proposal.system_prompt:
+        payload["system_prompt"] = proposal.system_prompt
 
     resp = httpx.post(url, json=payload, timeout=ASSIGN_POST_TIMEOUT_SECS)
     if (

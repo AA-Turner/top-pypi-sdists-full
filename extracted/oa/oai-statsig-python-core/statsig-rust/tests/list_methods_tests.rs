@@ -1,6 +1,10 @@
-use std::env;
+mod utils;
 
-use statsig_rust::Statsig;
+use std::{env, sync::Arc};
+
+use statsig_rust::{Statsig, StatsigOptions};
+use utils::helpers::load_contents;
+use utils::mock_scrapi::{Endpoint, EndpointStub, MockScrapi, StubData};
 
 fn get_sdk_key() -> String {
     let key = env::var("test_api_key").expect("test_api_key environment variable not set");
@@ -42,13 +46,23 @@ async fn test_get_experiment_list() {
 
 #[tokio::test]
 async fn test_get_parameter_store_list() {
-    let statsig = Statsig::new(&get_sdk_key(), None);
+    // Standalone Parameter Store management is deprecated, so use a saved store.
+    let server = MockScrapi::new().await;
+    server
+        .stub(EndpointStub {
+            response: StubData::String(load_contents("eval_proj_dcs.json")),
+            ..EndpointStub::with_endpoint(Endpoint::DownloadConfigSpecs)
+        })
+        .await;
+    let statsig = Statsig::new(
+        "secret-key",
+        Some(Arc::new(StatsigOptions {
+            disable_all_logging: Some(true),
+            specs_url: Some(server.url_for_endpoint(Endpoint::DownloadConfigSpecs)),
+            ..Default::default()
+        })),
+    );
     statsig.initialize().await.unwrap();
 
-    let parameter_store_list = statsig.get_parameter_store_list();
-
-    assert!(
-        !parameter_store_list.is_empty(),
-        "Parameter store list should not be empty"
-    );
+    assert_eq!(statsig.get_parameter_store_list(), ["test_parameter_store"]);
 }

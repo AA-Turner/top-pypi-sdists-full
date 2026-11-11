@@ -44,6 +44,30 @@ class EnvvarSpec(BaseModel):
     )
 
 
+class InstallSpec(BaseModel):
+    """How an MCP server or a skill is installed where an agent runs it.
+
+    ``type`` says what is installed — an npm package, a Python package, a
+    Docker image, a repository built from source, a remote server (nothing
+    to install), or one the runtime image already carries — and ``command``
+    the shell command that installs it on a person's own machine ('' when
+    there is nothing to run). ``note`` says what the command cannot.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    type: Literal["npm", "python", "docker", "git", "remote", "built-in", "other"] = (
+        Field(..., description="What is installed")
+    )
+    command: str = Field(
+        default="",
+        description="The shell command that installs it; '' when nothing is run",
+    )
+    note: Optional[str] = Field(
+        default=None, description="What else to know, in a sentence"
+    )
+
+
 class SkillSpec(BaseModel):
     """
     Specification for a skill.
@@ -109,6 +133,9 @@ class SkillSpec(BaseModel):
     )
     dependencies: List[str] = Field(
         default_factory=list, description="Python package dependencies"
+    )
+    install: Optional[InstallSpec] = Field(
+        default=None, description="How it is installed where an agent runs it"
     )
     tags: List[str] = Field(default_factory=list, description="Tags for categorization")
     icon: Optional[str] = Field(
@@ -1075,6 +1102,77 @@ class Memories(str, Enum):
     pass
 
 
+#: The backend tool the decisions capability brings, by its id.
+DECIDE_TOOL = "decide"
+
+
+class AgentDecisions(BaseModel):
+    """What a runtime says of an agent that decides: its decisions spec and the model asked."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    spec: str = Field(..., description="The decisions spec its agentspec names")
+    name: str = Field(..., description="The spec's name")
+    model: str = Field(..., description="The model the questions are asked of")
+    model_name: str = Field(
+        ..., description="That model's name in the catalogue", alias="modelName"
+    )
+    questions: List[str] = Field(
+        default_factory=list, description="The question types it answers"
+    )
+    max_questions: int = Field(
+        ..., description="The most questions one call may ask", alias="maxQuestions"
+    )
+    max_text_length: int = Field(
+        ...,
+        description="The longest text one call may be about, in characters",
+        alias="maxTextLength",
+    )
+
+
+class DecisionsSpec(BaseModel):
+    """How an agent decides: the model asked typed decisions, the question types, the limits."""
+
+    model_config = ConfigDict(populate_by_name=True, by_alias=True)
+
+    id: str = Field(..., description="Unique decisions identifier")
+    version: str = Field(default="0.0.1", description="Decisions spec version")
+    name: str = Field(..., description="Display name")
+    description: str = Field(default="", description="What it decides, and with what")
+    enabled: bool = Field(
+        default=False, description="Whether an agent spec is offered these decisions"
+    )
+    model: str = Field(
+        ...,
+        description=(
+            "The model the questions are asked of: a model of the catalogue "
+            "that answers typed decisions"
+        ),
+    )
+    questions: List[str] = Field(
+        default_factory=lambda: ["noul", "choice", "score"],
+        description="The question types it answers: noul, choice, score",
+    )
+    max_questions: int = Field(
+        default=10,
+        description="The most questions one call may ask",
+        alias="maxQuestions",
+    )
+    max_text_length: int = Field(
+        default=20000,
+        description="The longest text one call may be about, in characters",
+        alias="maxTextLength",
+    )
+    tags: List[str] = Field(default_factory=list, description="Tags")
+    icon: str = Field(default="law", description="Icon identifier")
+    emoji: str = Field(default="\u2696\ufe0f", description="Emoji representation")
+
+    @property
+    def ref(self) -> str:
+        """The reference an agent spec names it by: ``id:version``."""
+        return f"{self.id}:{self.version}"
+
+
 class StrategyHuman(BaseModel):
     """How the human participates in (or around) an agent reasoning strategy."""
 
@@ -1601,6 +1699,9 @@ class MCPServer(BaseModel):
     setup: Optional[str] = Field(
         default=None, description="How it is set up, in a sentence"
     )
+    install: Optional[InstallSpec] = Field(
+        default=None, description="How it is installed where an agent runs it"
+    )
     actions: Optional[Dict[str, Any]] = Field(
         default=None,
         description="What each tool does to the world: its class by tool name, when checked, a note",
@@ -1647,6 +1748,14 @@ class FrontendConfig(BaseModel):
         default=None,
         description="What a typed-decision model is for, in a sentence",
         alias="decisionsNote",
+    )
+    agent_decisions: Optional[AgentDecisions] = Field(
+        default=None,
+        description=(
+            "The decisions of the agent asked about: its decisions spec and the "
+            "model asked. None when its spec names no decisions: it does not decide"
+        ),
+        alias="agentDecisions",
     )
     default_model: Optional[str] = Field(
         default=None,
@@ -2040,6 +2149,21 @@ class Agentspec(BaseModel):
         return value
 
     @model_validator(mode="after")
+    def _decisions_bring_decide(self) -> "Agentspec":
+        """An agent decides only when its spec names decisions, which brings `decide`.
+
+        `decide` among the backend tools of a spec that names no decisions is
+        refused; so is a decisions spec the catalogue does not have, or one
+        that is not enabled. A spec that names one has the tool.
+        """
+        from agent_runtimes.tools.decisions import tools_with_decisions
+
+        self.backend_tools = tools_with_decisions(
+            self.backend_tools, self.decisions, self.id
+        )
+        return self
+
+    @model_validator(mode="after")
     def _harness_honours_the_spec(self) -> "Agentspec":
         """A harness the catalogue does not know, or what it cannot honour, is refused."""
         problems = harness_problems(
@@ -2145,7 +2269,7 @@ class Agentspec(BaseModel):
             "Accepted values: 'eval' (default), 'jupyter-server' (Jupyter "
             "server), or a provider reached with its own credentials — "
             "'docker', 'datalayer', 'google-colab', 'kaggle', 'monty', "
-            "'modal', 'daytona', 'cloudflare', 'coreweave', 'e2b'."
+            "'modal', 'daytona', 'cloudflare', 'coreweave', 'e2b', 'agentcore'."
         ),
         alias="sandboxVariant",
     )
@@ -2265,6 +2389,14 @@ class Agentspec(BaseModel):
         default=None,
         alias="memoryConfig",
         description="Optional backend-specific memory configuration (for example Mem0 faiss/pgvector settings).",
+    )
+    decisions: Optional[str] = Field(
+        default=None,
+        description=(
+            "How the agent decides: a decisions spec of the catalogue, `id:version` "
+            "(e.g. 'jev:0.0.1'). Only an agent that names one decides; it brings the "
+            "`decide` backend tool, asked of that spec's model."
+        ),
     )
     pre_hooks: Optional[Dict[str, Any]] = Field(
         default=None,
@@ -2484,6 +2616,10 @@ class BattleContestantSpec(BaseModel):
     overrides: Dict[str, Any] = Field(
         default_factory=dict,
         description="What it plays differently of its application: model, instructions, skills, context",
+    )
+    decision_model: str = Field(
+        default="",
+        description="A game's contestant played by a decision model: the page asks it a choice on what the arena shows and makes the move it chooses",
     )
 
 

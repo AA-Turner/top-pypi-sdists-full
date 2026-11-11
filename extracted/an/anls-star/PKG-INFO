@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: anls_star
-Version: 1.0.1
+Version: 2.0.0
 Summary: A universal metric for Generative Large Language Models (GLLMs)
 Author: Otera
 Author-email: Otera <hello@otera.ai>
@@ -10,15 +10,16 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Dist: munkres>=1.1.0
 Requires-Python: >=3.10
 Project-URL: changelog, https://github.com/deepopinion/anls_star_metric/blob/main/CHANGELOG.md
 Project-URL: issues, https://github.com/deepopinion/anls_star_metric/issues
-Project-URL: paper, https://arxiv.org/abs/2402.03848
-Project-URL: releasenotes, https://github.com/deepopinion/anls_star_metric/releases
 Project-URL: source, https://github.com/deepopinion/anls_star_metric
+Project-URL: releasenotes, https://github.com/deepopinion/anls_star_metric/releases
+Project-URL: paper, https://arxiv.org/abs/2402.03848
 Description-Content-Type: text/markdown
 
 # ANLS ★
@@ -48,6 +49,7 @@ Description-Content-Type: text/markdown
 
 ```python
 from anls_star import anls_score
+
 anls = anls_score("Hello World", "Hello Wrld")
 print(anls)
 ```
@@ -59,8 +61,8 @@ The `anls_score` function can also be used to return the object which best match
 
 As an example:
 ```python
-gt = {'a': ('hello', 'world'), 'b': ['this', 'is', 'a', 'test']}
-pred = {'a': 'hello!', 'b': ['a', 'test', 'this', 'be']}
+gt = {"a": ("hello", "world"), "b": ["this", "is", "a", "test"]}
+pred = {"a": "hello!", "b": ["a", "test", "this", "be"]}
 score, closest_gt = anls_score(gt, pred, return_gt=True)
 # score = 0.766...
 # closest_gt = {'a': 'hello', 'b': ['a', 'test', 'this', 'is']}
@@ -69,6 +71,7 @@ score, closest_gt = anls_score(gt, pred, return_gt=True)
 This result can then be used e.g. with the [deepdiff](https://pypi.org/project/deepdiff/) package for further analysis:
 ```python
 from deepdiff import DeepDiff
+
 diff = DeepDiff(closest_gt, pred)
 # diff = {'values_changed': {"root['a']": {'new_value': 'hello!', 'old_value': 'hello'},
 #                            "root['b'][3]": {'new_value': 'be', 'old_value': 'is'}}}

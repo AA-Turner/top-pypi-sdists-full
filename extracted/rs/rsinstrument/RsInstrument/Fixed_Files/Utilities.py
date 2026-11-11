@@ -29,7 +29,7 @@ class Utilities:
 
 	@property
 	def idn_string(self) -> str:
-		"""Returns instrument's identification string - the response on the SCPI command *IDN?"""
+		"""Returns instrument's identification string - the response on the SCPI command ``*IDN?``"""
 		return self._core.io.idn_string
 
 	@property
@@ -63,7 +63,7 @@ class Utilities:
 		return self._core.io.serial_number
 
 	def query_opc(self, timeout: int = 0) -> int:
-		"""SCPI command: *OPC?
+		"""SCPI command: ``*OPC?``
 		Queries the instrument's OPC bit and hence it waits until the instrument reports operation complete.
 		If you define timeout > 0, the VISA timeout is set to that value just for this method call."""
 		return self._core.io.query_opc(timeout)
@@ -98,15 +98,15 @@ class Utilities:
 
 	@property
 	def opc_query_after_write(self) -> bool:
-		"""Sets / returns Instrument *OPC? query sending after each command write.
-		When True, (default is False) the driver sends *OPC? every time a write command is performed.
+		"""Sets / returns Instrument ``*OPC?`` query sending after each command write.
+		When True, (default is False) the driver sends ``*OPC?`` every time a write command is performed.
 		Use this if you want to make sure your sequence is performed command-after-command."""
 		return self._core.io.opc_query_after_write
 
 	@opc_query_after_write.setter
 	def opc_query_after_write(self, value) -> None:
-		"""Sets / returns Instrument *OPC? query sending after each command write.
-		When True, (default is False) the driver sends *OPC? every time a write command is performed.
+		"""Sets / returns Instrument ``*OPC?`` query sending after each command write.
+		When True, (default is False) the driver sends ``*OPC?`` every time a write command is performed.
 		Use this if you want to make sure your sequence is performed command-after-command."""
 		self._core.io.opc_query_after_write = value
 
@@ -156,8 +156,8 @@ class Utilities:
 		return self._core.io.query_all_syst_errors(include_codes=True)
 
 	def reset(self) -> None:
-		"""SCPI command: *RST
-		Sends *RST command + calls the clear_status()."""
+		"""SCPI command: ``*RST``
+		Sends ``*RST`` command + calls the clear_status()."""
 		self._core.io.reset()
 		self.default_instrument_setup()
 
@@ -165,7 +165,7 @@ class Utilities:
 		"""Custom steps performed at the init and at the reset()."""
 
 	def self_test(self, timeout: int | None = None) -> Tuple[int, str]:
-		"""SCPI command: *TST?
+		"""SCPI command: ``*TST?``
 		Performs instrument's self-test.
 		Returns tuple (code:int, message: str). Code 0 means the self-test passed.
 		You can define the custom timeout in milliseconds. If you do not define it, the default selftest timeout is used (usually 60 secs)."""
@@ -223,8 +223,8 @@ class Utilities:
 		return self._core.io.visa_manufacturer
 
 	def process_all_commands(self) -> None:
-		"""SCPI command: *WAI
-		Stops further commands processing until all commands sent before *WAI have been executed."""
+		"""SCPI command: ``*WAI``
+		Stops further commands processing until all commands sent before ``*WAI`` have been executed."""
 		self._core.io.write('*WAI')
 
 	def write_str(self, cmd: str) -> None:
@@ -350,7 +350,7 @@ class Utilities:
 	def query_str_list(self, query: str, remove_blank_response: bool = False) -> List[str]:
 		"""Sends the string query to the instrument and returns the response as List of strings, where the delimiter is comma (',').
 		Each element of the list is trimmed for leading and trailing quotes.
-		Meaning of the 'remove_blank_response':
+		Meaning of the 'remove_blank_response': \n
 			- False(default): whitespaces-only response is returned as a list with one empty element [''].
 			- True: whitespaces-only response is returned as an empty list []."""
 		return self._core.io.query_str_list(query, remove_blank_response)
@@ -358,7 +358,7 @@ class Utilities:
 	def query_str_list_with_opc(self, query: str, timeout: int | None = None, remove_blank_response: bool = False) -> List[str]:
 		"""Sends a OPC-synced query and reads response from the instrument as csv-list.
 		If you do not provide timeout, the method uses current opc_timeout.
-		Meaning of the 'remove_blank_response':
+		Meaning of the 'remove_blank_response': \n
 			- False(default): whitespaces-only response is returned as a list with one empty element [''].
 			- True: whitespaces-only response is returned as an empty list []."""
 		return self._core.io.query_str_list_with_opc(query, timeout, remove_blank_response)
@@ -409,7 +409,7 @@ class Utilities:
 		Throws an exception if the returned data was not a binary data.
 		Example for transferring a file from Instrument -> PC:
 		query = f"MMEM:DATA? '{INSTR_FILE_PATH}'".
-		Alternatively, use the dedicated methods for this purpose:
+		Alternatively, use the dedicated methods for this purpose: \n
 			- ``send_file_from_pc_to_instrument()``
 			- ``read_file_from_instrument_to_pc()``"""
 		self._core.io.query_bin_block_to_file(query, file_path, append)
@@ -425,7 +425,7 @@ class Utilities:
 		"""Writes data from the file as binary data block to the instrument using the provided command.
 		Example for transferring a file from PC -> Instrument:
 		cmd = f"MMEM:DATA '{INSTR_FILE_PATH}',".
-		Alternatively, use the dedicated methods for this purpose:
+		Alternatively, use the dedicated methods for this purpose: \n
 			- ``send_file_from_pc_to_instrument()``
 			- ``read_file_from_instrument_to_pc()``"""
 		self._core.io.write_bin_block_from_file(cmd, file_path)
@@ -458,9 +458,9 @@ class Utilities:
 
 	def get_lock(self) -> threading.RLock:
 		"""Returns the thread lock for the current session. \n
-		By default,
+		By default, \n
 			- If you create standard new [DRIVER_PREFIX] instance with new VISA session, the session gets a new thread lock. You can assign it to other [DRIVER_PREFIX] sessions in order to share one physical instrument with a multi-thread access.
-			- If you create new [DRIVER_PREFIX] from an existing session, the thread lock is shared automatically making both instances multi-thread safe.
+			- If you create new [DRIVER_PREFIX] from an existing session, the thread lock is shared automatically making both instances multi-thread safe. \n
 		You can always assign new thread lock by calling ``driver.utilities.assign_lock()``"""
 		return self._core.io.get_lock()
 

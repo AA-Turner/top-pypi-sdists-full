@@ -256,7 +256,6 @@ _intersection_        = 'intersection'       # PYCHOK OK
 _Intl1924_            = 'Intl1924'           # PYCHOK OK
 _INV_                 = 'INV'                # PYCHOK INValid
 _invalid_             = 'invalid'            # PYCHOK OK
-_invokation_          = 'invokation'         # PYCHOK OK
 _j_                   = 'j'                  # PYCHOK OK
 _k0_                  = 'k0'                 # PYCHOK OK
 _keyword_             = 'keyword'            # PYCHOK OK
@@ -446,7 +445,7 @@ _Txyzsxyz7 = 'tx', 'ty', 'tz', _s_, 'sx', 'sy', 'sz'  # PYCHOK in .datums, .trf
 
 __all__ = (_NN_,  # NOT MISSING!
             Str_.__name__)  # classes
-__version__ = '26.07.21'
+__version__ = '26.11.01'
 
 if __name__ == _DMAIN_:
 
@@ -469,7 +468,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

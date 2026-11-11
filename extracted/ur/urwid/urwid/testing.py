@@ -25,15 +25,18 @@ Every check raises :exc:`AssertionError` with a message, so the helpers work wit
 from __future__ import annotations
 
 import collections
+import math
+import time
 import typing
 
 from urwid.canvas import CanvasCache
 from urwid.display.common import BaseScreen
-from urwid.event_loop import ExitMainLoop
+from urwid.event_loop import ExitMainLoop, SelectEventLoop
 from urwid.util import get_encoding, is_mouse_event
 from urwid.widget.constants import Sizing
 
 if typing.TYPE_CHECKING:
+    import selectors
     from collections.abc import Callable, Hashable, Iterable
     from typing import Literal
 
@@ -48,6 +51,8 @@ if typing.TYPE_CHECKING:
 
 __all__ = (
     "ScriptedScreen",
+    "VirtualClockEventLoop",
+    "attrs_for_text",
     "check_box_sizing",
     "check_fixed_sizing",
     "check_flow_sizing",
@@ -121,6 +126,33 @@ def render_runs(widget: AbstractWidget, size: _Size, *, focus: bool = False) -> 
     :returns: one list of ``(attr, text)`` pairs per canvas row, the text decoded with the target encoding.
     """
     return _runs(widget.render(size, focus=focus))
+
+
+def attrs_for_text(
+    widget: AbstractWidget,
+    size: _Size,
+    text: str,
+    *,
+    focus: bool = False,
+) -> frozenset[Hashable]:
+    """Render *widget* and return the display attributes of the runs that contain *text*.
+
+    Adjacent runs with the same attribute are merged first, as in :func:`render_runs`,
+    so *text* is found even where the canvas splits it.
+
+    >>> from urwid import Text
+    >>> attrs_for_text(Text([("bold", "Hi"), " there"]), (10,), "Hi")
+    frozenset({'bold'})
+    >>> attrs_for_text(Text([("bold", "Hi"), " there"]), (10,), "Hi there")
+    frozenset()
+
+    :param widget: widget to render
+    :param size: size to render *widget* with: ``()``, ``(cols,)`` or ``(cols, rows)``
+    :param text: text to look for within one run
+    :param focus: whether *widget* is rendered in focus
+    :returns: the attribute of every run containing *text*; empty when no single run contains it.
+    """
+    return frozenset(attr for row in render_runs(widget, size, focus=focus) for attr, run in row if text in run)
 
 
 class _PaletteScreen(BaseScreen):
@@ -398,6 +430,12 @@ class ScriptedScreen(BaseScreen):
     The input batches are consumed, so one screen scripts one :meth:`~urwid.MainLoop.run`. Alarms still pending
     after the last batch never fire.
 
+    ``inputs=None`` makes the screen unscripted: it feeds no input and never ends the loop.
+    A :class:`~urwid.MainLoop` started on it with :meth:`~urwid.MainLoop.start` keeps serving alarms, watched files
+    and :meth:`~urwid.MainLoop.call_from_thread` calls under :meth:`VirtualClockEventLoop.run_until_idle`,
+    and the screen still records the frames drawn.
+    :meth:`~urwid.MainLoop.run` on it returns only when a callback raises :exc:`~urwid.ExitMainLoop`.
+
     >>> from urwid import Edit, Filler, MainLoop
     >>> screen = ScriptedScreen(size=(6, 1), inputs=[["a", "b"], ["backspace"]])
     >>> MainLoop(Filler(Edit("> ")), screen=screen).run()
@@ -411,17 +449,18 @@ class ScriptedScreen(BaseScreen):
         self,
         *,
         size: tuple[int, int] = (80, 24),
-        inputs: Iterable[Iterable[_Input]] = (),
+        inputs: Iterable[Iterable[_Input]] | None = (),
     ) -> None:
         """Create an unstarted screen.
 
         :param size: ``(cols, rows)`` returned by :meth:`get_cols_rows`; assign :attr:`size` to resize, then
             script a ``"window resize"`` key
-        :param inputs: batches of keys and mouse event tuples, one batch returned by each :meth:`get_input`
+        :param inputs: batches of keys and mouse event tuples, one batch returned by each :meth:`get_input`;
+            ``None`` for an unscripted screen, which feeds no input and never ends the loop
         :raises TypeError: a batch is not a sequence of keys and mouse event tuples.
         """
         batches: list[list[_Input]] = []
-        for batch in inputs:
+        for batch in () if inputs is None else inputs:
             items = None if isinstance(batch, (str, bytes)) or is_mouse_event(batch) else list(batch)
             if items is None or not all(isinstance(item, str) or is_mouse_event(item) for item in items):
                 raise TypeError(f"each input batch must be a sequence of keys and mouse event tuples, got {batch!r}")
@@ -433,7 +472,8 @@ class ScriptedScreen(BaseScreen):
         self.canvases: list[Canvas] = []
         #: number of :meth:`draw_screen` calls, recorded or not
         self.draw_count = 0
-        self._inputs = collections.deque(batches)
+        # None for an unscripted screen.
+        self._inputs = None if inputs is None else collections.deque(batches)
         self._frame: tuple[tuple[int, int], list[typing.Any], tuple[int, int] | None] | None = None
         self._event_loop: EventLoop | None = None
         self._callback: Callable[[list[_Input], list[int]], typing.Any] | None = None
@@ -454,6 +494,8 @@ class ScriptedScreen(BaseScreen):
     def draw_screen(self, size: tuple[int, int], canvas: Canvas) -> None:
         """Record *canvas* unless it shows the same frame as the last one, then schedule the next input batch.
 
+        An unscripted screen schedules no input.
+
         :param size: ``(cols, rows)`` the canvas was rendered for
         :param canvas: canvas to show
         """
@@ -462,7 +504,7 @@ class ScriptedScreen(BaseScreen):
         if frame != self._frame:
             self._frame = frame
             self.canvases.append(canvas)
-        if self._event_loop is not None and self._feed_handle is None:
+        if self._inputs is not None and self._event_loop is not None and self._feed_handle is None:
             self._feed_handle = self._event_loop.alarm(0, self._feed)
 
     def _feed(self) -> None:
@@ -480,12 +522,15 @@ class ScriptedScreen(BaseScreen):
         """Return the next input batch.
 
         :param raw_keys: also return the raw key codes, which are always empty
-        :returns: the batch, or ``(batch, [])`` when *raw_keys* is true.
+        :returns: the batch, or ``(batch, [])`` when *raw_keys* is true; an unscripted screen returns an empty batch.
         :raises ExitMainLoop: the scripted batches are used up.
         """
-        if not self._inputs:
+        if self._inputs is None:
+            batch: list[_Input] = []
+        elif self._inputs:
+            batch = self._inputs.popleft()
+        else:
             raise ExitMainLoop
-        batch = self._inputs.popleft()
         if raw_keys:
             return batch, []
         return batch
@@ -496,6 +541,8 @@ class ScriptedScreen(BaseScreen):
         callback: Callable[[list[_Input], list[int]], typing.Any],
     ) -> None:
         """Feed the input batches to *callback* through alarms of *event_loop*, one after every draw.
+
+        An unscripted screen feeds nothing.
 
         :param event_loop: event loop to schedule the batches on
         :param callback: function taking the keys and the raw key codes of one batch
@@ -513,3 +560,212 @@ class ScriptedScreen(BaseScreen):
             self._feed_handle = None
         self._event_loop = None
         self._callback = None
+
+
+class VirtualClockEventLoop(SelectEventLoop):
+    """Event loop whose alarms fire on a clock of its own, which jumps to the next alarm instead of waiting for it.
+
+    Pass it as ``MainLoop(..., event_loop=VirtualClockEventLoop())`` to test a widget or an application that sets
+    alarms, such as :class:`~urwid.Notifications`, without real delays.
+    :meth:`~urwid.MainLoop.set_alarm_in` schedules against this clock.
+    :meth:`~urwid.MainLoop.set_alarm_at` still takes a :func:`time.time` value, and only its offset from now counts.
+    Alarms due together fire in the order they were set,
+    and the loop enters idle, drawing the screen, as :class:`~urwid.SelectEventLoop` does.
+
+    Watched files are polled without waiting, so input, :meth:`~urwid.MainLoop.watch_pipe` and
+    :meth:`~urwid.MainLoop.call_from_thread` work as on the select loop.
+    The clock moves only while no watched file is readable, so a file that stays readable keeps later alarms from
+    coming due until *timeout* runs out.
+    A loop with nothing left to do but watch files waits for them in real time, up to *timeout*.
+    :meth:`run_until_idle` runs every pending alarm and readable file instead, and returns once none is left.
+
+    The clock is the loop's own: code that reads :func:`time.monotonic` itself does not see it move.
+
+    >>> from urwid import MainLoop, Notifications, SolidFill
+    >>> event_loop = VirtualClockEventLoop()
+    >>> loop = MainLoop(SolidFill(), screen=ScriptedScreen(), event_loop=event_loop)
+    >>> notifications = Notifications(loop=loop, timeout=5)
+    >>> _ = notifications.notify("saved")
+    >>> event_loop.advance(4.9)
+    >>> len(notifications.notifications), event_loop.now
+    (1, 4.9)
+    >>> event_loop.advance(0.1)
+    >>> len(notifications.notifications)
+    0
+    """
+
+    def __init__(self, *, timeout: float = 5.0) -> None:
+        """Create a loop whose clock reads 0.
+
+        :param timeout: seconds of real time a :meth:`run`, an :meth:`advance` or a :meth:`run_until_idle` may take
+        """
+        super().__init__()
+        self._timeout = timeout
+        self._now = 0.0
+        self._deadline: float | None = None
+        # Clock time an advance() stops at, math.inf for run_until_idle(); None while run() runs.
+        self._target: float | None = None
+        self._reached = False
+        # Seconds of real time spent watching files before the clock jumps to the next alarm.
+        self._pause = 0.0
+
+    @property
+    def now(self) -> float:
+        """Return the time of the loop's clock, in seconds since the loop was created."""
+        return self._now
+
+    def advance(self, seconds: float) -> None:
+        """Move the clock *seconds* ahead, firing every alarm that comes due on the way.
+
+        Alarms fire in the order they come due, each with the clock at its due time,
+        and the loop enters idle before the clock moves on.
+        Readable watched files are served on the way, but the loop does not wait for one.
+        Exceptions raised by the callbacks, :exc:`~urwid.ExitMainLoop` included, reach the caller.
+
+        :param seconds: how far to move the clock; 0 fires the alarms already due
+        :raises ValueError: *seconds* is negative.
+        :raises RuntimeError: called from a callback of an :meth:`advance`, a :meth:`run` or a
+            :meth:`run_until_idle` of this loop.
+        :raises TimeoutError: the alarms still came due after *timeout* seconds of real time.
+        """
+        if seconds < 0:
+            raise ValueError(f"seconds must not be negative, got {seconds!r}")
+        target = self._now + seconds
+        self._run_to(target, pause=0.0)
+        self._now = target
+
+    def run_until_idle(self, *, pause: float = 0.0) -> None:
+        """Fire every pending alarm and serve every readable watched file, until none is left.
+
+        The clock jumps from alarm to alarm, as in :meth:`advance`, and stops at the last alarm that fired.
+        Alarms set by the callbacks fire in the same call.
+        The loop enters idle before it returns, so a started :class:`~urwid.MainLoop` has drawn the screen.
+        A watched file that is not readable is waited for only during the pauses.
+        Exceptions raised by the callbacks, :exc:`~urwid.ExitMainLoop` included, reach the caller.
+
+        >>> event_loop = VirtualClockEventLoop()
+        >>> _ = event_loop.alarm(3, lambda: event_loop.alarm(2, lambda: None))
+        >>> event_loop.run_until_idle()
+        >>> event_loop.now
+        5.0
+
+        A :class:`~urwid.MainLoop` started on an unscripted :class:`ScriptedScreen` serves
+        :meth:`~urwid.MainLoop.call_from_thread` calls and its alarms here, without :meth:`~urwid.MainLoop.run`:
+
+        >>> from urwid import MainLoop, SolidFill
+        >>> event_loop = VirtualClockEventLoop()
+        >>> loop = MainLoop(SolidFill(), screen=ScriptedScreen(inputs=None), event_loop=event_loop)
+        >>> with loop.start():
+        ...     loop.call_from_thread(print, "called back")
+        ...     _ = loop.set_alarm_in(1, lambda *_: print("alarm"))
+        ...     event_loop.run_until_idle()
+        called back
+        alarm
+
+        :param pause: seconds of real time to watch the files before each jump of the clock to the next alarm,
+            so a worker thread polled by an alarm can hand back its result, for example through
+            :meth:`~urwid.MainLoop.call_from_thread`; the pauses count toward *timeout*
+        :raises ValueError: *pause* is negative or not finite.
+        :raises RuntimeError: called from a callback of an :meth:`advance`, a :meth:`run` or a
+            :meth:`run_until_idle` of this loop.
+        :raises TimeoutError: alarms were still pending, or a file still readable, after *timeout* seconds of
+            real time.
+        """
+        if not (math.isfinite(pause) and pause >= 0):
+            raise ValueError(f"pause must be finite and not negative, got {pause!r}")
+        self._run_to(math.inf, pause=pause)
+
+    def _run_to(self, target: float, *, pause: float) -> None:
+        """Run the loop until the next alarm is due after *target* and no file is readable.
+
+        :param target: clock time to stop at; :data:`math.inf` runs until no alarm is pending
+        :param pause: seconds of real time to watch the files before the clock jumps to the next alarm
+        :raises RuntimeError: an :meth:`advance`, a :meth:`run` or a :meth:`run_until_idle` of this loop is running.
+        :raises TimeoutError: the loop still ran after *timeout* seconds of real time.
+        """
+        self._check_not_running()
+        self._target = target
+        self._pause = pause
+        self._reached = False
+        self._deadline = time.monotonic() + self._timeout
+        try:
+            while not self._reached and (self._alarms or self._did_something or self._watch_files):
+                self._loop()
+        finally:
+            self._target = None
+            self._pause = 0.0
+            self._deadline = None
+
+    def run(self) -> None:
+        """Run the loop until a callback raises :exc:`~urwid.ExitMainLoop`.
+
+        :raises TimeoutError: the loop still ran after *timeout* seconds of real time.
+        :raises RuntimeError: no alarm is pending and no file is watched, so the loop would wait forever.
+            Also when called from a callback of an :meth:`advance`, a :meth:`run` or a :meth:`run_until_idle` of
+            this loop.
+        """
+        self._check_not_running()
+        self._deadline = time.monotonic() + self._timeout
+        try:
+            super().run()
+        finally:
+            self._deadline = None
+
+    def _check_not_running(self) -> None:
+        """Refuse to start a run inside another one, which would overwrite its target and deadline.
+
+        :raises RuntimeError: an :meth:`advance`, a :meth:`run` or a :meth:`run_until_idle` of this loop is running.
+        """
+        # Each of them sets the deadline for its whole duration, and only they set it.
+        if self._deadline is not None:
+            raise RuntimeError("advance(), run() and run_until_idle() cannot be called while the loop runs")
+
+    def _loop(self) -> None:
+        """Run one iteration of the loop, unless it has run out of real time or has nothing to wait for."""
+        if self._deadline is not None and time.monotonic() >= self._deadline:
+            raise TimeoutError(f"the event loop still ran after {self._timeout} seconds")
+        if not (self._alarms or self._did_something or self._watch_files):
+            raise RuntimeError("no alarm is pending and no file is watched, so the event loop would wait forever")
+        super()._loop()
+
+    def _clock(self) -> float:
+        """Return the time of the loop's clock."""
+        return self._now
+
+    def _wait(self, selector: selectors.BaseSelector, timeout: float | None) -> list[selectors.SelectorKey]:
+        """Return the readable watched files.
+
+        When none is readable, the clock moves to the next alarm.
+        A :meth:`run_until_idle` with a pause first watches the files, or sleeps when none is watched,
+        for that pause or until its deadline.
+        An :meth:`advance` or a :meth:`run_until_idle` with no alarm due at or before its target ends instead.
+        A :meth:`run` with no alarm pending waits for a file in real time, up to its deadline.
+
+        :param selector: selector registering every watched file
+        :param timeout: seconds until the next alarm is due; ``None`` when none is pending
+        :returns: the keys of the readable files.
+        :raises TimeoutError: :meth:`run` waited for a watched file until the real-time deadline.
+        """
+        if self._watch_files and (ready := [event for event, _ in selector.select(0)]):
+            return ready
+        if timeout == 0:
+            return []
+        # A positive timeout always runs to the first alarm.
+        due = None if timeout is None else self._alarms[0][0]
+        if self._target is not None and (due is None or due > self._target):
+            # advance() sets the clock to its target once the loop has stopped.
+            self._reached = True
+            return []
+        if due is not None:
+            if self._pause and self._deadline is not None:
+                pause = min(self._pause, max(0.0, self._deadline - time.monotonic()))
+                if not self._watch_files:
+                    time.sleep(pause)
+                elif ready := [event for event, _ in selector.select(pause)]:
+                    return ready
+            self._now = due
+            return []
+        remaining = 0.0 if self._deadline is None else max(0.0, self._deadline - time.monotonic())
+        if self._watch_files and (ready := [event for event, _ in selector.select(remaining)]):
+            return ready
+        raise TimeoutError(f"no watched file became readable within {self._timeout} seconds")

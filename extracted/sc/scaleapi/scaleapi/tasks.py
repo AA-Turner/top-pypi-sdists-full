@@ -10,6 +10,7 @@ class TaskType(Enum):
     Comparison = "comparison"
     CuboidAnnotation = "cuboidannotation"
     DataCollection = "datacollection"
+    DataCollectionV2 = "datacollectionv2"
     DocumentModel = "documentmodel"
     DocumentTranscription = "documenttranscription"
     ImageAnnotation = "imageannotation"
@@ -99,6 +100,17 @@ class Task:
     def audit(self, accepted: bool, comments: str = None):
         """Submit an audit to a completed task"""
         self._client.audit_task(self.id, accepted, comments)
+
+    def create_fixless_audit(self, target_response_url: str, accepted: bool, **kwargs):
+        """Creates a fixless audit on this task.
+        See `ScaleClient.create_fixless_audit` for arguments."""
+        return self._client.create_fixless_audit(
+            self.id, target_response_url, accepted, **kwargs
+        )
+
+    def audits(self):
+        """Returns all audits of this task, newest first"""
+        return self._client.get_task_audits(self.id)
 
     def update_unique_id(self, unique_id: str):
         """Updates unique_id of a task"""

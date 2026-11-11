@@ -43,6 +43,7 @@ pub mod exclude;
 pub mod literate_nav;
 pub mod llmstxt;
 pub mod meta;
+pub mod meta_descriptions;
 pub mod minify;
 pub mod mkdocstrings;
 pub mod nav_weight;
@@ -69,9 +70,12 @@ pub struct HtmlFacts {
     pub search: Arc<search::Facts>,
     /// Page-local tag mappings and listing slots.
     pub tags: Arc<tags::Facts>,
-    /// CommonMark rebuilt for a page selected by llmstxt.
+    /// Conversion inputs retained for a page selected by llmstxt.
     #[serde(default)]
-    pub llmstxt: Option<Arc<str>>,
+    pub llmstxt: Option<Arc<llmstxt::Content>>,
+    /// Whether a description was generated from the first paragraph.
+    #[serde(default)]
+    pub meta_description_generated: bool,
 }
 
 // ----------------------------------------------------------------------------
@@ -89,6 +93,8 @@ pub struct Settings {
     pub blog: blog::Blog,
     /// LLM text output compatibility pipeline.
     pub llmstxt: Arc<llmstxt::Llmstxt>,
+    /// Automatic meta descriptions compatibility pipeline.
+    pub meta_descriptions: meta_descriptions::MetaDescriptions,
 }
 
 // ----------------------------------------------------------------------------
@@ -104,6 +110,7 @@ impl Settings {
             tags: tags::Tags::new(config, serve),
             blog: blog::Blog::new(config, serve),
             llmstxt: Arc::new(llmstxt::Llmstxt::new(config)),
+            meta_descriptions: meta_descriptions::MetaDescriptions::new(config),
         }
     }
 }
@@ -193,6 +200,7 @@ pub fn prepare(
         Some(tags::Parser::new(&settings.tags, source, &markdown.meta)?)
     };
     let mut llmstxt = settings.llmstxt.parser(source, url)?;
+    let mut descriptions = settings.meta_descriptions.parser(markdown);
 
     // Compose enabled observers dynamically so adding a compatibility module
     // doesn't grow an exhaustive Boolean match or another HTML traversal.
@@ -209,12 +217,18 @@ pub fn prepare(
     if let Some(parser) = &mut llmstxt {
         visitors.push(parser);
     }
+    if let Some(parser) = &mut descriptions {
+        visitors.push(parser);
+    }
     let content = (!visitors.is_empty())
         .then(|| html::scan(&markdown.content, &mut visitors))
         .flatten();
     if let Some(content) = content {
         markdown.replace_content(content);
     }
+    let meta_description_generated = descriptions.is_some_and(|parser| {
+        settings.meta_descriptions.apply(parser, markdown)
+    });
 
     let requires_search_cleanup = search.requires_cleanup();
     let mut tag_facts = match tags {
@@ -232,6 +246,16 @@ pub fn prepare(
         })
         .unwrap_or_default();
 
+    let llmstxt = llmstxt.map(|parser| {
+        Arc::new(if references.is_empty() {
+            llmstxt::Content::Markdown(Arc::from(parser.finish()))
+        } else {
+            // Conversion is deferred so links are serialized in their full
+            // context after the revision-complete registry has been built.
+            llmstxt::Content::Html(Arc::from(markdown.content.as_str()))
+        })
+    });
+
     Ok(HtmlFacts {
         autorefs: references,
         autorefs_registrations: registrations,
@@ -241,6 +265,7 @@ pub fn prepare(
             Arc::default()
         },
         tags: Arc::new(tag_facts),
-        llmstxt: llmstxt.map(|parser| Arc::from(parser.finish())),
+        llmstxt,
+        meta_description_generated,
     })
 }

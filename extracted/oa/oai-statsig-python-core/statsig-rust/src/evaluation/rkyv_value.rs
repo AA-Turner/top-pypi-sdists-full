@@ -1,7 +1,15 @@
-use std::collections::HashMap;
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt,
+};
 
 use rkyv::Archive;
-use serde::ser::{SerializeMap, SerializeSeq};
+use serde::{
+    Deserialize, Deserializer,
+    de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
+    ser::{SerializeMap, SerializeSeq},
+};
+use serde_json::{Number, Value};
 
 use crate::hashing;
 
@@ -194,17 +202,197 @@ pub(crate) fn push_stable_object_hash<'a, T: StableHashValue + 'a>(
     }
 }
 
-impl<'de> serde::Deserialize<'de> for RkyvValue {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        // serde_json represents numbers as a private marker map while buffering an
-        // untagged enum when its arbitrary_precision feature is enabled. Let Value's
-        // deserializer consume that representation before mapping into the rkyv schema.
-        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
-        Self::from_json_value(value).map_err(serde::de::Error::custom)
+impl<'de> Deserialize<'de> for RkyvValue {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        RkyvValueVisitor
+            .deserialize(deserializer)?
+            .map_err(D::Error::custom)
     }
+}
+
+struct RkyvValueVisitor;
+
+impl<'de> DeserializeSeed<'de> for RkyvValueVisitor {
+    // Serde errors stop the parse. A number conversion error is a decoded
+    // result until we know that a later duplicate key hasn't overwritten it.
+    type Value = Result<RkyvValue, String>;
+
+    fn deserialize<D: Deserializer<'de>>(self, deserializer: D) -> Result<Self::Value, D::Error> {
+        deserializer.deserialize_any(self)
+    }
+}
+
+impl<'de> Visitor<'de> for RkyvValueVisitor {
+    type Value = Result<RkyvValue, String>;
+
+    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("any valid JSON value")
+    }
+    fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
+        Ok(Ok(RkyvValue::Null))
+    }
+    fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
+        self.visit_unit()
+    }
+    fn visit_some<D: Deserializer<'de>>(self, deserializer: D) -> Result<Self::Value, D::Error> {
+        self.deserialize(deserializer)
+    }
+    fn visit_bool<E: Error>(self, v: bool) -> Result<Self::Value, E> {
+        Ok(Ok(RkyvValue::Bool(v)))
+    }
+    fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+        Ok(Ok(RkyvValue::Number(RkyvNumber::PosInt(v))))
+    }
+    fn visit_i64<E: Error>(self, v: i64) -> Result<Self::Value, E> {
+        // serde_json classifies nonnegative signed integers as unsigned.
+        let number = if v < 0 {
+            RkyvNumber::NegInt(v)
+        } else {
+            RkyvNumber::PosInt(v as u64)
+        };
+        Ok(Ok(RkyvValue::Number(number)))
+    }
+    fn visit_f64<E: Error>(self, v: f64) -> Result<Self::Value, E> {
+        Ok(Number::from_f64(v).map_or(Ok(RkyvValue::Null), decode_number))
+    }
+    fn visit_i128<E: Error>(self, v: i128) -> Result<Self::Value, E> {
+        Number::deserialize(serde::de::value::I128Deserializer::<E>::new(v)).map(decode_number)
+    }
+    fn visit_u128<E: Error>(self, v: u128) -> Result<Self::Value, E> {
+        Number::deserialize(serde::de::value::U128Deserializer::<E>::new(v)).map(decode_number)
+    }
+    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        self.visit_string(v.to_owned())
+    }
+    fn visit_string<E: Error>(self, v: String) -> Result<Self::Value, E> {
+        Ok(Ok(RkyvValue::String(v)))
+    }
+    fn visit_seq<A: SeqAccess<'de>>(self, mut a: A) -> Result<Self::Value, A::Error> {
+        let mut values = Vec::new();
+        let mut error = None;
+        while let Some(v) = a.next_element_seed(RkyvValueVisitor)? {
+            match v {
+                Ok(v) if error.is_none() => values.push(v),
+                Err(e) if error.is_none() => error = Some(e),
+                _ => {}
+            }
+        }
+        Ok(error.map_or_else(|| Ok(RkyvValue::Array(values)), Err))
+    }
+    fn visit_map<A: MapAccess<'de>>(self, mut a: A) -> Result<Self::Value, A::Error> {
+        let mut key = match a.next_key_seed(FirstKeyVisitor)? {
+            None => return Ok(Ok(RkyvValue::Object(HashMap::new()))),
+            Some(FirstKey::Map(key)) => key,
+            Some(FirstKey::Marker(marker)) => {
+                // Replay fixed markers without allocating their names. Value
+                // retains serde_json's feature-sensitive and generic handling:
+                // without arbitrary_precision, Number is an ordinary user key.
+                let value = Value::deserialize(serde::de::value::MapAccessDeserializer::new(
+                    FirstKeyMapAccess {
+                        first: Some(marker),
+                        rest: a,
+                    },
+                ))?;
+                return Ok(RkyvValue::from_json_value(value));
+            }
+        };
+        let mut values = HashMap::new();
+        // Keep errors by key so a later duplicate can replace an invalid value.
+        let mut invalid = BTreeMap::new();
+        loop {
+            match a.next_value_seed(RkyvValueVisitor)? {
+                Ok(value) => {
+                    invalid.remove(&key);
+                    values.insert(key, value);
+                }
+                Err(error) => {
+                    values.remove(&key);
+                    invalid.insert(key, error);
+                }
+            }
+            match a.next_key::<String>()? {
+                Some(next) => key = next,
+                None => break,
+            }
+        }
+        Ok(match invalid.into_iter().next() {
+            Some((_, e)) => Err(e),
+            None => Ok(RkyvValue::Object(values)),
+        })
+    }
+}
+enum FirstKey {
+    Marker(&'static str),
+    Map(String),
+}
+
+impl FirstKey {
+    fn marker(value: &str) -> Option<Self> {
+        match value {
+            "$serde_json::private::Number" => Some(Self::Marker("$serde_json::private::Number")),
+            "$serde_json::private::RawValue" => {
+                Some(Self::Marker("$serde_json::private::RawValue"))
+            }
+            _ => None,
+        }
+    }
+}
+
+// Value's first key only accepts string callbacks. Subsequent keys deliberately
+// still use String, matching its broader generic-Serde behavior for later keys.
+struct FirstKeyVisitor;
+
+impl<'de> DeserializeSeed<'de> for FirstKeyVisitor {
+    type Value = FirstKey;
+
+    fn deserialize<D: Deserializer<'de>>(self, deserializer: D) -> Result<Self::Value, D::Error> {
+        deserializer.deserialize_str(self)
+    }
+}
+
+impl<'de> Visitor<'de> for FirstKeyVisitor {
+    type Value = FirstKey;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string key")
+    }
+
+    fn visit_str<E: Error>(self, value: &str) -> Result<Self::Value, E> {
+        Ok(FirstKey::marker(value).unwrap_or_else(|| FirstKey::Map(value.to_owned())))
+    }
+
+    fn visit_string<E: Error>(self, value: String) -> Result<Self::Value, E> {
+        Ok(FirstKey::marker(&value).unwrap_or(FirstKey::Map(value)))
+    }
+}
+
+struct FirstKeyMapAccess<M> {
+    first: Option<&'static str>,
+    rest: M,
+}
+impl<'de, M: MapAccess<'de>> MapAccess<'de> for FirstKeyMapAccess<M> {
+    type Error = M::Error;
+    fn next_key_seed<K: DeserializeSeed<'de>>(
+        &mut self,
+        seed: K,
+    ) -> Result<Option<K::Value>, Self::Error> {
+        match self.first.take() {
+            Some(key) => seed
+                .deserialize(serde::de::value::StrDeserializer::<Self::Error>::new(key))
+                .map(Some),
+            None => self.rest.next_key_seed(seed),
+        }
+    }
+    fn next_value_seed<VS: DeserializeSeed<'de>>(
+        &mut self,
+        seed: VS,
+    ) -> Result<VS::Value, Self::Error> {
+        self.rest.next_value_seed(seed)
+    }
+}
+
+fn decode_number(number: Number) -> Result<RkyvValue, String> {
+    RkyvValue::from_json_value(Value::Number(number))
 }
 
 impl serde::Serialize for ArchivedRkyvValue {

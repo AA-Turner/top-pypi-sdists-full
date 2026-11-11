@@ -898,7 +898,7 @@ class RapidataBenchmark:
                 The identifiers that are used must be registered for the benchmark. To see the registered identifiers, use the identifiers property.
             prompts: The prompts that correspond to the media. The order of the prompts must match the order of the media.
             data_type: The type of data being provided. Use "media" for images/videos/audio (default) or "text" for text content.
-            is_public: If False, only members of the benchmark's organization and staff see the model, and models submitted later don't play it. (default: True)
+            is_public: If False, only members of the benchmark's organization and staff see the model. It affects only visibility: the model plays and is played like any other, and changing it starts no matchups. (default: True)
             is_candidate: If True, the model plays the whole field in its own run, but models submitted later don't play it until you call :meth:`BenchmarkParticipant.promote`. (default: False)
 
         Returns:
@@ -1214,12 +1214,7 @@ class RapidataBenchmark:
                 benchmark_id=self.id,
                 tags=in_filter(tags),
                 leaderboard_id=in_filter(leaderboard_ids),
-                country=votes.country,
-                language=votes.language,
-                gender=votes.gender,
-                age_bucket=votes.age_bucket,
-                occupation=votes.occupation,
-                run_id=votes.run_id,
+                **votes,
                 include_deprecated_participants=include_deprecated_filter(
                     include_deprecated
                 ),
@@ -1308,12 +1303,7 @@ class RapidataBenchmark:
                 participant_id=in_filter(participant_ids),
                 leaderboard_id=in_filter(leaderboard_ids),
                 use_weighted_scoring=use_weighted_scoring,
-                country=votes.country,
-                language=votes.language,
-                gender=votes.gender,
-                age_bucket=votes.age_bucket,
-                occupation=votes.occupation,
-                run_id=votes.run_id,
+                **votes,
                 include_deprecated_participants=include_deprecated_filter(
                     include_deprecated
                 ),
@@ -1372,12 +1362,7 @@ class RapidataBenchmark:
                 benchmark_id=self.id,
                 tags=in_filter(tags),
                 leaderboard_id=in_filter(leaderboard_ids),
-                country=votes.country,
-                language=votes.language,
-                gender=votes.gender,
-                age_bucket=votes.age_bucket,
-                occupation=votes.occupation,
-                run_id=votes.run_id,
+                **votes,
             )
 
             dimensions = result.dimensions
@@ -1453,12 +1438,7 @@ class RapidataBenchmark:
                 dimension=BenchmarkDemographicDimension(dimension),
                 tags=in_filter(tags),
                 leaderboard_id=in_filter(leaderboard_ids),
-                country=votes.country,
-                language=votes.language,
-                gender=votes.gender,
-                age_bucket=votes.age_bucket,
-                occupation=votes.occupation,
-                run_id=votes.run_id,
+                **votes,
             )
 
             rows = []

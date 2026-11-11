@@ -11,6 +11,7 @@ import json
 import os
 import shlex
 import sys
+import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -268,6 +269,25 @@ class TestSyncTimeout:
             assert exc_info.value.code == HOST_TIMEOUT
             assert transport.state == 'DISCONNECTED'
         finally:
+            _cleanup_wrapper(cli)
+
+    def test_watchdog_bounds_a_write_the_host_never_reads(self):
+        cli = _mock_cli_bin({'handshake': 'ok', 'stop_reading_after_handshake': True})
+        transport = SyncHostTransport(cli, startup_timeout_ms=5_000, watchdog_timeout_ms=300)
+        subscription = transport.subscribe()
+        try:
+            transport.connect()
+            started = time.monotonic()
+            with pytest.raises(SuperDocError) as exc_info:
+                transport.invoke(_TEST_OP, {'query': 'x' * 4_000_000})
+            assert exc_info.value.code == HOST_TIMEOUT
+            assert time.monotonic() - started < 5
+            assert transport.state == 'DISCONNECTED'
+            with pytest.raises(SuperDocError) as disconnected:
+                subscription.recv(timeout=1)
+            assert disconnected.value.code == HOST_DISCONNECTED
+        finally:
+            transport.dispose()
             _cleanup_wrapper(cli)
 
 

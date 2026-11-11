@@ -2833,6 +2833,596 @@ class CfnMetricAttributionProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IRecommenderRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnRecommender(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_personalize.CfnRecommender",
+):
+    '''A recommender for a Domain dataset group that generates recommendations using a domain use case recipe.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recommender.html
+    :cloudformationResource: AWS::Personalize::Recommender
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_personalize as personalize
+        
+        cfn_recommender = personalize.CfnRecommender(self, "MyCfnRecommender",
+            dataset_group_arn="datasetGroupArn",
+            name="name",
+            recipe_arn="recipeArn",
+        
+            # the properties below are optional
+            recommender_config=personalize.CfnRecommender.RecommenderConfigProperty(
+                enable_metadata_with_recommendations=False,
+                item_exploration_config={
+                    "item_exploration_config_key": "itemExplorationConfig"
+                },
+                min_recommendation_requests_per_second=123,
+                training_data_config=personalize.CfnRecommender.TrainingDataConfigProperty(
+                    excluded_dataset_columns={
+                        "excluded_dataset_columns_key": ["excludedDatasetColumns"]
+                    }
+                )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        dataset_group_arn: builtins.str,
+        name: builtins.str,
+        recipe_arn: builtins.str,
+        recommender_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecommender.RecommenderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Personalize::Recommender``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param dataset_group_arn: The ARN of the Domain dataset group that the recommender is created for.
+        :param name: The name of the recommender.
+        :param recipe_arn: The ARN of the recipe (Domain dataset group use case) that the recommender uses.
+        :param recommender_config: The configuration details of the recommender.
+        :param tags: Tags to associate with the recommender.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__441a302ec41d0f4bb33d256ebe646ca8735f3661fb7b53717be26c567be98c7b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRecommenderProps(
+            dataset_group_arn=dataset_group_arn,
+            name=name,
+            recipe_arn=recipe_arn,
+            recommender_config=recommender_config,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRecommender")
+    @builtins.classmethod
+    def arn_for_recommender(
+        cls,
+        resource: "_aws_personalize_95c6aa61.IRecommenderRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__da76fee900b2cd7b4b4916d694ac80dc358c4e74cf337d4c7ad4a12bf55d9eac)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRecommender", [resource]))
+
+    @jsii.member(jsii_name="isCfnRecommender")
+    @builtins.classmethod
+    def is_cfn_recommender(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRecommender.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e94adb1ba5701ce9983686a75a808d6ca9829266303747d8a8e8159a61f857cf)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRecommender", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__63abb0fe3d778c30e64718d37d3801d5a9b7d7a4c28c77730d6e29d25ac59bb6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ad7855bb2c4b080e84635f5e789e1b55283cdca8c80259d4be5541e7b5eed076)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationDateTime")
+    def attr_creation_date_time(self) -> builtins.str:
+        '''The time at which the recommender was created.
+
+        :cloudformationAttribute: CreationDateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationDateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedDateTime")
+    def attr_last_updated_date_time(self) -> builtins.str:
+        '''The time at which the recommender was last updated.
+
+        :cloudformationAttribute: LastUpdatedDateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedDateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRecommenderArn")
+    def attr_recommender_arn(self) -> builtins.str:
+        '''The ARN of the recommender.
+
+        :cloudformationAttribute: RecommenderArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRecommenderArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the recommender.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderRef")
+    def recommender_ref(self) -> "_aws_personalize_95c6aa61.RecommenderReference":
+        '''A reference to a Recommender resource.'''
+        return typing.cast("_aws_personalize_95c6aa61.RecommenderReference", jsii.get(self, "recommenderRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetGroupArn")
+    def dataset_group_arn(self) -> builtins.str:
+        '''The ARN of the Domain dataset group that the recommender is created for.'''
+        return typing.cast(builtins.str, jsii.get(self, "datasetGroupArn"))
+
+    @dataset_group_arn.setter
+    def dataset_group_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2a84ea600b62d0667fe4e4ba4bd40f2847bf20387092dda5ef70fa6ccd1ae9d0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "datasetGroupArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the recommender.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a207f09d741ebc245b8a121b0dcb70ce4a8bf3f42e0d0162770a4287e6a59b70)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="recipeArn")
+    def recipe_arn(self) -> builtins.str:
+        '''The ARN of the recipe (Domain dataset group use case) that the recommender uses.'''
+        return typing.cast(builtins.str, jsii.get(self, "recipeArn"))
+
+    @recipe_arn.setter
+    def recipe_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__33b8381180384397a0874a8a1eb6a3ad4a4863a110e7b39dc9f9713a5048771f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recipeArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderConfig")
+    def recommender_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecommender.RecommenderConfigProperty"]]:
+        '''The configuration details of the recommender.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecommender.RecommenderConfigProperty"]], jsii.get(self, "recommenderConfig"))
+
+    @recommender_config.setter
+    def recommender_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecommender.RecommenderConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__72b3694bad157ee7bfe3c19d12563b597faf9222fe013c63dc865b230dfa7695)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recommenderConfig", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the recommender.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d19cf3a4c202328310305a8a52029870296454e49b5c4203ba9cdc812c850a6f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_personalize.CfnRecommender.RecommenderConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enable_metadata_with_recommendations": "enableMetadataWithRecommendations",
+            "item_exploration_config": "itemExplorationConfig",
+            "min_recommendation_requests_per_second": "minRecommendationRequestsPerSecond",
+            "training_data_config": "trainingDataConfig",
+        },
+    )
+    class RecommenderConfigProperty:
+        def __init__(
+            self,
+            *,
+            enable_metadata_with_recommendations: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            item_exploration_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            min_recommendation_requests_per_second: typing.Optional[jsii.Number] = None,
+            training_data_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecommender.TrainingDataConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration details of the recommender.
+
+            :param enable_metadata_with_recommendations: Whether metadata with recommendations is enabled for the recommender.
+            :param item_exploration_config: Specifies the exploration configuration hyperparameters.
+            :param min_recommendation_requests_per_second: Specifies the requested minimum provisioned recommendation requests per second.
+            :param training_data_config: The training data configuration to use when creating a domain recommender.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-recommender-recommenderconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_personalize as personalize
+                
+                recommender_config_property = personalize.CfnRecommender.RecommenderConfigProperty(
+                    enable_metadata_with_recommendations=False,
+                    item_exploration_config={
+                        "item_exploration_config_key": "itemExplorationConfig"
+                    },
+                    min_recommendation_requests_per_second=123,
+                    training_data_config=personalize.CfnRecommender.TrainingDataConfigProperty(
+                        excluded_dataset_columns={
+                            "excluded_dataset_columns_key": ["excludedDatasetColumns"]
+                        }
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5a5dd0dc5653aeb8cbc3a1fc404b8b87d45f6934a75039da7e3f3fdfb4517f32)
+                check_type(argname="argument enable_metadata_with_recommendations", value=enable_metadata_with_recommendations, expected_type=type_hints["enable_metadata_with_recommendations"])
+                check_type(argname="argument item_exploration_config", value=item_exploration_config, expected_type=type_hints["item_exploration_config"])
+                check_type(argname="argument min_recommendation_requests_per_second", value=min_recommendation_requests_per_second, expected_type=type_hints["min_recommendation_requests_per_second"])
+                check_type(argname="argument training_data_config", value=training_data_config, expected_type=type_hints["training_data_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enable_metadata_with_recommendations is not None:
+                self._values["enable_metadata_with_recommendations"] = enable_metadata_with_recommendations
+            if item_exploration_config is not None:
+                self._values["item_exploration_config"] = item_exploration_config
+            if min_recommendation_requests_per_second is not None:
+                self._values["min_recommendation_requests_per_second"] = min_recommendation_requests_per_second
+            if training_data_config is not None:
+                self._values["training_data_config"] = training_data_config
+
+        @builtins.property
+        def enable_metadata_with_recommendations(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Whether metadata with recommendations is enabled for the recommender.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-recommender-recommenderconfig.html#cfn-personalize-recommender-recommenderconfig-enablemetadatawithrecommendations
+            '''
+            result = self._values.get("enable_metadata_with_recommendations")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def item_exploration_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''Specifies the exploration configuration hyperparameters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-recommender-recommenderconfig.html#cfn-personalize-recommender-recommenderconfig-itemexplorationconfig
+            '''
+            result = self._values.get("item_exploration_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def min_recommendation_requests_per_second(
+            self,
+        ) -> typing.Optional[jsii.Number]:
+            '''Specifies the requested minimum provisioned recommendation requests per second.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-recommender-recommenderconfig.html#cfn-personalize-recommender-recommenderconfig-minrecommendationrequestspersecond
+            '''
+            result = self._values.get("min_recommendation_requests_per_second")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def training_data_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecommender.TrainingDataConfigProperty"]]:
+            '''The training data configuration to use when creating a domain recommender.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-recommender-recommenderconfig.html#cfn-personalize-recommender-recommenderconfig-trainingdataconfig
+            '''
+            result = self._values.get("training_data_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecommender.TrainingDataConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecommenderConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_personalize.CfnRecommender.TrainingDataConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"excluded_dataset_columns": "excludedDatasetColumns"},
+    )
+    class TrainingDataConfigProperty:
+        def __init__(
+            self,
+            *,
+            excluded_dataset_columns: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Sequence[builtins.str]]]] = None,
+        ) -> None:
+            '''The training data configuration to use when creating a domain recommender.
+
+            :param excluded_dataset_columns: Specifies the columns to exclude from training. Each key is a dataset type, and each value is a list of columns.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-recommender-trainingdataconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_personalize as personalize
+                
+                training_data_config_property = personalize.CfnRecommender.TrainingDataConfigProperty(
+                    excluded_dataset_columns={
+                        "excluded_dataset_columns_key": ["excludedDatasetColumns"]
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5bc9ab5ed4094a07639011b39018fba7ed93922b4cb0cd787d7465e8c938b455)
+                check_type(argname="argument excluded_dataset_columns", value=excluded_dataset_columns, expected_type=type_hints["excluded_dataset_columns"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if excluded_dataset_columns is not None:
+                self._values["excluded_dataset_columns"] = excluded_dataset_columns
+
+        @builtins.property
+        def excluded_dataset_columns(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.List[builtins.str]]]]:
+            '''Specifies the columns to exclude from training.
+
+            Each key is a dataset type, and each value is a list of columns.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-recommender-trainingdataconfig.html#cfn-personalize-recommender-trainingdataconfig-excludeddatasetcolumns
+            '''
+            result = self._values.get("excluded_dataset_columns")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.List[builtins.str]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TrainingDataConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.CfnRecommenderProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dataset_group_arn": "datasetGroupArn",
+        "name": "name",
+        "recipe_arn": "recipeArn",
+        "recommender_config": "recommenderConfig",
+        "tags": "tags",
+    },
+)
+class CfnRecommenderProps:
+    def __init__(
+        self,
+        *,
+        dataset_group_arn: builtins.str,
+        name: builtins.str,
+        recipe_arn: builtins.str,
+        recommender_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecommender.RecommenderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRecommender``.
+
+        :param dataset_group_arn: The ARN of the Domain dataset group that the recommender is created for.
+        :param name: The name of the recommender.
+        :param recipe_arn: The ARN of the recipe (Domain dataset group use case) that the recommender uses.
+        :param recommender_config: The configuration details of the recommender.
+        :param tags: Tags to associate with the recommender.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recommender.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            cfn_recommender_props = personalize.CfnRecommenderProps(
+                dataset_group_arn="datasetGroupArn",
+                name="name",
+                recipe_arn="recipeArn",
+            
+                # the properties below are optional
+                recommender_config=personalize.CfnRecommender.RecommenderConfigProperty(
+                    enable_metadata_with_recommendations=False,
+                    item_exploration_config={
+                        "item_exploration_config_key": "itemExplorationConfig"
+                    },
+                    min_recommendation_requests_per_second=123,
+                    training_data_config=personalize.CfnRecommender.TrainingDataConfigProperty(
+                        excluded_dataset_columns={
+                            "excluded_dataset_columns_key": ["excludedDatasetColumns"]
+                        }
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aa7965fb5547a2f5f8b9f04f254f635ce3ba4b53e094b378540f08cf0a47f9ff)
+            check_type(argname="argument dataset_group_arn", value=dataset_group_arn, expected_type=type_hints["dataset_group_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument recipe_arn", value=recipe_arn, expected_type=type_hints["recipe_arn"])
+            check_type(argname="argument recommender_config", value=recommender_config, expected_type=type_hints["recommender_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_group_arn": dataset_group_arn,
+            "name": name,
+            "recipe_arn": recipe_arn,
+        }
+        if recommender_config is not None:
+            self._values["recommender_config"] = recommender_config
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def dataset_group_arn(self) -> builtins.str:
+        '''The ARN of the Domain dataset group that the recommender is created for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recommender.html#cfn-personalize-recommender-datasetgrouparn
+        '''
+        result = self._values.get("dataset_group_arn")
+        assert result is not None, "Required property 'dataset_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the recommender.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recommender.html#cfn-personalize-recommender-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recipe_arn(self) -> builtins.str:
+        '''The ARN of the recipe (Domain dataset group use case) that the recommender uses.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recommender.html#cfn-personalize-recommender-recipearn
+        '''
+        result = self._values.get("recipe_arn")
+        assert result is not None, "Required property 'recipe_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recommender_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecommender.RecommenderConfigProperty"]]:
+        '''The configuration details of the recommender.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recommender.html#cfn-personalize-recommender-recommenderconfig
+        '''
+        result = self._values.get("recommender_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecommender.RecommenderConfigProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the recommender.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recommender.html#cfn-personalize-recommender-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRecommenderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.ISchemaRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSchema(
     _aws_cdk_0cae9daa.CfnResource,
@@ -4546,6 +5136,8 @@ __all__ = [
     "CfnFilterProps",
     "CfnMetricAttribution",
     "CfnMetricAttributionProps",
+    "CfnRecommender",
+    "CfnRecommenderProps",
     "CfnSchema",
     "CfnSchemaProps",
     "CfnSolution",
@@ -5047,6 +5639,101 @@ def _typecheckingstub__3ccd82c120a4c5c9dd453d02e97321882bd9235054cc2237f288e8b74
     metrics: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricAttribution.MetricAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
     metrics_output_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricAttribution.MetricsOutputConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__441a302ec41d0f4bb33d256ebe646ca8735f3661fb7b53717be26c567be98c7b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    dataset_group_arn: builtins.str,
+    name: builtins.str,
+    recipe_arn: builtins.str,
+    recommender_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecommender.RecommenderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da76fee900b2cd7b4b4916d694ac80dc358c4e74cf337d4c7ad4a12bf55d9eac(
+    resource: _aws_personalize_95c6aa61.IRecommenderRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e94adb1ba5701ce9983686a75a808d6ca9829266303747d8a8e8159a61f857cf(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63abb0fe3d778c30e64718d37d3801d5a9b7d7a4c28c77730d6e29d25ac59bb6(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad7855bb2c4b080e84635f5e789e1b55283cdca8c80259d4be5541e7b5eed076(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a84ea600b62d0667fe4e4ba4bd40f2847bf20387092dda5ef70fa6ccd1ae9d0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a207f09d741ebc245b8a121b0dcb70ce4a8bf3f42e0d0162770a4287e6a59b70(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__33b8381180384397a0874a8a1eb6a3ad4a4863a110e7b39dc9f9713a5048771f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72b3694bad157ee7bfe3c19d12563b597faf9222fe013c63dc865b230dfa7695(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRecommender.RecommenderConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d19cf3a4c202328310305a8a52029870296454e49b5c4203ba9cdc812c850a6f(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a5dd0dc5653aeb8cbc3a1fc404b8b87d45f6934a75039da7e3f3fdfb4517f32(
+    *,
+    enable_metadata_with_recommendations: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    item_exploration_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    min_recommendation_requests_per_second: typing.Optional[jsii.Number] = None,
+    training_data_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecommender.TrainingDataConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5bc9ab5ed4094a07639011b39018fba7ed93922b4cb0cd787d7465e8c938b455(
+    *,
+    excluded_dataset_columns: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Sequence[builtins.str]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa7965fb5547a2f5f8b9f04f254f635ce3ba4b53e094b378540f08cf0a47f9ff(
+    *,
+    dataset_group_arn: builtins.str,
+    name: builtins.str,
+    recipe_arn: builtins.str,
+    recommender_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecommender.RecommenderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

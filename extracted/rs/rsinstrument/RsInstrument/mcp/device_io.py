@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import json
 import logging
 import re
 import time
@@ -13,8 +12,11 @@ from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Protocol
 
+from fastmcp import Context
+
 from RsInstrument import RsInstrException, RsInstrument
 from RsInstrument.mcp._common import safe_tool
+from RsInstrument.mcp.instrument_paths import is_within_allowed, quote_scpi_path
 
 logger = logging.getLogger(__name__)
 
@@ -90,14 +92,15 @@ class FileScreenshotStrategy:
     def capture(self, inst: RsInstrument, *, opc_timeout: int) -> bytes:
         inst.opc_timeout = opc_timeout
         path = self.instrument_path
+        quoted = quote_scpi_path(path)
         inst.write("HCOPy:DEVice:LANGuage PNG")
-        inst.write(f"MMEMory:NAME '{path}'")
+        inst.write(f"MMEMory:NAME {quoted}")
         inst.write_with_opc("HCOPy:IMMediate", timeout=opc_timeout)
         try:
-            return inst.query_bin_block(f"MMEMory:DATA? '{path}'")
+            return inst.query_bin_block(f"MMEMory:DATA? {quoted}")
         finally:
             try:
-                inst.write(f"MMEMory:DELete '{path}'")
+                inst.write(f"MMEMory:DELete {quoted}")
             except RsInstrException as exc:
                 logger.warning(
                     "Screenshot cleanup failed for %s: %s",
@@ -115,9 +118,10 @@ class FallbackScreenshotStrategy:
     def capture(self, inst: RsInstrument, *, opc_timeout: int) -> bytes:
         inst.opc_timeout = opc_timeout
         path = self.screenshot_path
+        quoted = quote_scpi_path(path)
         inst.write("HCOPy:DEVice:LANGuage PNG")
         inst.write("HCOPy:IMMediate")
-        return inst.query_bin_block(f"MMEM:DATA? '{path}'")
+        return inst.query_bin_block(f"MMEM:DATA? {quoted}")
 
 
 @dataclass(frozen=True)
@@ -193,24 +197,35 @@ def _idn_model(resource: str) -> str:
 
 
 @safe_tool
-async def instrument_go_to_local(resource: str) -> str:
+async def instrument_go_to_local(ctx: Context, resource: str) -> dict[str, str]:
     """Send instrument to local front-panel control (GTL)."""
     await asyncio.to_thread(go_to_local, resource, mixed_mode=True)
-    return "Local front-panel control restored."
+    return {"status": "ok", "message": "Local front-panel control restored."}
+
+
+MAX_SCREENSHOT_BYTES = 16 * 1024 * 1024
+"""Largest screenshot returned to the client. Larger payloads are refused."""
 
 
 def make_instrument_get_screenshot(
     device_profiles: DeviceIoProfileRegistry | None = None,
+    instrument_allowed_dirs: tuple[str, ...] = (),
 ) -> typing.Callable[..., typing.Any]:
-    """Build profile-aware ``Instrument-Get-Screenshot``."""
+    """Build profile-aware ``Instrument-Get-Screenshot``.
+
+    The generic fallback reads a caller-named instrument file, so that path must
+    sit inside *instrument_allowed_dirs* (the configured instrument file roots).
+    With no roots configured, the fallback refuses a caller-supplied path.
+    """
     registry = device_profiles or DeviceIoProfileRegistry.defaults()
 
     @safe_tool
     async def instrument_get_screenshot(
+        ctx: Context,
         resource: str,
         opc_timeout: int = 10000,
-        screenshot_path: str = "/var/screenshot.png",
-    ) -> str:
+        screenshot_path: str | None = None,
+    ) -> dict[str, typing.Any]:
         """Capture a PNG screenshot from the instrument display."""
 
         def _get_screenshot() -> tuple[bytes, str | None]:
@@ -219,9 +234,21 @@ def make_instrument_get_screenshot(
             strategy = profile.screenshot_strategy
             warning: str | None = None
             if isinstance(strategy, FallbackScreenshotStrategy):
-                strategy = FallbackScreenshotStrategy(screenshot_path=screenshot_path)
+                if screenshot_path is None:
+                    # Server-chosen default path; the caller did not name a file.
+                    strategy = FallbackScreenshotStrategy()
+                else:
+                    if not is_within_allowed(screenshot_path, instrument_allowed_dirs):
+                        raise ValueError(
+                            "screenshot_path must be inside a configured instrument file root"
+                        )
+                    strategy = FallbackScreenshotStrategy(screenshot_path=screenshot_path)
             with RsInstrument(resource) as inst:
                 data = strategy.capture(inst, opc_timeout=opc_timeout)
+            if len(data) > MAX_SCREENSHOT_BYTES:
+                raise ValueError(
+                    f"screenshot is {len(data)} bytes; the limit is {MAX_SCREENSHOT_BYTES}"
+                )
             return data, warning
 
         img_data, warning = await asyncio.to_thread(_get_screenshot)
@@ -231,7 +258,7 @@ def make_instrument_get_screenshot(
         }
         if warning:
             payload["warning"] = warning
-        return json.dumps(payload)
+        return payload
 
     return instrument_get_screenshot
 
@@ -244,13 +271,14 @@ def make_instrument_enable_user_interaction(
 
     @safe_tool
     async def instrument_enable_user_interaction(
+        ctx: Context,
         resource: str,
         release_local: bool = False,
         opc_timeout: int = 5000,
-    ) -> str:
+    ) -> dict[str, str]:
         """Enable front-panel/display interaction while keeping remote SCPI usable."""
 
-        def _enable() -> str:
+        def _enable() -> dict[str, str]:
             model = _idn_model(resource)
             profile = registry.for_model(model)
             with RsInstrument(resource) as inst:
@@ -260,11 +288,13 @@ def make_instrument_enable_user_interaction(
             if release_local or not profile.interaction_commands:
                 go_to_local(resource, mixed_mode=True)
             if profile.interaction_commands:
-                return (
+                msg = (
                     f"User interaction enabled via profile {profile.name!r} "
                     f"({', '.join(profile.interaction_commands)})."
                 )
-            return "User interaction: fallback go-to-local applied (no profile SCPI)."
+            else:
+                msg = "User interaction: fallback go-to-local applied (no profile SCPI)."
+            return {"status": "ok", "message": msg}
 
         return await asyncio.to_thread(_enable)
 

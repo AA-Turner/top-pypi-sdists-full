@@ -1,6 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 
 #include <assert.h>
+#include <limits.h>
 #include <string.h>
 
 #include <Python.h>
@@ -12,6 +13,11 @@
 #define DEC_BUF_SZ 4096
 #define PREFIX_MAX_SIZE 16
 
+// The overhead counted for each field in a field section's size (RFC 9114
+// section 4.2.2).
+#define FIELD_SIZE_OVERHEAD 32
+#define DEFAULT_MAX_FIELD_SECTION_SIZE 262144
+
 // The most bytes a field line or an encoder instruction adds on top of the
 // name and value: a name length and a value length, each an integer of at
 // most 4 bytes for strings up to LSXPACK_MAX_STRLEN. Huffman coding is only
@@ -19,17 +25,53 @@
 #define FIELD_OVERHEAD_MAX 8
 #define MIN_BUF_SZ 64
 
+// The largest QUIC variable-length integer, which bounds stream IDs and HTTP/3
+// setting values (RFC 9000 section 16).
+#define VARINT_MAX ((1ULL << 62) - 1)
+
 static PyObject *DecompressionFailed;
 static PyObject *DecoderStreamError;
 static PyObject *DecoderType;
 static PyObject *EncoderStreamError;
 static PyObject *EncoderType;
+static PyObject *FieldSectionTooLarge;
 static PyObject *StreamBlocked;
+
+// An unsigned integer argument, converted by `convert_unsigned`.
+struct unsigned_arg {
+    const char *name;
+    unsigned long long max;
+    const char *max_text;
+    unsigned long long value;
+};
+
+// Convert a Python integer to an unsigned integer of at most `arg->max`. Unlike
+// the "I" and "K" formats, this refuses negative and too large values instead of
+// wrapping them around.
+static int convert_unsigned(PyObject *obj, void *ptr)
+{
+    struct unsigned_arg *arg = ptr;
+
+    if (!PyLong_Check(obj)) {
+        PyErr_Format(PyExc_TypeError, "%s must be an int", arg->name);
+        return 0;
+    }
+    arg->value = PyLong_AsUnsignedLongLong(obj);
+    if (PyErr_Occurred() || arg->value > arg->max) {
+        PyErr_Clear();
+        PyErr_Format(PyExc_ValueError, "%s must be between 0 and %s", arg->name, arg->max_text);
+        return 0;
+    }
+    return 1;
+}
 
 struct header_block {
     STAILQ_ENTRY(header_block) entries;
 
-    int blocked:1;
+    unsigned blocked:1;
+    unsigned field_section_too_large:1;
+    // The decoded bytes the field section may still take up.
+    uint64_t field_section_remaining;
     unsigned char *data;
     size_t data_len;
     const unsigned char *data_ptr;
@@ -40,10 +82,11 @@ struct header_block {
     PyObject *headers;
 };
 
-static struct header_block *header_block_new(size_t stream_id, const unsigned char *data, size_t data_len)
+static struct header_block *header_block_new(uint64_t stream_id, const unsigned char *data, size_t data_len, uint64_t max_field_section_size)
 {
     struct header_block *hblock = PyMem_Malloc(sizeof(struct header_block));
     memset(hblock, 0, sizeof(*hblock));
+    hblock->field_section_remaining = max_field_section_size;
     hblock->data = PyMem_Malloc(data_len);
     hblock->data_len = data_len;
     hblock->data_ptr = hblock->data;
@@ -100,6 +143,15 @@ static struct lsxpack_header *header_block_prepare_decode(void *opaque, struct l
 static int header_block_process_header(void *opaque, struct lsxpack_header *xhdr) {
     struct header_block *hblock = opaque;
     PyObject *tuple, *name, *value;
+    uint64_t size = (uint64_t)xhdr->name_len + xhdr->val_len + FIELD_SIZE_OVERHEAD;
+
+    // Stop decoding before creating the Python objects for a field which does
+    // not fit in the field section.
+    if (size > hblock->field_section_remaining) {
+        hblock->field_section_too_large = 1;
+        return -1;
+    }
+    hblock->field_section_remaining -= size;
 
     name = PyBytes_FromStringAndSize(lsxpack_header_get_name(xhdr), xhdr->name_len);
     value = PyBytes_FromStringAndSize(lsxpack_header_get_value(xhdr), xhdr->val_len);
@@ -125,18 +177,35 @@ typedef struct {
     PyObject_HEAD
     struct lsqpack_dec dec;
     unsigned char dec_buf[DEC_BUF_SZ];
+    uint64_t max_field_section_size;
     STAILQ_HEAD(, header_block) pending_blocks;
 } DecoderObject;
+
+static void
+raise_field_section_too_large(DecoderObject *self, uint64_t stream_id)
+{
+    PyErr_Format(FieldSectionTooLarge, "field section for stream %llu exceeds %llu bytes",
+                 (unsigned long long)stream_id, (unsigned long long)self->max_field_section_size);
+}
 
 static int
 Decoder_init(DecoderObject *self, PyObject *args, PyObject *kwargs)
 {
-    char *kwlist[] = {"max_table_capacity", "blocked_streams", NULL};
-    unsigned max_table_capacity, blocked_streams;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "II", kwlist, &max_table_capacity, &blocked_streams))
+    char *kwlist[] = {"max_table_capacity", "blocked_streams", "max_field_section_size", NULL};
+    struct unsigned_arg max_table_capacity = {.name = "max_table_capacity", .max = UINT_MAX, .max_text = "2**32 - 1"};
+    struct unsigned_arg blocked_streams = {.name = "blocked_streams", .max = UINT_MAX, .max_text = "2**32 - 1"};
+    struct unsigned_arg max_field_section_size = {
+        .name = "max_field_section_size",
+        .max = VARINT_MAX,
+        .max_text = "2**62 - 1",
+        .value = DEFAULT_MAX_FIELD_SECTION_SIZE,
+    };
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|$O&", kwlist, convert_unsigned, &max_table_capacity,
+                                     convert_unsigned, &blocked_streams, convert_unsigned, &max_field_section_size))
         return -1;
 
-    lsqpack_dec_init(&self->dec, NULL, max_table_capacity, blocked_streams, &header_block_if, 0);
+    self->max_field_section_size = max_field_section_size.value;
+    lsqpack_dec_init(&self->dec, NULL, max_table_capacity.value, blocked_streams.value, &header_block_if, 0);
 
     STAILQ_INIT(&self->pending_blocks);
 
@@ -173,13 +242,15 @@ static PyObject*
 Decoder_cancel_stream(DecoderObject *self, PyObject *args, PyObject *kwargs)
 {
     char *kwlist[] = {"stream_id", NULL};
+    struct unsigned_arg stream_id_arg = {.name = "stream_id", .max = VARINT_MAX, .max_text = "2**62 - 1"};
     uint64_t stream_id;
     ssize_t dec_len;
     struct header_block *hblock;
     int found = 0;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "K", kwlist, &stream_id))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&", kwlist, convert_unsigned, &stream_id_arg))
         return NULL;
+    stream_id = stream_id_arg.value;
 
     // find the header block for the stream
     STAILQ_FOREACH(hblock, &self->pending_blocks, entries) {
@@ -206,12 +277,12 @@ Decoder_cancel_stream(DecoderObject *self, PyObject *args, PyObject *kwargs)
 }
 
 PyDoc_STRVAR(Decoder_feed_encoder__doc__,
-    "feed_encoder(data: bytes) -> List[int]\n\n"
+    "feed_encoder(data: bytes) -> list[int]\n\n"
     "Feed data from the encoder stream.\n\n"
     "If processing the data unblocked any streams, their IDs are returned, "
     "and :meth:`resume_header()` must be called for each stream ID.\n\n"
-    "If the data cannot be processed, :class:`EncoderStreamError` is raised.\n\n"
-    ":param data: the encoder stream data\n");
+    ":param data: the encoder stream data\n"
+    ":raises EncoderStreamError: if the data cannot be processed\n");
 
 static PyObject*
 Decoder_feed_encoder(DecoderObject *self, PyObject *args, PyObject *kwargs)
@@ -242,17 +313,19 @@ Decoder_feed_encoder(DecoderObject *self, PyObject *args, PyObject *kwargs)
 }
 
 PyDoc_STRVAR(Decoder_feed_header__doc__,
-    "feed_header(stream_id: int, data: bytes) -> Tuple[bytes, List[Tuple[bytes, bytes]]]\n\n"
+    "feed_header(stream_id: int, data: bytes) -> tuple[bytes, list[tuple[bytes, bytes]]]\n\n"
     "Decode a header block and return control data and headers.\n\n"
-    "If the stream is blocked, :class:`StreamBlocked` is raised.\n\n"
-    "If the data cannot be processed, :class:`DecompressionFailed` is raised.\n\n"
     ":param stream_id: the ID of the stream\n"
-    ":param data: the header block data\n");
+    ":param data: the header block data\n"
+    ":raises StreamBlocked: if the stream is blocked\n"
+    ":raises DecompressionFailed: if the header block cannot be decoded\n"
+    ":raises FieldSectionTooLarge: if the decoded headers exceed the maximum field section size\n");
 
 static PyObject*
 Decoder_feed_header(DecoderObject *self, PyObject *args, PyObject *kwargs)
 {
     char *kwlist[] = {"stream_id", "data", NULL};
+    struct unsigned_arg stream_id_arg = {.name = "stream_id", .max = VARINT_MAX, .max_text = "2**62 - 1"};
     uint64_t stream_id;
     const unsigned char *data;
     Py_ssize_t data_len;
@@ -261,17 +334,18 @@ Decoder_feed_header(DecoderObject *self, PyObject *args, PyObject *kwargs)
     enum lsqpack_read_header_status status;
     struct header_block *hblock;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Ky#", kwlist, &stream_id, &data, &data_len))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&y#", kwlist, convert_unsigned, &stream_id_arg, &data, &data_len))
         return NULL;
+    stream_id = stream_id_arg.value;
 
     // check there is no header block for the stream
     STAILQ_FOREACH(hblock, &self->pending_blocks, entries) {
         if (hblock->stream_id == stream_id) {
-            PyErr_Format(PyExc_ValueError, "a header block for stream %d already exists", stream_id);
+            PyErr_Format(PyExc_ValueError, "a header block for stream %llu already exists", (unsigned long long)stream_id);
             return NULL;
         }
     }
-    hblock = header_block_new(stream_id, data, data_len);
+    hblock = header_block_new(stream_id, data, data_len, self->max_field_section_size);
 
     status = lsqpack_dec_header_in(
         &self->dec,
@@ -287,10 +361,13 @@ Decoder_feed_header(DecoderObject *self, PyObject *args, PyObject *kwargs)
     if (status == LQRHS_BLOCKED || status == LQRHS_NEED) {
         hblock->blocked = 1;
         STAILQ_INSERT_TAIL(&self->pending_blocks, hblock, entries);
-        PyErr_Format(StreamBlocked, "stream %d is blocked", stream_id);
+        PyErr_Format(StreamBlocked, "stream %llu is blocked", (unsigned long long)stream_id);
         return NULL;
     } else if (status != LQRHS_DONE) {
-        PyErr_Format(DecompressionFailed, "lsqpack_dec_header_in for stream %d failed", stream_id);
+        if (hblock->field_section_too_large)
+            raise_field_section_too_large(self, stream_id);
+        else
+            PyErr_Format(DecompressionFailed, "lsqpack_dec_header_in for stream %llu failed", (unsigned long long)stream_id);
         header_block_free(hblock);
         return NULL;
     }
@@ -305,16 +382,20 @@ Decoder_feed_header(DecoderObject *self, PyObject *args, PyObject *kwargs)
 }
 
 PyDoc_STRVAR(Decoder_resume_header__doc__,
-    "resume_header(stream_id: int) -> Tuple[bytes, List[Tuple[bytes, bytes]]]\n\n"
+    "resume_header(stream_id: int) -> tuple[bytes, list[tuple[bytes, bytes]]]\n\n"
     "Continue decoding a header block and return control data and headers.\n\n"
     "This method should be called only when :meth:`feed_encoder` indicates "
     "that a stream has become unblocked\n\n"
-    ":param stream_id: the ID of the stream\n");
+    ":param stream_id: the ID of the stream\n"
+    ":raises StreamBlocked: if the stream is still blocked\n"
+    ":raises DecompressionFailed: if the header block cannot be decoded\n"
+    ":raises FieldSectionTooLarge: if the decoded headers exceed the maximum field section size\n");
 
 static PyObject*
 Decoder_resume_header(DecoderObject *self, PyObject *args, PyObject *kwargs)
 {
     char *kwlist[] = {"stream_id", NULL};
+    struct unsigned_arg stream_id_arg = {.name = "stream_id", .max = VARINT_MAX, .max_text = "2**62 - 1"};
     uint64_t stream_id;
     PyObject *control, *tuple;
     size_t dec_len = DEC_BUF_SZ;
@@ -322,8 +403,9 @@ Decoder_resume_header(DecoderObject *self, PyObject *args, PyObject *kwargs)
     struct header_block *hblock;
     int found = 0;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "K", kwlist, &stream_id))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&", kwlist, convert_unsigned, &stream_id_arg))
         return NULL;
+    stream_id = stream_id_arg.value;
 
     // find the header block for the stream
     STAILQ_FOREACH(hblock, &self->pending_blocks, entries) {
@@ -333,7 +415,7 @@ Decoder_resume_header(DecoderObject *self, PyObject *args, PyObject *kwargs)
         }
     }
     if (!found) {
-        PyErr_Format(PyExc_ValueError, "no pending header block for stream %d", stream_id);
+        PyErr_Format(PyExc_ValueError, "no pending header block for stream %llu", (unsigned long long)stream_id);
         return NULL;
     }
 
@@ -352,10 +434,13 @@ Decoder_resume_header(DecoderObject *self, PyObject *args, PyObject *kwargs)
 
     if (status == LQRHS_BLOCKED || status == LQRHS_NEED) {
         hblock->blocked = 1;
-        PyErr_Format(StreamBlocked, "stream %d is blocked", stream_id);
+        PyErr_Format(StreamBlocked, "stream %llu is blocked", (unsigned long long)stream_id);
         return NULL;
     } else if (status != LQRHS_DONE) {
-        PyErr_Format(DecompressionFailed, "lsqpack_dec_header_read for stream %d failed (%d)", stream_id, status);
+        if (hblock->field_section_too_large)
+            raise_field_section_too_large(self, stream_id);
+        else
+            PyErr_Format(DecompressionFailed, "lsqpack_dec_header_read for stream %llu failed (%d)", (unsigned long long)stream_id, status);
         STAILQ_REMOVE(&self->pending_blocks, hblock, header_block, entries);
         header_block_free(hblock);
         return NULL;
@@ -372,18 +457,22 @@ Decoder_resume_header(DecoderObject *self, PyObject *args, PyObject *kwargs)
 }
 
 static PyMethodDef Decoder_methods[] = {
-    {"cancel_stream", (PyCFunction)Decoder_cancel_stream, METH_VARARGS | METH_KEYWORDS, Decoder_cancel_stream__doc__},
-    {"feed_encoder", (PyCFunction)Decoder_feed_encoder, METH_VARARGS | METH_KEYWORDS, Decoder_feed_encoder__doc__},
-    {"feed_header", (PyCFunction)Decoder_feed_header, METH_VARARGS | METH_KEYWORDS, Decoder_feed_header__doc__},
-    {"resume_header", (PyCFunction)Decoder_resume_header, METH_VARARGS | METH_KEYWORDS, Decoder_resume_header__doc__},
+    {"cancel_stream", (PyCFunction)(void (*)(void))Decoder_cancel_stream, METH_VARARGS | METH_KEYWORDS, Decoder_cancel_stream__doc__},
+    {"feed_encoder", (PyCFunction)(void (*)(void))Decoder_feed_encoder, METH_VARARGS | METH_KEYWORDS, Decoder_feed_encoder__doc__},
+    {"feed_header", (PyCFunction)(void (*)(void))Decoder_feed_header, METH_VARARGS | METH_KEYWORDS, Decoder_feed_header__doc__},
+    {"resume_header", (PyCFunction)(void (*)(void))Decoder_resume_header, METH_VARARGS | METH_KEYWORDS, Decoder_resume_header__doc__},
     {NULL}
 };
 
 PyDoc_STRVAR(Decoder__doc__,
-    "Decoder(max_table_capacity: int, blocked_streams: int)\n\n"
+    "Decoder(max_table_capacity: int, blocked_streams: int, *, max_field_section_size: int = 262144)\n\n"
     "QPACK decoder.\n\n"
     ":param max_table_capacity: the maximum size in bytes of the dynamic table\n"
-    ":param blocked_streams: the maximum number of streams that could be blocked\n");
+    ":param blocked_streams: the maximum number of streams that could be blocked\n"
+    ":param max_field_section_size: the maximum size in bytes of the decoded headers of "
+    "a header block, counting the length of each name and value plus 32 bytes per header, "
+    "as in RFC 9114 section 4.2.2. This is the value to advertise to the peer in the "
+    "SETTINGS_MAX_FIELD_SECTION_SIZE setting. Defaults to 256 KiB.\n");
 
 static PyType_Slot DecoderType_slots[] = {
     {Py_tp_dealloc, Decoder_dealloc},
@@ -443,7 +532,15 @@ grow_buffer(unsigned char **buf, size_t *cap)
 static int
 Encoder_init(EncoderObject *self, PyObject *args, PyObject *kwargs)
 {
+    char *kwlist[] = {NULL};
+
+    // Initialise first, so that the encoder can be cleaned up even if the
+    // arguments are refused.
     lsqpack_enc_preinit(&self->enc, NULL);
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "", kwlist))
+        return -1;
+
     return 0;
 }
 
@@ -471,14 +568,16 @@ static PyObject*
 Encoder_apply_settings(EncoderObject *self, PyObject *args, PyObject *kwargs)
 {
     char *kwlist[] = {"max_table_capacity", "blocked_streams", NULL};
-    unsigned max_table_capacity, blocked_streams;
+    struct unsigned_arg max_table_capacity = {.name = "max_table_capacity", .max = UINT_MAX, .max_text = "2**32 - 1"};
+    struct unsigned_arg blocked_streams = {.name = "blocked_streams", .max = UINT_MAX, .max_text = "2**32 - 1"};
     unsigned char tsu_buf[LSQPACK_LONGEST_SDTC];
     size_t tsu_len = sizeof(tsu_buf);
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "II", kwlist, &max_table_capacity, &blocked_streams))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&", kwlist, convert_unsigned, &max_table_capacity,
+                                     convert_unsigned, &blocked_streams))
         return NULL;
 
-    if (lsqpack_enc_init(&self->enc, NULL, max_table_capacity, max_table_capacity, blocked_streams,
+    if (lsqpack_enc_init(&self->enc, NULL, max_table_capacity.value, max_table_capacity.value, blocked_streams.value,
                          LSQPACK_ENC_OPT_STAGE_2, tsu_buf, &tsu_len) != 0) {
         PyErr_SetString(PyExc_RuntimeError, "lsqpack_enc_init failed");
         return NULL;
@@ -488,7 +587,7 @@ Encoder_apply_settings(EncoderObject *self, PyObject *args, PyObject *kwargs)
 }
 
 PyDoc_STRVAR(Encoder_encode__doc__,
-    "encode(stream_id: int, headers: List[Tuple[bytes, bytes]]) -> Tuple[bytes, bytes]\n\n"
+    "encode(stream_id: int, headers: list[tuple[bytes, bytes]]) -> tuple[bytes, bytes]\n\n"
     "Encode a list of headers.\n\n"
     "A tuple is returned containing two bytestrings: the encoder stream data "
     " and the encoded header block.\n\n"
@@ -499,6 +598,7 @@ static PyObject*
 Encoder_encode(EncoderObject *self, PyObject *args, PyObject *kwargs)
 {
     char *kwlist[] = {"stream_id", "headers", NULL};
+    struct unsigned_arg stream_id_arg = {.name = "stream_id", .max = VARINT_MAX, .max_text = "2**62 - 1"};
     uint64_t stream_id;
     unsigned seqno = 0;
     PyObject *list, *tuple, *name, *value;
@@ -509,8 +609,9 @@ Encoder_encode(EncoderObject *self, PyObject *args, PyObject *kwargs)
     size_t total_len = 0, xhdr_len = 0;
     enum lsqpack_enc_status status;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "KO", kwlist, &stream_id, &list))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O", kwlist, convert_unsigned, &stream_id_arg, &list))
         return NULL;
+    stream_id = stream_id_arg.value;
 
     // Validate all the input headers.
     if (!PyList_Check(list)) {
@@ -625,8 +726,8 @@ Encoder_encode(EncoderObject *self, PyObject *args, PyObject *kwargs)
 PyDoc_STRVAR(Encoder_feed_decoder__doc__,
     "feed_decoder(data: bytes) -> None\n\n"
     "Feed data from the decoder stream.\n\n"
-    "If the data cannot be processed, :class:`DecoderStreamError` is raised.\n\n"
-    ":param data: the decoder stream data\n");
+    ":param data: the decoder stream data\n"
+    ":raises DecoderStreamError: if the data cannot be processed\n");
 
 static PyObject*
 Encoder_feed_decoder(EncoderObject *self, PyObject *args, PyObject *kwargs)
@@ -647,9 +748,9 @@ Encoder_feed_decoder(EncoderObject *self, PyObject *args, PyObject *kwargs)
 }
 
 static PyMethodDef Encoder_methods[] = {
-    {"apply_settings", (PyCFunction)Encoder_apply_settings, METH_VARARGS | METH_KEYWORDS, Encoder_apply_settings__doc__},
-    {"encode", (PyCFunction)Encoder_encode, METH_VARARGS | METH_KEYWORDS, Encoder_encode__doc__},
-    {"feed_decoder", (PyCFunction)Encoder_feed_decoder, METH_VARARGS | METH_KEYWORDS, Encoder_feed_decoder__doc__},
+    {"apply_settings", (PyCFunction)(void (*)(void))Encoder_apply_settings, METH_VARARGS | METH_KEYWORDS, Encoder_apply_settings__doc__},
+    {"encode", (PyCFunction)(void (*)(void))Encoder_encode, METH_VARARGS | METH_KEYWORDS, Encoder_encode__doc__},
+    {"feed_decoder", (PyCFunction)(void (*)(void))Encoder_feed_decoder, METH_VARARGS | METH_KEYWORDS, Encoder_feed_decoder__doc__},
     {NULL}
 };
 
@@ -696,19 +797,38 @@ PyInit__binding(void)
     if (m == NULL)
         return NULL;
 
-    DecompressionFailed = PyErr_NewException(MODULE_NAME ".DecompressionFailed", PyExc_ValueError, NULL);
+    DecompressionFailed = PyErr_NewExceptionWithDoc(MODULE_NAME ".DecompressionFailed",
+        "A header block could not be decoded.",
+        PyExc_ValueError, NULL);
     Py_INCREF(DecompressionFailed);
     PyModule_AddObject(m, "DecompressionFailed", DecompressionFailed);
 
-    DecoderStreamError = PyErr_NewException(MODULE_NAME ".DecoderStreamError", PyExc_ValueError, NULL);
+    DecoderStreamError = PyErr_NewExceptionWithDoc(MODULE_NAME ".DecoderStreamError",
+        "Data from the decoder stream could not be processed.",
+        PyExc_ValueError, NULL);
     Py_INCREF(DecoderStreamError);
     PyModule_AddObject(m, "DecoderStreamError", DecoderStreamError);
 
-    EncoderStreamError = PyErr_NewException(MODULE_NAME ".EncoderStreamError", PyExc_ValueError, NULL);
+    EncoderStreamError = PyErr_NewExceptionWithDoc(MODULE_NAME ".EncoderStreamError",
+        "Data from the encoder stream could not be processed.",
+        PyExc_ValueError, NULL);
     Py_INCREF(EncoderStreamError);
     PyModule_AddObject(m, "EncoderStreamError", EncoderStreamError);
 
-    StreamBlocked = PyErr_NewException(MODULE_NAME ".StreamBlocked", PyExc_ValueError, NULL);
+    FieldSectionTooLarge = PyErr_NewExceptionWithDoc(MODULE_NAME ".FieldSectionTooLarge",
+        "The decoded headers of a header block exceed the maximum field section size.\n\n"
+        "It is a :class:`DecompressionFailed`, so that callers which only catch the latter "
+        "refuse such header blocks too. The header block is discarded and the decoder "
+        "remains usable: to keep the connection open, call :meth:`Decoder.cancel_stream`.",
+        DecompressionFailed, NULL);
+    Py_INCREF(FieldSectionTooLarge);
+    PyModule_AddObject(m, "FieldSectionTooLarge", FieldSectionTooLarge);
+
+    StreamBlocked = PyErr_NewExceptionWithDoc(MODULE_NAME ".StreamBlocked",
+        "A header block references dynamic table entries which have not been received yet.\n\n"
+        "Call :meth:`Decoder.resume_header` once :meth:`Decoder.feed_encoder` returns the "
+        "stream's ID.",
+        PyExc_ValueError, NULL);
     Py_INCREF(StreamBlocked);
     PyModule_AddObject(m, "StreamBlocked", StreamBlocked);
 

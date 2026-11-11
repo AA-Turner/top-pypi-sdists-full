@@ -42,6 +42,7 @@ __all__ = (
     "MigrationTypeType",
     "OpenTableFormatType",
     "PaginatorName",
+    "PartitionDateSourceType",
     "ReplicationStatusType",
     "ResourceServiceName",
     "S3TablesServiceName",
@@ -99,6 +100,7 @@ MigrationStateType = Literal[
 ]
 MigrationTypeType = Literal["start", "sync"]
 OpenTableFormatType = Literal["ICEBERG"]
+PartitionDateSourceType = Literal["DeliveryTime", "EventTime"]
 ReplicationStatusType = Literal["completed", "failed", "pending"]
 SSEAlgorithmType = Literal["AES256", "aws:kms"]
 SchemaV2FieldTypeType = Literal["struct"]
@@ -118,6 +120,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",

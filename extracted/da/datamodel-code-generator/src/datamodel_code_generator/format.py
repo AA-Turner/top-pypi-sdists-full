@@ -19,7 +19,7 @@ from importlib.machinery import ModuleSpec, PathFinder
 from importlib.util import source_from_cache
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, cast
 from warnings import warn
 from weakref import ReferenceType, WeakKeyDictionary, ref
 
@@ -319,21 +319,16 @@ _BUILTIN_FORMATTER_REEXPORTS: tuple[str, ...] = (
     "_has_inline_comment",
     "_format_import_node_without_reordering",
     "_import_node_category",
-    "_format_import_node",
     "_from_import_key",
     "_modules_with_aliased_imports",
-    "_can_merge_from_imports",
     "_iter_aliased_from_import_lines",
     "_import_line_sort_key",
     "_build_builtin_import_block",
     "_is_name_or_attr",
-    "_is_type_checking_if",
-    "_format_type_checking_block",
     "_LineReplacement",
     "_collect_builtin_replacements",
     "_module_docstring_node",
     "_docstring_node",
-    "_leading_lines_before_imports",
     "_iter_module_import_nodes",
     "_apply_line_replacements",
     "_previous_non_empty_line_index",
@@ -453,7 +448,8 @@ def black_find_project_root(sources: Sequence[Path]) -> Path:
 
     project_root = _find_project_root(tuple(str(s) for s in sources))
     if isinstance(project_root, tuple):
-        return project_root[0]
+        # Black types the root as optional for sources without a common parent; one source always has one.
+        return cast("Path", project_root[0])
     return project_root  # pragma: no cover
 
 

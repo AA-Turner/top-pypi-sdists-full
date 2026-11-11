@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: rapidata
-Version: 3.29.0
+Version: 3.29.1
 Summary: Rapidata package containing the Rapidata Python Client to interact with the Rapidata Web API in an easy way.
 Project-URL: Homepage, https://rapidata.ai/?utm_source=pypi&utm_medium=referral&utm_campaign=python_sdk&utm_content=project_links
 Project-URL: Documentation, https://docs.rapidata.ai/?utm_source=pypi&utm_medium=referral&utm_campaign=python_sdk&utm_content=project_links
@@ -39,8 +39,7 @@ Docs: https://docs.rapidata.ai/
 Point it at the guide that ships with the SDK instead of letting it read the installed source:
 
 ```bash
-python -m rapidata skill            # print the guide
-python -m rapidata skill --install  # install it into the current project
+python -m rapidata skill  # print the guide
 ```
 
 The guide is edited in [`src/rapidata/_skill/`](https://github.com/RapidataAI/rapidata-python-sdk/tree/main/src/rapidata/_skill), so it always matches the installed version.

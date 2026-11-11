@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 #: Build id of the DDI this release expects, matching what the DeveloperDiskImage repository
 #: publishes. Both the personalized image and the Cryptex1 bundle are checked against it.
-LATEST_DDI_BUILD_ID = "27A5228h"
+LATEST_DDI_BUILD_ID = "27B52"
 
 
 class MobileImageMounterService(LockdownService):
@@ -501,6 +501,9 @@ async def request_personalization_manifest(
 
     build_identity = None
     for tmp_build_identity in build_manifest["BuildIdentities"]:
+        # The Cryptex1 identity fits any device, so it has no board or chip ID to match
+        if "ApBoardID" not in tmp_build_identity or "ApChipID" not in tmp_build_identity:
+            continue
         if int(tmp_build_identity["ApBoardID"], 0) == board_id and int(tmp_build_identity["ApChipID"], 0) == chip_id:
             build_identity = tmp_build_identity
             break

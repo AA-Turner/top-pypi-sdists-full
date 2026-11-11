@@ -2391,7 +2391,7 @@ def test_not_exercised_travels_beside_incomplete_at_every_level() -> None:
     for flag in ("incomplete", "not_exercised"):
         assert outputs[flag]["value"] == (
             f"${{{{ jobs.regression-test.outputs.{flag} || "
-            f"jobs.regression-test-eu.outputs.{flag} }}}}"
+            f"jobs.regression-test-eu.outputs.{flag} || 'false' }}}}"
         )
         assert "never a pass" in outputs[flag]["description"]
         assert (
@@ -2458,8 +2458,8 @@ def test_eu_build_job_rejects_unknown_injected_sync_mode(tmp_path: Path) -> None
         tmp_path,
         job_id="regression-test-eu",
         env={
-            "DISCOVER_MISSING_STREAMS": "false",
-            "SELECTED_STREAMS": "",
+            "DISCOVER_MISSING_STREAMS": "true",
+            "SELECTED_STREAMS": "users",
             "INJECTED_SYNC_MODE": "append",
         },
     )
@@ -2469,6 +2469,72 @@ def test_eu_build_job_rejects_unknown_injected_sync_mode(tmp_path: Path) -> None
         "::error::injected_sync_mode must be full_refresh or incremental, got 'append'"
         in run.stdout
     )
+
+
+@needs_bash
+@pytest.mark.parametrize("mode", ["incremental", "full_refresh"])
+def test_eu_rejects_injected_sync_mode_without_discovery(tmp_path, mode):
+    run = _run_step(
+        "validate-inputs",
+        tmp_path,
+        job_id="regression-test-eu",
+        env={
+            "DISCOVER_MISSING_STREAMS": "false",
+            "SELECTED_STREAMS": "users",
+            "INJECTED_SYNC_MODE": mode,
+        },
+    )
+    assert run.returncode == 1
+    assert (
+        "::error::injected_sync_mode only applies with discover_missing_streams"
+        in run.stdout
+    )
+
+
+@pytest.mark.parametrize(
+    "flag",
+    [
+        "incomplete",
+        "not_exercised",
+        "setup_error",
+        "could_not_test",
+        "exercised_partial",
+    ],
+)
+def test_verdict_workflow_outputs_are_explicit_and_default_false(flag):
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text())
+    triggers = workflow[True] if True in workflow else workflow["on"]
+    assert triggers["workflow_call"]["outputs"][flag]["value"] == (
+        "${{ jobs.regression-test.outputs."
+        + flag
+        + " || jobs.regression-test-eu.outputs."
+        + flag
+        + " || 'false' }}"
+    )
+    for job, step in (
+        ("regression-test", "final-status"),
+        ("regression-test-eu", "finalize"),
+    ):
+        assert (
+            workflow["jobs"][job]["outputs"][flag]
+            == "${{ steps." + step + ".outputs." + flag + " }}"
+        )
+    us = _step("final-status")["run"]
+    eu = _step("finalize", "regression-test-eu")["run"]
+    assert f"steps.run-read.outputs.{flag}" in us
+    assert f'echo "{flag}=true"' in us
+    assert f'echo "{flag}=false"' in us
+    assert f"{flag}=false" in eu
+    assert f"printf '{flag}=%s\\n'" in eu
+
+
+@needs_bash
+def test_us_final_status_defaults_partial_when_read_is_skipped(tmp_path):
+    script = _step("final-status")["run"]
+    expressions = dict.fromkeys(_EXPRESSION.findall(script), "")
+    expressions["inputs.skip_read_action"] = "true"
+    run = _run_step("final-status", tmp_path, env={}, expressions=expressions)
+    assert run.outputs["exercised_partial"] == "false"
 
 
 @needs_bash
@@ -2534,7 +2600,7 @@ def test_eu_finalize_and_workflow_call_publish_not_exercised() -> None:
     )
     assert call_output == (
         "${{ jobs.regression-test.outputs.not_exercised || "
-        "jobs.regression-test-eu.outputs.not_exercised }}"
+        "jobs.regression-test-eu.outputs.not_exercised || 'false' }}"
     )
 
 
@@ -2592,7 +2658,7 @@ def test_setup_and_config_error_verdicts_are_workflow_outputs_and_summary_cells(
         assert job["outputs"][flag] == f"${{{{ steps.final-status.outputs.{flag} }}}}"
         assert workflow_call_outputs[flag]["value"] == (
             f"${{{{ jobs.regression-test.outputs.{flag} || "
-            f"jobs.regression-test-eu.outputs.{flag} }}}}"
+            f"jobs.regression-test-eu.outputs.{flag} || 'false' }}}}"
         )
         assert f'echo "{flag}=true" | tee -a "$GITHUB_OUTPUT"' in determine
         assert f'echo "{flag}=false" | tee -a "$GITHUB_OUTPUT"' in determine

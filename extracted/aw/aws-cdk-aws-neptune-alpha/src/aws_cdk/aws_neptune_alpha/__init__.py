@@ -100,7 +100,7 @@ cluster = neptune.DatabaseCluster(self, "Database",
 )
 ```
 
-Note: To use the Neptune engine versions `1.2.0.0` or later, including the newly added `1.4` series, it's necessary to specify the appropriate `engineVersion` prop in `neptune.DatabaseCluster`. Additionally, for both 1.2,  1.3 and 1.4 series, the corresponding `family` prop must be set to `ParameterGroupFamily.NEPTUNE_1_2`, `ParameterGroupFamily.NEPTUNE_1_3` or `ParameterGroupFamily.NEPTUNE_1_4` respectively in `neptune.ClusterParameterGroup` and `neptune.ParameterGroup`.
+Note: To use the Neptune engine versions `1.2.0.0` or later, including the newly added `1.5` series, it's necessary to specify the appropriate `engineVersion` prop in `neptune.DatabaseCluster`. Additionally, for 1.2, 1.3, 1.4 and 1.5 series, the corresponding `family` prop must be set to `ParameterGroupFamily.NEPTUNE_1_2`, `ParameterGroupFamily.NEPTUNE_1_3`, `ParameterGroupFamily.NEPTUNE_1_4` or `ParameterGroupFamily.NEPTUNE_1_5` respectively in `neptune.ClusterParameterGroup` and `neptune.ParameterGroup`.
 
 ## Adding replicas
 
@@ -1764,6 +1764,16 @@ class EngineVersion(
         '''
         return typing.cast("EngineVersion", jsii.sget(cls, "V1_4_6_1"))
 
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V1_5_0_0")
+    @builtins.classmethod
+    def V1_5_0_0(cls) -> "EngineVersion":
+        '''(experimental) Neptune engine version 1.5.0.0.
+
+        :stability: experimental
+        '''
+        return typing.cast("EngineVersion", jsii.sget(cls, "V1_5_0_0"))
+
     @builtins.property
     @jsii.member(jsii_name="version")
     def version(self) -> builtins.str:
@@ -3175,6 +3185,16 @@ class ParameterGroupFamily(
         :stability: experimental
         '''
         return typing.cast("ParameterGroupFamily", jsii.sget(cls, "NEPTUNE_1_4"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="NEPTUNE_1_5")
+    @builtins.classmethod
+    def NEPTUNE_1_5(cls) -> "ParameterGroupFamily":
+        '''(experimental) Family used by Neptune engine versions 1.5.0.0 and later.
+
+        :stability: experimental
+        '''
+        return typing.cast("ParameterGroupFamily", jsii.sget(cls, "NEPTUNE_1_5"))
 
     @builtins.property
     @jsii.member(jsii_name="family")

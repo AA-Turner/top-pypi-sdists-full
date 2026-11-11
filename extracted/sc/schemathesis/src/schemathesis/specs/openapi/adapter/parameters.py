@@ -324,12 +324,17 @@ def build_constants_overlay_strategy(
 
     # Resolve once: property path -> tuple of (schema-valid pool value, its origin) for that property.
     candidates: dict[tuple[str, ...], list[tuple[ConstantValue, Origin | None]]] = {}
-    root_schema = container_schema or {"type": "object", "properties": schema_properties}
-    leaves = (
-        _iter_constant_leaves(root_schema, root_schema=root_schema, validator_cls=validator_cls)
-        if location == "body"
-        else (((name,), schema) for name, schema in schema_properties.items() if isinstance(schema, dict))
-    )
+    if location == "body":
+        root_schema = container_schema or {"type": "object", "properties": schema_properties}
+        excluded = root_schema.get("properties", {}).keys() - schema_properties.keys()
+        # Properties the caller leaves out get their values elsewhere and must not receive constants.
+        leaves = (
+            (path, schema)
+            for path, schema in _iter_constant_leaves(root_schema, root_schema=root_schema, validator_cls=validator_cls)
+            if path[0] not in excluded
+        )
+    else:
+        leaves = (((name,), schema) for name, schema in schema_properties.items() if isinstance(schema, dict))
     for path, schema in leaves:
         keys = _constant_types_for(schema, validator_cls)
         if location != "body":
@@ -2386,12 +2391,26 @@ def iter_parameters_v3(
             )
 
 
+# Keywords ending a pointer to a schema without a name of its own: `.../orders/items`.
+_SUBSCHEMA_KEYWORDS = frozenset({"items", "additionalProperties", "schema"})
+# Each member of these lists describes its own value: `oneOf/0` and `oneOf/1` are different schemas.
+_SUBSCHEMA_LISTS = frozenset({"allOf", "anyOf", "oneOf", "prefixItems"})
+# Maps keyed by author-chosen names: `properties/items` is a property called `items`.
+_NAMED_MEMBERS = frozenset({"properties", "definitions", "schemas", "$defs"})
+
+
 def resource_name_from_ref(reference: str) -> str:
-    """Extract and normalize resource name from a $ref."""
+    """Resource name for a $ref: the normalized schema name, or the pointer itself for an unnamed subschema."""
     from schemathesis.specs.openapi.stateful.dependencies.naming import normalize_schema_name
 
-    raw_name = reference.rsplit("/", maxsplit=1)[-1]
-    return normalize_schema_name(raw_name)
+    parent, _, last = reference.rpartition("/")
+    container = parent.rpartition("/")[2]
+    if (last in _SUBSCHEMA_KEYWORDS and container not in _NAMED_MEMBERS) or (
+        last.isdigit() and container in _SUBSCHEMA_LISTS
+    ):
+        # Keywords and list positions name nothing; the pointer to them tells unrelated schemas apart.
+        return unquote(reference)
+    return normalize_schema_name(last)
 
 
 def build_path_parameter_v2(kwargs: Mapping[str, Any]) -> OpenApiParameter:
@@ -2855,9 +2874,12 @@ def _merge_parameters_to_object_schema(
                 subschema = {**subschema, "format": format_key}
 
             # Path parameters: ensure string types have minLength >= 1
-            elif location == ParameterLocation.PATH and subschema.get("type") == "string":
-                if "minLength" not in subschema:
-                    subschema = {**subschema, "minLength": 1}
+            elif (
+                location == ParameterLocation.PATH
+                and subschema.get("type") == "string"
+                and "minLength" not in subschema
+            ):
+                subschema = {**subschema, "minLength": 1}
 
         if location == ParameterLocation.HEADER:
             canonical = canonical_by_lower.setdefault(name.lower(), name)

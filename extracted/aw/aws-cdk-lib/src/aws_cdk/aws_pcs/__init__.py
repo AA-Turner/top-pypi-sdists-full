@@ -1811,10 +1811,8 @@ class CfnComputeNodeGroup(
             # the properties below are optional
             ami_id="amiId",
             custom_launch_template=pcs.CfnComputeNodeGroup.CustomLaunchTemplateProperty(
-                version="version",
-        
-                # the properties below are optional
-                template_id="templateId"
+                template_id="templateId",
+                version="version"
             ),
             name="name",
             node_lifecycle_actions=pcs.CfnComputeNodeGroup.NodeLifecycleActionsProperty(
@@ -2257,19 +2255,19 @@ class CfnComputeNodeGroup(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_pcs.CfnComputeNodeGroup.CustomLaunchTemplateProperty",
         jsii_struct_bases=[],
-        name_mapping={"version": "version", "template_id": "templateId"},
+        name_mapping={"template_id": "templateId", "version": "version"},
     )
     class CustomLaunchTemplateProperty:
         def __init__(
             self,
             *,
-            version: builtins.str,
             template_id: typing.Optional[builtins.str] = None,
+            version: typing.Optional[builtins.str] = None,
         ) -> None:
             '''An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
 
-            :param version: The version of the EC2 launch template to use to provision instances.
             :param template_id: The ID of the EC2 launch template to use to provision instances.
+            :param version: The version of the EC2 launch template to use to provision instances.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-customlaunchtemplate.html
             :exampleMetadata: fixture=_generated
@@ -2281,31 +2279,19 @@ class CfnComputeNodeGroup(
                 from aws_cdk import aws_pcs as pcs
                 
                 custom_launch_template_property = pcs.CfnComputeNodeGroup.CustomLaunchTemplateProperty(
-                    version="version",
-                
-                    # the properties below are optional
-                    template_id="templateId"
+                    template_id="templateId",
+                    version="version"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__f5e18d4eaf127cbbf203643daa28b5c0a8105f4a3d48ce6e2c896d6f851d7911)
-                check_type(argname="argument version", value=version, expected_type=type_hints["version"])
                 check_type(argname="argument template_id", value=template_id, expected_type=type_hints["template_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "version": version,
-            }
+                check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
             if template_id is not None:
                 self._values["template_id"] = template_id
-
-        @builtins.property
-        def version(self) -> builtins.str:
-            '''The version of the EC2 launch template to use to provision instances.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-customlaunchtemplate.html#cfn-pcs-computenodegroup-customlaunchtemplate-version
-            '''
-            result = self._values.get("version")
-            assert result is not None, "Required property 'version' is missing"
-            return typing.cast(builtins.str, result)
+            if version is not None:
+                self._values["version"] = version
 
         @builtins.property
         def template_id(self) -> typing.Optional[builtins.str]:
@@ -2314,6 +2300,15 @@ class CfnComputeNodeGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-customlaunchtemplate.html#cfn-pcs-computenodegroup-customlaunchtemplate-templateid
             '''
             result = self._values.get("template_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def version(self) -> typing.Optional[builtins.str]:
+            '''The version of the EC2 launch template to use to provision instances.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-customlaunchtemplate.html#cfn-pcs-computenodegroup-customlaunchtemplate-version
+            '''
+            result = self._values.get("version")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -3285,10 +3280,8 @@ class CfnComputeNodeGroupProps:
                 # the properties below are optional
                 ami_id="amiId",
                 custom_launch_template=pcs.CfnComputeNodeGroup.CustomLaunchTemplateProperty(
-                    version="version",
-            
-                    # the properties below are optional
-                    template_id="templateId"
+                    template_id="templateId",
+                    version="version"
                 ),
                 name="name",
                 node_lifecycle_actions=pcs.CfnComputeNodeGroup.NodeLifecycleActionsProperty(
@@ -4547,8 +4540,8 @@ def _typecheckingstub__4f9d940f011938958eb70282b41c84f70c7f86093c1788ec73b310de3
 
 def _typecheckingstub__f5e18d4eaf127cbbf203643daa28b5c0a8105f4a3d48ce6e2c896d6f851d7911(
     *,
-    version: builtins.str,
     template_id: typing.Optional[builtins.str] = None,
+    version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

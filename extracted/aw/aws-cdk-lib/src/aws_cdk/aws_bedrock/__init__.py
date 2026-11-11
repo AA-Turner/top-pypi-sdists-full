@@ -41311,6 +41311,543 @@ class CfnResourcePolicyProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_bedrock_f1041ee4.IRetrievalInstructionRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnRetrievalInstruction(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnRetrievalInstruction",
+):
+    '''Resource Type definition for AWS::Bedrock::RetrievalInstruction.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-retrievalinstruction.html
+    :cloudformationResource: AWS::Bedrock::RetrievalInstruction
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrock as bedrock
+        
+        cfn_retrieval_instruction = bedrock.CfnRetrievalInstruction(self, "MyCfnRetrievalInstruction",
+            instruction=bedrock.CfnRetrievalInstruction.InstructionProperty(
+                answer_format="answerFormat",
+                answer_policy="answerPolicy",
+                persona="persona",
+                retrieval_guidance="retrievalGuidance"
+            ),
+            name="name",
+        
+            # the properties below are optional
+            customer_encryption_key_arn="customerEncryptionKeyArn",
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        instruction: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRetrievalInstruction.InstructionProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        customer_encryption_key_arn: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Bedrock::RetrievalInstruction``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param instruction: The reviewed content this instruction serves — what AgenticRetrieveStream resolves while status is ACTIVE. Absent until the first create review passes. Always present on a numbered version.
+        :param name: The name of the retrieval instruction.
+        :param customer_encryption_key_arn: The ARN of the customer managed KMS key protecting this content, when one was supplied at create.
+        :param description: A description of the retrieval instruction. On a numbered version, the description of that version.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f0fbbfdeee460ed5737c61c674f19610687f992776e547c8ae8710c78d59218e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRetrievalInstructionProps(
+            instruction=instruction,
+            name=name,
+            customer_encryption_key_arn=customer_encryption_key_arn,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRetrievalInstruction")
+    @builtins.classmethod
+    def arn_for_retrieval_instruction(
+        cls,
+        resource: "_aws_bedrock_f1041ee4.IRetrievalInstructionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__46694e864367ad9361ee9f2592e868190c6834fd962e11e6512bfbff0c05e176)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRetrievalInstruction", [resource]))
+
+    @jsii.member(jsii_name="isCfnRetrievalInstruction")
+    @builtins.classmethod
+    def is_cfn_retrieval_instruction(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRetrievalInstruction.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__225adfa2189d164e1b04ea846994c4ea8ded930121675f7c05bef82d3d5e3267)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRetrievalInstruction", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__659bf0fc4a6bfd203ab42200db278ef64f684e5e71e29d3890d4bbab50d9cb65)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2a838913bb96438fef33b0b23666be17419bfdcabf89d638183e6c84b9d7fc83)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''When the retrieval instruction was created.
+
+        On a numbered version, when that version was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastTransitionStatus")
+    def attr_last_transition_status(self) -> builtins.str:
+        '''The outcome or in-progress state of the most recent create or update.
+
+        CREATING or UPDATING means the operation is still running. Independent of status. Always has a value from the create 202 onward. On a numbered version this is always CREATE_SUCCESSFUL: a version is created once, from reviewed content, and is immutable.
+
+        :cloudformationAttribute: LastTransitionStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastTransitionStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRetrievalInstructionId")
+    def attr_retrieval_instruction_id(self) -> builtins.str:
+        '''The identifier of the retrieval instruction.
+
+        :cloudformationAttribute: RetrievalInstructionId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRetrievalInstructionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Whether the instruction can be used.
+
+        Only ACTIVE is resolvable at retrieval time. Monotone: INACTIVE to ACTIVE once, never back. Numbered versions are always ACTIVE.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''When the retrieval instruction was last updated.
+
+        Equal to createdAt on a numbered version, which is immutable.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="retrievalInstructionRef")
+    def retrieval_instruction_ref(
+        self,
+    ) -> "_aws_bedrock_f1041ee4.RetrievalInstructionReference":
+        '''A reference to a RetrievalInstruction resource.'''
+        return typing.cast("_aws_bedrock_f1041ee4.RetrievalInstructionReference", jsii.get(self, "retrievalInstructionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instruction")
+    def instruction(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRetrievalInstruction.InstructionProperty"]:
+        '''The reviewed content this instruction serves — what AgenticRetrieveStream resolves while status is ACTIVE.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRetrievalInstruction.InstructionProperty"], jsii.get(self, "instruction"))
+
+    @instruction.setter
+    def instruction(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRetrievalInstruction.InstructionProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a8b42b52acf8f5b6be061760fa34fd233a140d2e8006d0b9e91b01b997d2694c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instruction", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the retrieval instruction.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__414ed69646053a3d48d5f8ecae64813ea9cab1ee70eaf8fd6a81ed0137aa5b71)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="customerEncryptionKeyArn")
+    def customer_encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the customer managed KMS key protecting this content, when one was supplied at create.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "customerEncryptionKeyArn"))
+
+    @customer_encryption_key_arn.setter
+    def customer_encryption_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ce911d460f1bdc4921224b1891e203a4a2d6ca0eac9701872e5bc8db4863c88b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customerEncryptionKeyArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the retrieval instruction.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3b418ac2465ca2d0762c5a9d2e32ffc9991748456688d8ff8c12071ce9ef8fc6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__34bcfc223d4e5b134a69441af6c12954c5fad83fb69f0a024fa0ccdbbd7ed16d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnRetrievalInstruction.InstructionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "answer_format": "answerFormat",
+            "answer_policy": "answerPolicy",
+            "persona": "persona",
+            "retrieval_guidance": "retrievalGuidance",
+        },
+    )
+    class InstructionProperty:
+        def __init__(
+            self,
+            *,
+            answer_format: typing.Optional[builtins.str] = None,
+            answer_policy: typing.Optional[builtins.str] = None,
+            persona: typing.Optional[builtins.str] = None,
+            retrieval_guidance: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The reviewed content this instruction serves — what AgenticRetrieveStream resolves while status is ACTIVE.
+
+            Absent until the first create review passes. Always present on a numbered version.
+
+            :param answer_format: How the answer is structured, including how sources are cited.
+            :param answer_policy: Whether and how to answer: how strongly an answer must be supported, and what to do with questions outside scope.
+            :param persona: Who the assistant is: identity, tone and language.
+            :param retrieval_guidance: How to interpret and decompose the question, and what to prioritise when searching.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-retrievalinstruction-instruction.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                instruction_property = bedrock.CfnRetrievalInstruction.InstructionProperty(
+                    answer_format="answerFormat",
+                    answer_policy="answerPolicy",
+                    persona="persona",
+                    retrieval_guidance="retrievalGuidance"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__340cfa71d4c682e4c755335704357348c14c3ab6e4f19e7c1cbc855b53e4127e)
+                check_type(argname="argument answer_format", value=answer_format, expected_type=type_hints["answer_format"])
+                check_type(argname="argument answer_policy", value=answer_policy, expected_type=type_hints["answer_policy"])
+                check_type(argname="argument persona", value=persona, expected_type=type_hints["persona"])
+                check_type(argname="argument retrieval_guidance", value=retrieval_guidance, expected_type=type_hints["retrieval_guidance"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if answer_format is not None:
+                self._values["answer_format"] = answer_format
+            if answer_policy is not None:
+                self._values["answer_policy"] = answer_policy
+            if persona is not None:
+                self._values["persona"] = persona
+            if retrieval_guidance is not None:
+                self._values["retrieval_guidance"] = retrieval_guidance
+
+        @builtins.property
+        def answer_format(self) -> typing.Optional[builtins.str]:
+            '''How the answer is structured, including how sources are cited.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-retrievalinstruction-instruction.html#cfn-bedrock-retrievalinstruction-instruction-answerformat
+            '''
+            result = self._values.get("answer_format")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def answer_policy(self) -> typing.Optional[builtins.str]:
+            '''Whether and how to answer: how strongly an answer must be supported, and what to do with questions outside scope.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-retrievalinstruction-instruction.html#cfn-bedrock-retrievalinstruction-instruction-answerpolicy
+            '''
+            result = self._values.get("answer_policy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def persona(self) -> typing.Optional[builtins.str]:
+            '''Who the assistant is: identity, tone and language.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-retrievalinstruction-instruction.html#cfn-bedrock-retrievalinstruction-instruction-persona
+            '''
+            result = self._values.get("persona")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def retrieval_guidance(self) -> typing.Optional[builtins.str]:
+            '''How to interpret and decompose the question, and what to prioritise when searching.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-retrievalinstruction-instruction.html#cfn-bedrock-retrievalinstruction-instruction-retrievalguidance
+            '''
+            result = self._values.get("retrieval_guidance")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InstructionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnRetrievalInstructionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instruction": "instruction",
+        "name": "name",
+        "customer_encryption_key_arn": "customerEncryptionKeyArn",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnRetrievalInstructionProps:
+    def __init__(
+        self,
+        *,
+        instruction: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRetrievalInstruction.InstructionProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        customer_encryption_key_arn: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRetrievalInstruction``.
+
+        :param instruction: The reviewed content this instruction serves — what AgenticRetrieveStream resolves while status is ACTIVE. Absent until the first create review passes. Always present on a numbered version.
+        :param name: The name of the retrieval instruction.
+        :param customer_encryption_key_arn: The ARN of the customer managed KMS key protecting this content, when one was supplied at create.
+        :param description: A description of the retrieval instruction. On a numbered version, the description of that version.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-retrievalinstruction.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_retrieval_instruction_props = bedrock.CfnRetrievalInstructionProps(
+                instruction=bedrock.CfnRetrievalInstruction.InstructionProperty(
+                    answer_format="answerFormat",
+                    answer_policy="answerPolicy",
+                    persona="persona",
+                    retrieval_guidance="retrievalGuidance"
+                ),
+                name="name",
+            
+                # the properties below are optional
+                customer_encryption_key_arn="customerEncryptionKeyArn",
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e0b5ee605dd31791d1a5c2b9f6f30aad275d32ae642d2dcd73a4705c27f25be8)
+            check_type(argname="argument instruction", value=instruction, expected_type=type_hints["instruction"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument customer_encryption_key_arn", value=customer_encryption_key_arn, expected_type=type_hints["customer_encryption_key_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instruction": instruction,
+            "name": name,
+        }
+        if customer_encryption_key_arn is not None:
+            self._values["customer_encryption_key_arn"] = customer_encryption_key_arn
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def instruction(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRetrievalInstruction.InstructionProperty"]:
+        '''The reviewed content this instruction serves — what AgenticRetrieveStream resolves while status is ACTIVE.
+
+        Absent until the first create review passes. Always present on a numbered version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-retrievalinstruction.html#cfn-bedrock-retrievalinstruction-instruction
+        '''
+        result = self._values.get("instruction")
+        assert result is not None, "Required property 'instruction' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRetrievalInstruction.InstructionProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the retrieval instruction.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-retrievalinstruction.html#cfn-bedrock-retrievalinstruction-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def customer_encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the customer managed KMS key protecting this content, when one was supplied at create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-retrievalinstruction.html#cfn-bedrock-retrievalinstruction-customerencryptionkeyarn
+        '''
+        result = self._values.get("customer_encryption_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the retrieval instruction.
+
+        On a numbered version, the description of that version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-retrievalinstruction.html#cfn-bedrock-retrievalinstruction-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-retrievalinstruction.html#cfn-bedrock-retrievalinstruction-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRetrievalInstructionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_bedrock_f1041ee4.ISessionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSession(
     _aws_cdk_0cae9daa.CfnResource,
@@ -43244,6 +43781,8 @@ __all__ = [
     "CfnPromptVersionProps",
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
+    "CfnRetrievalInstruction",
+    "CfnRetrievalInstructionProps",
     "CfnSession",
     "CfnSessionProps",
     "FoundationModel",
@@ -47652,6 +48191,94 @@ def _typecheckingstub__7bc439643eba3e96cec66b3fb7fe2bade620d9dad3c0c9f73625cf6f7
     *,
     policy_document: typing.Any,
     resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f0fbbfdeee460ed5737c61c674f19610687f992776e547c8ae8710c78d59218e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    instruction: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRetrievalInstruction.InstructionProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    customer_encryption_key_arn: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__46694e864367ad9361ee9f2592e868190c6834fd962e11e6512bfbff0c05e176(
+    resource: _aws_bedrock_f1041ee4.IRetrievalInstructionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__225adfa2189d164e1b04ea846994c4ea8ded930121675f7c05bef82d3d5e3267(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__659bf0fc4a6bfd203ab42200db278ef64f684e5e71e29d3890d4bbab50d9cb65(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a838913bb96438fef33b0b23666be17419bfdcabf89d638183e6c84b9d7fc83(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a8b42b52acf8f5b6be061760fa34fd233a140d2e8006d0b9e91b01b997d2694c(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRetrievalInstruction.InstructionProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__414ed69646053a3d48d5f8ecae64813ea9cab1ee70eaf8fd6a81ed0137aa5b71(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce911d460f1bdc4921224b1891e203a4a2d6ca0eac9701872e5bc8db4863c88b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b418ac2465ca2d0762c5a9d2e32ffc9991748456688d8ff8c12071ce9ef8fc6(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__34bcfc223d4e5b134a69441af6c12954c5fad83fb69f0a024fa0ccdbbd7ed16d(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__340cfa71d4c682e4c755335704357348c14c3ab6e4f19e7c1cbc855b53e4127e(
+    *,
+    answer_format: typing.Optional[builtins.str] = None,
+    answer_policy: typing.Optional[builtins.str] = None,
+    persona: typing.Optional[builtins.str] = None,
+    retrieval_guidance: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0b5ee605dd31791d1a5c2b9f6f30aad275d32ae642d2dcd73a4705c27f25be8(
+    *,
+    instruction: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRetrievalInstruction.InstructionProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    customer_encryption_key_arn: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

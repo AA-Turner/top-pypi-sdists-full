@@ -59,6 +59,10 @@ class ConverterFromScpiString:
 			self.converter = str_to_int_or_bool
 			self.list_converter = str_to_int_or_bool_list
 
+		elif self.element_type == DataType.IntegerMinMaxDflt:
+			self.converter = str_to_int
+			self.list_converter = str_to_int_list
+
 		elif self.element_type == DataType.Float:
 			self.converter = str_to_float
 			self.list_converter = str_to_float_list
@@ -67,12 +71,16 @@ class ConverterFromScpiString:
 			self.converter = str_to_float_or_bool
 			self.list_converter = str_to_float_or_bool_list
 
+		elif self.element_type == DataType.FloatMinMaxDflt:
+			self.converter = str_to_float
+			self.list_converter = str_to_float_list
+
 		elif self.element_type.is_scalar_enum:
 			assert enum_type, f"For data type enum, you have to define the enum_type variable."
 			# noinspection PyTypeChecker
 			self.scpi_enum = ScpiEnum(enum_type)
 		else:
-			raise RsInstrException(f"Unsupported data type '{data_type}'")
+			raise RsInstrException(f"Unsupported element data type '{data_type}'")
 
 	def get_one_element_value(self, scpi_string: str):
 		"""Returns single element (not an array!!!) of the argument value converted from the SCPI string (single element)"""

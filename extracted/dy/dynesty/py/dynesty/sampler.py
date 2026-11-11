@@ -19,13 +19,13 @@ from .utils import (get_seed_sequence, get_print_func, progress_integration,
                     get_random_generator)
 
 from .bounding import (UnitCube, Ellipsoid, MultiEllipsoid, RadFriends,
-                       SupFriends, Bound, BOUND_LIST)
+                       PeriodicBound, SupFriends, Bound, BOUND_LIST)
 from .utils import (save_sampler, restore_sampler)
 
 __all__ = ["Sampler"]
 
 
-def _get_bound(bounding, ndim):
+def _get_bound(bounding, ndim, ncdim=None, periodic=None):
     if isinstance(bounding, str):
         if bounding not in BOUND_LIST:
             raise ValueError('Unsupported bounding type')
@@ -34,22 +34,29 @@ def _get_bound(bounding, ndim):
     else:
         raise ValueError('Unsupported bounding type')
 
+    # the bound only sees the first ncdim (clustered) dimensions;
+    # the remaining ones are sampled uniformly and need no wrapping
+    ncdim = ncdim or ndim
     if bounding == 'none':
-        bound = UnitCube(ndim)
+        bound = UnitCube(ncdim)
     elif bounding == 'single':
-        bound = Ellipsoid(ndim)
+        bound = Ellipsoid(ncdim)
         # this is ellipsoid in the center of the cube that contains
         # the whole cube
     elif bounding == 'multi':
-        bound = MultiEllipsoid(ndim)
+        bound = MultiEllipsoid(ncdim)
         # this is ellipsoid in the center of the cube that contains
         # the whole cube
     elif bounding == 'balls':
-        bound = RadFriends(ndim)
+        bound = RadFriends(ncdim)
     elif bounding == 'cubes':
-        bound = SupFriends(ndim)
+        bound = SupFriends(ncdim)
     else:
         bound = bounding
+    if periodic is not None:
+        periodic = [i for i in periodic if i < ncdim]
+    if periodic and not isinstance(bound, UnitCube):
+        bound = PeriodicBound(bound, periodic)
     return bound
 
 
@@ -73,7 +80,7 @@ def _initialize_live_points(live_points,
         tuple of 3 arrays (u, v, logl) or
         tuple of 4 arrays (u, v, logl, blobs), i.e.
         points location in cube coordinates,
-        point slocation in original coordinates,
+        points location in original coordinates,
         logl values and optionally blobs associated
 
     prior_transform: function
@@ -136,7 +143,8 @@ def _initialize_live_points(live_points,
         live_u = np.zeros((nlive, ndim))
         live_v = np.zeros((nlive, ndim))
         live_logl = np.zeros(nlive)
-        ngoods = 0  # counter for how many finite logl we have found
+        ngoods = 0  # counter for how many finite logl we have kept
+        ngoods_total = 0  # counter for how many finite logl we have found
         live_blobs = []
         iattempt = 0
         while True:
@@ -179,6 +187,7 @@ def _initialize_live_points(live_points,
 
             # how many finite logl values we have
             cur_ngood = finite.sum()
+            ngoods_total += cur_ngood
             if cur_ngood > 0:
                 # append them to our list
                 nextra = min(nlive - ngoods, cur_ngood)
@@ -206,16 +215,19 @@ def _initialize_live_points(live_points,
                     live_v[ngoods:ngoods + nextra] = cur_live_v[cur_ind]
                     if blob:
                         live_blobs.extend(cur_live_blobs[cur_ind])
-                logvol_init = -np.log(iattempt)
+                logvol_init = np.log(ngoods_total / (iattempt * ngoods))
                 # The logic is the following:
                 # if we have n live points and we sampled N attempts
-                # and we have k points above LOWL_VAL
+                # and we found K points above LOWL_VAL in total
                 # then the volume associated with pts above LOWL_VAL
-                # can be estimated as k/(Nn)
-                # the rest of the points have 1/Nn volume per pt
-                # Since we quit with k points above LOWL_VAL and
-                # (n-k)  LOWL points
-                # The volume is k/(Nn) + (n-k)/(Nn) = 1/N
+                # can be estimated as K/(Nn)
+                # We quit with k<=K points above LOWL_VAL (finite points
+                # of the last attempt that do not fit into n are dropped)
+                # and (n-k) LOWL points.
+                # The run treats the n live points as uniformly
+                # distributed in volume V, so the finite-logl volume
+                # is V k/n. Equating it to K/(Nn) gives V = K/(Nk),
+                # which is 1/N if no finite points were dropped
                 break
             if iattempt == n_attempts:
                 if ngoods == 0:
@@ -277,7 +289,7 @@ class Sampler:
         Function transforming a sample from the a unit cube to the parameter
         space of interest according to the prior.
 
-    ndim : int, optional
+    ndim : int
         Number of parameters accepted by `prior_transform`.
 
     live_points : list of 3 or 4 `~numpy.ndarray`
@@ -285,44 +297,57 @@ class Sampler:
         If `blob=True`, a fourth array of blobs (arbitrary shape) may be
         included.
 
-    sampling : {`'unif'`, `'rwalk'`, `'slice'`, `'rslice'`}
-        Sampling Method used to sample uniformly within the likelihood
+    sampling : :class:`~dynesty.internal_samplers.InternalSampler` instance
+        The sampler used to propose new live points within the likelihood
         constraint, conditioned on the provided bounds.
 
-    bound_update_interval : int
-        Only update the bounding distribution every `update_interval`-th
-        likelihood call.
+    bounding : str or :class:`~dynesty.bounding.Bound` instance
+        The bounding distribution (`'none'`, `'single'`, `'multi'`,
+        `'balls'`, `'cubes'` or a `Bound` instance).
 
-    first_update : dict
-        A dictionary containing parameters governing when the sampler should
-        first update the bounding distribution from the unit cube to the one
-        specified by the user.
-
-    rstate : `~numpy.random.Generator`
-        `~numpy.random.Generator` instance.
-
-    queue_size: int
-        Carry out likelihood evaluations in parallel by queueing up new live
-        point proposals using (at most) this many threads/members.
-
-    pool: pool
-        Use this pool of workers to execute operations in parallel.
-
-    use_pool : dict, optional
-        A dictionary containing flags indicating where the provided `pool`
-        should be used to execute operations in parallel.
-
-    kwargs : dict, optional
-        A dictionary of additional parameters.
-
-    ncdim: int, optional
+    ncdim : int, optional
         The number of clustering dimensions. The first ncdim dimensions
         will be sampled using the sampling method, the remaining
         dimensions will
         just sample uniformly from the prior distribution.
         If this is `None` (default), this will default to ndim.
 
-    logvol_init: float, optional
+    rstate : `~numpy.random.Generator`, optional
+        `~numpy.random.Generator` instance.
+
+    pool : pool, optional
+        Use this pool of workers to execute operations in parallel.
+
+    use_pool : dict, optional
+        A dictionary containing flags indicating where the provided `pool`
+        should be used to execute operations in parallel.
+
+    queue_size : int, optional
+        Carry out likelihood evaluations in parallel by queueing up new live
+        point proposals using (at most) this many threads/members.
+
+    bound_update_interval : int, optional
+        Only update the bounding distribution every
+        `bound_update_interval`-th likelihood call.
+
+    first_bound_update : dict, optional
+        A dictionary containing parameters governing when the sampler should
+        first update the bounding distribution from the unit cube to the one
+        specified by `bounding` (`'min_ncall'` and `'min_eff'`).
+
+    bound_bootstrap : int, optional
+        The number of bootstrapped realizations used to enlarge the bounds.
+
+    bound_enlarge : float, optional
+        The factor by which the volume of the bounds is enlarged.
+
+    blob : bool, optional
+        Whether the log-likelihood returns a blob in addition to the logl.
+
+    cite : str, optional
+        The citation information for the run.
+
+    logvol_init : float, optional
         The initial log of volume when starting sampling. This is relevant
         when the log(L) is finite only within a fraction of prior volume.
 
@@ -369,7 +394,8 @@ class Sampler:
         self.sampling = sampling
         # This is the sampler that will be used to sample after we
         # are done with the unit cube sampling
-        self.internal_sampler_next = sampling
+        # own copy, so that the tuning state is not shared between samplers
+        self.internal_sampler_next = copy.deepcopy(sampling)
         self.internal_sampler = UnitCubeSampler(ndim=ndim)
 
         # parallelism
@@ -429,7 +455,11 @@ class Sampler:
         self.bound_enlarge = bound_enlarge
 
         self.bounding = bounding
-        self.bound_next = _get_bound(bounding, ndim)
+        self.bound_next = _get_bound(
+            bounding,
+            ndim,
+            ncdim=self.ncdim,
+            periodic=sampling.sampler_kwargs.get('periodic'))
         # the reason I do not set it as self.bound
         # because we start from unit cube
 
@@ -441,7 +471,7 @@ class Sampler:
 
         Parameters
         ----------
-        fname: string
+        fname : string
             Filename of the save file.
 
         """
@@ -457,9 +487,9 @@ class Sampler:
 
         Parameters
         ----------
-        fname: string
+        fname : string
             Filename of the save file.
-        pool: object(optional)
+        pool : object(optional)
             The multiprocessing pool-like object that supports map()
             calls that will be used in the restored object.
 
@@ -475,11 +505,11 @@ class Sampler:
             i = self.rstate.choice(args[0])
         else:
             i = self.rstate.integers(self.nlive)
-        u = self.live_u[i, :]
+        u = self.live_u[i, :].copy()  # samplers may modify it in place
         ax = self.bound.get_random_axes(self.rstate)
         u_fit = u[:self.ncdim]
         if self.bound.need_centers:
-            self.bound.ctrs = self.live_u
+            self.bound.ctrs = self.live_u[:, :self.ncdim]
         # Automatically trigger an update if we're not in any ellipsoid.
         if not self.bound.contains(u_fit):
             # Update the bounding ellipsoids.
@@ -565,10 +595,14 @@ class Sampler:
 
         d = {}
         for k in [
-                'nc', 'v', 'id', 'it', 'u', 'logwt', 'logl', 'logvol', 'logz',
-                'logzvar', 'h', 'blob', 'proposal_stats'
+                'nc', 'v', 'id', 'it', 'u', 'logl', 'logvol', 'blob',
+                'proposal_stats'
         ]:
             d[k] = np.array(self.saved_run[k])
+        # saved_run only has the running estimates from progress_integration
+        # so we recompute the integrals using the full run
+        d['logwt'], d['logz'], d['logzvar'], d['h'] = compute_integrals(
+            logl=d['logl'], logvol=d['logvol'], logvol_init=self.logvol_init)
 
         # Add all saved samples to the results.
         with warnings.catch_warnings():
@@ -576,13 +610,15 @@ class Sampler:
             results = [('nlive', self.nlive), ('niter', self.it - 1),
                        ('ncall', d['nc']), ('eff', self.eff),
                        ('samples', d['v']), ('blob', d['blob']),
-                       ('proposal_stats', d['proposal_stats'])]
+                       ('proposal_stats', d['proposal_stats']),
+                       ('logvol_init', self.logvol_init)]
             for k in ['id', 'it', 'u']:
                 results.append(('samples_' + k, d[k]))
             for k in ['logwt', 'logl', 'logvol', 'logz']:
                 results.append((k, d[k]))
             results.append(('logzerr', np.sqrt(d['logzvar'])))
             results.append(('information', d['h']))
+        results.append(('scale', np.array(self.saved_run['scale'])))
 
         # Add any saved bounds (and ancillary quantities) to the results.
         if self.save_bounds:
@@ -592,7 +628,6 @@ class Sampler:
                                         dtype=int)))
             results.append(('samples_bound',
                             np.array(self.saved_run['boundidx'], dtype=int)))
-            results.append(('scale', np.array(self.saved_run['scale'])))
 
         return Results(results)
 
@@ -630,10 +665,7 @@ class Sampler:
         """
         if ncall is None:
             ncall = self.ncall
-        if self.bound_update_interval is None:
-            delta_bound = self.sampler.bound_update_interval * self.nlive
-        else:
-            delta_bound = self.bound_update_interval
+        delta_bound = self.bound_update_interval
 
         call_check_first = ncall >= self.first_bound_update_ncall
         call_check = ncall >= delta_bound + self.ncall_at_last_update
@@ -667,9 +699,9 @@ class Sampler:
                 self.internal_sampler = self.internal_sampler_next
                 # self.bound_next = None
                 # self.internal_sampler_next = None
-            self.update_bound(subset=subset)
+            bound_copy = self.update_bound(subset=subset)
             if self.save_bounds:
-                self.bound_list.append(self.bound)
+                self.bound_list.append(bound_copy)
             self.nbound += 1
             self.ncall_at_last_update = ncall
 
@@ -780,7 +812,8 @@ class Sampler:
     def add_live_points(self):
         """Add the remaining set of live points to the current set of dead
         points. Instantiates a generator that will be called by
-        the user. Returns the same outputs as :meth:`sample`."""
+        the user. Yields the same `IteratorResult` objects as
+        :meth:`sample`."""
 
         # Check if the remaining live points have already been added
         # to the output set of samples.
@@ -791,7 +824,6 @@ class Sampler:
             self.added_live = True
         if len(self.saved_run['logz']) > 0:
             logz = self.saved_run['logz'][-1]
-            logzvar = self.saved_run['logzvar'][-1]
             h = self.saved_run['h'][-1]
             loglstar = self.saved_run['logl'][-1]
             logvol = self.saved_run['logvol'][-1]
@@ -800,7 +832,6 @@ class Sampler:
             # just sampled uniformly and bailed out
             h = 0.  # information, initially *0.*
             logz = -1.e300  # ln(evidence), initially *0.*
-            logzvar = 0.  # var[ln(evidence)], initially *0.*
             logvol = self.logvol_init
             # initially contains the whole prior (volume=1.)
             loglstar = -1.e300  # initial ln(likelihood)
@@ -816,7 +847,6 @@ class Sampler:
         if not self.plateau_mode:
             logvols = np.log(1. - (np.arange(self.nlive) + 1.) /
                              (self.nlive + 1.))
-            # Defining change in `logvol` used in `logzvar` approximation.
         else:
             # we first just use old delta(v)'s associated with each point
             # in the plateau
@@ -829,7 +859,7 @@ class Sampler:
                 logvols,
                 logvols[-1] + np.log1p(-(1 + np.arange(nrest)) / (nrest + 1))
             ])
-        # IMPORTANT in those caclulations I keep logvol separate
+        # IMPORTANT in those calculations I keep logvol separate
         # and add it later to ensure the first dlv=0
         dlvs = -np.diff(logvols, prepend=0)
         logvols += logvol
@@ -863,9 +893,8 @@ class Sampler:
             boundidx = self.live_bound[idx]
             point_it = self.live_it[idx]
 
-            (logwt, logz, logzvar,
-             h) = progress_integration(loglstar, loglstar_new, logz, logzvar,
-                                       logvol, dlv, h)
+            logwt, logz, h = progress_integration(loglstar, loglstar_new, logz,
+                                                  logvol, dlv, h)
             loglstar = loglstar_new
             delta_logz = np.logaddexp(0, loglmax + logvol - logz)
 
@@ -879,13 +908,14 @@ class Sampler:
                     logvol=logvol,
                     logwt=logwt,
                     logz=logz,
-                    logzvar=logzvar,
                     h=h,
-                    nc=1,  # this is technically a lie
-                    # as we didn't call the likelihood even once
-                    # however because we lose track of ncs if we start
-                    # from points that are not sampled from unit cube
-                    # it can lead to sum(nc)!=ncall
+                    nc=1,
+                    # no likelihood call is made here: each dead
+                    # point's nc counts the calls that produced its
+                    # replacement, so the final live point of each chain
+                    # carries that chain's initial call. This makes
+                    # sum(nc) == ncall (exact only if initialization took
+                    # exactly nlive calls)
                     boundidx=boundidx,
                     it=point_it,
                     bounditer=bounditer,
@@ -902,7 +932,6 @@ class Sampler:
                                  logvol=logvol,
                                  logwt=logwt,
                                  logz=logz,
-                                 logzvar=logzvar,
                                  h=h,
                                  nc=1,
                                  blob=old_blob,
@@ -920,9 +949,9 @@ class Sampler:
         if self.added_live:
             self.added_live = False
             for k in [
-                    'id', 'u', 'v', 'logl', 'logvol', 'logwt', 'logz',
-                    'logzvar', 'h', 'nc', 'boundidx', 'it', 'bounditer',
-                    'scale', 'blob', 'proposal_stats'
+                    'id', 'u', 'v', 'logl', 'logvol', 'logwt', 'logz', 'h',
+                    'nc', 'boundidx', 'it', 'bounditer', 'scale', 'blob',
+                    'proposal_stats'
             ]:
                 del self.saved_run[k][-self.nlive:]
         else:
@@ -968,63 +997,78 @@ class Sampler:
             threshold set by `logl_max`. Default is no bound (`np.inf`).
 
         add_live : bool, optional
-            Whether or not to add the remaining set of live points to
-            the list of samples when calculating `n_effective`.
-            Default is `True`.
+            Not used by this method. The remaining set of live points
+            is added to the list of samples by :meth:`add_live_points`
+            (called by :meth:`run_nested` if its `add_live` is `True`).
 
         save_bounds : bool, optional
             Whether or not to save past distributions used to bound
             the live points internally. Default is `True`.
 
-        Returns
-        -------
-        worst : int
-            Index of the live point with the worst likelihood. This is our
-            new dead point sample.
+        resume : bool, optional
+            If `True`, continue a previously interrupted run (e.g. one
+            restored from a checkpoint file) instead of starting a new one.
+            Default is `False`.
 
-        ustar : `~numpy.ndarray` with shape (ndim,)
-            Position of the sample.
+        Yields
+        ------
+        result : `IteratorResult`
+            A named tuple (`dynesty.utils.IteratorResult`) describing the
+            new dead point, with the following fields:
 
-        vstar : `~numpy.ndarray` with shape (ndim,)
-            Transformed position of the sample.
+            worst : int
+                Index of the live point with the worst likelihood. This is our
+                new dead point sample.
 
-        loglstar : float
-            Ln(likelihood) of the sample.
+            ustar : `~numpy.ndarray` with shape (ndim,)
+                Position of the sample.
 
-        logvol : float
-            Ln(prior volume) within the sample.
+            vstar : `~numpy.ndarray` with shape (ndim,)
+                Transformed position of the sample.
 
-        logwt : float
-            Ln(weight) of the sample.
+            loglstar : float
+                Ln(likelihood) of the sample.
 
-        logz : float
-            Cumulative ln(evidence) up to the sample (inclusive).
+            logvol : float
+                Ln(prior volume) within the sample.
 
-        logzvar : float
-            Estimated cumulative variance on `logz` (inclusive).
+            logwt : float
+                Ln(weight) of the sample.
 
-        h : float
-            Cumulative information up to the sample (inclusive).
+            logz : float
+                Cumulative ln(evidence) up to the sample (inclusive).
 
-        nc : int
-            Number of likelihood calls performed before the new
-            live point was accepted.
+            h : float
+                Cumulative information up to the sample (inclusive).
 
-        worst_it : int
-            Iteration when the live (now dead) point was originally proposed.
+            nc : int
+                Number of likelihood calls performed before the new
+                live point was accepted.
 
-        boundidx : int
-            Index of the bound the dead point was originally drawn from.
+            worst_it : int
+                Iteration when the live (now dead) point was originally
+                proposed.
 
-        bounditer : int
-            Index of the bound being used at the current iteration.
+            boundidx : int
+                Index of the bound the dead point was originally drawn from.
 
-        eff : float
-            The cumulative sampling efficiency (in percent).
+            bounditer : int
+                Index of the bound being used at the current iteration.
 
-        delta_logz : float
-            The estimated remaining evidence expressed as the ln(ratio) of the
-            current evidence.
+            eff : float
+                The cumulative sampling efficiency (in percent).
+
+            delta_logz : float
+                The estimated remaining evidence expressed as the ln(ratio)
+                of the current evidence.
+
+            blob : object
+                The blob returned by the log-likelihood for the sample (if
+                `blob=True`, otherwise `None`).
+
+            proposal_stats : dict
+                Statistics of the internal sampler proposal of the sample
+                (e.g. the number of accepted/rejected steps).
 
         """
 
@@ -1040,7 +1084,6 @@ class Sampler:
             # Initialize values for nested sampling loop.
             h = 0.  # information, initially *0.*
             logz = -1.e300  # ln(evidence), initially *0.*
-            logzvar = 0.  # var[ln(evidence)], initially *0.*
             logvol = self.logvol_init
             # initially contains the whole prior (volume=1.)
             loglstar = -1.e300  # initial ln(likelihood)
@@ -1057,9 +1100,8 @@ class Sampler:
                 self._remove_live_points()
 
             # Get final state from previous run.
-            h, logz, logzvar, logvol, loglstar = [
-                self.saved_run[_][-1]
-                for _ in ['h', 'logz', 'logzvar', 'logvol', 'logl']
+            h, logz, logvol, loglstar = [
+                self.saved_run[_][-1] for _ in ['h', 'logz', 'logvol', 'logl']
             ]
             delta_logz = np.logaddexp(0,
                                       np.max(self.live_logl) + logvol - logz)
@@ -1145,9 +1187,8 @@ class Sampler:
                 new_blob = logl.blob
             else:
                 new_blob = None
-            (logwt, logz, logzvar,
-             h) = progress_integration(loglstar, loglstar_new, logz, logzvar,
-                                       logvol, cur_dlv, h)
+            logwt, logz, h = progress_integration(loglstar, loglstar_new, logz,
+                                                  logvol, cur_dlv, h)
             loglstar = loglstar_new
 
             # Compute bound index at the current iteration.
@@ -1165,9 +1206,9 @@ class Sampler:
                      logvol=logvol,
                      logwt=logwt,
                      logz=logz,
-                     logzvar=logzvar,
                      h=h,
                      nc=nc,
+                     boundidx=boundidx,
                      it=worst_it,
                      bounditer=bounditer,
                      scale=self.internal_sampler.scale,
@@ -1200,7 +1241,6 @@ class Sampler:
                                  logvol=logvol,
                                  logwt=logwt,
                                  logz=logz,
-                                 logzvar=logzvar,
                                  h=h,
                                  nc=nc,
                                  blob=old_blob,
@@ -1265,20 +1305,26 @@ class Sampler:
 
         print_func : function, optional
             A function that prints out the current state of the sampler.
-            If not provided, the default :meth:`results.print_fn` is used.
+            If not provided, the default :func:`~dynesty.utils.print_fn` is used.
 
         save_bounds : bool, optional
             Whether or not to save past bounding distributions used to bound
             the live points internally. Default is *True*.
 
-        checkpoint_file: string, optional
+        checkpoint_file : string, optional
             if not None The state of the sampler will be saved into this
             file every checkpoint_every seconds
 
-        checkpoint_every: float, optional
+        checkpoint_every : float, optional
             The number of seconds between checkpoints that will save
             the internal state of the sampler. The sampler will also be
             saved in the end of the run irrespective of checkpoint_every.
+            Default is `60`.
+
+        resume : bool, optional
+            If `True`, continue a previously interrupted run (e.g. one
+            restored from a checkpoint file) instead of starting a new one.
+            Default is `False`.
         """
 
         # Define our stopping criteria.
@@ -1328,7 +1374,8 @@ class Sampler:
             if add_live:
                 it = self.it - 1
                 for i, results in enumerate(self.add_live_points()):
-                    ncall += results.nc
+                    # no ncall increment: the final live points' nc=1
+                    # are the initial calls, already counted in self.ncall
 
                     # Print progress.
                     if print_progress:
@@ -1339,13 +1386,6 @@ class Sampler:
                                    dlogz=dlogz,
                                    logl_max=logl_max)
 
-            # Here we recompute the integrals using the full run
-            new_logwt, new_logz, new_logzvar, new_h = compute_integrals(
-                logl=self.saved_run['logl'], logvol=self.saved_run['logvol'])
-            self.saved_run['logwt'] = new_logwt.tolist()
-            self.saved_run['logz'] = new_logz.tolist()
-            self.saved_run['logzvar'] = new_logzvar.tolist()
-            self.saved_run['h'] = new_h.tolist()
             if checkpoint_file is not None:
                 # I don't check the time timer here
                 self.save(checkpoint_file)
@@ -1369,7 +1409,7 @@ class Sampler:
 
         print_func : function, optional
             A function that prints out the current state of the sampler.
-            If not provided, the default :meth:`results.print_fn` is used.
+            If not provided, the default :func:`~dynesty.utils.print_fn` is used.
 
         """
 

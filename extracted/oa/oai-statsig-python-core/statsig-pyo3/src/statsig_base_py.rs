@@ -66,7 +66,7 @@ fn projection_fields(field_names: &Bound<'_, PyAny>) -> PyResult<Vec<PyBackedStr
 #[gen_stub_pyclass]
 #[pyclass(module = "statsig_python_core", subclass)]
 pub struct StatsigBasePy {
-    inner: Arc<Statsig>,
+    pub(crate) inner: Arc<Statsig>,
     observability_client: Mutex<Option<Arc<dyn ObservabilityClient>>>,
 }
 
@@ -824,6 +824,21 @@ impl StatsigBasePy {
                 extract_event_metadata(exposure_metadata),
                 |raw| raw_experiment_to_py_dict(py, raw, evaluation_cache_keys.as_ref(), None),
             )
+    }
+
+    /// Log a saved experiment assignment when the consuming operation runs.
+    /// Very error-prone. Prefer get_layer() and layer.get(parameter, default) at
+    /// the point of use. Consult the Statsig team before adopting this method
+    /// for a custom cross-service flow.
+    /// Pass the opaque payload from the trusted producer in the same Statsig
+    /// project and environment. This instance logs the saved IDs and rule at
+    /// the current time. Call once per executed exposure point. A retry or a
+    /// payload from the wrong policy can bias results. Invalid payloads raise ValueError.
+    #[pyo3(name = "log_deferred_experiment_exposure_DO_NOT_USE")]
+    pub fn log_deferred_experiment_exposure(&self, payload: &str) -> PyResult<()> {
+        self.inner
+            .log_deferred_experiment_exposure(payload)
+            .map_err(|error| pyo3::exceptions::PyValueError::new_err(error.to_string()))
     }
 
     #[pyo3(signature = (user, name))]

@@ -2,7 +2,6 @@ use crate::{
     evaluation::evaluator_value::EvaluatorValueRef, specs_response::spec_types::ConditionOperator,
     unwrap_or_return, user::user_value::UserValueRef,
 };
-use chrono::Duration;
 
 pub(crate) fn compare_time<'a>(
     left: UserValueRef<'_>,
@@ -25,19 +24,17 @@ pub(crate) fn compare_time<'a>(
         ConditionOperator::Before => left_ts < right_ts,
         ConditionOperator::After => left_ts > right_ts,
         ConditionOperator::On => {
-            Duration::milliseconds(left_ts).num_days()
-                == Duration::milliseconds(right_ts).num_days()
+            // Preserve whole-day truncation toward zero, including pre-epoch timestamps.
+            const MILLIS_PER_DAY: i64 = 86_400_000;
+            left_ts / MILLIS_PER_DAY == right_ts / MILLIS_PER_DAY
         }
         _ => false,
     }
 }
 
 fn to_millis(ts: i64) -> i64 {
-    // calculate the absolute value of the digits
-    let digits = ts.abs();
-
     // epoch in seconds (milliseconds would be before 1970)
-    if digits < 10_000_000_000 {
+    if ts.unsigned_abs() < 10_000_000_000 {
         // seconds to milliseconds
         ts.saturating_mul(1000)
     } else {

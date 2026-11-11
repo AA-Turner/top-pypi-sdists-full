@@ -161,6 +161,18 @@ impl<'a> HydrationResult<'a> {
         self.finished = true;
         let (outcome, reason) = match result {
             Ok(()) => ("success", "none"),
+            // The envelope guard can abort before the session registers its
+            // first dynamic config. Report the contract violation in that case too.
+            Err(error)
+                if HydrationFailureReason::from_error(error)
+                    == Some(HydrationFailureReason::UnsupportedEntity) =>
+            {
+                self.mark_remote_metadata();
+                (
+                    "failure",
+                    HydrationFailureReason::UnsupportedEntity.as_str(),
+                )
+            }
             Err(error) => match self
                 .download_failure
                 .or_else(|| HydrationFailureReason::from_error(error))

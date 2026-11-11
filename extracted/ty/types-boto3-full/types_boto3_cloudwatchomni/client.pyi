@@ -97,6 +97,8 @@ from .type_defs import (
     GetOmniDashboardOutputTypeDef,
     GetSpaceCredentialsForOrganizationInputTypeDef,
     GetSpaceCredentialsForOrganizationOutputTypeDef,
+    GetSpaceDataAccessInputTypeDef,
+    GetSpaceDataAccessOutputTypeDef,
     GetSpaceInputTypeDef,
     GetSpaceOutputTypeDef,
     GetTelemetryQueryResultsRequestTypeDef,
@@ -166,6 +168,7 @@ class Exceptions(BaseClientExceptions):
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
+    PolicyTooLargeException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
@@ -513,6 +516,17 @@ class CloudWatchOmniClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatchomni/client/get_space_credentials_for_organization.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatchomni/client/#get_space_credentials_for_organization)
+        """
+
+    def get_space_data_access(
+        self, **kwargs: Unpack[GetSpaceDataAccessInputTypeDef]
+    ) -> GetSpaceDataAccessOutputTypeDef:
+        """
+        Returns temporary credentials for working with data in a space, limited to the
+        actions you request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatchomni/client/get_space_data_access.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatchomni/client/#get_space_data_access)
         """
 
     def get_telemetry_query_results(

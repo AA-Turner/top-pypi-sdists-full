@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-alloydb-connector
-Version: 1.14.1
+Version: 1.15.0
 Summary: A Python client library for connecting securely to your Google Cloud AlloyDB instances.
 Author-email: Google LLC <googleapis-packages@google.com>
 License-Expression: Apache-2.0
@@ -12,13 +12,13 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiofiles
@@ -28,6 +28,10 @@ Requires-Dist: google-auth
 Requires-Dist: protobuf
 Requires-Dist: google-cloud-alloydb
 Requires-Dist: google-api-core
+Requires-Dist: opentelemetry-api>=1.30
+Requires-Dist: opentelemetry-sdk>=1.30
+Requires-Dist: opentelemetry-exporter-gcp-monitoring>=1.11.0a0
+Requires-Dist: google-cloud-monitoring>=2.12
 Provides-Extra: pg8000
 Requires-Dist: pg8000>=1.31.1; extra == "pg8000"
 Provides-Extra: asyncpg

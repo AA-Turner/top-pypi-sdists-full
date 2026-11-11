@@ -1,23 +1,22 @@
 Metadata-Version: 2.4
 Name: aiven-client
-Version: 4.18.0
+Version: 4.19.0
 Summary: Aiven.io client library / command-line client
 Project-URL: Homepage, https://github.com/aiven/aiven-client
 Project-URL: Bug Tracker, https://github.com/aiven/aiven-client/issues
 Project-URL: Documentation, https://docs.aiven.io/docs/tools/cli
 Author-email: Aiven <support@aiven.io>
-License: Apache License 2.0
+License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: certifi>=2015.11.20.1
 Requires-Dist: requests-toolbelt>=0.9.0
 Requires-Dist: requests>=2.2.1; sys_platform == 'linux'
@@ -53,7 +52,7 @@ Getting Started
 
 Requirements:
 
-*  Python 3.10 or later
+*  Python 3.11 or later
 
 *  Requests_
 
@@ -213,18 +212,6 @@ Create a project and set the default cloud region for it::
 Delete an empty project::
 
   $ avn project delete myproject
-
-List authorized users in a project::
-
-  $ avn project user-list
-
-Invite an existing Aiven user to a project::
-
-  $ avn project user-invite somebody@example.com
-
-Remove a user from the project::
-
-  $ avn project user-remove somebody@example.com
 
 View project management event log::
 
@@ -424,6 +411,53 @@ Delete a service integration::
 
     $ avn service integration-delete --project <project> <integration_id>
 
+Aiven Runtime Applications
+--------------------------
+
+An Aiven Runtime application is a service of type ``application``. Create, update, power
+and terminate it with the ``avn service`` commands.
+
+Find the IDs to deploy from a connected GitHub account::
+
+    $ avn service application vcs-integration list --organization-id <organization id>
+    $ avn service application repository list --organization-id <organization id> --vcs-integration-id <vcs integration id> --search <name>
+    $ avn service application branch list --organization-id <organization id> --vcs-integration-id <vcs integration id> --remote-repository-id <repository id>
+    $ avn service application container-manifest list --organization-id <organization id> --vcs-integration-id <vcs integration id> --remote-repository-id <repository id> --commit-sha <sha>
+
+Create an application from a JSON user configuration::
+
+    $ avn service create myapp -t application --plan startup-50-1024 --cloud aws-eu-west-1 --user-config-json @app.json
+
+``app.json`` holds the service ``user_config``, the same object as in the API. A minimal
+example::
+
+    {
+        "application": {
+            "source": {
+                "repository_url": "https://github.com/example/app.git",
+                "branch": "main",
+                "containerfile_path": "Dockerfile"
+            },
+            "ports": [{"name": "http", "port": 8080, "protocol": "HTTP"}]
+        }
+    }
+
+For a private repository, also set ``vcs_integration_id`` and ``remote_repository_id``
+in ``source``.
+
+Update it from a JSON user configuration::
+
+    $ avn service update myapp --user-config-json @app.json
+
+To get a suggested user configuration for a manifest in the repository, scan it and use a
+``service_suggestions[].user_config`` from the output::
+
+    $ avn service application container-manifest scan --organization-id <organization id> --vcs-integration-id <vcs integration id> --remote-repository-id <repository id> --commit-sha <sha> --branch <branch> --repository-url <repository url> --file-path <manifest path> --json
+
+View build logs::
+
+    $ avn service logs myapp --log-type application-build
+
 Custom Files
 ------------
 
@@ -535,4 +569,3 @@ Keep Reading
 We maintain some other resources that you may also find useful:
 
 * `Command Line Magic with avn <https://aiven.io/blog/command-line-magic-with-the-aiven-cli>`__
-* `Managing Billing Groups via CLI <https://help.aiven.io/en/articles/4720981-using-billing-groups-via-cli>`__

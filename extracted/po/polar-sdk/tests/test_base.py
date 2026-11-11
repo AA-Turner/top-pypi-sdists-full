@@ -12,6 +12,7 @@ from polar.base import (
     AsyncClientBase,
     SyncClientBase,
     _register_extra_items_typed_dict,
+    parse_response_json,
     resolve_base_url,
 )
 from polar.v2026_04 import Polar, PolarAsync
@@ -326,11 +327,21 @@ class TestOrganization:
         assert request.headers["Polar-Organization"] == "org_1"
 
     @pytest.mark.parametrize("polar_class", [Polar, PolarAsync])
-    def test_polar_organization(
-        self, polar_class: type[Polar | PolarAsync]
-    ) -> None:
+    def test_polar_organization(self, polar_class: type[Polar | PolarAsync]) -> None:
         polar = polar_class("polar_at_u_xxx", organization_id="org_1")
 
         request = polar._client.build_request(method="GET", url="/v1/items/")
 
         assert request.headers["Polar-Organization"] == "org_1"
+
+
+def test_user_agent(client: SyncClientBase | AsyncClientBase) -> None:
+    request = client.build_request(method="GET", url="/v1/items/")
+
+    assert request.headers["User-Agent"] == "polar-sdk-python/1.1.0"
+
+
+def test_parse_response_json_empty_body() -> None:
+    response = httpx.Response(202, headers={"Content-Type": "application/json"})
+
+    assert parse_response_json(response) is None

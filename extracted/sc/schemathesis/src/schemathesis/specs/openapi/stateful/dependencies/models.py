@@ -4,11 +4,12 @@ import difflib
 import enum
 import re
 from collections import defaultdict
-from collections.abc import Collection, Iterable, Iterator, Mapping
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping
 from dataclasses import asdict, dataclass
 from functools import lru_cache
-from typing import Any, TypeAlias
+from typing import Any, TypeAlias, TypeVar
 
+from schemathesis.core.errors import InvalidSchema, RefResolutionError
 from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.parameters import ParameterLocation, iter_path_parameters
@@ -22,10 +23,14 @@ from schemathesis.resources.descriptors import Cardinality
 from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
 from schemathesis.specs.openapi.stateful.dependencies.naming import (
     KeyKind,
+    collection_path,
     from_path,
+    item_collection,
     key_kind,
     normalize_for_matching,
+    owning_resource,
     parameter_names_source,
+    qualified_collections,
     strip_version_prefix,
     trailing_path_parameter,
 )
@@ -47,16 +52,21 @@ class DependencyGraph:
             del operation["path"]
             for input in operation["inputs"]:
                 input["resource"] = input["resource"]["name"]
+                del input["takes_array"]
                 if not input["echoes_response"]:
                     del input["echoes_response"]
                 if not input["is_listed_identifier"]:
                     del input["is_listed_identifier"]
                 if not input["is_parent_key"]:
                     del input["is_parent_key"]
+                del input["is_named_after_collection"]
                 del input["body_path"]
+                del input["item_fields"]
+                del input["is_inline_item"]
             for output in operation["outputs"]:
                 output["resource"] = output["resource"]["name"]
                 del output["response_fields"]
+                del output["named_after_path"]
                 if output.get("identifier_pointer") is None:
                     output.pop("identifier_pointer", None)
                 if output.get("path_parameter") is None:
@@ -68,6 +78,8 @@ class DependencyGraph:
             del resource["name"]
             del resource["source"]
             del resource["inherited_fields"]
+            for fk_field in [*resource["fk_fields"], *resource["nested_fk_fields"]]:
+                del fk_field["holds_array"]
             # Simplify FK fields for readability
             if not resource["fk_fields"]:
                 del resource["fk_fields"]
@@ -88,23 +100,8 @@ class DependencyGraph:
 
         # Precomputed data for the cross-namespace scope guard (bare {id} collision check).
         # All string work happens once here rather than inside the hot inner loop.
-        path_resource_names: dict[int, str | None] = {}
-        # Stripped producer path per operation
-        stripped_paths: dict[int, str] = {}
-        # (consumer_collection, consumer_collection + "/") for ops with a bare {id} segment
-        id_collection_paths: dict[int, tuple[str, str] | None] = {}
-        for op in self.operations.values():
-            op_id = id(op)
-            path_resource_names[op_id] = from_path(op.path)
-            stripped_paths[op_id] = strip_version_prefix(op.path)
-            segments = op.path.split("/")
-            for i, seg in enumerate(segments):
-                if seg == "{id}":
-                    collection = strip_version_prefix("/".join(segments[:i]) or "/")
-                    id_collection_paths[op_id] = (collection, collection + "/")
-                    break
-            else:
-                id_collection_paths[op_id] = None
+        path_resource_names, stripped_paths, id_collection_paths = _scope_guard_paths(self.operations.values())
+        qualifiers = _collection_qualifiers(list(self.operations.values()))
 
         # Index consumers by resource
         consumers_by_resource: dict[int, dict[int, tuple[OperationNode, list[InputSlot]]]] = defaultdict(dict)
@@ -116,6 +113,9 @@ class DependencyGraph:
                     consumers_by_resource[resource_id][consumer_id] = (consumer, [])
                 consumers_by_resource[resource_id][consumer_id][1].append(input_slot)
 
+        # Resources each path returns as a whole; only keys crossing collections need it, so it is built on demand
+        returned_by_path: dict[str, set[int]] | None = None
+
         path_identifiers: dict[str, set[str]] = {}
         for operation in self.operations.values():
             for input_slot in operation.inputs:
@@ -125,10 +125,13 @@ class DependencyGraph:
         for producer in self.operations.values():
             producer_path = encoded_paths[id(producer)]
             producer_id = id(producer)
+            qualifier = qualifiers.get(producer_id)
 
             for output_slot in producer.outputs:
                 # Only iterate over consumers that match this resource
                 relevant_consumers = consumers_by_resource.get(id(output_slot.resource), {})
+                if qualifier is not None:
+                    relevant_consumers = _consumers_under(relevant_consumers, qualifier, output_slot)
                 confirmed = _confirmed_input(producer, output_slot)
 
                 for consumer_id, (consumer, input_slots) in relevant_consumers.items():
@@ -138,6 +141,10 @@ class DependencyGraph:
 
                     consumer_path = encoded_paths[consumer_id]
                     links: dict[str, LinkDefinition] = {}
+                    # Keys this consumer gives to another namespace's items, so the producer's own are not forwarded
+                    foreign_keys: set[str | int] = set()
+                    # Links with a binding other than a field named after a collection
+                    forwarding: set[str] = set()
 
                     for input_slot in input_slots:
                         if confirmed is not None and not _takes_confirmed_value(input_slot, confirmed):
@@ -169,6 +176,7 @@ class DependencyGraph:
                                     and not producer_collection.startswith(consumer_collection_prefix)
                                     and not producer_collection.endswith(consumer_collection)
                                 ):
+                                    foreign_keys.add(input_slot.parameter_name)
                                     continue
 
                         if output_slot.path_parameter is not None:
@@ -201,22 +209,20 @@ class DependencyGraph:
                                 )
                             ):
                                 continue
-                            pointer = output_slot.pointer
-                            if output_slot.cardinality == Cardinality.MANY:
-                                pointer = pointer.rstrip("/") + "/*"
-                            value_expr = f"$response.body#{pointer}"
+                            value_expr = f"$response.body#{item_pointer(output_slot.pointer, output_slot.cardinality)}"
                         elif input_slot.resource_field is not None:
                             # A name filter's prefix says whose name it takes (`owner_name`); other names are wrong.
                             if (
-                                input_slot.parameter_location == ParameterLocation.QUERY
+                                input_slot.parameter_location in (ParameterLocation.QUERY, ParameterLocation.HEADER)
                                 and isinstance(input_slot.parameter_name, str)
                                 and key_kind(input_slot.parameter_name) == KeyKind.NAME
                                 and (
-                                    not parameter_names_source(
+                                    not _name_takes_source(
                                         parameter=input_slot.parameter_name,
+                                        location=input_slot.parameter_location,
                                         field=input_slot.resource_field,
-                                        resource=output_slot.resource.name,
-                                        pointer=output_slot.pointer,
+                                        output_slot=output_slot,
+                                        consumer=consumer,
                                     )
                                     # `Rule.TemplateName` beside `Rule.Name` names a template, not the rule.
                                     or (
@@ -232,46 +238,50 @@ class DependencyGraph:
                             ):
                                 continue
                             # A pointer to an undeclared response field always resolves to nothing.
-                            declared: Collection[str] = (
-                                output_slot.resource.fields
-                                if output_slot.response_fields is None
-                                else output_slot.response_fields
-                            )
-                            if (
-                                output_slot.resource.source >= DefinitionSource.SCHEMA_WITH_PROPERTIES
-                                and input_slot.resource_field not in declared
-                            ):
-                                if output_slot.identifier_pointer is None or not _names_identifier(
-                                    input_slot.resource_field, output_slot.resource.name
-                                ):
+                            if not output_slot.may_declare(input_slot.resource_field):
+                                identifier_pointer = output_slot.identifier_pointer_for(input_slot.resource_field)
+                                if identifier_pointer is None:
                                     continue
-                                value_expr = f"$response.body#{output_slot.identifier_pointer}"
+                                value_expr = f"$response.body#{identifier_pointer}"
                             else:
                                 body_pointer = extend_pointer(
                                     output_slot.pointer, input_slot.resource_field, output_slot.cardinality
                                 )
                                 value_expr = f"$response.body#{body_pointer}"
                         else:
+                            if input_slot.item_fields is not None:
+                                source_fields = (
+                                    output_slot.resource.fields
+                                    if output_slot.response_fields is None
+                                    else output_slot.response_fields
+                                )
+                                # An item taking no object, or sharing no field with the resource, is something else.
+                                if not input_slot.item_fields or (
+                                    source_fields and input_slot.item_fields.isdisjoint(source_fields)
+                                ):
+                                    continue
+                            if input_slot.is_inline_item:
+                                # An inline item is named after its path, so a namesake from another collection differs;
+                                # an item of the collection and the collection nested under a parent are the same.
+                                producer_collection = stripped_paths[producer_id].rstrip("/") or "/"
+                                if trailing_path_parameter(producer_collection) is not None:
+                                    producer_collection = collection_path(producer_collection) or "/"
+                                consumer_collection = stripped_paths[consumer_id].rstrip("/") or "/"
+                                if output_slot.resource.name == path_resource_names[producer_id] and not (
+                                    f"{producer_collection}/".startswith(f"{consumer_collection}/")
+                                    or producer_collection.endswith(consumer_collection)
+                                    or consumer_collection.endswith(producer_collection)
+                                ):
+                                    continue
                             # No resource field means use the whole resource
-                            value_expr = f"$response.body#{output_slot.pointer}"
+                            value_expr = f"$response.body#{item_pointer(output_slot.pointer, output_slot.cardinality)}"
                         if value_expr.startswith("$response.body") and output_slot.status_code in ("204", "205"):
                             # These statuses forbid a body, whatever the schema declares.
                             continue
-                        link_name = f"{consumer.method.capitalize()}{input_slot.resource.name}"
-                        # A separate link, so other links keep generating these fields.
-                        if input_slot.echoes_response:
-                            link_name += "Echo"
-                        parameters = {}
-                        request_body: dict[str, Any] | list = {}
-                        # Data is extracted from response body
-                        if input_slot.parameter_location == ParameterLocation.BODY:
-                            request_body = build_nested_body(
-                                input_slot.body_path or (input_slot.parameter_name,), value_expr
-                            )
-                        else:
-                            parameters = {
-                                f"{input_slot.parameter_location.value}.{input_slot.parameter_name}": value_expr,
-                            }
+                        link_name = _link_name(consumer.method, input_slot, path_resource_names[consumer_id])
+                        parameters, request_body = _link_values(input_slot, output_slot, confirmed, value_expr)
+                        if not input_slot.is_named_after_collection:
+                            forwarding.add(link_name)
                         existing = links.get(link_name)
                         if existing is not None:
                             existing.parameters.update(parameters)
@@ -289,18 +299,45 @@ class DependencyGraph:
                     if links:
                         producer_fields = template_fields[producer_id]
                         listed_identifier = any(slot.is_listed_identifier for slot in input_slots)
-                        shared_params = [
-                            name
-                            for name in template_fields[consumer_id]
-                            if name in producer_fields
-                            and not (listed_identifier and _keys_different_items(producer, consumer, name))
-                        ]
+                        shared_params = []
+                        for name in template_fields[consumer_id]:
+                            if name not in producer_fields or (
+                                listed_identifier and _keys_different_items(producer, consumer, name)
+                            ):
+                                continue
+                            if _keys_different_collections(producer, consumer, name) or (
+                                name in foreign_keys and not _same_parents(producer.path, consumer.path)
+                            ):
+                                # Both paths return the producer's items, so a key the consumer takes for them is the
+                                # same value in a view of that collection (`/patients/{id}`, `/patients_summary/{id}`).
+                                if (
+                                    output_slot.pointer != "/"
+                                    or not _collection_view(producer, consumer, name)
+                                    or not any(
+                                        slot.parameter_location == ParameterLocation.PATH
+                                        and slot.parameter_name == name
+                                        for slot in input_slots
+                                    )
+                                ):
+                                    continue
+                                if returned_by_path is None:
+                                    returned_by_path = _returned_by_path(self.operations.values())
+                                if id(output_slot.resource) not in returned_by_path.get(consumer.path, ()):
+                                    continue
+                            shared_params.append(name)
 
-                        for link_def in links.values():
+                        # A link bound only by field names forwards the keys both paths reach through the same
+                        # parents (`{owner}`, `{repo}`), not the item keys of their different collections (`{index}`).
+                        parent_params = (
+                            [name for name in shared_params if not _keys_different_items(producer, consumer, name)]
+                            if not forwarding.issuperset(links)
+                            else []
+                        )
+                        for link_name, link_def in links.items():
                             # Find which path parameters are already mapped
                             mapped_params = {name for name, _ in iter_path_parameters(link_def.parameters)}
                             # Add $request.path.X for shared params not already mapped
-                            for param in shared_params:
+                            for param in shared_params if link_name in forwarding else parent_params:
                                 if param in mapped_params:
                                     continue
                                 link_def.parameters[f"path.{param}"] = f"$request.path.{param}"
@@ -375,6 +412,9 @@ class DependencyGraph:
                         consumer_path = encoded_paths[consumer_id]
 
                         for input_slot in input_slots:
+                            # A whole array of identifiers fits only a parameter taking an array.
+                            if fk_field.holds_array and not input_slot.takes_array:
+                                continue
                             # Build the body pointer to the FK field
                             if fk_field.is_array:
                                 # For array FK, fan out across every element: /data/*/site_ids/*
@@ -423,6 +463,8 @@ class DependencyGraph:
                         consumer_path = encoded_paths[consumer_id]
 
                         for input_slot in input_slots:
+                            if nested_fk.holds_array and not input_slot.takes_array:
+                                continue
                             # Build pointer: output_slot.pointer + nested_fk.pointer
                             if output_slot.cardinality == Cardinality.MANY:
                                 base = output_slot.pointer.rstrip("/") + "/*"
@@ -505,6 +547,10 @@ FK_SUFFIX_MAP: dict[str, tuple[str, bool]] = {
     "_id": ("id", False),
     "_uuid": ("uuid", False),
     "_guid": ("guid", False),
+    "-id": ("id", False),
+    "-uuid": ("uuid", False),
+    "-guid": ("guid", False),
+    "_pk": ("pk", False),
 }
 
 # camelCase boundaries; longest plural suffix first so `Ids` matches before `Id`.
@@ -538,7 +584,7 @@ def infer_fk_target(field: str) -> tuple[str, str, bool] | None:
     """
     field_lower = field.lower()
 
-    # snake_case path. Check suffixes (longer ones first to match _ids before _id).
+    # snake_case and kebab-case path. Check suffixes (longer ones first to match _ids before _id).
     for suffix, (target_field, is_array) in FK_SUFFIX_MAP.items():
         # Skip bare identifier fields (not FKs, they're primary identifiers)
         if field_lower == suffix.lstrip("_"):
@@ -562,23 +608,79 @@ def infer_fk_target(field: str) -> tuple[str, str, bool] | None:
     return None
 
 
-def extract_fk_fields(fields: list[str]) -> list[FKField]:
-    """Extract FK fields from a list of field names.
+def declared_types(schema: Mapping[str, Any]) -> frozenset[str] | None:
+    """Types the `type` keyword of `schema` lists; `None` without one."""
+    declared = schema.get("type")
+    if isinstance(declared, str):
+        return frozenset((declared,))
+    if isinstance(declared, list):
+        return frozenset(item for item in declared if isinstance(item, str))
+    return None
+
+
+def holds_only_arrays(schemas: Iterable[Mapping[str, Any]]) -> bool:
+    """Whether one of `schemas` declares arrays and maybe `null`, nothing else."""
+    return any(
+        types is not None and "array" in types and types <= {"array", "null"} for types in map(declared_types, schemas)
+    )
+
+
+Scope = TypeVar("Scope")
+
+
+def iter_all_of_chain(
+    schema: object, scope: Scope, resolve: Callable[[dict[str, Any], Scope], tuple[Scope, object] | None]
+) -> Iterator[dict[str, Any]]:
+    """`schema`, its references and its `allOf` parents: the schemas every value of `schema` matches.
+
+    `resolve` follows a `$ref` from the scope it appears in to the target and the target's scope.
+    """
+    pending: list[tuple[Scope, object]] = [(scope, schema)]
+    # `allOf` chains may be recursive.
+    seen: set[int] = set()
+    while pending:
+        current_scope, node = pending.pop()
+        if not isinstance(node, dict) or id(node) in seen:
+            continue
+        seen.add(id(node))
+        yield node
+        if "$ref" in node:
+            target = resolve(node, current_scope)
+            if target is not None:
+                pending.append(target)
+        branches = node.get("allOf")
+        if isinstance(branches, list):
+            pending.extend((current_scope, branch) for branch in branches)
+
+
+def _resolve_reference(schema: dict[str, Any], resolver: Resolver) -> tuple[Resolver, Mapping[str, Any]] | None:
+    try:
+        return maybe_resolve_with_resolver(schema, resolver)
+    except (RefResolutionError, InvalidSchema):
+        # An unusable reference declares nothing.
+        return None
+
+
+def extract_fk_fields(properties: Mapping[str, tuple[Resolver, JsonSchema]]) -> list[FKField]:
+    """Extract FK fields from the properties of a resource schema.
 
     Pre-computes FK information once during resource creation
     to avoid repeated inference during link generation.
     """
     result = []
-    for field in fields:
+    for field in sorted(properties):
         fk_info = infer_fk_target(field)
         if fk_info is not None:
             target_resource, target_field, is_array = fk_info
+            field_resolver, subschema = properties[field]
             result.append(
                 FKField(
                     field_name=field,
                     target_resource=target_resource,
                     target_field=target_field,
                     is_array=is_array,
+                    holds_array=not is_array
+                    and holds_only_arrays(iter_all_of_chain(subschema, field_resolver, _resolve_reference)),
                 )
             )
     return result
@@ -631,27 +733,31 @@ def extract_nested_fk_fields(
                         target_resource=target_resource,
                         target_field=target_field,
                         is_array=is_array,
+                        holds_array=not is_array
+                        and holds_only_arrays(iter_all_of_chain(field_schema, resolver, _resolve_reference)),
                     )
                 )
             continue  # Don't recurse into FK fields
 
         # Resolve nested schema
-        _, resolved_field = maybe_resolve_with_resolver(field_schema, resolver)
+        field_resolver, resolved_field = maybe_resolve_with_resolver(field_schema, resolver)
         field_type = resolved_field.get("type")
 
         # Recurse into nested objects
         if field_type == "object" or "properties" in resolved_field:
-            result.extend(extract_nested_fk_fields(resolved_field, resolver, field_pointer, max_depth - 1))
+            result.extend(extract_nested_fk_fields(resolved_field, field_resolver, field_pointer, max_depth - 1))
 
         # Recurse into array items
         elif field_type == "array":
             items = resolved_field.get("items")
             if isinstance(items, dict):
-                _, resolved_items = maybe_resolve_with_resolver(items, resolver)
+                items_resolver, resolved_items = maybe_resolve_with_resolver(items, field_resolver)
                 if isinstance(resolved_items, dict):
                     # Use /* to fan out across every array element
                     items_pointer = f"{field_pointer}/*"
-                    result.extend(extract_nested_fk_fields(resolved_items, resolver, items_pointer, max_depth - 1))
+                    result.extend(
+                        extract_nested_fk_fields(resolved_items, items_resolver, items_pointer, max_depth - 1)
+                    )
 
     return result
 
@@ -680,9 +786,63 @@ def _takes_confirmed_value(input_slot: InputSlot, confirmed: InputSlot) -> bool:
     }
 
 
+def _link_name(method: str, input_slot: InputSlot, consumer_resource_name: str | None) -> str:
+    resource_name = input_slot.resource.name
+    # Unnamed subschemas are keyed by their pointer, which is not a name to show users.
+    if "#/" in resource_name:
+        resource_name = consumer_resource_name or "Resource"
+    # A separate link, so other links keep generating these fields.
+    suffix = "Echo" if input_slot.echoes_response else ""
+    return f"{method.capitalize()}{resource_name}{suffix}"
+
+
+def _link_values(
+    input_slot: InputSlot, output_slot: OutputSlot, confirmed: InputSlot | None, value_expr: str
+) -> tuple[dict[str, str], dict[str, Any] | list[Any]]:
+    """Link parameters and request body that send `value_expr` to the input."""
+    if input_slot.parameter_location == ParameterLocation.BODY:
+        return {}, _link_body(input_slot, output_slot, confirmed, value_expr)
+    return {f"{input_slot.parameter_location.value}.{input_slot.parameter_name}": value_expr}, {}
+
+
+def _link_body(
+    input_slot: InputSlot, output_slot: OutputSlot, confirmed: InputSlot | None, value: str
+) -> dict[str, Any] | list[Any]:
+    """A body holding `value` where `input_slot` lands; one identifier fills an array of them as its item."""
+    path = input_slot.body_path or (input_slot.parameter_name,)
+    if input_slot.takes_array and _sends_one_value(input_slot, output_slot, confirmed):
+        path = (*path, 0)
+    return build_nested_body(path, value)
+
+
+def _sends_one_value(input_slot: InputSlot, output_slot: OutputSlot, confirmed: InputSlot | None) -> bool:
+    if output_slot.path_parameter is not None or output_slot.is_primitive_identifier:
+        return True
+    if output_slot.body_field is not None:
+        # The request field the producer was called with may itself hold an array of identifiers.
+        return confirmed is not None and not confirmed.takes_array
+    # A field named like the input holds the same array, e.g. `customer_ids` sent back as it was read.
+    return input_slot.resource_field != input_slot.parameter_name
+
+
 def _names_identifier(field: str, resource_name: str) -> bool:
     # `id` or `<resource>Id`: the field that identifies the resource itself, not one it refers to
     return normalize_for_matching(field) in ("id", normalize_for_matching(resource_name) + "id")
+
+
+def _name_takes_source(
+    *, parameter: str, location: ParameterLocation, field: str, output_slot: OutputSlot, consumer: OperationNode
+) -> bool:
+    """Whether a `*_name` query or header parameter names the resource or response field holding `field`."""
+    if location == ParameterLocation.HEADER:
+        # A call returning the item sets its own name, even under a vendor prefix: `X-Registry-Name`.
+        if any(output.resource is output_slot.resource for output in consumer.outputs):
+            return True
+        if parameter[:2].lower() == "x-":
+            parameter = parameter[2:]
+    return parameter_names_source(
+        parameter=parameter, field=field, resource=output_slot.resource.name, pointer=output_slot.pointer
+    )
 
 
 def _key_kind(parameter_name: str | int) -> KeyKind | None:
@@ -729,9 +889,16 @@ def _merge_nested_body(target: dict[str, Any], source: dict[str, Any]) -> None:
             _merge_nested_body(target[key], value)
         elif key in target and isinstance(target[key], list) and isinstance(value, list):
             # Merge list items (for array body fields)
-            _merge_nested_body(target[key][0], value[0])
+            target[key] = merge_request_body(target[key], value)
         else:
             target[key] = value
+
+
+def item_pointer(base: str, cardinality: Cardinality) -> str:
+    """Pointer to one item at `base`, any element when `base` holds a collection."""
+    if cardinality == Cardinality.MANY:
+        return base.rstrip("/") + "/*"
+    return base
 
 
 def extend_pointer(base: str, field: str, parent_cardinality: Cardinality) -> str:
@@ -834,7 +1001,7 @@ def find_input(inputs: Iterable[InputSlot], location: ParameterLocation, name: s
 # A body field location, integers marking array items.
 BodyPath: TypeAlias = tuple[str | int, ...]
 # FK fields behind a bundled reference, by the reference's original URI and the remaining depth.
-NestedFKCache: TypeAlias = dict[tuple[str, int], list[tuple[BodyPath, str, str]]]
+NestedFKCache: TypeAlias = dict[tuple[str, int], list[tuple[BodyPath, str, str, bool]]]
 
 
 @dataclass(slots=True)
@@ -842,22 +1009,31 @@ class DeferredBindings:
     """Inputs of one operation that bind only once every operation has been scanned."""
 
     # Nested-body FK lookups whose target resource was not registered yet.
-    nested_fks: list[tuple[str, str, BodyPath]]
+    nested_fks: list[tuple[str, str, BodyPath, bool]]
     # Scalar body fields that may name the collection listing their values (`country` <- `GET /countries`).
     named_scalars: list[tuple[str, str, JsonSchema]]
+    # Query parameters that may name the collection listing their values (`?part=` <- `GET /parts`).
+    named_query_parameters: list[tuple[str, JsonSchema]]
     # Required scalar body fields.
     body_fields: list[tuple[str, JsonSchema]]
+    # Required body fields copied from a resource the parameters address (`type` <- `Domain.type`).
+    copied_resource_fields: list[tuple[InputSlot, JsonSchema]]
     # `(resource, parameter)` for path parameters named after a field of their owning resource (`/projects/{code}`).
     field_named_path_parameters: list[tuple[str, str]]
     # Body fields a client may send.
     writable_body_fields: dict[str, JsonSchema]
+    # Body fields named after one identifier that take only arrays (`customer_id: [1, 2]`).
+    identifier_array_fields: set[str]
 
     def __init__(self) -> None:
         self.nested_fks = []
         self.named_scalars = []
+        self.named_query_parameters = []
         self.body_fields = []
+        self.copied_resource_fields = []
         self.field_named_path_parameters = []
         self.writable_body_fields = {}
+        self.identifier_array_fields = set()
 
 
 @dataclass(slots=True)
@@ -873,6 +1049,8 @@ class InputSlot:
     # Integer means index in an array (only single items are supported)
     parameter_name: str | int
     parameter_location: ParameterLocation
+    # Whether a parameter takes an array of values, e.g. `?ids=1&ids=2`, or a body field `customer_ids: [1, 2]`
+    takes_array: bool = False
     # Whether this input was matched via suffix matching (e.g., "file_name" -> "BackupFile")
     # Suffix-matched inputs can be upgraded by merge_related_resources if a producer exists
     is_suffix_matched: bool = False
@@ -884,6 +1062,18 @@ class InputSlot:
     is_parent_key: bool = False
     # Where a nested body field lands, e.g. `("items", 0, "product_id")`; empty for a top-level parameter
     body_path: BodyPath = ()
+    # Whether only the field's name ties it to the collection (`part`), not an identifier suffix (`part_id`)
+    is_named_after_collection: bool = False
+    # Fields a top-level array item declares, empty for an item taking no object; `None` for any object
+    item_fields: frozenset[str] | None = None
+    # Whether this input is a top-level array item declared inline rather than as a named schema
+    is_inline_item: bool = False
+
+
+class OpenFields(frozenset[str]):
+    """Fields a response declares when one of its `oneOf` / `anyOf` alternatives may also hold any other field."""
+
+    __slots__ = ()
 
 
 @dataclass(slots=True)
@@ -917,6 +1107,30 @@ class OutputSlot:
     # Envelope field identifying the resource when the resource itself declares no identifier
     # (`/bookingid` in `{bookingid: 1, booking: {...}}`).
     identifier_pointer: str | None = None
+    # Whether only the operation path names the resource, as no `$ref` declares it
+    named_after_path: bool = False
+
+    @property
+    def declared_fields(self) -> Collection[str]:
+        return self.resource.fields if self.response_fields is None else self.response_fields
+
+    def may_declare(self, field: str) -> bool:
+        """Whether `field` can exist at `pointer`; only a response or resource listing all its fields rules one out."""
+        if self.resource.source < DefinitionSource.SCHEMA_WITH_PROPERTIES and (
+            self.response_fields is None or isinstance(self.response_fields, OpenFields)
+        ):
+            return True
+        return field in self.declared_fields
+
+    def identifier_pointer_for(self, field: str) -> str | None:
+        """Envelope pointer holding `field`, when `field` is the resource's own identifier and the resource lacks it."""
+        if (
+            self.identifier_pointer is None
+            or field in self.declared_fields
+            or not _names_identifier(field, self.resource.name)
+        ):
+            return None
+        return self.identifier_pointer
 
 
 @dataclass(slots=True)
@@ -931,6 +1145,8 @@ class FKField:
     target_field: str
     # Whether the FK field is an array (e.g., site_ids)
     is_array: bool
+    # Whether a singular name holds a whole array of identifiers, e.g. `site_id: [1, 2]`
+    holds_array: bool = False
 
 
 @dataclass(slots=True)
@@ -947,6 +1163,8 @@ class NestedFKField:
     target_field: str
     # Whether the FK field is an array (e.g., site_ids)
     is_array: bool
+    # Whether a singular name holds a whole array of identifiers, e.g. `site_id: [1, 2]`
+    holds_array: bool = False
 
 
 @dataclass(slots=True)
@@ -1027,15 +1245,142 @@ ResourceMap: TypeAlias = dict[str, ResourceDefinition]
 CanonicalizationCache: TypeAlias = dict[str, Mapping[str, Any]]
 
 
+def _returned_by_path(operations: Iterable[OperationNode]) -> dict[str, set[int]]:
+    returned: dict[str, set[int]] = {}
+    for operation in operations:
+        for output_slot in operation.outputs:
+            if output_slot.pointer == "/":
+                returned.setdefault(operation.path, set()).add(id(output_slot.resource))
+    return returned
+
+
+def _scope_guard_paths(
+    operations: Iterable[OperationNode],
+) -> tuple[dict[int, str | None], dict[int, str], dict[int, tuple[str, str] | None]]:
+    path_resource_names: dict[int, str | None] = {}
+    # Stripped producer path per operation
+    stripped_paths: dict[int, str] = {}
+    # (consumer_collection, consumer_collection + "/") for ops with a bare {id} segment
+    id_collection_paths: dict[int, tuple[str, str] | None] = {}
+    for op in operations:
+        op_id = id(op)
+        path_resource_names[op_id] = from_path(op.path)
+        stripped_paths[op_id] = strip_version_prefix(op.path)
+        segments = op.path.split("/")
+        for i, seg in enumerate(segments):
+            if seg == "{id}":
+                collection = strip_version_prefix("/".join(segments[:i]) or "/")
+                id_collection_paths[op_id] = (collection, collection + "/")
+                break
+        else:
+            id_collection_paths[op_id] = None
+    return path_resource_names, stripped_paths, id_collection_paths
+
+
+def _collection_qualifiers(operations: list[OperationNode]) -> dict[int, str]:
+    # The segment before a collection whose items differ from the plain collection's: `managed` in `/managed/devices`
+    qualified = qualified_collections(frozenset(operation.path for operation in operations))
+    if not qualified:
+        return {}
+    return {
+        id(operation): collection[-2]
+        for operation in operations
+        if (collection := item_collection(operation.path)) in qualified
+    }
+
+
+def _consumers_under(
+    consumers: dict[int, tuple[OperationNode, list[InputSlot]]], qualifier: str, output_slot: OutputSlot
+) -> dict[int, tuple[OperationNode, list[InputSlot]]]:
+    # Items `/managed/devices` declares inline share only a name with `/devices` items, so they stay under `managed`
+    if not output_slot.named_after_path:
+        return consumers
+    return {
+        consumer_id: entry for consumer_id, entry in consumers.items() if qualifier in item_collection(entry[0].path)
+    }
+
+
 def _keys_different_items(producer: OperationNode, consumer: OperationNode, parameter: str) -> bool:
     """Whether `{parameter}` sits under different parents, so each operation names a different item with it.
 
     `/warehouses/{name}` and `/warehouses/{warehouse}/shelves/{name}/bins` share `{name}`, but one is a warehouse
     and the other a shelf.
     """
+    return _parents_differ(producer.path, consumer.path, parameter)
+
+
+@lru_cache(maxsize=4096)
+def _parents_differ(producer_path: str, consumer_path: str, parameter: str) -> bool:
     placeholder = "/{" + parameter + "}"
-    return _shape(producer.path.split(placeholder, 1)[0]) != _shape(consumer.path.split(placeholder, 1)[0])
+    return path_shape(producer_path.split(placeholder, 1)[0]) != path_shape(consumer_path.split(placeholder, 1)[0])
 
 
-def _shape(path: str) -> str:
-    return re.sub(r"\{[^}]*\}", "{}", path)
+_GENERIC_KEYS = frozenset({"id", "ids", "pk", "uuid", "guid", "uid", "name"})
+
+
+def _keys_different_collections(producer: OperationNode, consumer: OperationNode, parameter: str) -> bool:
+    """Whether a generic `{parameter}` follows different collections, so each operation names a different item with it.
+
+    `/customers/{id}` and `/orders/{id}` share `{id}`, but one is a customer and the other an order.
+    """
+    if normalize_for_matching(parameter) not in _GENERIC_KEYS:
+        return False
+    producer_owner = owning_resource(parameter, producer.path)
+    consumer_owner = owning_resource(parameter, consumer.path)
+    return (
+        producer_owner is not None
+        and consumer_owner is not None
+        and normalize_for_matching(producer_owner) != normalize_for_matching(consumer_owner)
+    )
+
+
+def _same_parents(producer_path: str, consumer_path: str) -> bool:
+    """Whether two paths may address the same item: equal static segments, and parameters at the same places.
+
+    A parameter's label must match unless one side leaves it bare: `/teams/{team}/invoices/{id}` and
+    `/{owner}/invoices/{id}` may name one team, `/slots/{slot}/...` and `/instances/{instance}/...` do not.
+    """
+    producer_segments = _labeled_segments(producer_path)
+    consumer_segments = _labeled_segments(consumer_path)
+    return len(producer_segments) == len(consumer_segments) and all(
+        left == right or (left[0] == right[0] == "" and "" in (left[1], right[1]))
+        for left, right in zip(producer_segments, consumer_segments, strict=True)
+    )
+
+
+@lru_cache(maxsize=1024)
+def _labeled_segments(path: str) -> tuple[tuple[str, str], ...]:
+    # `("", label)` for a parameter and the static segment naming it, `(segment, "")` for any other static segment.
+    segments = [segment for segment in strip_version_prefix(path).split("/") if segment]
+    labeled: list[tuple[str, str]] = []
+    for index, segment in enumerate(segments):
+        if segment.startswith("{"):
+            label = segments[index - 1] if index > 0 and not segments[index - 1].startswith("{") else ""
+            labeled.append(("", label))
+        elif index + 1 == len(segments) or not segments[index + 1].startswith("{"):
+            labeled.append((segment, ""))
+    return tuple(labeled)
+
+
+def _collection_view(producer: OperationNode, consumer: OperationNode, parameter: str) -> bool:
+    """Whether one collection holding `{parameter}` is named as a view of the other (`patients_summary`, `patients`).
+
+    Collections with the same name under different parents (`/targets/{target_id}/webhooks`, `/webhooks`) often hold
+    different items even when they share a schema.
+    """
+    producer_name = normalize_for_matching(owning_resource(parameter, producer.path) or "")
+    consumer_name = normalize_for_matching(owning_resource(parameter, consumer.path) or "")
+    return (
+        bool(producer_name)
+        and bool(consumer_name)
+        and producer_name != consumer_name
+        and (producer_name.startswith(consumer_name) or consumer_name.startswith(producer_name))
+    )
+
+
+_PATH_PARAMETER = re.compile(r"\{[^}]*\}")
+
+
+@lru_cache(maxsize=4096)
+def path_shape(path: str) -> str:
+    return _PATH_PARAMETER.sub("{}", path)

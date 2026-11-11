@@ -219,10 +219,18 @@ class DataConverter(WithSerializationContext):
         """Return an instance with ``store_ctx`` bound into :attr:`external_storage`."""
         if self.external_storage is None:
             return self
-        return dataclasses.replace(
-            self,
-            external_storage=self.external_storage._with_store_context(store_ctx),
+        # dataclasses.replace reruns __post_init__, which builds new payload and
+        # failure converters and drops the context set by with_context. Keep the
+        # current ones, like with_context does.
+        cloned = dataclasses.replace(self)
+        object.__setattr__(cloned, "payload_converter", self.payload_converter)
+        object.__setattr__(cloned, "failure_converter", self.failure_converter)
+        object.__setattr__(
+            cloned,
+            "external_storage",
+            self.external_storage._with_store_context(store_ctx),
         )
+        return cloned
 
     def _with_contexts(
         self,
@@ -415,10 +423,11 @@ class DataConverter(WithSerializationContext):
             decoded_payloads = await self.payload_codec.decode(decoded_payloads)
         return decoded_payloads
 
-    # Temporary shortcircuit detection while the _decode_* methods may no-op if
-    # a payload codec is not configured. Remove once those paths have more to them.
+    # Without a codec or external storage, the payload sequence methods only reject
+    # external storage references, so workers skip the passes that cannot change a
+    # payload and the per-command context lookups.
     @property
-    def _decode_payload_has_effect(self) -> bool:
+    def _has_codec_or_external_storage(self) -> bool:
         return self.payload_codec is not None or self.external_storage is not None
 
 

@@ -8,25 +8,51 @@
 Follow our quickstart for examples: https://aka.ms/azsdk/python/dpcodegen/python/customize
 """
 
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Union, overload
+
+from azure.core import CaseInsensitiveEnumMeta
 from ._models import SearchField as _SearchField
 from ._models import SearchIndexerDataSourceConnection as _SearchIndexerDataSourceConnection
 from ._models import KnowledgeBase as _KnowledgeBase
+from ._models import SearchResourceEncryptionKey as _SearchResourceEncryptionKey
 from ._enums import (
     LexicalAnalyzerName,
     SearchFieldDataType as _SearchFieldDataType,
 )
 
 if TYPE_CHECKING:
+    from .. import types as _types
     from ._models import (
+        AzureActiveDirectoryApplicationCredentials,
         DataChangeDetectionPolicy,
         DataDeletionDetectionPolicy,
         DataSourceCredentials,
         SearchIndexerDataContainer,
         SearchIndexerDataIdentity,
-        SearchResourceEncryptionKey,
     )
-    from ._enums import SearchIndexerDataSourceType
+    from ._enums import IndexerPermissionOption, SearchIndexerDataSourceType
+
+
+class AzureOpenAIModelName(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """The Azure Open AI model name that will be called."""
+
+    TEXT_EMBEDDING_ADA002 = "text-embedding-ada-002"
+    TEXT_EMBEDDING3_LARGE = "text-embedding-3-large"
+    TEXT_EMBEDDING3_SMALL = "text-embedding-3-small"
+    GPT5_MINI = "gpt-5-mini"
+    GPT5_NANO = "gpt-5-nano"
+    GPT54 = "gpt-5.4"
+    GPT5_4_MINI = "gpt-5.4-mini"
+    GPT5_4_NANO = "gpt-5.4-nano"
+    GPT55 = "gpt-5.5"
+    GPT56_SOL = "gpt-5.6-sol"
+    GPT56_TERRA = "gpt-5.6-terra"
+    GPT56_LUNA = "gpt-5.6-luna"
+    GPT_5_MINI = GPT5_MINI
+    GPT_5_NANO = GPT5_NANO
+    GPT_5_4_MINI = GPT5_4_MINI
+    GPT_5_4_NANO = GPT5_4_NANO
 
 
 class SearchField(_SearchField):
@@ -83,14 +109,19 @@ class SearchIndexerDataSourceConnection(_SearchIndexerDataSourceConnection):
         *,
         name: str,
         type: Union[str, "SearchIndexerDataSourceType"],
-        credentials: "DataSourceCredentials",
-        container: "SearchIndexerDataContainer",
+        credentials: Union["DataSourceCredentials", "_types.DataSourceCredentials"],
+        container: Union["SearchIndexerDataContainer", "_types.SearchIndexerDataContainer"],
         description: Optional[str] = None,
-        identity: Optional["SearchIndexerDataIdentity"] = None,
-        data_change_detection_policy: Optional["DataChangeDetectionPolicy"] = None,
-        data_deletion_detection_policy: Optional["DataDeletionDetectionPolicy"] = None,
+        identity: Optional[Union["SearchIndexerDataIdentity", "_types.SearchIndexerDataIdentity"]] = None,
+        indexer_permission_options: Optional[List[Union[str, "IndexerPermissionOption"]]] = None,
+        data_change_detection_policy: Optional[
+            Union["DataChangeDetectionPolicy", "_types.DataChangeDetectionPolicy"]
+        ] = None,
+        data_deletion_detection_policy: Optional[
+            Union["DataDeletionDetectionPolicy", "_types.DataDeletionDetectionPolicy"]
+        ] = None,
         e_tag: Optional[str] = None,
-        encryption_key: Optional["SearchResourceEncryptionKey"] = None,
+        encryption_key: Optional[Union["SearchResourceEncryptionKey", "_types.SearchResourceEncryptionKey"]] = None,
     ) -> None: ...
 
     @overload
@@ -100,13 +131,47 @@ class SearchIndexerDataSourceConnection(_SearchIndexerDataSourceConnection):
         name: str,
         type: Union[str, "SearchIndexerDataSourceType"],
         connection_string: str,
-        container: "SearchIndexerDataContainer",
+        container: Union["SearchIndexerDataContainer", "_types.SearchIndexerDataContainer"],
         description: Optional[str] = None,
-        identity: Optional["SearchIndexerDataIdentity"] = None,
-        data_change_detection_policy: Optional["DataChangeDetectionPolicy"] = None,
-        data_deletion_detection_policy: Optional["DataDeletionDetectionPolicy"] = None,
+        identity: Optional[Union["SearchIndexerDataIdentity", "_types.SearchIndexerDataIdentity"]] = None,
+        indexer_permission_options: Optional[List[Union[str, "IndexerPermissionOption"]]] = None,
+        data_change_detection_policy: Optional[
+            Union["DataChangeDetectionPolicy", "_types.DataChangeDetectionPolicy"]
+        ] = None,
+        data_deletion_detection_policy: Optional[
+            Union["DataDeletionDetectionPolicy", "_types.DataDeletionDetectionPolicy"]
+        ] = None,
         e_tag: Optional[str] = None,
-        encryption_key: Optional["SearchResourceEncryptionKey"] = None,
+        encryption_key: Optional[Union["SearchResourceEncryptionKey", "_types.SearchResourceEncryptionKey"]] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class SearchResourceEncryptionKey(_SearchResourceEncryptionKey):
+    """A customer-managed encryption key in Azure Key Vault."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        key_name: Optional[str] = None,
+        vault_uri: Optional[str] = None,
+        key_version: Optional[str] = None,
+        access_credentials: Optional[
+            Union["AzureActiveDirectoryApplicationCredentials", "_types.AzureActiveDirectoryApplicationCredentials"]
+        ] = None,
+        identity: Optional[Union["SearchIndexerDataIdentity", "_types.SearchIndexerDataIdentity"]] = None,
+        application_id: Optional[str] = None,
+        application_secret: Optional[str] = None,
     ) -> None: ...
 
     @overload
@@ -143,19 +208,52 @@ def _collection_helper(typ: Any) -> str:
 
 # Re-export SearchFieldDataType with Collection method
 # The Collection method is added at runtime via monkey-patching
-SearchFieldDataType = _SearchFieldDataType
-SearchFieldDataType.Collection = staticmethod(_collection_helper)  # type: ignore[attr-defined]
+if TYPE_CHECKING:
 
-# Backward-compatible aliases (old camelCase names -> new UPPER_CASE names)
-SearchFieldDataType.String = SearchFieldDataType.STRING  # type: ignore[attr-defined]
-SearchFieldDataType.Int32 = SearchFieldDataType.INT32  # type: ignore[attr-defined]
-SearchFieldDataType.Int64 = SearchFieldDataType.INT64  # type: ignore[attr-defined]
-SearchFieldDataType.Single = SearchFieldDataType.SINGLE  # type: ignore[attr-defined]
-SearchFieldDataType.Double = SearchFieldDataType.DOUBLE  # type: ignore[attr-defined]
-SearchFieldDataType.Boolean = SearchFieldDataType.BOOLEAN  # type: ignore[attr-defined]
-SearchFieldDataType.DateTimeOffset = SearchFieldDataType.DATE_TIME_OFFSET  # type: ignore[attr-defined]
-SearchFieldDataType.GeographyPoint = SearchFieldDataType.GEOGRAPHY_POINT  # type: ignore[attr-defined]
-SearchFieldDataType.ComplexType = SearchFieldDataType.COMPLEX  # type: ignore[attr-defined]
+    # pylint: disable=enum-must-inherit-case-insensitive-enum-meta,enum-must-be-uppercase
+    class SearchFieldDataType(str, Enum):
+        STRING = "Edm.String"
+        INT32 = "Edm.Int32"
+        INT64 = "Edm.Int64"
+        DOUBLE = "Edm.Double"
+        BOOLEAN = "Edm.Boolean"
+        DATE_TIME_OFFSET = "Edm.DateTimeOffset"
+        GEOGRAPHY_POINT = "Edm.GeographyPoint"
+        COMPLEX = "Edm.ComplexType"
+        SINGLE = "Edm.Single"
+        HALF = "Edm.Half"
+        INT16 = "Edm.Int16"
+        S_BYTE = "Edm.SByte"
+        BYTE = "Edm.Byte"
+        String = "Edm.String"
+        Int32 = "Edm.Int32"
+        Int64 = "Edm.Int64"
+        Single = "Edm.Single"
+        Double = "Edm.Double"
+        Boolean = "Edm.Boolean"
+        DateTimeOffset = "Edm.DateTimeOffset"
+        GeographyPoint = "Edm.GeographyPoint"
+        ComplexType = "Edm.ComplexType"
+
+        @staticmethod
+        def Collection(typ: Union[str, "SearchFieldDataType"]) -> str:
+            return _collection_helper(typ)
+
+    # pylint: enable=enum-must-inherit-case-insensitive-enum-meta,enum-must-be-uppercase
+
+else:
+    SearchFieldDataType = _SearchFieldDataType
+    SearchFieldDataType.Collection = staticmethod(_collection_helper)  # type: ignore[attr-defined]
+    # Backward-compatible aliases (old camelCase names -> new UPPER_CASE names)
+    SearchFieldDataType.String = SearchFieldDataType.STRING  # type: ignore[attr-defined]
+    SearchFieldDataType.Int32 = SearchFieldDataType.INT32  # type: ignore[attr-defined]
+    SearchFieldDataType.Int64 = SearchFieldDataType.INT64  # type: ignore[attr-defined]
+    SearchFieldDataType.Single = SearchFieldDataType.SINGLE  # type: ignore[attr-defined]
+    SearchFieldDataType.Double = SearchFieldDataType.DOUBLE  # type: ignore[attr-defined]
+    SearchFieldDataType.Boolean = SearchFieldDataType.BOOLEAN  # type: ignore[attr-defined]
+    SearchFieldDataType.DateTimeOffset = SearchFieldDataType.DATE_TIME_OFFSET  # type: ignore[attr-defined]
+    SearchFieldDataType.GeographyPoint = SearchFieldDataType.GEOGRAPHY_POINT  # type: ignore[attr-defined]
+    SearchFieldDataType.ComplexType = SearchFieldDataType.COMPLEX  # type: ignore[attr-defined]
 
 
 def Collection(typ: Any) -> str:
@@ -181,9 +279,12 @@ def SimpleField(
     filterable: bool = False,
     sortable: bool = False,
     facetable: bool = False,
-    **kw,  # pylint:disable=unused-argument
+    **kw,
 ) -> SearchField:
     """Configure a simple field for an Azure Search Index
+
+    Additional keyword arguments are forwarded to SearchField. Explicit helper arguments and
+    helper-controlled properties take precedence.
 
     :keyword name: Required. The name of the field, which must be unique within the fields collection
         of the index or parent field.
@@ -230,8 +331,9 @@ def SimpleField(
     :rtype:  SearchField
     """
     # If type is an enum, get its value; otherwise use it as-is
-    field_type = type.value if hasattr(type, "value") else type
+    field_type = type.value if isinstance(type, SearchFieldDataType) else type
     result: Dict[str, Any] = {
+        **kw,
         "name": name,
         "type": field_type,
         "key": key,
@@ -258,9 +360,12 @@ def SearchableField(
     search_analyzer_name: Optional[Union[str, LexicalAnalyzerName]] = None,
     index_analyzer_name: Optional[Union[str, LexicalAnalyzerName]] = None,
     synonym_map_names: Optional[List[str]] = None,
-    **kw,  # pylint:disable=unused-argument
+    **kw,
 ) -> SearchField:
     """Configure a searchable text field for an Azure Search Index
+
+    Additional keyword arguments are forwarded to SearchField. Explicit helper arguments and
+    helper-controlled properties take precedence.
 
     :keyword name: Required. The name of the field, which must be unique within the fields collection
         of the index or parent field.
@@ -378,6 +483,7 @@ def SearchableField(
     """
     typ = Collection(SearchFieldDataType.STRING) if collection else SearchFieldDataType.STRING
     result: Dict[str, Any] = {
+        **kw,
         "name": name,
         "type": typ,
         "key": key,
@@ -403,9 +509,12 @@ def ComplexField(
     name: str,
     collection: bool = False,
     fields: Optional[List[SearchField]] = None,
-    **kw,  # pylint:disable=unused-argument
+    **kw,
 ) -> SearchField:
     """Configure a Complex or Complex collection field for an Azure Search Index
+
+    Additional keyword arguments are forwarded to SearchField. Explicit helper arguments and
+    helper-controlled properties take precedence.
 
     :keyword name: Required. The name of the field, which must be unique within the fields collection
         of the index or parent field.
@@ -418,15 +527,17 @@ def ComplexField(
     :rtype:  SearchField
     """
     typ = Collection(SearchFieldDataType.COMPLEX) if collection else SearchFieldDataType.COMPLEX
-    result: Dict[str, Any] = {"name": name, "type": typ, "fields": fields}
+    result: Dict[str, Any] = {**kw, "name": name, "type": typ, "fields": fields}
     return SearchField(**result)
 
 
 __all__: list[str] = [
+    "AzureOpenAIModelName",
     "KnowledgeBase",
     "SearchField",
     "SearchFieldDataType",
     "SearchIndexerDataSourceConnection",
+    "SearchResourceEncryptionKey",
     "SimpleField",
     "SearchableField",
     "ComplexField",

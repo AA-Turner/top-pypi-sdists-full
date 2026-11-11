@@ -405,6 +405,9 @@ impl MdxContext {
                     line: pos.start.line,
                     id: def.identifier.to_lowercase(),
                     url: def.url.clone(),
+                    // The MDX parser has already resolved escapes and
+                    // character references.
+                    destination: def.url.clone(),
                     title,
                     byte_offset: pos.start.offset,
                     byte_end: pos.end.offset,
@@ -1077,8 +1080,9 @@ mod tests {
     fn unresolved_references_only_come_from_markdown_text() {
         let content = "<div title=\"[Fake][missing]\">\n{'[Fake][missing]'}\n[Actual][missing]\n</div>\n";
         let ctx = context(content);
-        assert_eq!(ctx.links.len(), 1);
-        assert_eq!(ctx.links[0].text, "Actual");
+        assert_eq!(ctx.links.len(), 0);
+        assert_eq!(ctx.unresolved_links.len(), 1);
+        assert_eq!(ctx.unresolved_links[0].text, "Actual");
     }
 
     #[test]

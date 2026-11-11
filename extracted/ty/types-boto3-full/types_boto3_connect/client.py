@@ -3577,7 +3577,7 @@ class ConnectClient(BaseClient):
 
     def pause_contact(self, **kwargs: Unpack[PauseContactRequestTypeDef]) -> dict[str, Any]:
         """
-        Allows pausing an ongoing task contact.
+        Pauses an ongoing task or email contact.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/pause_contact.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#pause_contact)
@@ -3616,7 +3616,7 @@ class ConnectClient(BaseClient):
 
     def resume_contact(self, **kwargs: Unpack[ResumeContactRequestTypeDef]) -> dict[str, Any]:
         """
-        Allows resuming a task contact in a paused state.
+        Resumes a task or email contact in a paused state.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/resume_contact.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#resume_contact)

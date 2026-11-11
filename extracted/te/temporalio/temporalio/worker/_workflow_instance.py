@@ -9,7 +9,6 @@ import inspect
 import json
 import logging
 import random
-import sys
 import threading
 import traceback
 import warnings
@@ -56,6 +55,7 @@ import temporalio.bridge.proto.workflow_commands
 import temporalio.bridge.proto.workflow_completion
 import temporalio.common
 import temporalio.converter
+import temporalio.converter._serialization_context
 import temporalio.exceptions
 import temporalio.nexus.system
 import temporalio.workflow
@@ -181,6 +181,10 @@ class WorkflowInstanceDetails:
     default_workflow_logic_flags: frozenset[_WorkflowLogicFlag] = field(
         default_factory=lambda: _DEFAULT_ENABLED_WORKFLOW_LOGIC_FLAGS
     )
+    nexus_serialization_context: (
+        temporalio.converter.NexusSerializationContext | None
+    ) = None
+    """Serialization context of the Nexus operation handler that started the workflow, if any."""
 
 
 class WorkflowInstance(ABC):
@@ -293,6 +297,26 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
         self._workflow_context_failure_converter = self._failure_converter_with_context(
             workflow_context
         )
+        # A workflow started by a Nexus operation handler returns its result and closing failure to
+        # the Nexus caller, which decodes them with the handler's Nexus context. A retried or cron run
+        # reads the previous run's result and failure with the same context.
+        self._nexus_serialization_context = det.nexus_serialization_context
+        if self._nexus_serialization_context:
+            self._result_payload_converter = self._payload_converter_with_context(
+                self._nexus_serialization_context
+            )
+            self._result_failure_converter = self._failure_converter_with_context(
+                self._nexus_serialization_context
+            )
+        else:
+            self._result_payload_converter = self._workflow_context_payload_converter
+            self._result_failure_converter = self._workflow_context_failure_converter
+        # Keyed by update protocol instance ID. Kept until the activation that finished the update
+        # has been encoded, so the codec can encode its response with the same context.
+        self._nexus_update_contexts: dict[
+            str, temporalio.converter.NexusSerializationContext
+        ] = {}
+        self._finished_nexus_update_ids: list[str] = []
 
         self._extern_functions = det.extern_functions
         self._disable_eager_activity_execution = det.disable_eager_activity_execution
@@ -458,6 +482,9 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
             temporalio.bridge.proto.workflow_completion.WorkflowActivationCompletion()
         )
         self._current_completion.successful.SetInParent()
+        for protocol_instance_id in self._finished_nexus_update_ids:
+            self._nexus_update_contexts.pop(protocol_instance_id, None)
+        self._finished_nexus_update_ids.clear()
 
         self._current_activation_error: Exception | None = None
         self._deployment_version_for_current_task = (
@@ -679,6 +706,24 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
         # Run the validator & handler in a task. Everything, including looking up the update definition, needs to be
         # inside the task, since the update may not be defined until after we have started the workflow - for example
         # if an update is in the first WFT & is also registered dynamically at the top of workflow code.
+        # An update sent by a Nexus operation handler returns its result and failure to the Nexus
+        # caller, which decodes them with the handler's Nexus context. Its input keeps the workflow
+        # context.
+        nexus_context = temporalio.converter._serialization_context._propagated_nexus_serialization_context(
+            job
+        )
+        if nexus_context:
+            self._nexus_update_contexts[job.protocol_instance_id] = nexus_context
+            result_payload_converter = self._payload_converter_with_context(
+                nexus_context
+            )
+            result_failure_converter = self._failure_converter_with_context(
+                nexus_context
+            )
+        else:
+            result_payload_converter = self._workflow_context_payload_converter
+            result_failure_converter = self._workflow_context_failure_converter
+
         async def run_update() -> None:
             # Set the current update for the life of this task
             temporalio.workflow._set_current_update_info(
@@ -734,9 +779,7 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
                 # Run the handler
                 with _inbound_update_event_group(job.id).scope():
                     success = await self._inbound.handle_update_handler(handler_input)
-                result_payloads = self._workflow_context_payload_converter.to_payloads(
-                    [success]
-                )
+                result_payloads = result_payload_converter.to_payloads([success])
                 if len(result_payloads) != 1:
                     raise ValueError(
                         f"Expected 1 result payload, got {len(result_payloads)}"
@@ -768,9 +811,9 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
                             job.protocol_instance_id
                         )
                     command.update_response.rejected.SetInParent()
-                    self._workflow_context_failure_converter.to_failure(
+                    result_failure_converter.to_failure(
                         err,
-                        self._workflow_context_payload_converter,
+                        result_payload_converter,
                         command.update_response.rejected,
                     )
                 else:
@@ -794,6 +837,8 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
                 raise
             finally:
                 self._in_progress_updates.pop(job.id, None)
+                if nexus_context:
+                    self._finished_nexus_update_ids.append(job.protocol_instance_id)
 
         self.create_task(
             run_update(),
@@ -1173,9 +1218,7 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
         async def run_workflow(input: ExecuteWorkflowInput) -> None:
             try:
                 result = await self._inbound.execute_workflow(input)
-                result_payloads = self._workflow_context_payload_converter.to_payloads(
-                    [result]
-                )
+                result_payloads = self._result_payload_converter.to_payloads([result])
                 if len(result_payloads) != 1:
                     raise ValueError(
                         f"Expected 1 result payload, got {len(result_payloads)}"
@@ -1997,20 +2040,25 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
             else None
         )
         markers = _capture_event_group_markers(event_groups)
-        ctxvars = contextvars.copy_context()
-
-        async def in_context():
-            _TimerOptionsCtxVar.set(
-                _TimerOptions(user_metadata=user_metadata, event_group_markers=markers)
-            )
-            await asyncio.wait_for(fut, timeout)
-
+        # asyncio.wait_for() starts its timer from this task, so the options are
+        # set in the task's context and reset once the wait ends
+        token = _TimerOptionsCtxVar.set(
+            _TimerOptions(user_metadata=user_metadata, event_group_markers=markers)
+        )
         try:
-            await ctxvars.run(in_context)
+            await asyncio.wait_for(fut, timeout)
         except asyncio.TimeoutError:
             if cancellation_arrived():
                 raise asyncio.CancelledError()
             raise
+        finally:
+            try:
+                _TimerOptionsCtxVar.reset(token)
+            except ValueError:
+                # Closing rather than resuming a coroutine suspended here
+                # unwinds it in another context, and the one the options were
+                # set in is being discarded anyway
+                pass
         if cancellation_arrived():
             raise asyncio.CancelledError()
 
@@ -2051,18 +2099,18 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
             return None
 
         if type_hint is None:
-            return self._workflow_context_payload_converter.from_payload(
+            return self._result_payload_converter.from_payload(
                 self._last_completion_result.payloads[0]
             )
         else:
-            return self._workflow_context_payload_converter.from_payload(
+            return self._result_payload_converter.from_payload(
                 self._last_completion_result.payloads[0], type_hint
             )
 
     def workflow_last_failure(self) -> BaseException | None:
         if self._last_failure:
-            return self._workflow_context_failure_converter.from_failure(
-                self._last_failure, self._workflow_context_payload_converter
+            return self._result_failure_converter.from_failure(
+                self._last_failure, self._result_payload_converter
             )
 
         return None
@@ -2383,13 +2431,10 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
 
                 apply_cancel(err)
 
-                # Clear the cancellation counter on Python 3.11+ so the next
-                # await does not immediately re-raise CancelledError.
-                if (
-                    sys.version_info >= (3, 11)
-                    and (task := asyncio.current_task()) is not None
-                ):
-                    task.uncancel()  # type: ignore[union-attr]
+                # Clear the cancellation counter so the next await does not
+                # immediately re-raise CancelledError.
+                if (task := asyncio.current_task()) is not None:
+                    task.uncancel()
 
                 if reraise_on_workflow_cancellation and (
                     self._cancel_reason is not None or self._deleting
@@ -2478,6 +2523,21 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
                 namespace=self._info.namespace,
                 workflow_id=self._info.workflow_id,
             )
+
+        if self._nexus_serialization_context and command_info.command_type in (
+            temporalio.api.enums.v1.command_type_pb2.CommandType.COMMAND_TYPE_COMPLETE_WORKFLOW_EXECUTION,
+            temporalio.api.enums.v1.command_type_pb2.CommandType.COMMAND_TYPE_FAIL_WORKFLOW_EXECUTION,
+        ):
+            # The result and closing failure go back to the Nexus caller
+            return self._nexus_serialization_context
+
+        if (
+            command_info.command_type
+            == temporalio.api.enums.v1.command_type_pb2.CommandType.COMMAND_TYPE_PROTOCOL_MESSAGE
+            and command_info.update_protocol_instance_id in self._nexus_update_contexts
+        ):
+            # The update's result and failure go back to the Nexus caller
+            return self._nexus_update_contexts[command_info.update_protocol_instance_id]
 
         if (
             command_info.command_type
@@ -2896,8 +2956,8 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
         failure = self._add_command().fail_workflow_execution.failure
         failure.SetInParent()
         try:
-            self._workflow_context_failure_converter.to_failure(
-                err, self._workflow_context_payload_converter, failure
+            self._result_failure_converter.to_failure(
+                err, self._result_payload_converter, failure
             )
         except Exception as inner_err:
             raise ValueError("Failed converting workflow exception") from inner_err
@@ -3137,12 +3197,14 @@ class _WorkflowInstanceImpl(  # type: ignore[reportImplicitAbstractClass]
         *,
         name: str | None = None,
         context: contextvars.Context | None = None,
+        eager_start: bool | None = None,
     ) -> asyncio.Task[_T]:
-        # Context only supported on newer Python versions
-        if sys.version_info >= (3, 11):
-            task = asyncio.Task(coro, loop=self, context=context)  # type: ignore
-        else:
-            task = asyncio.Task(coro, loop=self)  # type: ignore
+        if eager_start:
+            # Eager execution would bypass the workflow's deterministic task queue.
+            raise NotImplementedError(
+                "Eager task execution is not supported in workflows"
+            )
+        task = asyncio.Task(coro, loop=self, context=context)  # type: ignore
         self._register_task(task, name=name)
         return task
 
@@ -4194,8 +4256,6 @@ class _WorkflowLogicFlag(IntEnum):
     PROCESS_WORKFLOW_ACTIVATION_JOBS_AS_SINGLE_BATCH = 2
 
 
-# TODO: Enable PROCESS_WORKFLOW_ACTIVATION_JOBS_AS_SINGLE_BATCH by default after
-# two published SDK releases have recognized flag 2. When enabling it, remove the
-# explicit overrides for this flag from tests/worker/test_workflow.py, then remove
-# this reminder.
-_DEFAULT_ENABLED_WORKFLOW_LOGIC_FLAGS: frozenset[_WorkflowLogicFlag] = frozenset()
+_DEFAULT_ENABLED_WORKFLOW_LOGIC_FLAGS: frozenset[_WorkflowLogicFlag] = frozenset(
+    {_WorkflowLogicFlag.PROCESS_WORKFLOW_ACTIVATION_JOBS_AS_SINGLE_BATCH}
+)

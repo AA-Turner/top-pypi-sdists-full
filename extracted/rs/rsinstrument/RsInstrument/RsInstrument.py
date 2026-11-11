@@ -26,7 +26,7 @@ from .Internal.VisaSession import VisaSession
 
 class RsInstrument:
 	"""Root class for remote-controlling instrument with SCPI commands."""
-	_driver_version_const = '1.131.0.128'
+	_driver_version_const = '1.132.0.129'
 	_driver_options_const = "SupportedInstrModels = All Rohde & Schwarz Instruments, SupportedIdnPatterns = Rohde\\s*(-|&)\\s*Schwarz/Hameg/ZES ZIMMER, SimulationIdnString = Rohde&Schwarz*SimulationDevice*100001*" + _driver_version_const
 	# noinspection PyClassVar
 	_global_logging_relative_timestamp: ClassVar[datetime | None] = None
@@ -76,7 +76,7 @@ class RsInstrument:
 			- ``FirstCmds = *CLS`` - first command(s) to sent after init. Separated more commands/queries with ';;'. Default: ``(empty)``
 			- ``EachCmdPrefix = lf`` - this prefix is added to the beginning of each command sent to the instrument. Default: ``(empty)``
 			- ``EachCmdSuffix = cr`` - this suffix is added to the end of each command sent to the instrument. Default: ``(empty)``
-			- ``OptimizeOpcExecute = True`` - Only takes effect in the RsInstrument.execute() method. By default (False), the suffix ';*OPC' triggers the _with_opc execution. If set to true, also the ';*OPC?' suffix behaves the same way.
+			- ``OptimizeOpcExecute = True`` - Only takes effect in the RsInstrument.execute() method. By default, (False) the suffix ';*OPC' triggers the _with_opc execution. If set to true, also the ';*OPC?' suffix behaves the same way.
 			- ``StripStringTrailingWhitespaces = True`` - use it to strip white spaces from string query responses. Default: ``False``
 			- ``LoggingMode = On`` - sets the logging status right from the start. Possible values: On | Off | Error. Default: ``Off``
 			- ``LoggingName = 'MyDevice'`` - sets the name to represent the session in the log entries. Default: ``<resource_name>``

@@ -1072,6 +1072,358 @@ class CfnPipeline(
             )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_osis_1b6b4bce.IPipelineEndpointRef)
+class CfnPipelineEndpoint(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_osis.CfnPipelineEndpoint",
+):
+    '''Creates a VPC endpoint for an OpenSearch Ingestion pipeline, enabling private connectivity between your VPC and the pipeline.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-osis-pipelineendpoint.html
+    :cloudformationResource: AWS::OSIS::PipelineEndpoint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_osis as osis
+        
+        cfn_pipeline_endpoint = osis.CfnPipelineEndpoint(self, "MyCfnPipelineEndpoint",
+            pipeline_arn="pipelineArn",
+            vpc_options=osis.CfnPipelineEndpoint.VpcOptionsProperty(
+                security_group_ids=["securityGroupIds"],
+                subnet_ids=["subnetIds"]
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        pipeline_arn: builtins.str,
+        vpc_options: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipelineEndpoint.VpcOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Create a new ``AWS::OSIS::PipelineEndpoint``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param pipeline_arn: The Amazon Resource Name (ARN) of the pipeline to create the endpoint for.
+        :param vpc_options: Configuration settings for the VPC endpoint.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__50dcffae5f28ba1a9b65d32a3b869f4252ffbfe0ac3af7dc2fc1eb148352c6a6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPipelineEndpointProps(
+            pipeline_arn=pipeline_arn, vpc_options=vpc_options
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPipelineEndpoint")
+    @builtins.classmethod
+    def arn_for_pipeline_endpoint(
+        cls,
+        resource: "_aws_osis_1b6b4bce.IPipelineEndpointRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b5106ceb49a9d1447f909c8c46612fac1962f6da4c74ea74f5c9523cf2235079)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPipelineEndpoint", [resource]))
+
+    @jsii.member(jsii_name="isCfnPipelineEndpoint")
+    @builtins.classmethod
+    def is_cfn_pipeline_endpoint(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPipelineEndpoint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e418364c956950d647ae660566cb373563218490394a8dda9dd412c5d1944c1c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPipelineEndpoint", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0c8e9fa62edcb7fe61449c37cb4d2b6c6273c138520a9d280ccb6e721e04cb2e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b519eae68f4914bda067d53d2961dbe8314a4c110029b13f9a1f2c69ed049417)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the pipeline endpoint.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpointId")
+    def attr_endpoint_id(self) -> builtins.str:
+        '''The unique identifier of the pipeline endpoint.
+
+        :cloudformationAttribute: EndpointId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpointId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIngestEndpointUrl")
+    def attr_ingest_endpoint_url(self) -> builtins.str:
+        '''The URL used to ingest data to the pipeline through the VPC endpoint.
+
+        :cloudformationAttribute: IngestEndpointUrl
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIngestEndpointUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the pipeline endpoint.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcId")
+    def attr_vpc_id(self) -> builtins.str:
+        '''The ID of the VPC where the pipeline endpoint was created.
+
+        :cloudformationAttribute: VpcId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVpcId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineEndpointRef")
+    def pipeline_endpoint_ref(self) -> "_aws_osis_1b6b4bce.PipelineEndpointReference":
+        '''A reference to a PipelineEndpoint resource.'''
+        return typing.cast("_aws_osis_1b6b4bce.PipelineEndpointReference", jsii.get(self, "pipelineEndpointRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineArn")
+    def pipeline_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the pipeline to create the endpoint for.'''
+        return typing.cast(builtins.str, jsii.get(self, "pipelineArn"))
+
+    @pipeline_arn.setter
+    def pipeline_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e24c9ae41788da9d306ff49c0702d164e44bf00c1ef727acde72ddd1eea68402)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pipelineArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcOptions")
+    def vpc_options(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipelineEndpoint.VpcOptionsProperty"]:
+        '''Configuration settings for the VPC endpoint.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipelineEndpoint.VpcOptionsProperty"], jsii.get(self, "vpcOptions"))
+
+    @vpc_options.setter
+    def vpc_options(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipelineEndpoint.VpcOptionsProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1296ac1871a2ce00532b64b34a9464846f56a90e2093eca110cef5b92d5e87e9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcOptions", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_osis.CfnPipelineEndpoint.VpcOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "security_group_ids": "securityGroupIds",
+            "subnet_ids": "subnetIds",
+        },
+    )
+    class VpcOptionsProperty:
+        def __init__(
+            self,
+            *,
+            security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Configuration settings for the VPC endpoint.
+
+            :param security_group_ids: A list of security group IDs that control network access to the pipeline endpoint.
+            :param subnet_ids: A list of subnet IDs where the pipeline endpoint network interfaces are created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-osis-pipelineendpoint-vpcoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_osis as osis
+                
+                vpc_options_property = osis.CfnPipelineEndpoint.VpcOptionsProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a0c1df2cd2728e7e5f5d2dac3a979825ea023187c6f13ad945276052f55f9993)
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if security_group_ids is not None:
+                self._values["security_group_ids"] = security_group_ids
+            if subnet_ids is not None:
+                self._values["subnet_ids"] = subnet_ids
+
+        @builtins.property
+        def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of security group IDs that control network access to the pipeline endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-osis-pipelineendpoint-vpcoptions.html#cfn-osis-pipelineendpoint-vpcoptions-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of subnet IDs where the pipeline endpoint network interfaces are created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-osis-pipelineendpoint-vpcoptions.html#cfn-osis-pipelineendpoint-vpcoptions-subnetids
+            '''
+            result = self._values.get("subnet_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_osis.CfnPipelineEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={"pipeline_arn": "pipelineArn", "vpc_options": "vpcOptions"},
+)
+class CfnPipelineEndpointProps:
+    def __init__(
+        self,
+        *,
+        pipeline_arn: builtins.str,
+        vpc_options: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipelineEndpoint.VpcOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnPipelineEndpoint``.
+
+        :param pipeline_arn: The Amazon Resource Name (ARN) of the pipeline to create the endpoint for.
+        :param vpc_options: Configuration settings for the VPC endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-osis-pipelineendpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_osis as osis
+            
+            cfn_pipeline_endpoint_props = osis.CfnPipelineEndpointProps(
+                pipeline_arn="pipelineArn",
+                vpc_options=osis.CfnPipelineEndpoint.VpcOptionsProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b2662c8f145d9b26d0bfcd0015c7eeb12762ed3f40d31978884d82fad229f790)
+            check_type(argname="argument pipeline_arn", value=pipeline_arn, expected_type=type_hints["pipeline_arn"])
+            check_type(argname="argument vpc_options", value=vpc_options, expected_type=type_hints["vpc_options"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "pipeline_arn": pipeline_arn,
+            "vpc_options": vpc_options,
+        }
+
+    @builtins.property
+    def pipeline_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the pipeline to create the endpoint for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-osis-pipelineendpoint.html#cfn-osis-pipelineendpoint-pipelinearn
+        '''
+        result = self._values.get("pipeline_arn")
+        assert result is not None, "Required property 'pipeline_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpc_options(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipelineEndpoint.VpcOptionsProperty"]:
+        '''Configuration settings for the VPC endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-osis-pipelineendpoint.html#cfn-osis-pipelineendpoint-vpcoptions
+        '''
+        result = self._values.get("vpc_options")
+        assert result is not None, "Required property 'vpc_options' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipelineEndpoint.VpcOptionsProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPipelineEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_osis.CfnPipelineProps",
     jsii_struct_bases=[],
@@ -1333,6 +1685,8 @@ class CfnPipelineProps:
 
 __all__ = [
     "CfnPipeline",
+    "CfnPipelineEndpoint",
+    "CfnPipelineEndpointProps",
     "CfnPipelineProps",
 ]
 
@@ -1506,6 +1860,68 @@ def _typecheckingstub__d6c7fc6663c9baefdd81f02e0e69deb4e81a8e210a00a4346752ffa95
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     vpc_attachment_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipeline.VpcAttachmentOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_endpoint_management: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50dcffae5f28ba1a9b65d32a3b869f4252ffbfe0ac3af7dc2fc1eb148352c6a6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    pipeline_arn: builtins.str,
+    vpc_options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipelineEndpoint.VpcOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b5106ceb49a9d1447f909c8c46612fac1962f6da4c74ea74f5c9523cf2235079(
+    resource: _aws_osis_1b6b4bce.IPipelineEndpointRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e418364c956950d647ae660566cb373563218490394a8dda9dd412c5d1944c1c(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c8e9fa62edcb7fe61449c37cb4d2b6c6273c138520a9d280ccb6e721e04cb2e(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b519eae68f4914bda067d53d2961dbe8314a4c110029b13f9a1f2c69ed049417(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e24c9ae41788da9d306ff49c0702d164e44bf00c1ef727acde72ddd1eea68402(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1296ac1871a2ce00532b64b34a9464846f56a90e2093eca110cef5b92d5e87e9(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPipelineEndpoint.VpcOptionsProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0c1df2cd2728e7e5f5d2dac3a979825ea023187c6f13ad945276052f55f9993(
+    *,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2662c8f145d9b26d0bfcd0015c7eeb12762ed3f40d31978884d82fad229f790(
+    *,
+    pipeline_arn: builtins.str,
+    vpc_options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipelineEndpoint.VpcOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

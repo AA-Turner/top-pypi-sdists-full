@@ -5,30 +5,30 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from typing_extensions import assert_never
+from typing import TYPE_CHECKING, assert_never
 
 from anta._advisory.facts.models import (
-    ComponentSoftwareVersion,
-    ConfigurationValue,
+    ComponentSoftwareFact,
+    ConfigurationFact,
     FactProblemKind,
     FactSourceKind,
     FeatureName,
-    IndicatorValue,
-    MitigationValue,
+    MitigationFact,
     SubFeature,
 )
 from anta._advisory.findings.models import (
     AffectedResult,
     ComponentVersionAssessment,
+    ConfigurationAssessment,
     EosReleaseAssessment,
     ErrorResult,
     FindingEvidence,
     InconclusiveResult,
+    MitigatedCondition,
     MitigatedResult,
     NotAffectedResult,
     PlatformAssessment,
+    PlatformRelation,
     VulnerabilityResult,
 )
 from anta._advisory.results import _AdvisoryAtomicTestResult, _get_atomic_vulnerability_ids
@@ -46,24 +46,28 @@ def _render_evidence(evidence: FindingEvidence) -> str:
     """Render one typed piece of finding evidence as a factual clause."""
     if isinstance(evidence, (EosReleaseAssessment, ComponentVersionAssessment)):
         value = evidence.fact.value
-        if isinstance(value, ComponentSoftwareVersion):
+        if isinstance(value, ComponentSoftwareFact):
             rendered = f"{value.component} '{value.version}' is {evidence.relation.value}"
         else:
             rendered = f"{evidence.fact.definition.label} '{value}' is {evidence.relation.value}"
     elif isinstance(evidence, PlatformAssessment):
-        if isinstance(evidence.fact.value, PlatformComponentIdentity):
+        if evidence.relation is PlatformRelation.COMPONENTS_OUTSIDE_SCOPE:
+            rendered = f"the installed components of platform '{evidence.fact.value.model}' are {evidence.relation.value}"
+        elif isinstance(evidence.fact.value, PlatformComponentIdentity):
             component = evidence.fact.value
             rendered = f"{component.role.value.replace('_', ' ')} '{component.model}' is {evidence.relation.value}"
         else:
             rendered = f"platform '{evidence.fact.value.model}' is {evidence.relation.value}"
-    elif isinstance(evidence.value, MitigationValue):
+    elif isinstance(evidence, ConfigurationAssessment):
+        feature = evidence.feature
+        feature_name = f"{feature.parent.value} {feature.name}" if isinstance(feature, SubFeature) else feature.value
+        rendered = f"the {feature_name} configuration is {evidence.state.value}"
+    elif isinstance(evidence.value, MitigationFact):
         rendered = f"{evidence.definition.label} is {evidence.value.state.value}"
-    elif isinstance(evidence.value, IndicatorValue):
-        rendered = f"the {evidence.value.indicator} is {evidence.value.state.value}"
     else:
         feature = evidence.value.feature
         feature_name = f"{feature.parent.value} {feature.name}" if isinstance(feature, SubFeature) else feature.value
-        if isinstance(evidence.value, ConfigurationValue):
+        if isinstance(evidence.value, ConfigurationFact):
             rendered = f"the {feature_name} configuration is {evidence.value.state.value}"
         else:
             suffix = " feature" if isinstance(feature, FeatureName) else ""
@@ -100,9 +104,14 @@ def _join_clauses(clauses: tuple[str, ...]) -> str:
     return f"{', '.join(clauses[:-1])}, and {clauses[-1]}"
 
 
-def _render_mitigation(mitigation: AvailableFact[MitigationValue]) -> str:
+def _render_mitigation(mitigation: AvailableFact[MitigationFact]) -> str:
     """Render one observed mitigation as a factual clause."""
     return f"{mitigation.definition.label} is {mitigation.value.state.value}"
+
+
+def _render_mitigated_condition(item: MitigatedCondition) -> str:
+    """Render one affected condition with the effective mitigations that cover it."""
+    return _join_clauses((_render_evidence(item.condition), *(_render_mitigation(mitigation) for mitigation in item.mitigations)))
 
 
 def _render_result(result: VulnerabilityResult) -> tuple[AdvisoryStatus, str, RemediationPlan | None]:
@@ -112,21 +121,16 @@ def _render_result(result: VulnerabilityResult) -> tuple[AdvisoryStatus, str, Re
         return AdvisoryStatus.NOT_AFFECTED, f"The device is not affected because {evidence}.", None
     if isinstance(result, AffectedResult):
         evidence = _join_clauses(tuple(_render_evidence(item) for item in (*result.context, *result.conditions)))
-        return AdvisoryStatus.AFFECTED, f"The device is affected because {evidence}.", result.remediation
+        message = f"The device is affected because {evidence}."
+        if result.mitigated_conditions:
+            mitigated = _join_clauses(tuple(_render_mitigated_condition(item) for item in result.mitigated_conditions))
+            message = f"{message} Mitigated conditions: {mitigated}."
+        return AdvisoryStatus.AFFECTED, message, result.remediation
     if isinstance(result, MitigatedResult):
-        mitigated_conditions = tuple(
-            _join_clauses(
-                (
-                    _render_evidence(item.condition),
-                    *(_render_mitigation(mitigation) for mitigation in item.mitigations),
-                )
-            )
-            for item in result.mitigated_conditions
-        )
         evidence = _join_clauses(
             (
                 *(_render_evidence(item) for item in result.context),
-                *mitigated_conditions,
+                *(_render_mitigated_condition(item) for item in result.mitigated_conditions),
             )
         )
         return AdvisoryStatus.MITIGATED, f"The device is affected but mitigated because {evidence}.", result.remediation

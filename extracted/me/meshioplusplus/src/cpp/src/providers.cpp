@@ -1,0 +1,482 @@
+//  ██████   ██████ ██████████  █████████  █████   █████ █████    ███████
+// ░░██████ ██████ ░░███░░░░░█ ███░░░░░███░░███   ░░███ ░░███   ███░░░░░███      ███         ███
+//  ░███░█████░███  ░███  █ ░ ░███    ░░░  ░███    ░███  ░███  ███     ░░███    ░███        ░███
+//  ░███░░███ ░███  ░██████   ░░█████████  ░███████████  ░███ ░███      ░███ ███████████ ███████████
+//  ░███ ░░░  ░███  ░███░░█    ░░░░░░░░███ ░███░░░░░███  ░███ ░███      ░███░░░░░███░░░ ░░░░░███░░░
+//  ░███      ░███  ░███ ░   █ ███    ░███ ░███    ░███  ░███ ░░███     ███     ░███        ░███
+//  █████     █████ ██████████░░█████████  █████   █████ █████ ░░░███████░      ░░░         ░░░
+// ░░░░░     ░░░░░ ░░░░░░░░░░  ░░░░░░░░░  ░░░░░   ░░░░░ ░░░░░    ░░░░░░░
+//
+//
+//  License:         MIT License
+//                   meshio++ default license: LICENSE
+//
+//  Main authors:    Vicente Mataix Ferrandiz
+//
+//
+
+// The runtime provider registry. See providers.hpp.
+
+// System includes
+#include <algorithm>
+#include <atomic>
+#include <cstdlib>
+#include <filesystem>
+#include <map>
+#include <mutex>
+#include <string>
+#include <system_error>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+// Project includes
+#include "meshioplusplus/abi_version.hpp"
+#include "meshioplusplus/log.hpp"
+#include "meshioplusplus/operations/profile_solid.hpp"
+#include "meshioplusplus/providers.hpp"
+
+// Project includes (private, not installed)
+#include "detail/dynlib.hpp"
+
+namespace meshioplusplus {
+
+namespace providers {
+
+#ifdef MESHIOPLUSPLUS_HAS_OCCT
+/// The OpenCASCADE provider this build compiled in (providers/occt/).
+CadKernelProvider make_occt_provider();
+/// Its profile solids (roadmap 7.7.4).
+ProfileSolidProvider make_occt_profile_provider();
+#endif
+#ifdef MESHIOPLUSPLUS_HAS_NETGEN
+/// The Netgen provider this build compiled in (providers/netgen/).
+TetMesherProvider make_netgen_provider();
+#endif
+#ifdef MESHIOPLUSPLUS_HAS_MMG
+/// The MMG provider this build compiled in (providers/mmg/).
+RemesherProvider make_mmg_provider();
+#endif
+
+/// The external tetrahedral meshers found installed (`tetgen`, `gmsh`), run as
+/// separate processes (detail/external_mesher.cpp); none in WebAssembly.
+std::vector<TetMesherProvider> make_external_tet_meshers();
+/// The external quad remeshers found installed (`quadriflow`, `instant_meshes`).
+std::vector<QuadRemesherProvider> make_external_quad_remeshers();
+
+}  // namespace providers
+
+namespace {
+
+/// One kind of provider: the registered one, whether its builtin has had its
+/// turn (also set by an explicit unregister, which must stick), and every one
+/// ever registered, because a version string handed out as a `const char*`
+/// must outlive a later replacement. A handful at most.
+template <class T>
+struct ProviderSlot {
+    std::shared_ptr<const T> mCurrent;
+    std::vector<std::shared_ptr<const T>> mRetained;
+    bool mBuiltinDone = false;
+
+    void Set(std::shared_ptr<const T> pNew) {
+        mRetained.push_back(pNew);
+        mCurrent = std::move(pNew);
+    }
+};
+
+struct ProvidersState {
+    std::mutex mMutex;
+    ProviderSlot<CadKernelProvider> mCad;
+    ProviderSlot<TetMesherProvider> mTet;
+    ProviderSlot<RemesherProvider> mRemesher;
+    /// The named tetrahedral meshers (roadmap 7.7.2), by name; replaced ones
+    /// stay in `mTet.mRetained`.
+    std::map<std::string, std::shared_ptr<const TetMesherProvider>> mTetNamed;
+    /// The quad remeshers (roadmap 7.7.3), by name, and every one ever added.
+    std::map<std::string, std::shared_ptr<const QuadRemesherProvider>> mQuad;
+    std::vector<std::shared_ptr<const QuadRemesherProvider>> mQuadRetained;
+    /// The profile-solid providers (roadmap 7.7.4), by name, and every one ever added.
+    std::map<std::string, std::shared_ptr<const ProfileSolidProvider>> mProfile;
+    std::vector<std::shared_ptr<const ProfileSolidProvider>> mProfileRetained;
+    bool mProfileBuiltinDone = false;
+    bool mExternalDone = false;
+};
+
+ProvidersState& providers_state() {
+    // Constructed on first use and never destroyed, so a query during static
+    // destruction stays safe.
+    static ProvidersState* const s_state = new ProvidersState;
+    return *s_state;
+}
+
+// Set while this thread runs a plugin's registration function: a plugin fills an
+// empty slot but never replaces a provider that is already there.
+thread_local bool t_loading_plugin = false;
+
+template <class T>
+void slot_register(ProviderSlot<T> ProvidersState::*pSlot, T Provider) {
+    ProvidersState& r_state = providers_state();
+    auto p_new = std::make_shared<const T>(std::move(Provider));
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    if (t_loading_plugin && (r_state.*pSlot).mCurrent)
+        return;
+    (r_state.*pSlot).Set(std::move(p_new));
+}
+
+template <class T>
+void slot_unregister(ProviderSlot<T> ProvidersState::*pSlot) noexcept {
+    ProvidersState& r_state = providers_state();
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    (r_state.*pSlot).mBuiltinDone = true;
+    (r_state.*pSlot).mCurrent.reset();
+}
+
+template <class T>
+std::shared_ptr<const T> slot_get(ProviderSlot<T> ProvidersState::*pSlot) noexcept {
+    register_builtin_providers();
+    ProvidersState& r_state = providers_state();
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    return (r_state.*pSlot).mCurrent;
+}
+
+}  // namespace
+
+void register_cad_kernel(CadKernelProvider Provider) {
+    slot_register(&ProvidersState::mCad, std::move(Provider));
+}
+void unregister_cad_kernel() noexcept {
+    slot_unregister(&ProvidersState::mCad);
+}
+std::shared_ptr<const CadKernelProvider> cad_kernel() noexcept {
+    return slot_get(&ProvidersState::mCad);
+}
+
+void register_tet_mesher(TetMesherProvider Provider) {
+    slot_register(&ProvidersState::mTet, std::move(Provider));
+}
+void unregister_tet_mesher() noexcept {
+    slot_unregister(&ProvidersState::mTet);
+}
+std::shared_ptr<const TetMesherProvider> tet_mesher() noexcept {
+    return slot_get(&ProvidersState::mTet);
+}
+
+void add_tet_mesher(TetMesherProvider Provider) {
+    ProvidersState& r_state = providers_state();
+    auto p_new = std::make_shared<const TetMesherProvider>(std::move(Provider));
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    if (t_loading_plugin && r_state.mTetNamed.count(p_new->mName))
+        return;
+    r_state.mTet.mRetained.push_back(p_new);
+    r_state.mTetNamed[p_new->mName] = std::move(p_new);
+}
+
+void remove_tet_mesher(const std::string& rName) noexcept {
+    ProvidersState& r_state = providers_state();
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    r_state.mTetNamed.erase(rName);
+}
+
+std::shared_ptr<const TetMesherProvider> tet_mesher(const std::string& rName) noexcept {
+    register_builtin_providers();
+    ProvidersState& r_state = providers_state();
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    // The default answers to its own name first, so a plugin's mesher that is
+    // the default is the one `backend=<its name>` runs.
+    if (r_state.mTet.mCurrent && r_state.mTet.mCurrent->mName == rName)
+        return r_state.mTet.mCurrent;
+    const auto it = r_state.mTetNamed.find(rName);
+    return it == r_state.mTetNamed.end() ? nullptr : it->second;
+}
+
+void add_quad_remesher(QuadRemesherProvider Provider) {
+    ProvidersState& r_state = providers_state();
+    auto p_new = std::make_shared<const QuadRemesherProvider>(std::move(Provider));
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    if (t_loading_plugin && r_state.mQuad.count(p_new->mName))
+        return;
+    r_state.mQuadRetained.push_back(p_new);
+    r_state.mQuad[p_new->mName] = std::move(p_new);
+}
+
+void remove_quad_remesher(const std::string& rName) noexcept {
+    ProvidersState& r_state = providers_state();
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    r_state.mQuad.erase(rName);
+}
+
+std::shared_ptr<const QuadRemesherProvider> quad_remesher(const std::string& rName) noexcept {
+    register_builtin_providers();
+    ProvidersState& r_state = providers_state();
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    const auto it = r_state.mQuad.find(rName);
+    return it == r_state.mQuad.end() ? nullptr : it->second;
+}
+
+void add_profile_solid_provider(ProfileSolidProvider Provider) {
+    ProvidersState& r_state = providers_state();
+    auto p_new = std::make_shared<const ProfileSolidProvider>(std::move(Provider));
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    if (t_loading_plugin && r_state.mProfile.count(p_new->mName))
+        return;
+    r_state.mProfileRetained.push_back(p_new);
+    r_state.mProfile[p_new->mName] = std::move(p_new);
+}
+
+void remove_profile_solid_provider(const std::string& rName) noexcept {
+    ProvidersState& r_state = providers_state();
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    r_state.mProfile.erase(rName);
+}
+
+std::shared_ptr<const ProfileSolidProvider> profile_solid_provider(
+    const std::string& rName) noexcept {
+    register_builtin_providers();
+    ProvidersState& r_state = providers_state();
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    if (rName.empty())
+        return r_state.mProfile.empty() ? nullptr : r_state.mProfile.begin()->second;
+    const auto it = r_state.mProfile.find(rName);
+    return it == r_state.mProfile.end() ? nullptr : it->second;
+}
+
+std::vector<std::string> profile_solid_provider_names() {
+    register_builtin_providers();
+    ProvidersState& r_state = providers_state();
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    std::vector<std::string> names;
+    for (const auto& r_entry : r_state.mProfile)
+        names.push_back(r_entry.first);
+    return names;
+}
+
+std::vector<std::string> quad_remesher_names() {
+    register_builtin_providers();
+    ProvidersState& r_state = providers_state();
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    std::vector<std::string> names;
+    for (const auto& r_entry : r_state.mQuad)
+        names.push_back(r_entry.first);
+    return names;
+}
+
+std::vector<std::string> tet_mesher_names() {
+    register_builtin_providers();
+    ProvidersState& r_state = providers_state();
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    std::vector<std::string> names;
+    if (r_state.mTet.mCurrent)
+        names.push_back(r_state.mTet.mCurrent->mName);
+    for (const auto& r_entry : r_state.mTetNamed)
+        names.push_back(r_entry.first);
+    std::sort(names.begin(), names.end());
+    names.erase(std::unique(names.begin(), names.end()), names.end());
+    return names;
+}
+
+void register_remesher(RemesherProvider Provider) {
+    slot_register(&ProvidersState::mRemesher, std::move(Provider));
+}
+void unregister_remesher() noexcept {
+    slot_unregister(&ProvidersState::mRemesher);
+}
+std::shared_ptr<const RemesherProvider> remesher() noexcept {
+    return slot_get(&ProvidersState::mRemesher);
+}
+
+namespace {
+
+/// The scan of MESHIOPLUSPLUS_PLUGIN_PATH runs once. Recursive, so that a plugin
+/// asking for a provider while it registers (or from a static initialiser that
+/// dlopen runs) does not wait on itself; the flag makes that nested call return
+/// at once. Allocated and never freed, like providers_state(), so a provider
+/// query during static destruction still finds it.
+std::recursive_mutex& plugin_scan_mutex() {                 // NOSONAR(cpp:S8462): see above
+    static auto* const s_mutex = new std::recursive_mutex;  // NOSONAR(cpp:S8462,cpp:S8474)
+    return *s_mutex;
+}
+bool g_plugins_scan_started = false;           // guarded by the scan mutex
+std::atomic<bool> g_plugins_scan_done{false};  // the lock-free fast path
+
+using PluginAbiFn = int (*)();
+using PluginRegisterFn = void (*)();
+
+bool is_plugin_file(const std::filesystem::path& rPath) {
+    const std::string name = rPath.filename().string();
+    return name.rfind("meshioplusplus_plugin_", 0) == 0 ||
+           name.rfind("libmeshioplusplus_plugin_", 0) == 0;
+}
+
+}  // namespace
+
+bool load_plugin(const std::string& rPath, std::string* pError) noexcept {
+    const auto fail = [&](const std::string& rWhy) {
+        if (pError)
+            *pError = rWhy;
+        log::warn("plugin '{}' not loaded: {}", rPath, rWhy);
+        return false;
+    };
+    try {
+        if (!detail::dynlib_available())
+            return fail("loading shared libraries is not available in this build");
+        std::string error;
+        detail::dynlib_export_host_symbols();
+        void* p_lib = detail::dynlib_open(rPath, error);
+        if (!p_lib)
+            return fail(error);
+        const auto p_abi = reinterpret_cast<PluginAbiFn>(
+            detail::dynlib_symbol(p_lib, "meshioplusplus_plugin_abi_version"));
+        const auto p_register = reinterpret_cast<PluginRegisterFn>(
+            detail::dynlib_symbol(p_lib, "meshioplusplus_register_plugin"));
+        if (!p_abi || !p_register) {
+            detail::dynlib_close(p_lib);
+            return fail("it exports no meshioplusplus_plugin_abi_version / "
+                        "meshioplusplus_register_plugin");
+        }
+        const int abi = p_abi();
+        if (abi != MESHIOPLUSPLUS_ABI_VERSION) {
+            detail::dynlib_close(p_lib);
+            return fail("it was built for ABI version " + std::to_string(abi) +
+                        ", this library is " + std::to_string(MESHIOPLUSPLUS_ABI_VERSION));
+        }
+        // The library stays loaded: its providers hold code from it.
+        t_loading_plugin = true;
+        try {
+            p_register();
+        } catch (...) {
+            t_loading_plugin = false;
+            return fail("its registration threw");
+        }
+        t_loading_plugin = false;
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+int load_plugins(const std::string& rPaths) noexcept {
+    int loaded = 0;
+    try {
+#if defined(_WIN32)
+        constexpr char kSeparator = ';';
+#else
+        constexpr char kSeparator = ':';
+#endif
+        std::size_t start = 0;
+        while (start <= rPaths.size()) {
+            std::size_t end = rPaths.find(kSeparator, start);
+            if (end == std::string::npos)
+                end = rPaths.size();
+            const std::string entry = rPaths.substr(start, end - start);
+            start = end + 1;
+            if (entry.empty())
+                continue;
+            std::error_code ec;
+            const std::filesystem::path path(entry);
+            if (std::filesystem::is_directory(path, ec)) {
+                std::vector<std::string> files;
+                for (const auto& r_item : std::filesystem::directory_iterator(path, ec))
+                    if (r_item.is_regular_file(ec) && is_plugin_file(r_item.path()) &&
+                        r_item.path().extension() == detail::dynlib_extension())
+                        files.push_back(r_item.path().string());
+                std::sort(files.begin(), files.end());  // a stable order
+                for (const std::string& r_file : files)
+                    if (load_plugin(r_file))
+                        ++loaded;
+            } else if (load_plugin(entry)) {
+                ++loaded;
+            }
+        }
+    } catch (...) {
+    }
+    return loaded;
+}
+
+static void register_compiled_in_providers() noexcept {
+    ProvidersState& r_state = providers_state();
+    const std::lock_guard<std::mutex> lock(r_state.mMutex);
+    // A slot's builtin goes in once, and never over a provider already there.
+    const auto install = [](auto& rSlot, auto&& Make) {
+        if (rSlot.mBuiltinDone)
+            return;
+        rSlot.mBuiltinDone = true;
+        if (rSlot.mCurrent)
+            return;
+        try {
+            using Provider = std::decay_t<decltype(Make())>;
+            rSlot.Set(std::make_shared<const Provider>(Make()));
+        } catch (...) {
+        }
+    };
+    (void)install;
+#ifdef MESHIOPLUSPLUS_HAS_OCCT
+    install(r_state.mCad, [] { return providers::make_occt_provider(); });
+    if (!r_state.mProfileBuiltinDone) {
+        r_state.mProfileBuiltinDone = true;
+        try {
+            auto p_new = std::make_shared<const ProfileSolidProvider>(
+                providers::make_occt_profile_provider());
+            if (!r_state.mProfile.count(p_new->mName)) {
+                r_state.mProfileRetained.push_back(p_new);
+                r_state.mProfile[p_new->mName] = std::move(p_new);
+            }
+        } catch (...) {
+        }
+    }
+#else
+    r_state.mCad.mBuiltinDone = true;
+#endif
+#ifdef MESHIOPLUSPLUS_HAS_NETGEN
+    install(r_state.mTet, [] { return providers::make_netgen_provider(); });
+#else
+    r_state.mTet.mBuiltinDone = true;
+#endif
+#ifdef MESHIOPLUSPLUS_HAS_MMG
+    install(r_state.mRemesher, [] { return providers::make_mmg_provider(); });
+#else
+    r_state.mRemesher.mBuiltinDone = true;
+#endif
+    // The installed external meshers, by name only: they never become the
+    // default, so `backend=auto` keeps meaning Netgen, else the octree.
+    if (!r_state.mExternalDone) {
+        r_state.mExternalDone = true;
+        try {
+            for (TetMesherProvider& r_p : providers::make_external_tet_meshers()) {
+                if (r_state.mTetNamed.count(r_p.mName))
+                    continue;
+                auto p_new = std::make_shared<const TetMesherProvider>(std::move(r_p));
+                r_state.mTet.mRetained.push_back(p_new);
+                r_state.mTetNamed[p_new->mName] = std::move(p_new);
+            }
+            for (QuadRemesherProvider& r_p : providers::make_external_quad_remeshers()) {
+                if (r_state.mQuad.count(r_p.mName))
+                    continue;
+                auto p_new = std::make_shared<const QuadRemesherProvider>(std::move(r_p));
+                r_state.mQuadRetained.push_back(p_new);
+                r_state.mQuad[p_new->mName] = std::move(p_new);
+            }
+        } catch (...) {
+        }
+    }
+}
+
+void register_builtin_providers() noexcept {
+    register_compiled_in_providers();
+    // Then the plugins, once and outside the registry lock (a plugin registers
+    // through it). Concurrent callers wait here until the scan is done, so none
+    // sees a slot a plugin is about to fill; a nested call on the scanning
+    // thread passes straight through.
+    if (g_plugins_scan_done.load())
+        return;
+    // Recursive on purpose: re-entered by a plugin, see plugin_scan_mutex().
+    const std::lock_guard scan_lock(plugin_scan_mutex());  // NOSONAR(cpp:S8462)
+    if (g_plugins_scan_started)
+        return;  // done meanwhile, or this thread's own plugin is asking
+    g_plugins_scan_started = true;
+    const char* p_paths = std::getenv("MESHIOPLUSPLUS_PLUGIN_PATH");
+    if (p_paths && *p_paths)
+        load_plugins(p_paths);
+    g_plugins_scan_done.store(true);
+}
+
+}  // namespace meshioplusplus

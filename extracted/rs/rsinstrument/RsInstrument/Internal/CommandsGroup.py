@@ -5,14 +5,14 @@ from typing import List
 
 from .Core import Core
 from .InstrumentErrors import DriverValueError
-from .RepeatedCapability import CMD_VALUE_SKIP_HEADER
+from .RepeatedCapability import CMD_VALUE_SKIP_HEADER, VALUE_SKIP_HEADER
 from .RepeatedCapability import RepeatedCapability as RepCap
 
 
 class CommandsGroup:
 	"""Contains methods dealing with RepCaps and Group object cloning"""
 
-	def __init__(self, group_name: str, core: Core, parent: 'CommandsGroup'):
+	def __init__(self, group_name: str, core: Core, parent: 'CommandsGroup | None'):
 		"""Constructor with header name, group property name and the start value"""
 
 		self.group_name = group_name
@@ -64,15 +64,19 @@ class CommandsGroup:
 		"""Returns the current string of RepCapCmdValue for the entered RepCapEnumName
 		The enum_value can be a repcap of the current CommandsGroup or any of their parents"""
 		# Use the static functions of the RepeatedCapability to check for SkipHeader value
-		if not RepCap.clsm_get_direct_cmd_value_int(enum_value, enum_type):
+		# Some repcaps can have custom-defined property to have this additional value in the list.
+		# For example, CMW CC{1..4} can be equipped with a repcap value that skips the entire CC{} header.
+		if RepCap.clsm_get_direct_cmd_value_int(enum_value, enum_type) == VALUE_SKIP_HEADER:
 			return CMD_VALUE_SKIP_HEADER
 
 		# Use the static functions of the RepeatedCapability to get the non-default value
 		# It is faster, since there is no need to use the RepCap instance
 		if not RepCap.clsm_is_default_value(enum_value, enum_type):
 			return RepCap.clsm_get_cmd_string_value(enum_value, enum_type)
-		# Default value - get it from the group or the parent groups
-		group = self
+		# Default value - get it from the group or the parent groups.
+		# Read self once. After the parent walk, PyCharm treats a later use of self as unassigned.
+		owner = self
+		group = owner
 		while group is not None:
 			if group.rep_cap is not None:
 				if group.rep_cap.matches_type(enum_type):
@@ -80,19 +84,20 @@ class CommandsGroup:
 			group = group.parent
 
 		# repCapEnumName not found in single repcaps. Check the multiRepCaps
-		group = self
+		group = owner
 		while group is not None:
 			if group.has_multi_repcaps():
 				if str(enum_type.__name__) in group.multi_repcap_types.split(','):
 					# Found in the multiple repcaps, create more fitting exception message
 					raise DriverValueError(
-						self.io.resource_name,
+						owner.io.resource_name,
 						f"You can not use the RepCap value '{enum_value}', "
 						f"because its real value is not defined in any of the parent command groups. Please select a concrete value.")
+			# noinspection unresolved-references
 			group = group.parent
 
 		# repCapEnumName not found, create exception message
-		group = self
+		group = owner
 		groups = []
 		while group is not None:
 			item = group.group_name
@@ -103,7 +108,7 @@ class CommandsGroup:
 
 		groups_chain = str.join("\n", groups)
 		raise DriverValueError(
-			self.io.resource_name,
+			owner.io.resource_name,
 			f"Error replacing RepCaps in the SCPI command:"
 			f"RepCap '{enum_type}' not found in the group chain:\n{groups_chain}")
 

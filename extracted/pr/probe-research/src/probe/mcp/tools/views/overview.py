@@ -1,8 +1,9 @@
-"""Overview and summary views: the saved page, the Summary tab as Markdown and its version history."""
+"""Overview and summary views: the saved page, the Summary tab as Markdown, its version history and its panes."""
 
 from __future__ import annotations
 from typing import Any
 from ....sdk import errors
+from ....sdk.reads import links
 from ....shared.reads.search_contract import EntityType
 from probe.mcp.tools.shaping.cards import _notes_excerpt
 from probe.mcp.tools.view import _Req, _ViewData
@@ -74,6 +75,23 @@ def _summary_version_number(value: Any) -> int | None:
     return value
 
 
+#: What a panes row keeps beside its recipe summary: never `html` (up to 300k characters each).
+_PANE_FIELDS = ("slug", "title", "position", "updated_at")
+
+
+def _summarize_recipe(recipe: Any) -> dict[str, Any]:
+    """What a pane reads, without its data: the run set (`scope` or how many run ids) and each entry's id and source."""
+    if not isinstance(recipe, dict):
+        return {}
+    runs = recipe.get("runs")
+    entries = [
+        {"id": entry.get("id"), "source": entry.get("source")}
+        for entry in recipe.get("data") or []
+        if isinstance(entry, dict)
+    ]
+    return {"runs": {"run_ids": len(runs)} if isinstance(runs, list) else runs, "entries": entries}
+
+
 class OverviewViewsMixin:
     """Part of ResearchReadService: its methods run with `self` the ResearchReadService; compose() folds them into ResearchReadService."""
 
@@ -137,6 +155,28 @@ class OverviewViewsMixin:
         if isinstance(markdown, str):
             view.payload["overview"]["markdown"] = markdown
         return view
+
+    def _build_project_panes_view(self, entity: dict, request: _Req) -> _ViewData:
+        return self._list_panes(EntityType.PROJECT, entity)
+
+    def _build_experiment_panes_view(self, entity: dict, request: _Req) -> _ViewData:
+        return self._list_panes(EntityType.EXPERIMENT, entity)
+
+    def _list_panes(self, kind: str, entity: dict) -> _ViewData:
+        """The panes on a project's or experiment's page, first to last: slug, title, place, what each
+        recipe reads and the page it is on. No HTML: `probe pane get <scope> <slug> --out DIR` writes it."""
+        page_url = links.entity_url(kind, str(entity["id"]), api_base_url=self._api_base_url)
+        rows = []
+        for pane in self.source.fetch_panes(str(entity["id"])):
+            if not isinstance(pane, dict):
+                continue
+            row = {key: pane[key] for key in _PANE_FIELDS if pane.get(key) is not None}
+            row["recipe"] = _summarize_recipe(pane.get("recipe"))
+            url = pane.get("url") or page_url
+            if url:
+                row["url"] = url
+            rows.append(row)
+        return _ViewData(rows=rows, rows_key="panes")
 
     def _view_project_summary_history(self, entity: dict, request: _Req) -> _ViewData:
         return self._summary_history(EntityType.PROJECT, entity, request)

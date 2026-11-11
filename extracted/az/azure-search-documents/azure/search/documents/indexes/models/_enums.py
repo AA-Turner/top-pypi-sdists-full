@@ -11,25 +11,6 @@ from enum import Enum
 from azure.core import CaseInsensitiveEnumMeta
 
 
-class AIFoundryModelCatalogName(str, Enum, metaclass=CaseInsensitiveEnumMeta):
-    """The name of the embedding model from the Azure AI Foundry Catalog that will be called."""
-
-    OPEN_AI_CLIP_IMAGE_TEXT_EMBEDDINGS_VIT_BASE_PATCH32 = "OpenAI-CLIP-Image-Text-Embeddings-vit-base-patch32"
-    """OpenAI-CLIP-Image-Text-Embeddings-vit-base-patch32."""
-    OPEN_AI_CLIP_IMAGE_TEXT_EMBEDDINGS_VIT_LARGE_PATCH14_336 = "OpenAI-CLIP-Image-Text-Embeddings-ViT-Large-Patch14-336"
-    """OpenAI-CLIP-Image-Text-Embeddings-ViT-Large-Patch14-336."""
-    FACEBOOK_DINO_V2_IMAGE_EMBEDDINGS_VIT_BASE = "Facebook-DinoV2-Image-Embeddings-ViT-Base"
-    """Facebook-DinoV2-Image-Embeddings-ViT-Base."""
-    FACEBOOK_DINO_V2_IMAGE_EMBEDDINGS_VIT_GIANT = "Facebook-DinoV2-Image-Embeddings-ViT-Giant"
-    """Facebook-DinoV2-Image-Embeddings-ViT-Giant."""
-    COHERE_EMBED_V3_ENGLISH = "Cohere-embed-v3-english"
-    """Cohere-embed-v3-english."""
-    COHERE_EMBED_V3_MULTILINGUAL = "Cohere-embed-v3-multilingual"
-    """Cohere-embed-v3-multilingual."""
-    COHERE_EMBED_V4 = "Cohere-embed-v4"
-    """Cohere embed v4 model for generating embeddings from both text and images."""
-
-
 class AzureOpenAIModelName(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """The Azure Open AI model name that will be called."""
 
@@ -39,19 +20,29 @@ class AzureOpenAIModelName(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """TextEmbedding3Large model."""
     TEXT_EMBEDDING3_SMALL = "text-embedding-3-small"
     """TextEmbedding3Small model."""
-    GPT_5_MINI = "gpt-5-mini"
+    GPT5_MINI = "gpt-5-mini"
     """Gpt5Mini model."""
-    GPT_5_NANO = "gpt-5-nano"
+    GPT5_NANO = "gpt-5-nano"
     """Gpt5Nano model."""
-    GPT_5_4_MINI = "gpt-5.4-mini"
+    GPT54 = "gpt-5.4"
+    """Gpt54 model."""
+    GPT5_4_MINI = "gpt-5.4-mini"
     """Gpt54Mini model."""
-    GPT_5_4_NANO = "gpt-5.4-nano"
+    GPT5_4_NANO = "gpt-5.4-nano"
     """Gpt54Nano model."""
+    GPT55 = "gpt-5.5"
+    """Gpt55 model."""
+    GPT56_SOL = "gpt-5.6-sol"
+    """Gpt56Sol model."""
+    GPT56_TERRA = "gpt-5.6-terra"
+    """Gpt56Terra model."""
+    GPT56_LUNA = "gpt-5.6-luna"
+    """Gpt56Luna model."""
 
 
 class BlobIndexerDataToExtract(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Specifies the data to extract from Azure blob storage and tells the indexer which data to
-    extract from image content when "imageAction" is set to a value other than "none".  This
+    extract from image content when \"imageAction\" is set to a value other than \"none\".  This
     applies to embedded image content in a .PDF or other application, or image files such as .jpg
     and .png, in Azure blobs.
     """
@@ -67,23 +58,23 @@ class BlobIndexerDataToExtract(str, Enum, metaclass=CaseInsensitiveEnumMeta):
 
 class BlobIndexerImageAction(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Determines how to process embedded images and image files in Azure blob storage.  Setting the
-    "imageAction" configuration to any value other than "none" requires that a skillset also be
+    \"imageAction\" configuration to any value other than \"none\" requires that a skillset also be
     attached to that indexer.
     """
 
     NONE = "none"
     """Ignores embedded images or image files in the data set.  This is the default."""
     GENERATE_NORMALIZED_IMAGES = "generateNormalizedImages"
-    """Extracts text from images (for example, the word "STOP" from a traffic stop sign), and embeds
-    it into the content field.  This action requires that "dataToExtract" is set to
-    "contentAndMetadata".  A normalized image refers to additional processing resulting in uniform
+    """Extracts text from images (for example, the word \"STOP\" from a traffic stop sign), and embeds
+    it into the content field.  This action requires that \"dataToExtract\" is set to
+    \"contentAndMetadata\".  A normalized image refers to additional processing resulting in uniform
     image output, sized and rotated to promote consistent rendering when you include images in
     visual search results. This information is generated for each image when you use this option."""
     GENERATE_NORMALIZED_IMAGE_PER_PAGE = "generateNormalizedImagePerPage"
-    """Extracts text from images (for example, the word "STOP" from a traffic stop sign), and embeds
+    """Extracts text from images (for example, the word \"STOP\" from a traffic stop sign), and embeds
     it into the content field, but treats PDF files differently in that each page will be rendered
     as an image and normalized accordingly, instead of extracting embedded images.  Non-PDF file
-    types will be treated the same as if "generateNormalizedImages" was set."""
+    types will be treated the same as if \"generateNormalizedImages\" was set."""
 
 
 class BlobIndexerParsingMode(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -162,11 +153,22 @@ class CjkBigramTokenFilterScripts(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Ignore Hangul script when forming bigrams of CJK terms."""
 
 
+class ContentUnderstandingSkillChunkingMethod(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """The chunking strategy used by the Content Understanding skill. Default is 'fixedSize'."""
+
+    FIXED_SIZE = "fixedSize"
+    """Fixed-size character-based windowed chunking."""
+    SEMANTIC = "semantic"
+    """Layout-aware, paragraph-boundary-respecting chunking."""
+
+
 class ContentUnderstandingSkillChunkingUnit(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Controls the cardinality of the chunk unit. Default is 'characters'."""
 
     CHARACTERS = "characters"
     """Specifies chunk by characters."""
+    TOKENS = "tokens"
+    """Specifies chunk by tokens."""
 
 
 class ContentUnderstandingSkillExtractionOptions(  # pylint: disable=name-too-long
@@ -341,6 +343,17 @@ class EntityRecognitionSkillLanguage(str, Enum, metaclass=CaseInsensitiveEnumMet
     """Turkish."""
 
 
+class FileKnowledgeSourceExtractionMode(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """The extraction effort applied to an individual file. 'minimal' (the default) uses built-in
+    extraction; 'standard' uses Content Understanding.
+    """
+
+    MINIMAL = "minimal"
+    """Built-in extraction was performed."""
+    STANDARD = "standard"
+    """Content Understanding extraction was performed."""
+
+
 class ImageAnalysisSkillLanguage(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """The language codes supported for input by ImageAnalysisSkill."""
 
@@ -459,6 +472,23 @@ class ImageDetail(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Details recognized as landmarks."""
 
 
+class IndexedSharePointContainerName(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """Specifies which SharePoint libraries to access."""
+
+    DEFAULT_SITE_LIBRARY = "defaultSiteLibrary"
+    """Index content from the site's default document library."""
+    ALL_SITE_LIBRARIES = "allSiteLibraries"
+    """Index content from every document library in the site."""
+    USE_QUERY = "useQuery"
+    """Use a query to filter SharePoint content."""
+    ALL_SITE_LISTS = "allSiteLists"
+    """Index content from every list in the site."""
+    ALL_SITE_PAGES = "allSitePages"
+    """Index content from every page in the site."""
+    ALL_SITE_CONTENT = "allSiteContent"
+    """Index content from all supported libraries, lists, and pages in the site."""
+
+
 class IndexerExecutionEnvironment(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Specifies the environment in which the indexer should execute."""
 
@@ -483,6 +513,17 @@ class IndexerExecutionStatus(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Indexer execution is in progress."""
     RESET = "reset"
     """Indexer has been reset."""
+
+
+class IndexerPermissionOption(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """Options with various types of permission data to index."""
+
+    USER_IDS = "userIds"
+    """Indexer to ingest ACL userIds from data source to index."""
+    GROUP_IDS = "groupIds"
+    """Indexer to ingest ACL groupIds from data source to index."""
+    RBAC_SCOPE = "rbacScope"
+    """Indexer to ingest Azure RBAC scope from data source to index."""
 
 
 class IndexerResyncOption(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -567,6 +608,17 @@ class KnowledgeSourceContentExtractionMode(str, Enum, metaclass=CaseInsensitiveE
     """Performs the full default content extraction pipeline."""
 
 
+class KnowledgeSourceIngestionPermissionOption(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """Permission types to ingest together with document content."""
+
+    USER_IDS = "userIds"
+    """Ingest explicit user identifiers alongside document content."""
+    GROUP_IDS = "groupIds"
+    """Ingest group identifiers alongside document content."""
+    RBAC_SCOPE = "rbacScope"
+    """Ingest RBAC scope information alongside document content."""
+
+
 class KnowledgeSourceKind(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """The kind of the knowledge source."""
 
@@ -574,10 +626,17 @@ class KnowledgeSourceKind(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """A knowledge source that reads data from a Search Index."""
     AZURE_BLOB = "azureBlob"
     """A knowledge source that read and ingest data from Azure Blob Storage to a Search Index."""
+    INDEXED_SHARE_POINT = "indexedSharePoint"
+    """A knowledge source that reads data from indexed SharePoint."""
     INDEXED_ONELAKE = "indexedOneLake"
     """A knowledge source that reads data from indexed OneLake."""
+    INDEXED_SQL = "indexedSql"
+    """A knowledge source that retrieves and ingests data from Azure SQL Database or SQL Managed
+    Instance to a Search Index."""
     WEB = "web"
     """A knowledge source that reads data from the web."""
+    FILE = "file"
+    """A knowledge source that supports direct file upload and indexing."""
 
 
 class KnowledgeSourceSynchronizationStatus(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -800,12 +859,12 @@ class LexicalNormalizerName(str, Enum, metaclass=CaseInsensitiveEnumMeta):
 
     ASCII_FOLDING = "asciifolding"
     """Converts alphabetic, numeric, and symbolic Unicode characters which are not in the first 127
-    ASCII characters (the "Basic Latin" Unicode block) into their ASCII equivalents, if such
+    ASCII characters (the \"Basic Latin\" Unicode block) into their ASCII equivalents, if such
     equivalents exist. See
     `http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/miscellaneous/ASCIIFoldingFilter.html
     <http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/miscellaneous/ASCIIFoldingFilter.html>`_."""
     ELISION = "elision"
-    """Removes elisions. For example, "l'avion" (the plane) will be converted to "avion" (plane). See
+    """Removes elisions. For example, \"l'avion\" (the plane) will be converted to \"avion\" (plane). See
     `http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/util/ElisionFilter.html
     <http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/util/ElisionFilter.html>`_."""
     LOWERCASE = "lowercase"
@@ -874,6 +933,15 @@ class LexicalTokenizerName(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Divides text at whitespace. See
     `http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/core/WhitespaceTokenizer.html
     <http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/core/WhitespaceTokenizer.html>`_."""
+
+
+class ListingSearchType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """Specifies how the search parameter is interpreted when narrowing down a listing result set.
+    Currently only 'prefix' is supported.
+    """
+
+    PREFIX = "prefix"
+    """Matches items whose name starts with the value of the search parameter."""
 
 
 class MarkdownHeaderDepth(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -1095,7 +1163,7 @@ class MicrosoftTokenizerLanguage(str, Enum, metaclass=CaseInsensitiveEnumMeta):
 
 class OcrLineEnding(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Defines the sequence of characters to use between the lines of text recognized by the OCR
-    skill. The default value is "space".
+    skill. The default value is \"space\".
     """
 
     SPACE = "space"
@@ -1453,6 +1521,17 @@ class OcrSkillLanguage(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Unknown (All)."""
 
 
+class PermissionFilter(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """A value indicating whether the field should be used as a permission filter."""
+
+    USER_IDS = "userIds"
+    """Field represents user IDs that should be used to filter document access on queries."""
+    GROUP_IDS = "groupIds"
+    """Field represents group IDs that should be used to filter document access on queries."""
+    RBAC_SCOPE = "rbacScope"
+    """Field represents an RBAC scope that should be used to filter document access on queries."""
+
+
 class PhoneticEncoder(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Identifies the type of phonetic encoder to use with a PhoneticTokenFilter."""
 
@@ -1618,6 +1697,15 @@ class SearchIndexerDataSourceType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Indicates a Microsoft Fabric OneLake datasource."""
     SHAREPOINT = "sharepoint"
     """Indicates a SharePoint datasource."""
+
+
+class SearchIndexPermissionFilterOption(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """A value indicating whether permission filtering is enabled for the index."""
+
+    ENABLED = "enabled"
+    """Permission filtering is enabled for the index."""
+    DISABLED = "disabled"
+    """Permission filtering is disabled for the index."""
 
 
 class SentimentSkillLanguage(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -2145,7 +2233,7 @@ class TokenFilterName(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     <http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/tr/ApostropheFilter.html>`_."""
     ASCII_FOLDING = "asciifolding"
     """Converts alphabetic, numeric, and symbolic Unicode characters which are not in the first 127
-    ASCII characters (the "Basic Latin" Unicode block) into their ASCII equivalents, if such
+    ASCII characters (the \"Basic Latin\" Unicode block) into their ASCII equivalents, if such
     equivalents exist. See
     `http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/miscellaneous/ASCIIFoldingFilter.html
     <http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/miscellaneous/ASCIIFoldingFilter.html>`_."""
@@ -2173,7 +2261,7 @@ class TokenFilterName(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     `http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/ngram/EdgeNGramTokenFilter.html
     <http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/ngram/EdgeNGramTokenFilter.html>`_."""
     ELISION = "elision"
-    """Removes elisions. For example, "l'avion" (the plane) will be converted to "avion" (plane). See
+    """Removes elisions. For example, \"l'avion\" (the plane) will be converted to \"avion\" (plane). See
     `http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/util/ElisionFilter.html
     <http://lucene.apache.org/core/4_10_3/analyzers-common/org/apache/lucene/analysis/util/ElisionFilter.html>`_."""
     GERMAN_NORMALIZATION = "german_normalization"

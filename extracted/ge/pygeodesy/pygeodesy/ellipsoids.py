@@ -70,8 +70,9 @@ from pygeodesy.basics import copysign0, isbool, _isin, isint,  typename
 from pygeodesy.constants import EPS, EPS_2, EPS0, EPS02, EPS1, INF, NINF, \
                                _EPSqrt, PI_2, PI_3, PI2, PI4, R_M, R_MA, R_FM, \
                                _EPStol as _TOL, _floatuple as _T, _isfinite, \
-                               _over, _SQRT2, _0_0s, _0_0, _0_5, _1_0, _1_EPS, \
-                               _2_0, _4_0, _90_0, _0_25, _3_0  # PYCHOK used!
+                               _1_over, _over, _SQRT2, _0_0s, _0_0, _0_5, _1_0, \
+                               _1_EPS, _2_0, _4_0, _90_0
+from pygeodesy.constants import _0_25, _3_0  # PYCHOK used!
 # from pygeodesy.ellipses import Ellipse  # _MODS
 from pygeodesy.errors import _AssertionError, IntersectionError, _ValueError, _xattr, _xkwds_not
 from pygeodesy.fmath import cbrt, cbrt2, fdot, fmean_, Fhorner, fpowers, hypot, hypot_, \
@@ -88,7 +89,8 @@ from pygeodesy.named import _lazyNamedEnumItem as _lazy, _name__, _NamedEnum, \
                                 _NamedEnumItem, _NamedTuple, _Pass,  _ALL_LAZY, _MODS
 from pygeodesy.namedTuples import Circle4Tuple, Distance2Tuple, Vector3Tuple, Vector4Tuple
 from pygeodesy.props import deprecated_Property_RO, Property_RO, property_doc_, \
-                            deprecated_property_RO, property_RO, property_ROver
+                            deprecated_property_RO, property_RO, property_ROver, \
+                            deprecated_method
 from pygeodesy.streprs import Fmt, fstr, instr, strs, unstr
 # from pygeodesy.triaxials.triaxial5 import _hartzell3, _plumbTo3  # _MODS
 from pygeodesy.units import Azimuth, Bearing, Distance, Float, Float_, Lamd, Lat, _Lat0, \
@@ -98,7 +100,7 @@ from pygeodesy.utily import atan1, atan1d, atan2b, degrees90, m2radians, radians
 from math import asinh, atan, atanh, cos, degrees, exp, fabs, radians, sin, sinh, sqrt, tan  # as _tan
 
 __all__ = _ALL_LAZY.ellipsoids
-__version__ = '26.10.24'
+__version__ = '26.10.30'
 
 _f_0_0    = Float(f =_0_0)  # zero flattening
 _f__0_0   = Float(f_=_0_0)  # zero inverse flattening
@@ -911,33 +913,30 @@ class Ellipsoid(_NamedEnumItem):
         # note, self.e is always non-negative
         return Float(es=copysign0(self.e, self.f))  # see .ups
 
+    @deprecated_method
     def es_atanh(self, x):
-        '''Compute M{es * atanh(es * x)} or M{-es * atan(es * x)}
-           for I{oblate} respectively I{prolate} ellipsoids where
-           I{es} is the I{signed} (1st) eccentricity.
+        '''DEPRECATED on 2026.10.30, use method L{es_eatanhe}.'''
+        return self.es_eatanhe(x)
+
+    @Property_RO
+    def es_c(self):
+        '''Get M{(1 - f) * exp(es_eatanhe(1))} (C{float}), M{b_a * exp(es_eatanhe(1))}.
+        '''
+        return Float(es_c=(self._es_Taus._exp_eatanhe_1 * self.b_a) if self.f else _1_0)
+
+    def es_eatanhe(self, x):  # in .rhumb.ekx._DeatanhE, .webmercator
+        '''Compute M{es * atanh(es * x)} or M{-es * atan(es * x)} for I{oblate}
+           respectively I{prolate} ellipsoids where I{es} is the I{signed} (1st)
+           eccentricity.
 
            @raise ValueError: Invalid B{C{x}}.
 
            @see: Function U{Math::eatanhe<https://GeographicLib.SourceForge.io/
                  C++/doc/classGeographicLib_1_1Math.html>}.
         '''
-        return self._es_atanh(Scalar(x=x)) if self.f else _0_0
+        return _eatanhe(Scalar(x=x), self.es) if self.f else _0_0
 
-    def _es_atanh(self, x):  # see .albers._atanhee, .AuxLat._atanhee
-        '''(INTERNAL) Helper for .es_atanh, ._es_taupf2 and ._exp_es_atanh.
-        '''
-        es = self.es  # signOf(es) == signOf(f)
-        return es * (atanh(es * x) if es > 0 else  # .isOblate
-                    (-atan(es * x) if es < 0 else  # .isProlate
-                     _0_0))  # .isSpherical
-
-    @Property_RO
-    def es_c(self):
-        '''Get M{(1 - f) * exp(es_atanh(1))} (C{float}), M{b_a * exp(es_atanh(1))}.
-        '''
-        return Float(es_c=(self._exp_es_atanh_1 * self.b_a) if self.f else _1_0)
-
-    def es_tauf(self, taup):
+    def es_tauf(self, taup):  # in .etm, .ktm, .ups
         '''Compute I{Karney}'s U{equations (19), (20) and (21)
            <https://ArXiv.org/abs/1002.1417>}.
 
@@ -946,65 +945,20 @@ class Ellipsoid(_NamedEnumItem):
                  and I{Veness}' JavaScript method U{toLatLon<https://www.
                  Movable-Type.co.UK/scripts/latlong-utm-mgrs.html>}.
         '''
-        t = Scalar(taup=taup)
-        if self.f:  # .isEllipsoidal
-            a =  fabs(t)
-            T = (self._exp_es_atanh_1 if a > 70 else self._1_e21) * t
-            if fabs(T * _EPSqrt) < _2_0:  # handles +/- INF and NAN
-                s = (a * _TOL) if a > _1_0 else _TOL
-                for T, _, d in self._es_tauf3(t, T):  # max 2
-                    if fabs(d) < s:
-                        break
-                else:
-                    t = unstr(self.es_tauf, taup)
-                    raise _AssertionError(Fmt.no_convergence(d, s), txt=t)
-            t = Scalar(tauf=T)
-        return t
+        return self._es_Taus.tauf(taup)
 
-    def _es_tauf3(self, taup, T, N=9):  # in .utm.Utm._toLLEB
-        '''(INTERNAL) Yield a 3-tuple C{(τi, iteration, delta)} for at most
-           B{C{N}} Newton iterations, converging rapidly except when C{delta}
-           toggles on +/-1.12e-16 or +/-4.47e-16, see C{.utm.Utm._toLLEB}.
-        '''
-        e    = self._1_e21
-        _F2_ = Fsum(T).fsum2f_  # τ0
-        _tf2 = self._es_taupf2
-        for i in range(1, N + 1):
-            a, h = _tf2(T)
-            # = (taup - a) / hypot1(a) / ((e + T**2) / h)
-            d = _over((taup - a) * (T**2 + e), hypot1(a) * h)
-            T, d = _F2_(d)  # τi, (τi - τi-1)
-            yield T, i, d
-
-    def es_taupf(self, tau):
+    def es_taupf(self, tau):  # in .etm, .ktm, .rhumb.ekx, .ups
         '''Compute I{Karney}'s U{equations (7), (8) and (9)
            <https://ArXiv.org/abs/1002.1417>}.
 
            @see: I{Karney}'s C++ method U{Math::taupf<https://GeographicLib.
                  SourceForge.io/C++/doc/classGeographicLib_1_1Math.html>}.
         '''
-        t = Scalar(tau=tau)
-        if self.f:  # .isEllipsoidal
-            t, _ = self._es_taupf2(t)
-            t = Scalar(taupf=t)
-        return t
-
-    def _es_taupf2(self, tau):
-        '''(INTERNAL) Return 2-tuple C{(es_taupf(tau), hypot1(tau))}.
-        '''
-        if _isfinite(tau):
-            h = hypot1(tau)
-            s = sinh(self._es_atanh(tau / h))
-            a = hypot1(s) * tau - h * s
-        else:
-            a, h = tau, INF
-        return a, h
+        return self._es_Taus.taupf(tau)
 
     @Property_RO
-    def _exp_es_atanh_1(self):
-        '''(INTERNAL) Helper for .es_c and .es_tauf.
-        '''
-        return exp(self._es_atanh(_1_0)) if self.es else _1_0
+    def _es_Taus(self):  # in .utm.Utm._toLLEB
+        return _Taus(self.es, self._1_e21)
 
     @Property_RO
     def f(self):
@@ -1941,6 +1895,107 @@ class Ellipsoid2(Ellipsoid):
             Ellipsoid.__init__(self, a, f=f, **name)
 
 
+class _Taus(object):  # in .karney
+    '''(INTERNAL) Class providing C{tauf} and C{taupf} functions.
+    '''
+
+    def __init__(self, es, _1_e21=None):
+        self._es = es
+        if _1_e21 is not None:
+            self.__dict__.update(_1_e21=_1_e21)
+
+    @Property_RO
+    def _1_e21(self):  # == E.a2_b2 == 1 / e21 == 1 / e2m
+        return _1_over(_1_0 - self.es**2) if self.es else _1_0
+
+    def eatanhe(self, x):  # see .albers._atanheE, .AuxLat._atanhee
+        '''See method L{Ellipsoid.es_eatanhe} for details.
+        '''
+        return _eatanhe(Scalar(x=x), self.es)
+
+    @Property_RO
+    def es(self):
+        return self._es
+
+    @Property_RO
+    def _exp_eatanhe_1(self):
+        '''(INTERNAL) Helper for Ellipsoid.es_c and .es_tauf.
+        '''
+        return exp(_eatanhe(_1_0, self.es)) if self.es else _1_0
+
+    def tauf(self, taup):
+        '''Compute I{Karney}'s U{equations (19), (20) and (21)
+           <https://ArXiv.org/abs/1002.1417>}.
+
+           @see: I{Karney}'s C++ method U{Math::tauf<https://GeographicLib.
+                 SourceForge.io/C++/doc/classGeographicLib_1_1Math.html>} and
+                 and I{Veness}' JavaScript method U{toLatLon<https://www.
+                 Movable-Type.co.UK/scripts/latlong-utm-mgrs.html>}.
+        '''
+        t = Scalar(taup=taup)
+        if self.es:  # .isEllipsoidal
+            a =  fabs(t)
+            T = (self._exp_eatanhe_1 if a > 70 else self._1_e21) * t
+            if fabs(T * _EPSqrt) < 2:  # handles +/- INF and NAN
+                s = (a * _TOL) if a > 1 else _TOL
+                for T, _, d in self._tauf3(t, T):  # max 2
+                    if fabs(d) < s:
+                        break
+                else:  # PYCHOK no cover
+                    t = unstr(self.tauf, taup, es=self.es)
+                    raise _AssertionError(Fmt.no_convergence(d, s), txt=t)
+            t = Scalar(tauf=T)
+        return t
+
+    def _tauf3(self, taup, T, N=9):  # in .utm.Utm._toLLEB
+        '''(INTERNAL) Yield a 3-tuple C{(τi, iteration, delta)} for at most
+           B{C{N}} Newton iterations, converging rapidly except when C{delta}
+           toggles on +/-1.12e-16 or +/-4.47e-16, see C{.utm.Utm._toLLEB}.
+        '''
+        e   = self._1_e21
+        _f2 = Fsum(T).fsum2f_  # τ0
+        for i in range(1, N + 1):
+            a, h = self._taupf2(T)
+            # = (taup - a) / hypot1(a) / ((e + T**2) / h)
+            d = (taup - a) * (T**2 + e) / (hypot1(a) * h)
+            T, d = _f2(d)  # τi, (τi - τi-1)
+            yield T, i, d
+
+    def taupf(self, tau):
+        '''Compute I{Karney}'s U{equations (7), (8) and (9)
+           <https://ArXiv.org/abs/1002.1417>}.
+
+           @see: I{Karney}'s C++ method U{Math::taupf<https://GeographicLib.
+                 SourceForge.io/C++/doc/classGeographicLib_1_1Math.html>}.
+        '''
+        t = Scalar(tau=tau)
+        if self.es:  # .isEllipsoidal
+            t, _ = self._taupf2(t)
+            t = Scalar(taupf=t)
+        return t
+
+    def _taupf2(self, tau):
+        '''Return 2-tuple C{(taupf(tau), hypot1(tau))}.
+        '''
+        t = tau
+        if _isfinite(t):
+            h  = hypot1(t)
+            s  = sinh(_eatanhe(t / h, self.es))
+            t *= hypot1(s)
+            t -= h * s
+        else:
+            h  = INF  # NAN?
+        return t, h
+
+
+def _eatanhe(x, es):
+    '''(INTERNAL) Karney's GeographicLib 2.7+ C{Math.eatanhe}.
+    '''
+    return es * (atanh(x * es) if es > 0 else  # .isOblate
+                (-atan(x * es) if es < 0 else  # .isProlate
+                 _0_0))  # .isSpherical
+
+
 def _ispherical_a_b(a, b):
     '''(INTERNAL) C{True} for spherical or invalid C{a} or C{b}.
     '''
@@ -2481,7 +2536,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2027 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

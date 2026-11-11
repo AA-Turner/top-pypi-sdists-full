@@ -66,8 +66,8 @@ TARGET_SCHEMA_YAML = textwrap.dedent("""\
         attributes:
           sample_id:
             identifier: true
-          analyte_value: {}
-          age_at_observation: {}
+          analyte_value: {range: float}
+          age_at_observation: {range: integer}
           participant_sex: {}
           site_name: {}
 """)
@@ -446,6 +446,41 @@ def test_populated_from_with_value_mappings(data_dir, source_sv, target_sv):
 
     assert results[0]["participant_sex"] == "Female"  # F → Female
     assert results[1]["participant_sex"] == "Male"  # M → Male
+
+
+def test_populated_from_cross_table_is_typed_to_target(data_dir, source_sv):
+    """A joined column read with populated_from is coerced and enum-resolved like any value (#402)."""
+    target_sv = SchemaView(
+        TARGET_SCHEMA_YAML.replace("participant_sex: {}", "participant_sex: {range: SexEnum}").replace(
+            "site_name: {}", "age_label: {range: string}"
+        )
+        + textwrap.dedent("""\
+            enums:
+              SexEnum:
+                permissible_values:
+                  female: {aliases: [F]}
+                  male: {aliases: [M]}
+        """)
+    )
+    spec = textwrap.dedent("""\
+        class_derivations:
+          MeasurementObservation:
+            populated_from: lab_results
+            joins:
+              demographics:
+                join_on: participant_id
+            slot_derivations:
+              sample_id:
+                populated_from: sample_id
+              participant_sex:
+                populated_from: demographics.sex
+              age_label:
+                populated_from: demographics.age_at_exam
+    """)
+    tr = _make_transformer(source_sv, target_sv, spec)
+    results = list(transform_spec(tr, DataLoader(data_dir)))
+
+    assert [(r["participant_sex"], r["age_label"]) for r in results[:2]] == [("female", "30"), ("male", "45")]
 
 
 def test_populated_from_join_priority_over_fk(data_dir, source_sv, target_sv):

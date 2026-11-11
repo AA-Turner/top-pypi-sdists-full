@@ -414,6 +414,7 @@ def _apply_link_parameters(
     case: Case, link: CrashLink, previous_step_output: StepOutput, parent_body: str
 ) -> list[LinkedValue]:
     from schemathesis.specs.openapi.expressions import body_pointers
+    from schemathesis.specs.openapi.stateful import merge_link_body
 
     schema = case.operation.schema
     linked: list[LinkedValue] = []
@@ -451,7 +452,6 @@ def _apply_link_parameters(
                 )
                 for name, value in body.items()
             )
-            case.body = {**recorded_body, **body}
         else:
             linked.append(
                 LinkedValue(
@@ -462,8 +462,9 @@ def _apply_link_parameters(
                     pointers=body_pointers(link.request_body),
                 )
             )
-            if body is not UNRESOLVABLE:
-                case.body = body
+        if body is not UNRESOLVABLE:
+            # Object and array literals set fields inside the recorded body; a single expression replaces it.
+            case.body = merge_link_body(case.body, body) if isinstance(link.request_body, (dict, list)) else body
     return linked
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk-lib
-Version: 2.275.0
+Version: 2.276.0
 Summary: Version 2 of the AWS Cloud Development Kit library
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -24,7 +24,7 @@ License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: aws-cdk.asset-awscli-v1==2.2.292
 Requires-Dist: aws-cdk.asset-node-proxy-agent-v6<3.0.0,>=2.1.3
-Requires-Dist: aws-cdk.cloud-assembly-schema<56.0.0,>=55.0.0
+Requires-Dist: aws-cdk.cloud-assembly-schema<56.0.0,>=55.3.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
 Requires-Dist: jsii<2.0.0,>=1.142.0
 Requires-Dist: publication>=0.0.3
@@ -1913,6 +1913,33 @@ Validations.of(self).acknowledge(
     reason="Account has quota increased to 20"
 )
 ```
+
+#### Acknowledging a subset of a warning (context filters)
+
+A single warning `id` is sometimes emitted for a range of situations. A construct
+can attach structured **context** to each occurrence (the keys and values are the
+construct's choice — values may be strings, numbers, booleans, or arrays), and you
+can then acknowledge only the occurrences whose context matches — leaving the rest
+to still warn.
+
+```python
+# The construct attaches context describing this specific occurrence:
+Validations.of(self).add_warning("my-lib:unsupportedActionType", "This action type is not supported and will be ignored", context={"service": "aiops", "resource": "investigation-group"})
+
+# Acknowledge only the occurrences that match. `where` is an objectLike partial
+# match against the context: any key you do not mention is left unconstrained,
+# so the filter below also suppresses an occurrence whose context is
+# `{ service: 'aiops', resource: 'other' }`:
+Validations.of(self).acknowledge(
+    id="my-lib:unsupportedActionType",
+    reason="aiops actions are attached intentionally",
+    where={"service": "aiops"}
+)
+```
+
+Omitting `where` acknowledges every occurrence of the `id`, which is the default
+behavior. A warning emitted without any context can only be acknowledged by an
+unfiltered acknowledgement, so a specific filter never silences it accidentally.
 
 ### Acknowledging Infos
 

@@ -111,6 +111,15 @@ class Flags(Enum):
         visible=True,
         description="Enables additional data types in the download command, such as sequences",
     )
+    POSTGRES_GATEWAY = FlagMetadata(
+        visible=False,
+        description="Enables support for PostgreSQL Gateway resources",
+    )
+    CONFIG_INCLUDE = FlagMetadata(
+        visible=True,
+        description="Enables support for config.<>.yaml files including on other config YAML files through "
+        "the 'include' field.",
+    )
 
     def is_enabled(self) -> bool:
         if self == Flags.CDF_GROUP_EMAILS:

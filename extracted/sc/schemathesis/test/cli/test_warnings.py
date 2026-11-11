@@ -8,6 +8,7 @@ from flask import Flask, Response, jsonify, request
 import schemathesis
 from schemathesis.cli.commands.run.warnings import auth_flow_suggestion
 from schemathesis.core.transforms import deepclone
+from test.apps.catalog.openapi import basic
 
 
 def _serve_schema(ctx, cli, app_runner, schema: dict, routes):
@@ -217,13 +218,7 @@ def test_final_line_counts_all_warning_kinds_in_run(cli, ctx, app_runner, snapsh
         return Response(status=404)
 
     schema_url = _serve_schema(ctx, cli, app_runner, schema, [("GET", "/auth", auth), ("GET", "/missing", missing)])
-    result = cli.run(schema_url, "--checks=not_a_server_error", "--max-examples=1")
-    assert result == snapshot_cli
-    # Each warning's title in the WARNINGS section matches its entry in the summary.
-    warnings, summary = result.stdout.split("WARNINGS", 1)[1].split("SUMMARY", 1)
-    headers = sorted(line.split(" in ", 1)[0] for line in warnings.splitlines() if ": " in line and line[0].isalpha())
-    entries = sorted(line.strip().removeprefix("⚠️ ") for line in summary.splitlines() if "⚠️" in line)
-    assert [line.split(": ", 1)[0] for line in headers] == [line.split(": ", 1)[0] for line in entries]
+    assert cli.run(schema_url, "--checks=not_a_server_error", "--max-examples=1") == snapshot_cli
 
 
 def test_warning_on_no_2xx(ctx, cli, snapshot_cli):
@@ -296,7 +291,7 @@ def test_warning_on_no_2xx_options_only(ctx, cli, snapshot_cli):
             },
         ),
     ],
-    ids=["default", "selected", "disabled-all", "disabled-operation", "enabled-operation", "fail-on-operation"],
+    ids=["default", "disabled-all", "selected", "disabled-operation", "enabled-operation", "fail-on-operation"],
 )
 def test_warning_on_all_not_found(ctx, cli, snapshot_cli, args, kwargs):
     api = ctx.openapi.apps.success_and_failure()
@@ -318,7 +313,7 @@ def test_warning_on_all_not_found(ctx, cli, snapshot_cli, args, kwargs):
 
 
 def test_warning_on_many_operations(ctx, cli, snapshot_cli):
-    api = ctx.openapi.apps.success_failure_multiple_failures_custom_format()
+    api = ctx.openapi.serve(basic.success_failure_multiple_failures_custom_format())
     assert (
         cli.run(
             api.schema_url,
@@ -667,7 +662,6 @@ def test_missing_test_data_advice_grouped_by_cause(ctx, cli, snapshot_cli):
     )
 
 
-@pytest.mark.usefixtures("clean_constants_registry")
 def test_constants_extraction_warning_displayed(cli, ctx):
     @schemathesis.python.constants
     def broken_source():
@@ -809,34 +803,25 @@ def test_low_valid_rate_is_opt_in(ctx, cli):
     assert "Low valid-input rate" not in result.stdout
 
 
-def test_low_valid_rate_distinguishes_rejections_from_missing_resources(ctx, cli):
-    app = _orders_app(ctx, accept_every=10, rejection_status=422)
+@pytest.mark.parametrize(
+    ("rejection_status", "expected"),
+    [
+        (422, ("(1/10, 9 rejected)", "refused on their data")),
+        (409, ("(1/10, 9 conflicts)", "collided with existing resources")),
+    ],
+    ids=["rejections-from-missing-resources", "conflicts-from-rejections"],
+)
+def test_low_valid_rate_distinguishes(ctx, cli, rejection_status, expected):
+    app = _orders_app(ctx, accept_every=10, rejection_status=rejection_status)
 
     result = cli.run_openapi_app(app, *LOW_VALID_RATE_ARGS, "--checks=not_a_server_error")
 
-    assert "(1/10, 9 rejected)" in result.stdout
-    assert "refused on their data" in result.stdout
+    assert {line: line in result.stdout for line in expected} == dict.fromkeys(expected, True)
 
 
-def test_low_valid_rate_distinguishes_conflicts_from_rejections(ctx, cli):
-    app = _orders_app(ctx, accept_every=10, rejection_status=409)
-
-    result = cli.run_openapi_app(app, *LOW_VALID_RATE_ARGS, "--checks=not_a_server_error")
-
-    assert "(1/10, 9 conflicts)" in result.stdout
-    assert "collided with existing resources" in result.stdout
-
-
-def test_no_low_valid_rate_warning_for_rate_limited_requests(ctx, cli):
-    app = _orders_app(ctx, accept_every=10, rejection_status=429)
-
-    result = cli.run_openapi_app(app, *LOW_VALID_RATE_ARGS, "--checks=not_a_server_error")
-
-    assert "Low valid-input rate" not in result.stdout
-
-
-def test_no_low_valid_rate_warning_for_redirect_responses(ctx, cli):
-    app = _orders_app(ctx, accept_every=10, rejection_status=300)
+@pytest.mark.parametrize("rejection_status", [429, 300], ids=["rate-limited-requests", "redirect-responses"])
+def test_no_low_valid_rate_warning_for(ctx, cli, rejection_status):
+    app = _orders_app(ctx, accept_every=10, rejection_status=rejection_status)
 
     result = cli.run_openapi_app(app, *LOW_VALID_RATE_ARGS, "--checks=not_a_server_error")
 
@@ -1123,6 +1108,23 @@ def test_rate_limited_operation_warning(ctx, cli, snapshot_cli):
         return jsonify({"detail": "Unauthorized"}), 401
 
     assert cli.run_openapi_app(app, "--max-examples=10", "-c not_a_server_error") == snapshot_cli
+
+
+@pytest.mark.parametrize("extra", [[], ["--checks=not_a_server_error"]], ids=["all-checks", "passing-checks"])
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_method_not_allowed_warning_in_cli_output(cli, ctx, snapshot_cli, extra):
+    api = ctx.openapi.apps.unimplemented_method()
+    assert (
+        cli.run(
+            api.schema_url,
+            "--max-examples=10",
+            "--phases=examples,coverage,fuzzing",
+            "--mode=positive",
+            "--continue-on-failure",
+            *extra,
+        )
+        == snapshot_cli
+    )
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)

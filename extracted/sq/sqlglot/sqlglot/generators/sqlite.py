@@ -190,11 +190,16 @@ class SQLiteGenerator(generator.Generator):
         # can be transpiled to SQLite, so we explicitly override them accordingly
         exp.LikeProperty: exp.Properties.Location.POST_SCHEMA,
         exp.ModuleProperty: exp.Properties.Location.POST_SCHEMA,
+        exp.StrictProperty: exp.Properties.Location.POST_SCHEMA,
         exp.TemporaryProperty: exp.Properties.Location.POST_CREATE,
         exp.VirtualProperty: exp.Properties.Location.POST_CREATE,
+        exp.WithoutRowidProperty: exp.Properties.Location.POST_SCHEMA,
     }
 
     LIMIT_FETCH = "LIMIT"
+
+    def root_properties(self, properties: exp.Properties) -> str:
+        return self.expressions(properties, indent=False, sep=", ")
 
     def offset_limit_modifiers(
         self, expression: exp.Expr, fetch: bool, limit: exp.Fetch | exp.Limit | None
@@ -286,6 +291,30 @@ class SQLiteGenerator(generator.Generator):
         modifier = modifier.name if modifier.is_string else self.sql(modifier)
         modifier = f"{modifier} {unit.name}" if unit else modifier
         return self.func("DATE", expression.this, exp.Literal.string(modifier))
+
+    def datesub_sql(self, expression: exp.DateSub) -> str:
+        # SQLite has no DATE_SUB, so add the negated amount instead
+        amount = expression.expression
+        unit = expression.args.get("unit")
+        if isinstance(amount, exp.Interval):
+            unit = unit or amount.unit
+            amount = amount.this
+
+        amount = amount.unnest()
+        negated: exp.Expr
+        if isinstance(amount, exp.Neg):
+            negated = amount.this
+        elif isinstance(amount, exp.Literal):
+            text = amount.name.removeprefix("+")
+            negated = exp.Literal.string(text[1:] if text.startswith("-") else f"-{text}")
+        else:
+            negated = exp.Neg(
+                this=amount
+                if isinstance(amount, (exp.Column, exp.Func))
+                else exp.paren(amount, copy=False)
+            )
+
+        return self.dateadd_sql(exp.DateAdd(this=expression.this, expression=negated, unit=unit))
 
     def cast_sql(self, expression: exp.Cast, safe_prefix: str | None = None) -> str:
         if expression.is_type("date"):

@@ -5,6 +5,8 @@ class ErrorBoundary:
             for name in get_all_instance_method_names(instance):
                 if name in {
                     "get_typed_config",
+                    "evaluate_layer_for_deferred_experiment_exposure",
+                    "log_deferred_experiment_exposure_DO_NOT_USE",
                     "register_typed_config_callback",
                     "_INTERNAL_get_typed_config",
                     "_INTERNAL_typed_config_context",

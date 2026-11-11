@@ -98,6 +98,10 @@ from exp.runtime.models.providers.instruction_turns import (
 from exp.runtime.models.providers.openai_compatible import OpenAICompatibleClient
 from exp.runtime.models.providers.protocol import DEVELOPER_ROLE_REWRITE_DISCLOSURE
 from exp.runtime.models.providers.streaming_requests import openai_compatible_stream_payload
+from exp.runtime.openai_protocol.caller_copy import (
+    CALLER_COPY_EXAMPLES,
+    CALLER_COPY_PASSTHROUGH,
+)
 from exp.runtime.openai_protocol.errors import OpenAIProtocolError, public_failure_error
 from exp.runtime.openai_protocol.requests import decode_chat, decode_responses
 from exp.runtime.openai_protocol.state import ProtocolNamespace
@@ -4473,6 +4477,13 @@ def test_rust_failure_taxonomy_matches_public_failure_error() -> None:
         if failure_class != GatewayFailureClass.QUOTA_EXCEEDED:
             assert actual["message"] == expected.detail.message, failure_class
             assert actual["retry_after_seconds"] == expected.retry_after_seconds, failure_class
+    # The caller wording of each durable sentence is the same on both planes.
+    for failure_class, durable in (*CALLER_COPY_EXAMPLES, *CALLER_COPY_PASSTHROUGH):
+        expected = public_failure_error(
+            GatewayFailure(failure_class=failure_class, safe_message=durable)
+        )
+        actual = json.loads(native.failure_public_error_fixture(failure_class.value, durable))
+        assert actual["message"] == expected.detail.message, durable
 
 
 def test_rust_chat_sse_frames_match_python_and_the_committed_golden() -> None:
@@ -8164,6 +8175,246 @@ def test_responses_instructions_reach_a_chat_wire_lane_as_system(tmp_path: Path)
     assert admission["ignored_parameters"] == [DEVELOPER_ROLE_REWRITE_DISCLOSURE]
 
 
+_CODEX_AGENT_TASK: JsonObject = {
+    "type": "agent_message",
+    "author": "/root",
+    "recipient": "/root/worker",
+    "content": [
+        {"type": "input_text", "text": "Message Type: NEW_TASK\nPayload:\nCount the tests."}
+    ],
+}
+"""A sub-agent's task as Codex 0.162/0.163 records it (``ResponseItem::AgentMessage``)."""
+
+
+def _codex_items_body(*items: JsonObject) -> str:
+    """Return a Codex-shaped Responses body: a user turn followed by ``items``."""
+    return json.dumps(
+        {
+            "model": "coding",
+            "store": False,
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "go"}],
+                },
+                *items,
+            ],
+        }
+    )
+
+
+def _admitted_payload(admission: JsonObject) -> JsonObject:
+    """Narrow one admission to its lead rung's upstream payload."""
+    route = cast("list[JsonObject]", admission["route"])
+    return cast("JsonObject", route[0]["upstream_payload"])
+
+
+def test_codex_agent_and_compaction_items_forward_verbatim_on_an_openai_rung(
+    tmp_path: Path,
+) -> None:
+    """The real admission bridge hands a native OpenAI Responses rung every
+    Codex item byte-for-byte, in place: the sub-agent task, a positional
+    configuration update, and the trailing compaction trigger."""
+    control, raw_key = _openai_responses_pool_control_plane(
+        tmp_path, {"TEST_ALPHA_KEY": "alpha-secret", "TEST_BETA_KEY": "beta-secret"}
+    )
+    configuration: JsonObject = {"type": "configuration_update", "reasoning": {"effort": "high"}}
+    trigger: JsonObject = {"type": "compaction_trigger"}
+
+    admission = _admit(
+        control,
+        raw_key,
+        _codex_items_body(_CODEX_AGENT_TASK, configuration, trigger),
+        surface="responses",
+    )
+
+    items = cast("list[JsonObject]", _admitted_payload(admission)["input"])
+    assert items[-3:] == [_CODEX_AGENT_TASK, configuration, trigger]
+    assert admission["ignored_parameters"] == []
+    assert "attempt_id" in _start_first(control, admission)
+
+
+def test_codex_agent_items_translate_or_drop_with_disclosure_on_a_chat_rung(
+    tmp_path: Path,
+) -> None:
+    """A Chat rung receives the sub-agent task as a user turn in Codex's own
+    rendering, and the items no Chat wire can read are dropped and named."""
+    control, raw_key = _control_plane(tmp_path)
+
+    admission = _admit(
+        control,
+        raw_key,
+        _codex_items_body(
+            {"type": "configuration_update", "reasoning": {"effort": "high"}},
+            {"type": "item_reference", "id": "rs_1"},
+            _CODEX_AGENT_TASK,
+        ),
+        surface="responses",
+    )
+
+    messages = cast("list[JsonObject]", _admitted_payload(admission)["messages"])
+    assert [message["role"] for message in messages] == ["user", "user"]
+    assert messages[-1]["content"] == (
+        "Agent message from /root:\nMessage Type: NEW_TASK\nPayload:\nCount the tests."
+    )
+    ignored = cast("list[str]", admission["ignored_parameters"])
+    assert "input.configuration_update->dropped(unsupported_by_provider)" in ignored
+    assert "input.item_reference->dropped(unsupported_by_provider)" in ignored
+    assert "attempt_id" in _start_first(control, admission)
+
+
+def test_a_compaction_trigger_on_a_chat_route_is_a_named_400_before_dispatch(
+    tmp_path: Path,
+) -> None:
+    """No Chat rung can answer with a compaction item, so the request is refused
+    by name, with the client-side remedy, instead of serving a billed ordinary
+    answer the client discards."""
+    control, raw_key = _control_plane(tmp_path)
+
+    with pytest.raises(NativeBridgeError) as refused:
+        _admit(
+            control,
+            raw_key,
+            _codex_items_body(_CODEX_AGENT_TASK, {"type": "compaction_trigger"}),
+            surface="responses",
+        )
+
+    error = json.loads(refused.value.public_error_json)
+    assert error["status_code"] == 400
+    assert error["code"] == "unsupported_parameter"
+    assert error["param"] == "input"
+    assert "'compaction_trigger'" in error["message"]
+    assert "custom model provider" in error["message"]
+
+
+def test_an_unknown_responses_item_type_is_named_at_its_type(tmp_path: Path) -> None:
+    """A genuinely unknown item is refused at ``input.N.type`` with the accepted
+    vocabulary, never at the message branch's ``role``."""
+    control, raw_key = _control_plane(tmp_path)
+
+    with pytest.raises(NativeBridgeError) as refused:
+        _admit(
+            control,
+            raw_key,
+            _codex_items_body({"type": "future_item"}),
+            surface="responses",
+        )
+
+    error = json.loads(refused.value.public_error_json)
+    assert error["status_code"] == 400
+    assert error["param"] == "input.1.type"
+    assert "but got 'future_item' instead." in error["message"]
+
+
+_CODEX_UNPAIRED_OUTPUT: JsonObject = {
+    "type": "function_call_output",
+    "name": "send_message_to_thread",
+    "namespace": "codex_app",
+    "output": "<codex_delegation>Review the patch.</codex_delegation>",
+}
+"""A named output that answers no call, as Codex 0.162 to 0.164 sends it."""
+
+
+def test_an_unpaired_function_output_forwards_verbatim_on_an_openai_rung(
+    tmp_path: Path,
+) -> None:
+    """The real admission bridge hands a native OpenAI Responses rung the output
+    without a call_id unchanged."""
+    control, raw_key = _openai_responses_pool_control_plane(
+        tmp_path, {"TEST_ALPHA_KEY": "alpha-secret", "TEST_BETA_KEY": "beta-secret"}
+    )
+
+    admission = _admit(
+        control, raw_key, _codex_items_body(_CODEX_UNPAIRED_OUTPUT), surface="responses"
+    )
+
+    items = cast("list[JsonObject]", _admitted_payload(admission)["input"])
+    assert items[-1] == _CODEX_UNPAIRED_OUTPUT
+    assert admission["ignored_parameters"] == []
+    assert "attempt_id" in _start_first(control, admission)
+
+
+def test_an_unpaired_function_output_becomes_a_user_turn_on_a_chat_rung(
+    tmp_path: Path,
+) -> None:
+    """A Chat rung receives the output as a user turn in Codex's own rendering."""
+    control, raw_key = _control_plane(tmp_path)
+
+    admission = _admit(
+        control, raw_key, _codex_items_body(_CODEX_UNPAIRED_OUTPUT), surface="responses"
+    )
+
+    messages = cast("list[JsonObject]", _admitted_payload(admission)["messages"])
+    assert [message["role"] for message in messages] == ["user", "user"]
+    assert messages[-1]["content"] == (
+        "Tool codex_app.send_message_to_thread result:\n"
+        "<codex_delegation>Review the patch.</codex_delegation>"
+    )
+    assert "attempt_id" in _start_first(control, admission)
+
+
+_CODEX_WEB_SEARCH_ECHO: JsonObject = {
+    "type": "web_search_call",
+    "action": {"type": "find_in_page", "url": "https://example.com/docs"},
+}
+"""A web search echo as codex_exec 0.118 to 0.145 sends it: no id, status, or find pattern."""
+
+
+def test_a_codex_web_search_echo_forwards_verbatim_on_an_openai_rung(tmp_path: Path) -> None:
+    """The echo with Codex's omitted fields reaches the native rung unchanged,
+    never refused against the computer-use action vocabulary."""
+    control, raw_key = _openai_responses_pool_control_plane(
+        tmp_path, {"TEST_ALPHA_KEY": "alpha-secret", "TEST_BETA_KEY": "beta-secret"}
+    )
+
+    admission = _admit(
+        control, raw_key, _codex_items_body(_CODEX_WEB_SEARCH_ECHO), surface="responses"
+    )
+
+    items = cast("list[JsonObject]", _admitted_payload(admission)["input"])
+    assert items[-1] == _CODEX_WEB_SEARCH_ECHO
+    assert "attempt_id" in _start_first(control, admission)
+
+
+def test_a_codex_web_search_echo_drops_with_disclosure_on_a_chat_rung(tmp_path: Path) -> None:
+    """A Chat rung cannot read a provider-executed search item: it is removed and named."""
+    control, raw_key = _control_plane(tmp_path)
+
+    admission = _admit(
+        control,
+        raw_key,
+        _codex_items_body(_CODEX_WEB_SEARCH_ECHO, {"role": "user", "content": "continue"}),
+        surface="responses",
+    )
+
+    messages = cast("list[JsonObject]", _admitted_payload(admission)["messages"])
+    assert [message["role"] for message in messages] == ["user", "user"]
+    ignored = cast("list[str]", admission["ignored_parameters"])
+    assert "input.web_search_call->dropped(unsupported_by_provider)" in ignored
+    assert "attempt_id" in _start_first(control, admission)
+
+
+def test_a_malformed_web_search_echo_is_named_at_its_own_field(tmp_path: Path) -> None:
+    """A genuinely invalid echo is refused at its own field, not at another item's actions."""
+    control, raw_key = _control_plane(tmp_path)
+
+    with pytest.raises(NativeBridgeError) as refused:
+        _admit(
+            control,
+            raw_key,
+            _codex_items_body(
+                {"type": "web_search_call", "action": {"type": "search", "query": 5}}
+            ),
+            surface="responses",
+        )
+
+    error = json.loads(refused.value.public_error_json)
+    assert error["status_code"] == 400
+    assert error["param"] == "input.1.action.query"
+    assert "'click'" not in error["message"]
+
+
 def _tool_change_body(*, count_only: bool = False) -> str:
     """A Claude Code late-tool-additions turn on the Messages lane.
 
@@ -8357,6 +8608,83 @@ def test_echoed_advisor_history_is_dropped_on_a_chat_wire_rung(tmp_path: Path) -
     assert "advisor_tool_result" not in wire_text
     assert "EqQBCkYIBRgC" not in wire_text
     assert "Here is the pool." in wire_text
+
+
+_ADVISOR_DECLARATION: JsonObject = {
+    "type": "advisor_20260301",
+    "name": "advisor",
+    "model": "claude-opus-5-5",
+    "caching": {"type": "ephemeral", "ttl": "5m"},
+}
+
+
+def _advisor_declared_body() -> str:
+    """Build a Claude Code turn that declares the advisor tool."""
+    body = json.loads(_advisor_history_body())
+    body["tools"] = [
+        {"name": "Bash", "description": "run", "input_schema": {"type": "object"}},
+        _ADVISOR_DECLARATION,
+    ]
+    return json.dumps(body)
+
+
+def test_declared_advisor_tool_serves_verbatim_on_an_anthropic_messages_rung(
+    tmp_path: Path,
+) -> None:
+    """The advisor declaration dispatches byte-for-byte behind its beta token.
+
+    Claude Code declares ``advisor_20260301`` on every request once a user
+    enables the advisor. On a native Anthropic rung the entry follows the
+    converted custom tools verbatim and the dispatch carries
+    ``advisor-tool-2026-03-01``.
+    """
+    root = tmp_path / "anthropic-root"
+    root.mkdir()
+    _manager, raw_key = _configured_gateway(
+        root,
+        provider="anthropic",
+        capabilities=ModelCapabilities(supports_tools=True, maximum_output_tokens=128_000),
+    )
+    control = NativeControlPlane(
+        load_gateway_components(root, environment={"TEST_PROVIDER_KEY": "provider-secret-canary"}),
+        request_timeout_seconds=120.0,
+    )
+
+    admission = _flatten_started(
+        control, _admit(control, raw_key, _advisor_declared_body(), surface="messages")
+    )
+
+    upstream = admission["upstream_payload"]
+    assert isinstance(upstream, dict)
+    tools = cast("list[JsonObject]", upstream["tools"])
+    assert [tool.get("name") for tool in tools] == ["Bash", "advisor"]
+    assert tools[1] == _ADVISOR_DECLARATION
+    headers = cast("JsonObject", admission["headers"])
+    assert "advisor-tool-2026-03-01" in str(headers["anthropic-beta"]).split(",")
+    ignored = cast("list[str]", admission["ignored_parameters"])
+    assert not any("advisor" in path for path in ignored)
+
+
+def test_declared_advisor_tool_is_dropped_on_a_chat_wire_rung(tmp_path: Path) -> None:
+    """A route with no Anthropic rung serves the turn without the advisor, disclosed."""
+    _manager, raw_key = _configured_gateway(
+        tmp_path,
+        capabilities=ModelCapabilities(supports_tools=True, maximum_output_tokens=128_000),
+    )
+    control = NativeControlPlane(
+        load_gateway_components(tmp_path, environment={"TEST_PROVIDER_KEY": "local-test-key"})
+    )
+
+    admission = _admit(control, raw_key, _advisor_declared_body(), surface="messages")
+
+    ignored = cast("list[str]", admission["ignored_parameters"])
+    assert "tools.advisor->dropped(unsupported_by_provider)" in ignored
+    route = admission["route"]
+    assert isinstance(route, list) and isinstance(route[0], dict)
+    upstream = json.dumps(route[0]["upstream_payload"])
+    assert "advisor_20260301" not in upstream
+    assert "claude-opus-5-5" not in upstream
+    assert "Bash" in upstream
 
 
 def test_claude_code_tool_changes_serve_on_a_chat_wire_rung(tmp_path: Path) -> None:

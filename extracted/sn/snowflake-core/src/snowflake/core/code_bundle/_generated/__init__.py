@@ -31,6 +31,7 @@ from snowflake.core.code_bundle._generated.models.code_bundle import CodeBundle
 from snowflake.core.code_bundle._generated.models.code_bundle_specification import CodeBundleSpecification
 from snowflake.core.code_bundle._generated.models.error_response import ErrorResponse
 from snowflake.core.code_bundle._generated.models.execute_code_bundle_request import ExecuteCodeBundleRequest
+from snowflake.core.code_bundle._generated.models.execute_code_bundle_response import ExecuteCodeBundleResponse
 from snowflake.core.code_bundle._generated.models.stage_mount import StageMount
 from snowflake.core.code_bundle._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.code_bundle._generated.models.success_response import SuccessResponse

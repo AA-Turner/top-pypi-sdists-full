@@ -4,11 +4,12 @@
 # Test L{karney} module and wrappers.
 
 __all__ = ('Tests',)
-__version__ = '26.10.04'
+__version__ = '26.10.30'
 
 from bases import endswith, GeodSolve, geographiclib, startswith, TestsBase
 
-from pygeodesy import fsum_, karney, LatLon_, sincos2d, unroll180, wrap180
+from pygeodesy import Ellipsoids, fsum_, karney, LatLon_, PI_2, \
+               sincos2d, unroll180, wrap180
 from pygeodesy.constants import _0_0, _100_0, _360_0,  fabs
 
 # some tests from <https://PyPI.org/project/geographiclib>
@@ -205,6 +206,14 @@ class Tests(TestsBase):
         x = 408855776.0
         y = 708158977.0
         self.testSum3('1.0', 2*y**2, 9*x**4, -(y**4))  # -3.589050987400773e+19
+
+        for x in range(3, 10, 2):
+            x = PI_2 / x
+            for E in (Ellipsoids.Bessel1841, Ellipsoids.Everest1967, Ellipsoids.GRS80):
+                self.test(E.name, x, x, prec=12, nl=1)
+                self.test('eatanhe', E.es_eatanhe(x), karney._eatanhe(x, E.es), prec=12)
+                self.test('tauf',    E.es_tauf(x),    karney._tauf(x,    E.es), prec=12)
+                self.test('taupf',   E.es_taupf(x),   karney._taupf(x,   E.es), prec=12)
 
     def testSum3(self, txt, x, *xs):
         s, t, _ = karney._sum3(x, _0_0, *xs)

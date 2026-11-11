@@ -41,6 +41,17 @@ def should_quantize(dtype: jax.typing.DTypeLike) -> bool:
   return jnp.dtype(dtype) in _QUANTIZE_DTYPES
 
 
+def get_microscaled_block_size(qtype: jax.typing.DTypeLike) -> int | None:
+  """Returns the fixed block size of a microscaled format, or None."""
+  if not isinstance(qtype, str):
+    return None
+  if qtype in ('mxfp8', 'mxfp4', 'mxint8', 'mxint4'):
+    return 32
+  if qtype in ('mxfp8_16', 'nvfp4'):
+    return 16
+  return None
+
+
 def can_dequant_on_output(qtype: jax.typing.DTypeLike) -> bool:
   """Checks if the qtype supports dequantizing after quantized computation.
 
@@ -86,6 +97,8 @@ def get_asymmetric_bound(qtype: jax.typing.DTypeLike) -> tuple[float, float]:
       return (-128.0, 127.0)
     case jnp.int4:
       return (-8.0, 7.0)
+    case jnp.int16:
+      return (-32768.0, 32767.0)
     case _:
       raise ValueError(f"{qtype} doesn't support asymmetric quantization.")
 
@@ -111,14 +124,21 @@ def get_symmetric_bound(qtype: jax.typing.DTypeLike) -> float:
       # The bound is extended to qmax + 0.5 so that we have a better utilization
       # of the qmax bucket. This is more important for fewer bits of int.
       return 2 ** (int(qtype[3:]) - 1) - 0.5
-    case 'mxfp8':
+    case 'mxfp8' | 'mxfp8_16':
       qtype = jnp.float8_e4m3fn
     case 'mxfp4' | 'nvfp4':
       qtype = jnp.float4_e2m1fn
+    case 'mxint8':
+      qtype = jnp.int8
+    case 'mxint4':
+      qtype = jnp.int4
 
   # Prevent common misconfigurations, e.g., use bf16 as qtype.
-  if jnp.dtype(qtype).itemsize > 1:
+  if jnp.dtype(qtype).itemsize > 1 and jnp.dtype(qtype) != jnp.int16:
     raise ValueError(f'Cannot use {qtype} as qtype.')
+  if jnp.dtype(qtype) == jnp.int16:
+    # TFLite/QATv3 uses 32768 for int16 symmetric quantization.
+    return 32768.0
   try:
     # TODO(jiwonshin): Extend the finfo.max bucket (e.g. by half a step-size)
     # for better utilization. Similar to the +0.5 for integers below, this
@@ -165,10 +185,14 @@ def convert_to(
       else:
         raise ValueError(f'Unsupported integer dtype: {qtype}')
       return jnp.round(x).clip(qmin, qmax).astype(qtype)
-    case 'mxfp8':
+    case 'mxfp8' | 'mxfp8_16':
       qtype = jnp.float8_e4m3fn
     case 'mxfp4' | 'nvfp4':
       qtype = jnp.float4_e2m1fn
+    case 'mxint8':
+      qtype = jnp.int8
+    case 'mxint4':
+      qtype = jnp.int4
 
   # Handles builtin qtypes.
   try:

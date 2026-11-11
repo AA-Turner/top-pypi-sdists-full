@@ -7255,7 +7255,7 @@ class MissingContext:
 
         Example::
 
-            from aws_cdk.cloud_assembly_schema import MissingContext, AmiContextQuery
+            from aws_cdk.cloud_assembly_schema import MissingContext, LoadBalancerListenerContextQuery
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -7264,7 +7264,7 @@ class MissingContext:
             
             missing_context = MissingContext(
                 key="key",
-                props=AmiContextQuery(
+                props=LoadBalancerListenerContextQuery(
                     account="account",
                     filters={
                         "filters_key": ["filters"]

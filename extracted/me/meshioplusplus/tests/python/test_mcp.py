@@ -1,0 +1,4421 @@
+"""Tests for the MCP server (meshioplusplus.mcp).
+
+Two halves, mirroring test_interop.py's split:
+
+* The **pure half** exercises the payload layer (``meshioplusplus.mcp._tools``)
+  which imports no third-party library beyond numpy — it runs in the default
+  CI matrix with the ``mcp`` SDK absent. Every report is asserted to be
+  strict JSON (``json.dumps(..., allow_nan=False)``).
+* The **gated half** (``pytest.importorskip("mcp")``) builds the MCP
+  server and exercises tool listing, tool calls, resources and the error
+  payload shape.
+
+The parity guard (`test_every_operation_has_a_tool`) is the enforcement
+mechanism behind AGENTS.md's "keep the MCP server in sync" rule: a new public
+operation in ``meshioplusplus.__all__`` fails here until it is claimed by a
+tool's ``wraps`` (or consciously exempted in ``_NOT_TOOLS``).
+"""
+
+import importlib.util
+import inspect
+import json
+import os
+import pathlib
+
+import numpy as np
+import pytest
+
+import meshioplusplus
+from meshioplusplus import _core
+from meshioplusplus._regions import Region
+from meshioplusplus.mcp import TOOL_REGISTRY, _tools
+
+from . import helpers
+
+# --------------------------------------------------------------------------- #
+# Fixtures                                                                    #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(autouse=True)
+def _reset_root():
+    _tools._cache_invalidate()
+    yield
+    _tools.set_root(None)
+    _tools._cache_invalidate()
+
+
+@pytest.fixture()
+def count_parses(monkeypatch):
+    """Count the parses `_load` really performs (cache misses)."""
+    calls = []
+    real = _tools.read
+
+    def counting(*args, **kwargs):
+        calls.append(args[0])
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(_tools, "read", counting)
+    return calls
+
+
+def _mixed_mesh():
+    points = np.array(
+        [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1]], dtype=float
+    )
+    cells = [
+        ("triangle", np.array([[0, 1, 2], [0, 2, 3]])),
+        ("tetra", np.array([[0, 1, 2, 4]])),
+    ]
+    return meshioplusplus.Mesh(
+        points,
+        cells,
+        point_data={"t": np.linspace(0.0, 1.0, 5)},
+        cell_data={"c": [np.array([1.0, 2.0]), np.array([3.0])]},
+    )
+
+
+def test_med_multi_tool_combine_list_extract_and_sandbox(tmp_path):
+    pytest.importorskip("h5py")
+    _tools.set_root(tmp_path)
+    for name in ("a", "b"):
+        meshioplusplus.write(tmp_path / f"{name}.vtu", _mixed_mesh())
+    result = _tools.tool_med_multi(
+        input_paths=["a.vtu", "b.vtu"],
+        output_path="multi.med",
+        mesh_names=["fluid", "solid"],
+    )
+    assert result["mesh_names"] == ["fluid", "solid"]
+    assert _tools.tool_med_multi(input_path="multi.med")["mesh_names"] == [
+        "fluid",
+        "solid",
+    ]
+    extracted = _tools.tool_med_multi(
+        input_path="multi.med", mesh_name="solid", output_path="solid.vtu"
+    )
+    assert pathlib.Path(extracted["output_path"]).is_file()
+    json.dumps(extracted, allow_nan=False)
+    with pytest.raises(ValueError, match="outside|escape"):
+        _tools.tool_med_multi(
+            input_path="multi.med", mesh_name="fluid", output_path="../outside.vtu"
+        )
+
+
+@pytest.fixture()
+def mesh_file(tmp_path):
+    path = str(tmp_path / "in.vtu")
+    meshioplusplus.write(path, _mixed_mesh())
+    return path
+
+
+def _dump(report):
+    """Assert the report is strict JSON and return it."""
+    json.dumps(report, allow_nan=False)
+    return report
+
+
+# --------------------------------------------------------------------------- #
+# Pure half: sanitizer and sandbox                                            #
+# --------------------------------------------------------------------------- #
+
+
+def test_json_safe_numpy_and_non_finite():
+    out = _dump(
+        _tools._json_safe(
+            {
+                "i": np.int64(3),
+                "f": np.float32(1.5),
+                "nan": float("nan"),
+                "inf": np.float64("inf"),
+                "arr": np.array([1.0, float("-inf")]),
+                "nested": {"t": (np.int32(1), [np.float64(2.0)])},
+            }
+        )
+    )
+    assert out["i"] == 3 and out["f"] == 1.5
+    assert out["nan"] is None and out["inf"] is None
+    assert out["arr"] == [1.0, None]
+    assert out["nested"]["t"] == [1, [2.0]]
+    assert out["non_finite_replaced"] == 3
+
+
+def test_json_safe_truncates_large_arrays():
+    out = _dump(_tools._json_safe({"big": np.arange(5000).reshape(100, 50)}))
+    wrapper = out["big"]
+    assert wrapper["truncated"] is True
+    assert wrapper["size"] == 5000
+    assert wrapper["shape"] == [100, 50]
+    assert wrapper["preview"] == list(range(50))
+
+
+def test_root_confinement(tmp_path, mesh_file):
+    _tools.set_root(str(tmp_path))
+    # relative paths resolve against the root
+    assert _tools.tool_info("in.vtu")["num_points"] == 5
+    # absolute paths inside the root are fine
+    assert _tools.tool_info(mesh_file)["num_points"] == 5
+    with pytest.raises(ValueError, match="outside the configured root"):
+        _tools.tool_info("/etc/passwd")
+    with pytest.raises(ValueError, match="outside the configured root"):
+        _tools.tool_info("../escape.vtu")
+
+
+def test_missing_input_is_a_clean_error(tmp_path):
+    with pytest.raises(ValueError, match="input file not found"):
+        _tools.tool_info(str(tmp_path / "nope.vtu"))
+
+
+# --------------------------------------------------------------------------- #
+# Pure half: inspection tools                                                 #
+# --------------------------------------------------------------------------- #
+
+
+def test_formats_payload():
+    out = _dump(_tools.tool_formats())
+    assert "vtu" in out["readable"] and "vtu" in out["writable"]
+    assert out["extensions"][".vtu"] == ["vtu"]
+
+
+def test_svg_and_tikz_are_readable_writable_drawings_and_convert(tmp_path):
+    # The 2-D drawings read back only what meshio++ wrote: planar, z = 0.
+    out = _dump(_tools.tool_formats())
+    for fmt, ext in (("svg", ".svg"), ("tikz", ".tikz")):
+        assert fmt in out["readable"] and fmt in out["writable"]
+        assert out["extensions"][ext] == [fmt]
+        mesh = meshioplusplus.Mesh(
+            [[0.0, 0.0], [2.0, 0.0], [2.0, 1.0], [0.0, 1.0]],
+            [("triangle", [[0, 1, 2], [0, 2, 3]])],
+        )
+        src = str(tmp_path / "in.vtu")
+        meshioplusplus.write(src, mesh)
+        drawing = str(tmp_path / f"drawing{ext}")
+        _tools.tool_convert(src, drawing)
+        back = str(tmp_path / f"back_{fmt}.vtu")
+        _tools.tool_convert(drawing, back)
+        written = meshioplusplus.read(back)
+        assert [b.type for b in written.cells] == ["triangle"]
+        assert len(written.cells[0].data) == 2
+        assert not written.points[:, 2].any()
+
+
+def test_frd_is_readable_and_writable_and_convert_reaches_its_steps(tmp_path):
+    import pathlib
+
+    frd = str(pathlib.Path(__file__).parent / "meshes" / "frd" / "mixed.frd")
+    out = _dump(_tools.tool_formats())
+    assert "frd" in out["readable"] and "frd" in out["writable"]
+    target = str(tmp_path / "last.vtu")
+    _tools.tool_convert(frd, target, time_step=-1)
+    written = meshioplusplus.read(target)
+    assert "DISP" in written.point_data and "TOSTRAIN" not in written.point_data
+    assert written.field_data["meshio:time"].tolist() == [2.0]
+    # and back: the last step written as a result file keeps its step fields
+    again = str(tmp_path / "again.frd")
+    _tools.tool_convert(frd, again, time_step=-1)
+    assert meshioplusplus.read(again).field_data["meshio:time"].tolist() == [2.0]
+
+
+def test_nastran_h5_is_readable_writable_and_convert_reaches_its_modes(tmp_path):
+    import pathlib
+
+    h5 = pathlib.Path(__file__).parent / "meshes" / "nastran_h5" / "modes_elements.h5"
+    out = _dump(_tools.tool_formats())
+    assert "nastran_h5" in out["readable"] and "nastran_h5" in out["writable"]
+    assert out["extensions"][".h5"] == ["nastran_h5"]
+    # The MSC fixtures are Git LFS; the MCP CI job checks out without LFS.
+    with open(h5, "rb") as f:
+        if f.read(24).startswith(b"version https://git-lfs"):
+            pytest.skip("modes_elements.h5 is an unfetched Git-LFS pointer")
+    # Without HDF5 in the core the read falls back to the Python twin, on h5py.
+    if not getattr(meshioplusplus._core, "__has_hdf5__", False):
+        pytest.importorskip("h5py")
+    target = str(tmp_path / "mode3.vtu")
+    _tools.tool_convert(str(h5), target, time_step=-1)
+    written = meshioplusplus.read(target)
+    assert "EIGENVECTOR" in written.point_data
+    assert written.field_data["nastran:mode"].tolist() == [3]
+
+
+def test_code_aster_mail_is_readable_writable_and_converts(tmp_path):
+    import pathlib
+
+    mail = pathlib.Path(__file__).parent / "meshes" / "code_aster" / "hexa20_block.mail"
+    out = _dump(_tools.tool_formats())
+    assert "code_aster" in out["readable"] and "code_aster" in out["writable"]
+    assert out["extensions"][".mail"] == ["code_aster"]
+    # Through .vtu, not .med: this job runs without HDF5.
+    target = str(tmp_path / "block.vtu")
+    _tools.tool_convert(str(mail), target)
+    back = str(tmp_path / "back.mail")
+    _tools.tool_convert(target, back)
+    written = meshioplusplus.read(back)
+    assert [b.type for b in written.cells] == ["hexahedron20", "quad8"]
+
+
+def test_patran_neutral_is_readable_writable_and_converts(tmp_path):
+    import pathlib
+
+    pat = pathlib.Path(__file__).parent / "meshes" / "patran" / "quadratic.pat"
+    out = _dump(_tools.tool_formats())
+    assert "patran" in out["readable"] and "patran" in out["writable"]
+    assert out["extensions"][".pat"] == ["patran"]
+    assert out["extensions"][".out"] == ["patran"]
+    target = str(tmp_path / "quadratic.vtu")
+    _tools.tool_convert(str(pat), target)
+    back = str(tmp_path / "back.pat")
+    _tools.tool_convert(target, back)
+    written = meshioplusplus.read(back)
+    assert written.cells[0].type == "hexahedron20"
+
+
+def test_femap_neutral_steps_convert(tmp_path):
+    import pathlib
+
+    neu = pathlib.Path(__file__).parent / "meshes" / "femap" / "ems_results_1051.neu"
+    out = _dump(_tools.tool_formats())
+    assert "femap" in out["readable"] and "femap" in out["writable"]
+    assert out["extensions"][".neu"] == ["femap"]
+    assert _dump(_tools.tool_sniff(str(neu)))["format"] == "femap"
+    target = str(tmp_path / "last.vtu")
+    _tools.tool_convert(str(neu), target, time_step=-1)
+    last = meshioplusplus.read(target)
+    assert np.asarray(last.field_data["meshio:time"]).ravel()[0] > 0
+    back = str(tmp_path / "back.neu")
+    _tools.tool_convert(target, back)
+    assert meshioplusplus.read(back).points.shape == last.points.shape
+
+
+def test_femap_series_through_the_sequence_tool(tmp_path):
+    # v16.17.0: a fan-in to .neu writes one output set per step.
+    points = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    paths = []
+    for k in range(3):
+        m = meshioplusplus.Mesh(
+            points,
+            [("triangle", np.array([[0, 1, 2]]))],
+            point_data={"u": np.full(3, float(k))},
+        )
+        paths.append(str(tmp_path / f"s_{k}.vtu"))
+        meshioplusplus.write(paths[-1], m)
+    report = _tools.tool_sequence(
+        input_paths=paths, output_path=str(tmp_path / "s.neu"), times=[0, 1, 2]
+    )
+    assert len(report["steps_plan"]) == 3
+    meta = meshioplusplus.read_metadata(report["output_path"])
+    assert list(meta["time_values"]) == [0.0, 1.0, 2.0]
+    last = meshioplusplus.read(report["output_path"], time_step=2)
+    assert np.allclose(last.point_data["u"], 2.0)
+
+
+@pytest.mark.parametrize("native_writer", [False, True])
+def test_xdmf_shared_regions_through_sequence_and_convert_tools(
+    tmp_path, monkeypatch, native_writer
+):
+    # The sequence fan-in defaults to HDF XDMF data, which needs h5py on the
+    # Python reference path (and HDF5 in the core on the native one).
+    pytest.importorskip("h5py")
+    from meshioplusplus import _core
+
+    if native_writer and not hasattr(_core, "XdmfTimeSeriesWriter"):
+        pytest.skip("native series writer unavailable")
+    if not native_writer:
+        monkeypatch.delattr(_core, "XdmfTimeSeriesWriter", raising=False)
+    monkeypatch.chdir(tmp_path)
+    points = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    paths = []
+    for k in range(2):
+        mesh = meshioplusplus.Mesh(
+            points,
+            [("triangle", np.array([[0, 1, 2]]))],
+            point_data={"u": np.full(3, float(k))},
+            regions=[
+                meshioplusplus.Region("anchors", "point", [0, 2], dim=0, tag=7),
+                meshioplusplus.Region("edge", "side", [[0, 1]], dim=1, tag=9),
+                meshioplusplus.Region("empty", "cell", [], dim=2, tag=21),
+            ],
+        )
+        path = str(tmp_path / f"step_{k}.xdmf")
+        meshioplusplus.write(path, mesh, data_format="XML")
+        paths.append(path)
+    report = _tools.tool_sequence(
+        input_paths=paths, output_path=str(tmp_path / "series.xdmf"), times=[0.0, 1.0]
+    )
+    assert len(report["steps_plan"]) == 2
+    target = str(tmp_path / "last.xdmf")
+    _tools.tool_convert(report["output_path"], target, time_step=-1)
+    restored = meshioplusplus.read(target)
+    assert np.allclose(restored.point_data["u"], 1.0)
+    assert sorted((r.name, r.kind, r.dim, r.tag) for r in restored.regions) == sorted(
+        (r.name, r.kind, r.dim, r.tag) for r in mesh.regions
+    )
+    expected = {r.name: r.entries for r in mesh.regions}
+    for actual in restored.regions:
+        np.testing.assert_array_equal(actual.entries, expected[actual.name])
+
+
+def test_mfem_grid_functions_convert_both_ways(tmp_path):
+    import pathlib
+
+    mfem_dir = pathlib.Path(__file__).parent / "meshes" / "mfem"
+    out = _dump(_tools.tool_formats())
+    assert "mfem" in out["readable"] and "mfem" in out["writable"]
+    assert out["extensions"][".mesh"] == ["medit", "mfem"]
+    assert _dump(_tools.tool_sniff(str(mfem_dir / "star-q2.mesh")))["format"] == "mfem"
+    target = str(tmp_path / "star.vtu")
+    _tools.tool_convert(
+        str(mfem_dir / "star-q2.mesh"),
+        target,
+        grid_functions={"u": str(mfem_dir / "star-q2.u.gf")},
+    )
+    vtu = meshioplusplus.read(target)
+    assert vtu.cells[0].type == "quad9" and "u" in vtu.point_data
+    back = tmp_path / "back.mesh"
+    _tools.tool_convert(target, str(back), write_grid_functions=True)
+    assert (tmp_path / "back.u.gf").is_file()
+    with pytest.raises(ValueError, match="MFEM"):
+        _tools.tool_convert(target, str(tmp_path / "x.vtu"), write_grid_functions=True)
+
+
+def test_mfem_nurbs_convert_keeps_the_patches(tmp_path):
+    import pathlib
+
+    src = (
+        pathlib.Path(__file__).parent / "meshes" / "mfem" / "nurbs" / "pipe-nurbs.mesh"
+    )
+    nurbs = tmp_path / "pipe.mesh"
+    _tools.tool_convert(str(src), str(nurbs), input_format="mfem", output_format="mfem")
+    assert nurbs.read_text().startswith("MFEM NURBS mesh v1.0")
+    sampled = tmp_path / "sampled.mesh"
+    _tools.tool_convert(str(src), str(sampled), input_format="mfem", write_nurbs=False)
+    assert sampled.read_text().startswith("MFEM mesh v1")
+    with pytest.raises(ValueError, match="write_nurbs needs MFEM"):
+        _tools.tool_convert(str(src), str(tmp_path / "x.vtu"), write_nurbs=True)
+
+
+def test_patran_results_convert(tmp_path):
+    import pathlib
+
+    real = pathlib.Path(__file__).parent / "meshes" / "patran" / "real"
+    target = str(tmp_path / "ssy.vtu")
+    _tools.tool_convert(
+        str(real / "warp3d_ssy.out"),
+        target,
+        patran_results={
+            "disp": str(real / "warp3d_ssy.wnbd00001"),
+            "stress": str(real / "warp3d_ssy.webs00001"),
+        },
+    )
+    vtu = meshioplusplus.read(target)
+    assert vtu.point_data["disp"].shape == (164, 3)
+    assert vtu.cell_data["stress"][0].shape == (40, 26)
+    with pytest.raises(ValueError, match="cannot be combined"):
+        _tools.tool_convert(
+            str(real / "warp3d_ssy.out"),
+            target,
+            patran_results={"d": str(real / "warp3d_ssy.wnbd00001")},
+            grid_functions={"u": "x.gf"},
+        )
+
+
+def test_elmer_directory_converts_both_ways(tmp_path):
+    import pathlib
+
+    src = pathlib.Path(__file__).parent / "meshes" / "elmer" / "tet10_two_bodies"
+    out = _dump(_tools.tool_formats())
+    assert "elmer" in out["readable"] and "elmer" in out["writable"]
+    assert _dump(_tools.tool_sniff(str(src)))["format"] == "elmer"
+    # A directory has no extension: reading sniffs it, writing names the format.
+    target = str(tmp_path / "bodies.vtu")
+    _tools.tool_convert(str(src), target)
+    back = tmp_path / "back"
+    _tools.tool_convert(target, str(back), output_format="elmer")
+    assert (back / "mesh.header").is_file()
+    written = meshioplusplus.read(back)
+    assert [b.type for b in written.cells] == ["tetra10", "triangle6", "vertex"]
+
+
+def test_mfem_parallel_convert(tmp_path):
+    # A parallel MFEM run (v16.11.0): merged by default, one rank with `piece`,
+    # its grid function named by a rank file either way.
+    import pathlib
+
+    par = pathlib.Path(__file__).parent / "meshes" / "mfem" / "parallel"
+    whole, rank = str(tmp_path / "whole.vtu"), str(tmp_path / "rank1.vtu")
+    gfs = {"u": str(par / "star-p2.u.000000")}
+    _tools.tool_convert(str(par / "star-p2.pmesh.000000"), whole, grid_functions=gfs)
+    _tools.tool_convert(
+        str(par / "star-p2.pmesh.000000"), rank, grid_functions=gfs, piece=1
+    )
+    merged, one = meshioplusplus.read(whole), meshioplusplus.read(rank)
+    parts = np.concatenate([np.ravel(a) for a in merged.cell_data["partition:part"]])
+    assert sorted(set(parts.tolist())) == [0, 1, 2, 3]
+    assert sum(len(c.data) for c in one.cells) == int((parts == 1).sum())
+    assert "u" in one.point_data
+
+
+def test_elmer_halo_convert(tmp_path):
+    import pathlib
+
+    src = pathlib.Path(__file__).parent / "meshes" / "elmer" / "partitioned"
+    out = tmp_path / "halo"
+    _tools.tool_convert(
+        str(src / "partitioning.2"), str(out), output_format="elmer", elmer_halo=True
+    )
+    elements = (out / "partitioning.2" / "part.2.elements").read_text()
+    assert "1/1 " in elements
+    with pytest.raises(ValueError, match="Elmer"):
+        _tools.tool_convert(str(src), str(tmp_path / "x.vtu"), elmer_halo=True)
+
+
+def test_febio_feb_is_readable_writable_and_converts(tmp_path):
+    import pathlib
+
+    feb = pathlib.Path(__file__).parent / "meshes" / "febio" / "block_v30.feb"
+    out = _dump(_tools.tool_formats())
+    assert "febio" in out["readable"] and "febio" in out["writable"]
+    assert out["extensions"][".feb"] == ["febio"]
+    # Surfaces are side regions: they survive .feb -> .feb.
+    back = str(tmp_path / "back.feb")
+    _tools.tool_convert(str(feb), back)
+    written = meshioplusplus.read(back)
+    assert [b.type for b in written.cells] == ["hexahedron", "hexahedron"]
+    assert ("top", "side") in {(r.name, r.kind) for r in written.regions}
+
+
+def test_febio_xplt_states_convert_to_vtu(tmp_path):
+    import pathlib
+
+    xplt = (
+        pathlib.Path(__file__).parent / "meshes" / "febio" / "xplt" / "xplt_hex27.xplt"
+    )
+    out = _dump(_tools.tool_formats())
+    assert "xplt" in out["readable"] and "xplt" in out["writable"]
+    info = _dump(_tools.tool_info(str(xplt)))
+    assert len(info["time_values"]) == 4
+    target = str(tmp_path / "last.vtu")
+    _tools.tool_convert(str(xplt), target, time_step=-1)
+    written = meshioplusplus.read(target)
+    assert written.cells[0].type == "hexahedron27"
+    assert "displacement" in written.point_data
+
+
+def test_tecplot_plt_is_readable_and_converts_its_last_step(tmp_path):
+    import pathlib
+
+    plt = pathlib.Path(__file__).parent / "meshes" / "tecplot" / "plt" / "transient.plt"
+    out = _dump(_tools.tool_formats())
+    assert out["extensions"][".plt"] == ["tecplot"]
+    info = _dump(_tools.tool_info(str(plt)))
+    assert len(info["time_values"]) == 3
+    target = str(tmp_path / "last.vtu")
+    _tools.tool_convert(str(plt), target, time_step=-1)
+    ascii_twin = meshioplusplus.read(plt.with_suffix(".dat"), time_step=-1)
+    written = meshioplusplus.read(target)
+    assert len(written.points) == len(ascii_twin.points)
+
+
+def test_optistruct_components_survive_convert(tmp_path):
+    import pathlib
+
+    fem = pathlib.Path(__file__).parent / "meshes" / "nastran" / "optistruct_mixed.fem"
+    out = _dump(_tools.tool_formats())
+    assert out["extensions"][".fem"] == ["nastran"]
+    # `*.fem` is Git LFS; the MCP CI job checks out without LFS.
+    with open(fem, "rb") as f:
+        if f.read(24).startswith(b"version https://git-lfs"):
+            pytest.skip("optistruct_mixed.fem is an unfetched Git-LFS pointer")
+    # HyperMesh components are cell regions: they reach a .mail GROUP_MA.
+    target = str(tmp_path / "deck.mail")
+    _tools.tool_convert(str(fem), target)
+    names = {r.name for r in meshioplusplus.read(target).regions if r.kind == "cell"}
+    assert {"solids", "shells", "beams"} <= names
+
+
+def test_comsol_text_and_binary_convert_keep_selections(tmp_path):
+    import pathlib
+
+    src = pathlib.Path(__file__).parent / "meshes" / "comsol" / "two_domains.mphtxt"
+    out = _dump(_tools.tool_formats())
+    assert out["extensions"][".mphbin"] == ["mphbin"]
+    assert "mphbin" in out["readable"] and "mphbin" in out["writable"]
+    target = str(tmp_path / "two_domains.mphbin")
+    _tools.tool_convert(str(src), target)
+    back = meshioplusplus.read(target)
+    assert {r.name for r in back.regions} == {"Lower Part", "Part #2", "caps"}
+
+
+def test_unv_uff_extension_and_convert_reaches_its_steps(tmp_path):
+    import pathlib
+
+    fixtures = pathlib.Path(__file__).parent / "meshes" / "unv"
+    out = _dump(_tools.tool_formats())
+    assert out["extensions"][".uff"] == ["unv"] and "unv" in out["writable"]
+    # transient_2414.unv carries real cells, unlike the test-lab .uff fixtures
+    # (nodes only, no elements), so converting it exercises tool_convert's
+    # time_step reaching UNV's steps without a point-only-mesh round trip.
+    target = str(tmp_path / "last.vtu")
+    _tools.tool_convert(str(fixtures / "transient_2414.unv"), target, time_step=-1)
+    written = meshioplusplus.read(target)
+    assert "Temperature" in written.point_data
+    assert written.field_data["meshio:time"].tolist() == [1.0]
+
+
+def test_sniff(mesh_file):
+    out = _dump(_tools.tool_sniff(mesh_file))
+    assert out["format"] == "vtu"
+    assert out["from_extension"] == ["vtu"]
+
+
+def test_sniff_directory(tmp_path):
+    case = tmp_path / "case"
+    (case / "constant" / "polyMesh").mkdir(parents=True)
+    for name in ("owner", "faces"):
+        (case / "constant" / "polyMesh" / name).write_text("x\n")
+    out = _dump(_tools.tool_sniff(str(case)))
+    assert out["format"] == "openfoam"
+    assert out["from_extension"] == []
+
+
+def test_info(mesh_file):
+    out = _dump(_tools.tool_info(mesh_file))
+    assert out["num_points"] == 5
+    assert out["num_cells"] == 3
+    assert out["point_data_names"] == ["t"]
+
+
+def test_stats(mesh_file):
+    out = _dump(_tools.tool_stats(mesh_file))
+    assert out["num_points"] == 5
+    assert out["cell_type_counts"] == {"triangle": 2, "tetra": 1}
+
+
+def test_quality_summary_and_annotated_output(mesh_file, tmp_path):
+    out = _dump(_tools.tool_quality(mesh_file))
+    assert out["num_cells"] == 3
+    assert any(m.startswith("quality:") for m in out["metrics"])
+    assert isinstance(out["cell_arrays"], str)  # omitted, with a pointer
+    annotated = str(tmp_path / "annotated.vtu")
+    out = _dump(_tools.tool_quality(mesh_file, output_path=annotated))
+    assert os.path.isfile(out["output_path"])
+    reread = meshioplusplus.read(annotated)
+    assert any(k.startswith("quality:") for k in reread.cell_data)
+
+
+def test_data_info(mesh_file):
+    out = _dump(_tools.tool_data_info(mesh_file))
+    names = {(a["location"], a["name"]) for a in out["arrays"]}
+    assert ("point_data", "t") in names and ("cell_data", "c") in names
+
+
+def test_repeated_tools_on_one_input_parse_it_once(mesh_file, count_parses):
+    _tools.tool_stats(mesh_file)
+    _tools.tool_data_info(mesh_file)
+    _tools.tool_bandwidth(mesh_file)
+    _tools.tool_regions(mesh_file)
+    assert count_parses == [os.path.realpath(mesh_file)]
+
+
+def test_cached_mesh_is_never_handed_out(mesh_file):
+    first = _tools._load(mesh_file)
+    first.points[:] = -7.0
+    first.point_data["t"][:] = -7.0
+    again = _tools._load(mesh_file)
+    assert not np.any(again.points == -7.0)
+    assert not np.any(again.point_data["t"] == -7.0)
+
+
+def test_read_only_tools_share_the_cached_arrays_frozen(mesh_file):
+    """Roadmap 5.12.2: a read-only tool is handed the cached arrays themselves
+    (no copy), read-only, inside containers of its own."""
+    _tools._load(mesh_file)  # fill the cache
+    view = _tools._load(mesh_file, readonly=True)
+    other = _tools._load(mesh_file, readonly=True)
+    assert np.shares_memory(view.points, other.points)
+    assert not view.points.flags.writeable
+    assert not view.point_data["t"].flags.writeable
+    with pytest.raises(ValueError):
+        view.points[:] = -7.0
+    # The containers are private: dropping an entry does not reach the cache.
+    view.point_data.pop("t")
+    view.cells.clear()
+    again = _tools._load(mesh_file)
+    assert "t" in again.point_data and again.cells
+    # A mutating caller still gets writable, private arrays.
+    assert again.points.flags.writeable
+    assert not np.shares_memory(again.points, other.points)
+
+
+def test_read_only_tools_agree_on_a_hit(mesh_file):
+    first = _dump(_tools.tool_stats(mesh_file))
+    assert _dump(_tools.tool_stats(mesh_file)) == first
+    first_info = _dump(_tools.tool_data_info(mesh_file))
+    assert _dump(_tools.tool_data_info(mesh_file)) == first_info
+
+
+def test_a_changed_input_is_read_again(mesh_file, count_parses):
+    assert len(_tools._load(mesh_file).points) == 5
+    # Rewrite the file outside the server, as an agent's own tool would.
+    mesh = _mixed_mesh()
+    mesh.points = np.vstack([mesh.points, [[2.0, 2.0, 2.0]]])
+    mesh.point_data["t"] = np.linspace(0.0, 1.0, 6)
+    meshioplusplus.write(mesh_file, mesh)
+    assert len(_tools._load(mesh_file).points) == 6
+    assert len(count_parses) == 2
+
+
+def test_writing_an_input_invalidates_it(mesh_file, tmp_path, count_parses):
+    _tools.tool_stats(mesh_file)
+    _tools.tool_transform(mesh_file, mesh_file, translate=[1.0, 0.0, 0.0])
+    out = _tools._load(mesh_file)
+    assert out.points[0, 0] == 1.0
+    assert len(count_parses) == 2  # stats (transform hits the cache), the re-read
+
+
+def test_read_options_and_format_are_part_of_the_key(mesh_file, count_parses):
+    _tools._load(mesh_file)
+    _tools._load(mesh_file, "vtu")
+    _tools._load(mesh_file, "vtu")
+    assert len(count_parses) == 2
+
+
+def test_multi_file_formats_are_not_cached(tmp_path, count_parses):
+    # A .pvtu names its pieces in sibling files the entry file's stat cannot
+    # see (and needs no optional dependency, unlike XDMF's HDF5 without the
+    # native core).
+    path = str(tmp_path / "in.pvtu")
+    meshioplusplus.write(path, _mixed_mesh())
+    _tools._load(path)
+    _tools._load(path)
+    assert len(count_parses) == 2
+
+
+def test_cache_budget_zero_disables_it(mesh_file, count_parses, monkeypatch):
+    monkeypatch.setenv("MESHIOPLUSPLUS_MCP_CACHE_MB", "0")
+    _tools._load(mesh_file)
+    _tools._load(mesh_file)
+    assert len(count_parses) == 2
+
+
+def test_bandwidth(mesh_file):
+    out = _dump(_tools.tool_bandwidth(mesh_file))
+    assert out["bandwidth"] == 4
+
+
+def test_data_preview(mesh_file):
+    out = _dump(_tools.tool_data_preview(mesh_file, "t", location="point", limit=3))
+    assert out["num_rows"] == 5
+    assert out["values"] == [0.0, 0.25, 0.5]
+    out = _dump(_tools.tool_data_preview(mesh_file, "c", location="cell"))
+    assert out["values"] == [[1.0], [2.0], [3.0]]  # block-major concatenation
+    with pytest.raises(ValueError, match="no point data array named 'zz'"):
+        _tools.tool_data_preview(mesh_file, "zz")
+    with pytest.raises(ValueError, match="unknown location"):
+        _tools.tool_data_preview(mesh_file, "t", location="vertex")
+
+
+def test_diff(mesh_file, tmp_path):
+    same = str(tmp_path / "same.vtu")
+    meshioplusplus.write(same, _mixed_mesh())
+    out = _dump(_tools.tool_diff(mesh_file, same))
+    assert out["equal"] is True
+    moved = _mixed_mesh()
+    moved.points = moved.points + 1.0
+    other = str(tmp_path / "other.vtu")
+    meshioplusplus.write(other, moved)
+    out = _dump(_tools.tool_diff(mesh_file, other))
+    assert out["equal"] is False and out["verdict"] == "different"
+
+
+# --------------------------------------------------------------------------- #
+# Pure half: conversion                                                       #
+# --------------------------------------------------------------------------- #
+
+
+def test_convert_roundtrip(mesh_file, tmp_path):
+    out_path = str(tmp_path / "out.vtk")
+    out = _dump(_tools.tool_convert(mesh_file, out_path))
+    assert out["output_format"] == "vtk"
+    assert os.path.isfile(out["output_path"])
+    assert out["num_points"] == 5 and out["num_cells"] == 3
+
+
+@pytest.mark.parametrize("fmt", ["vtp", "vts", "vtr", "vti"])
+@pytest.mark.parametrize("encoding", ["raw", "base64"])
+def test_convert_appended_vtk_xml_native(fmt, encoding, tmp_path, monkeypatch):
+    core = pytest.importorskip("meshioplusplus._core")
+    if not getattr(core, "__has_zlib__", False):
+        pytest.skip("native build lacks zlib")
+    from meshioplusplus import _fallback
+
+    from .test_vtk_xml_appended import appended_fixture, assert_mesh
+
+    blob, points = appended_fixture(fmt, encoding, "UInt64", "BigEndian", "zlib")
+    source = tmp_path / f"input.{fmt}"
+    source.write_bytes(blob)
+    target = tmp_path / "output.vtu"
+    monkeypatch.setattr(_fallback, "_strict", True)
+    _dump(_tools.tool_convert(str(source), str(target)))
+    assert_mesh(meshioplusplus.read(target), points)
+
+
+@pytest.mark.parametrize("fmt", ["vtp", "vts", "vtr", "vti", "vtk"])
+def test_convert_vtk_pieces_and_legacy_native(fmt, tmp_path, monkeypatch):
+    core = pytest.importorskip("meshioplusplus._core")
+    if not getattr(core, "__has_zlib__", False):
+        pytest.skip("native build lacks zlib")
+    from meshioplusplus import _fallback
+
+    from .test_vtk_pieces_structured import legacy_fixture, xml_fixture
+
+    blob, points = (
+        legacy_fixture("STRUCTURED_POINTS", (3, 2, 2), binary=True)
+        if fmt == "vtk"
+        else xml_fixture(fmt)
+    )
+    source = tmp_path / f"input.{fmt}"
+    source.write_bytes(blob)
+    target = tmp_path / "output.vtu"
+    monkeypatch.setattr(_fallback, "_strict", True)
+    _dump(_tools.tool_convert(str(source), str(target)))
+    mesh = meshioplusplus.read(target)
+    np.testing.assert_array_equal(mesh.points, points)
+    assert sum(len(cb.data) for cb in mesh.cells) == 2
+
+
+@pytest.mark.parametrize("binary,count_bytes", [(False, 8), (True, 8), (True, 4)])
+def test_convert_gmsh40_through_native_reader(
+    binary, count_bytes, tmp_path, monkeypatch
+):
+    from .test_gmsh import gmsh40_fixture
+
+    source = tmp_path / "gmsh40.msh"
+    source.write_bytes(gmsh40_fixture(binary, count_bytes))
+    target = tmp_path / "out.vtu"
+    monkeypatch.setenv("MESHIOPLUSPLUS_STRICT_CORE", "1")
+    _dump(_tools.tool_convert(str(source), str(target), input_format="gmsh"))
+    mesh = meshioplusplus.read(target)
+    np.testing.assert_array_equal(mesh.cells[1].data, [[1, 0, 2], [1, 2, 3]])
+    assert sorted((r.name, list(r.entries)) for r in mesh.regions) == [
+        ("edge", [0, 3]),
+        ("plate", [1, 2]),
+    ]
+
+
+@pytest.mark.parametrize("version", ["2.2", "4.0", "4.1"])
+def test_convert_gmsh_periodic_native(version, tmp_path, monkeypatch):
+    from meshioplusplus import _fallback
+
+    from .test_gmsh import assert_periodic, periodic_fixture
+
+    source = tmp_path / "periodic.msh"
+    source.write_bytes(periodic_fixture(version, binary=True))
+    target = tmp_path / "output.msh"
+    monkeypatch.setenv("MESHIOPLUSPLUS_STRICT_CORE", "1")
+    monkeypatch.setattr(_fallback, "_strict", True)
+    _dump(
+        _tools.tool_convert(
+            str(source), str(target), input_format="gmsh", output_format="gmsh22"
+        )
+    )
+    assert_periodic(meshioplusplus.read(target, file_format="gmsh"))
+
+
+def test_convert_mdpa_preserves_nested_geometry_constraint_membership(tmp_path):
+    source = tmp_path / "membership.mdpa"
+    source.write_text(
+        "Begin Nodes\n10 0 0 0\n20 1 0 0\n30 0 1 0\nEnd Nodes\n"
+        "Begin Geometries Triangle3D3\n17 10 20 30\nEnd Geometries\n"
+        "Begin Constraints LinearMasterSlaveConstraint\n"
+        "91 10 DISPLACEMENT_X 20 DISPLACEMENT_X 1.0 0.0\nEnd Constraints\n"
+        "Begin SubModelPart Outer\nBegin SubModelPart Inner\n"
+        "Begin SubModelPartGeometries\n17\nEnd SubModelPartGeometries\n"
+        "Begin SubModelPartConstraints\n91\nEnd SubModelPartConstraints\n"
+        "End SubModelPart\nEnd SubModelPart\n"
+    )
+    target = tmp_path / "out.mdpa"
+    report = _dump(_tools.tool_convert(str(source), str(target)))
+    assert report["num_points"] == 3
+    assert report["num_cells"] == 0  # geometry membership is not mesh cells
+    part = meshioplusplus.mdpa.read(target).misc_data["submodelpart_info"][
+        "Outer/Inner"
+    ]
+    assert part["geometry_ids"] == [17]
+    assert part["constraint_ids"] == [91]
+
+
+def test_convert_ascii_variant(mesh_file, tmp_path):
+    out = _dump(_tools.tool_convert(mesh_file, str(tmp_path / "a.vtu"), mode="ascii"))
+    with open(out["output_path"], "rb") as f:
+        assert b"ascii" in f.read()
+
+
+def test_convert_openfoam_binary_variant(mesh_file, tmp_path):
+    # roadmap §1.1: openfoam joined the ascii/binary variant table. The
+    # header is text but the data past it is raw bytes, so this reads bytes
+    # rather than text (a binary points file is not valid UTF-8).
+    out = _dump(
+        _tools.tool_convert(mesh_file, str(tmp_path / "case.foam"), mode="binary")
+    )
+    points = (tmp_path / "constant" / "polyMesh" / "points").read_bytes()
+    assert b"format      binary;" in points
+    assert out["output_format"] == "openfoam"
+
+
+def test_convert_frd_ascii_and_binary_variants(tmp_path):
+    # The CalculiX result file joined the ascii/binary variant table.
+    frd = pathlib.Path(__file__).parent / "meshes" / "frd" / "mixed.frd"
+    ascii_out, binary_out = tmp_path / "a.frd", tmp_path / "b.frd"
+    _tools.tool_convert(str(frd), str(ascii_out), mode="ascii", time_step=-1)
+    _tools.tool_convert(str(frd), str(binary_out), mode="binary", time_step=-1)
+    assert ascii_out.read_bytes().endswith(b" -3\n  9999\n")
+    assert binary_out.read_bytes().endswith(b" 9999\n")
+    assert b"\n -1" not in binary_out.read_bytes()
+    a, b = meshioplusplus.read(ascii_out), meshioplusplus.read(binary_out)
+    assert b.field_data["meshio:time"].tolist() == [2.0]
+    np.testing.assert_allclose(a.point_data["DISP"], b.point_data["DISP"], rtol=1e-5)
+    assert _tools._ASCII_VARIANT["frd"] == {"binary": False}
+    assert _tools._BINARY_VARIANT["frd"] == {"binary": True}
+
+
+def test_convert_raw_appended_variant(mesh_file, tmp_path):
+    out = _dump(
+        _tools.tool_convert(
+            mesh_file, str(tmp_path / "a.vtu"), mode="raw_appended", compression="none"
+        )
+    )
+    data = pathlib.Path(out["output_path"]).read_bytes()
+    assert b'<AppendedData encoding="raw">' in data
+    assert b"vtkZLibDataCompressor" not in data
+    with pytest.raises(ValueError, match="has no raw_appended variant"):
+        _tools.tool_convert(mesh_file, str(tmp_path / "a.vtp"), mode="raw_appended")
+
+
+def test_convert_variant_errors(mesh_file, tmp_path):
+    with pytest.raises(ValueError, match="has no ascii variant"):
+        _tools.tool_convert(mesh_file, str(tmp_path / "a.obj"), mode="ascii")
+    with pytest.raises(ValueError, match="only vti/vts/vtr/vtm/vtu/vtp"):
+        _tools.tool_convert(mesh_file, str(tmp_path / "a.vtk"), compression="zstd")
+    with pytest.raises(ValueError, match="unknown mode"):
+        _tools.tool_convert(mesh_file, str(tmp_path / "a.vtu"), mode="fast")
+
+
+def test_convert_pcd_variants(tmp_path):
+    src = str(tmp_path / "in.pcd")
+    meshioplusplus.write(src, helpers.point_cloud_mesh)
+    for kwargs, marker in (
+        ({"mode": "ascii"}, b"DATA ascii"),
+        ({"mode": "binary"}, b"DATA binary\n"),
+        ({"compression": "lzf"}, b"DATA binary_compressed"),
+    ):
+        out = _dump(_tools.tool_convert(src, str(tmp_path / "out.pcd"), **kwargs))
+        with open(out["output_path"], "rb") as f:
+            assert marker in f.read()
+        assert out["num_points"] == 40
+    with pytest.raises(ValueError, match="lzf compression applies to pcd"):
+        _tools.tool_convert(src, str(tmp_path / "a.vtu"), compression="lzf")
+    with pytest.raises(ValueError, match="cannot be combined"):
+        _tools.tool_convert(
+            src, str(tmp_path / "a.pcd"), mode="ascii", compression="lzf"
+        )
+
+
+def _has_vtkhdf():
+    """VTKHDF needs HDF5: the compiled core's, or h5py for the Python fallback."""
+    try:
+        from meshioplusplus import _core
+
+        if getattr(_core, "__has_hdf5__", False):
+            return True
+    except ImportError:
+        pass
+    try:
+        import h5py  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+requires_vtkhdf = pytest.mark.skipif(
+    not _has_vtkhdf(), reason="VTKHDF needs HDF5 (compiled in) or h5py"
+)
+
+
+@requires_vtkhdf
+def test_convert_vtkhdf_gzip_and_none(mesh_file, tmp_path):
+    for compression in ("gzip", "none"):
+        out = _dump(
+            _tools.tool_convert(
+                mesh_file,
+                str(tmp_path / f"{compression}.vtkhdf"),
+                compression=compression,
+            )
+        )
+        assert out["output_format"] == "vtkhdf" and out["num_cells"] == 3
+    with pytest.raises(ValueError, match="cgns/h5m/vtkhdf/xdmf"):
+        _tools.tool_convert(mesh_file, str(tmp_path / "a.vtu"), compression="gzip")
+    with pytest.raises(ValueError, match="cgns/h5m/vtkhdf/vtu/xdmf"):
+        _tools.tool_convert(mesh_file, str(tmp_path / "a.stl"), compression="none")
+
+
+def _partitioned_file(tmp_path):
+    """A VTKHDF holding two pieces, as a composite (blocks named by cell region)."""
+    from meshioplusplus._regions import Region
+
+    mesh = meshioplusplus.Mesh(
+        np.array(
+            [
+                [0, 0, 0],
+                [1, 0, 0],
+                [0, 1, 0],
+                [0, 0, 1],
+                [5, 0, 0],
+                [6, 0, 0],
+                [5, 1, 0],
+                [5, 0, 1],
+            ],
+            dtype=float,
+        ),
+        [("tetra", np.array([[0, 1, 2, 3], [4, 5, 6, 7]]))],
+    )
+    mesh.regions = [
+        Region("near", "cell", np.array([0]), tag=0),
+        Region("far", "cell", np.array([1]), tag=1),
+    ]
+    path = str(tmp_path / "parts.vtkhdf")
+    meshioplusplus.vtkhdf.write(path, mesh, dataset_type="PartitionedDataSetCollection")
+    return path
+
+
+@requires_vtkhdf
+def test_convert_and_stats_select_a_piece(tmp_path):
+    src = _partitioned_file(tmp_path)
+    whole = _dump(_tools.tool_convert(src, str(tmp_path / "whole.vtu")))
+    one = _dump(_tools.tool_convert(src, str(tmp_path / "one.vtu"), piece=1))
+    assert whole["num_cells"] == 2 and one["num_cells"] == 1 and one["num_points"] == 4
+    assert meshioplusplus.read(str(tmp_path / "one.vtu")).points[0][0] == 5.0
+    last = _dump(_tools.tool_convert(src, str(tmp_path / "last.vtu"), piece=-1))
+    assert last["num_points"] == 4
+    assert _dump(_tools.tool_stats(src, piece=0))["num_points"] == 4
+    with pytest.raises(Exception, match="2 piece"):
+        _tools.tool_convert(src, str(tmp_path / "bad.vtu"), piece=2)
+
+
+def test_a_format_without_pieces_refuses_a_piece(mesh_file, tmp_path):
+    with pytest.raises(Exception, match="does not support piece"):
+        _tools.tool_convert(mesh_file, str(tmp_path / "x.vtk"), piece=0)
+
+
+def test_pipeline_tool(mesh_file, tmp_path):
+    out_path = str(tmp_path / "piped.vtu")
+    settings_path = str(tmp_path / "settings.json")
+    with open(settings_path, "w") as f:
+        json.dump(
+            {
+                "Input": {"Path": mesh_file},
+                "Operations": [{"Op": "Quality"}, {"Op": "Clean"}],
+                "Output": {"Path": out_path},
+            },
+            f,
+        )
+    out = _dump(_tools.tool_pipeline(settings_path))
+    assert os.path.isfile(out["output_path"])
+    assert [s["op"] for s in out["steps"]] == ["Quality", "Clean"]
+    # overrides win over the document's paths
+    other = str(tmp_path / "other.vtu")
+    _dump(_tools.tool_pipeline(settings_path, output_path=other))
+    assert os.path.isfile(other)
+
+
+def test_pipeline_tool_pcd_lzf(mesh_file, tmp_path):
+    path = tmp_path / "cloud.pcd"
+    settings = tmp_path / "lzf.json"
+    settings.write_text(
+        json.dumps(
+            {
+                "Input": {"Path": mesh_file},
+                "Operations": [],
+                "Output": {"Path": str(path), "Codec": "lzf"},
+            }
+        )
+    )
+    result = _dump(_tools.tool_pipeline(str(settings)))
+    assert result["output_path"] == str(path)
+    assert b"DATA binary_compressed\n" in path.read_bytes()
+
+
+def test_pipeline_tool_sandboxes_the_inner_paths(mesh_file, tmp_path, monkeypatch):
+    # A settings document naming a path outside the root must fail exactly the
+    # way a path argument would -- the sandbox covers the document's insides.
+    settings_path = str(tmp_path / "settings.json")
+    with open(settings_path, "w") as f:
+        json.dump(
+            {
+                "Input": {"Path": "/etc/passwd"},
+                "Operations": [],
+                "Output": {"Path": str(tmp_path / "o.vtu")},
+            },
+            f,
+        )
+    monkeypatch.setattr(_tools, "_ROOT", str(tmp_path))
+    with pytest.raises(ValueError, match="outside the configured root"):
+        _tools.tool_pipeline(settings_path)
+
+
+def test_pipeline_v2_sandboxes_auxiliary_inputs(mesh_file, tmp_path, monkeypatch):
+    settings = tmp_path / "v2.json"
+    settings.write_text(
+        json.dumps(
+            {
+                "Version": 2,
+                "Input": {"Path": mesh_file},
+                "Output": {"Path": str(tmp_path / "out.vtu")},
+                "Operations": [{"Op": "Merge", "Inputs": ["/etc/passwd"]}],
+            }
+        )
+    )
+    monkeypatch.setattr(_tools, "_ROOT", str(tmp_path))
+    with pytest.raises(ValueError, match="outside the configured root"):
+        _tools.tool_pipeline(str(settings))
+
+
+def test_pipeline_v2_sandboxes_expanded_output_symlinks(
+    mesh_file, tmp_path, monkeypatch
+):
+    root = tmp_path / "root"
+    root.mkdir()
+    source = root / "in.vtu"
+    source.write_bytes(pathlib.Path(mesh_file).read_bytes())
+    victim = tmp_path / "keep.vtu"
+    victim.write_bytes(b"keep")
+    # The template itself is in the root, but the generated tetra file is not.
+    (root / "piece_tetra.vtu").symlink_to(victim)
+    settings = root / "v2.json"
+    settings.write_text(
+        json.dumps(
+            {
+                "Version": 2,
+                "Input": {"Path": str(source)},
+                "Output": {"Pattern": str(root / "piece_{key}.vtu")},
+                "Operations": [{"Op": "Split", "By": "type"}],
+            }
+        )
+    )
+    monkeypatch.setattr(_tools, "_ROOT", str(root))
+    with pytest.raises(ValueError, match="outside the configured root"):
+        _tools.tool_pipeline(str(settings))
+    assert victim.read_bytes() == b"keep"
+
+
+# --------------------------------------------------------------------------- #
+# Pure half: mesh operations                                                  #
+# --------------------------------------------------------------------------- #
+
+
+def test_clean_report(mesh_file, tmp_path):
+    out = _dump(_tools.tool_clean(mesh_file, str(tmp_path / "clean.vtu")))
+    for key in (
+        "points_welded",
+        "points_removed_orphan",
+        "cells_dropped_degenerate",
+        "cells_dropped_duplicate",
+    ):
+        assert key in out
+
+
+def test_reorder_reports_bandwidth(mesh_file, tmp_path):
+    out = _dump(_tools.tool_reorder(mesh_file, str(tmp_path / "ro.vtu")))
+    assert out["bandwidth_after"] <= out["bandwidth_before"]
+
+
+def test_slice(mesh_file, tmp_path):
+    out = _dump(
+        _tools.tool_slice(
+            mesh_file, str(tmp_path / "s.vtu"), origin=[0, 0, 0.5], normal=[0, 0, 1]
+        )
+    )
+    assert out["num_cells"] >= 1
+    assert all(b["type"] in ("triangle", "quad") for b in out["cell_blocks"])
+
+
+def test_split_writes_one_file_per_piece(mesh_file, tmp_path):
+    out_dir = str(tmp_path / "pieces")
+    out = _dump(_tools.tool_split(mesh_file, by="type", output_dir=out_dir))
+    assert sorted(out["pieces"]) == ["tetra", "triangle"]
+    for key, path in out["pieces"].items():
+        assert os.path.isfile(path)
+        assert os.path.basename(path) == f"in_{key}.vtu"
+        assert out["summaries"][key]["num_cells"] >= 1
+
+
+def test_merge(mesh_file, tmp_path):
+    out = _dump(_tools.tool_merge([mesh_file, mesh_file], str(tmp_path / "m.vtu")))
+    assert out["num_points"] == 10 and out["num_cells"] == 6
+    with pytest.raises(ValueError, match="at least two"):
+        _tools.tool_merge([mesh_file], str(tmp_path / "m2.vtu"))
+
+
+def test_partition_writes_nparts_files(mesh_file, tmp_path):
+    out_dir = str(tmp_path / "parts")
+    out = _dump(_tools.tool_partition(mesh_file, 2, method="sfc", output_dir=out_dir))
+    assert len(out["parts"]) == 2
+    assert all(os.path.isfile(p) for p in out["parts"])
+    assert sum(s["num_cells"] for s in out["summaries"]) == 3
+
+
+def test_partition_index_form_writes_one_index_over_every_part(mesh_file, tmp_path):
+    out = _dump(
+        _tools.tool_partition(
+            mesh_file,
+            2,
+            method="sfc",
+            output_dir=str(tmp_path / "idx"),
+            name_template="{stem}.pvtu",
+        )
+    )
+    assert os.path.isfile(out["index"]) and out["index"].endswith(".pvtu")
+    assert len(out["parts"]) == 2 and all(os.path.isfile(p) for p in out["parts"])
+    assert sum(s["num_cells"] for s in out["summaries"]) == 3
+    back = meshioplusplus.read(out["index"])
+    assert sum(len(c.data) for c in back.cells) == 3
+
+
+def test_partition_template_without_a_part_token_is_refused(mesh_file, tmp_path):
+    with pytest.raises(ValueError, match=r"must contain '\{part\}'.*\.pvtu/\.pvtp"):
+        _tools.tool_partition(
+            mesh_file, 2, output_dir=str(tmp_path), name_template="all.vtu"
+        )
+    assert not list(tmp_path.glob("all*"))
+
+
+def test_convert_block_codec_reaches_the_index_formats(mesh_file, tmp_path):
+    for ext in (".pvtu", ".pvd"):
+        out = _dump(
+            _tools.tool_convert(
+                mesh_file, str(tmp_path / f"a{ext}"), compression="zlib"
+            )
+        )
+        assert os.path.isfile(out["output_path"])
+        assert out["num_cells"] == 3
+
+
+def test_crop(mesh_file, tmp_path):
+    out = _dump(
+        _tools.tool_crop(
+            mesh_file, str(tmp_path / "c.vtu"), bbox=[0, 0, 0, 1, 1, 0.5], mode="any"
+        )
+    )
+    assert out["num_cells"] == 3
+    with pytest.raises(ValueError, match="both plane_origin and plane_normal"):
+        _tools.tool_crop(mesh_file, str(tmp_path / "c2.vtu"), plane_origin=[0, 0, 0])
+
+
+def test_transform(mesh_file, tmp_path):
+    out_path = str(tmp_path / "t.vtu")
+    _dump(_tools.tool_transform(mesh_file, out_path, translate=[10.0, 0.0, 0.0]))
+    moved = meshioplusplus.read(out_path)
+    assert moved.points[:, 0].min() >= 10.0
+    with pytest.raises(ValueError, match="both rotate_axis and rotate_degrees"):
+        _tools.tool_transform(mesh_file, out_path, rotate_axis=[0, 0, 1])
+
+
+# --------------------------------------------------------------------------- #
+# Pure half: data operations                                                  #
+# --------------------------------------------------------------------------- #
+
+
+def test_data_calc_cli_spelling(mesh_file, tmp_path):
+    out_path = str(tmp_path / "calc.vtu")
+    out = _dump(_tools.tool_data_calc(mesh_file, out_path, "t2 = t * 2"))
+    assert "t2" in out["point_data"]
+    reread = meshioplusplus.read(out_path)
+    assert np.allclose(reread.point_data["t2"], 2 * reread.point_data["t"])
+
+
+def test_data_manage_rename(mesh_file, tmp_path):
+    out = _dump(
+        _tools.tool_data_manage(
+            mesh_file, str(tmp_path / "dm.vtu"), rename=[["point", "t", "temp"]]
+        )
+    )
+    assert out["point_data"] == ["temp"]
+    assert out["renamed"] == [["point_data:t", "point_data:temp"]]
+    with pytest.raises(ValueError, match="at least one of keep/drop/rename"):
+        _tools.tool_data_manage(mesh_file, str(tmp_path / "dm2.vtu"))
+
+
+def test_data_convert(mesh_file, tmp_path):
+    out = _dump(
+        _tools.tool_data_convert(mesh_file, str(tmp_path / "dc.vtu"), "point_to_cell")
+    )
+    assert "t" in out["cell_data"]
+    with pytest.raises(ValueError, match="unknown direction"):
+        _tools.tool_data_convert(mesh_file, str(tmp_path / "dc2.vtu"), "sideways")
+
+
+def test_gradient(mesh_file, tmp_path):
+    out = _dump(_tools.tool_gradient(mesh_file, str(tmp_path / "g.vtu"), "t"))
+    assert "t:gradient" in out["cell_data"]
+    # The mixed fixture's triangle block is below the tet block's dimension, so
+    # the skip counter must be reported rather than silently swallowed.
+    assert out["num_skipped"] == 2
+    assert out["num_fallback"] == 0
+
+    div = _dump(
+        _tools.tool_gradient(
+            mesh_file,
+            str(tmp_path / "d.vtu"),
+            "t",
+            operator="gradient",
+            location="point",
+        )
+    )
+    assert "t:gradient" in div["point_data"]
+
+    with pytest.raises(ValueError):
+        _tools.tool_gradient(mesh_file, str(tmp_path / "x.vtu"), "nope")
+
+
+def test_normals(mesh_file, tmp_path):
+    cube = meshioplusplus.Mesh(
+        np.array(
+            [
+                [0, 0, 0],
+                [1, 0, 0],
+                [1, 1, 0],
+                [0, 1, 0],
+                [0, 0, 1],
+                [1, 0, 1],
+                [1, 1, 1],
+                [0, 1, 1],
+            ],
+            dtype=float,
+        ),
+        [
+            (
+                "quad",
+                np.array(
+                    [
+                        [0, 3, 2, 1],
+                        [4, 5, 6, 7],
+                        [0, 1, 5, 4],
+                        [3, 7, 6, 2],
+                        [0, 4, 7, 3],
+                        [1, 2, 6, 5],
+                    ]
+                ),
+            )
+        ],
+    )
+    src = str(tmp_path / "cube.vtu")
+    meshioplusplus.write(src, cube)
+    out = _dump(
+        _tools.tool_normals(
+            src,
+            str(tmp_path / "n.vtu"),
+            split_angle=30,
+            cell_normals=True,
+            record_parent_ids=True,
+        )
+    )
+    assert out["num_added_points"] == 16
+    assert out["num_split_points"] == 8
+    assert out["quality"]["watertight"] is True
+    assert "normals" in out["point_data"]
+    assert "normals:parent_point" in out["point_data"]
+    assert "normals" in out["cell_data"]
+
+    smooth = _dump(_tools.tool_normals(src, str(tmp_path / "s.vtu")))
+    assert smooth["num_added_points"] == 0
+
+    # A volume block is refused by name, pointing at the fix.
+    with pytest.raises(ValueError, match="extract_surface"):
+        _tools.tool_normals(mesh_file, str(tmp_path / "x.vtu"))
+
+
+def _unit_cube_quads():
+    return meshioplusplus.Mesh(
+        np.array(
+            [
+                [0, 0, 0],
+                [1, 0, 0],
+                [1, 1, 0],
+                [0, 1, 0],
+                [0, 0, 1],
+                [1, 0, 1],
+                [1, 1, 1],
+                [0, 1, 1],
+            ],
+            dtype=float,
+        ),
+        [
+            (
+                "quad",
+                np.array(
+                    [
+                        [0, 3, 2, 1],
+                        [4, 5, 6, 7],
+                        [0, 1, 5, 4],
+                        [3, 7, 6, 2],
+                        [0, 4, 7, 3],
+                        [1, 2, 6, 5],
+                    ]
+                ),
+            )
+        ],
+    )
+
+
+def test_segment_fit_and_step(tmp_path):
+    src = str(tmp_path / "cube.vtu")
+    meshioplusplus.write(src, _unit_cube_quads())
+    seg = str(tmp_path / "seg.vtu")
+    out = _dump(_tools.tool_segment(src, seg))
+    assert out["num_patches"] == 6
+    assert out["num_feature_edges"] == 12
+    assert "segment:patch" in out["cell_data"]
+    fit = _dump(_tools.tool_fit_primitives(seg, str(tmp_path / "fit.vtu")))
+    assert fit["num_plane"] == 6
+    assert [p["type"] for p in fit["patches"]] == ["plane"] * 6
+    narrowed = _dump(
+        _tools.tool_fit_primitives(
+            src, str(tmp_path / "fit2.vtu"), patch_data="", types=["plane"]
+        )
+    )
+    assert narrowed["num_unfitted"] == 1
+    with pytest.raises(ValueError, match="180"):
+        _tools.tool_segment(src, str(tmp_path / "x.vtu"), feature_angle=200)
+    # the faceted STEP writer reaches MCP through the format registry
+    conv = _dump(_tools.tool_convert(src, str(tmp_path / "cube.step")))
+    assert conv["output_path"].endswith("cube.step")
+    assert "step" in _tools.tool_formats()["writable"]
+
+
+def test_optimize_volume_objectives(tmp_path):
+    src = str(tmp_path / "ball.vtu")
+    meshioplusplus.write(src, meshioplusplus.ball(n=3, cell_type="tetra"))
+    worst = _dump(_tools.tool_optimize_volume(src, str(tmp_path / "w.vtu")))
+    assert worst["min_dihedral_after"] >= worst["min_dihedral_before"]
+    assert "num_edge_removals" in worst and "num_worst_smoothed" in worst
+    energy = _dump(
+        _tools.tool_optimize_volume(src, str(tmp_path / "e.vtu"), objective="energy")
+    )
+    assert energy["num_worst_smoothed"] == 0
+    with pytest.raises(ValueError, match="objective"):
+        _tools.tool_optimize_volume(src, str(tmp_path / "x.vtu"), objective="best")
+
+
+def test_select_writes_a_region(tmp_path):
+    src = str(tmp_path / "cube.vtu")
+    meshioplusplus.write(src, _unit_cube_quads())
+    out = _dump(
+        _tools.tool_select(src, str(tmp_path / "top.vtu"), "top", seed=[0.5, 0.5, 2.0])
+    )
+    assert out["num_selected"] == 1
+    assert out["num_grown"] == 1
+    assert out["num_components"] == -1
+    low = _dump(
+        _tools.tool_select(
+            src,
+            str(tmp_path / "low.vtu"),
+            "low",
+            kind="point",
+            plane_origin=[0, 0, 0.5],
+            plane_normal=[0, 0, -1],
+        )
+    )
+    assert low["num_selected"] == 4
+    with pytest.raises(ValueError, match="both sphere_center and sphere_radius"):
+        _tools.tool_select(src, str(tmp_path / "x.vtu"), "x", sphere_radius=1.0)
+    with pytest.raises(ValueError, match="criterion"):
+        _tools.tool_select(src, str(tmp_path / "x.vtu"), "x")
+
+
+def test_iga_tools_refine_sample_and_evaluate(tmp_path):
+    nurbs = str(
+        pathlib.Path(__file__).parent / "meshes" / "mfem" / "nurbs" / "pipe-nurbs.mesh"
+    )
+    plate = str(
+        pathlib.Path(__file__).parent
+        / "meshes"
+        / "cad_json"
+        / "plate_with_hole.cad.json"
+    )
+    out = _dump(
+        _tools.tool_iga_refine(
+            nurbs,
+            str(tmp_path / "fine.mesh"),
+            output_format="mfem",
+            subdivisions=2,
+            elevate=1,
+        )
+    )
+    assert out["nurbs"]["patches"] == 4 and out["nurbs"]["degrees"] == [3]
+    assert (tmp_path / "fine.mesh").read_text().startswith("MFEM NURBS mesh v1.0")
+    out = _dump(
+        _tools.tool_iga_refine(
+            plate, str(tmp_path / "fine.cad.json"), subdivisions=[2, 3], elevate=[0, 1]
+        )
+    )
+    assert out["brep"]["faces"] == 1 and out["brep"]["trimmed_faces"] == 1
+    out = _dump(_tools.tool_iga_sample(plate, str(tmp_path / "s.vtu"), subdivisions=4))
+    assert out["num_cells"] > 0
+    ev = _dump(_tools.tool_iga_evaluate(plate, [[0.5, 0.5], [2.0, 2.0]], derivatives=1))
+    assert ev["inside"] == [True, False]
+    assert ev["num_points"] == 2 and len(ev["normals"]) == 2
+    ev = _dump(_tools.tool_iga_evaluate(nurbs, [[0.3, 0.7, 0.4]], patch=1))
+    assert len(ev["points"][0]) == 3
+    with pytest.raises(ValueError, match="knot range"):
+        _tools.tool_iga_evaluate(plate, [[9.0, 9.0]])
+    with pytest.raises(ValueError, match="at most"):
+        _tools.tool_iga_evaluate(plate, [[0.5, 0.5]] * 10001)
+
+
+def _two_tetra10():
+    tets = meshioplusplus.Mesh(
+        np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1]], dtype=float),
+        [("tetra", np.array([[0, 1, 2, 3], [0, 2, 1, 4]]))],
+    )
+    mesh = meshioplusplus.convert_cells(tets, mode="elevate")
+    mesh.point_data["u"] = mesh.points[:, 0]
+    return mesh
+
+
+def test_tessellate_reports_counts_and_watertightness(tmp_path):
+    src = str(tmp_path / "curved.vtu")
+    meshioplusplus.write(src, _two_tetra10())
+    out = _dump(_tools.tool_tessellate(src, str(tmp_path / "flat.vtu"), levels=1))
+    # one 2^1 split per edge: 8 children per tetra10, sharing the middle face
+    assert out["levels"] == 1
+    assert out["num_source_points"] == 14 and out["num_source_cells"] == 2
+    assert out["num_curved_source_cells"] == 2
+    assert out["num_pass_through_source_cells"] == 0
+    assert out["num_cells"] == 16 and out["cell_blocks"] == [
+        {"type": "tetra", "num_cells": 16}
+    ]
+    assert out["watertight"] == {
+        "num_boundary_facets": 24,
+        "num_interior_facets": 20,
+        "num_facets_with_bad_count": 0,
+    }
+    assert "tessellate:source_point" in out["point_data"] and "u" in out["point_data"]
+    assert "tessellate:source_cell" in out["cell_data"]
+    flat = meshioplusplus.read(out["output_path"])
+    assert len(flat.points) == out["num_points"]
+    # curved=False passes every cell through; record_stencil adds the stencil
+    off = _dump(
+        _tools.call_tool(
+            "tessellate",
+            {
+                "input_path": src,
+                "output_path": str(tmp_path / "same.vtu"),
+                "curved": False,
+                "fields": False,
+                "record_stencil": True,
+            },
+        )
+    )
+    assert off["num_curved_source_cells"] == 0
+    assert off["num_pass_through_source_cells"] == 2
+    assert off["cell_blocks"] == [{"type": "tetra10", "num_cells": 2}]
+    assert "tessellate:stencil" in off["point_data"] and "u" not in off["point_data"]
+    bad = _tools.call_tool(
+        "tessellate",
+        {"input_path": src, "output_path": str(tmp_path / "x.vtu"), "levels": -1},
+    )
+    assert bad["error_type"] == "ValueError" and "levels" in bad["error"]
+
+
+def test_adapt_tool_reports_the_capability(tmp_path):
+    # Roadmap 3.2: the MMG backend, or its absence named, with mmg_available.
+    src = str(tmp_path / "square.vtu")
+    meshioplusplus.write(
+        src, meshioplusplus.rectangle(dims=(4, 4), cell_type="triangle")
+    )
+    out = _dump(
+        _tools.call_tool(
+            "adapt",
+            {"input_path": src, "output_path": str(tmp_path / "a.vtu"), "hsiz": 0.1},
+        )
+    )
+    assert out["mmg_available"] is meshioplusplus.has_mmg()
+    if meshioplusplus.has_mmg():
+        assert out["library"] == "mmg2d" and out["status"] == "success"
+        assert out["num_elements_out"] > out["num_elements_in"]
+    else:
+        assert out["error_type"] == "NotImplementedError"
+        assert "MESHIOPLUSPLUS_WITH_MMG" in out["error"]
+
+
+def test_discretize_levelset_and_mesh_domain_tools(tmp_path):
+    # Roadmap 3.2.2 and 3.2.3, or their absence named, with mmg_available.
+    square = meshioplusplus.rectangle(
+        dims=(8, 8), size=(2, 2), origin=(-1, -1, 0), cell_type="triangle"
+    )
+    square.point_data["ls"] = np.linalg.norm(square.points[:, :2], axis=1) - 0.5
+    src = str(tmp_path / "square.vtu")
+    meshioplusplus.write(src, square)
+    cut = _dump(
+        _tools.call_tool(
+            "discretize_levelset",
+            {
+                "input_path": src,
+                "output_path": str(tmp_path / "c.vtu"),
+                "level_set": "ls",
+            },
+        )
+    )
+    th = np.linspace(0, 2 * np.pi, 17)[:-1]
+    lines = np.array([[i, (i + 1) % 16] for i in range(16)])
+    circle = meshioplusplus.Mesh(np.c_[np.cos(th), np.sin(th)], [("line", lines)])
+    bnd = str(tmp_path / "circle.vtu")
+    meshioplusplus.write(bnd, circle)
+    dom = _dump(
+        _tools.call_tool(
+            "mesh_domain",
+            {"input_path": bnd, "output_path": str(tmp_path / "d.vtu"), "hsiz": 0.2},
+        )
+    )
+    for out in (cut, dom):
+        assert out["mmg_available"] is meshioplusplus.has_mmg()
+    if meshioplusplus.has_mmg():
+        assert cut["library"] == "mmg2d" and cut["status"] == "success"
+        assert dom["num_subdomains"] == 1 and dom["num_holes"] == 0
+        assert dom["num_elements_out"] > 50
+    else:
+        for out in (cut, dom):
+            assert out["error_type"] == "NotImplementedError"
+
+
+def test_move_tool_reports_the_capability(tmp_path):
+    # Roadmap 3.2.4: a box's xmax face pushed out, or the missing backend named.
+    box = meshioplusplus.box(dims=(4, 4, 4), cell_type="tetra")
+    d = np.zeros((len(box.points), 3))
+    d[np.isclose(box.points[:, 0], 1.0), 0] = 0.1
+    box.point_data["d"] = d
+    src = str(tmp_path / "box.vtu")
+    meshioplusplus.write(src, box)
+    dst = str(tmp_path / "moved.vtu")
+    out = _dump(
+        _tools.call_tool(
+            "move",
+            {
+                "input_path": src,
+                "output_path": dst,
+                "displacement": "d",
+                "moving": ["xmax"],
+            },
+        )
+    )
+    assert out["mmg_available"] is meshioplusplus.has_mmg()
+    if meshioplusplus.has_mmg() and meshioplusplus.has_mmg_elas():
+        assert out["library"] == "mmg3d" and out["status"] == "success"
+        assert np.isclose(meshioplusplus.read(dst).points[:, 0].max(), 1.1)
+    else:
+        assert out["error_type"] == "NotImplementedError"
+
+
+def test_metric_from_hessian_tool(tmp_path):
+    mesh = meshioplusplus.rectangle(dims=(2, 2), cell_type="triangle")
+    mesh.point_data["h"] = np.tile(
+        [2.0, 0, 0, 0, 20.0, 0, 0, 0, 0], (len(mesh.points), 1)
+    )
+    src = str(tmp_path / "h.vtu")
+    meshioplusplus.write(src, mesh)
+    dst = str(tmp_path / "m.vtu")
+    out = _dump(
+        _tools.call_tool(
+            "metric_from_hessian",
+            {"input_path": src, "output_path": dst, "hessian": "h", "hmax": 10.0},
+        )
+    )
+    assert "error" not in out, out
+    metric = meshioplusplus.read(dst).point_data["metric"]
+    assert metric.shape == (len(mesh.points), 6)
+
+
+def test_fit_cad_tool_reports_the_capability(tmp_path):
+    from meshioplusplus._fit_cad import has_occt
+
+    src = str(tmp_path / "cube.vtu")
+    meshioplusplus.write(src, _unit_cube_quads())
+    out = _dump(
+        _tools.call_tool(
+            "fit_cad",
+            {
+                "input_path": src,
+                "output_path": str(tmp_path / "cube.step"),
+                "mesh_output_path": str(tmp_path / "solid.vtu"),
+            },
+        )
+    )
+    assert out["occt_available"] is has_occt()
+    # Without OpenCASCADE the native backend builds the analytic solid.
+    assert out["backend"] == ("occt" if has_occt() else "native")
+    assert out["valid"] is True
+    assert out["num_plane"] == 6
+    assert out["num_faceted_faces"] == 0
+    if not has_occt():
+        bad = _dump(
+            _tools.call_tool(
+                "fit_cad",
+                {
+                    "input_path": src,
+                    "output_path": str(tmp_path / "x.step"),
+                    "backend": "occt",
+                },
+            )
+        )
+        assert bad["error_type"] == "NotImplementedError"
+        assert "MESHIOPLUSPLUS_WITH_OCCT" in bad["error"]
+        assert bad["occt_available"] is False
+        return
+    assert out["num_split_patches"] == 0
+    assert out["num_fillet"] == 0 and out["num_helical"] == 0
+    assert out["num_variable_fillet"] == out["num_blend"] == 0
+    assert out["num_rounded_thread"] == 0
+    for key in (
+        "num_vertex_blend",
+        "num_chamfer",
+        "num_conic_blend",
+        "num_tapered_thread",
+        "num_variable_pitch_thread",
+    ):
+        assert out[key] == 0
+    assert out["step_path"].endswith("cube.step")
+    assert "fit_cad:face" in out["cell_data"]
+    assert os.path.exists(tmp_path / "solid.vtu")
+
+
+def test_refine_patches_tool_refuses_bad_options_before_the_core(tmp_path):
+    from .analytic_surfaces import box_skin
+
+    # Segmented already, so every refusal is refine_patches' own.
+    src = str(tmp_path / "box.vtu")
+    meshioplusplus.write(src, meshioplusplus.segment(box_skin(2)))
+    for key, value in (
+        ("normal_weight", -1.0),
+        ("epsilon", -1.0),
+        ("feature_angle", 200.0),
+        ("max_iterations", -1),
+        ("min_patch_cells", 0),
+        ("ransac_seed", -1),
+        ("types", ["blob"]),
+        ("prefix", ""),
+    ):
+        bad = _dump(
+            _tools.call_tool(
+                "refine_patches",
+                {"input_path": src, "output_path": str(tmp_path / "x.vtu"), key: value},
+            )
+        )
+        assert bad["error_type"] == "ValueError", key
+        assert "refine_patches" in bad["error"], key
+
+
+@pytest.mark.skipif(
+    not hasattr(_core, "refine_patches"), reason="core predates refine_patches"
+)
+def test_refine_patches_tool_segments_then_refines(tmp_path):
+    from .analytic_surfaces import box_skin
+
+    src = str(tmp_path / "box.vtu")
+    meshioplusplus.write(src, box_skin(3))
+    out = _dump(
+        _tools.call_tool(
+            "refine_patches",
+            {"input_path": src, "output_path": str(tmp_path / "refined.vtu")},
+        )
+    )
+    # A box segmented by its creases is already six planes: nothing moves.
+    assert out["output_path"].endswith("refined.vtu")
+    assert out["num_patches"] == out["num_primitive"] == 6
+    assert out["num_freeform"] == out["num_facets"] == 0
+    assert out["explained_area_fraction"] == pytest.approx(1.0)
+    assert out["stop"] == "unchanged"
+    assert "segment:patch" in out["cell_data"]
+    assert "fit:type" in out["cell_data"]
+    for name in ("refine:patch_proxy", "refine:explained_area_fraction"):
+        assert name in out["field_data"]
+    # A feature angle above the box's right angles leaves one patch, which
+    # the RANSAC split takes apart into the six sides again.
+    split = _dump(
+        _tools.call_tool(
+            "refine_patches",
+            {
+                "input_path": src,
+                "output_path": str(tmp_path / "split.vtu"),
+                "feature_angle": 100.0,
+                "max_iterations": 20,
+            },
+        )
+    )
+    assert split["num_splits"] > 0
+    assert split["initial_explained_area_fraction"] == 0.0
+    assert split["num_primitive"] == 6
+    # fit_cad's own refinement adds its report keys only when it ran.
+    plain = _dump(
+        _tools.call_tool(
+            "fit_cad",
+            {
+                "input_path": src,
+                "output_path": str(tmp_path / "a.step"),
+                "backend": "native",
+            },
+        )
+    )
+    assert "refined" not in plain
+    refined = _dump(
+        _tools.call_tool(
+            "fit_cad",
+            {
+                "input_path": src,
+                "output_path": str(tmp_path / "b.step"),
+                "backend": "native",
+                "refine_segmentation": True,
+            },
+        )
+    )
+    assert refined["refined"] is True
+    assert "refinement_kept" in refined
+    assert refined["explained_area_fraction"] == pytest.approx(1.0)
+    for key in ("refine_iterations", "num_refine_splits", "num_refine_merges"):
+        assert key in refined
+    # The constrained primitives report only when asked for.
+    assert "num_constrained_primitives" not in plain
+    constrained = _dump(
+        _tools.call_tool(
+            "fit_cad",
+            {
+                "input_path": src,
+                "output_path": str(tmp_path / "c.step"),
+                "backend": "native",
+                "constrain_primitives": True,
+            },
+        )
+    )
+    assert constrained["num_constrained_primitives"] >= 0
+    assert constrained["num_constraint_groups"] >= 0
+    assert constrained["num_demoted"] == 0
+
+
+def test_cad_json_brep_rides_through_convert(tmp_path):
+    src = str(
+        pathlib.Path(__file__).parent
+        / "meshes"
+        / "cad_json"
+        / "plate_with_hole.cad.json"
+    )
+    out = _dump(_tools.tool_convert(src, str(tmp_path / "copy.cad.json")))
+    assert out["brep"] == {
+        "faces": 1,
+        "trimmed_faces": 1,
+        "rational_faces": 0,
+        "loops": 2,
+        "edges": 8,
+        "vertices": 0,
+    }
+    # the side channel, not the sampling, is what was written
+    again = meshioplusplus.read(tmp_path / "copy.cad.json")
+    assert len(again.info["brep"]["faces"][0]["loops"]) == 2
+    assert "cad_json" in _tools.tool_formats()["writable"]
+
+
+def test_fit_cad_tool_writes_kratos_cad_json(tmp_path):
+    from meshioplusplus._fit_cad import has_occt
+
+    if not has_occt():
+        pytest.skip("needs a core built with OpenCASCADE")
+    src = str(tmp_path / "cube.vtu")
+    meshioplusplus.write(src, _unit_cube_quads())
+    out = _dump(
+        _tools.call_tool(
+            "fit_cad",
+            {
+                "input_path": src,
+                "output_path": str(tmp_path / "cube.step"),
+                "cad_json_output_path": str(tmp_path / "cube.cad.json"),
+                "freeform": False,
+                "freeform_split": False,
+                "fillets": False,
+                "threads": False,
+            },
+        )
+    )
+    assert out["num_bspline"] == 0
+    assert out["num_fillet"] == 0 and out["num_helical"] == 0
+    assert out["cad_json_path"].endswith("cube.cad.json")
+    assert out["brep"]["faces"] == 6 and out["brep"]["edges"] == 12
+    assert (
+        len(meshioplusplus.read(tmp_path / "cube.cad.json").info["brep"]["faces"]) == 6
+    )
+
+
+def test_feature_edges_and_hausdorff(tmp_path):
+    src = str(tmp_path / "cube.vtu")
+    meshioplusplus.write(src, _unit_cube_quads())
+    out = _dump(_tools.tool_feature_edges(src, str(tmp_path / "fe.vtu")))
+    assert out["num_edges"] == 12
+    assert out["num_feature"] == 12
+    assert out["num_boundary"] == 0
+    assert "feature:kind" in out["cell_data"]
+    with pytest.raises(ValueError, match="180"):
+        _tools.tool_feature_edges(src, str(tmp_path / "x.vtu"), feature_angle=200)
+
+    moved = _unit_cube_quads()
+    moved.points = moved.points + [0.0, 0.0, 0.25]
+    other = str(tmp_path / "moved.vtu")
+    meshioplusplus.write(other, moved)
+    h = _dump(_tools.tool_hausdorff(src, other, max_distance=0.1))
+    assert h["distance"] == pytest.approx(0.25)
+    assert h["passed"] is False
+    assert _dump(_tools.tool_hausdorff(src, src))["distance"] == 0.0
+
+
+def test_render_mesh_tool(tmp_path):
+    pytest.importorskip("meshioplusplus._core")
+    src = str(tmp_path / "cube.vtu")
+    cube = _unit_cube_quads()
+    cube.point_data["x"] = cube.points[:, 0].copy()
+    cube.point_data["flow"] = np.stack(
+        [
+            -(cube.points[:, 1] - 0.5),
+            cube.points[:, 0] - 0.5,
+            np.zeros(len(cube.points)),
+        ],
+        axis=1,
+    )
+    meshioplusplus.write(src, cube)
+    text = _dump(_tools.tool_render_mesh(src, cols=24, rows=8))
+    assert (text["cols"], text["rows"]) == (24, 8)
+    assert len(text["text"].splitlines()) == 8
+    assert "\x1b" not in text["text"]
+    ansi = _dump(_tools.tool_render_mesh(src, cols=24, rows=8, text_format="ansi"))
+    assert "\x1b[" in ansi["text"]
+    png = _dump(
+        _tools.tool_render_mesh(src, str(tmp_path / "c.png"), width=48, height=32)
+    )
+    assert png["size"] == [48, 32]
+    assert open(png["output_path"], "rb").read()[:8] == b"\x89PNG\r\n\x1a\n"
+    with pytest.raises(ValueError, match="text_format"):
+        _tools.tool_render_mesh(src, text_format="svg")
+    # Field rendering: the notes under the text carry the range, ticks and keys.
+    field = _dump(
+        _tools.tool_render_mesh(
+            src,
+            cols=24,
+            rows=8,
+            color_by="x",
+            colorbar=True,
+            symmetric=True,
+            clip=[5, 95],
+        )
+    )
+    assert "x: -" in field["text"] and "ticks:" in field["text"]
+    diag = _dump(
+        _tools.tool_render_mesh(src, cols=24, rows=8, diagnostic="orientation")
+    )
+    assert "orientation:" in diag["text"]
+    with pytest.raises(ValueError, match="diagnostic must be"):
+        _tools.tool_render_mesh(src, diagnostic="plastic")
+    with pytest.raises(ValueError, match="expected .png"):
+        _tools.tool_render_mesh(src, str(tmp_path / "c.vtu"))
+    # Cut-aways: a plane as "+x:0.5" or six numbers, and the notes say so.
+    whole = _dump(_tools.tool_render_mesh(src, cols=24, rows=8, view="-x"))
+    cut = _dump(
+        _tools.tool_render_mesh(
+            src, cols=24, rows=8, view="-x", cutaway=["+x:0.5"], cutaway_tint="#00ff00"
+        )
+    )
+    assert "cutaway: 1 plane" in cut["text"] and "cutaway" not in whole["text"]
+    six = _dump(
+        _tools.tool_render_mesh(
+            src, cols=24, rows=8, view="-x", cutaway=[[0.5, 0, 0, 1, 0, 0]]
+        )
+    )
+    assert "cutaway: 1 plane" in six["text"]
+    with pytest.raises(ValueError, match="AXIS:OFFSET"):
+        _tools.tool_render_mesh(src, cutaway=["x:1"])
+    # Streamlines of a vector point array, named in the notes.
+    flow = _dump(
+        _tools.tool_render_mesh(
+            src,
+            cols=24,
+            rows=8,
+            view="-x",
+            cutaway=["+x:0.5"],
+            streamlines="flow",
+            stream_seeds=6,
+            stream_color="#ff00ff",
+        )
+    )
+    assert "streamlines: flow," in flow["text"]
+    with pytest.raises(ValueError, match="streamline array 'nope'"):
+        _tools.tool_render_mesh(src, streamlines="nope")
+
+
+def test_region_adjacency_tool(tmp_path):
+    mesh = meshioplusplus.Mesh(
+        np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1.0]]),
+        [
+            ("tetra", np.array([[0, 1, 2, 3]], dtype=np.int64)),
+            ("tetra", np.array([[0, 2, 1, 4]], dtype=np.int64)),
+        ],
+        regions=[Region("upper", "cell", [0]), Region("lower", "cell", [1])],
+    )
+    src = str(tmp_path / "parts.vtu")
+    meshioplusplus.write(src, mesh)
+    out = _dump(_tools.tool_region_adjacency(src, str(tmp_path / "interfaces.vtu")))
+    assert out["facets"] == 1
+    assert out["measure"] == pytest.approx(0.5)
+    assert "interface:parent_facet_a" in out["cell_data"]
+
+
+def test_interface_contact_and_split_tools(tmp_path):
+    mesh = meshioplusplus.Mesh(
+        np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1.0]]),
+        [("tetra", np.array([[0, 1, 2, 3], [0, 2, 1, 4]], dtype=np.int64))],
+        regions=[
+            Region("upper", "cell", [0]),
+            Region("lower", "cell", [1]),
+            Region("slave", "point", [0, 1]),
+        ],
+    )
+    src = str(tmp_path / "parts.vtu")
+    meshioplusplus.write(src, mesh)
+    found = _dump(
+        _tools.tool_find_interface(
+            src, str(tmp_path / "interface.vtu"), "upper", "lower"
+        )
+    )
+    assert found["num_pairs"] == 1
+    assert found["area"] == pytest.approx(0.5)
+    assert found["side_a"] == [[0, 3]]
+    contacts = _dump(_tools.tool_contact_pairs(src, "slave", "lower"))
+    assert len(contacts["pairs"]) == 2
+    assert contacts["unmatched"] == []
+    split = _dump(
+        _tools.tool_split_interface(
+            src,
+            str(tmp_path / "split.vtu"),
+            side_entries=found["side_a"],
+            add_cohesive=True,
+        )
+    )
+    assert split["num_duplicated_points"] == 3
+    assert split["num_cohesive_cells"] == 1
+
+
+def test_check_quality(tmp_path):
+    src = str(tmp_path / "cube.vtu")
+    meshioplusplus.write(src, _unit_cube_quads())
+    ok = _dump(_tools.tool_check_quality(src, "aspect_ratio <= 1.5"))
+    assert ok["passed"] is True
+    assert ok["checks"][0]["name"] == "aspect_ratio <= 1.5"
+    bad = _dump(
+        _tools.tool_check_quality(src, ["aspect_ratio <= 0.5"], max_inverted=-1)
+    )
+    assert bad["passed"] is False
+    assert len(bad["checks"]) == 2
+    with pytest.raises(ValueError, match="unknown metric"):
+        _tools.tool_check_quality(src, "bogus >= 1")
+
+
+def test_tet_to_poly_and_poly_to_tet(tmp_path):
+    src = str(tmp_path / "box.vtu")
+    meshioplusplus.write(src, meshioplusplus.box(dims=(2, 2, 2), cell_type="tetra"))
+    dual_path = str(tmp_path / "dual.vtu")
+    out = _dump(_tools.tool_tet_to_poly(src, dual_path, record_vertex_ids=True))
+    assert out["num_boundary_faces"] == 54
+    assert out["num_split_vertices"] == 0
+    assert out["num_new_points"] > 0
+    back = _dump(_tools.tool_poly_to_tet(dual_path, str(tmp_path / "back.vtu")))
+    assert back["num_exact_tets"] == 0
+    assert back["num_fanned_cells"] == 27
+
+
+def test_agglomerate_options_resample_and_blend(tmp_path):
+    import numpy as np
+
+    n = 3
+    xs, ys, zs = np.meshgrid(*(np.arange(n + 1.0),) * 3, indexing="ij")
+    pts = np.column_stack([xs.ravel(), ys.ravel(), zs.ravel()])
+
+    def vid(i, j, k):
+        return (i * (n + 1) + j) * (n + 1) + k
+
+    hexes = [
+        [
+            vid(i, j, k),
+            vid(i + 1, j, k),
+            vid(i + 1, j + 1, k),
+            vid(i, j + 1, k),
+            vid(i, j, k + 1),
+            vid(i + 1, j, k + 1),
+            vid(i + 1, j + 1, k + 1),
+            vid(i, j + 1, k + 1),
+        ]
+        for i in range(n)
+        for j in range(n)
+        for k in range(n)
+    ]
+    src = str(tmp_path / "hexes.vtu")
+    meshioplusplus.write(src, meshioplusplus.Mesh(pts, [("hexahedron", hexes)]))
+    out = _dump(
+        _tools.tool_agglomerate(
+            src, str(tmp_path / "agg.vtu"), merge_coplanar_faces=True
+        )
+    )
+    assert out["num_faces_merged"] > 0
+    assert out["num_rejected"] == 0
+
+    for k in range(2):
+        meshioplusplus.write(
+            str(tmp_path / f"s_{k}.vtu"),
+            meshioplusplus.Mesh(
+                pts,
+                [("hexahedron", hexes)],
+                point_data={"u": np.full(len(pts), 10.0 * k)},
+            ),
+        )
+    rep = _dump(
+        _tools.tool_resample_sequence(
+            str(tmp_path / "r_{index}.vtu"),
+            input_pattern=str(tmp_path / "s_*.vtu"),
+            times="0:1:0.5",
+            time_from="index",
+        )
+    )
+    assert rep["times"] == [0.0, 0.5, 1.0]
+    mid = meshioplusplus.read(str(tmp_path / "r_1.vtu"))
+    assert np.allclose(mid.point_data["u"], 5.0)
+    with pytest.raises(ValueError, match="exactly one of times"):
+        _tools.tool_resample_sequence(
+            str(tmp_path / "x_{index}.vtu"), input_pattern=str(tmp_path / "s_*.vtu")
+        )
+
+    b = _dump(
+        _tools.tool_blend_steps(
+            str(tmp_path / "s_0.vtu"),
+            str(tmp_path / "s_1.vtu"),
+            str(tmp_path / "b.vtu"),
+            0.25,
+        )
+    )
+    assert b["num_points"] == len(pts)
+    assert np.allclose(
+        meshioplusplus.read(str(tmp_path / "b.vtu")).point_data["u"], 2.5
+    )
+
+
+def test_edit_regions_and_periodic(tmp_path):
+    from meshioplusplus._regions import Region
+
+    cube = _unit_cube_quads()
+    cube.regions = [
+        Region("bottom", "point", [0, 1, 2, 3]),
+        Region("top", "point", [4, 5, 6, 7]),
+        Region("sides", "cell", [2, 3]),
+    ]
+    src = str(tmp_path / "cube.inp")
+    meshioplusplus.write(src, cube)
+    out = _dump(
+        _tools.tool_edit_regions(
+            src,
+            str(tmp_path / "e.inp"),
+            [
+                {"op": "union", "inputs": ["bottom", "top"], "output": "all"},
+                {"op": "rename", "inputs": ["sides"], "output": "walls"},
+            ],
+        )
+    )
+    names = sorted(r["name"] for r in out["regions"])
+    assert names == ["all", "bottom", "top", "walls"]
+    with pytest.raises(ValueError, match="no region matches"):
+        _tools.tool_edit_regions(
+            src, str(tmp_path / "x.inp"), [{"op": "delete", "inputs": ["nope"]}]
+        )
+
+    pairs_csv = str(tmp_path / "pairs.csv")
+    per = _dump(
+        _tools.tool_periodic(
+            src, "bottom", "top", translate=[0, 0, 1], pairs_path=pairs_csv
+        )
+    )
+    assert per["num_pairs"] == 4
+    assert per["pairs"] == [[0, 4], [1, 5], [2, 6], [3, 7]]
+    assert np.loadtxt(pairs_csv, delimiter=",", dtype=int).tolist() == per["pairs"]
+    with pytest.raises(ValueError, match="no master node"):
+        _tools.tool_periodic(src, "bottom", "top", translate=[0, 0, 0.5])
+
+
+def test_tools_never_fetch_urls(tmp_path):
+    """A URL given as a tool path is resolved as a path inside the sandbox,
+    never fetched (no server-side request forgery through the MCP server),
+    even though `read` itself reads URLs through fsspec (roadmap 7.1.2)."""
+    fsspec = pytest.importorskip("fsspec")
+    pts = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], dtype=float)
+    local = tmp_path / "tri.vtu"
+    meshioplusplus.write(
+        str(local), meshioplusplus.Mesh(pts, [("triangle", np.array([[0, 1, 2]]))])
+    )
+    fsspec.filesystem("memory").pipe("/mcp/tri.vtu", local.read_bytes())
+    try:
+        with pytest.raises(ValueError, match="not found"):
+            _tools.tool_graph("memory://mcp/tri.vtu", str(tmp_path / "g.graph"))
+    finally:
+        fsspec.filesystem("memory").rm("/mcp/tri.vtu")
+
+
+def test_convert_coordinates_tool(tmp_path):
+    src = str(tmp_path / "s.vtu")
+    sphere = meshioplusplus.icosa_sphere(subdivisions=1)
+    sphere.point_data["n"] = (
+        sphere.points / np.linalg.norm(sphere.points, axis=1)[:, None]
+    )
+    meshioplusplus.write(src, sphere)
+    out = _dump(
+        _tools.tool_convert_coordinates(
+            src, str(tmp_path / "c.vtu"), system="spherical", arrays=["n"]
+        )
+    )
+    assert out["num_arrays"] == 1 and out["system"] == "spherical"
+    back = meshioplusplus.read(str(tmp_path / "c.vtu"))
+    # The outward normal of a sphere is (1, 0, 0) in spherical components.
+    np.testing.assert_allclose(
+        back.point_data["n"], [[1.0, 0.0, 0.0]] * len(sphere.points), atol=1e-12
+    )
+
+
+def test_prepare_metric_tool(tmp_path):
+    sq = meshioplusplus.convert_cells(
+        meshioplusplus.rectangle(dims=(4, 4)), mode="simplexify"
+    )
+    sq.point_data["a"] = np.tile([100.0, 0.0, 1.0], (len(sq.points), 1))
+    sq.point_data["b"] = np.tile([1.0, 0.0, 100.0], (len(sq.points), 1))
+    src = str(tmp_path / "m.vtu")
+    meshioplusplus.write(src, sq)
+    out = _dump(
+        _tools.tool_prepare_metric(
+            src, str(tmp_path / "o.vtu"), ["a", "b"], target_vertices=500
+        )
+    )
+    assert out["complexity_before"] == pytest.approx(100.0)
+    assert out["complexity_after"] == pytest.approx(500.0)
+    back = meshioplusplus.read(str(tmp_path / "o.vtu"))
+    np.testing.assert_allclose(back.point_data["metric"][:, 0], 500.0)
+
+
+def test_untangle_tool(tmp_path):
+    tets = meshioplusplus.convert_cells(
+        meshioplusplus.box(dims=(4, 4, 4)), mode="simplexify"
+    )
+    p = tets.points.copy()
+    p[(1 * 5 + 1) * 5 + 1] = [0.62, 0.58, 0.6]
+    src = str(tmp_path / "t.vtu")
+    meshioplusplus.write(src, meshioplusplus.Mesh(p, tets.cells))
+    out = _dump(_tools.tool_untangle(src, str(tmp_path / "u.vtu")))
+    assert out["num_inverted_before"] > 0 and out["num_inverted_after"] == 0
+
+
+def test_morph_tool(tmp_path):
+    box = meshioplusplus.convert_cells(
+        meshioplusplus.box(dims=(3, 3, 3)), mode="simplexify"
+    )
+    lift = np.zeros((len(box.points), 3))
+    top = box.points[:, 2] == box.points[:, 2].max()
+    lift[top, 2] = 0.05
+    box.point_data["d"] = lift
+    src = str(tmp_path / "box.vtu")
+    meshioplusplus.write(src, box)
+    out = _dump(_tools.tool_morph(src, str(tmp_path / "m.vtu"), "d"))
+    assert out["num_inverted"] == 0 and out["converged"]
+    assert out["max_displacement"] == pytest.approx(0.05)
+    with pytest.raises(ValueError, match="no point data"):
+        _tools.tool_morph(src, str(tmp_path / "x.vtu"), "missing")
+
+
+def test_laplacian_eigenmodes_tool(tmp_path):
+    src = str(tmp_path / "s.vtu")
+    meshioplusplus.write(src, meshioplusplus.icosa_sphere(subdivisions=2))
+    out = _dump(
+        _tools.tool_laplacian_eigenmodes(src, str(tmp_path / "e.vtu"), num_modes=4)
+    )
+    assert out["converged"] and len(out["eigenvalues"]) == 4
+    assert out["eigenvalues"][0] == 0.0
+    back = meshioplusplus.read(str(tmp_path / "e.vtu"))
+    assert back.point_data["laplacian:modes"].shape == (len(back.points), 4)
+
+
+def test_register_rigid_tool(tmp_path):
+    target = meshioplusplus.icosa_sphere(subdivisions=3)
+    target = meshioplusplus.Mesh(
+        target.points * [1.5, 1.0, 0.7], target.cells
+    )  # an ellipsoid: no rotational symmetry to settle into
+    src = str(tmp_path / "src.vtu")
+    tgt = str(tmp_path / "tgt.vtu")
+    # Uncompressed: the build may have no zlib.
+    meshioplusplus.write(
+        src,
+        meshioplusplus.Mesh(target.points + [0.02, -0.01, 0.03], []),
+        compression=None,
+    )
+    meshioplusplus.write(tgt, target, compression=None)
+    # Legacy VTK: the tool writes it uncompressed, and the build may have no zlib.
+    out = _dump(
+        _tools.tool_register_rigid(
+            src, tgt, str(tmp_path / "moved.vtk"), method="point_to_plane"
+        )
+    )
+    assert out["converged"] and out["rms"] < 1e-8
+    np.testing.assert_allclose(
+        np.asarray(out["matrix"])[:3, 3], [-0.02, 0.01, -0.03], atol=1e-8
+    )
+    moved = meshioplusplus.read(str(tmp_path / "moved.vtk"))
+    np.testing.assert_allclose(moved.points, target.points, atol=1e-8)
+
+
+def test_thickness_methods_tool(tmp_path):
+    path = str(tmp_path / "s.vtk")
+    meshioplusplus.write(path, meshioplusplus.icosa_sphere(1.0, 2))
+    out = _dump(_tools.tool_thickness(path, method="sphere", two_sided=True))
+    assert out["method"] == "sphere" and out["p2"] <= out["p95"]
+
+
+def test_alignment_tools(tmp_path):
+    box = meshioplusplus.box((3, 2, 1), size=(3.0, 2.0, 1.0))
+    surf = meshioplusplus.extract_surface(box)
+    path = str(tmp_path / "box.vtk")
+    meshioplusplus.write(path, surf)
+    out = _dump(
+        _tools.tool_register_rigid(path, path, initial="auto", symmetric_check=True)
+    )
+    assert len(out["candidate_rms"]) == 24 and out["warnings"]
+    out = _dump(
+        _tools.tool_register_landmarks(
+            [[0, 0, 0], [1, 0, 0], [0, 2, 0]], [[1, 2, 3], [2, 2, 3], [1, 4, 3]]
+        )
+    )
+    np.testing.assert_allclose(np.asarray(out["matrix"])[:3, 3], [1, 2, 3], atol=1e-12)
+    plane = _dump(_tools.tool_find_symmetry_plane(path))
+    assert plane["share"] > 0.9 and len(plane["normal"]) == 3
+    out = _dump(_tools.tool_auto_align(path, str(tmp_path / "aligned.vtk")))
+    assert out["mode"] == "face" and len(out["matrix"]) == 4
+    out = _dump(_tools.tool_mirror(path, str(tmp_path / "m.vtk"), plane="auto"))
+    assert out["plane"]["share"] > 0.9
+    out = _dump(_tools.tool_deviation(path, path, register=True))
+    assert out["registered"]
+
+
+def test_estimate_normals_tool(tmp_path):
+    src = str(tmp_path / "s.vtu")
+    meshioplusplus.write(src, meshioplusplus.icosa_sphere(subdivisions=2))
+    out = _dump(_tools.tool_estimate_normals(src, str(tmp_path / "n.vtu"), k=8))
+    assert out["num_degenerate"] == 0 and out["num_components"] == 1
+    back = meshioplusplus.read(str(tmp_path / "n.vtu"))
+    radial = back.points / np.linalg.norm(back.points, axis=1)[:, None]
+    assert np.all(np.einsum("ij,ij->i", back.point_data["normals"], radial) > 0.95)
+
+
+def test_reconstruct_surface_tool(tmp_path):
+    src = str(tmp_path / "cloud.vtu")
+    pts = meshioplusplus.sphere_points(1500).points
+    meshioplusplus.write(
+        src,
+        meshioplusplus.Mesh(
+            pts,
+            [("vertex", np.arange(len(pts))[:, None])],
+            point_data={"normals": pts.copy()},
+        ),
+    )
+    out = _dump(_tools.tool_reconstruct_surface(src, str(tmp_path / "s.vtu")))
+    assert out["num_samples"] == 1500 and not out["estimated_normals"]
+    assert out["num_components"] == 1 and out["num_triangles"] > 0
+    back = meshioplusplus.read(str(tmp_path / "s.vtu"))
+    assert back.cells[0].type == "triangle"
+    assert np.abs(np.linalg.norm(back.points, axis=1) - 1.0).max() < out["spacing"]
+
+
+def test_convex_hull_and_delaunay_tools(tmp_path):
+    src = str(tmp_path / "cloud.vtu")
+    rng = np.random.default_rng(0)
+    pts = rng.random((200, 3))
+    meshioplusplus.write(
+        src, meshioplusplus.Mesh(pts, [("vertex", np.arange(200)[:, None])])
+    )
+    hull = _dump(_tools.tool_convex_hull(src, str(tmp_path / "h.vtu")))
+    assert hull["dimension"] == 3 and hull["num_facets"] == 2 * hull["num_vertices"] - 4
+    assert 0 < hull["volume"] < 1
+    flat = _dump(_tools.tool_convex_hull(src, str(tmp_path / "f.vtu"), dimension=2))
+    assert flat["dimension"] == 2 and flat["perimeter"] > 0
+    tri = _dump(_tools.tool_delaunay_2d(src, str(tmp_path / "t.vtu")))
+    assert tri["num_triangles"] == 2 * 200 - tri["num_boundary"] - 2
+    back = meshioplusplus.read(str(tmp_path / "t.vtu"))
+    np.testing.assert_allclose(back.points, pts)
+
+
+def test_geodesic_distance_tool(tmp_path):
+    src = str(tmp_path / "s.vtu")
+    meshioplusplus.write(src, meshioplusplus.icosa_sphere(subdivisions=2))
+    out = _dump(
+        _tools.tool_geodesic_distance(src, str(tmp_path / "d.vtu"), sources=[0, 1])
+    )
+    assert out["num_sources"] == 2 and out["converged"] and out["num_unreached"] == 0
+    back = meshioplusplus.read(str(tmp_path / "d.vtu"))
+    assert "geodesic:distance" in back.point_data
+    with pytest.raises(ValueError, match="at least one source"):
+        _tools.tool_geodesic_distance(src, str(tmp_path / "e.vtu"))
+
+
+def test_parameterize_tool(tmp_path):
+    src = str(tmp_path / "s.vtu")
+    meshioplusplus.write(src, meshioplusplus.icosa_sphere(subdivisions=2))
+    out = _dump(_tools.tool_parameterize(src, str(tmp_path / "s.obj")))
+    assert out["num_charts"] >= 2 and out["num_flipped"] == 0
+    assert out["stretch"] >= 1.0 and 0.0 < out["packing_efficiency"] <= 1.0
+    back = meshioplusplus.read(str(tmp_path / "s.obj"))
+    assert back.point_data["uv"].shape == (len(back.points), 2)
+    with pytest.raises(ValueError, match="max_stretch"):
+        _tools.tool_parameterize(src, str(tmp_path / "e.obj"), max_stretch=0.5)
+
+
+def test_graph_tool(tmp_path):
+    src = str(tmp_path / "in.vtu")
+    pts = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], dtype=float)
+    meshioplusplus.write(
+        src, meshioplusplus.Mesh(pts, [("triangle", np.array([[0, 1, 2], [0, 2, 3]]))])
+    )
+    out = _dump(_tools.tool_graph(src, str(tmp_path / "g.graph")))
+    assert out["format"] == "metis" and out["kind"] == "node"
+    assert (out["num_vertices"], out["num_edges"], out["max_degree"]) == (4, 5, 3)
+    assert (tmp_path / "g.graph").read_text() == "4 5\n2 3 4\n1 3\n1 2 4\n1 3\n"
+    cells = _dump(
+        _tools.tool_graph(
+            src, str(tmp_path / "c.txt"), kind="cell", file_format="scotch"
+        )
+    )
+    assert (cells["num_vertices"], cells["num_edges"]) == (2, 1)
+    with pytest.raises(ValueError, match="cannot infer the format"):
+        _tools.tool_graph(src, str(tmp_path / "g.txt"))
+
+
+def test_export_gltf(tmp_path):
+    src = str(tmp_path / "in.vtu")
+    meshioplusplus.write(
+        src,
+        meshioplusplus.Mesh(
+            np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=float),
+            [("tetra", np.array([[0, 1, 2, 3]]))],
+            point_data={"t": np.linspace(0.0, 1.0, 4)},
+        ),
+    )
+    out = _dump(_tools.tool_export_gltf(src, str(tmp_path / "out.glb"), color_by="t"))
+    assert out["colored"] is True
+    data = (tmp_path / "out.glb").read_bytes()
+    assert data[:4] == b"glTF"
+
+    plain = _dump(_tools.tool_export_gltf(src, str(tmp_path / "plain.gltf")))
+    assert plain["colored"] is False
+    assert (tmp_path / "plain.bin").exists()
+
+    # `convert` reaches the same writer with the defaults
+    _dump(_tools.tool_convert(src, str(tmp_path / "conv.glb")))
+    assert (tmp_path / "conv.glb").read_bytes()[:4] == b"glTF"
+
+    with pytest.raises(ValueError, match="split_angle"):
+        _tools.tool_export_gltf(src, str(tmp_path / "bad.glb"), split_angle=400)
+
+
+def test_data_condition(mesh_file, tmp_path):
+    out_path = str(tmp_path / "cond.vtu")
+    _dump(
+        _tools.tool_data_condition(
+            output_path=out_path,
+            input_path=mesh_file,
+            operation="normalize",
+            arrays=["t"],
+            lo=0.0,
+            hi=10.0,
+        )
+    )
+    reread = meshioplusplus.read(out_path)
+    assert np.isclose(reread.point_data["t"].max(), 10.0)
+
+
+def test_tensor_invariants(tmp_path):
+    mesh = _mixed_mesh()
+    mesh.point_data["stress"] = np.tile([1.0, 2.0, 3.0, 0.5, 0.6, 0.7], (5, 1))
+    in_path = str(tmp_path / "in.vtu")
+    meshioplusplus.write(in_path, mesh)
+    out_path = str(tmp_path / "invariants.vtu")
+    _dump(
+        _tools.tool_tensor_invariants(
+            output_path=out_path,
+            input_path=in_path,
+            arrays=["stress"],
+            outputs=["mises", "hydrostatic"],
+        )
+    )
+    reread = meshioplusplus.read(out_path)
+    assert "stress_mises" in reread.point_data
+    assert "stress_hydrostatic" in reread.point_data
+    assert "stress_principal" not in reread.point_data
+
+
+# --------------------------------------------------------------------------- #
+# Parity guard: every public operation must be claimed by a tool              #
+# --------------------------------------------------------------------------- #
+
+# Public API names that deliberately have no path-based MCP tool. Add here
+# only when the API is genuinely not expressible as file-in/file-out (the
+# in-memory interop/GPU handoffs, the interactive viewer, classes, plumbing).
+_NOT_TOOLS = {
+    "_cli",
+    "write_points_cells",  # constructor variant of write(); convert covers I/O
+    "register_format",
+    "deregister_format",
+    "partition_labels",  # in-memory variant of partition
+    "apply_operations",  # in-memory variant of the pipeline tool
+    # A generator of (time, Mesh) pairs: the meshes never touch the filesystem,
+    # so there is no path-in/path-out form. The `sequence` tool covers every
+    # file-level use (fan-in, fan-out, N->N).
+    "read_sequence",
+    "view",  # interactive; screenshot is the headless tool
+    "tui",  # interactive (it takes over a terminal); render_mesh is the headless tool
+    "has_viewer",
+    "has_mmg",  # capability probes; the adapt tool reports mmg_available
+    "has_mmg_elas",
+    "has_netgen",  # the tetrahedralize tool reports netgen_available
+    "tetrahedralize_backends",  # the tetrahedralize tool reports backends_available
+    "remesh_quads_backends",  # the remesh_quads tool reports backends_available
+    "cut_has_cutcells",  # the cut tools report cutcells_available
+    "to_pyvista",
+    "from_pyvista",
+    "to_trimesh",
+    "from_trimesh",
+    # An in-memory handoff to a live Blender datablock: there is no
+    # path-in/path-out form, and `convert` already covers the file case.
+    "to_blender",
+    "from_blender",
+    "has_blender",
+    "to_arrow",
+    "from_arrow",
+    "read_parquet",  # tabular import, no Mesh output to write
+    "to_pandas",
+    "to_polars",
+    "has_pyvista",
+    "has_trimesh",
+    "has_arrow",
+    "has_pandas",
+    "has_polars",
+    "has_open3d",
+    "has_dolfinx",
+    "edge_index",  # in-memory (2, E) array; no path-based form
+    "adjacency",  # in-memory CSR arrays; the graph tool writes them (write_graph)
+    # Its input is polygons as in-memory (n, 2) arrays, not a file; the
+    # mesh_cad_surface tool covers meshing a CAD file.
+    "triangulate_polygon_2d",
+    "feature_matrix",  # in-memory matrix + schema; no path-based form
+    "FeatureMatrix",
+    # An in-memory value (the mesh plus its provenance arrays); the
+    # `tessellate` tool covers the path-in/path-out case, writing the mesh
+    # with its tessellate:* arrays attached.
+    "Tessellation",
+    # Grid values and the lattice they live on are in-memory arrays; the four
+    # grid_* tools cover every path-in/path-out case (sample, scatter, resample,
+    # spectrum).
+    "GridSpec",
+    "GridArray",
+    "PowerSpectrum",
+    "interpolate_grid",  # in-memory (C, M) evaluation at caller-supplied points
+    "squeeze_grid",  # in-memory array reshape for a 2-D operator
+    "expand_grid",
+    # A budget is a selection as an in-memory value (indices in selection
+    # order, meant to slice a feature matrix); the `subsample` tool covers the
+    # path-in/path-out case, writing the selected points as a point cloud.
+    "PointBudget",
+    "select_points",
+    # In-memory arrays: an edge index and a coarsening hierarchy are values a
+    # caller holds, not files a path-based tool could hand back.
+    "edge_vectors",
+    "bistride_hierarchy",
+    "BistrideHierarchy",
+    "has_zarr",
+    "to_dlpack",
+    "to_cupy",
+    "from_cupy",
+    "has_cupy",
+    "has_cuda_device",
+    "to_torch",
+    "to_jax",
+    "has_torch",
+    "has_jax",
+    "Mesh",
+    "CellBlock",
+    "Region",
+    "TimeSeries",  # in-memory random-access class; the `sequence` tool covers
+    # the path-in/path-out cases (fan-in/fan-out/per-step chain)
+    "DatasetEntry",  # class; the dataset_* tools cover the path-based cases
+    "ReadError",
+    "WriteError",
+    "topological_dimension",
+    "__version__",
+}
+
+
+def test_every_operation_has_a_tool():
+    everything = meshioplusplus.__all__
+    formats = set(everything[: everything.index("_cli")])
+    ops = set(everything) - formats - _NOT_TOOLS
+    covered = set()
+    for spec in TOOL_REGISTRY.values():
+        covered.update(spec["wraps"])
+    missing = sorted(ops - covered)
+    assert not missing, (
+        f"public operations without an MCP tool: {missing} — add a tool to "
+        "meshioplusplus/mcp/_tools.py (and register it in _server.py) or, if "
+        "the API is genuinely not path-expressible, add a conscious exemption "
+        "to _NOT_TOOLS above. See AGENTS.md 'Change checklist'."
+    )
+
+
+def test_wraps_names_are_real_public_api():
+    public = set(meshioplusplus.__all__)
+    for name, spec in TOOL_REGISTRY.items():
+        stale = [w for w in spec["wraps"] if w not in public]
+        assert not stale, f"tool '{name}' claims unknown API names: {stale}"
+
+
+def test_registry_entries_are_wellformed():
+    for name, spec in TOOL_REGISTRY.items():
+        assert callable(spec["fn"]), name
+        assert spec["gated"] in (None, "arrow", "viewer", "physicsnemo", "occt"), name
+
+
+def test_sets_data_tool_and_cache_isolation(mesh_file, tmp_path):
+    mesh = _tools._load(mesh_file)
+    mesh.point_sets["a"] = [0, 1]
+    mesh.point_sets["b"] = [1, 2, 3, 4]
+    source = tmp_path / "sets.vtu"
+    meshioplusplus.write(source, mesh)
+    output = tmp_path / "labels.vtu"
+    report = _dump(_tools.tool_sets_data(str(source), str(output), location="point"))
+    assert "error" not in report
+    labels = meshioplusplus.read(output)
+    np.testing.assert_array_equal(labels.point_data["a-b"], [0, 1, 1, 1, 1])
+    assert not labels.point_sets
+    assert _tools._load(str(source)).point_sets
+    restored = tmp_path / "restored.vtu"
+    _dump(
+        _tools.tool_sets_data(
+            str(output),
+            str(restored),
+            direction="data_to_sets",
+            location="point",
+            key="a-b",
+        )
+    )
+    back = meshioplusplus.read(restored)
+    assert "a-b" not in back.point_data
+    np.testing.assert_array_equal(back.point_sets["b"], [1, 2, 3, 4])
+    with pytest.raises(ValueError, match="requires key"):
+        _tools.tool_sets_data(str(source), str(output), direction="data_to_sets")
+
+
+def test_every_tool_function_is_callable():
+    """Import-level smoke: call every non-gated tool's `fn` attribute lookup.
+
+    `_tools.py` imports the public API by name, so a tool added without its
+    import is an `F821` that only fires when that tool actually *runs* — which a
+    per-tool test suite catches only for the tools it happens to exercise. This
+    walks the whole registry instead.
+    """
+    import inspect
+
+    for name, spec in TOOL_REGISTRY.items():
+        fn = spec["fn"]
+        # Every name the function body resolves from module globals must exist.
+        for var in fn.__code__.co_names:
+            if var in fn.__globals__ or hasattr(_tools, var):
+                continue
+            # Attribute names and locals also land in co_names; only flag a bare
+            # global that is neither defined nor a builtin.
+            assert not (
+                var.islower() and var in getattr(_tools, "__annotations__", {})
+            ), f"{name}: unresolved global {var}"
+        assert inspect.signature(fn) is not None
+
+
+def test_generator_tools(tmp_path):
+    """The parametric generators read no input and write a mesh."""
+    cases = [
+        ("rectangle", dict(dims=[3, 2], cell_type="triangle", split="center"), 24),
+        ("box", dict(dims=[2, 2, 2], cell_type="tetra", order=2), 48),
+        ("disk", dict(n=3, cell_type="triangle"), 54),
+        ("uv_sphere", dict(nu=8, nv=4, cell_type="quad"), 16 + 16),
+        ("icosa_sphere", dict(subdivisions=1, order=2), 80),
+        ("cylinder", dict(nxy=2, nz=2, cell_type="wedge"), 48),
+        ("reference_triangle", dict(n=3, order=2), 9),
+        ("ngon", dict(sides=5, rings=2), 20),
+        ("annulus", dict(ntheta=12, nr=3, cell_type="triangle"), 72),
+        ("lshape", dict(n=2), 12),
+        ("plate_with_hole", dict(nt=3, nr=2), 24),
+        ("honeycomb", dict(dims=[3, 2]), 6),
+        ("reference_cells", dict(types=["tetra", "wedge"]), 2),
+        ("line", dict(n=5, end=[0.0, 0.0, 2.0], order=3), 5),
+        ("circle", dict(n=6, order=2), 6),
+        ("helix", dict(n=10, turns=1.0), 10),
+        ("sphere_points", dict(n=17), 17),
+        ("box_points", dict(n=9, seed=4), 9),
+        ("tetra_sphere", dict(subdivisions=1), 16),
+        ("octa_sphere", dict(subdivisions=1), 32),
+        ("cube_sphere", dict(n=2, order=2, complete=True), 24),
+        ("geo_sphere", dict(n=2), 80),
+        ("torus", dict(nu=6, nv=4, cell_type="triangle"), 48),
+        ("moebius", dict(nu=8, nv=2, num_twists=3), 16),
+        ("tube", dict(ntheta=6, nz=2), 12),
+        ("cone", dict(ntheta=6, nz=2), 6 * 4),
+        ("capsule", dict(ntheta=6, nz=1, ncap=2), 6 * 5),
+        ("box_surface", dict(dims=[1, 2, 3]), 22),
+        ("platonic", dict(name="dodecahedron"), 12),
+        ("ball", dict(n=1, cell_type="tetra"), 48),
+        ("spherical_shell", dict(n=2, nr=1, ratio=1.5), 24),
+        ("pipe", dict(ntheta=6, nr=1, nz=2), 12),
+        ("fichera", dict(n=1), 7),
+        ("solid_torus", dict(n=2, nu=5, order=2), 20),
+    ]
+    for name, kwargs, num_cells in cases:
+        out = tmp_path / f"{name}.vtu"
+        report = getattr(_tools, f"tool_{name}")(str(out), **kwargs)
+        assert out.exists(), name
+        assert meshioplusplus.read(out).points.shape[0] == report["num_points"], name
+        assert report["num_cells"] == num_cells, name
+
+    with pytest.raises(ValueError, match="unknown cell_type"):
+        _tools.tool_box(str(tmp_path / "bad.vtu"), cell_type="quad")
+    with pytest.raises(ValueError, match="above the limit"):
+        _tools.tool_box(str(tmp_path / "big.vtu"), dims=[10, 10, 10], max_cells=50)
+    with pytest.raises(ValueError, match="less than half the size"):
+        _tools.tool_plate_with_hole(str(tmp_path / "hole.vtu"), radius=0.9)
+
+
+def test_octree_mesh_tool(tmp_path):
+    skin = tmp_path / "skin.vtu"
+    meshioplusplus.write(skin, meshioplusplus.icosa_sphere(1.0, 2))
+    out = tmp_path / "volume.vtu"
+    report = _tools.tool_octree_mesh(
+        str(skin), str(out), output="castellated", max_size=0.5, min_size=0.125
+    )
+    assert out.exists()
+    assert report["output"] == "castellated"
+    assert report["num_inside"] == report["num_cells"] > 0
+    assert report["num_surrogate_faces"] > 0
+    assert report["quality"]["num_inverted"] == 0
+    assert "warnings" in report and "timings" in report
+    written = meshioplusplus.read(out)
+    assert "sdf:distance" in written.point_data
+    assert "sdf:closest_point" in written.point_data
+
+    with pytest.raises(ValueError, match="output"):
+        _tools.tool_octree_mesh(str(skin), str(out), output="bogus")
+    with pytest.raises(ValueError, match="winding_threshold"):
+        _tools.tool_octree_mesh(str(skin), str(out), winding_threshold=2.0)
+
+    graded = _tools.tool_octree_mesh(
+        str(skin), str(out), output="hex", hex_grading="graded", max_size=0.5
+    )
+    assert graded["output"] == "hex" and graded["num_hexahedra"] > 0
+    assert graded["num_inverted"] == 0
+    with pytest.raises(ValueError, match="hex_grading"):
+        _tools.tool_octree_mesh(str(skin), str(out), output="hex", hex_grading="bogus")
+
+
+def test_boundary_layer_tool(tmp_path):
+    """Roadmap 6.9: layers grown out of the sphere's mesh are wedges."""
+    if not hasattr(_core, "boundary_layer"):
+        pytest.skip("core predates boundary_layer")
+    model = pathlib.Path(__file__).parent / "meshes" / "cad_json" / "sphere.cad.json"
+    skin = tmp_path / "sphere.vtu"
+    _tools.tool_mesh_cad_surface(str(model), str(skin), 0.3)
+    out = tmp_path / "layers.vtu"
+    report = _tools.tool_boundary_layer(str(skin), str(out), 0.01, num_layers=2)
+    assert report["num_wedges"] > 0 and report["cap_closed"]
+    assert report["min_scaled_jacobian"] > 0.0
+    assert "wedge" in {c.type for c in meshioplusplus.read(out).cells}
+    with pytest.raises(ValueError, match="first_height"):
+        _tools.tool_boundary_layer(str(skin), str(out), 0.0)
+
+
+def test_boundary_layer_tool_collapse_and_front(tmp_path):
+    """Roadmap 6.9.1: the collapse, normal smoothing and front-test options
+    reach the operation, and its two counters the report."""
+    if not hasattr(_core, "boundary_layer"):
+        pytest.skip("core predates boundary_layer")
+    model = pathlib.Path(__file__).parent / "meshes" / "cad_json" / "sphere.cad.json"
+    skin = tmp_path / "sphere.vtu"
+    _tools.tool_mesh_cad_surface(str(model), str(skin), 0.3)
+    out = tmp_path / "layers.vtu"
+    report = _tools.tool_boundary_layer(
+        str(skin),
+        str(out),
+        0.01,
+        num_layers=2,
+        collapse="layers",
+        normal_smooth_iterations=2,
+        front_check=False,
+    )
+    assert report["num_wedges"] > 0
+    assert report["num_fewer_layers"] >= 0 and report["num_front_crossings"] == 0
+    with pytest.raises(ValueError, match="collapse"):
+        _tools.tool_boundary_layer(str(skin), str(out), 0.01, collapse="rows")
+
+
+def test_tetrahedralize_tool(tmp_path):
+    """Roadmap 6.7: the sphere's mesh filled with tetrahedra by the native
+    octree backend (always built, its boundary fitted) and, with Netgen, its
+    skin kept; without Netgen asking for it names the build flag."""
+    if not hasattr(_core, "tetrahedralize"):
+        pytest.skip("core predates tetrahedralize")
+    model = pathlib.Path(__file__).parent / "meshes" / "cad_json" / "sphere.cad.json"
+    skin = tmp_path / "sphere.vtu"
+    _tools.tool_mesh_cad_surface(str(model), str(skin), 0.3)
+    out = tmp_path / "tets.vtu"
+    with pytest.raises(ValueError, match="grading"):
+        _tools.tool_tetrahedralize(str(skin), str(out), grading=2.0)
+    fitted = _tools.tool_tetrahedralize(str(skin), str(out), backend="octree")
+    assert fitted["backend"] == "octree" and not fitted["boundary_preserved"]
+    assert fitted["num_tetrahedra"] > 0 and fitted["hausdorff_to_surface"] > 0.0
+    assert fitted["netgen_available"] is meshioplusplus.has_netgen()
+    backends = fitted["backends_available"]
+    assert backends == meshioplusplus.tetrahedralize_backends()
+    assert "octree" in backends
+    for name in ("tetgen", "gmsh"):
+        if name in backends:  # roadmap 7.7.2: the installed program, the skin kept
+            kept = _tools.tool_tetrahedralize(
+                str(skin), str(out), backend=name, max_size=0.3
+            )
+            assert kept["backend"] == name and kept["boundary_preserved"]
+    if not meshioplusplus.has_netgen():
+        with pytest.raises(NotImplementedError, match="MESHIOPLUSPLUS_WITH_NETGEN"):
+            _tools.tool_tetrahedralize(str(skin), str(out), backend="netgen")
+        return
+    report = _tools.tool_tetrahedralize(str(skin), str(out), max_size=0.3)
+    assert report["num_tetrahedra"] > 0 and report["num_regions"] == 1
+    assert report["boundary_preserved"] and report["backend"] == "netgen"
+    assert 4.0 < report["volume"] < 4 / 3 * np.pi
+    assert {c.type for c in meshioplusplus.read(out).cells} == {"tetra", "triangle"}
+
+
+def test_remesh_quads_tool(tmp_path):
+    """Roadmap 7.7.3: the tool reports the installed remeshers; with
+    QuadriFlow the sphere's skin comes back all quads, and a name no remesher
+    has is refused."""
+    if not hasattr(_core, "remesh_quads"):
+        pytest.skip("core predates remesh_quads")
+    skin = tmp_path / "sphere.stl"
+    meshioplusplus.write(skin, meshioplusplus.icosa_sphere(1.0, 3))
+    out = tmp_path / "quads.vtu"
+    with pytest.raises(NotImplementedError, match="no-such-remesher"):
+        _tools.tool_remesh_quads(str(skin), str(out), backend="no-such-remesher")
+    if "quadriflow" not in meshioplusplus.remesh_quads_backends():
+        pytest.skip("quadriflow is not installed")
+    report = _tools.tool_remesh_quads(str(skin), str(out), target_faces=600)
+    assert report["backend"] == "quadriflow" and report["num_quads"] > 0
+    assert report["num_triangles"] == 0 and report["min_scaled_jacobian"] >= 0.2
+    assert "quadriflow" in report["backends_available"]
+    assert {c.type for c in meshioplusplus.read(out).cells} == {"quad"}
+
+
+def test_heal_on_cad_reads(tmp_path):
+    """Roadmap 7.7.1: convert and mesh_cad_surface heal a STEP input as it is
+    read; on another input the options are refused."""
+    from meshioplusplus._fit_cad import has_occt
+
+    if not has_occt():
+        pytest.skip("core built without OpenCASCADE")
+    from .test_step import _two_face_step
+
+    step = tmp_path / "two.step"
+    step.write_text(_two_face_step(1e-4))
+    out = tmp_path / "two.cad.json"
+    _tools.tool_convert(str(step), str(out), heal=True)
+    import json
+
+    # The heal record is a member of the B-rep's file-level JSON, which the
+    # CAD JSON write keeps.
+    assert json.loads(out.read_text())["heal"]["free_edges_after"] == 6
+    healed = meshioplusplus.read(out)
+    edges = healed.info["brep"]["edges"]
+    assert sum(1 for e in edges if len(e["topology"]) == 1) == 6
+    surface = tmp_path / "two.vtu"
+    report = _tools.tool_mesh_cad_surface(
+        str(step), str(surface), 20.0, heal=True, sew_tolerance=1e-3
+    )
+    assert report["num_points"] > 0
+    with pytest.raises(ValueError, match="STEP and IGES"):
+        _tools.tool_convert(str(surface), str(tmp_path / "x.vtk"), heal=True)
+
+
+def test_project_to_cad_tool(tmp_path):
+    """Roadmap 6.10.1: the sphere's mesh, smoothed (which shrinks it), goes
+    back onto the sphere."""
+    if not hasattr(_core, "project_to_cad"):
+        pytest.skip("core predates project_to_cad")
+    model = pathlib.Path(__file__).parent / "meshes" / "cad_json" / "sphere.cad.json"
+    meshed = tmp_path / "sphere.vtu"
+    _tools.tool_mesh_cad_surface(str(model), str(meshed), 0.25)
+    smoothed = meshioplusplus.smooth(meshioplusplus.read(meshed), iterations=5)
+    shrunk = tmp_path / "shrunk.vtu"
+    meshioplusplus.write(shrunk, smoothed)
+    out = tmp_path / "back.vtu"
+    report = _tools.tool_project_to_cad(str(shrunk), str(model), str(out))
+    assert report["num_projected"] == len(smoothed.points)
+    assert report["num_ambiguous"] == report["num_failed"] == 0
+    assert report["max_move"] > 1e-3
+    assert 0 <= report["num_on_curves"] <= report["num_on_edges"]
+    assert report["outside_trim"] == []
+    back = meshioplusplus.read(out)
+    assert np.allclose(np.linalg.norm(back.points, axis=1), 1.0, atol=1e-12)
+    with pytest.raises(ValueError, match="trim_samples"):
+        _tools.tool_project_to_cad(str(shrunk), str(model), str(out), trim_samples=1)
+
+
+def test_error_size_tool(tmp_path):
+    """Roadmap 6.10.2: estimate_error's indicator becomes a size field that
+    mesh_cad_surface's background reads."""
+    if not hasattr(_core, "error_size"):
+        pytest.skip("core predates error_size")
+    model = pathlib.Path(__file__).parent / "meshes" / "cad_json" / "sphere.cad.json"
+    meshed = tmp_path / "sphere.vtu"
+    _tools.tool_mesh_cad_surface(str(model), str(meshed), 0.3, edges=False)
+    mesh = meshioplusplus.read(meshed)
+    mesh.point_data["f"] = np.exp(3.0 * mesh.points[:, 2])
+    with_field = tmp_path / "field.vtu"
+    meshioplusplus.write(with_field, mesh)
+    indicated = tmp_path / "indicated.vtu"
+    _tools.tool_estimate_error(str(with_field), str(indicated), "f")
+    sized = tmp_path / "sized.vtu"
+    report = _tools.tool_error_size(
+        str(indicated), str(sized), 0.05, min_size=0.05, max_size=0.5
+    )
+    assert report["num_cells"] > 0 and report["num_skipped"] == 0
+    assert 0.05 <= report["min_size"] <= report["max_size"] <= 0.5
+    back = meshioplusplus.read(sized)
+    assert np.all((back.point_data["size"] >= 0.05) & (back.point_data["size"] <= 0.5))
+    remeshed = tmp_path / "remeshed.vtu"
+    adapted = _tools.tool_mesh_cad_surface(
+        str(model), str(remeshed), 0.5, background_path=str(sized)
+    )
+    assert adapted["num_failed"] == 0
+    assert adapted["min_metric_angle"] == 0.0
+    with pytest.raises(ValueError, match="target_error"):
+        _tools.tool_error_size(str(indicated), str(sized), 0.0)
+    with pytest.raises(ValueError, match="error:zz"):
+        _tools.tool_error_size(str(with_field), str(sized), 0.05)
+
+
+def test_mesh_cad_surface_tool(tmp_path):
+    if not hasattr(_core, "mesh_cad_surface"):
+        pytest.skip("core predates mesh_cad_surface")
+    src = pathlib.Path(__file__).parent / "meshes" / "cad_json" / "unit_cube.cad.json"
+    out = tmp_path / "cube.vtu"
+    report = _tools.tool_mesh_cad_surface(str(src), str(out), 0.25)
+    assert out.exists()
+    assert report["num_faces"] == 6
+    assert report["num_failed"] == 0
+    assert report["num_open_edges"] == 0
+    assert report["num_misoriented_edges"] == 0
+    assert len(report["faces"]) == 6
+    assert all(f["status"] == "ok" for f in report["faces"])
+    assert "warnings" in report
+    written = meshioplusplus.read(out)
+    assert "cad:face" in written.cell_data
+    with pytest.raises(ValueError, match="target_size"):
+        _tools.tool_mesh_cad_surface(str(src), str(out), 0.0)
+    # Refined to 25 degrees and smoothed: the bound is met and reported.
+    refined = _tools.tool_mesh_cad_surface(
+        str(src),
+        str(out),
+        0.25,
+        min_angle=25.0,
+        smooth_iterations=2,
+        smooth_method="odt",
+    )
+    assert refined["min_angle_deg"] >= 25.0 - 1e-9
+    assert refined["num_faces_below_bound"] == 0
+    assert sum(refined["angle_histogram"]) == 3 * refined["num_triangles"]
+    assert all(f["corners"] == [] for f in refined["faces"])
+    with pytest.raises(ValueError, match="smooth_method"):
+        _tools.tool_mesh_cad_surface(str(src), str(out), 0.25, smooth_method="none")
+    # Curved: quadratic triangles, every element valid.
+    curved = _tools.tool_mesh_cad_surface(str(src), str(out), 0.25, order=2)
+    assert curved["num_curved_straightened"] == 0
+    assert [c.type for c in meshioplusplus.read(out).cells][0] == "triangle6"
+    with pytest.raises(ValueError, match="order"):
+        _tools.tool_mesh_cad_surface(str(src), str(out), 0.25, order=4)
+    # Sized by curvature: the cylinder's side is finer than target_size.
+    cyl = src.parent / "capped_cylinder.cad.json"
+    uniform = _tools.tool_mesh_cad_surface(str(cyl), str(out), 0.2)
+    sized = _tools.tool_mesh_cad_surface(
+        str(cyl), str(out), 0.2, curvature_deviation=0.002, grading=1.3
+    )
+    assert sized["num_failed"] == 0
+    assert sized["num_triangles"] > uniform["num_triangles"]
+    assert sized["max_edge"] <= uniform["max_edge"] + 1e-12
+    with pytest.raises(ValueError, match="grading"):
+        _tools.tool_mesh_cad_surface(str(cyl), str(out), 0.2, grading=0.5)
+    # Rings at the sphere's poles: every angle meets the bound.
+    sphere = src.parent / "sphere.cad.json"
+    ringed = _tools.tool_mesh_cad_surface(
+        str(sphere), str(out), 0.2, min_angle=25.0, pole_rings=2
+    )
+    assert ringed["num_failed"] == 0
+    assert ringed["min_angle_deg"] >= 25.0 - 1e-9
+    with pytest.raises(ValueError, match="pole_rings"):
+        _tools.tool_mesh_cad_surface(str(sphere), str(out), 0.2, pole_rings=9)
+    # Given sizes (v17.19.0): a face's, by index as JSON gives it.
+    given = _tools.tool_mesh_cad_surface(
+        str(src), str(out), 0.4, face_sizes={"1": 0.1, "2": 0.4}
+    )
+    assert given["num_failed"] == 0
+    assert any(f["limited_by_edges"] for f in given["faces"])
+    assert given["virtual_edges"] == []
+    with pytest.raises(ValueError, match="face_sizes"):
+        _tools.tool_mesh_cad_surface(str(src), str(out), 0.4, face_sizes={"9": 0.1})
+    # Virtual edges (v17.19.0): the rim's sliver is skipped, its chain named.
+    rim = src.parent / "split_rim.cad.json"
+    virtual = _tools.tool_mesh_cad_surface(str(rim), str(out), 0.25, virtual_edges=True)
+    assert virtual["num_failed"] == 0 and virtual["virtual_edges"] == [[3, 5]]
+    # A varying metric (v17.19.0): the sphere's poles meet the bound.
+    varying = _tools.tool_mesh_cad_surface(
+        str(sphere), str(out), 0.2, min_angle=25.0, metric="varying"
+    )
+    assert varying["num_failed"] == 0 and varying["min_angle_deg"] >= 25.0 - 1e-9
+    # The discrete reparametrisation (v17.20.0): the sphere's hemispheres are
+    # flattened through their poles and meet the bound, both reported.
+    flat = _tools.tool_mesh_cad_surface(
+        str(sphere), str(out), 0.2, min_angle=25.0, reparam_condition_number=4.0
+    )
+    assert flat["num_failed"] == 0 and flat["min_angle_deg"] >= 25.0 - 1e-9
+    assert [r["taken"] for r in flat["reparametrised"]] == [True, True]
+    # Virtual faces and model tolerances are accepted; nothing is a sliver
+    # nor declares a tolerance here.
+    other = _tools.tool_mesh_cad_surface(
+        str(sphere), str(out), 0.2, virtual_faces=True, model_tolerances=True
+    )
+    assert other["merged_faces"] == [] and other["tolerance_uses"] == []
+    # Both are on by default since v19.0.0, in the tool as in the function.
+    defaults = inspect.signature(_tools.tool_mesh_cad_surface).parameters
+    assert defaults["virtual_faces"].default is True
+    assert defaults["model_tolerances"].default is True
+    # Corner lopping: the sphere's faces have no acute corner to lop.
+    lopped = _tools.tool_mesh_cad_surface(
+        str(sphere), str(out), 0.2, min_angle=20.0, lop_corners=True
+    )
+    assert lopped["lopped_corners"] == []
+    # A metric from a Hessian (roadmap 6.10.2): a background of the sphere
+    # with a field's Hessian, read from a file.
+    bg = meshioplusplus.mesh_cad_surface(meshioplusplus.read(sphere), 0.2, edges=False)
+    x = np.asarray(bg.points)
+    bg.point_data["f"] = np.tanh((x[:, 2] - 0.3) / 0.1)
+    bg = meshioplusplus.hessian(bg, "f", location="point")
+    bg_path = tmp_path / "hessian.vtu"
+    meshioplusplus.write(bg_path, bg)
+    metric = _tools.tool_mesh_cad_surface(
+        str(sphere),
+        str(out),
+        0.3,
+        metric_background_path=str(bg_path),
+        metric_array="f:hessian",
+        metric_error=0.01,
+    )
+    assert metric["num_failed"] == 0
+    assert metric["num_points"] > uniform_sphere_points(sphere, out)
+    with pytest.raises(ValueError, match="metric_error"):
+        _tools.tool_mesh_cad_surface(
+            str(sphere),
+            str(out),
+            0.3,
+            metric_background_path=str(bg_path),
+            metric_array="f:hessian",
+        )
+    # Quads (roadmap 6.8): all-quad leaves no triangle; untangling (6.6.3)
+    # needs curved elements.
+    quads = _tools.tool_mesh_cad_surface(
+        str(sphere), str(out), 0.3, min_angle=25.0, quads="all"
+    )
+    assert quads["num_quads"] > 0 and quads["num_leftover_triangles"] == 0
+    assert quads["min_quad_scaled_jacobian"] > 0.0
+    assert {c.type for c in meshioplusplus.read(out).cells} == {"quad", "line"}
+    curved = _tools.tool_mesh_cad_surface(
+        str(sphere), str(out), 0.3, order=2, untangle=True
+    )
+    assert curved["num_untangled"] == 0
+    with pytest.raises(ValueError, match="untangle"):
+        _tools.tool_mesh_cad_surface(str(sphere), str(out), 0.3, untangle=True)
+    with pytest.raises(ValueError, match="quads"):
+        _tools.tool_mesh_cad_surface(str(sphere), str(out), 0.3, quads="hex")
+    # Pairing (6.8.1): the matching leaves no more triangles than the greedy.
+    greedy = _tools.tool_mesh_cad_surface(
+        str(sphere), str(out), 0.3, quads="dominant", quad_pairs="greedy"
+    )
+    matched = _tools.tool_mesh_cad_surface(str(sphere), str(out), 0.3, quads="dominant")
+    assert matched["num_leftover_triangles"] <= greedy["num_leftover_triangles"]
+    with pytest.raises(ValueError, match="quad_pairs"):
+        _tools.tool_mesh_cad_surface(str(sphere), str(out), 0.3, quad_pairs="best")
+
+
+def uniform_sphere_points(sphere, out):
+    """The points of the sphere meshed at 0.3 with nothing else asked."""
+    return _tools.tool_mesh_cad_surface(str(sphere), str(out), 0.3)["num_points"]
+
+
+def test_octree_tool(tmp_path):
+    skin = tmp_path / "skin.vtu"
+    meshioplusplus.write(
+        skin,
+        meshioplusplus.convert_cells(
+            meshioplusplus.extract_surface(meshioplusplus.grid([2, 2, 2])),
+            mode="simplexify",
+        ),
+    )
+    out = tmp_path / "tree.vtu"
+    report = _tools.tool_octree(str(skin), str(out), max_level=3, fill="inside")
+    assert out.exists()
+    assert report["dimension"] == 3
+    assert report["num_leaves"] > 0
+    assert "num_hanging" in report
+
+    with pytest.raises(ValueError, match="balance"):
+        _tools.tool_octree(str(skin), str(out), balance="bogus")
+
+    conforming = tmp_path / "conforming.vtu"
+    report = _tools.tool_octree(
+        str(skin), str(conforming), max_level=3, transition="templates"
+    )
+    assert report["num_hanging"] == 0
+    snapped = _tools.tool_octree(
+        str(skin), str(out), max_level=3, fill="inside", snap=True
+    )
+    assert "num_snapped" in snapped and "num_refused" in snapped
+
+
+def test_check_conformity_tool(tmp_path):
+    # One coarse quad beside two fine ones: the fine side's middle node hangs.
+    pts = np.array(
+        [[0, 0], [1, 0], [1, 1], [0, 1], [2, 0], [2, 0.5], [2, 1], [1, 0.5]],
+        dtype=float,
+    )
+    quads = np.array([[0, 1, 2, 3], [1, 4, 5, 7], [7, 5, 6, 2]])
+    src = tmp_path / "t.vtu"
+    meshioplusplus.write(src, meshioplusplus.Mesh(pts, [("quad", quads)]))
+    report = _tools.tool_check_conformity(str(src))
+    assert report["num_t_junctions"] == 1
+    assert report["conforming"] is False
+    assert report["interface_mode"] == "proximity"
+    assert "output_path" not in report
+    flagged = tmp_path / "flags.vtu"
+    report = _tools.tool_check_conformity(str(src), output_path=str(flagged))
+    assert report["output_path"] == str(flagged)
+    flags = meshioplusplus.read(flagged).point_data["conformity:hanging"]
+    assert list(np.nonzero(flags)[0]) == [7]
+    with pytest.raises(ValueError, match="tolerance"):
+        _tools.tool_check_conformity(str(src), tolerance=-1.0)
+
+
+def test_check_tetrahedra_tool(tmp_path):
+    pts = np.array(
+        [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0.2, 0.2, 0.5]], dtype=float
+    )
+    src = tmp_path / "t.vtu"
+    meshioplusplus.write(
+        src, meshioplusplus.Mesh(pts, [("tetra", np.array([[0, 1, 2, 3]]))])
+    )
+    report = _tools.tool_check_tetrahedra(str(src))
+    assert report["valid"] is True and report["num_tetrahedra"] == 1
+    overlap = tmp_path / "o.vtu"
+    meshioplusplus.write(
+        overlap,
+        meshioplusplus.Mesh(pts, [("tetra", np.array([[0, 1, 2, 3], [0, 1, 2, 4]]))]),
+    )
+    report = _tools.tool_check_tetrahedra(str(overlap))
+    assert report["num_overlaps"] == 1 and report["valid"] is False
+    with pytest.raises(ValueError, match="zero_volume_factor"):
+        _tools.tool_check_tetrahedra(str(src), zero_volume_factor=-1.0)
+
+
+def test_voxelize_tool_plane(tmp_path):
+    # A square polyline in the xz plane: "auto" and "xz" agree, "xy" sees a
+    # degenerate box and an unknown plane is refused by name.
+    pts = np.array([[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], dtype=float)
+    loop = meshioplusplus.Mesh(
+        pts, [("line", np.array([[0, 1], [1, 2], [2, 3], [3, 0]]))]
+    )
+    src = tmp_path / "loop.vtu"
+    meshioplusplus.write(src, loop)
+    auto = _tools.tool_voxelize(str(src), str(tmp_path / "a.vtu"), resolution=[4, 4])
+    xz = _tools.tool_voxelize(
+        str(src), str(tmp_path / "b.vtu"), resolution=[4, 4], plane="xz"
+    )
+    assert auto["dims"] == xz["dims"] == [4, 4, 1]
+    assert auto["origin"] == xz["origin"]
+    with pytest.raises(ValueError, match="plane"):
+        _tools.tool_voxelize(
+            str(src), str(tmp_path / "c.vtu"), resolution=[4, 4], plane="uv"
+        )
+
+
+def test_compute_sdf_tool(tmp_path):
+    # A *surface*: distance is measured to a skin, not to a volume.
+    skin = tmp_path / "skin.vtu"
+    meshioplusplus.write(
+        skin,
+        meshioplusplus.convert_cells(
+            meshioplusplus.extract_surface(meshioplusplus.grid([2, 2, 2])),
+            mode="simplexify",
+        ),
+    )
+    mesh_file = str(skin)
+    out = tmp_path / "field.vtu"
+    report = _tools.tool_compute_sdf(mesh_file, str(out), resolution=[4, 4, 4])
+    assert out.exists()
+    assert report["dims"] == [4, 4, 4]
+    assert report["max_depth"] == 0
+    assert report["num_cells"] == 64
+
+    tree = tmp_path / "tree.vtu"
+    report = _tools.tool_compute_sdf(
+        mesh_file, str(tree), structure="octree", root_resolution=4, max_depth=2
+    )
+    assert report["max_depth"] == 2
+    assert 64 < report["num_cells"] < 4096
+
+    # resolution/cell_size size a voxel grid; an octree's finest cell is already
+    # determined by root_resolution and max_depth.
+    with pytest.raises(ValueError, match="octree"):
+        _tools.tool_compute_sdf(
+            mesh_file, str(tree), structure="octree", resolution=[4, 4, 4]
+        )
+
+
+def _grid_source(tmp_path):
+    """Anisotropic box, linear scalar plus a vector -- see test_grid_transfer."""
+    mesh = meshioplusplus.convert_cells(
+        meshioplusplus.grid((3, 3, 3), spacing=(1 / 3, 2 / 3, 4 / 3)), mode="simplexify"
+    )
+    p = mesh.points
+    mesh.point_data["u"] = 1.0 + 2.0 * p[:, 0] + 3.0 * p[:, 1] - 5.0 * p[:, 2]
+    mesh.point_data["v"] = np.column_stack([p[:, 0], 2.0 * p[:, 1], -p[:, 2]])
+    path = tmp_path / "src.vtu"
+    meshioplusplus.write(path, mesh)
+    return str(path)
+
+
+def test_dataset_add_records_a_paired_target(tmp_path):
+    src = tmp_path / "coarse"
+    tgt = tmp_path / "fine"
+    for d, n in ((src, 2), (tgt, 4)):
+        d.mkdir()
+        for i in range(3):
+            meshioplusplus.write(d / f"out_{i:04d}.vtu", meshioplusplus.grid((n, n, n)))
+    manifest = str(tmp_path / "m.json")
+
+    report = _tools.tool_dataset_add(
+        manifest,
+        input_pattern=str(src / "*.vtu"),
+        target_pattern=str(tgt / "*.vtu"),
+        entry_id="sr",
+        split="train",
+    )
+    assert report["num_steps"] == 3
+    assert report["num_target_steps"] == 3
+
+    listed = _tools.tool_dataset_list(manifest)["entries"][0]
+    assert listed["Target"] == {"Pattern": "fine/*.vtu"}
+    assert listed["Source"] == {"Pattern": "coarse/*.vtu"}
+
+
+def test_dataset_add_refuses_a_target_outside_the_root(tmp_path):
+    """A Target is client input *inside* the document, so the sandbox has to
+    hold on it exactly as it does on the Source."""
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "a.vtu").write_bytes(b"")
+    meshioplusplus.write(root / "a.vtu", meshioplusplus.grid((2, 2, 2)))
+    outside = tmp_path / "outside.vtu"
+    meshioplusplus.write(outside, meshioplusplus.grid((2, 2, 2)))
+
+    _tools.set_root(str(root))
+    try:
+        with pytest.raises(ValueError):
+            _tools.tool_dataset_add(
+                str(root / "m.json"),
+                input_paths=["a.vtu"],
+                target_paths=[str(outside)],
+                entry_id="sr",
+            )
+    finally:
+        _tools.set_root(None)
+
+
+def test_dataset_health_reports_a_broken_pairing(tmp_path):
+    src = tmp_path / "coarse"
+    src.mkdir()
+    for i in range(3):
+        meshioplusplus.write(src / f"out_{i:04d}.vtu", meshioplusplus.grid((2, 2, 2)))
+    one = tmp_path / "only.vtu"
+    meshioplusplus.write(one, meshioplusplus.grid((2, 2, 2)))
+
+    manifest = meshioplusplus.DatasetManifest(base_dir=str(tmp_path))
+    manifest.add({"Pattern": "coarse/*.vtu"}, id="ok")
+    manifest.add(
+        {"Pattern": "coarse/*.vtu"},
+        target={"Path": "only.vtu"},
+        id="bad",
+        validate_source=False,
+    )
+    path = tmp_path / "m.json"
+    manifest.save(path)
+
+    report = _tools.tool_dataset_health(str(path), quality=False)
+    entries = report["entries"]
+    assert entries["ok"]["target_steps"] is None  # self-supervised, not broken
+    assert entries["ok"]["pairing_error"] is None
+    assert "pairs 3 source steps with 1 target steps" in entries["bad"]["pairing_error"]
+    assert "bad" in report["bad_entries"] and "ok" not in report["bad_entries"]
+
+
+def test_grid_tools_round_trip(tmp_path):
+    """sample -> resample -> scatter over paths, with the reports checked.
+
+    The whole point of the grid tools is that an agent can drive the data path
+    without holding a mesh, so every step here goes through a file.
+    """
+    src = _grid_source(tmp_path)
+    gridfile = str(tmp_path / "g.vti")
+    report = _tools.tool_grid_sample(src, gridfile, resolution=[4, 4, 4])
+    assert report["channels"] == ["u", "v_0", "v_1", "v_2"]
+    assert report["coverage"] == 1.0
+    assert report["grid"]["dims"] == [4, 4, 4]
+    assert report["grid"]["shape"] == [5, 5, 5]
+    assert report["grid"]["layout"] == "channels_first_zyx"
+
+    upfile = str(tmp_path / "up.vti")
+    report = _tools.tool_grid_resample(gridfile, upfile, factor=2)
+    assert report["scaling_factor"] == [2, 2, 2]
+    assert report["grid"]["dims"] == [8, 8, 8]
+
+    fine = str(tmp_path / "fine.vtu")
+    meshioplusplus.write(
+        fine, meshioplusplus.grid((6, 6, 6), spacing=(1 / 6, 2 / 6, 4 / 6))
+    )
+    out = str(tmp_path / "out.vtu")
+    report = _tools.tool_grid_scatter(upfile, fine, out)
+    assert report["point_data"] == ["u", "v"]
+
+    got = meshioplusplus.read(out)
+    p = got.points
+    assert got.point_data["u"] == pytest.approx(
+        1.0 + 2.0 * p[:, 0] + 3.0 * p[:, 1] - 5.0 * p[:, 2], abs=1e-12
+    )
+
+
+def test_grid_power_spectrum_tool_is_json_safe(tmp_path):
+    mesh = meshioplusplus.grid((15, 15, 15), spacing=(1 / 16, 1 / 16, 1 / 16))
+    mesh.point_data["u"] = np.cos(2 * np.pi * 3 * mesh.points[:, 0])
+    path = str(tmp_path / "g.vti")
+    meshioplusplus.write(path, mesh)
+
+    report = _dump(_tools.tool_grid_power_spectrum(path, "u"))
+    assert report["units"] == "cycles per unit length"
+    assert report["total_power"] == pytest.approx(
+        float((mesh.point_data["u"] ** 2).mean()), rel=1e-12
+    )
+    loud = int(np.argmax(report["power"]))
+    assert report["wavenumber"][loud] == pytest.approx(3.0)
+
+
+def test_grid_tools_report_a_named_error_rather_than_a_traceback(tmp_path):
+    src = _grid_source(tmp_path)
+    gridfile = str(tmp_path / "g.vti")
+    _tools.tool_grid_sample(src, gridfile, resolution=[2, 2, 2])
+
+    guarded = _tools.guard(
+        _tools.tool_grid_power_spectrum, input_path=gridfile, field="nope"
+    )
+    assert guarded["error_type"] == "ValueError"
+    assert "no channel named 'nope'" in guarded["error"]
+
+    # a mesh that is not a lattice cannot be read as a grid
+    guarded = _tools.guard(
+        _tools.tool_grid_scatter,
+        grid_path=src,
+        target_path=src,
+        output_path=str(tmp_path / "o.vtu"),
+    )
+    assert "not a dense regular lattice" in guarded["error"]
+
+
+def test_crop_tool_takes_a_data_predicate(mesh_file, tmp_path):
+    tagged = tmp_path / "tagged.vtu"
+    mesh = meshioplusplus.read(mesh_file)
+    mesh.cell_data["t"] = [
+        np.arange(len(cb.data), dtype=np.float64) for cb in mesh.cells
+    ]
+    meshioplusplus.write(tagged, mesh)
+
+    out = tmp_path / "kept.vtu"
+    report = _tools.tool_crop(
+        str(tagged), str(out), where_array="t", where_compare="<", where_value=1.0
+    )
+    assert report["num_cells"] == len(mesh.cells)  # one cell per block matches
+
+
+# --------------------------------------------------------------------------- #
+# Gated half: the MCP server (needs the [mcp] extra)                      #
+# --------------------------------------------------------------------------- #
+
+
+def _server():
+    pytest.importorskip("mcp")
+    import meshioplusplus.mcp as mmcp
+
+    return mmcp.create_server()
+
+
+def _run(coro):
+    import asyncio
+
+    return asyncio.run(coro)
+
+
+def _content(result):
+    # call_tool returns a content list (mcp 1.x, older), a (content,
+    # structured) tuple (1.x, newer) or a CallToolResult (2.x).
+    if hasattr(result, "content"):
+        return result.content
+    return result[0] if isinstance(result, tuple) else result
+
+
+def _tool_json(result):
+    content = _content(result)
+    text = next(c.text for c in content if getattr(c, "type", "") == "text")
+    return json.loads(text)
+
+
+def test_server_lists_every_registered_tool():
+    server = _server()
+    tools = _run(server.list_tools())
+    assert sorted(t.name for t in tools) == sorted(TOOL_REGISTRY)
+    for t in tools:
+        assert (t.description or "").strip(), f"tool '{t.name}' has no description"
+        schema = getattr(t, "input_schema", None) or getattr(t, "inputSchema", None)
+        assert schema, f"tool '{t.name}' has no input schema"
+
+
+def test_server_render_mesh_returns_an_image(mesh_file, tmp_path):
+    pytest.importorskip("meshioplusplus._core")
+    server = _server()
+    result = _run(
+        server.call_tool(
+            "render_mesh",
+            {
+                "input_path": mesh_file,
+                "output_path": str(tmp_path / "r.png"),
+                "width": 40,
+                "height": 30,
+            },
+        )
+    )
+    content = _content(result)
+    assert any(getattr(c, "type", "") == "image" for c in content)
+    text = _tool_json(
+        _run(server.call_tool("render_mesh", {"input_path": mesh_file, "rows": 5}))
+    )
+    assert len(text["text"].splitlines()) == 5
+
+
+def test_server_call_tool_info_and_convert(mesh_file, tmp_path):
+    server = _server()
+    report = _tool_json(_run(server.call_tool("info", {"input_path": mesh_file})))
+    assert report["num_points"] == 5
+    out_path = str(tmp_path / "out.vtk")
+    report = _tool_json(
+        _run(
+            server.call_tool(
+                "convert", {"input_path": mesh_file, "output_path": out_path}
+            )
+        )
+    )
+    assert os.path.isfile(report["output_path"])
+
+
+def test_server_error_payload_shape(tmp_path):
+    server = _server()
+    report = _tool_json(
+        _run(server.call_tool("info", {"input_path": str(tmp_path / "nope.vtu")}))
+    )
+    assert report["error_type"] == "ValueError"
+    assert "input file not found" in report["error"]
+
+
+def test_server_screenshot_falls_back_to_the_software_rasterizer(
+    mesh_file, tmp_path, monkeypatch
+):
+    # `screenshot` is polyscope-first, but without it (the common case on a
+    # server) it draws the PNG with the software rasterizer instead of failing.
+    pytest.importorskip("meshioplusplus._core")
+    from meshioplusplus import _viewer
+
+    monkeypatch.setattr(_viewer, "has_viewer", lambda: False)
+    server = _server()
+    out = str(tmp_path / "s.png")
+    result = _run(
+        server.call_tool("screenshot", {"input_path": mesh_file, "output_path": out})
+    )
+    content = _content(result)
+    assert any(getattr(c, "type", "") == "image" for c in content)
+    assert open(out, "rb").read(8) == b"\x89PNG\r\n\x1a\n"
+
+
+def test_server_resources():
+    server = _server()
+    resources = _run(server.list_resources())
+    uris = sorted(str(r.uri) for r in resources)
+    assert uris == ["meshioplusplus://formats", "meshioplusplus://version"]
+    content = _run(server.read_resource("meshioplusplus://formats"))
+    payload = json.loads(list(content)[0].content)
+    assert payload == _tools.formats_payload()
+
+
+def test_has_mcp_and_named_error_without_it():
+    import meshioplusplus.mcp as mmcp
+
+    assert isinstance(mmcp.has_mcp(), bool)
+    if not mmcp.has_mcp():
+        with pytest.raises(ImportError, match=r"pip install meshioplusplus\[mcp\]"):
+            mmcp.create_server()
+
+
+# --------------------------------------------------------------------------- #
+# Pure half: dataset-manifest tools                                           #
+# --------------------------------------------------------------------------- #
+def _case_files(tmp_path, n=3):
+    cases = tmp_path / "cases"
+    cases.mkdir(exist_ok=True)
+    for i in range(n):
+        meshioplusplus.write(str(cases / f"case_{i}.vtu"), _mixed_mesh())
+    return cases
+
+
+def test_dataset_add_list_update_round_trip(tmp_path, monkeypatch):
+    _case_files(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    manifest = str(tmp_path / "m.json")
+
+    out = _dump(
+        _tools.tool_dataset_add(
+            manifest,
+            input_pattern="cases/case_*.vtu",
+            entry_id="sweep",
+            tags=["raw"],
+            metadata={"Re": 100},
+        )
+    )
+    assert out["entry_id"] == "sweep" and out["num_steps"] == 3
+    # the stored source is manifest-relative AND "/"-separated regardless of
+    # platform, so the manifest is genuinely portable (doc/datasets.md) --
+    # not os.path.join, which would be backslash-joined on Windows.
+    doc = json.loads(open(manifest, encoding="utf-8").read())
+    assert doc["Entries"][0]["Source"]["Pattern"] == "cases/case_*.vtu"
+
+    _dump(
+        _tools.tool_dataset_add(
+            manifest,
+            input_paths=["cases/case_0.vtu", "cases/case_1.vtu"],
+            entry_id="pair",
+            group="g/h",
+        )
+    )
+    out = _dump(
+        _tools.tool_dataset_update(
+            manifest, entry_ids=["sweep"], split="train", add_tags=["v1"]
+        )
+    )
+    assert out["splits"] == {"train": 1, "None": 1}
+    out = _dump(_tools.tool_dataset_list(manifest, split="train", resolve=True))
+    assert out["num_matching"] == 1
+    entry = out["entries"][0]
+    assert entry["Id"] == "sweep" and entry["Tags"] == ["raw", "v1"]
+    assert len(entry["resolved"]) == 3
+    assert all(item["time_source"] for item in entry["resolved"])
+
+
+def test_dataset_tools_draw_set_and_clear_thumbnails(tmp_path, monkeypatch):
+    pytest.importorskip("meshioplusplus._core")
+    _case_files(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    manifest = str(tmp_path / "m.json")
+    out = _dump(
+        _tools.tool_dataset_add(
+            manifest,
+            input_pattern="cases/case_*.vtu",
+            entry_id="sweep",
+            render_thumbnail=True,
+            thumbnail_width=48,
+            thumbnail_height=32,
+        )
+    )
+    assert out["thumbnail"] == "thumbnails/sweep.png"
+    assert (tmp_path / "thumbnails" / "sweep.png").read_bytes()[:4] == b"\x89PNG"
+    _dump(
+        _tools.tool_dataset_add(
+            manifest, input_paths=["cases/case_0.vtu"], entry_id="one"
+        )
+    )
+    out = _dump(
+        _tools.tool_dataset_update(
+            manifest, entry_ids=["one"], render_thumbnail=True, thumbnail_step=0
+        )
+    )
+    listed = _dump(_tools.tool_dataset_list(manifest))
+    assert {e["Id"]: e.get("Thumbnail") for e in listed["entries"]} == {
+        "sweep": "thumbnails/sweep.png",
+        "one": "thumbnails/one.png",
+    }
+    _tools.tool_dataset_update(
+        manifest, entry_ids=["one"], thumbnail="thumbnails/sweep.png"
+    )
+    assert _dump(_tools.tool_dataset_list(manifest))["entries"][1]["Thumbnail"] == (
+        "thumbnails/sweep.png"
+    )
+    _tools.tool_dataset_update(manifest, entry_ids=["one"], thumbnail="none")
+    assert "Thumbnail" not in _dump(_tools.tool_dataset_list(manifest))["entries"][1]
+    with pytest.raises(ValueError, match="not both"):
+        _tools.tool_dataset_update(
+            manifest, entry_ids=["one"], thumbnail="x.png", render_thumbnail=True
+        )
+    with pytest.raises(ValueError, match="exactly one entry"):
+        _tools.tool_dataset_update(manifest, all_entries=True, thumbnail="x.png")
+    with pytest.raises(ValueError, match="not found"):
+        _tools.tool_dataset_update(manifest, entry_ids=["one"], thumbnail="missing.png")
+
+
+def test_dataset_update_assign_and_annotate(tmp_path, monkeypatch):
+    _case_files(tmp_path, n=6)
+    monkeypatch.chdir(tmp_path)
+    manifest = str(tmp_path / "m.json")
+    for i in range(6):
+        _tools.tool_dataset_add(
+            manifest, input_paths=[f"cases/case_{i}.vtu"], entry_id=f"c{i}"
+        )
+    out = _dump(
+        _tools.tool_dataset_update(
+            manifest, assign_splits={"train": 0.5, "test": 0.5}, seed=1
+        )
+    )
+    assert out["splits"] == {"train": 3, "test": 3}
+    _dump(
+        _tools.tool_dataset_update(
+            manifest, entry_ids=["c0"], notes="odd", metadata={"Ma": 0.3}
+        )
+    )
+    m = meshioplusplus.DatasetManifest.load(manifest)
+    assert m["c0"].notes == "odd" and m["c0"].metadata == {"Ma": 0.3}
+    with pytest.raises(ValueError, match="exactly one entry_id"):
+        _tools.tool_dataset_update(manifest, all_entries=True, notes="x")
+    with pytest.raises(ValueError, match="entry_ids or all_entries"):
+        _tools.tool_dataset_update(manifest, split="train")
+
+
+def test_dataset_tools_validate_input_shape(tmp_path):
+    manifest = str(tmp_path / "m.json")
+    with pytest.raises(ValueError, match="exactly one of input_pattern"):
+        _tools.tool_dataset_add(manifest)
+    with pytest.raises(ValueError, match="exactly one of input_pattern"):
+        _tools.tool_dataset_add(manifest, input_pattern="a*.vtu", input_paths=["a.vtu"])
+
+
+def test_dataset_add_sandboxes_the_sources(tmp_path, monkeypatch):
+    # A source outside the root must fail exactly the way a path argument
+    # would — before anything is written to the manifest.
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside.vtu"
+    meshioplusplus.write(str(outside), _mixed_mesh())
+    monkeypatch.setattr(_tools, "_ROOT", str(root))
+    manifest = str(root / "m.json")
+    with pytest.raises(ValueError, match="outside the configured root"):
+        _tools.tool_dataset_add(manifest, input_paths=[str(outside)])
+    assert not os.path.exists(manifest)
+
+
+def test_dataset_list_sandboxes_hand_edited_sources(tmp_path, monkeypatch):
+    # A hand-edited manifest naming files outside the root: listing is fine
+    # (the document is data), but resolving its plan must refuse — the
+    # pipeline-tool rule applied to manifests.
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside.vtu"
+    meshioplusplus.write(str(outside), _mixed_mesh())
+    manifest = root / "m.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "Version": 1,
+                "Entries": [{"Id": "x", "Source": {"Path": str(outside)}}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_tools, "_ROOT", str(root))
+    _dump(_tools.tool_dataset_list(str(manifest)))  # data-only: allowed
+    with pytest.raises(ValueError, match="outside the configured root"):
+        _tools.tool_dataset_list(str(manifest), resolve=True)
+
+
+# --------------------------------------------------------------------------- #
+# Pure half: dataset health / find and the registry dispatch (v10.23.0)       #
+# --------------------------------------------------------------------------- #
+def _health_manifest(tmp_path):
+    """Three cases: case_0 carries quality:* arrays (whose NaN must not count),
+    case_1 carries a NaN in a data array, case_2 lacks the point array."""
+    from meshioplusplus import DatasetManifest, attach_quality
+
+    cases = tmp_path / "cases"
+    cases.mkdir(exist_ok=True)
+    meshioplusplus.write(str(cases / "case_0.vtu"), attach_quality(_mixed_mesh()))
+    bad = _mixed_mesh()
+    bad.point_data["t"][2] = float("nan")
+    meshioplusplus.write(str(cases / "case_1.vtu"), bad)
+    sparse = _mixed_mesh()
+    del sparse.point_data["t"]
+    meshioplusplus.write(str(cases / "case_2.vtu"), sparse)
+    m = DatasetManifest(name="health", base_dir=str(tmp_path))
+    m.add("cases/case_0.vtu", split="train")
+    m.add("cases/case_1.vtu", split="train")
+    m.add("cases/case_2.vtu")
+    path = str(tmp_path / "m.json")
+    m.save(path)
+    return path
+
+
+def test_dataset_health_reports_per_entry_and_aggregates(tmp_path):
+    report = _dump(_tools.tool_dataset_health(_health_manifest(tmp_path)))
+    assert report["producer"] == "server"
+    assert report["name"] == "health"
+    assert report["num_entries"] == 3 and report["scanned"] == 3
+    assert len(report["sha256"]) == 64
+    assert report["splits"] == {"train": 2, "": 1}
+    assert report["split_balance"] == [
+        {"split": "train", "count": 2, "fraction": 2 / 3},
+        {"split": "", "count": 1, "fraction": 1 / 3},
+    ]
+    entries = report["entries"]
+    assert set(entries) == {"case_0", "case_1", "case_2"}
+    for scan in entries.values():
+        assert scan["steps"] == 1
+        assert isinstance(scan["min_scaled_jacobian"], float)
+    # quality:* NaN (metric N/A) never counts; a data NaN does
+    assert entries["case_0"]["num_nan"] == 0
+    assert entries["case_1"]["num_nan"] == 1
+    assert not any(a.startswith("quality:") for a in entries["case_0"]["arrays"])
+    # fields missing = union over readable entries minus each entry's own
+    assert list(report["fields_missing"]) == ["case_2"]
+    assert report["fields_missing"]["case_2"][0].endswith(":t")
+    assert report["totals"]["num_nan"] == 1
+    assert report["totals"]["num_inverted"] == 0
+    assert report["bad_entries"] == ["case_1"]
+
+
+def test_dataset_health_filters_and_reports_unreadable_entries(tmp_path):
+    from meshioplusplus import DatasetManifest
+
+    path = _health_manifest(tmp_path)
+    only = _dump(_tools.tool_dataset_health(path, split="train"))
+    assert only["scanned"] == 2 and set(only["entries"]) == {"case_0", "case_1"}
+    one = _dump(_tools.tool_dataset_health(path, entry_ids=["case_2"], quality=False))
+    assert set(one["entries"]) == {"case_2"}
+    assert one["entries"]["case_2"]["min_scaled_jacobian"] is None
+    with pytest.raises(ValueError, match="unknown entry id"):
+        _tools.tool_dataset_health(path, entry_ids=["nope"])
+    # an entry whose file vanished is reported, never fatal
+    m = DatasetManifest.load(path)
+    m.add("cases/case_1.vtu", id="ghost", validate_source=False)
+    os.remove(str(tmp_path / "cases" / "case_1.vtu"))
+    m.save(path)
+    report = _dump(_tools.tool_dataset_health(path))
+    assert report["entries"]["ghost"]["steps"] == 0
+    assert "error" in report["entries"]["ghost"]
+    assert "ghost" in report["bad_entries"]
+    # the sandbox holds on the manifest AND on what it resolves to
+    _tools.set_root(str(tmp_path / "cases"))
+    with pytest.raises(ValueError, match="outside the configured root"):
+        _tools.tool_dataset_health(path)
+
+
+def test_dataset_find_lists_manifests_and_skips_other_json(tmp_path):
+    from meshioplusplus import DatasetManifest
+
+    _case_files(tmp_path)
+    top = DatasetManifest(name="top", base_dir=str(tmp_path))
+    top.add("cases/case_0.vtu", split="train")
+    top.save(str(tmp_path / "top.json"))
+    (tmp_path / "other.json").write_text('{"foo": 1}', encoding="utf-8")
+    (tmp_path / "broken.json").write_text("{", encoding="utf-8")
+    nested = tmp_path / "campaign" / "sub"
+    nested.mkdir(parents=True)
+    DatasetManifest(name="nested").save(str(nested / "n.json"))
+    deep = nested / "deeper" / "deepest"
+    deep.mkdir(parents=True)
+    DatasetManifest(name="deep").save(str(deep / "d.json"))
+
+    report = _dump(_tools.tool_dataset_find(str(tmp_path)))
+    found = {m["relpath"]: m for m in report["manifests"]}
+    assert set(found) == {"top.json", "campaign/sub/n.json"}
+    assert found["top.json"]["name"] == "top"
+    assert found["top.json"]["num_entries"] == 1
+    assert found["top.json"]["splits"] == {"train": 1}
+    assert len(found["top.json"]["sha256"]) == 64
+    assert found["top.json"]["mtime"] > 0
+    deeper = _dump(_tools.tool_dataset_find(str(tmp_path), max_depth=4))
+    assert "campaign/sub/deeper/deepest/d.json" in {
+        m["relpath"] for m in deeper["manifests"]
+    }
+    with pytest.raises(ValueError, match="directory not found"):
+        _tools.tool_dataset_find(str(tmp_path / "nowhere"))
+    _tools.set_root(str(tmp_path / "cases"))
+    with pytest.raises(ValueError, match="outside the configured root"):
+        _tools.tool_dataset_find(str(tmp_path))
+
+
+def test_call_tool_dispatches_through_the_registry(mesh_file, tmp_path):
+    report = _tools.call_tool("info", {"input_path": mesh_file})
+    assert report["num_points"] == 5
+    failed = _tools.call_tool("info", {"input_path": str(tmp_path / "nope.vtu")})
+    assert failed["error_type"] == "ValueError"
+    wrong = _tools.call_tool("info", {"bogus": 1})
+    assert wrong["error_type"] == "TypeError"
+    with pytest.raises(KeyError, match="unknown tool 'nope'"):
+        _tools.call_tool("nope", {})
+    assert _tools.call_tool("formats")["readable"]
+
+
+def test_has_dashboard_is_a_bool_and_names_the_extra():
+    import meshioplusplus.mcp as mmcp
+
+    assert isinstance(mmcp.has_dashboard(), bool)
+    if not mmcp.has_dashboard():
+        with pytest.raises(ImportError, match=r"meshioplusplus\[dashboard\]"):
+            mmcp._require_http()
+
+
+# --------------------------------------------------------------------------- #
+# Pure half: training-job tools over the fake trainer (v10.24.0)              #
+# --------------------------------------------------------------------------- #
+import sys  # noqa: E402
+import time  # noqa: E402
+
+_FAKE_TRAINER = [
+    sys.executable,
+    os.path.join(os.path.dirname(__file__), "_fake_trainer.py"),
+]
+
+
+@pytest.fixture()
+def fake_trainer(monkeypatch, tmp_path):
+    from meshioplusplus.mcp import _jobs
+
+    monkeypatch.setenv(_jobs.TRAIN_COMMAND_ENV, json.dumps(_FAKE_TRAINER))
+    _tools.set_runs_dir(str(tmp_path / "runs"))
+    yield
+    _tools.set_runs_dir(None)
+    _tools._MANAGERS.clear()
+
+
+def _wait_terminal(job_id, timeout=20.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        state = _tools.tool_train_status(job_id)
+        if state["status"] in ("finished", "failed", "stopped"):
+            return state
+        time.sleep(0.05)
+    raise AssertionError(state)
+
+
+def test_train_defaults_describes_the_manifest(tmp_path):
+    path = _health_manifest(tmp_path)
+    report = _dump(_tools.tool_train_defaults(path, fields=["t"], target_fields=["t"]))
+    assert report["num_entries"] == 3 and report["splits"] == {"train": 2, "": 1}
+    assert report["available_fields"]["point"] == ["t"]
+    # case_0 also carries the quality:* cell arrays attach_quality wrote
+    assert "c" in report["available_fields"]["cell"]
+    assert set(report["frameworks"]) == {"torch_geometric", "physicsnemo", "deeponet"}
+    assert report["spec"]["Fields"] == ["t"] and report["spec"]["Manifest"] == path
+    assert report["spec"]["Model"]["Name"] == "meshgraphnet"
+    assert report["runs_dir"].endswith("runs")
+
+
+def test_train_tools_drive_a_job_end_to_end(tmp_path, fake_trainer):
+    path = _health_manifest(tmp_path)
+    started = _dump(
+        _tools.tool_train_start(
+            path,
+            ["t"],
+            ["t"],
+            epochs=4,
+            checkpoint_every=2,
+            tags=["smoke"],
+            notes="mcp",
+        )
+    )
+    job_id = started["job_id"]
+    assert started["status"] == "running"
+    assert started["run_dir"].startswith(str(tmp_path / "runs"))
+    state = _wait_terminal(job_id)
+    assert state["status"] == "finished" and state["completed"] and state["epoch"] == 4
+    log = _dump(_tools.tool_train_log(job_id))
+    assert "fake trainer: done" in log["text"] and log["done"]
+    metrics = _dump(_tools.tool_train_metrics(job_id, since_epoch=3))
+    assert [r["epoch"] for r in metrics["rows"]] == [3]
+    ckpts = _dump(_tools.tool_train_checkpoints(job_id))
+    names = {c["name"] for c in ckpts["checkpoints"]}
+    assert {"Fake.0.1.mdlus", "Fake.0.3.mdlus", "best.mdlus", "final.mdlus"} <= names
+    marked = _dump(_tools.tool_train_mark_best(job_id, "Fake.0.1.mdlus"))
+    assert [c["name"] for c in marked["checkpoints"] if c["is_best"]] == ["best.mdlus"]
+    listed = _dump(_tools.tool_train_list())
+    assert listed["jobs"][0]["job_id"] == job_id and listed["jobs"][0]["tags"] == [
+        "smoke"
+    ]
+    assert _dump(_tools.tool_train_list(status="running"))["jobs"] == []
+    assert (
+        _dump(_tools.tool_train_list(manifest_path=path))["jobs"][0]["job_id"] == job_id
+    )
+    # a stop on a finished job is a no-op; unknown jobs are named errors
+    assert _dump(_tools.tool_train_stop(job_id))["status"] == "finished"
+    with pytest.raises(ValueError, match="no job 'nope'"):
+        _tools.tool_train_status("nope")
+
+
+def test_train_start_validates_before_spawning(tmp_path, fake_trainer):
+    path = _health_manifest(tmp_path)
+    with pytest.raises(ValueError, match="no split 'nope'"):
+        _tools.tool_train_start(path, ["t"], ["t"], train_split="nope")
+    with pytest.raises(ValueError, match="TargetFields must name"):
+        _tools.tool_train_start(path, ["t"], [])
+    with pytest.raises(ValueError, match="Epochs must be"):
+        _tools.tool_train_start(path, ["t"], ["t"], epochs=0)
+    # the sandbox holds on the entries the split resolves to
+    _tools.set_root(str(tmp_path / "cases"))
+    with pytest.raises(ValueError, match="outside the configured root"):
+        _tools.tool_train_start(path, ["t"], ["t"])
+
+
+def test_train_start_names_the_missing_frameworks(tmp_path, monkeypatch):
+    from meshioplusplus import _gpu
+    from meshioplusplus.mcp import _jobs
+
+    monkeypatch.delenv(_jobs.TRAIN_COMMAND_ENV, raising=False)
+    monkeypatch.setattr(_gpu, "_importable", lambda name: False)
+    path = _health_manifest(tmp_path)
+    with pytest.raises(ImportError, match="pip install torch_geometric"):
+        _tools.tool_train_start(path, ["t"], ["t"])
+    with pytest.raises(ImportError, match="torch_geometric"):
+        _tools.tool_train_predict(path, checkpoint=path, output_dir=str(tmp_path / "p"))
+    with pytest.raises(ValueError, match="give job_id or checkpoint"):
+        _tools.tool_train_predict(path)
+
+
+def test_subsample_tool_writes_a_point_cloud_and_is_json_safe(tmp_path):
+    mesh = meshioplusplus.extract_surface(
+        meshioplusplus.convert_cells(meshioplusplus.grid((4, 4, 4)), mode="simplexify")
+    )
+    mesh.point_data["u"] = mesh.points[:, 0]
+    src = str(tmp_path / "surf.vtu")
+    meshioplusplus.write(src, mesh)
+    out = str(tmp_path / "cloud.vtu")
+
+    report = _dump(
+        _tools.tool_subsample(src, out, 16, method="grid", seed=2, record_ids=True)
+    )
+    assert report["count"] == 16 and report["num_source_points"] == 98
+    assert report["method"] == "grid"
+    assert report["cell_blocks"] == [{"type": "vertex", "num_cells": 16}]
+    assert "budget:original_point_id" in report["point_data"]
+    got = meshioplusplus.read(out)
+    ids = got.point_data["budget:original_point_id"].astype(int)
+    assert np.allclose(got.point_data["u"], mesh.point_data["u"][ids])
+
+    guarded = _tools.guard(
+        _tools.tool_subsample, input_path=src, output_path=out, count=1000
+    )
+    assert guarded["error_type"] == "ValueError"
+    assert "count is 1000 but only 98" in guarded["error"]
+
+
+def test_predict_file_tool_is_gated_and_guarded(tmp_path):
+    src = str(tmp_path / "grid.vtu")
+    meshioplusplus.write(src, meshioplusplus.grid((2, 2, 2)))
+    checkpoint = tmp_path / "model.mdlus"
+    checkpoint.write_bytes(b"")
+
+    assert _tools.TOOL_REGISTRY["predict_file"]["gated"] == "physicsnemo"
+    guarded = _tools.guard(
+        _tools.tool_predict_file,
+        checkpoint=str(checkpoint),
+        input_path=src,
+        output_path=str(tmp_path / "out.vtu"),
+    )
+    # Without the frameworks it is a named payload, never a traceback.
+    assert guarded["error_type"] == "ImportError"
+    assert "nvidia-physicsnemo" in guarded["error"]
+
+
+def test_proximity_graph_tool_writes_the_graph_and_reports_degrees(tmp_path):
+    src = str(tmp_path / "grid.vtu")
+    meshioplusplus.write(src, meshioplusplus.grid((4, 4, 4)))
+    out = str(tmp_path / "graph.vtu")
+
+    report = _dump(_tools.tool_proximity_graph(src, out, radius=1.1))
+    expected = meshioplusplus.proximity_graph(
+        meshioplusplus.grid((4, 4, 4)), radius=1.1
+    )
+    assert report["num_vertices"] == 125
+    assert report["num_edges"] == expected.shape[1] // 2
+    assert report["cell_blocks"] == [{"type": "line", "num_cells": report["num_edges"]}]
+    assert report["num_isolated"] == 0 and report["degree_max"] == 6
+
+    knn = _dump(_tools.tool_proximity_graph(src, out, method="knn", max_neighbors=4))
+    assert knn["degree_min"] >= 4
+
+    bad = _tools.guard(_tools.tool_proximity_graph, input_path=src, output_path=out)
+    assert bad["error_type"] == "ValueError" and "positive radius" in bad["error"]
+
+
+def test_train_start_refuses_an_unknown_family_before_building_a_spec(tmp_path):
+    from meshioplusplus.physicsnemo._train import _MODELS
+
+    path = _health_manifest(tmp_path)
+    with pytest.raises(ValueError, match="unknown model_name 'gpt'") as excinfo:
+        _tools.tool_train_start(path, ["t"], ["t"], model_name="gpt")
+    for name in _MODELS:
+        assert name in str(excinfo.value)
+
+
+def test_train_start_builds_each_family_s_own_spec(tmp_path, fake_trainer):
+    """Every family's `train_start` kwargs land in its own block of the
+    written spec -- and nothing of another family's."""
+    from meshioplusplus.physicsnemo._train import load_spec
+
+    path = _health_manifest(tmp_path)
+    cases = {
+        "fno": dict(
+            fields=["t"],
+            resolution=[7, 7, 1],
+            squeeze=2,
+            squeeze_index=0,
+            num_fno_modes=6,
+        ),
+        "afno": dict(
+            fields=["t"],
+            resolution=[7, 7, 1],
+            squeeze=2,
+            patch_size=[4, 4],
+            embed_dim=8,
+            num_blocks=2,
+        ),
+        "deeponet": dict(fields=[], parameters=["Load"], trunk="budget", trunk_count=8),
+    }
+    for name, kwargs in cases.items():
+        fields = kwargs.pop("fields")
+        started = _dump(
+            _tools.tool_train_start(
+                path, fields, ["t"], model_name=name, epochs=1, **kwargs
+            )
+        )
+        spec = load_spec(os.path.join(started["run_dir"], "spec.json"))
+        assert spec.model_name == name
+        _wait_terminal(started["job_id"])
+    doc = _tools._jobs_manager().status
+    summary = _dump(_tools.tool_train_list())["jobs"]
+    by_name = {job["model_name"]: job for job in summary}
+    assert by_name["fno"]["num_fno_modes"] == 6 and by_name["fno"]["squeeze"] == 2
+    assert by_name["afno"]["patch_size"] == [4, 4] and by_name["afno"]["embed_dim"] == 8
+    assert (
+        by_name["deeponet"]["parameters"] == ["Load"]
+        and by_name["deeponet"]["width"] == 64
+    )
+    assert (
+        by_name["fno"]["hidden_dim"] is None
+        and by_name["deeponet"]["resolution"] is None
+    )
+    del doc
+
+
+def test_server_mirrors_the_train_start_and_predict_file_parameters():
+    """`_server.py`'s typed wrappers contribute the JSON schema and nothing
+    else, so their parameter lists must equal the pure tools' -- checked from
+    the source text with `ast`, so it runs without the SDK installed.
+
+    Deliberately never ``from meshioplusplus.mcp import _server`` (or
+    ``importlib.import_module``): that line executes the module, whose own
+    top-level ``from mcp.server.mcpserver import ...`` raises
+    ``ModuleNotFoundError`` on the SDK-absent default matrix this test is
+    meant to run in -- the same pure/gated split `_tools.py`'s import chain
+    already keeps. Reading the ``.py`` file's text directly is what actually
+    "runs without the SDK installed."
+    """
+    import ast
+    import inspect
+    import pathlib
+
+    server_path = (
+        pathlib.Path(inspect.getfile(meshioplusplus.mcp)).parent / "_server.py"
+    )
+    tree = ast.parse(server_path.read_text(encoding="utf-8"))
+    mirrored = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name in (
+            "train_start",
+            "predict_file",
+            "fit_cad",
+            "refine_patches",
+        ):
+            mirrored[node.name] = [a.arg for a in node.args.args]
+    for name in ("train_start", "predict_file", "fit_cad", "refine_patches"):
+        pure = list(inspect.signature(getattr(_tools, f"tool_{name}")).parameters)
+        assert mirrored[name] == pure, name
+
+
+def test_libmesh_z88_fil_radioss_formats(tmp_path):
+    import pathlib
+
+    meshes = pathlib.Path(__file__).parent / "meshes"
+    out = _dump(_tools.tool_formats())
+    for fmt in ("libmesh", "z88", "abaqus_fil", "radioss"):
+        assert fmt in out["readable"], fmt
+    assert "z88" in out["writable"]
+    assert "libmesh" in out["writable"]  # v16.11.0
+    assert "abaqus_fil" in out["writable"]
+    for ext in (".xda", ".xdr", ".xda.gz", ".xdr.gz", ".xda.bz2", ".xdr.bz2"):
+        assert out["extensions"][ext] == ["libmesh"], ext
+    assert out["extensions"][".fil"] == ["abaqus_fil"]
+    assert out["extensions"][".rad"] == ["radioss"]
+    fil = meshes / "abaqus_fil" / "model_le.fil"
+    assert _dump(_tools.tool_sniff(str(fil)))["format"] == "abaqus_fil"
+    target = str(tmp_path / "last.vtu")
+    _tools.tool_convert(str(fil), target, time_step=-1)
+    last = meshioplusplus.read(target)
+    assert float(np.asarray(last.field_data["meshio:time"]).ravel()[0]) == 1.0
+    # Z88's fixed file names are dispatched by basename, in and out.
+    z88 = str(meshes / "z88" / "cantilever" / "z88i1.txt")
+    assert _dump(_tools.tool_sniff(z88))["format"] == "z88"
+    (tmp_path / "out").mkdir()
+    back = str(tmp_path / "out" / "z88i1.txt")
+    _tools.tool_convert(str(meshes / "libmesh" / "one_hex.xdr"), back)
+    assert meshioplusplus.read(back).cells[0].type == "hexahedron"
+    xdr = str(tmp_path / "back.xdr.gz")
+    _tools.tool_convert(str(meshes / "libmesh" / "one_hex.xdr"), xdr)
+    assert meshioplusplus.read(xdr).cells[0].type == "hexahedron"
+    rad = meshes / "radioss" / "old_0000.rad"
+    assert _dump(_tools.tool_info(str(rad)))["num_points"] == 8
+    # Written too, since v16.17.0.
+    assert "radioss" in out["writable"]
+    back_rad = str(tmp_path / "back_0000.rad")
+    _tools.tool_convert(str(rad), back_rad)
+    assert meshioplusplus.read(back_rad).cells[0].type == "hexahedron"
+    # OpenRadioss animation files (v16.11.0): found by name, written since.
+    assert "radioss_anim" in out["readable"] and "radioss_anim" in out["writable"]
+    anim = str(meshes / "radioss_anim" / "cubeA002")
+    assert _dump(_tools.tool_sniff(anim))["format"] == "radioss_anim"
+    assert _dump(_tools.tool_info(anim))["num_points"] == 15
+    # ... and their time-history files (read v16.12.0, written since): no points.
+    assert "radioss_th" in out["readable"] and "radioss_th" in out["writable"]
+    th = str(meshes / "radioss_th" / "column" / "columnT01")
+    assert _dump(_tools.tool_sniff(th))["format"] == "radioss_th"
+    assert _dump(_tools.tool_info(th))["num_points"] == 0
+    back_th = str(tmp_path / "out" / "backT01")
+    _tools.tool_convert(th, back_th)
+    assert (
+        meshioplusplus.read(back_th).field_data.keys()
+        == meshioplusplus.read(th).field_data.keys()
+    )
+
+
+def test_vtx_and_szplt_formats():
+    """DOLFINx VTX (.bp directories) and Tecplot SZL (v16.13.0), both written since
+    their writers joined: each behind an optional library, sniffed without it."""
+    meshes = pathlib.Path(__file__).parent / "meshes"
+    out = _dump(_tools.tool_formats())
+    for fmt in ("vtx", "szplt"):
+        assert fmt in out["readable"] and fmt in out["writable"]
+    bp = str(meshes / "vtx" / "heat.bp")
+    assert _dump(_tools.tool_sniff(bp))["format"] == "vtx"
+    szl = str(meshes / "szplt" / "transient.szplt")
+    assert _dump(_tools.tool_sniff(szl))["format"] == "szplt"
+    if getattr(_core, "__has_adios2__", False) or importlib.util.find_spec("adios2"):
+        info = _dump(_tools.tool_info(bp))
+        assert info["num_points"] == 25
+        assert info["time_values"] == pytest.approx([0.0, 0.01, 0.02])
+    if getattr(_core, "__has_tecio__", False):
+        assert _dump(_tools.tool_info(szl))["time_values"] == [0.0, 0.5, 1.0]
+
+
+def test_d3plot_and_op2_formats(tmp_path):
+    import pathlib
+
+    meshes = pathlib.Path(__file__).parent / "meshes"
+    out = _dump(_tools.tool_formats())
+    assert "lsdyna_d3plot" in out["readable"]
+    assert "lsdyna_d3plot" in out["writable"]
+    assert "nastran_op2" in out["readable"] and "nastran_op2" in out["writable"]
+    assert out["extensions"][".op2"] == ["nastran_op2"]
+    # d3plot has no extension: the file name and the control block tell.
+    d3plot = meshes / "lsdyna_d3plot" / "generated" / "shell_solid" / "d3plot"
+    assert _dump(_tools.tool_sniff(str(d3plot)))["format"] == "lsdyna_d3plot"
+    last = str(tmp_path / "last.vtu")
+    _tools.tool_convert(str(d3plot), last, time_step=-1)
+    mesh = meshioplusplus.read(last)
+    assert "lsdyna:alive" in mesh.cell_data and "displacement" in mesh.point_data
+    op2 = meshes / "nastran_op2" / "mode_solid_shell_bar.op2"
+    assert _dump(_tools.tool_sniff(str(op2)))["format"] == "nastran_op2"
+    mode = str(tmp_path / "mode.vtu")
+    _tools.tool_convert(str(op2), mode, time_step=-1)
+    assert "EIGENVECTOR" in meshioplusplus.read(mode).point_data
+
+
+def test_a_result_mesh_converts_to_nastran_op2(tmp_path):
+    mesh = meshioplusplus.Mesh(
+        np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], dtype=float),
+        [("quad", np.array([[0, 1, 2, 3]]))],
+    )
+    mesh.point_data["DISPLACEMENT"] = np.arange(12, dtype=float).reshape(4, 3)
+    source = str(tmp_path / "result.vtu")
+    meshioplusplus.write(source, mesh)
+    op2 = str(tmp_path / "result.op2")
+    _tools.tool_convert(source, op2)
+    assert _dump(_tools.tool_sniff(op2))["format"] == "nastran_op2"
+    back = meshioplusplus.read(op2)
+    np.testing.assert_allclose(
+        back.point_data["DISPLACEMENT"], mesh.point_data["DISPLACEMENT"]
+    )
+
+
+def test_a_result_mesh_converts_to_a_binout(tmp_path):
+    mesh = meshioplusplus.Mesh(
+        np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0]], dtype=float),
+        [("vertex", np.arange(3)[:, None])],
+    )
+    mesh.point_data["displacement"] = np.arange(9, dtype=float).reshape(3, 3)
+    source = str(tmp_path / "result.vtu")
+    meshioplusplus.write(source, mesh)
+    out = _dump(_tools.tool_formats())
+    assert "lsdyna_binout" in out["readable"] and "lsdyna_binout" in out["writable"]
+    binout = str(tmp_path / "binout")
+    _tools.tool_convert(source, binout)
+    assert _dump(_tools.tool_sniff(binout))["format"] == "lsdyna_binout"
+    back = meshioplusplus.read(binout)
+    np.testing.assert_allclose(
+        back.point_data["displacement"], mesh.point_data["displacement"]
+    )
+
+
+def test_a_result_mesh_converts_to_an_abaqus_results_file(tmp_path):
+    mesh = meshioplusplus.Mesh(
+        np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0]], dtype=float),
+        [("triangle", np.array([[0, 1, 2]]))],
+    )
+    mesh.point_data["U"] = np.arange(9, dtype=float).reshape(3, 3)
+    source = str(tmp_path / "result.vtu")
+    meshioplusplus.write(source, mesh)
+    fil = str(tmp_path / "result.fil")
+    _tools.tool_convert(source, fil)
+    assert _dump(_tools.tool_sniff(fil))["format"] == "abaqus_fil"
+    back = meshioplusplus.read(fil)
+    np.testing.assert_allclose(back.point_data["U"], mesh.point_data["U"])
+
+
+def test_marc_and_ansys_results_formats(tmp_path):
+    import pathlib
+
+    meshes = pathlib.Path(__file__).parent / "meshes"
+    out = _dump(_tools.tool_formats())
+    for fmt in ("marc", "marc_t19", "ansys_rst_cyclic"):
+        assert fmt in out["readable"], fmt
+    # The deck is written since v16.17.0 (by name: ".dat" writes Tecplot), the
+    # post file since its writer joined.
+    assert "marc" in out["writable"] and "marc_t19" in out["writable"]
+    assert "ansys_rst" in out["writable"]
+    assert "ansys_rst_cyclic" not in out["writable"]
+    assert out["extensions"][".t19"] == ["marc_t19"]
+    assert out["extensions"][".dat"] == ["marc", "tecplot"]
+    deck = meshes / "marc" / "hex20.dat"
+    assert _dump(_tools.tool_sniff(str(deck)))["format"] == "marc"
+    target = str(tmp_path / "hex20.vtu")
+    _tools.tool_convert(str(deck), target)
+    assert meshioplusplus.read(target).cells[0].type == "hexahedron20"
+    again = str(tmp_path / "again.dat")
+    _tools.tool_convert(target, again, output_format="marc")
+    assert _dump(_tools.tool_sniff(again))["format"] == "marc"
+    post = str(meshes / "marc" / "results.t19")
+    last = str(tmp_path / "last.vtu")
+    _tools.tool_convert(post, last, time_step=-1)
+    assert (
+        float(
+            np.asarray(meshioplusplus.read(last).field_data["meshio:time"]).ravel()[0]
+        )
+        == 1.0
+    )
+    # Element results of an Ansys .rst reach a converted file.
+    rst = str(meshes / "ansys" / "rst" / "beam_static_bc.rst")
+    stress = str(tmp_path / "stress.vtu")
+    _tools.tool_convert(rst, stress)
+    assert "S" in meshioplusplus.read(stress).point_data
+
+
+def test_extrude_revolve_and_mirror_tools(tmp_path):
+    """Roadmap 3.1.2, 3.1.3 and 3.2.5: the sweep and reflection tools write
+    their mesh and report the operations' counters."""
+    if not hasattr(_core, "extrude"):
+        pytest.skip("core predates extrude")
+    rect = tmp_path / "rect.vtu"
+    meshioplusplus.write(rect, meshioplusplus.rectangle(dims=(3, 2)))
+    out = tmp_path / "swept.vtu"
+    report = _tools.tool_extrude(str(rect), str(out), num_layers=4)
+    assert report["num_hexahedra"] == 24 and report["num_flipped"] == 0
+    assert {c.type for c in meshioplusplus.read(out).cells} == {"hexahedron"}
+    with pytest.raises(ValueError, match="parallel"):
+        _tools.tool_extrude(str(rect), str(out), direction=[0, 1, 0])
+    report = _tools.tool_revolve(str(rect), str(out), num_layers=8)
+    assert report["full"] and report["num_on_axis"] == 3
+    box = tmp_path / "box.vtu"
+    meshioplusplus.write(box, meshioplusplus.box(dims=(2, 2, 2), cell_type="tetra"))
+    report = _tools.tool_mirror(str(box), str(out), keep_original=True)
+    assert report["num_points_on_plane"] == 9 and report["num_flipped_cells"] == 48
+    with pytest.raises(ValueError, match="normal"):
+        _tools.tool_mirror(str(box), str(out), normal=[0, 0, 0])
+
+
+def test_find_intersections_and_thickness_tools(tmp_path):
+    """Roadmap 3.1.2 and 3.1.4: the intersection and thickness tools report
+    the operations' counts and write their meshes when asked."""
+    if not hasattr(_core, "find_intersections"):
+        pytest.skip("core predates find_intersections")
+    a = tmp_path / "a.vtu"
+    b = tmp_path / "b.vtu"
+    meshioplusplus.write(a, meshioplusplus.icosa_sphere(1.0, 2))
+    meshioplusplus.write(b, meshioplusplus.icosa_sphere(1.0, 2, center=(1.0, 0.0, 0.0)))
+    report = _tools.tool_find_intersections(str(a))
+    assert report["clean"] and report["num_pairs"] == 0
+    out = tmp_path / "flags.vtu"
+    segs = tmp_path / "segs.vtu"
+    report = _tools.tool_find_intersections(
+        str(a), str(out), other_path=str(b), segments_path=str(segs), max_pairs=3
+    )
+    assert report["num_pairs"] > 3 and len(report["pairs"]) == 3 and report["truncated"]
+    assert "intersections:count" in meshioplusplus.read(out).cell_data
+    assert report["segments_path"] and len(meshioplusplus.read(segs).cells[0].data) > 0
+    json.dumps(report)
+    report = _tools.tool_thickness(str(a), str(out), min_thickness=3.0)
+    assert report["direction"] == "inward" and not report["passed"]
+    assert report["min"] == pytest.approx(2.0, abs=0.05)
+    assert "thickness:distance" in meshioplusplus.read(out).cell_data
+    report = _tools.tool_thickness(str(a), other_path=str(b), direction="inward")
+    assert report["num_hit"] > 0
+    json.dumps(report)
+    with pytest.raises(ValueError, match="direction"):
+        _tools.tool_thickness(str(a), direction="sideways")
+
+
+def test_deviation_tool(tmp_path):
+    """Roadmap 7.4: the deviation tool reports the statistics, against a
+    surface and against a fitted patch, and gates on min_share."""
+    from meshioplusplus import _core
+
+    if not hasattr(_core, "deviation"):
+        pytest.skip("core predates deviation")
+    ref, scan, fitted = (
+        tmp_path / "ref.vtu",
+        tmp_path / "scan.vtu",
+        tmp_path / "fit.vtu",
+    )
+    meshioplusplus.write(ref, meshioplusplus.icosa_sphere(1.0, 3))
+    meshioplusplus.write(scan, meshioplusplus.icosa_sphere(1.01, 3))
+    meshioplusplus.write(
+        fitted,
+        meshioplusplus.fit_primitives(
+            meshioplusplus.icosa_sphere(1.0, 3), patch_data=""
+        ),
+    )
+    out = tmp_path / "dev.vtu"
+    report = _tools.tool_deviation(
+        str(scan), str(ref), str(out), tolerance=0.02, min_share=1.0
+    )
+    assert report["passed"] is True
+    assert report["mean"] == pytest.approx(0.01, abs=1e-9)
+    assert "deviation:distance" in meshioplusplus.read(out).point_data
+    report = _tools.tool_deviation(str(scan), str(fitted), patch=0)
+    assert report["mean"] == pytest.approx(0.01, abs=1e-3)
+    json.dumps(report)
+    with pytest.raises(ValueError, match="range_min"):
+        _tools.tool_deviation(str(scan), str(ref), range_min=0.0)
+    regs = tmp_path / "regs.vtu"
+    report = _tools.tool_deviation_regions(str(out), str(regs), 0.005)
+    assert report["num_excess"] == 1
+    assert report["regions"][0]["name"] == "deviation:excess_0"
+    json.dumps(report)
+    big = tmp_path / "big.vtu"
+    report = _tools.tool_exaggerate(str(out), str(big), scale=20.0)
+    assert report["num_moved"] > 0 and big.exists()
+    col = tmp_path / "col.ply"
+    report = _tools.tool_colorize(str(out), str(col), "deviation:distance", steps=4)
+    assert report["location"] == "point"
+    assert "red" in meshioplusplus.read(col).point_data
+
+
+def test_cut_tools(tmp_path):
+    from meshioplusplus import _core
+
+    if not hasattr(_core, "cut_level_set"):
+        pytest.skip("core predates cut_level_set")
+    box = tmp_path / "box.vtu"
+    meshioplusplus.write(box, meshioplusplus.box((2, 2, 2)))
+    out = tmp_path / "cut.vtu"
+    plane = [[0.3, 0, 0, 1, 0, 0]]
+    if not meshioplusplus.cut_has_cutcells():
+        with pytest.raises(NotImplementedError, match="MESHIOPLUSPLUS_WITH_CUTCELLS"):
+            _tools.tool_cut_level_set(str(box), str(out), planes=plane)
+        return
+    report = _tools.tool_cut_level_set(str(box), str(out), planes=plane)
+    assert report["cutcells_available"] is True
+    assert report["measure"] == pytest.approx(0.3, abs=1e-12)
+    assert report["dimension"] == 3 and out.exists()
+    quad = tmp_path / "quad.vtu"
+    report = _tools.tool_cut_quadrature(
+        str(box), str(quad), planes=plane, selection="plane0 = 0", order=3
+    )
+    assert report["sum_weights"] == pytest.approx(1.0, abs=1e-12)
+    assert report["dimension"] == 2
+    with pytest.raises(ValueError, match="six numbers"):
+        _tools.tool_cut_level_set(str(box), str(out), planes=[[0.3, 0, 0]])
+
+
+def test_workflow_prompts_name_only_registered_tools():
+    import re
+
+    for text in (
+        _tools.prompt_measure_scan(),
+        _tools.prompt_reverse_engineer_scan(part_class="cast"),
+    ):
+        named = set(re.findall(r"`([a-z_]+)`", text))
+        tools = {n for n in named if not n.startswith(("scan", "part", "inspection"))}
+        tools -= {"cast", "analytic"}
+        missing = sorted(n for n in tools if n not in _tools.TOOL_REGISTRY)
+        assert not missing, missing
+        assert len(tools) >= 8
+
+
+def test_server_lists_the_workflow_prompts():
+    server = _server()
+    prompts = _run(server.list_prompts())
+    names = sorted(p.name for p in prompts)
+    assert names == ["measure_scan", "reverse_engineer_scan"]

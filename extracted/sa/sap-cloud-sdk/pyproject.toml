@@ -1,6 +1,6 @@
 [project]
 name = "sap-cloud-sdk"
-version = "0.65.4"
+version = "0.66.0"
 description = "SAP Cloud SDK for Python"
 readme = "README.md"
 license = "Apache-2.0"
@@ -40,6 +40,7 @@ dependencies = [
     "python-odata>=0.7.0",
     "cloudevents>=2.2.0,<3",
     "cryptography>=48.0.1,<51",
+    "cachetools~=5.5.2",
 ]
 
 [project.optional-dependencies]

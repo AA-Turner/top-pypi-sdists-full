@@ -12202,6 +12202,7 @@ class CfnInstance(
                 outbound_calls=False,
         
                 # the properties below are optional
+                auto_mute_agent_on_hold=False,
                 auto_resolve_best_voices=False,
                 contactflow_logs=False,
                 contact_lens=False,
@@ -12466,6 +12467,7 @@ class CfnInstance(
         name_mapping={
             "inbound_calls": "inboundCalls",
             "outbound_calls": "outboundCalls",
+            "auto_mute_agent_on_hold": "autoMuteAgentOnHold",
             "auto_resolve_best_voices": "autoResolveBestVoices",
             "contactflow_logs": "contactflowLogs",
             "contact_lens": "contactLens",
@@ -12485,6 +12487,7 @@ class CfnInstance(
             *,
             inbound_calls: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             outbound_calls: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            auto_mute_agent_on_hold: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             auto_resolve_best_voices: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             contactflow_logs: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             contact_lens: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
@@ -12503,6 +12506,7 @@ class CfnInstance(
 
             :param inbound_calls: Mandatory element which enables inbound calls on new instance.
             :param outbound_calls: Mandatory element which enables outbound calls on new instance.
+            :param auto_mute_agent_on_hold: Boolean flag which enables AUTO_MUTE_AGENT_ON_HOLD on an instance.
             :param auto_resolve_best_voices: Boolean flag which enables AUTO_RESOLVE_BEST_VOICES on an instance.
             :param contactflow_logs: Boolean flag which enables CONTACTFLOW_LOGS on an instance.
             :param contact_lens: Boolean flag which enables CONTACT_LENS on an instance.
@@ -12529,6 +12533,7 @@ class CfnInstance(
                     outbound_calls=False,
                 
                     # the properties below are optional
+                    auto_mute_agent_on_hold=False,
                     auto_resolve_best_voices=False,
                     contactflow_logs=False,
                     contact_lens=False,
@@ -12546,6 +12551,7 @@ class CfnInstance(
                 type_hints = cached_type_hints(_typecheckingstub__c40aedafdc4ea4fb2b717cc5c6ef0e2db4eb7490be99c35b78dc90f18526d068)
                 check_type(argname="argument inbound_calls", value=inbound_calls, expected_type=type_hints["inbound_calls"])
                 check_type(argname="argument outbound_calls", value=outbound_calls, expected_type=type_hints["outbound_calls"])
+                check_type(argname="argument auto_mute_agent_on_hold", value=auto_mute_agent_on_hold, expected_type=type_hints["auto_mute_agent_on_hold"])
                 check_type(argname="argument auto_resolve_best_voices", value=auto_resolve_best_voices, expected_type=type_hints["auto_resolve_best_voices"])
                 check_type(argname="argument contactflow_logs", value=contactflow_logs, expected_type=type_hints["contactflow_logs"])
                 check_type(argname="argument contact_lens", value=contact_lens, expected_type=type_hints["contact_lens"])
@@ -12561,6 +12567,8 @@ class CfnInstance(
                 "inbound_calls": inbound_calls,
                 "outbound_calls": outbound_calls,
             }
+            if auto_mute_agent_on_hold is not None:
+                self._values["auto_mute_agent_on_hold"] = auto_mute_agent_on_hold
             if auto_resolve_best_voices is not None:
                 self._values["auto_resolve_best_voices"] = auto_resolve_best_voices
             if contactflow_logs is not None:
@@ -12607,6 +12615,17 @@ class CfnInstance(
             result = self._values.get("outbound_calls")
             assert result is not None, "Required property 'outbound_calls' is missing"
             return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def auto_mute_agent_on_hold(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Boolean flag which enables AUTO_MUTE_AGENT_ON_HOLD on an instance.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-instance-attributes.html#cfn-connect-instance-attributes-automuteagentonhold
+            '''
+            result = self._values.get("auto_mute_agent_on_hold")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def auto_resolve_best_voices(
@@ -12786,6 +12805,7 @@ class CfnInstanceProps:
                     outbound_calls=False,
             
                     # the properties below are optional
+                    auto_mute_agent_on_hold=False,
                     auto_resolve_best_voices=False,
                     contactflow_logs=False,
                     contact_lens=False,
@@ -34276,6 +34296,7 @@ def _typecheckingstub__c40aedafdc4ea4fb2b717cc5c6ef0e2db4eb7490be99c35b78dc90f18
     *,
     inbound_calls: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     outbound_calls: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    auto_mute_agent_on_hold: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     auto_resolve_best_voices: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     contactflow_logs: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     contact_lens: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,

@@ -442,7 +442,19 @@ impl InternedStore {
 
         let specs_responses = data
             .iter()
-            .map(|data| try_parse_as_json(data).or_else(|_| try_parse_as_proto(data)))
+            .map(|data| {
+                try_parse_as_json(data).or_else(|json_error| {
+                    try_parse_as_proto(data).map_err(|proto_error| {
+                        // Preload accepts either wire format. Preserve a rejected
+                        // JSON object's validation error after both decoders fail.
+                        if data.iter().find(|b| !b.is_ascii_whitespace()) == Some(&b'{') {
+                            json_error
+                        } else {
+                            proto_error
+                        }
+                    })
+                })
+            })
             .collect::<Result<Vec<SpecsResponseFull>, StatsigErr>>()?;
 
         let immortal = mutable_to_immortal(specs_responses)?;

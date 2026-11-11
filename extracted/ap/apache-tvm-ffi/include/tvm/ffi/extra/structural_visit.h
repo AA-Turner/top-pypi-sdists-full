@@ -142,6 +142,10 @@ namespace type_attr {
  *
  * Value type: either an opaque native hook pointer or an ``ffi::Function``.
  *
+ * Structural visitor and mutator hooks run synchronously on the calling thread. Their runtime
+ * handles and inputs are borrowed; keep runtime handles within the hook call and preserve input
+ * lifetimes and mutation permissions.
+ *
  * On success, the hook returns ``None`` for no interrupt, or a
  * ``VisitInterrupt`` to halt traversal. On failure, it returns an ``Error``.
  * The ``visitor`` parameter is the active traversal context used to recursively
@@ -365,7 +369,7 @@ TVM_FFI_INLINE bool StructuralVisitRawNeedEarlyReturn(const TVMFFIAny& result) n
 // Keep the raw result in registers on success; only error decoration takes its address.
 TVM_FFI_COLD_CODE inline TVMFFIAny AttachStructuralVisitErrorContextRaw(TVMFFIAny result,
                                                                         AnyView value) noexcept {
-  UpdateVisitErrorContext(result, value);
+  UpdateVisitErrorContext(&result, value);
   return result;
 }
 
@@ -693,8 +697,7 @@ class StructuralWalkEngine : public Parent {
       TryLinks(value, &result, std::index_sequence_for<Callbacks...>{});
       if (TVM_FFI_PREDICT_FALSE(detail::StructuralVisitNeedEarlyReturn(result))) {
         if (TVM_FFI_PREDICT_FALSE(result.is_err())) {
-          Error err = result.error();
-          detail::UpdateVisitErrorContext(err, value);
+          detail::UpdateVisitErrorContext(&result, value);
         }
         return detail::ExpectedUnsafe::MoveToTVMFFIAny(std::move(result));
       }
@@ -727,8 +730,7 @@ class StructuralWalkEngine : public Parent {
       TryLinks(value, &result, std::index_sequence_for<Callbacks...>{});
       if (TVM_FFI_PREDICT_FALSE(detail::StructuralVisitNeedEarlyReturn(result))) {
         if (TVM_FFI_PREDICT_FALSE(result.is_err())) {
-          Error err = result.error();
-          detail::UpdateVisitErrorContext(err, value);
+          detail::UpdateVisitErrorContext(&result, value);
         }
         return detail::ExpectedUnsafe::MoveToTVMFFIAny(std::move(result));
       }
@@ -767,7 +769,15 @@ Expected<Optional<VisitInterrupt>> StructuralWalkExpected(AnyView root,
   static_assert(sizeof...(Callbacks) != 0, "StructuralWalk requires at least one callback");
   using Visitor = StructuralWalkEngine<StructuralVisitorObj, order, std::decay_t<Callbacks>...>;
   StructuralVisitor visitor(make_object<Visitor>(std::forward<Callbacks>(callbacks)...));
-  return visitor->VisitExpected(root);
+  auto result = visitor->VisitExpected(root);
+  if (TVM_FFI_PREDICT_FALSE(result.is_err())) {
+    if (auto object_root = root.as<ObjectRef>()) {
+      return Unexpected(
+          VisitErrorContext::EnrichVisitError(std::move(result).error(), *object_root));
+    }
+    return Unexpected(std::move(result).error());
+  }
+  return result;
 }
 
 /*!
@@ -935,7 +945,15 @@ Expected<Optional<VisitInterrupt>> StructuralVisitExpected(AnyView root,
   static_assert(sizeof...(Callbacks) != 0, "StructuralVisit requires at least one callback");
   using Engine = StructuralVisitEngine<StructuralVisitorObj, std::decay_t<Callbacks>...>;
   StructuralVisitor visitor(make_object<Engine>(std::forward<Callbacks>(callbacks)...));
-  return visitor->VisitExpected(root);
+  auto result = visitor->VisitExpected(root);
+  if (TVM_FFI_PREDICT_FALSE(result.is_err())) {
+    if (auto object_root = root.as<ObjectRef>()) {
+      return Unexpected(
+          VisitErrorContext::EnrichVisitError(std::move(result).error(), *object_root));
+    }
+    return Unexpected(std::move(result).error());
+  }
+  return result;
 }
 
 /*!

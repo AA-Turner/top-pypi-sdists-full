@@ -1,7 +1,8 @@
 use super::{
     fast_statsig_user::{FastUserCustomMap, FastUserData},
-    prepared_user::OwnedPreparedUser,
+    prepared_user::{OwnedPreparedUser, find_static_field},
     user_data::{UserData, UserDataMap},
+    user_value::UserValue,
 };
 use crate::{DynamicValue, StatsigUser};
 use serde::{
@@ -130,14 +131,20 @@ impl Serialize for StatsigUserLoggable {
                     serialize_data_field(&mut state, serialized, &user.get_primary_value(field))?;
                 }
                 let custom = user.base.as_ref().and_then(|base| base.custom.as_ref());
-                if custom.is_some() || user.input.custom.is_some() || self.global_custom.is_some() {
-                    state.serialize_field(
-                        "custom",
-                        &MergedFastCustomFields {
-                            custom,
-                            overlay: user.input.custom.as_ref(),
-                            global_custom: self.global_custom.as_ref(),
-                        },
+                let global_custom = self.global_custom.as_ref();
+                if let Some(fields) = &user.fields {
+                    serialize_fast_custom_field(
+                        &mut state,
+                        custom,
+                        Some(fields.as_slice()),
+                        global_custom,
+                    )?;
+                } else {
+                    serialize_fast_custom_field(
+                        &mut state,
+                        custom,
+                        user.input.custom.as_ref(),
+                        global_custom,
                     )?;
                 }
             }
@@ -239,7 +246,12 @@ where
 {
     serialize_data_field(state, "userID", &data.user_id)?;
     serialize_fast_metadata(state, data)?;
-    serialize_fast_custom_field(state, &data.custom, global_custom)
+    serialize_fast_custom_field(
+        state,
+        data.custom.as_ref(),
+        None::<&FastUserCustomMap>,
+        global_custom.as_ref(),
+    )
 }
 
 fn serialize_fast_metadata<S>(state: &mut S, data: &FastUserData) -> Result<(), S::Error>
@@ -255,24 +267,21 @@ where
     serialize_data_field(state, "appVersion", &data.app_version)
 }
 
-fn serialize_fast_custom_field<S>(
+fn serialize_fast_custom_field<S: SerializeStruct, O: OverlayFields + ?Sized>(
     state: &mut S,
-    custom: &Option<FastUserCustomMap>,
-    global_custom: &Option<HashMap<String, DynamicValue>>,
-) -> Result<(), S::Error>
-where
-    S: SerializeStruct,
-{
-    if global_custom.is_none() && custom.is_none() {
+    custom: Option<&FastUserCustomMap>,
+    overlay: Option<&O>,
+    global_custom: Option<&HashMap<String, DynamicValue>>,
+) -> Result<(), S::Error> {
+    if custom.is_none() && overlay.is_none() && global_custom.is_none() {
         return Ok(());
     }
-
     state.serialize_field(
         "custom",
         &MergedFastCustomFields {
-            custom: custom.as_ref(),
-            overlay: None,
-            global_custom: global_custom.as_ref(),
+            custom,
+            overlay,
+            global_custom,
         },
     )
 }
@@ -282,9 +291,9 @@ struct MergedCustomFields<'a> {
     global_custom: Option<&'a HashMap<String, DynamicValue>>,
 }
 
-struct MergedFastCustomFields<'a> {
+struct MergedFastCustomFields<'a, O: ?Sized> {
     custom: Option<&'a FastUserCustomMap>,
-    overlay: Option<&'a FastUserCustomMap>,
+    overlay: Option<&'a O>,
     global_custom: Option<&'a HashMap<String, DynamicValue>>,
 }
 
@@ -340,10 +349,33 @@ impl Serialize for MergedCustomFields<'_> {
     }
 }
 
-impl MergedFastCustomFields<'_> {
-    fn get(&self, key: &str) -> Option<&super::user_value::UserValue> {
+trait OverlayFields {
+    fn lookup(&self, key: &str) -> Option<&UserValue>;
+    fn entries(&self) -> impl Iterator<Item = (&str, &UserValue)>;
+}
+
+impl OverlayFields for FastUserCustomMap {
+    fn lookup(&self, key: &str) -> Option<&UserValue> {
+        self.get(key)
+    }
+    fn entries(&self) -> impl Iterator<Item = (&str, &UserValue)> {
+        self.iter().map(|(key, value)| (key.as_str(), value))
+    }
+}
+
+impl OverlayFields for [(&'static str, UserValue)] {
+    fn lookup(&self, key: &str) -> Option<&UserValue> {
+        find_static_field(self, key)
+    }
+    fn entries(&self) -> impl Iterator<Item = (&str, &UserValue)> {
+        self.iter().map(|(key, value)| (*key, value))
+    }
+}
+
+impl<O: OverlayFields + ?Sized> MergedFastCustomFields<'_, O> {
+    fn get(&self, key: &str) -> Option<&UserValue> {
         self.overlay
-            .and_then(|overlay| overlay.get(key))
+            .and_then(|overlay| overlay.lookup(key))
             .or_else(|| self.custom.and_then(|custom| custom.get(key)))
     }
 
@@ -361,8 +393,8 @@ impl MergedFastCustomFields<'_> {
         });
         let overlay_only_len = self.overlay.map_or(0, |overlay| {
             overlay
-                .keys()
-                .filter(|key| {
+                .entries()
+                .filter(|(key, _)| {
                     !self
                         .global_custom
                         .is_some_and(|global| global.contains_key(*key))
@@ -374,7 +406,7 @@ impl MergedFastCustomFields<'_> {
     }
 }
 
-impl Serialize for MergedFastCustomFields<'_> {
+impl<O: OverlayFields + ?Sized> Serialize for MergedFastCustomFields<'_, O> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -399,13 +431,13 @@ impl Serialize for MergedFastCustomFields<'_> {
                 }
                 let value = self
                     .overlay
-                    .and_then(|overlay| overlay.get(key))
+                    .and_then(|overlay| overlay.lookup(key))
                     .unwrap_or(base_value);
                 map.serialize_entry(key, value)?;
             }
         }
         if let Some(overlay) = self.overlay {
-            for (key, value) in overlay {
+            for (key, value) in overlay.entries() {
                 if self
                     .global_custom
                     .is_some_and(|global| global.contains_key(key))

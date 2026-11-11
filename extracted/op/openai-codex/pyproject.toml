@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "openai-codex"
-version = "0.167.0"
+version = "0.167.1"
 description = "Python SDK for Codex"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
     "pydantic>=2.12",
     "packaging>=26.2",
-    "openai-codex-cli-bin==0.167.0",
+    "openai-codex-cli-bin==0.167.1",
 ]
 
 [[project.authors]]

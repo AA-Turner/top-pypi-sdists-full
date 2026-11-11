@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autumn-sdk
-Version: 1.2.0
+Version: 1.2.1
 Summary: Python SDK for the Autumn billing API
 Author: Autumn
 License: Apache-2.0

@@ -63,7 +63,7 @@ TARGETS = (
     Target("agent/src/probe/generated/client_messages.py", render_client_messages_stdlib),
     # The tap's own copy, beside its copy of `probe.foundation.server_messages` (it cannot import
     # probe). The hooks (Python 3.9) cannot load it: they mirror the two words they need.
-    Target("agent/plugins/probe-research-tap/tap/server_messages/client_messages.py",
+    Target("agent/plugins/probe-tap/tap/server_messages/client_messages.py",
            render_client_messages_stdlib),
     Target("packages/core/src/generated/client-messages.ts", render_client_messages_typescript),
     Target("agent/src/probe/generated/transcript_switch.py", render_transcript_switch_stdlib),

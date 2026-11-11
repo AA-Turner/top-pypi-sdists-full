@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import typing as t
 
 from docutils import nodes
@@ -106,14 +107,18 @@ class CollectFootnotes(Transform):
         if not self.document.settings.myst_footnote_sort:
             return
 
-        footnotes: list[tuple[str, nodes.footnote]] = []
+        footnotes: list[tuple[str | None, nodes.footnote]] = []
         for footnote in (
             self.document.symbol_footnotes
             + self.document.footnotes
             + self.document.autofootnotes
         ):
-            label = footnote.children[0]
-            footnotes.append((label.astext(), footnote))
+            # labels are assigned by docutils' ``Footnotes`` transform, which has not run
+            # when the content is parsed into a sub-document (``.. include:: :parser:``),
+            # so the first child may be a body element, or absent for an empty definition
+            first = footnote.children[0] if footnote.children else None
+            label = first.astext() if isinstance(first, nodes.label) else None
+            footnotes.append((label, footnote))
 
         if (
             footnotes
@@ -125,17 +130,91 @@ class CollectFootnotes(Transform):
             transition.source = self.document.source
             self.document += transition
 
-        def _sort_key(footnote: tuple[str, nodes.footnote]) -> int | str:
+        def _sort_key(
+            footnote: tuple[str | None, nodes.footnote],
+        ) -> tuple[int, int, str]:
             label, _ = footnote
+            if label is None:
+                # unlabelled: after all labelled footnotes; the sort is stable,
+                # so they keep the order they are first referenced
+                # (the order docutils numbers them)
+                return (2, 0, "")
             try:
                 # ensure e.g 10 comes after 2
-                return int(label)
+                return (0, int(label), "")
             except ValueError:
-                return label
+                # non-numeric labels sort after numeric ones;
+                # the leading discriminant keeps the key totally ordered,
+                # since int and str cannot be compared with each other
+                return (1, 0, label)
 
         for _, footnote in sorted(footnotes, key=_sort_key):
             footnote.parent.remove(footnote)
             self.document += footnote
+
+
+class AddSlugIds(Transform):
+    """Emit each heading's anchor slug as an additional (secondary) id.
+
+    This makes the anchor actually exist in published HTML output.
+
+    It must run only after *all* other id assignment — docutils'
+    ``PropagateTargets`` (260) and sphinx's ``SortIds`` (261) included —
+    so that a slug can neither claim an id another element would otherwise
+    receive, nor become a section's primary id: primary ids (used by
+    tocs, permalinks and ``objects.inv``) are unchanged by this transform.
+    Slugs are registered in ``document.ids`` directly (not via ``set_id``),
+    deliberately bypassing ``id_prefix``: the raw slug is the anchor.
+    """
+
+    default_priority = 700  # after all id assignment, before ResolveAnchorIds
+
+    def apply(self, **kwargs: t.Any) -> None:
+        """Apply the transform."""
+        if not getattr(self.document.settings, "myst_heading_anchors_html_ids", True):
+            return
+        for node in findall(self.document)(nodes.Element):
+            slug = node.get("slug")
+            if (
+                slug
+                # a custom slug_func may produce whitespace,
+                # which is invalid in an HTML id
+                and not re.search(r"\s", slug)
+                and slug not in self.document.ids
+            ):
+                node["ids"].append(slug)
+                self.document.ids[slug] = node
+
+
+class PrioritiseExplicitIds(Transform):
+    """Reorder ``section["ids"]`` so an explicitly named target's id is first.
+
+    Docutils' ``PropagateTargets`` (priority 260) appends propagated target
+    ids *after* the section's implicit id, so themes, tocs, permalinks and
+    ``objects.inv`` pick up the (unstable) implicit id.  This moves the
+    explicitly named id earliest in the id list (for multiple ``(name)=``
+    targets, that is the one nearest the heading) to the front; the implicit
+    id remains in the list, as a secondary anchor, so previously published
+    fragments keep working.
+    """
+
+    # strictly after docutils' PropagateTargets (260) and sphinx's SortIds
+    # (261), so the ordering does not depend on transform insertion order
+    default_priority = 262
+
+    def apply(self, **kwargs: t.Any) -> None:
+        """Apply the transform."""
+        explicit_ids = {
+            self.document.nameids[name]
+            for name, is_explicit in self.document.nametypes.items()
+            if is_explicit and self.document.nameids.get(name)
+        }
+        for section in findall(self.document)(nodes.section):
+            ids = section["ids"]
+            first = next((id_ for id_ in ids if id_ in explicit_ids), None)
+            if first is not None and ids[0] != first:
+                ids.remove(first)
+                ids.insert(0, first)
 
 
 class ResolveAnchorIds(Transform):
@@ -153,13 +232,11 @@ class ResolveAnchorIds(Transform):
 
         # gather explicit references
         # this follows the same logic as Sphinx's StandardDomain.process_doc
-        explicit: dict[str, tuple[str, None | str]] = {}
+        explicit: dict[str, tuple[str, str | None]] = {}
         for name, is_explicit in self.document.nametypes.items():
             if not is_explicit:
                 continue
             labelid = self.document.nameids[name]
-            if labelid is None:
-                continue
             if labelid is None:
                 continue
             node = self.document.ids[labelid]
@@ -233,6 +310,37 @@ class ResolveAnchorIds(Transform):
                     )
                 continue
 
+            # candidate implicit local anchor: covers e.g. headings not
+            # assigned a slug (beyond the `heading_anchors` depth), whose
+            # anchors nonetheless exist in the output
+            labelid = self.document.nameids.get(target) or (
+                target if target in self.document.ids else None
+            )
+            node = self.document.ids.get(labelid) if labelid else None
+            if node is None or (
+                node.tagname == "footnote"
+                or "refuri" in node
+                or node.tagname.startswith("desc_")
+            ):
+                labelid = None
+
+            # in docutils (single-document) mode, resolve to the local
+            # anchor directly (previously these links warned);
+            # in sphinx mode it is only recorded on the pending_xref, as a
+            # last-resort fallback after project-wide resolution, so that
+            # the precedence of existing reference resolution is unchanged
+            if labelid and not hasattr(self.document.settings, "env"):
+                refnode["refid"] = labelid
+                if not refnode.children:
+                    implicit_title = None
+                    for subnode in node or []:
+                        if isinstance(subnode, nodes.caption | nodes.title):
+                            implicit_title = clean_astext(subnode)
+                            break
+                    text = implicit_title or ("#" + target)
+                    refnode += nodes.inline(text, text, classes=["std", "std-ref"])
+                continue
+
             # if still not found, and using sphinx, then create a pending_xref
             if hasattr(self.document.settings, "env"):
                 from sphinx import addnodes
@@ -244,6 +352,10 @@ class ResolveAnchorIds(Transform):
                     reftarget=target,
                     refexplicit=bool(refnode.children),
                 )
+                if labelid:
+                    pending["reflocalid"] = labelid
+                if "reftitle" in refnode:
+                    pending["reftitle"] = refnode["reftitle"]
                 inner_node = nodes.inline(
                     "", "", classes=["xref", "myst"] + refnode["classes"]
                 )
@@ -268,4 +380,167 @@ class ResolveAnchorIds(Transform):
             if not refnode.children:
                 refnode += nodes.inline(
                     "#" + target, "#" + target, classes=["std", "std-ref"]
+                )
+
+
+def _child_sections(node: nodes.Element) -> list[nodes.section]:
+    """Return the child sections of an element, in document order.
+
+    A section counts wherever the document tree places it, under its nearest
+    section ancestor: the search descends through any other container element,
+    such as a sphinx ``only`` node (whatever its condition, so the numbering
+    does not depend on the builder) or an ``ifconfig`` node, but not into
+    sections or text elements.
+    """
+    sections: list[nodes.section] = []
+    for child in node.children:
+        if isinstance(child, nodes.section):
+            sections.append(child)
+        elif isinstance(child, nodes.Element) and not isinstance(
+            child, nodes.TextElement
+        ):
+            sections.extend(_child_sections(child))
+    return sections
+
+
+def _number_sections(
+    sections: list[nodes.section],
+    prefix: tuple[int, ...],
+    number_map: dict[tuple[int, ...], nodes.section],
+) -> None:
+    """Recursively assign structural numbers to sections, populating ``number_map``.
+
+    The i-th (1-based) section at a level is numbered ``prefix + (i,)``, and the
+    numbering recurses into each section's child sections.
+    """
+    for i, section in enumerate(sections, start=1):
+        number = prefix + (i,)
+        number_map[number] = section
+        _number_sections(_child_sections(section), number, number_map)
+
+
+def _section_number_map(
+    document: nodes.document,
+) -> dict[tuple[int, ...], nodes.section]:
+    """Map structural section numbers to their sections.
+
+    The numbering is that of the document's heading hierarchy as written:
+    when there is a single top-level heading (the common ``# Title`` layout),
+    its child sections are numbered ``1``, ``2``, ...; otherwise the
+    top-level sections themselves are.
+    """
+    number_map: dict[tuple[int, ...], nodes.section] = {}
+    roots = _child_sections(document)
+    if len(roots) == 1:
+        _number_sections(_child_sections(roots[0]), (), number_map)
+    else:
+        _number_sections(roots, (), number_map)
+    return number_map
+
+
+def _leave_section_ref_inert(node: nodes.Element) -> bool:
+    """Whether a section-reference marker (see ``render_section_ref``) should be left as inert styled text.
+
+    A marker is left untouched (no link, no warning) when it sits inside:
+
+    - a ``reference`` or ``pending_xref`` — converting it would nest an ``<a>``
+      inside another ``<a>``, which is invalid HTML; or
+    - a section heading — a reference there would be copied into navigation
+      and toc entries (sphinx toctree entry links, docutils contents entries),
+      again nesting ``<a>`` in those navs.
+
+    Other titles (admonition, table, topic or sidebar titles) are not copied
+    into navigation, so references in them are resolved as usual.
+    """
+    parent = node.parent
+    while parent is not None:
+        if (
+            isinstance(parent, nodes.reference)
+            or parent.tagname == "pending_xref"
+            or (
+                isinstance(parent, nodes.title)
+                and isinstance(parent.parent, nodes.section)
+            )
+        ):
+            return True
+        parent = parent.parent
+    return False
+
+
+class ResolveSectionRefs(Transform):
+    """Resolve ``§1.1`` section references to the target section's anchor.
+
+    Numbering is document-local and purely structural (independent of any
+    ``:numbered:`` toctree), see ``_section_number_map``.
+
+    The transform runs on the headings as written, so the same references
+    resolve identically in docutils and sphinx: after the id transforms, so
+    each section's first id is final, and before docutils' doctitle and
+    section-subtitle promotion, which sphinx never applies.
+    A link to a heading that docutils later promotes to the subtitle still
+    lands, because the promotion copies the section's ids onto the subtitle.
+    """
+
+    # strictly after docutils' PropagateTargets (260), sphinx's SortIds (261)
+    # and PrioritiseExplicitIds (262), which settle each section's first id
+    # (AddSlugIds (700) only appends), and strictly before docutils' DocTitle
+    # (320) and SectSubTitle (350), which reshape the section tree;
+    # this is also before sphinx's DoctreeReadEvent (880), so anything that
+    # reads the body at doctree-read sees the resolved references
+    default_priority = 300
+
+    def apply(self, **kwargs: t.Any) -> None:
+        """Apply the transform."""
+        # gather the section-reference markers emitted by ``render_section_ref``;
+        # these can only exist when the ``section_ref`` extension was enabled at
+        # parse time, so their presence self-gates the transform
+        markers = [
+            node
+            for node in findall(self.document)(nodes.inline)
+            if "section_numbers" in node
+        ]
+        if not markers:
+            return
+
+        number_map = _section_number_map(self.document)
+
+        for node in markers:
+            # a reference nested inside a link or heading would produce invalid
+            # nested anchors, so such markers are left as inert styled text
+            if _leave_section_ref_inert(node):
+                continue
+            content = node.astext()
+            number = tuple(node["section_numbers"])
+            target = number_map.get(number)
+            if target is not None and target["ids"]:
+                ref = nodes.reference(
+                    "",
+                    "",
+                    internal=True,
+                    refid=target["ids"][0],
+                    classes=["section-ref"],
+                    section_numbers=node["section_numbers"],
+                )
+                ref += node.children
+                # add the section title as a hover tooltip (``title="..."`` in
+                # sphinx HTML)
+                title_node = next(
+                    (
+                        child
+                        for child in target.children
+                        if isinstance(child, nodes.title)
+                    ),
+                    None,
+                )
+                if title_node is not None:
+                    ref["reftitle"] = clean_astext(title_node)
+                node.parent.replace(node, ref)
+            else:
+                # ``node=`` (not ``line=``) so the location is the file the
+                # reference was written in, which differs inside an ``{include}``
+                create_warning(
+                    self.document,
+                    f"Section reference target not found in this document: {content!r}",
+                    MystWarnings.SECTION_REF,
+                    node=node,
                 )
